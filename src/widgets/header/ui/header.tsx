@@ -4,13 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Boxes,
+  Clapperboard,
   History,
+  Image as ImageIcon,
+  KeyRound,
   LogOut,
-  Palette,
   Plus,
-  Settings,
+  User,
 } from "lucide-react";
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
+import { dashboardNavigation } from "@/shared/config/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 
@@ -18,17 +21,19 @@ type HeaderProps = {
   variant?: "public" | "dashboard";
 };
 
-const headerNavigation = [
-  { label: "Canvas", href: "/image-generation", icon: Palette },
-  { label: "History", href: "/generation-history", icon: History },
-  { label: "Models", href: "/model-management", icon: Boxes },
-  { label: "Settings", href: "/profile", icon: Settings },
-];
+const headerIcons: Record<string, typeof ImageIcon> = {
+  "/image": ImageIcon,
+  "/video": Clapperboard,
+  "/history": History,
+  "/model": Boxes,
+  "/api-key": KeyRound,
+  "/profile": User,
+};
 
 export function Header({ variant = "dashboard" }: HeaderProps) {
   return (
     <header className="z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
-      <div className="flex items-center gap-3">
+      <Link href="/" className="flex items-center gap-3">
         <Image
           src="/logo.webp"
           alt="leesfield"
@@ -40,19 +45,23 @@ export function Header({ variant = "dashboard" }: HeaderProps) {
         <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">
           leesfield
         </h2>
-      </div>
+      </Link>
 
       <nav className="hidden items-center gap-1 rounded-full border border-white/5 bg-surface-dark p-1 md:flex">
-        {headerNavigation.map((item) => (
+        {dashboardNavigation.map((item) => {
+          const Icon = headerIcons[item.href] ?? ImageIcon;
+
+          return (
           <Link
             key={item.href}
             href={item.href}
             className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white"
           >
-            <item.icon className="h-4 w-4" />
+            <Icon className="h-4 w-4" />
             {item.label}
           </Link>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="flex items-center gap-3">

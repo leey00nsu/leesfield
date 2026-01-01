@@ -86,18 +86,9 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <FormLabel className="text-xs font-bold uppercase tracking-widest text-gray-500">
-                      Password
-                    </FormLabel>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-auto px-0 text-xs font-mono text-primary transition-colors hover:bg-transparent hover:text-white hover:underline"
-                    >
-                      FORGOT_PASSWORD?
-                    </Button>
-                  </div>
+                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                    Password
+                  </FormLabel>
                   <FormControl>
                     <div className="group/input relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -132,14 +123,6 @@ export function LoginForm() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
             </Button>
 
-            <div className="mt-2 text-center">
-              <p className="text-xs font-mono text-gray-500">
-                NO_ACCESS_TOKEN?{" "}
-                <span className="font-bold text-white transition-colors hover:text-primary">
-                  REQUEST_ACCESS
-                </span>
-              </p>
-            </div>
           </form>
         </Form>
       </CardContent>
