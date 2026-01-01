@@ -4,5 +4,4 @@ export const dashboardNavigation = [
   { label: "히스토리", href: "/history" },
   { label: "모델 관리", href: "/model" },
   { label: "API 키", href: "/api-key" },
-  { label: "프로필", href: "/profile" },
 ];
