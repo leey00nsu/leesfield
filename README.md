@@ -1,6 +1,6 @@
 # leesfield-fe
 
-개인용 AI 생성 플랫폼(leesfield) 프론트엔드 레포입니다.
+AI 생성 플랫폼 leesfield
 
 ## 시작하기
 
@@ -11,6 +11,7 @@ cp .env.example .env
 ```
 
 필수 변수:
+
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `SESSION_PASSWORD` (32자 이상)
@@ -27,8 +28,6 @@ docker compose up -d
 ```bash
 pnpm dev
 ```
-
-브라우저에서 `http://localhost:3000` 접속 후 로그인합니다.
 
 ## 테스트
 
