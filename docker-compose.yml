@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: leesfield-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-leesfield}
+      POSTGRES_USER: ${POSTGRES_USER:-leesfield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leesfield}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
