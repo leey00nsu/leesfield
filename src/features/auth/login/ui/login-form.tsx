@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Lock, User } from "lucide-react";
@@ -43,7 +43,9 @@ export function LoginForm() {
     const formData = new FormData();
     formData.set("email", values.email);
     formData.set("password", values.password);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   });
 
   return (

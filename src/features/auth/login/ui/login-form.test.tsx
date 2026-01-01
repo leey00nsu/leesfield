@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
 
-const mockLoginAction = vi.fn(async () => ({ error: "테스트 오류" }));
+const mockLoginAction = vi.hoisted(() =>
+  vi.fn(async () => ({ error: "테스트 오류" })),
+);
 
 vi.mock("@/features/auth/login/api/login-action", () => ({
   loginAction: mockLoginAction,
