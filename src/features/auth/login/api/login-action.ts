@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { loginSchema } from "@/shared/lib/validators/auth";
+import { loginSchema } from "@/features/auth/login/model/login-schema";
 import { getSession } from "@/server/auth/session";
 
 export type LoginActionState = {
@@ -46,10 +46,4 @@ export async function loginAction(
   await session.save();
 
   redirect("/");
-}
-
-export async function logoutAction() {
-  const session = await getSession();
-  session.destroy();
-  redirect("/login");
 }

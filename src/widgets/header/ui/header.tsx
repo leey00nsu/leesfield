@@ -10,7 +10,9 @@ import {
   Plus,
   Settings,
 } from "lucide-react";
-import { logoutAction } from "@/server/auth/actions";
+import { logoutAction } from "@/features/auth/logout/api/logout-action";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
+import { Button } from "@/shared/ui/button";
 
 type HeaderProps = {
   variant?: "public" | "dashboard";
@@ -56,22 +58,30 @@ export function Header({ variant = "dashboard" }: HeaderProps) {
       </nav>
 
       <div className="flex items-center gap-3">
-        <button className="hidden h-10 items-center justify-center gap-2 rounded-full border border-white/10 bg-surface-lighter px-4 text-xs font-bold text-white transition-all hover:border-primary/50 hover:bg-white/5 sm:flex">
+        <Button
+          type="button"
+          variant="outline"
+          className="hidden h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-4 text-xs font-bold text-white hover:border-primary/50 hover:bg-white/5 sm:flex"
+        >
           <Plus className="h-4 w-4 text-primary" />
           New Canvas
-        </button>
-        <div className="relative">
-          <div className="size-9 rounded-full bg-gradient-to-br from-primary/60 via-white/10 to-accent-purple/60 ring-2 ring-white/10" />
-        </div>
+        </Button>
+        <Avatar className="size-9 ring-2 ring-white/10">
+          <AvatarImage src="/logo.webp" alt="user" />
+          <AvatarFallback className="bg-surface-lighter text-[10px] font-bold text-white">
+            LF
+          </AvatarFallback>
+        </Avatar>
         {variant === "dashboard" && (
           <form action={logoutAction}>
-            <button
+            <Button
               type="submit"
-              className="flex h-9 items-center gap-2 rounded-full border border-white/10 px-3 text-xs font-medium text-gray-200 transition hover:border-primary/50 hover:text-white"
+              variant="outline"
+              className="h-9 gap-2 rounded-full border-white/10 px-3 text-xs font-medium text-gray-200 hover:border-primary/50 hover:text-white"
             >
               <LogOut className="h-4 w-4" />
               로그아웃
-            </button>
+            </Button>
           </form>
         )}
       </div>

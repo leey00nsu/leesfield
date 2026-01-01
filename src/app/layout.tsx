@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Noto_Sans, Space_Grotesk } from "next/font/google";
+import { Asta_Sans } from "next/font/google";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-heading",
-  subsets: ["latin"],
-});
-
-const notoSans = Noto_Sans({
+const astaSans = Asta_Sans({
   variable: "--font-body",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+  fallback: ["Noto Sans KR", "Noto Sans", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -24,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${spaceGrotesk.variable} ${notoSans.variable} antialiased`}>
+      <body className={`${astaSans.variable} antialiased`}>
         {children}
       </body>
     </html>

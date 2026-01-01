@@ -57,6 +57,7 @@
 :root {
   --font-mono: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-heading: var(--font-body);
   --radius: 0.625rem;
   --background: #0a0a0a;
   --foreground: #ffffff;
@@ -103,7 +104,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
   }
 }
 
