@@ -126,7 +126,7 @@ export function LoginForm() {
             <Button
               type="submit"
               disabled={isPending}
-              className="group/btn mt-4 h-12 w-full gap-2 rounded-lg bg-primary text-sm font-bold uppercase tracking-wider text-primary-content shadow-[0_4px_20px_rgba(212,240,50,0.15)] transition-all hover:bg-white hover:text-black hover:shadow-[0_4px_30px_rgba(255,255,255,0.2)]"
+              className="group/btn mt-4 h-12 w-full gap-2 rounded-lg bg-primary text-sm font-bold uppercase tracking-wider text-primary-content shadow-[0_4px_20px_rgba(212,240,50,0.15)] transition-all hover:bg-primary hover:text-primary-content"
             >
               {isPending ? "Authenticating..." : "Authenticate"}
               <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />

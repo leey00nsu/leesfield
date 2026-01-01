@@ -29,16 +29,14 @@ export function Header({ variant = "dashboard" }: HeaderProps) {
   return (
     <header className="z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-full bg-surface-lighter ring-2 ring-white/10">
-          <Image
-            src="/logo.webp"
-            alt="leesfield"
-            width={28}
-            height={28}
-            className="size-7 object-contain"
-            priority
-          />
-        </div>
+        <Image
+          src="/logo.webp"
+          alt="leesfield"
+          width={36}
+          height={36}
+          className="h-9 w-auto object-contain"
+          priority
+        />
         <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">
           leesfield
         </h2>
