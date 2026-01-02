@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# leesfield-fe
 
-## Getting Started
+AI 생성 플랫폼 leesfield
 
-First, run the development server:
+## 시작하기
+
+### 1) 환경 변수
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+필수 변수:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD_HASH`
+- `SESSION_PASSWORD` (32자 이상)
+- `DATABASE_URL`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+해시 생성:
 
-## Learn More
+```bash
+pnpm gen:admin-password-hash
+```
 
-To learn more about Next.js, take a look at the following resources:
+출력된 값을 그대로 `.env`에 넣으면 됩니다. (`$`는 자동으로 `\\$`로 출력됩니다)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`$` 이스케이프 이유:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Next.js는 `.env`에서 `$VARIABLE` 형태를 다른 변수 참조로 확장합니다.
+- bcrypt 해시는 `$`를 포함하므로, 값이 비어지는 것을 막기 위해 `\\$`로 이스케이프합니다.
+- 참고: `https://nextjs.org/docs/app/guides/environment-variables#referencing-other-variables`
 
-## Deploy on Vercel
+### 2) 로컬 DB 실행 (PostgreSQL)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+docker compose up -d
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3) 개발 서버 실행
+
+```bash
+pnpm dev
+```
+
+## 테스트
+
+```bash
+pnpm test
+```
+
+## 로그인
+
+로그인 입력 비밀번호는 `ADMIN_PASSWORD_HASH`(bcrypt 해시)와 비교됩니다.
+
+예시 (직접 생성):
+
+```bash
+node -e "import('bcryptjs').then(b => b.hash('change-me', 10).then(console.log))"
+```
+
+> bcrypt 해시에는 `$`가 포함되므로 `.env`에 넣을 때는 `\\$`로 이스케이프해야 합니다.
+
+## 문서
+
+- 스펙/계획/태스크: `docs/features/`
+- 디자인 레퍼런스: `docs/designs/`
