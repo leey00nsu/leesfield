@@ -33,6 +33,7 @@ import {
   samplerOptions,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
+import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 
 const modelOptions = [
   {
@@ -58,21 +59,26 @@ export function ImageGenerationForm() {
   });
 
   const promptValue = form.watch("prompt") ?? "";
-  const aspectRatio = form.watch("aspectRatio");
-  const imageCount = form.watch("imageCount");
-  const cfgScale = form.watch("cfgScale");
-  const steps = form.watch("steps");
+  const aspectRatio = form.watch("aspectRatio") ?? imageGenerationDefaults.aspectRatio;
+  const imageCount = form.watch("imageCount") ?? imageGenerationDefaults.imageCount;
+  const cfgScale = form.watch("cfgScale") ?? imageGenerationDefaults.cfgScale;
+  const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
 
   const aspectMeta = useMemo(
     () => aspectRatioMeta[aspectRatio],
     [aspectRatio],
   );
 
+  const { state, startGeneration } = useImageGeneration();
+  const isGenerating =
+    state.status === "pending" || state.status === "processing";
+  const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
+
   return (
     <Form {...form}>
       <form
         className="flex flex-col gap-8"
-        onSubmit={form.handleSubmit(() => {})}
+        onSubmit={form.handleSubmit((values) => startGeneration(values))}
       >
         <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -149,6 +155,32 @@ export function ImageGenerationForm() {
                   Configure your prompt below to start generating
                 </p>
               </div>
+
+              {isGenerating && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+                  <div className="relative flex h-20 w-20 items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                    <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                    <span className="text-sm font-bold text-white">
+                      {progressValue}%
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
+                    Generating...
+                  </p>
+                </div>
+              )}
+
+              {state.status === "failed" && !isGenerating && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/60 px-6 text-center">
+                  <p className="text-sm font-bold text-red-300">
+                    생성에 실패했습니다
+                  </p>
+                  <p className="text-xs font-mono text-gray-400">
+                    {state.errorMessage ?? "잠시 후 다시 시도해주세요."}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-4">
@@ -205,10 +237,11 @@ export function ImageGenerationForm() {
 
                 <Button
                   type="submit"
+                  disabled={isGenerating}
                   className="flex h-[120px] flex-col items-center justify-center gap-2 rounded-xl bg-primary text-sm font-black uppercase tracking-wider text-primary-content shadow-[0_0_30px_rgba(212,240,50,0.2)] transition-all hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(212,240,50,0.4)] active:scale-[0.98] lg:px-8"
                 >
                   <Sparkles className="h-7 w-7" />
-                  Generate
+                  {isGenerating ? "Generating" : "Generate"}
                 </Button>
               </div>
 
