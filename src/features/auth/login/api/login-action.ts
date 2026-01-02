@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import bcrypt from "bcryptjs";
 import { loginSchema } from "@/features/auth/login/model/login-schema";
 import { getSession } from "@/server/auth/session";
 
@@ -13,7 +14,7 @@ const SERVER_CONFIG_MESSAGE = "서버 설정이 필요합니다.";
 
 export async function loginAction(
   _prevState: LoginActionState,
-  formData: FormData,
+  formData: FormData
 ): Promise<LoginActionState> {
   const data = {
     email: formData.get("email"),
@@ -27,16 +28,25 @@ export async function loginAction(
   }
 
   const adminEmail = process.env.ADMIN_EMAIL;
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
 
-  if (!adminEmail || !adminPassword) {
+  if (!adminEmail || !adminPasswordHash) {
     return { error: SERVER_CONFIG_MESSAGE };
   }
 
-  if (
-    parsed.data.email !== adminEmail ||
-    parsed.data.password !== adminPassword
-  ) {
+  const emailMatches = parsed.data.email === adminEmail;
+  let passwordMatches = false;
+
+  try {
+    passwordMatches = await bcrypt.compare(
+      parsed.data.password,
+      adminPasswordHash,
+    );
+  } catch {
+    return { error: INVALID_MESSAGE };
+  }
+
+  if (!emailMatches || !passwordMatches) {
     return { error: INVALID_MESSAGE };
   }
 

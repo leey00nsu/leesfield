@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/check-auth-env.mjs",
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/check-auth-env.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -18,6 +21,7 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.90.16",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iron-session": "^8.0.4",
