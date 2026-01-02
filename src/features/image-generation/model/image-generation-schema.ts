@@ -19,7 +19,7 @@ export const imageGenerationDefaults: ImageGenerationFormValues = {
   prompt: "",
   negativePrompt: "",
   aspectRatio: "1:1",
-  imageCount: 2,
+  imageCount: 1,
   cfgScale: 7,
   steps: 30,
   seed: "-1",

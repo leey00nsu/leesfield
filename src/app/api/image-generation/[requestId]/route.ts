@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
 import { getGeneration } from "@/server/image-generation/image-generation-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type RouteContext = {
-  params: {
+  params: Promise<{
     requestId: string;
-  };
+  }>;
 };
 
 export async function GET(
@@ -21,7 +24,8 @@ export async function GET(
     );
   }
 
-  const record = getGeneration(params.requestId);
+  const { requestId } = await params;
+  const record = await getGeneration(requestId);
 
   if (!record) {
     return NextResponse.json(
@@ -30,11 +34,18 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({
-    requestId: record.id,
-    status: record.status,
-    progress: record.progress,
-    result: record.result,
-    errorMessage: record.errorMessage,
-  });
+  return NextResponse.json(
+    {
+      requestId: record.id,
+      status: record.status,
+      progress: record.progress,
+      result: record.result,
+      errorMessage: record.errorMessage,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }

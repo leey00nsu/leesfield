@@ -3,6 +3,9 @@ import { imageGenerationSchema } from "@/features/image-generation/model/image-g
 import { getSession } from "@/server/auth/session";
 import { createMockGeneration } from "@/server/image-generation/image-generation-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function POST(request: Request) {
   const session = await getSession();
 
@@ -23,11 +26,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const record = createMockGeneration(parsed.data);
+  try {
+    const record = await createMockGeneration(parsed.data);
 
-  return NextResponse.json({
-    requestId: record.id,
-    status: record.status,
-    progress: record.progress,
-  });
+    return NextResponse.json(
+      {
+        requestId: record.id,
+        status: record.status,
+        progress: record.progress,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { message: "DB_SAVE_FAILED" },
+      { status: 500 },
+    );
+  }
 }

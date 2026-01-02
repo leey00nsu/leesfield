@@ -17,6 +17,12 @@ cp .env.example .env
 - `SESSION_PASSWORD` (32자 이상)
 - `DATABASE_URL`
 
+이미지 저장(Leemage)용:
+
+- `LEEMAGE_API_KEY`
+- `LEEMAGE_PROJECT_ID`
+- `LEEMAGE_BASE_URL` (선택)
+
 해시 생성:
 
 ```bash

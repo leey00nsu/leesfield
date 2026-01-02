@@ -12,6 +12,8 @@ import {
   Grid2x2,
   RotateCcw,
   Sparkles,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -73,6 +75,14 @@ export function ImageGenerationForm() {
   const isGenerating =
     state.status === "pending" || state.status === "processing";
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
+  const resultImages = state.result?.images ?? [];
+  const hasResults = state.status === "completed" && resultImages.length > 0;
+  const resultsGridClass =
+    resultImages.length <= 1
+      ? "grid-cols-1"
+      : resultImages.length === 2
+        ? "grid-cols-2"
+        : "grid-cols-2 lg:grid-cols-3";
 
   return (
     <Form {...form}>
@@ -146,15 +156,59 @@ export function ImageGenerationForm() {
                   <Maximize2 className="h-5 w-5" />
                 </button>
               </div>
-              <div className="z-10 flex flex-col items-center px-6 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-surface-dark shadow-[0_0_30px_rgba(212,240,50,0.05)]">
-                  <ImageIcon className="h-8 w-8 text-gray-600" />
+              {hasResults ? (
+                <div
+                  className={cn(
+                    "relative z-10 grid h-full w-full gap-3 p-4",
+                    resultsGridClass,
+                  )}
+                >
+                  {resultImages.map((image, index) => (
+                    <div
+                      key={`${image.url}-${index}`}
+                      className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
+                    >
+                      <img
+                        src={image.url}
+                        alt={`Generated image ${index + 1}`}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover/result:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
+                      <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
+                        <a
+                          href={image.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                          title="Open"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                        <a
+                          href={image.url}
+                          download
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <h3 className="text-xl font-bold text-gray-300">Canvas Empty</h3>
-                <p className="mt-1 text-sm font-mono text-gray-600">
-                  Configure your prompt below to start generating
-                </p>
-              </div>
+              ) : (
+                <div className="z-10 flex flex-col items-center px-6 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-surface-dark shadow-[0_0_30px_rgba(212,240,50,0.05)]">
+                    <ImageIcon className="h-8 w-8 text-gray-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-300">
+                    Canvas Empty
+                  </h3>
+                  <p className="mt-1 text-sm font-mono text-gray-600">
+                    Configure your prompt below to start generating
+                  </p>
+                </div>
+              )}
 
               {isGenerating && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
@@ -182,6 +236,12 @@ export function ImageGenerationForm() {
                 </div>
               )}
             </div>
+
+            {hasResults && state.errorMessage && (
+              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+                {state.errorMessage}
+              </div>
+            )}
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4 lg:flex-row">

@@ -3,11 +3,19 @@ import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
+import { resolveGenerationResult } from "@/server/image-generation/leemage-storage";
+import {
+  createImageGenerationRecord,
+  saveImageGenerationResult,
+} from "@/server/image-generation/image-generation-repository";
 
 export type ImageGenerationRecord = {
   id: string;
+  dbId?: string;
+  payload: ImageGenerationFormValues;
   status: ImageGenerationStatus;
   progress: number;
+  finalizing?: boolean;
   createdAt: number;
   updatedAt: number;
   errorMessage?: string;
@@ -25,14 +33,20 @@ const store: Store = globalThis.__imageGenerationStore ?? new Map();
 
 globalThis.__imageGenerationStore = store;
 
-const MOCK_STEPS: Array<{ delay: number; status: ImageGenerationStatus; progress: number }> = [
-  { delay: 400, status: "processing", progress: 12 },
-  { delay: 1400, status: "processing", progress: 42 },
-  { delay: 2600, status: "processing", progress: 74 },
-  { delay: 3600, status: "completed", progress: 100 },
+const PROGRESS_STAGES: Array<{
+  at: number;
+  status: ImageGenerationStatus;
+  progress: number;
+}> = [
+  { at: 0, status: "pending", progress: 0 },
+  { at: 200, status: "processing", progress: 12 },
+  { at: 450, status: "processing", progress: 42 },
+  { at: 750, status: "processing", progress: 74 },
+  { at: 1000, status: "processing", progress: 92 },
 ];
 
 const EXPIRY_MS = 10 * 60 * 1000;
+const FINALIZE_DELAY = 1200;
 
 function updateRecord(id: string, patch: Partial<ImageGenerationRecord>) {
   const current = store.get(id);
@@ -44,35 +58,24 @@ function updateRecord(id: string, patch: Partial<ImageGenerationRecord>) {
   });
 }
 
-function scheduleMockLifecycle(id: string) {
-  MOCK_STEPS.forEach((step) => {
-    setTimeout(() => {
-      if (!store.has(id)) return;
-      updateRecord(id, {
-        status: step.status,
-        progress: step.progress,
-        result:
-          step.status === "completed"
-            ? {
-                images: [],
-              }
-            : undefined,
-      });
-    }, step.delay);
-  });
-
-  setTimeout(() => {
-    store.delete(id);
-  }, EXPIRY_MS);
+function resolveProgressStage(elapsedMs: number) {
+  let stage = PROGRESS_STAGES[0];
+  for (const candidate of PROGRESS_STAGES) {
+    if (elapsedMs >= candidate.at) {
+      stage = candidate;
+    }
+  }
+  return stage;
 }
 
 export function createMockGeneration(
-  _payload: ImageGenerationFormValues,
-): ImageGenerationRecord {
+  payload: ImageGenerationFormValues,
+): Promise<ImageGenerationRecord> {
   const id = crypto.randomUUID();
   const now = Date.now();
   const record: ImageGenerationRecord = {
     id,
+    payload,
     status: "pending",
     progress: 0,
     createdAt: now,
@@ -80,11 +83,85 @@ export function createMockGeneration(
   };
 
   store.set(id, record);
-  scheduleMockLifecycle(id);
 
-  return record;
+  return createImageGenerationRecord(id, payload)
+    .then((dbRecord) => {
+      updateRecord(id, { dbId: dbRecord.id });
+      return store.get(id) ?? record;
+    })
+    .catch((error) => {
+      store.delete(id);
+      throw error;
+    });
 }
 
-export function getGeneration(id: string) {
-  return store.get(id) ?? null;
+export async function getGeneration(id: string) {
+  const record = store.get(id);
+  if (!record) {
+    return null;
+  }
+
+  const elapsed = Date.now() - record.createdAt;
+  if (elapsed > EXPIRY_MS) {
+    store.delete(id);
+    return null;
+  }
+
+  if (record.status !== "completed" && record.status !== "failed") {
+    const stage = resolveProgressStage(elapsed);
+    if (record.progress !== stage.progress || record.status !== stage.status) {
+      updateRecord(id, {
+        status: stage.status,
+        progress: stage.progress,
+      });
+    }
+
+    const nextRecord = store.get(id) ?? record;
+    if (elapsed >= FINALIZE_DELAY && !nextRecord.finalizing) {
+      updateRecord(id, { finalizing: true });
+      const latest = store.get(id) ?? nextRecord;
+
+      try {
+        const result = await resolveGenerationResult(latest.payload);
+        let dbErrorMessage: string | undefined;
+
+        if (latest.dbId) {
+          try {
+            await saveImageGenerationResult(
+              latest.dbId,
+              result.status,
+              result.status === "completed" ? 100 : latest.progress,
+              result.result,
+              result.errorMessage,
+            );
+          } catch (error) {
+            dbErrorMessage =
+              error instanceof Error ? error.message : "DB 저장에 실패했습니다.";
+            console.error("[image-generation] db save failed", error);
+          }
+        }
+
+        const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
+          .filter(Boolean)
+          .join(" / ");
+
+        updateRecord(id, {
+          status: result.status,
+          progress: result.status === "completed" ? 100 : latest.progress,
+          result: result.result,
+          errorMessage: mergedErrorMessage || undefined,
+          finalizing: false,
+        });
+      } catch (error) {
+        updateRecord(id, {
+          status: "failed",
+          errorMessage:
+            error instanceof Error ? error.message : "생성에 실패했습니다.",
+          finalizing: false,
+        });
+      }
+    }
+  }
+
+  return store.get(id) ?? record;
 }

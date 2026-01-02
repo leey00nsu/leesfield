@@ -64,19 +64,24 @@ export function useImageGeneration() {
       return undefined;
     }
 
+    let isActive = true;
+
     const poll = async () => {
       const startedAt = startedAtRef.current ?? Date.now();
       if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-        setState((prev) => ({
-          ...prev,
-          status: "failed",
-          errorMessage: "응답 시간이 초과되었습니다.",
-        }));
+        if (isActive) {
+          setState((prev) => ({
+            ...prev,
+            status: "failed",
+            errorMessage: "응답 시간이 초과되었습니다.",
+          }));
+        }
         return;
       }
 
       try {
         const response = await fetchImageGenerationStatus(state.requestId);
+        if (!isActive) return;
         setState((prev) => ({
           ...prev,
           status: response.status,
@@ -85,6 +90,7 @@ export function useImageGeneration() {
           result: response.result,
         }));
       } catch (error) {
+        if (!isActive) return;
         setState((prev) => ({
           ...prev,
           status: "failed",
@@ -94,9 +100,13 @@ export function useImageGeneration() {
       }
     };
 
-    const timer = setTimeout(poll, POLL_INTERVAL_MS);
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    void poll();
 
-    return () => clearTimeout(timer);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
   }, [state.requestId, state.status]);
 
   const reset = useCallback(() => {
