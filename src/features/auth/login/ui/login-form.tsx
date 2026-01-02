@@ -22,8 +22,14 @@ import {
 import { Input } from "@/shared/ui/input";
 
 const initialState = {
-  error: "",
+  errorCode: undefined,
 };
+
+const errorMessages = {
+  INVALID_CREDENTIALS: "이메일 또는 비밀번호가 올바르지 않습니다.",
+  SERVER_CONFIG: "서버 설정이 필요합니다.",
+  UNKNOWN: "로그인에 실패했습니다.",
+} as const;
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(
@@ -108,9 +114,9 @@ export function LoginForm() {
               )}
             />
 
-            {state?.error && (
+            {state?.errorCode && (
               <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                {state.error}
+                {errorMessages[state.errorCode] ?? errorMessages.UNKNOWN}
               </div>
             )}
 

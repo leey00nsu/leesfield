@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
 
 const mockLoginAction = vi.hoisted(() =>
-  vi.fn(async () => ({ error: "테스트 오류" })),
+  vi.fn(async () => ({ errorCode: "INVALID_CREDENTIALS" })),
 );
 
 vi.mock("@/features/auth/login/api/login-action", () => ({
@@ -39,6 +39,8 @@ describe("LoginForm", () => {
 
     await user.click(screen.getByRole("button", { name: /authenticate/i }));
 
-    expect(await screen.findByText("테스트 오류")).toBeInTheDocument();
+    expect(
+      await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다."),
+    ).toBeInTheDocument();
   });
 });
