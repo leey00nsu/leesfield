@@ -122,7 +122,7 @@ export async function getGeneration(id: string) {
       const latest = store.get(id) ?? nextRecord;
 
       try {
-        const result = await resolveGenerationResult(latest.payload);
+        const result = await resolveGenerationResult(latest.payload, latest.id);
         let dbErrorMessage: string | undefined;
 
         if (latest.dbId) {

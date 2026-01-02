@@ -21,6 +21,7 @@ cp .env.example .env
 
 - `LEEMAGE_API_KEY`
 - `LEEMAGE_PROJECT_ID`
+- `LEEMAGE_STORAGE_PROVIDER`
 - `LEEMAGE_BASE_URL` (선택)
 
 해시 생성:

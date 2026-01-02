@@ -8,11 +8,12 @@ import {
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 
 const PLACEHOLDER_FILE = "sample-image.png";
-const DEFAULT_VARIANTS = [{ sizeLabel: "max800", format: "webp" }] as const;
+const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
 
 const apiKey = process.env.LEEMAGE_API_KEY ?? "";
-const projectId = process.env.LEEMAGE_PROJECT_ID ?? "";
 const baseUrl = process.env.LEEMAGE_BASE_URL;
+const projectIdEnv = process.env.LEEMAGE_PROJECT_ID ?? "";
+const storageProviderEnv = process.env.LEEMAGE_STORAGE_PROVIDER ?? "";
 
 let cachedClient: LeemageClient | null = null;
 
@@ -43,7 +44,7 @@ function resolveContentType(fileName: string) {
 function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
   const arrayBuffer = buffer.buffer.slice(
     buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength,
+    buffer.byteOffset + buffer.byteLength
   );
 
   return {
@@ -57,7 +58,7 @@ function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
 function buildFallbackResult(
   payload: ImageGenerationFormValues,
   buffer: Buffer,
-  contentType: string,
+  contentType: string
 ): NonNullable<ImageGenerationResponse["result"]> {
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${contentType};base64,${base64}`;
@@ -78,10 +79,9 @@ function mapFileToImage(
     variants: Array<{ url: string; width: number; height: number }>;
   },
   fallbackWidth: number,
-  fallbackHeight: number,
+  fallbackHeight: number
 ) {
-  const variant =
-    file.variants.find((item) => item.url) ?? file.variants[0];
+  const variant = file.variants.find((item) => item.url) ?? file.variants[0];
   const url = variant?.url ?? file.url;
 
   if (!url) {
@@ -97,6 +97,7 @@ function mapFileToImage(
 
 export async function resolveGenerationResult(
   payload: ImageGenerationFormValues,
+  requestId: string
 ): Promise<{
   status: "completed" | "failed";
   result?: ImageGenerationResponse["result"];
@@ -108,7 +109,7 @@ export async function resolveGenerationResult(
   const fallbackResult = buildFallbackResult(payload, buffer, contentType);
 
   const client = getLeemageClient();
-  if (!client || !projectId) {
+  if (!client || !projectIdEnv || !storageProviderEnv) {
     return {
       status: "completed",
       result: fallbackResult,
@@ -120,12 +121,14 @@ export async function resolveGenerationResult(
     const { width, height } = aspectRatioMeta[payload.aspectRatio];
     const uploads = await Promise.all(
       Array.from({ length: payload.imageCount }, (_, index) => {
-        const name = `generated-${payload.aspectRatio}-${index + 1}${path.extname(PLACEHOLDER_FILE)}`;
+        const name = `${requestId}-${index + 1}${path.extname(
+          PLACEHOLDER_FILE
+        )}`;
         const file = buildUploadFile(buffer, name);
-        return client.files.upload(projectId, file, {
+        return client.files.upload(projectIdEnv, file, {
           variants: [...DEFAULT_VARIANTS],
         });
-      }),
+      })
     );
 
     return {
@@ -139,9 +142,7 @@ export async function resolveGenerationResult(
       status: "completed",
       result: fallbackResult,
       errorMessage:
-        error instanceof Error
-          ? error.message
-          : "저장에 실패했습니다.",
+        error instanceof Error ? error.message : "저장에 실패했습니다.",
     };
   }
 }
