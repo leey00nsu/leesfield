@@ -49,7 +49,30 @@ export async function GET(request: Request, { params }: RouteContext) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 
-  const response = await fetch(image.url, { cache: "no-store" });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  let response: Response;
+
+  try {
+    response = await fetch(image.url, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json(
+        { message: "IMAGE_FETCH_TIMEOUT" },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json(
+      { message: "IMAGE_FETCH_FAILED" },
+      { status: 502 },
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     return NextResponse.json(

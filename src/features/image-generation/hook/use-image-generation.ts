@@ -31,7 +31,7 @@ export function useImageGeneration() {
 
   const startGeneration = useCallback(
     async (values: ImageGenerationFormValues) => {
-      setState({ status: "pending", progress: 0 });
+      setState({ status: "pending", progress: 0, errorMessage: undefined });
       startedAtRef.current = Date.now();
 
       try {
