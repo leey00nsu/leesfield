@@ -163,38 +163,44 @@ export function ImageGenerationForm() {
                     resultsGridClass,
                   )}
                 >
-                  {resultImages.map((image, index) => (
-                    <div
-                      key={`${image.url}-${index}`}
-                      className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
-                    >
-                      <img
-                        src={image.url}
-                        alt={`Generated image ${index + 1}`}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover/result:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
-                      <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
-                        <a
-                          href={image.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                          title="Open"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                        <a
-                          href={image.url}
-                          download
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
+                  {resultImages.map((image, index) => {
+                    const downloadUrl = state.requestId
+                      ? `/api/image-generation/${state.requestId}/download?index=${index}`
+                      : image.url;
+
+                    return (
+                      <div
+                        key={`${image.url}-${index}`}
+                        className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
+                      >
+                        <img
+                          src={image.url}
+                          alt={`Generated image ${index + 1}`}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover/result:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
+                        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
+                          <a
+                            href={image.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                            title="Open"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                          <a
+                            href={downloadUrl}
+                            download
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="z-10 flex flex-col items-center px-6 text-center">

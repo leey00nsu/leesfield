@@ -27,6 +27,10 @@ export class FetchClient {
     this.timeout = options.timeout ?? 30000;
   }
 
+  getTimeout() {
+    return this.timeout;
+  }
+
   /**
    * API 요청 실행
    */

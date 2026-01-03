@@ -10,7 +10,10 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
     const message = payload?.message ?? "요청에 실패했습니다.";
     throw new Error(message);
   }
-  return response.json();
+  const result = await response.json().catch(() => {
+    throw new Error("응답 파싱에 실패했습니다.");
+  });
+  return result;
 }
 
 export async function requestImageGeneration(

@@ -128,6 +128,9 @@ export class FilesResource {
     onProgress?.({ stage: "upload", percent: 0 });
 
     const fileBuffer = await file.arrayBuffer();
+    const uploadTimeout = this.client.getTimeout();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), uploadTimeout);
 
     try {
       const uploadResponse = await fetch(presignResult.presignedUrl, {
@@ -136,6 +139,7 @@ export class FilesResource {
           "Content-Type": file.type,
         },
         body: fileBuffer,
+        signal: controller.signal,
       });
 
       if (!uploadResponse.ok) {
@@ -147,9 +151,14 @@ export class FilesResource {
       if (error instanceof NetworkError) {
         throw error;
       }
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new NetworkError("파일 업로드 시간이 초과되었습니다.");
+      }
       throw new NetworkError(
         error instanceof Error ? error.message : "파일 업로드에 실패했습니다."
       );
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     onProgress?.({ stage: "upload", percent: 100 });

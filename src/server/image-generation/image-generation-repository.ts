@@ -7,7 +7,7 @@ import type {
 
 export async function createImageGenerationRecord(
   requestId: string,
-  payload: ImageGenerationFormValues,
+  payload: ImageGenerationFormValues
 ) {
   return prisma.imageGeneration.create({
     data: {
@@ -31,7 +31,7 @@ export async function saveImageGenerationResult(
   status: ImageGenerationStatus,
   progress: number,
   result?: ImageGenerationResponse["result"],
-  errorMessage?: string,
+  errorMessage?: string
 ) {
   const operations = [
     prisma.imageGeneration.update({
@@ -48,7 +48,7 @@ export async function saveImageGenerationResult(
     operations.push(
       prisma.imageGenerationImage.deleteMany({
         where: { generationId },
-      }),
+      })
     );
     operations.push(
       prisma.imageGenerationImage.createMany({
@@ -58,9 +58,20 @@ export async function saveImageGenerationResult(
           width: image.width ?? null,
           height: image.height ?? null,
         })),
-      }),
+      })
     );
   }
 
   await prisma.$transaction(operations);
+}
+
+export async function getImageGenerationByRequestId(requestId: string) {
+  return prisma.imageGeneration.findUnique({
+    where: { requestId },
+    include: {
+      images: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
 }
