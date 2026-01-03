@@ -10,18 +10,29 @@ import type { ImageGenerationResponse } from "@/features/image-generation/model/
 const PLACEHOLDER_FILE = "sample-image.png";
 const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
 
-const apiKey = process.env.LEEMAGE_API_KEY ?? "";
+const requiredLeemageEnv = [
+  ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
+  ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
+  ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
+] as const;
+
+const missingLeemageEnv = requiredLeemageEnv
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingLeemageEnv.length > 0) {
+  throw new Error(
+    `LEEMAGE 설정이 필요합니다: ${missingLeemageEnv.join(", ")}`,
+  );
+}
+
+const apiKey = process.env.LEEMAGE_API_KEY as string;
 const baseUrl = process.env.LEEMAGE_BASE_URL;
-const projectIdEnv = process.env.LEEMAGE_PROJECT_ID ?? "";
-const storageProviderEnv = process.env.LEEMAGE_STORAGE_PROVIDER ?? "";
+const projectIdEnv = process.env.LEEMAGE_PROJECT_ID as string;
 
 let cachedClient: LeemageClient | null = null;
 
 function getLeemageClient() {
-  if (!apiKey) {
-    return null;
-  }
-
   if (!cachedClient) {
     cachedClient = new LeemageClient({
       apiKey,
@@ -42,10 +53,7 @@ function resolveContentType(fileName: string) {
 }
 
 function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  );
+  const arrayBuffer = Uint8Array.from(buffer).buffer;
 
   return {
     name,
@@ -109,13 +117,6 @@ export async function resolveGenerationResult(
   const fallbackResult = buildFallbackResult(payload, buffer, contentType);
 
   const client = getLeemageClient();
-  if (!client || !projectIdEnv || !storageProviderEnv) {
-    return {
-      status: "completed",
-      result: fallbackResult,
-      errorMessage: "LEEMAGE 설정이 필요합니다.",
-    };
-  }
 
   try {
     const { width, height } = aspectRatioMeta[payload.aspectRatio];
