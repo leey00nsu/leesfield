@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type {
@@ -33,7 +34,7 @@ export async function saveImageGenerationResult(
   result?: ImageGenerationResponse["result"],
   errorMessage?: string
 ) {
-  const operations = [
+  const operations: Prisma.PrismaPromise<unknown>[] = [
     prisma.imageGeneration.update({
       where: { id: generationId },
       data: {

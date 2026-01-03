@@ -56,7 +56,8 @@ export function useImageGeneration() {
   );
 
   useEffect(() => {
-    if (!state.requestId) {
+    const requestId = state.requestId;
+    if (!requestId) {
       return undefined;
     }
 
@@ -80,7 +81,7 @@ export function useImageGeneration() {
       }
 
       try {
-        const response = await fetchImageGenerationStatus(state.requestId);
+        const response = await fetchImageGenerationStatus(requestId);
         if (!isActive) return;
         setState((prev) => ({
           ...prev,
