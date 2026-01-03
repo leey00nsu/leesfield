@@ -5,10 +5,48 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum ImageGenerationStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model ImageGeneration {
+  id             String                 @id @default(cuid())
+  requestId      String                 @unique
+  prompt         String
+  negativePrompt String?
+  aspectRatio    String
+  imageCount     Int
+  cfgScale       Float
+  steps          Int
+  seed           String?
+  sampler        String?
+  status         ImageGenerationStatus
+  progress       Int
+  errorMessage   String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  images         ImageGenerationImage[]
+}
+
+model ImageGenerationImage {
+  id           String          @id @default(cuid())
+  generationId String
+  url          String
+  width        Int?
+  height       Int?
+  createdAt    DateTime        @default(now())
+  generation   ImageGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
 }
