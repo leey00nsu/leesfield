@@ -9,8 +9,10 @@
     "prestart": "node scripts/check-auth-env.mjs",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs"
+    "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -47,6 +49,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "husky": "^9.1.7",
     "jsdom": "^27.4.0",
     "prisma": "^7.2.0",
     "tailwindcss": "^4",
