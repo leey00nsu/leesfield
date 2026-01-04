@@ -113,18 +113,27 @@ export function ImageGenerationForm() {
   }, [activeModel, form]);
 
   useEffect(() => {
-    if (!canUploadImages && initImagePreviews.length > 0) {
-      setInitImagePreviews([]);
-      form.setValue("initImages", []);
-    } else if (initImagePreviews.length > maxInputImages) {
-      const next = initImagePreviews.slice(0, maxInputImages);
-      setInitImagePreviews(next);
-      form.setValue(
-        "initImages",
-        next.map((item) => item.dataUrl),
-      );
+    if (!canUploadImages) {
+      setInitImagePreviews((prev) => {
+        if (prev.length === 0) return prev;
+        form.setValue("initImages", []);
+        return [];
+      });
+      return;
     }
-  }, [canUploadImages, initImagePreviews, maxInputImages, form]);
+
+    if (initImagePreviews.length > maxInputImages) {
+      setInitImagePreviews((prev) => {
+        if (prev.length <= maxInputImages) return prev;
+        const next = prev.slice(0, maxInputImages);
+        form.setValue(
+          "initImages",
+          next.map((item) => item.dataUrl),
+        );
+        return next;
+      });
+    }
+  }, [canUploadImages, initImagePreviews.length, maxInputImages, form]);
 
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =

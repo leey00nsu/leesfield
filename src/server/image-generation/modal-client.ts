@@ -51,12 +51,13 @@ export async function requestModalGeneration(payload: ImageGenerationFormValues)
         ? null
         : normalizedSampler;
     const parsedSeed = payload.seed ? Number(payload.seed) : null;
+    const isValidSeed =
+      parsedSeed !== null &&
+      Number.isSafeInteger(parsedSeed) &&
+      parsedSeed >= 0 &&
+      parsedSeed <= Number.MAX_SAFE_INTEGER;
     const seed =
-      isTurbo || isSdxlTurbo
-        ? null
-        : parsedSeed !== null && Number.isFinite(parsedSeed) && parsedSeed >= 0
-          ? parsedSeed
-          : null;
+      isTurbo || isSdxlTurbo ? null : isValidSeed ? parsedSeed : null;
     const steps = isTurbo ? 8 : isSdxlTurbo ? 2 : payload.steps;
     const cfgScale = isTurbo || isSdxlTurbo ? 0 : payload.cfgScale;
     const negativePrompt =
