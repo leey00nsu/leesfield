@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Ban,
   Dice5,
   ImagePlus,
   Image as ImageIcon,
@@ -14,6 +13,7 @@ import {
   Sparkles,
   Download,
   ExternalLink,
+  X,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -28,10 +28,13 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
-  aspectRatioMeta,
   aspectRatioOptions,
   imageGenerationDefaults,
   imageGenerationSchema,
+  modelDefaults,
+  modelImageLimits,
+  resolutionOptions,
+  resolveAspectRatioSize,
   samplerOptions,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
@@ -44,11 +47,22 @@ const modelOptions = [
     vendor: "MODAL",
     active: true,
   },
-  { id: "sdxl-1", name: "SDXL 1.0", vendor: "STABILITY", active: false },
   {
-    id: "realistic-vision",
-    name: "Realistic Vision V6",
-    vendor: "CIVITAI",
+    id: "sdxl-base-1.0",
+    name: "SDXL 1.0",
+    vendor: "STABILITY",
+    active: false,
+  },
+  {
+    id: "openjourney",
+    name: "OpenJourney",
+    vendor: "PROMPTHERO",
+    active: false,
+  },
+  {
+    id: "sdxl-turbo",
+    name: "SDXL Turbo",
+    vendor: "STABILITY",
     active: false,
   },
 ];
@@ -62,21 +76,117 @@ export function ImageGenerationForm() {
 
   const promptValue = form.watch("prompt") ?? "";
   const aspectRatio = form.watch("aspectRatio") ?? imageGenerationDefaults.aspectRatio;
+  const resolution = form.watch("resolution") ?? imageGenerationDefaults.resolution;
   const imageCount = form.watch("imageCount") ?? imageGenerationDefaults.imageCount;
   const cfgScale = form.watch("cfgScale") ?? imageGenerationDefaults.cfgScale;
   const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
+  const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
+  const [initImagePreviews, setInitImagePreviews] = useState<
+    Array<{ id: string; url: string; dataUrl: string }>
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const aspectMeta = useMemo(
-    () => aspectRatioMeta[aspectRatio],
-    [aspectRatio],
+    () => resolveAspectRatioSize(aspectRatio, resolution),
+    [aspectRatio, resolution],
   );
 
-  const { state, startGeneration } = useImageGeneration();
+  const maxInputImages =
+    modelImageLimits[activeModel]?.maxInputImages ?? 0;
+  const canUploadImages = maxInputImages > 0;
+
+  useEffect(() => {
+    const defaults = modelDefaults[activeModel];
+    form.setValue("steps", defaults.steps);
+    form.setValue("cfgScale", defaults.cfgScale);
+    form.setValue("sampler", defaults.sampler);
+
+    if (activeModel === "z-image-turbo" || activeModel === "sdxl-turbo") {
+      form.setValue("seed", "");
+    }
+  }, [activeModel, form]);
+
+  useEffect(() => {
+    if (!canUploadImages && initImagePreviews.length > 0) {
+      setInitImagePreviews([]);
+      form.setValue("initImages", []);
+    } else if (initImagePreviews.length > maxInputImages) {
+      const next = initImagePreviews.slice(0, maxInputImages);
+      setInitImagePreviews(next);
+      form.setValue(
+        "initImages",
+        next.map((item) => item.dataUrl),
+      );
+    }
+  }, [canUploadImages, initImagePreviews, maxInputImages, form]);
+
+  const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
+  const isTurboModel =
+    activeModel === "z-image-turbo" || activeModel === "sdxl-turbo";
+
+  const handleOpenImagePicker = () => {
+    if (!canUploadImages || initImagePreviews.length >= maxInputImages) {
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleImageSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length || !canUploadImages) {
+      event.target.value = "";
+      return;
+    }
+
+    const remaining = Math.max(0, maxInputImages - initImagePreviews.length);
+    const selected = files.slice(0, remaining);
+
+    const dataUrls = await Promise.all(
+      selected.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () =>
+              reject(new Error("이미지 업로드에 실패했습니다."));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    const next = [
+      ...initImagePreviews,
+      ...dataUrls.map((dataUrl) => ({
+        id: crypto.randomUUID(),
+        url: dataUrl,
+        dataUrl,
+      })),
+    ];
+
+    setInitImagePreviews(next);
+    form.setValue(
+      "initImages",
+      next.map((item) => item.dataUrl),
+      { shouldValidate: true },
+    );
+
+    event.target.value = "";
+  };
+
+  const handleRemoveInitImage = (id: string) => {
+    const next = initImagePreviews.filter((item) => item.id !== id);
+    setInitImagePreviews(next);
+    form.setValue(
+      "initImages",
+      next.map((item) => item.dataUrl),
+      { shouldValidate: true },
+    );
+  };
   const resultsGridClass =
     resultImages.length <= 1
       ? "grid-cols-1"
@@ -107,9 +217,10 @@ export function ImageGenerationForm() {
               <button
                 key={model.id}
                 type="button"
+                onClick={() => form.setValue("model", model.id)}
                 className={cn(
                   "group relative flex flex-col rounded-xl bg-surface-dark p-1 text-left transition-all",
-                  model.active
+                  activeModel === model.id
                     ? "border-2 border-primary"
                     : "border border-white/5 hover:border-white/20",
                 )}
@@ -126,7 +237,7 @@ export function ImageGenerationForm() {
                     </div>
                   </div>
                 </div>
-                {model.active && (
+                {activeModel === model.id && (
                   <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1 text-primary">
                     <Sparkles className="h-4 w-4" />
                   </div>
@@ -266,34 +377,58 @@ export function ImageGenerationForm() {
                               {...field}
                             />
                           </FormControl>
+                          {initImagePreviews.length > 0 && (
+                            <div className="flex flex-wrap gap-2 px-4 pb-3">
+                              {initImagePreviews.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40"
+                                >
+                                  <img
+                                    src={item.url}
+                                    alt="Init image preview"
+                                    className="h-full w-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveInitImage(item.id)}
+                                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                    title="Remove"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white"
-                                title="Add Negative Prompt"
-                              >
-                                <Ban className="h-5 w-5" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white"
-                                title="Upload Reference Image"
+                                onClick={handleOpenImagePicker}
+                                disabled={!canUploadImages || initImagePreviews.length >= maxInputImages}
+                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                title={
+                                  canUploadImages
+                                    ? "Upload Reference Image"
+                                    : "이미지 입력을 지원하지 않는 모델입니다."
+                                }
                               >
                                 <ImagePlus className="h-5 w-5" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-primary"
-                                title="Randomize Prompt"
-                              >
-                                <Dice5 className="h-5 w-5" />
                               </button>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600">
                               {promptValue.length} / 1000 CHARS
                             </span>
                           </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple={maxInputImages > 1}
+                            className="hidden"
+                            onChange={handleImageSelection}
+                          />
                         </div>
                       </div>
                       <FormMessage className="text-xs text-red-400" />
@@ -311,29 +446,32 @@ export function ImageGenerationForm() {
                 </Button>
               </div>
 
-              <FormField
-                control={form.control}
-                name="negativePrompt"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-4 px-2">
-                    <FormLabel className="w-24 shrink-0 text-[10px] font-bold uppercase tracking-widest text-red-500 font-mono">
-                      Negative_Prompt
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="ugly, deformed, blurry, low quality..."
-                        className="h-10 border-white/5 bg-surface-lighter/50 text-sm text-gray-400 transition-colors focus:text-white focus-visible:border-red-500/50 focus-visible:ring-0"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className="text-xs text-red-400" />
-                  </FormItem>
-                )}
-              />
+              {/* Negative prompt는 추후 사용 예정 */}
+              {/*
+                <FormField
+                  control={form.control}
+                  name="negativePrompt"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-4 px-2">
+                      <FormLabel className="w-24 shrink-0 text-[10px] font-bold uppercase tracking-widest text-red-500 font-mono">
+                        Negative_Prompt
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="ugly, deformed, blurry, low quality..."
+                          className="h-10 border-white/5 bg-surface-lighter/50 text-sm text-gray-400 transition-colors focus:text-white focus-visible:border-red-500/50 focus-visible:ring-0"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              */}
             </div>
           </div>
 
-          <aside className="hidden w-[400px] shrink-0 flex-col gap-6 border-l border-white/10 bg-background-dark px-6 py-6 shadow-2xl xl:flex">
+          <aside className="flex w-full shrink-0 flex-col gap-6 rounded-2xl border border-white/10 bg-background-dark px-6 py-6 shadow-2xl xl:w-[400px] xl:rounded-none xl:border-l xl:border-white/10 xl:bg-transparent xl:shadow-none">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-white">
                 <span className="h-6 w-1.5 rounded-full bg-primary" />
@@ -341,6 +479,11 @@ export function ImageGenerationForm() {
               </h3>
               <button
                 type="button"
+                onClick={() => {
+                  form.reset(imageGenerationDefaults);
+                  setInitImagePreviews([]);
+                  reset();
+                }}
                 className="text-gray-500 transition-colors hover:text-white"
               >
                 <RotateCcw className="h-5 w-5" />
@@ -404,9 +547,44 @@ export function ImageGenerationForm() {
                 </div>
               </div>
 
+              <div className="flex flex-col gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                  Resolution
+                </span>
+                <FormField
+                  control={form.control}
+                  name="resolution"
+                  render={({ field }) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {resolutionOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => field.onChange(option)}
+                          className={cn(
+                            "rounded-lg border px-3 py-3 text-[10px] font-bold transition-all",
+                            field.value === option
+                              ? "border-primary bg-primary/10 text-white"
+                              : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
+                          )}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                />
+              </div>
+
               <div className="h-px bg-white/5" />
 
               <div className="flex flex-col gap-6">
+                {isTurboModel && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                    Turbo 모델은 steps/CFG/샘플러가 자동으로 최적값으로 고정됩니다.
+                  </div>
+                )}
+
                 <FormField
                   control={form.control}
                   name="imageCount"
@@ -430,7 +608,7 @@ export function ImageGenerationForm() {
                           onChange={(event) =>
                             field.onChange(Number(event.target.value))
                           }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
                         />
                       </FormControl>
                       <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
@@ -457,14 +635,15 @@ export function ImageGenerationForm() {
                       <FormControl>
                         <input
                           type="range"
-                          min={1}
+                          min={0}
                           max={20}
                           step={0.5}
                           value={field.value}
+                          disabled={isTurboModel}
                           onChange={(event) =>
                             field.onChange(Number(event.target.value))
                           }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
                         />
                       </FormControl>
                     </FormItem>
@@ -487,14 +666,15 @@ export function ImageGenerationForm() {
                       <FormControl>
                         <input
                           type="range"
-                          min={10}
+                          min={1}
                           max={150}
                           step={1}
                           value={field.value}
+                          disabled={isTurboModel}
                           onChange={(event) =>
                             field.onChange(Number(event.target.value))
                           }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
                         />
                       </FormControl>
                     </FormItem>
@@ -516,13 +696,15 @@ export function ImageGenerationForm() {
                       <FormControl>
                         <div className="flex gap-2">
                           <Input
-                            className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600"
+                            className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                             placeholder="-1 (Random)"
+                            disabled={isTurboModel}
                             {...field}
                           />
                           <button
                             type="button"
-                            className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary"
+                            disabled={isTurboModel}
+                            className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
                           >
                             <Dice5 className="h-4 w-4" />
                           </button>
@@ -543,9 +725,10 @@ export function ImageGenerationForm() {
                       <FormControl>
                         <div className="relative">
                           <select
-                            className="h-10 w-full appearance-none rounded-lg border border-white/10 bg-surface-lighter px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                            className="h-10 w-full appearance-none rounded-lg border border-white/10 bg-surface-lighter px-3 py-2 text-sm text-white focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                             value={field.value}
                             onChange={field.onChange}
+                            disabled={isTurboModel}
                           >
                             {samplerOptions.map((option) => (
                               <option key={option} value={option}>
