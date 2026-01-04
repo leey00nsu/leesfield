@@ -31,6 +31,7 @@ import {
   aspectRatioOptions,
   imageGenerationDefaults,
   imageGenerationSchema,
+  type ImageGenerationModel,
   modelDefaults,
   modelImageLimits,
   resolutionOptions,
@@ -65,7 +66,12 @@ const modelOptions = [
     vendor: "STABILITY",
     active: false,
   },
-];
+] as const satisfies ReadonlyArray<{
+  id: ImageGenerationModel;
+  name: string;
+  vendor: string;
+  active: boolean;
+}>;
 
 export function ImageGenerationForm() {
   const form = useForm<ImageGenerationFormValues>({

@@ -60,12 +60,12 @@ function resolveExtension(contentType: string) {
 }
 
 function parseDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:(?<type>[^;]+);base64,(?<data>.+)$/);
-  if (!match?.groups?.type || !match.groups.data) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match || !match[1] || !match[2]) {
     throw new Error("지원하지 않는 이미지 포맷입니다.");
   }
-  const contentType = match.groups.type;
-  const buffer = Buffer.from(match.groups.data, "base64");
+  const contentType = match[1];
+  const buffer = Buffer.from(match[2], "base64");
   return { contentType, buffer };
 }
 

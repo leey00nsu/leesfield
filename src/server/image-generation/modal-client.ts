@@ -11,14 +11,15 @@ function getModalConfig() {
   const proxySecret = process.env.MODAL_PROXY_SECRET;
   const timeout = Number(process.env.MODAL_TIMEOUT_MS ?? DEFAULT_MODAL_TIMEOUT);
 
-  const missing = [
-    !endpoint && "MODAL_IMAGE_ENDPOINT",
-    !proxyKey && "MODAL_PROXY_KEY",
-    !proxySecret && "MODAL_PROXY_SECRET",
-  ].filter(Boolean) as string[];
-
-  if (missing.length > 0) {
-    throw new Error(`MODAL 설정이 필요합니다: ${missing.join(", ")}`);
+  if (!endpoint || !proxyKey || !proxySecret) {
+    const missing = [
+      !endpoint && "MODAL_IMAGE_ENDPOINT",
+      !proxyKey && "MODAL_PROXY_KEY",
+      !proxySecret && "MODAL_PROXY_SECRET",
+    ]
+      .filter(Boolean)
+      .join(", ");
+    throw new Error(`MODAL 설정이 필요합니다: ${missing}`);
   }
 
   return {
@@ -26,7 +27,7 @@ function getModalConfig() {
     proxyKey,
     proxySecret,
     timeout: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_MODAL_TIMEOUT,
-  } as const;
+  };
 }
 
 export async function requestModalGeneration(payload: ImageGenerationFormValues) {

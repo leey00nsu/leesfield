@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const aspectRatioOptions = ["1:1", "4:3", "16:9", "9:16"] as const;
 export const resolutionOptions = [512, 1024] as const;
+export type ImageResolution = (typeof resolutionOptions)[number];
 
 export const modelOptions = [
   "z-image-turbo",
@@ -36,11 +37,12 @@ export const imageGenerationSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
   negativePrompt: z.string().optional().or(z.literal("")),
   aspectRatio: z.enum(aspectRatioOptions),
-  resolution: z
-    .number()
-    .refine((value) => resolutionOptions.includes(value), {
-      message: "해상도를 선택해주세요.",
-    }),
+  resolution: z.union(
+    resolutionOptions.map((value) => z.literal(value)) as [
+      z.ZodLiteral<ImageResolution>,
+      z.ZodLiteral<ImageResolution>,
+    ],
+  ),
   initImages: z.array(z.string()).optional(),
   model: z.enum(modelOptions),
   imageCount: z.number().min(1).max(8),
@@ -104,7 +106,7 @@ const aspectRatioBaseMeta = {
 
 export function resolveAspectRatioSize(
   ratio: (typeof aspectRatioOptions)[number],
-  resolution: number
+  resolution: ImageResolution
 ) {
   const base = aspectRatioBaseMeta[ratio];
   const scale = resolution / 512;

@@ -1,5 +1,8 @@
 import { requestModalGeneration } from "@/server/image-generation/modal-client";
-import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
+import {
+  imageGenerationDefaults,
+  type ImageResolution,
+} from "@/features/image-generation/model/image-generation-schema";
 
 const baseEnv = {
   MODAL_IMAGE_ENDPOINT: process.env.MODAL_IMAGE_ENDPOINT,
@@ -49,7 +52,7 @@ describe("requestModalGeneration", () => {
       ...imageGenerationDefaults,
       prompt: "hello",
       aspectRatio: "16:9" as const,
-      resolution: 1024,
+      resolution: 1024 as ImageResolution,
       model: "sdxl-turbo" as const,
       negativePrompt: "bad",
       steps: 30,
@@ -93,7 +96,7 @@ describe("requestModalGeneration", () => {
       ...imageGenerationDefaults,
       prompt: "hello",
       aspectRatio: "4:3" as const,
-      resolution: 1024,
+      resolution: 1024 as ImageResolution,
       model: "sdxl-base-1.0" as const,
       negativePrompt: "bad",
       steps: 35,
