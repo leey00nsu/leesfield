@@ -1,13 +1,19 @@
 import uuid
+from pathlib import Path
 
 import modal
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from models import GenerationParams, generate_images, is_model_supported
+from models import GenerationParams, generate_images, is_model_supported, get_model_spec
+from models.pipeline import load_pipeline
 
 APP_NAME = "leesfield-modal-image-generation"
 DEFAULT_MODEL = "z-image-turbo"
+
+LOCAL_DIR = Path(__file__).parent
+CACHE_VOLUME_NAME = "leesfield-model-cache"
+CACHE_DIR = "/cache"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -22,10 +28,21 @@ image = (
         "safetensors",
         "pillow",
     )
+    .env(
+        {
+            "HF_HOME": f"{CACHE_DIR}/huggingface",
+            "HF_HUB_CACHE": f"{CACHE_DIR}/huggingface/hub",
+            "TRANSFORMERS_CACHE": f"{CACHE_DIR}/huggingface/transformers",
+            "DIFFUSERS_CACHE": f"{CACHE_DIR}/huggingface/diffusers",
+            "TORCH_HOME": f"{CACHE_DIR}/torch",
+        }
+    )
+    .add_local_dir(LOCAL_DIR, remote_path="/root")
 )
 
 app = modal.App(APP_NAME)
 web_app = FastAPI()
+cache_volume = modal.Volume.from_name(CACHE_VOLUME_NAME, create_if_missing=True)
 
 
 class GenerationRequest(BaseModel):
@@ -33,6 +50,7 @@ class GenerationRequest(BaseModel):
     negative_prompt: str | None = None
     width: int | None = None
     height: int | None = None
+    init_images: list[str] | None = None
     image_count: int | None = None
     steps: int | None = None
     cfg_scale: float | None = None
@@ -45,6 +63,15 @@ class GenerationRequest(BaseModel):
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+@web_app.on_event("startup")
+def warm_up_model() -> None:
+    try:
+        spec = get_model_spec(DEFAULT_MODEL)
+        load_pipeline(spec)
+        print(f"[warmup] {DEFAULT_MODEL} loaded")
+    except Exception as error:
+        print(f"[warmup] failed: {error}")
+
 
 @web_app.post("/generate")
 def generate(payload: GenerationRequest) -> dict[str, object]:
@@ -56,6 +83,7 @@ def generate(payload: GenerationRequest) -> dict[str, object]:
         negative_prompt=payload.negative_prompt,
         width=payload.width,
         height=payload.height,
+        init_images=payload.init_images,
         image_count=payload.image_count,
         steps=payload.steps,
         cfg_scale=payload.cfg_scale,
@@ -64,7 +92,12 @@ def generate(payload: GenerationRequest) -> dict[str, object]:
         model=payload.model,
     )
 
-    images = generate_images(params)
+    try:
+        images = generate_images(params)
+    except ValueError as error:
+        if str(error) == "UNSUPPORTED_IMAGE_INPUT":
+            raise HTTPException(status_code=400, detail="UNSUPPORTED_IMAGE_INPUT")
+        raise
 
     return {
         "request_id": str(uuid.uuid4()),
@@ -74,7 +107,7 @@ def generate(payload: GenerationRequest) -> dict[str, object]:
     }
 
 
-@app.function(image=image)
+@app.function(image=image, gpu="A10G", volumes={CACHE_DIR: cache_volume})
 @modal.asgi_app(requires_proxy_auth=True)
 def fastapi_app():
     return web_app

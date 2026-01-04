@@ -4,8 +4,8 @@ from typing import Literal
 ModelKey = Literal[
     "z-image-turbo",
     "sdxl-base-1.0",
-    "sd2.1-base",
     "openjourney",
+    "sdxl-turbo",
 ]
 
 PipelineType = Literal["diffusion", "sd", "sdxl"]
@@ -32,7 +32,7 @@ MODEL_SPECS: dict[ModelKey, ModelSpec] = {
         default_width=1024,
         default_height=1024,
         default_steps=8,
-        default_cfg_scale=1.0,
+        default_cfg_scale=0.0,
     ),
     "sdxl-base-1.0": ModelSpec(
         key="sdxl-base-1.0",
@@ -41,16 +41,6 @@ MODEL_SPECS: dict[ModelKey, ModelSpec] = {
         pipeline="sdxl",
         default_width=1024,
         default_height=1024,
-        default_steps=30,
-        default_cfg_scale=7.0,
-    ),
-    "sd2.1-base": ModelSpec(
-        key="sd2.1-base",
-        label="Stable Diffusion 2.1 Base",
-        model_id="stabilityai/stable-diffusion-2-1-base",
-        pipeline="sd",
-        default_width=512,
-        default_height=512,
         default_steps=30,
         default_cfg_scale=7.0,
     ),
@@ -63,6 +53,16 @@ MODEL_SPECS: dict[ModelKey, ModelSpec] = {
         default_height=512,
         default_steps=30,
         default_cfg_scale=7.0,
+    ),
+    "sdxl-turbo": ModelSpec(
+        key="sdxl-turbo",
+        label="SDXL Turbo",
+        model_id="stabilityai/sdxl-turbo",
+        pipeline="sdxl",
+        default_width=512,
+        default_height=512,
+        default_steps=2,
+        default_cfg_scale=0.0,
     ),
 }
 
