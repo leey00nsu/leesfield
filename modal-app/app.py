@@ -1,17 +1,28 @@
-import os
 import uuid
 
 import modal
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+from models import GenerationParams, generate_images, is_model_supported
 
 APP_NAME = "leesfield-modal-image-generation"
 DEFAULT_MODEL = "z-image-turbo"
 
-MODAL_TOKEN_ID = os.getenv("MODAL_TOKEN_ID")
-MODAL_TOKEN_SECRET = os.getenv("MODAL_TOKEN_SECRET")
-MODAL_PROXY_KEY = os.getenv("MODAL_PROXY_KEY")
-MODAL_PROXY_SECRET = os.getenv("MODAL_PROXY_SECRET")
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "fastapi",
+        "pydantic",
+        "torch",
+        "torchvision",
+        "diffusers",
+        "transformers",
+        "accelerate",
+        "safetensors",
+        "pillow",
+    )
+)
 
 app = modal.App(APP_NAME)
 web_app = FastAPI()
@@ -36,15 +47,34 @@ def health() -> dict[str, str]:
 
 
 @web_app.post("/generate")
-def generate(payload: GenerationRequest) -> dict[str, str]:
-    _ = payload
+def generate(payload: GenerationRequest) -> dict[str, object]:
+    if not is_model_supported(payload.model):
+        raise HTTPException(status_code=400, detail="UNSUPPORTED_MODEL")
+
+    params = GenerationParams(
+        prompt=payload.prompt,
+        negative_prompt=payload.negative_prompt,
+        width=payload.width,
+        height=payload.height,
+        image_count=payload.image_count,
+        steps=payload.steps,
+        cfg_scale=payload.cfg_scale,
+        seed=payload.seed,
+        sampler=payload.sampler,
+        model=payload.model,
+    )
+
+    images = generate_images(params)
+
     return {
         "request_id": str(uuid.uuid4()),
-        "status": "pending",
+        "status": "completed",
+        "model": payload.model,
+        "images": images,
     }
 
 
-@app.function()
+@app.function(image=image)
 @modal.asgi_app(requires_proxy_auth=True)
 def fastapi_app():
     return web_app

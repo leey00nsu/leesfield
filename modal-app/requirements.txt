@@ -1,3 +1,10 @@
 modal
 fastapi
 pydantic
+torch
+torchvision
+diffusers
+transformers
+accelerate
+safetensors
+pillow
