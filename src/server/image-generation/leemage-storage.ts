@@ -2,7 +2,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
 import {
-  aspectRatioMeta,
+  resolveAspectRatioSize,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
@@ -52,6 +52,23 @@ function resolveContentType(fileName: string) {
   return "application/octet-stream";
 }
 
+function resolveExtension(contentType: string) {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  if (contentType === "image/jpeg") return "jpg";
+  return "bin";
+}
+
+function parseDataUrl(dataUrl: string) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match || !match[1] || !match[2]) {
+    throw new Error("지원하지 않는 이미지 포맷입니다.");
+  }
+  const contentType = match[1];
+  const buffer = Buffer.from(match[2], "base64");
+  return { contentType, buffer };
+}
+
 function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
   const arrayBuffer = Uint8Array.from(buffer).buffer;
 
@@ -70,11 +87,31 @@ function buildFallbackResult(
 ): NonNullable<ImageGenerationResponse["result"]> {
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${contentType};base64,${base64}`;
-  const { width, height } = aspectRatioMeta[payload.aspectRatio];
+  const { width, height } = resolveAspectRatioSize(
+    payload.aspectRatio,
+    payload.resolution
+  );
 
   return {
     images: Array.from({ length: payload.imageCount }, () => ({
       url: dataUrl,
+      width,
+      height,
+    })),
+  };
+}
+
+function buildResultFromDataUrls(
+  payload: ImageGenerationFormValues,
+  dataUrls: string[]
+): NonNullable<ImageGenerationResponse["result"]> {
+  const { width, height } = resolveAspectRatioSize(
+    payload.aspectRatio,
+    payload.resolution
+  );
+  return {
+    images: dataUrls.map((url) => ({
+      url,
       width,
       height,
     })),
@@ -103,6 +140,50 @@ function mapFileToImage(
   };
 }
 
+export async function uploadGeneratedImages(
+  payload: ImageGenerationFormValues,
+  requestId: string,
+  dataUrls: string[]
+): Promise<{
+  status: "completed" | "failed";
+  result?: ImageGenerationResponse["result"];
+  errorMessage?: string;
+}> {
+  const client = getLeemageClient();
+  const { width, height } = resolveAspectRatioSize(
+    payload.aspectRatio,
+    payload.resolution
+  );
+
+  try {
+    const uploads = await Promise.all(
+      dataUrls.map((dataUrl, index) => {
+        const { contentType, buffer } = parseDataUrl(dataUrl);
+        const extension = resolveExtension(contentType);
+        const name = `${requestId}-${index + 1}.${extension}`;
+        const file = buildUploadFile(buffer, name);
+        return client.files.upload(projectIdEnv, file, {
+          variants: [...DEFAULT_VARIANTS],
+        });
+      })
+    );
+
+    return {
+      status: "completed",
+      result: {
+        images: uploads.map((file) => mapFileToImage(file, width, height)),
+      },
+    };
+  } catch (error) {
+    return {
+      status: "completed",
+      result: buildResultFromDataUrls(payload, dataUrls),
+      errorMessage:
+        error instanceof Error ? error.message : "저장에 실패했습니다.",
+    };
+  }
+}
+
 export async function resolveGenerationResult(
   payload: ImageGenerationFormValues,
   requestId: string
@@ -119,7 +200,10 @@ export async function resolveGenerationResult(
   const client = getLeemageClient();
 
   try {
-    const { width, height } = aspectRatioMeta[payload.aspectRatio];
+    const { width, height } = resolveAspectRatioSize(
+      payload.aspectRatio,
+      payload.resolution
+    );
     const uploads = await Promise.all(
       Array.from({ length: payload.imageCount }, (_, index) => {
         const name = `${requestId}-${index + 1}${path.extname(

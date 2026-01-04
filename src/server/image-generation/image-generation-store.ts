@@ -3,7 +3,7 @@ import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
-import { resolveGenerationResult } from "@/server/image-generation/leemage-storage";
+import { resolveModalGenerationResult } from "@/server/image-generation/modal-generation";
 import {
   createImageGenerationRecord,
   saveImageGenerationResult,
@@ -121,45 +121,52 @@ export async function getGeneration(id: string) {
       updateRecord(id, { finalizing: true });
       const latest = store.get(id) ?? nextRecord;
 
-      try {
-        const result = await resolveGenerationResult(latest.payload, latest.id);
-        let dbErrorMessage: string | undefined;
+      void (async () => {
+        try {
+          const result = await resolveModalGenerationResult(
+            latest.payload,
+            latest.id
+          );
+          let dbErrorMessage: string | undefined;
 
-        if (latest.dbId) {
-          try {
-            await saveImageGenerationResult(
-              latest.dbId,
-              result.status,
-              result.status === "completed" ? 100 : latest.progress,
-              result.result,
-              result.errorMessage,
-            );
-          } catch (error) {
-            dbErrorMessage =
-              error instanceof Error ? error.message : "DB 저장에 실패했습니다.";
-            console.error("[image-generation] db save failed", error);
+          if (latest.dbId) {
+            try {
+              await saveImageGenerationResult(
+                latest.dbId,
+                result.status,
+                result.status === "completed" ? 100 : latest.progress,
+                result.result,
+                result.errorMessage,
+              );
+            } catch (error) {
+              dbErrorMessage =
+                error instanceof Error
+                  ? error.message
+                  : "DB 저장에 실패했습니다.";
+              console.error("[image-generation] db save failed", error);
+            }
           }
+
+          const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
+            .filter(Boolean)
+            .join(" / ");
+
+          updateRecord(id, {
+            status: result.status,
+            progress: result.status === "completed" ? 100 : latest.progress,
+            result: result.result,
+            errorMessage: mergedErrorMessage || undefined,
+            finalizing: false,
+          });
+        } catch (error) {
+          updateRecord(id, {
+            status: "failed",
+            errorMessage:
+              error instanceof Error ? error.message : "생성에 실패했습니다.",
+            finalizing: false,
+          });
         }
-
-        const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
-          .filter(Boolean)
-          .join(" / ");
-
-        updateRecord(id, {
-          status: result.status,
-          progress: result.status === "completed" ? 100 : latest.progress,
-          result: result.result,
-          errorMessage: mergedErrorMessage || undefined,
-          finalizing: false,
-        });
-      } catch (error) {
-        updateRecord(id, {
-          status: "failed",
-          errorMessage:
-            error instanceof Error ? error.message : "생성에 실패했습니다.",
-          finalizing: false,
-        });
-      }
+      })();
     }
   }
 
