@@ -24,6 +24,14 @@ cp .env.example .env
 - `LEEMAGE_STORAGE_PROVIDER`
 - `LEEMAGE_BASE_URL` (선택)
 
+Modal 연동용:
+
+- `MODAL_IMAGE_ENDPOINT`
+- `MODAL_PROXY_KEY`
+- `MODAL_PROXY_SECRET`
+- `MODAL_TIMEOUT_MS`
+- `NEXT_PUBLIC_MODAL_TIMEOUT_MS`
+
 해시 생성:
 
 ```bash
@@ -49,6 +57,34 @@ docker compose up -d
 ```bash
 pnpm dev
 ```
+
+## Modal (로컬 serve)
+
+Modal 앱은 `modal-app/`에 위치합니다. 로컬에서 serve하려면:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r modal-app/requirements.txt
+python -m modal serve modal-app/app.py
+```
+
+serve 출력에 표시되는 URL을 `.env`에 설정합니다:
+
+```bash
+MODAL_IMAGE_ENDPOINT=https://<your-app>.modal.run/generate
+```
+
+헬스 체크 (Proxy Auth 필요):
+
+```bash
+curl -s \
+  -H "Modal-Key: <proxy-key>" \
+  -H "Modal-Secret: <proxy-secret>" \
+  https://<your-app>.modal.run/health
+```
+
+Proxy Auth 토큰은 Modal 대시보드에서 발급합니다.
 
 ## 테스트
 
