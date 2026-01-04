@@ -103,8 +103,12 @@ export async function requestModalGeneration(payload: ImageGenerationFormValues)
       throw new Error("MODAL_RESPONSE_INVALID");
     }
 
+    if (!result.images.every((item: unknown) => typeof item === "string")) {
+      throw new Error("MODAL_RESPONSE_INVALID");
+    }
+
     return {
-      images: result.images as string[],
+      images: result.images,
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
