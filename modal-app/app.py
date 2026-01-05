@@ -6,10 +6,17 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from models import GenerationParams, generate_images, is_model_supported, get_model_spec
+from models.video import (
+    VideoGenerationParams,
+    generate_videos,
+    is_video_model_supported,
+    resolve_video_params,
+)
 from models.pipeline import load_pipeline
 
 APP_NAME = "leesfield-modal-image-generation"
 DEFAULT_MODEL = "z-image-turbo"
+DEFAULT_VIDEO_MODEL = "hunyuanvideo-1.5"
 
 LOCAL_DIR = Path(__file__).parent
 CACHE_VOLUME_NAME = "leesfield-model-cache"
@@ -59,6 +66,19 @@ class GenerationRequest(BaseModel):
     model: str = DEFAULT_MODEL
 
 
+class VideoGenerationRequest(BaseModel):
+    prompt: str
+    init_image: str | None = None
+    width: int | None = None
+    height: int | None = None
+    duration_sec: int | None = None
+    fps: int | None = None
+    steps: int | None = None
+    guidance_scale: float | None = None
+    seed: int | None = None
+    model: str = DEFAULT_VIDEO_MODEL
+
+
 @web_app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -104,6 +124,53 @@ def generate(payload: GenerationRequest) -> dict[str, object]:
         "status": "completed",
         "model": payload.model,
         "images": images,
+    }
+
+
+@web_app.post("/generate-image")
+def generate_image(payload: GenerationRequest) -> dict[str, object]:
+    return generate(payload)
+
+
+@web_app.post("/generate-video")
+def generate_video(payload: VideoGenerationRequest) -> dict[str, object]:
+    if not is_video_model_supported(payload.model):
+        raise HTTPException(status_code=400, detail="UNSUPPORTED_MODEL")
+
+    params = VideoGenerationParams(
+        prompt=payload.prompt,
+        init_image=payload.init_image,
+        width=payload.width,
+        height=payload.height,
+        duration_sec=payload.duration_sec,
+        fps=payload.fps,
+        steps=payload.steps,
+        guidance_scale=payload.guidance_scale,
+        seed=payload.seed,
+        model=payload.model,
+    )
+
+    try:
+        resolved = resolve_video_params(params)
+        videos = generate_videos(params)
+    except ValueError as error:
+        if str(error) == "INIT_IMAGE_REQUIRED":
+            raise HTTPException(status_code=400, detail="INIT_IMAGE_REQUIRED")
+        raise
+    except NotImplementedError:
+        raise HTTPException(status_code=501, detail="VIDEO_PIPELINE_NOT_READY")
+
+    return {
+        "request_id": str(uuid.uuid4()),
+        "status": "completed",
+        "model": payload.model,
+        "videos": videos,
+        "meta": {
+            "width": resolved.width,
+            "height": resolved.height,
+            "duration_sec": resolved.duration_sec,
+            "fps": resolved.fps,
+        },
     }
 
 
