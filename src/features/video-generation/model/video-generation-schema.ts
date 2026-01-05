@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const videoModelOptions = [
   "hunyuanvideo-1.5",
-  "wan-2.2",
 ] as const;
 
 export type VideoGenerationModel = (typeof videoModelOptions)[number];
@@ -13,18 +12,14 @@ export const videoModelMeta: Record<
 > = {
   "hunyuanvideo-1.5": {
     label: "HunyuanVideo 1.5",
-    supportsInitImage: true,
-  },
-  "wan-2.2": {
-    label: "Wan 2.2",
-    supportsInitImage: true,
+    supportsInitImage: false,
   },
 };
 
 export const videoAspectRatioOptions = ["16:9", "9:16", "1:1"] as const;
-export const videoResolutionOptions = [720, 1080] as const;
-export const videoDurationOptions = [2, 4, 6, 8] as const;
-export const videoFpsOptions = [12, 24, 30] as const;
+export const videoResolutionOptions = [480, 720] as const;
+export const videoDurationOptions = [2, 4] as const;
+export const videoFpsOptions = [12, 24] as const;
 
 export type VideoResolution = (typeof videoResolutionOptions)[number];
 
@@ -40,21 +35,18 @@ export const videoGenerationSchema = z
         z.ZodLiteral<VideoResolution>,
       ],
     ),
-    durationSec: z.union(
-      videoDurationOptions.map((value) => z.literal(value)) as [
-        z.ZodLiteral<(typeof videoDurationOptions)[number]>,
-        z.ZodLiteral<(typeof videoDurationOptions)[number]>,
-        z.ZodLiteral<(typeof videoDurationOptions)[number]>,
-        z.ZodLiteral<(typeof videoDurationOptions)[number]>,
-      ],
-    ),
-    fps: z.union(
-      videoFpsOptions.map((value) => z.literal(value)) as [
-        z.ZodLiteral<(typeof videoFpsOptions)[number]>,
-        z.ZodLiteral<(typeof videoFpsOptions)[number]>,
-        z.ZodLiteral<(typeof videoFpsOptions)[number]>,
-      ],
-    ),
+  durationSec: z.union(
+    videoDurationOptions.map((value) => z.literal(value)) as [
+      z.ZodLiteral<(typeof videoDurationOptions)[number]>,
+      z.ZodLiteral<(typeof videoDurationOptions)[number]>,
+    ],
+  ),
+  fps: z.union(
+    videoFpsOptions.map((value) => z.literal(value)) as [
+      z.ZodLiteral<(typeof videoFpsOptions)[number]>,
+      z.ZodLiteral<(typeof videoFpsOptions)[number]>,
+    ],
+  ),
     steps: z.number().min(1).max(100),
     guidanceScale: z.number().min(0).max(20),
     seed: z.string().optional().or(z.literal("")),

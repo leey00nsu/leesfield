@@ -31,7 +31,6 @@ describe("VideoGenerationForm", () => {
     render(<VideoGenerationForm />);
 
     expect(screen.getByText("HunyuanVideo 1.5")).toBeInTheDocument();
-    expect(screen.getByText("Wan 2.2")).toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {

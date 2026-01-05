@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .pipeline import load_video_pipeline, write_video_data_url
 from .registry import VideoModelKey, get_video_model_spec
 
 
@@ -46,6 +47,11 @@ def _resolve_dimension(value: int | None, fallback: int) -> int:
         return fallback
     return max(64, int(value))
 
+def _round_to_multiple(value: int, multiple: int = 16) -> int:
+    if multiple <= 1:
+        return value
+    return max(multiple, int(round(value / multiple)) * multiple)
+
 
 def resolve_video_params(params: VideoGenerationParams) -> ResolvedVideoParams:
     spec = get_video_model_spec(params.model)
@@ -62,8 +68,8 @@ def resolve_video_params(params: VideoGenerationParams) -> ResolvedVideoParams:
     )
 
     return ResolvedVideoParams(
-        width=width,
-        height=height,
+        width=_round_to_multiple(width, 16),
+        height=_round_to_multiple(height, 16),
         duration_sec=duration_sec,
         fps=fps,
         steps=steps,
@@ -71,5 +77,25 @@ def resolve_video_params(params: VideoGenerationParams) -> ResolvedVideoParams:
     )
 
 
-def generate_videos(_: VideoGenerationParams) -> list[str]:
-    raise NotImplementedError("VIDEO_PIPELINE_NOT_READY")
+def generate_videos(
+    params: VideoGenerationParams, resolved: ResolvedVideoParams | None = None
+) -> list[str]:
+    spec = get_video_model_spec(params.model)
+    resolved_params = resolved or resolve_video_params(params)
+    mode = "text"
+    pipeline = load_video_pipeline(spec, mode)
+    init_image = None
+    if params.init_image:
+        raise ValueError("UNSUPPORTED_IMAGE_INPUT")
+    frames = pipeline.generate(
+        prompt=params.prompt,
+        init_image=init_image,
+        width=resolved_params.width,
+        height=resolved_params.height,
+        num_frames=resolved_params.duration_sec * resolved_params.fps,
+        fps=resolved_params.fps,
+        steps=resolved_params.steps,
+        guidance_scale=resolved_params.guidance_scale,
+        seed=params.seed,
+    )
+    return [write_video_data_url(frames, resolved_params.fps)]

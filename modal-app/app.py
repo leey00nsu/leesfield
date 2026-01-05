@@ -29,11 +29,19 @@ image = (
         "pydantic",
         "torch",
         "torchvision",
-        "diffusers",
+        "git+https://github.com/huggingface/diffusers.git",
         "transformers",
         "accelerate",
         "safetensors",
+        "huggingface-hub",
+        "ftfy",
+        "sentencepiece",
+        "timm",
+        "einops",
         "pillow",
+        "imageio",
+        "imageio-ffmpeg",
+        "numpy",
     )
     .env(
         {
@@ -152,15 +160,15 @@ def generate_video(payload: VideoGenerationRequest) -> dict[str, object]:
 
     try:
         resolved = resolve_video_params(params)
-        videos = generate_videos(params)
+        videos = generate_videos(params, resolved)
     except ValueError as error:
         if str(error) == "INIT_IMAGE_REQUIRED":
             raise HTTPException(status_code=400, detail="INIT_IMAGE_REQUIRED")
         if str(error) == "UNSUPPORTED_IMAGE_INPUT":
             raise HTTPException(status_code=400, detail="UNSUPPORTED_IMAGE_INPUT")
+        if str(error) == "VIDEO_GENERATION_FAILED":
+            raise HTTPException(status_code=500, detail="VIDEO_GENERATION_FAILED")
         raise
-    except NotImplementedError:
-        raise HTTPException(status_code=501, detail="VIDEO_PIPELINE_NOT_READY")
 
     return {
         "request_id": str(uuid.uuid4()),

@@ -44,12 +44,6 @@ const modelCards = [
     vendor: "HUNYUAN",
     active: true,
   },
-  {
-    id: "wan-2.2",
-    name: "Wan 2.2",
-    vendor: "WAN",
-    active: false,
-  },
 ] as const satisfies ReadonlyArray<{
   id: VideoGenerationModel;
   name: string;

@@ -3,9 +3,16 @@ fastapi
 pydantic
 torch
 torchvision
-diffusers
+git+https://github.com/huggingface/diffusers.git
 transformers
 accelerate
 safetensors
+huggingface-hub
+ftfy
+sentencepiece
+timm
+einops
 pillow
 numpy
+imageio
+imageio-ffmpeg
