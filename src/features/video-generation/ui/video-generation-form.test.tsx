@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
 import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
@@ -35,8 +36,9 @@ describe("VideoGenerationForm", () => {
     expect(screen.getByText("Dream Machine")).toBeInTheDocument();
   });
 
-  it("submits prompt and default settings", () => {
+  it("submits prompt and default settings", async () => {
     render(<VideoGenerationForm />);
+    const user = userEvent.setup();
 
     const prompt = screen.getByPlaceholderText(
       "Describe the video you want to generate in detail...",
@@ -46,11 +48,10 @@ describe("VideoGenerationForm", () => {
     expect(submit).toBeDisabled();
     expect(prompt).toBeInTheDocument();
 
-    fireEvent.change(prompt, {
-      target: { value: "cinematic sunrise" },
-    });
+    await user.type(prompt, "cinematic sunrise");
 
-    submit.click();
+    expect(submit).not.toBeDisabled();
+    await user.click(submit);
 
     expect(startGenerationMock).toHaveBeenCalledTimes(1);
     expect(startGenerationMock).toHaveBeenCalledWith({
@@ -59,7 +60,7 @@ describe("VideoGenerationForm", () => {
     });
   });
 
-  it("exposes upload trigger", async () => {
+  it("exposes upload trigger", () => {
     render(<VideoGenerationForm />);
 
     const uploadButton = screen.getByLabelText("Upload Reference Image");
