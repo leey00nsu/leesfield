@@ -142,6 +142,9 @@ export function VideoGenerationForm() {
   const handleReset = () => {
     form.reset(videoGenerationDefaults);
     setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     reset();
   };
 
@@ -209,15 +212,19 @@ export function VideoGenerationForm() {
               <div className="absolute right-4 top-4 flex gap-2">
                 <button
                   type="button"
+                  disabled
+                  aria-disabled="true"
                   className="rounded-lg border border-white/10 bg-surface-dark/80 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
-                  title="Toggle Grid"
+                  title="Grid (disabled)"
                 >
                   <Grid2x2 className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
+                  disabled
+                  aria-disabled="true"
                   className="rounded-lg border border-white/10 bg-surface-dark/80 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
-                  title="Full Screen"
+                  title="Full Screen (disabled)"
                 >
                   <Maximize2 className="h-5 w-5" />
                 </button>
