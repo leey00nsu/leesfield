@@ -20,6 +20,7 @@ import {
   videoFpsOptions,
   videoGenerationDefaults,
   videoGenerationSchema,
+  videoModelMeta,
   videoResolutionOptions,
   type VideoGenerationFormValues,
   type VideoGenerationModel,
@@ -38,27 +39,33 @@ import { cn } from "@/shared/lib/utils";
 
 const modelCards = [
   {
-    id: "svd-xt-1.1",
-    name: "SVD XT 1.1",
-    vendor: "STABILITY",
+    id: "hunyuanvideo-1.5",
+    name: "HunyuanVideo 1.5",
+    vendor: "HUNYUAN",
     active: true,
   },
   {
-    id: "svd-1.1",
-    name: "SVD 1.1",
-    vendor: "STABILITY",
+    id: "hunyuanvideo-i2v",
+    name: "HunyuanVideo I2V",
+    vendor: "HUNYUAN",
     active: false,
   },
   {
-    id: "gen-2-alpha",
-    name: "Gen-2 Alpha",
-    vendor: "RUNWAY",
+    id: "cogvideox-1.5-5b-i2v",
+    name: "CogVideoX 1.5 5B",
+    vendor: "COGVIDEOX",
     active: false,
   },
   {
-    id: "luma-dream-machine",
-    name: "Dream Machine",
-    vendor: "LUMA",
+    id: "step-video-ti2v",
+    name: "Step Video TI2V",
+    vendor: "STEP",
+    active: false,
+  },
+  {
+    id: "svd-xt-1.1",
+    name: "SVD XT 1.1",
+    vendor: "SVD",
     active: false,
   },
 ] as const satisfies ReadonlyArray<{
@@ -86,10 +93,12 @@ export function VideoGenerationForm() {
   const activeModel =
     form.watch("model") ?? videoGenerationDefaults.model;
   const initImageValue = form.watch("initImage") ?? "";
-  const isImageToVideo = Boolean(initImageValue);
+  const requiresInitImage =
+    videoModelMeta[activeModel]?.requiresInitImage ?? false;
+  const hasInitImage = Boolean(initImageValue);
   const canSubmit =
     promptValue.trim().length > 0 &&
-    (!isImageToVideo || Boolean(initImageValue));
+    (!requiresInitImage || hasInitImage);
 
   const aspectMeta = useMemo(
     () => resolveVideoAspectRatioSize(aspectRatio, resolution),
