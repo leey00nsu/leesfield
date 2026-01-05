@@ -156,6 +156,8 @@ def generate_video(payload: VideoGenerationRequest) -> dict[str, object]:
     except ValueError as error:
         if str(error) == "INIT_IMAGE_REQUIRED":
             raise HTTPException(status_code=400, detail="INIT_IMAGE_REQUIRED")
+        if str(error) == "UNSUPPORTED_IMAGE_INPUT":
+            raise HTTPException(status_code=400, detail="UNSUPPORTED_IMAGE_INPUT")
         raise
     except NotImplementedError:
         raise HTTPException(status_code=501, detail="VIDEO_PIPELINE_NOT_READY")

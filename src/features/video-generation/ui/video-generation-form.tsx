@@ -45,27 +45,9 @@ const modelCards = [
     active: true,
   },
   {
-    id: "hunyuanvideo-i2v",
-    name: "HunyuanVideo I2V",
-    vendor: "HUNYUAN",
-    active: false,
-  },
-  {
-    id: "cogvideox-1.5-5b-i2v",
-    name: "CogVideoX 1.5 5B",
-    vendor: "COGVIDEOX",
-    active: false,
-  },
-  {
-    id: "step-video-ti2v",
-    name: "Step Video TI2V",
-    vendor: "STEP",
-    active: false,
-  },
-  {
-    id: "svd-xt-1.1",
-    name: "SVD XT 1.1",
-    vendor: "SVD",
+    id: "wan-2.2",
+    name: "Wan 2.2",
+    vendor: "WAN",
     active: false,
   },
 ] as const satisfies ReadonlyArray<{
@@ -93,12 +75,10 @@ export function VideoGenerationForm() {
   const activeModel =
     form.watch("model") ?? videoGenerationDefaults.model;
   const initImageValue = form.watch("initImage") ?? "";
-  const requiresInitImage =
-    videoModelMeta[activeModel]?.requiresInitImage ?? false;
+  const supportsInitImage =
+    videoModelMeta[activeModel]?.supportsInitImage ?? false;
   const hasInitImage = Boolean(initImageValue);
-  const canSubmit =
-    promptValue.trim().length > 0 &&
-    (!requiresInitImage || hasInitImage);
+  const canSubmit = promptValue.trim().length > 0;
 
   const aspectMeta = useMemo(
     () => resolveVideoAspectRatioSize(aspectRatio, resolution),
@@ -362,13 +342,23 @@ export function VideoGenerationForm() {
                                 type="button"
                                 onClick={handleOpenImagePicker}
                                 aria-label="Upload Reference Image"
-                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white"
+                                disabled={!supportsInitImage}
+                                className={cn(
+                                  "rounded-md p-1.5 transition-colors",
+                                  supportsInitImage
+                                    ? "text-gray-500 hover:bg-white/5 hover:text-white"
+                                    : "cursor-not-allowed text-gray-700"
+                                )}
                                 title="Upload Reference Image"
                               >
                                 <ImagePlus className="h-5 w-5" />
                               </button>
                               <span className="text-[10px] font-mono text-gray-600">
-                                {isImageToVideo ? "IMAGE TO VIDEO" : "TEXT TO VIDEO"}
+                                {!supportsInitImage
+                                  ? "TEXT ONLY"
+                                  : hasInitImage
+                                    ? "IMAGE TO VIDEO"
+                                    : "TEXT TO VIDEO"}
                               </span>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600">

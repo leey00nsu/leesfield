@@ -49,8 +49,8 @@ def _resolve_dimension(value: int | None, fallback: int) -> int:
 
 def resolve_video_params(params: VideoGenerationParams) -> ResolvedVideoParams:
     spec = get_video_model_spec(params.model)
-    if spec.requires_init_image and not params.init_image:
-        raise ValueError("INIT_IMAGE_REQUIRED")
+    if params.init_image and not spec.supports_init_image:
+        raise ValueError("UNSUPPORTED_IMAGE_INPUT")
 
     width = _resolve_dimension(params.width, spec.default_width)
     height = _resolve_dimension(params.height, spec.default_height)

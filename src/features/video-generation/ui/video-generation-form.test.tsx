@@ -31,10 +31,7 @@ describe("VideoGenerationForm", () => {
     render(<VideoGenerationForm />);
 
     expect(screen.getByText("HunyuanVideo 1.5")).toBeInTheDocument();
-    expect(screen.getByText("HunyuanVideo I2V")).toBeInTheDocument();
-    expect(screen.getByText("CogVideoX 1.5 5B")).toBeInTheDocument();
-    expect(screen.getByText("Step Video TI2V")).toBeInTheDocument();
-    expect(screen.getByText("SVD XT 1.1")).toBeInTheDocument();
+    expect(screen.getByText("Wan 2.2")).toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {

@@ -2,37 +2,22 @@ import { z } from "zod";
 
 export const videoModelOptions = [
   "hunyuanvideo-1.5",
-  "hunyuanvideo-i2v",
-  "cogvideox-1.5-5b-i2v",
-  "step-video-ti2v",
-  "svd-xt-1.1",
+  "wan-2.2",
 ] as const;
 
 export type VideoGenerationModel = (typeof videoModelOptions)[number];
 
 export const videoModelMeta: Record<
   VideoGenerationModel,
-  { label: string; requiresInitImage: boolean }
+  { label: string; supportsInitImage: boolean }
 > = {
   "hunyuanvideo-1.5": {
     label: "HunyuanVideo 1.5",
-    requiresInitImage: false,
+    supportsInitImage: true,
   },
-  "hunyuanvideo-i2v": {
-    label: "HunyuanVideo I2V",
-    requiresInitImage: true,
-  },
-  "cogvideox-1.5-5b-i2v": {
-    label: "CogVideoX 1.5 5B I2V",
-    requiresInitImage: true,
-  },
-  "step-video-ti2v": {
-    label: "Step Video TI2V",
-    requiresInitImage: true,
-  },
-  "svd-xt-1.1": {
-    label: "SVD XT 1.1",
-    requiresInitImage: true,
+  "wan-2.2": {
+    label: "Wan 2.2",
+    supportsInitImage: true,
   },
 };
 
@@ -75,14 +60,14 @@ export const videoGenerationSchema = z
     seed: z.string().optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
-    const requiresInitImage =
-      videoModelMeta[data.model]?.requiresInitImage ?? false;
+    const supportsInitImage =
+      videoModelMeta[data.model]?.supportsInitImage ?? false;
     const hasInitImage = Boolean(data.initImage?.trim());
-    if (requiresInitImage && !hasInitImage) {
+    if (hasInitImage && !supportsInitImage) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["initImage"],
-        message: "선택한 모델은 이미지 입력이 필요합니다.",
+        message: "선택한 모델은 이미지 입력을 지원하지 않습니다.",
       });
     }
   });

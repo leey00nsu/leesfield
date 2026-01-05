@@ -60,14 +60,14 @@ export async function requestModalVideoGeneration(
       parsedSeed >= 0 &&
       parsedSeed <= Number.MAX_SAFE_INTEGER;
     const seed = isValidSeed ? parsedSeed : null;
-    const requiresInitImage =
-      videoModelMeta[payload.model]?.requiresInitImage ?? false;
+    const supportsInitImage =
+      videoModelMeta[payload.model]?.supportsInitImage ?? false;
     const initImage = payload.initImage?.trim()
       ? payload.initImage
       : null;
 
-    if (requiresInitImage && !initImage) {
-      throw new Error("INIT_IMAGE_REQUIRED");
+    if (!supportsInitImage && initImage) {
+      throw new Error("UNSUPPORTED_IMAGE_INPUT");
     }
 
     const response = await fetch(endpoint, {
