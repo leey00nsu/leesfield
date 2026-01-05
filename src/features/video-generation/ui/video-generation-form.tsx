@@ -87,6 +87,9 @@ export function VideoGenerationForm() {
     form.watch("model") ?? videoGenerationDefaults.model;
   const initImageValue = form.watch("initImage") ?? "";
   const isImageToVideo = Boolean(initImageValue);
+  const canSubmit =
+    promptValue.trim().length > 0 &&
+    (!isImageToVideo || Boolean(initImageValue));
 
   const aspectMeta = useMemo(
     () => resolveVideoAspectRatioSize(aspectRatio, resolution),
@@ -142,11 +145,15 @@ export function VideoGenerationForm() {
     reset();
   };
 
+  const handleGenerate = (values: VideoGenerationFormValues) => {
+    startGeneration(values);
+  };
+
   return (
     <Form {...form}>
       <form
         className="flex flex-col gap-8"
-        onSubmit={form.handleSubmit((values) => startGeneration(values))}
+        onSubmit={form.handleSubmit(handleGenerate)}
       >
         <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -338,6 +345,7 @@ export function VideoGenerationForm() {
                               <button
                                 type="button"
                                 onClick={handleOpenImagePicker}
+                                aria-label="Upload Reference Image"
                                 className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white"
                                 title="Upload Reference Image"
                               >
@@ -367,7 +375,7 @@ export function VideoGenerationForm() {
 
                 <Button
                   type="submit"
-                  disabled={isGenerating}
+                  disabled={isGenerating || !canSubmit}
                   className="flex h-[120px] flex-col items-center justify-center gap-2 rounded-xl bg-primary text-sm font-black uppercase tracking-wider text-primary-content shadow-[0_0_30px_rgba(212,240,50,0.2)] transition-all hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(212,240,50,0.4)] active:scale-[0.98] lg:px-8"
                 >
                   <Sparkles className="h-7 w-7" />
