@@ -26,18 +26,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const record = await createMockVideoGeneration(parsed.data);
+  try {
+    const record = await createMockVideoGeneration(parsed.data);
 
-  return NextResponse.json(
-    {
-      requestId: record.id,
-      status: record.status,
-      progress: record.progress,
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store",
+    return NextResponse.json(
+      {
+        requestId: record.id,
+        status: record.status,
+        progress: record.progress,
       },
-    },
-  );
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("[video-generation] create failed", error);
+    return NextResponse.json(
+      { message: "INTERNAL_SERVER_ERROR" },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 }

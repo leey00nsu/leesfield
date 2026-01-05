@@ -25,7 +25,17 @@ export async function GET(
   }
 
   const { requestId } = await params;
-  const record = await getVideoGeneration(requestId);
+  let record = null;
+
+  try {
+    record = await getVideoGeneration(requestId);
+  } catch (error) {
+    console.error("[video-generation] status failed", error);
+    return NextResponse.json(
+      { message: "INTERNAL_SERVER_ERROR" },
+      { status: 500 },
+    );
+  }
 
   if (!record) {
     return NextResponse.json(

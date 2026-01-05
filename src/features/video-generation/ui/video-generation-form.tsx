@@ -356,7 +356,7 @@ export function VideoGenerationForm() {
                               </span>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600">
-                              {promptValue.length} / 500 CHARS
+                              {promptValue.length} CHARS
                             </span>
                           </div>
                           <input

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
 import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
 
