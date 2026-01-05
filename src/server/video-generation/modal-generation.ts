@@ -13,7 +13,12 @@ export async function resolveModalVideoGenerationResult(
 }> {
   try {
     const modalResult = await requestModalVideoGeneration(payload);
-    return uploadGeneratedVideos(payload, requestId, modalResult.videos);
+    return uploadGeneratedVideos(
+      payload,
+      requestId,
+      modalResult.videos,
+      modalResult.meta
+    );
   } catch (error) {
     return {
       status: "failed",

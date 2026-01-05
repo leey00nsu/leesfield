@@ -2,13 +2,22 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
-import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
+import {
+  resolveVideoAspectRatioSize,
+  type VideoGenerationFormValues,
+} from "@/features/video-generation/model/video-generation-schema";
 
 const PLACEHOLDER_FILE = "sample-video.mp4";
 const DEFAULT_VIDEO_META = {
   width: 640,
   height: 360,
   durationSec: 1,
+};
+
+type ModalVideoMeta = {
+  width?: number;
+  height?: number;
+  duration_sec?: number;
 };
 
 const requiredLeemageEnv = [
@@ -76,30 +85,51 @@ function resolveVideoExtension(contentType: string) {
   return "bin";
 }
 
+function resolveVideoMeta(
+  payload: VideoGenerationFormValues,
+  meta?: ModalVideoMeta
+) {
+  const fallbackSize = resolveVideoAspectRatioSize(
+    payload.aspectRatio,
+    payload.resolution
+  );
+  return {
+    width: meta?.width ?? fallbackSize.width ?? DEFAULT_VIDEO_META.width,
+    height: meta?.height ?? fallbackSize.height ?? DEFAULT_VIDEO_META.height,
+    durationSec: meta?.duration_sec ?? payload.durationSec ?? DEFAULT_VIDEO_META.durationSec,
+  };
+}
+
 function buildFallbackResult(
+  payload: VideoGenerationFormValues,
   buffer: Buffer,
   contentType: string,
+  meta?: ModalVideoMeta
 ): NonNullable<VideoGenerationResponse["result"]> {
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${contentType};base64,${base64}`;
+  const resolvedMeta = resolveVideoMeta(payload, meta);
 
   return {
     videos: [
       {
         url: dataUrl,
-        ...DEFAULT_VIDEO_META,
+        ...resolvedMeta,
       },
     ],
   };
 }
 
 function buildResultFromDataUrls(
-  dataUrls: string[]
+  payload: VideoGenerationFormValues,
+  dataUrls: string[],
+  meta?: ModalVideoMeta
 ): NonNullable<VideoGenerationResponse["result"]> {
+  const resolvedMeta = resolveVideoMeta(payload, meta);
   return {
     videos: dataUrls.map((url) => ({
       url,
-      ...DEFAULT_VIDEO_META,
+      ...resolvedMeta,
     })),
   };
 }
@@ -112,9 +142,10 @@ function resolveFileUrl(file: { url: string | null }) {
 }
 
 export async function uploadGeneratedVideos(
-  _payload: VideoGenerationFormValues,
+  payload: VideoGenerationFormValues,
   requestId: string,
-  dataUrls: string[]
+  dataUrls: string[],
+  meta?: ModalVideoMeta
 ): Promise<{
   status: "completed" | "failed";
   result?: VideoGenerationResponse["result"];
@@ -138,14 +169,14 @@ export async function uploadGeneratedVideos(
       result: {
         videos: uploads.map((file) => ({
           url: resolveFileUrl(file),
-          ...DEFAULT_VIDEO_META,
+          ...resolveVideoMeta(payload, meta),
         })),
       },
     };
   } catch (error) {
     return {
       status: "completed",
-      result: buildResultFromDataUrls(dataUrls),
+      result: buildResultFromDataUrls(payload, dataUrls, meta),
       errorMessage:
         error instanceof Error ? error.message : "저장에 실패했습니다.",
     };
@@ -153,7 +184,7 @@ export async function uploadGeneratedVideos(
 }
 
 export async function resolveVideoGenerationResult(
-  _payload: VideoGenerationFormValues,
+  payload: VideoGenerationFormValues,
   requestId: string,
 ): Promise<{
   status: "completed" | "failed";
@@ -163,7 +194,7 @@ export async function resolveVideoGenerationResult(
   const filePath = path.join(process.cwd(), "public", PLACEHOLDER_FILE);
   const buffer = await readFile(filePath);
   const contentType = "video/mp4";
-  const fallbackResult = buildFallbackResult(buffer, contentType);
+  const fallbackResult = buildFallbackResult(payload, buffer, contentType);
 
   const client = getLeemageClient();
 
@@ -178,7 +209,7 @@ export async function resolveVideoGenerationResult(
         videos: [
           {
             url: resolveFileUrl(uploaded),
-            ...DEFAULT_VIDEO_META,
+            ...resolveVideoMeta(payload),
           },
         ],
       },
