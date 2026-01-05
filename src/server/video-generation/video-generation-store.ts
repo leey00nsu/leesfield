@@ -3,7 +3,7 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
-import { resolveVideoGenerationResult } from "@/server/video-generation/leemage-storage";
+import { resolveModalVideoGenerationResult } from "@/server/video-generation/modal-generation";
 
 export type VideoGenerationRecord = {
   id: string;
@@ -109,7 +109,7 @@ export async function getVideoGeneration(id: string) {
 
       void (async () => {
         try {
-          const result = await resolveVideoGenerationResult(
+          const result = await resolveModalVideoGenerationResult(
             latest.payload,
             latest.id
           );

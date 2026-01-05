@@ -59,6 +59,23 @@ function buildUploadFile(
   };
 }
 
+function parseDataUrl(dataUrl: string) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match || !match[1] || !match[2]) {
+    throw new Error("지원하지 않는 비디오 포맷입니다.");
+  }
+  const contentType = match[1];
+  const buffer = Buffer.from(match[2], "base64");
+  return { contentType, buffer };
+}
+
+function resolveVideoExtension(contentType: string) {
+  if (contentType === "video/mp4") return "mp4";
+  if (contentType === "video/webm") return "webm";
+  if (contentType === "video/quicktime") return "mov";
+  return "bin";
+}
+
 function buildFallbackResult(
   buffer: Buffer,
   contentType: string,
@@ -76,11 +93,63 @@ function buildFallbackResult(
   };
 }
 
+function buildResultFromDataUrls(
+  dataUrls: string[]
+): NonNullable<VideoGenerationResponse["result"]> {
+  return {
+    videos: dataUrls.map((url) => ({
+      url,
+      ...DEFAULT_VIDEO_META,
+    })),
+  };
+}
+
 function resolveFileUrl(file: { url: string | null }) {
   if (!file.url) {
     throw new Error("업로드된 비디오 URL을 찾을 수 없습니다.");
   }
   return file.url;
+}
+
+export async function uploadGeneratedVideos(
+  _payload: VideoGenerationFormValues,
+  requestId: string,
+  dataUrls: string[]
+): Promise<{
+  status: "completed" | "failed";
+  result?: VideoGenerationResponse["result"];
+  errorMessage?: string;
+}> {
+  const client = getLeemageClient();
+
+  try {
+    const uploads = await Promise.all(
+      dataUrls.map((dataUrl, index) => {
+        const { contentType, buffer } = parseDataUrl(dataUrl);
+        const extension = resolveVideoExtension(contentType);
+        const name = `${requestId}-${index + 1}.${extension}`;
+        const file = buildUploadFile(buffer, name, contentType);
+        return client.files.upload(projectIdEnv, file);
+      })
+    );
+
+    return {
+      status: "completed",
+      result: {
+        videos: uploads.map((file) => ({
+          url: resolveFileUrl(file),
+          ...DEFAULT_VIDEO_META,
+        })),
+      },
+    };
+  } catch (error) {
+    return {
+      status: "completed",
+      result: buildResultFromDataUrls(dataUrls),
+      errorMessage:
+        error instanceof Error ? error.message : "저장에 실패했습니다.",
+    };
+  }
 }
 
 export async function resolveVideoGenerationResult(
