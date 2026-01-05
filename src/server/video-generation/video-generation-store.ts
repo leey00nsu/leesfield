@@ -3,6 +3,7 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
+import { resolveVideoGenerationResult } from "@/server/video-generation/leemage-storage";
 
 export type VideoGenerationRecord = {
   id: string;
@@ -104,11 +105,31 @@ export async function getVideoGeneration(id: string) {
     const nextRecord = store.get(id) ?? record;
     if (elapsed >= FINALIZE_DELAY && !nextRecord.finalizing) {
       updateRecord(id, { finalizing: true });
-      updateRecord(id, {
-        status: "completed",
-        progress: 100,
-        finalizing: false,
-      });
+      const latest = store.get(id) ?? nextRecord;
+
+      void (async () => {
+        try {
+          const result = await resolveVideoGenerationResult(
+            latest.payload,
+            latest.id
+          );
+
+          updateRecord(id, {
+            status: result.status,
+            progress: result.status === "completed" ? 100 : latest.progress,
+            result: result.result,
+            errorMessage: result.errorMessage,
+            finalizing: false,
+          });
+        } catch (error) {
+          updateRecord(id, {
+            status: "failed",
+            errorMessage:
+              error instanceof Error ? error.message : "생성에 실패했습니다.",
+            finalizing: false,
+          });
+        }
+      })();
     }
   }
 
