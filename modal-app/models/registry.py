@@ -1,13 +1,9 @@
+import json
 from dataclasses import dataclass
-from typing import Literal
+from pathlib import Path
+from typing import Literal, TypeAlias
 
-ModelKey = Literal[
-    "z-image-turbo",
-    "sdxl-base-1.0",
-    "openjourney",
-    "sdxl-turbo",
-]
-
+ModelKey: TypeAlias = str
 PipelineType = Literal["diffusion", "sd", "sdxl"]
 
 
@@ -21,50 +17,47 @@ class ModelSpec:
     default_height: int
     default_steps: int
     default_cfg_scale: float
+    max_input_images: int
+
+def _resolve_config_path() -> Path:
+    candidates = [
+        Path(__file__).resolve().parents[2] / "configs" / "image-models.json",
+        Path(__file__).resolve().parents[1] / "configs" / "image-models.json",
+        Path("/root/configs/image-models.json"),
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError("image-models.json not found")
 
 
-MODEL_SPECS: dict[ModelKey, ModelSpec] = {
-    "z-image-turbo": ModelSpec(
-        key="z-image-turbo",
-        label="Z-Image Turbo",
-        model_id="Tongyi-MAI/Z-Image-Turbo",
-        pipeline="diffusion",
-        default_width=1024,
-        default_height=1024,
-        default_steps=8,
-        default_cfg_scale=0.0,
-    ),
-    "sdxl-base-1.0": ModelSpec(
-        key="sdxl-base-1.0",
-        label="SDXL Base 1.0",
-        model_id="stabilityai/stable-diffusion-xl-base-1.0",
-        pipeline="sdxl",
-        default_width=1024,
-        default_height=1024,
-        default_steps=30,
-        default_cfg_scale=7.0,
-    ),
-    "openjourney": ModelSpec(
-        key="openjourney",
-        label="OpenJourney",
-        model_id="prompthero/openjourney",
-        pipeline="sd",
-        default_width=512,
-        default_height=512,
-        default_steps=30,
-        default_cfg_scale=7.0,
-    ),
-    "sdxl-turbo": ModelSpec(
-        key="sdxl-turbo",
-        label="SDXL Turbo",
-        model_id="stabilityai/sdxl-turbo",
-        pipeline="sdxl",
-        default_width=512,
-        default_height=512,
-        default_steps=2,
-        default_cfg_scale=0.0,
-    ),
-}
+def _load_model_specs() -> dict[ModelKey, ModelSpec]:
+    config_path = _resolve_config_path()
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    models = data.get("models", [])
+    specs: dict[ModelKey, ModelSpec] = {}
+    for model in models:
+        pipeline = model.get("pipeline")
+        if pipeline not in ("diffusion", "sd", "sdxl"):
+            raise ValueError(f"UNSUPPORTED_PIPELINE: {pipeline}")
+        spec = ModelSpec(
+            key=str(model.get("key")),
+            label=str(model.get("label")),
+            model_id=str(model.get("model_id")),
+            pipeline=pipeline,
+            default_width=int(model.get("default_width")),
+            default_height=int(model.get("default_height")),
+            default_steps=int(model.get("default_steps")),
+            default_cfg_scale=float(model.get("default_cfg_scale")),
+            max_input_images=int(model.get("max_input_images", 0)),
+        )
+        specs[spec.key] = spec
+    if not specs:
+        raise ValueError("MODEL_SPECS_EMPTY")
+    return specs
+
+
+MODEL_SPECS: dict[ModelKey, ModelSpec] = _load_model_specs()
 
 
 def get_model_spec(model_key: ModelKey) -> ModelSpec:

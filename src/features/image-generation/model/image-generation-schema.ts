@@ -1,37 +1,17 @@
 import { z } from "zod";
+import {
+  defaultModelKey,
+  modelDefaults,
+  modelImageLimits,
+  modelOptions,
+  type ImageGenerationModel,
+} from "@/features/image-generation/model/image-models";
 
 export const aspectRatioOptions = ["1:1", "4:3", "16:9", "9:16"] as const;
 export const resolutionOptions = [512, 1024] as const;
 export type ImageResolution = (typeof resolutionOptions)[number];
 
-export const modelOptions = [
-  "z-image-turbo",
-  "sdxl-base-1.0",
-  "openjourney",
-  "sdxl-turbo",
-] as const;
-
-export type ImageGenerationModel = (typeof modelOptions)[number];
-
-export const modelDefaults: Record<
-  ImageGenerationModel,
-  { steps: number; cfgScale: number; sampler: string }
-> = {
-  "z-image-turbo": { steps: 8, cfgScale: 0, sampler: "Default" },
-  "sdxl-base-1.0": { steps: 30, cfgScale: 7, sampler: "Euler a" },
-  "openjourney": { steps: 30, cfgScale: 7, sampler: "Euler a" },
-  "sdxl-turbo": { steps: 2, cfgScale: 0, sampler: "Default" },
-};
-
-export const modelImageLimits: Record<
-  ImageGenerationModel,
-  { maxInputImages: number }
-> = {
-  "z-image-turbo": { maxInputImages: 1 },
-  "sdxl-base-1.0": { maxInputImages: 0 },
-  "openjourney": { maxInputImages: 0 },
-  "sdxl-turbo": { maxInputImages: 0 },
-};
+export { modelOptions, modelDefaults, modelImageLimits, type ImageGenerationModel };
 
 export const imageGenerationSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
@@ -72,7 +52,7 @@ export const imageGenerationSchema = z.object({
 
 export type ImageGenerationFormValues = z.infer<typeof imageGenerationSchema>;
 
-const defaultModel: ImageGenerationModel = "z-image-turbo";
+const defaultModel: ImageGenerationModel = defaultModelKey;
 const defaultModelSettings = modelDefaults[defaultModel];
 
 export const imageGenerationDefaults: ImageGenerationFormValues = {

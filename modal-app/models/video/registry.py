@@ -1,9 +1,9 @@
-import os
-from dataclasses import dataclass, replace
-from typing import Literal
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, TypeAlias
 
-VideoModelKey = Literal["hunyuanvideo-1.5"]
-
+VideoModelKey: TypeAlias = str
 VideoProvider = Literal["hunyuanvideo"]
 
 
@@ -23,30 +23,52 @@ class VideoModelSpec:
     default_guidance_scale: float
 
 
-VIDEO_MODEL_SPECS: dict[VideoModelKey, VideoModelSpec] = {
-    "hunyuanvideo-1.5": VideoModelSpec(
-        key="hunyuanvideo-1.5",
-        label="HunyuanVideo 1.5",
-        provider="hunyuanvideo",
-        supports_init_image=False,
-        t2v_model_id="hunyuanvideo-community/HunyuanVideo-1.5-480p_t2v",
-        i2v_model_id=None,
-        default_width=854,
-        default_height=480,
-        default_duration_sec=4,
-        default_fps=24,
-        default_steps=28,
-        default_guidance_scale=6.0,
-    ),
-}
+def _resolve_config_path() -> Path:
+    candidates = [
+        Path(__file__).resolve().parents[3] / "configs" / "video-models.json",
+        Path(__file__).resolve().parents[2] / "configs" / "video-models.json",
+        Path("/root/configs/video-models.json"),
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError("video-models.json not found")
+
+
+def _load_video_model_specs() -> dict[VideoModelKey, VideoModelSpec]:
+    config_path = _resolve_config_path()
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    models = data.get("models", [])
+    specs: dict[VideoModelKey, VideoModelSpec] = {}
+    for model in models:
+        provider = model.get("provider", "hunyuanvideo")
+        if provider != "hunyuanvideo":
+            raise ValueError(f"UNSUPPORTED_PROVIDER: {provider}")
+        spec = VideoModelSpec(
+            key=str(model.get("key")),
+            label=str(model.get("label")),
+            provider=provider,
+            supports_init_image=bool(model.get("supports_init_image", False)),
+            t2v_model_id=str(model.get("t2v_model_id")),
+            i2v_model_id=model.get("i2v_model_id") or None,
+            default_width=int(model.get("default_width")),
+            default_height=int(model.get("default_height")),
+            default_duration_sec=int(model.get("default_duration_sec")),
+            default_fps=int(model.get("default_fps")),
+            default_steps=int(model.get("default_steps")),
+            default_guidance_scale=float(model.get("default_guidance_scale")),
+        )
+        specs[spec.key] = spec
+    if not specs:
+        raise ValueError("VIDEO_MODEL_SPECS_EMPTY")
+    return specs
+
+
+VIDEO_MODEL_SPECS: dict[VideoModelKey, VideoModelSpec] = _load_video_model_specs()
 
 
 def get_video_model_spec(model_key: VideoModelKey) -> VideoModelSpec:
-    spec = VIDEO_MODEL_SPECS[model_key]
-    if spec.key == "hunyuanvideo-1.5":
-        model_id = os.getenv("HUNYUANVIDEO_T2V_MODEL_ID", spec.t2v_model_id)
-        return replace(spec, t2v_model_id=model_id)
-    return spec
+    return VIDEO_MODEL_SPECS[model_key]
 
 
 def is_video_model_supported(model_key: str) -> bool:

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "default_model": "hunyuanvideo-1.5",
+  "models": [
+    {
+      "key": "hunyuanvideo-1.5",
+      "label": "HunyuanVideo 1.5",
+      "vendor": "HUNYUAN",
+      "provider": "hunyuanvideo",
+      "supports_init_image": false,
+      "t2v_model_id": "hunyuanvideo-community/HunyuanVideo-1.5-480p_t2v",
+      "i2v_model_id": null,
+      "default_width": 854,
+      "default_height": 480,
+      "default_duration_sec": 4,
+      "default_fps": 24,
+      "default_steps": 28,
+      "default_guidance_scale": 6.0
+    }
+  ]
+}

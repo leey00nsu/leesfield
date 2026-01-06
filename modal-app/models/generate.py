@@ -70,8 +70,10 @@ def generate_images(params: GenerationParams) -> list[str]:
     init_images = params.init_images or []
     has_init_images = len(init_images) > 0
 
-    if has_init_images and spec.key != "z-image-turbo":
+    if has_init_images and spec.max_input_images <= 0:
         raise ValueError("UNSUPPORTED_IMAGE_INPUT")
+    if spec.max_input_images > 0 and len(init_images) > spec.max_input_images:
+        raise ValueError("TOO_MANY_INPUT_IMAGES")
 
     pipe = load_pipeline(spec, "image" if has_init_images else "text")
 

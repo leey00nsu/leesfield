@@ -1,20 +1,13 @@
 import { z } from "zod";
+import {
+  defaultVideoModelKey,
+  videoModelDefaults,
+  videoModelMeta,
+  videoModelOptions,
+  type VideoGenerationModel,
+} from "@/features/video-generation/model/video-models";
 
-export const videoModelOptions = [
-  "hunyuanvideo-1.5",
-] as const;
-
-export type VideoGenerationModel = (typeof videoModelOptions)[number];
-
-export const videoModelMeta: Record<
-  VideoGenerationModel,
-  { label: string; supportsInitImage: boolean }
-> = {
-  "hunyuanvideo-1.5": {
-    label: "HunyuanVideo 1.5",
-    supportsInitImage: false,
-  },
-};
+export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
 export const videoAspectRatioOptions = ["16:9", "9:16", "1:1"] as const;
 export const videoResolutionOptions = [480, 720] as const;
@@ -66,7 +59,8 @@ export const videoGenerationSchema = z
 
 export type VideoGenerationFormValues = z.infer<typeof videoGenerationSchema>;
 
-const defaultModel: VideoGenerationModel = "hunyuanvideo-1.5";
+const defaultModel: VideoGenerationModel = defaultVideoModelKey;
+const defaultSettings = videoModelDefaults[defaultModel];
 
 export const videoGenerationDefaults: VideoGenerationFormValues = {
   prompt: "",
@@ -74,10 +68,10 @@ export const videoGenerationDefaults: VideoGenerationFormValues = {
   model: defaultModel,
   aspectRatio: "16:9",
   resolution: 720,
-  durationSec: 4,
-  fps: 24,
-  steps: 30,
-  guidanceScale: 6,
+  durationSec: defaultSettings.durationSec,
+  fps: defaultSettings.fps,
+  steps: defaultSettings.steps,
+  guidanceScale: defaultSettings.guidanceScale,
   seed: "",
 };
 

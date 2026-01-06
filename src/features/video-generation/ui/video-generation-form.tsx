@@ -25,6 +25,7 @@ import {
   type VideoGenerationFormValues,
   type VideoGenerationModel,
 } from "@/features/video-generation/model/video-generation-schema";
+import { videoModels } from "@/features/video-generation/model/video-models";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
 import { Button } from "@/shared/ui/button";
 import {
@@ -37,14 +38,12 @@ import {
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 
-const modelCards = [
-  {
-    id: "hunyuanvideo-1.5",
-    name: "HunyuanVideo 1.5",
-    vendor: "HUNYUAN",
-    active: true,
-  },
-] as const satisfies ReadonlyArray<{
+const modelCards = videoModels.map((model, index) => ({
+  id: model.key as VideoGenerationModel,
+  name: model.label,
+  vendor: model.vendor,
+  active: index === 0,
+})) as ReadonlyArray<{
   id: VideoGenerationModel;
   name: string;
   vendor: string;

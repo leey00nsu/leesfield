@@ -39,34 +39,15 @@ import {
   samplerOptions,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
+import { imageModels } from "@/features/image-generation/model/image-models";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 
-const modelOptions = [
-  {
-    id: "z-image-turbo",
-    name: "Z-Image Turbo",
-    vendor: "MODAL",
-    active: true,
-  },
-  {
-    id: "sdxl-base-1.0",
-    name: "SDXL 1.0",
-    vendor: "STABILITY",
-    active: false,
-  },
-  {
-    id: "openjourney",
-    name: "OpenJourney",
-    vendor: "PROMPTHERO",
-    active: false,
-  },
-  {
-    id: "sdxl-turbo",
-    name: "SDXL Turbo",
-    vendor: "STABILITY",
-    active: false,
-  },
-] as const satisfies ReadonlyArray<{
+const modelOptions = imageModels.map((model, index) => ({
+  id: model.key as ImageGenerationModel,
+  name: model.label,
+  vendor: model.vendor,
+  active: index === 0,
+})) as ReadonlyArray<{
   id: ImageGenerationModel;
   name: string;
   vendor: string;

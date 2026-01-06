@@ -19,6 +19,7 @@ DEFAULT_MODEL = "z-image-turbo"
 DEFAULT_VIDEO_MODEL = "hunyuanvideo-1.5"
 
 LOCAL_DIR = Path(__file__).parent
+CONFIG_DIR = LOCAL_DIR.parent / "configs"
 CACHE_VOLUME_NAME = "leesfield-model-cache"
 CACHE_DIR = "/cache"
 
@@ -53,6 +54,7 @@ image = (
         }
     )
     .add_local_dir(LOCAL_DIR, remote_path="/root")
+    .add_local_dir(CONFIG_DIR, remote_path="/root/configs")
 )
 
 app = modal.App(APP_NAME)
@@ -125,6 +127,8 @@ def generate(payload: GenerationRequest) -> dict[str, object]:
     except ValueError as error:
         if str(error) == "UNSUPPORTED_IMAGE_INPUT":
             raise HTTPException(status_code=400, detail="UNSUPPORTED_IMAGE_INPUT")
+        if str(error) == "TOO_MANY_INPUT_IMAGES":
+            raise HTTPException(status_code=400, detail="TOO_MANY_INPUT_IMAGES")
         raise
 
     return {
