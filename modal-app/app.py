@@ -34,7 +34,6 @@ image = (
         "transformers",
         "accelerate",
         "safetensors",
-        "huggingface-hub",
         "ftfy",
         "sentencepiece",
         "timm",

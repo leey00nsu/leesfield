@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import base64
-import os
 import tempfile
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Literal
 
 import torch
 from diffusers import HunyuanVideo15Pipeline
 from diffusers.utils import export_to_video
-from huggingface_hub import login
 from PIL import Image
 
 from .registry import VideoModelSpec
@@ -31,13 +28,6 @@ def _configure_pipeline(pipe: object) -> None:
         pipe.enable_vae_slicing()
     if hasattr(pipe, "enable_vae_tiling"):
         pipe.enable_vae_tiling()
-
-
-@lru_cache(maxsize=1)
-def _ensure_hf_login() -> None:
-    token = os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")
-    if token:
-        login(token=token, add_to_git_credential=False)
 
 
 def _maybe_offload(pipe: object) -> None:
@@ -127,7 +117,6 @@ def load_video_pipeline(spec: VideoModelSpec, mode: PipelineMode) -> VideoPipeli
     if PIPELINE_CACHE:
         clear_pipeline_cache()
 
-    _ensure_hf_login()
     device = _resolve_device()
 
     pipe = HunyuanVideo15Pipeline.from_pretrained(
