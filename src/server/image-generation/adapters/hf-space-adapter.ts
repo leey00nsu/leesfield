@@ -57,7 +57,7 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
-  if (tokenValue && (!tokenValue.startsWith("hf_") || tokenValue.length < 20)) {
+  if (tokenValue && !tokenValue.startsWith("hf_")) {
     throw new Error("INVALID_HF_TOKEN_FORMAT");
   }
 
