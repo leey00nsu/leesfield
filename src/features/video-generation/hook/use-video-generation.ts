@@ -12,7 +12,12 @@ import {
 const POLL_INTERVAL_MS = 1500;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const EXTRA_TIMEOUT_MS = 30_000;
-const pollTimeoutMs = DEFAULT_TIMEOUT_MS + EXTRA_TIMEOUT_MS;
+const envTimeoutMs = Number(process.env.NEXT_PUBLIC_VIDEO_TIMEOUT_MS);
+const configuredTimeoutMs =
+  Number.isFinite(envTimeoutMs) && envTimeoutMs > 0
+    ? envTimeoutMs
+    : DEFAULT_TIMEOUT_MS;
+const pollTimeoutMs = configuredTimeoutMs + EXTRA_TIMEOUT_MS;
 
 export type VideoGenerationState = {
   status: VideoGenerationStatus | "idle";

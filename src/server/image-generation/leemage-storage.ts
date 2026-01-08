@@ -1,10 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
-import {
-  resolveAspectRatioSize,
-  type ImageGenerationFormValues,
-} from "@/features/image-generation/model/image-generation-schema";
+import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 
 const PLACEHOLDER_FILE = "sample-image.png";
@@ -87,10 +84,7 @@ function buildFallbackResult(
 ): NonNullable<ImageGenerationResponse["result"]> {
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${contentType};base64,${base64}`;
-  const { width, height } = resolveAspectRatioSize(
-    payload.aspectRatio,
-    payload.resolution
-  );
+  const { width, height } = payload;
 
   return {
     images: Array.from({ length: payload.imageCount }, () => ({
@@ -105,10 +99,7 @@ function buildResultFromDataUrls(
   payload: ImageGenerationFormValues,
   dataUrls: string[]
 ): NonNullable<ImageGenerationResponse["result"]> {
-  const { width, height } = resolveAspectRatioSize(
-    payload.aspectRatio,
-    payload.resolution
-  );
+  const { width, height } = payload;
   return {
     images: dataUrls.map((url) => ({
       url,
@@ -150,10 +141,7 @@ export async function uploadGeneratedImages(
   errorMessage?: string;
 }> {
   const client = getLeemageClient();
-  const { width, height } = resolveAspectRatioSize(
-    payload.aspectRatio,
-    payload.resolution
-  );
+  const { width, height } = payload;
 
   try {
     const uploads = await Promise.all(
@@ -200,10 +188,7 @@ export async function resolveGenerationResult(
   const client = getLeemageClient();
 
   try {
-    const { width, height } = resolveAspectRatioSize(
-      payload.aspectRatio,
-      payload.resolution
-    );
+    const { width, height } = payload;
     const uploads = await Promise.all(
       Array.from({ length: payload.imageCount }, (_, index) => {
         const name = `${requestId}-${index + 1}${path.extname(

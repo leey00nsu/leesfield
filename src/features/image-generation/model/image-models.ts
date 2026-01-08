@@ -44,7 +44,7 @@ export type ImageGenerationModel = (typeof modelOptions)[number];
 
 export const modelDefaults: Record<
   ImageGenerationModel,
-  { steps: number; cfgScale: number; sampler: string }
+  { steps: number; cfgScale: number; sampler: string; width: number; height: number }
 > = Object.fromEntries(
   imageModels.map((model) => [
     model.key,
@@ -52,9 +52,14 @@ export const modelDefaults: Record<
       steps: model.default_steps,
       cfgScale: model.default_cfg_scale,
       sampler: model.default_sampler,
+      width: model.default_width,
+      height: model.default_height,
     },
   ])
-) as Record<ImageGenerationModel, { steps: number; cfgScale: number; sampler: string }>;
+) as Record<
+  ImageGenerationModel,
+  { steps: number; cfgScale: number; sampler: string; width: number; height: number }
+>;
 
 export const modelImageLimits: Record<
   ImageGenerationModel,

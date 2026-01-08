@@ -3,7 +3,7 @@ import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
-import { resolveModalGenerationResult } from "@/server/image-generation/modal-generation";
+import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
 import {
   createImageGenerationRecord,
   saveImageGenerationResult,
@@ -123,7 +123,7 @@ export async function getGeneration(id: string) {
 
       void (async () => {
         try {
-          const result = await resolveModalGenerationResult(
+          const result = await resolveImageGenerationResult(
             latest.payload,
             latest.id
           );

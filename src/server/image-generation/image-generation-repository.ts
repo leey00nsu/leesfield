@@ -15,7 +15,7 @@ export async function createImageGenerationRecord(
       requestId,
       prompt: payload.prompt,
       negativePrompt: payload.negativePrompt || null,
-      aspectRatio: payload.aspectRatio,
+      aspectRatio: `${payload.width}x${payload.height}`,
       imageCount: payload.imageCount,
       cfgScale: payload.cfgScale,
       steps: payload.steps,

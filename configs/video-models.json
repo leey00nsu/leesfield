@@ -1,21 +1,20 @@
 {
   "version": 1,
-  "default_model": "hunyuanvideo-1.5",
+  "default_model": "wan2-2-hf",
   "models": [
     {
-      "key": "hunyuanvideo-1.5",
-      "label": "HunyuanVideo 1.5",
-      "vendor": "HUNYUAN",
-      "provider": "hunyuanvideo",
-      "supports_init_image": false,
-      "t2v_model_id": "hunyuanvideo-community/HunyuanVideo-1.5-480p_t2v",
-      "i2v_model_id": null,
-      "default_width": 854,
+      "key": "wan2-2-hf",
+      "label": "Wan 2.2 (HF Space)",
+      "vendor": "HUGGINGFACE",
+      "supports_init_image": true,
+      "t2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
+      "i2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
+      "default_width": 832,
       "default_height": 480,
-      "default_duration_sec": 4,
-      "default_fps": 24,
-      "default_steps": 28,
-      "default_guidance_scale": 6.0
+      "default_duration_sec": 2,
+      "default_fps": 16,
+      "default_steps": 6,
+      "default_guidance_scale": 1.0
     }
   ]
 }

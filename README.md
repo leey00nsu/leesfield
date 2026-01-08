@@ -24,13 +24,17 @@ cp .env.example .env
 - `LEEMAGE_STORAGE_PROVIDER`
 - `LEEMAGE_BASE_URL` (선택)
 
-Modal 연동용:
+외부 API 연동용(HF Space):
 
-- `MODAL_IMAGE_ENDPOINT`
-- `MODAL_PROXY_KEY`
-- `MODAL_PROXY_SECRET`
-- `MODAL_TIMEOUT_MS`
-- `NEXT_PUBLIC_MODAL_TIMEOUT_MS`
+- `IMAGE_PROVIDER`
+- `VIDEO_PROVIDER`
+- `HF_TOKEN`
+- `HF_IMAGE_SPACE_ID`
+- `HF_VIDEO_SPACE_ID`
+- `HF_IMAGE_SPACE_API_NAME`
+- `HF_VIDEO_SPACE_API_NAME`
+- `NEXT_PUBLIC_IMAGE_TIMEOUT_MS`
+- `NEXT_PUBLIC_VIDEO_TIMEOUT_MS`
 
 해시 생성:
 
@@ -58,33 +62,10 @@ docker compose up -d
 pnpm dev
 ```
 
-## Modal (로컬 serve)
+## 외부 API 사용
 
-Modal 앱은 `modal-app/`에 위치합니다. 로컬에서 serve하려면:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r modal-app/requirements.txt
-python -m modal serve modal-app/app.py
-```
-
-serve 출력에 표시되는 URL을 `.env`에 설정합니다:
-
-```bash
-MODAL_IMAGE_ENDPOINT=https://<your-app>.modal.run/generate
-```
-
-헬스 체크 (Proxy Auth 필요):
-
-```bash
-curl -s \
-  -H "Modal-Key: <proxy-key>" \
-  -H "Modal-Secret: <proxy-secret>" \
-  https://<your-app>.modal.run/health
-```
-
-Proxy Auth 토큰은 Modal 대시보드에서 발급합니다.
+현재는 Hugging Face Space(Gradio API)를 기본 제공자로 사용합니다.
+`.env.example`의 `HF_IMAGE_SPACE_ID`, `HF_VIDEO_SPACE_ID`를 설정하세요.
 
 ## 테스트
 

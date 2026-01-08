@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -28,15 +28,13 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import {
-  aspectRatioOptions,
   imageGenerationDefaults,
   imageGenerationSchema,
+  imageSizeRange,
+  imageStepsRange,
   type ImageGenerationModel,
   modelDefaults,
   modelImageLimits,
-  resolutionOptions,
-  resolveAspectRatioSize,
-  samplerOptions,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
 import { imageModels } from "@/features/image-generation/model/image-models";
@@ -62,21 +60,14 @@ export function ImageGenerationForm() {
   });
 
   const promptValue = form.watch("prompt") ?? "";
-  const aspectRatio = form.watch("aspectRatio") ?? imageGenerationDefaults.aspectRatio;
-  const resolution = form.watch("resolution") ?? imageGenerationDefaults.resolution;
-  const imageCount = form.watch("imageCount") ?? imageGenerationDefaults.imageCount;
-  const cfgScale = form.watch("cfgScale") ?? imageGenerationDefaults.cfgScale;
+  const width = form.watch("width") ?? imageGenerationDefaults.width;
+  const height = form.watch("height") ?? imageGenerationDefaults.height;
   const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
   const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
   const [initImagePreviews, setInitImagePreviews] = useState<
     Array<{ id: string; url: string; dataUrl: string }>
   >([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const aspectMeta = useMemo(
-    () => resolveAspectRatioSize(aspectRatio, resolution),
-    [aspectRatio, resolution],
-  );
 
   const maxInputImages =
     modelImageLimits[activeModel]?.maxInputImages ?? 0;
@@ -87,6 +78,8 @@ export function ImageGenerationForm() {
     form.setValue("steps", defaults.steps);
     form.setValue("cfgScale", defaults.cfgScale);
     form.setValue("sampler", defaults.sampler);
+    form.setValue("width", defaults.width);
+    form.setValue("height", defaults.height);
 
     if (activeModel === "z-image-turbo" || activeModel === "sdxl-turbo") {
       form.setValue("seed", "");
@@ -122,8 +115,6 @@ export function ImageGenerationForm() {
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
-  const isTurboModel =
-    activeModel === "z-image-turbo" || activeModel === "sdxl-turbo";
 
   const handleOpenImagePicker = () => {
     if (!canUploadImages || initImagePreviews.length >= maxInputImages) {
@@ -489,163 +480,71 @@ export function ImageGenerationForm() {
             <div className="flex flex-col gap-8">
               <div className="flex flex-col gap-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Aspect_Ratio
+                  Output_Size
                 </span>
-                <FormField
-                  control={form.control}
-                  name="aspectRatio"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-4 gap-2">
-                      {aspectRatioOptions.map((ratio) => {
-                        const isActive = field.value === ratio;
-                        const boxClass =
-                          ratio === "1:1"
-                            ? "h-4 w-4"
-                            : ratio === "4:3"
-                              ? "h-3 w-4"
-                              : ratio === "16:9"
-                                ? "h-3 w-5"
-                                : "h-5 w-3";
-
-                        return (
-                          <button
-                            key={ratio}
-                            type="button"
-                            onClick={() => field.onChange(ratio)}
-                            className={cn(
-                              "flex flex-col items-center justify-center gap-1 rounded-lg border px-3 py-3 text-[10px] font-bold transition-all",
-                              isActive
-                                ? "border-primary bg-primary/10 text-white"
-                                : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "rounded-sm border-2",
-                                isActive ? "border-primary" : "border-current",
-                                boxClass,
-                              )}
-                            />
-                            {ratio}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                />
-                <div className="flex items-center justify-between px-1 text-xs text-gray-400">
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="width"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-2">
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                          Width
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={imageSizeRange.min}
+                            max={imageSizeRange.max}
+                            step={imageSizeRange.step}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(Number(event.target.value))
+                            }
+                            className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="height"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-2">
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                          Height
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={imageSizeRange.min}
+                            max={imageSizeRange.max}
+                            step={imageSizeRange.step}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(Number(event.target.value))
+                            }
+                            className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="flex items-center justify-between px-1 text-xs text-gray-500">
                   <span>
-                    Width: <span className="text-white">{aspectMeta.width}</span>
+                    Range: {imageSizeRange.min} ~ {imageSizeRange.max}px
                   </span>
-                  <span>
-                    Height: <span className="text-white">{aspectMeta.height}</span>
+                  <span className="text-white">
+                    {width} × {height}
                   </span>
                 </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Resolution
-                </span>
-                <FormField
-                  control={form.control}
-                  name="resolution"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-2 gap-2">
-                      {resolutionOptions.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => field.onChange(option)}
-                          className={cn(
-                            "rounded-lg border px-3 py-3 text-[10px] font-bold transition-all",
-                            field.value === option
-                              ? "border-primary bg-primary/10 text-white"
-                              : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                          )}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                />
               </div>
 
               <div className="h-px bg-white/5" />
 
               <div className="flex flex-col gap-6">
-                {isTurboModel && (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary">
-                    Turbo 모델은 steps/CFG/샘플러가 자동으로 최적값으로 고정됩니다.
-                  </div>
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="imageCount"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Image_Count
-                        </FormLabel>
-                        <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary font-mono">
-                          {imageCount}
-                        </span>
-                      </div>
-                      <FormControl>
-                        <input
-                          type="range"
-                          min={1}
-                          max={8}
-                          step={1}
-                          value={field.value}
-                          onChange={(event) =>
-                            field.onChange(Number(event.target.value))
-                          }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </FormControl>
-                      <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
-                        <span>1</span>
-                        <span>8</span>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="cfgScale"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          CFG_Scale
-                        </FormLabel>
-                        <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                          {cfgScale.toFixed(1)}
-                        </span>
-                      </div>
-                      <FormControl>
-                        <input
-                          type="range"
-                          min={0}
-                          max={20}
-                          step={0.5}
-                          value={field.value}
-                          disabled={isTurboModel}
-                          onChange={(event) =>
-                            field.onChange(Number(event.target.value))
-                          }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
                 <FormField
                   control={form.control}
                   name="steps"
@@ -662,11 +561,10 @@ export function ImageGenerationForm() {
                       <FormControl>
                         <input
                           type="range"
-                          min={1}
-                          max={150}
+                          min={imageStepsRange.min}
+                          max={imageStepsRange.max}
                           step={1}
                           value={field.value}
-                          disabled={isTurboModel}
                           onChange={(event) =>
                             field.onChange(Number(event.target.value))
                           }
@@ -694,47 +592,14 @@ export function ImageGenerationForm() {
                           <Input
                             className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                             placeholder="-1 (Random)"
-                            disabled={isTurboModel}
                             {...field}
                           />
                           <button
                             type="button"
-                            disabled={isTurboModel}
                             className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
                           >
                             <Dice5 className="h-4 w-4" />
                           </button>
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="sampler"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-2">
-                      <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                        Sampler
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <select
-                            className="h-10 w-full appearance-none rounded-lg border border-white/10 bg-surface-lighter px-3 py-2 text-sm text-white focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={isTurboModel}
-                          >
-                            {samplerOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-                            ▾
-                          </span>
                         </div>
                       </FormControl>
                     </FormItem>

@@ -11,17 +11,13 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import {
-  resolveVideoAspectRatioSize,
-  videoAspectRatioOptions,
-  videoDurationOptions,
-  videoFpsOptions,
   videoGenerationDefaults,
   videoGenerationSchema,
   videoModelMeta,
-  videoResolutionOptions,
+  videoDurationRange,
   type VideoGenerationFormValues,
   type VideoGenerationModel,
 } from "@/features/video-generation/model/video-generation-schema";
@@ -58,25 +54,16 @@ export function VideoGenerationForm() {
   });
 
   const promptValue = form.watch("prompt") ?? "";
-  const aspectRatio =
-    form.watch("aspectRatio") ?? videoGenerationDefaults.aspectRatio;
-  const resolution =
-    form.watch("resolution") ?? videoGenerationDefaults.resolution;
   const durationSec =
     form.watch("durationSec") ?? videoGenerationDefaults.durationSec;
-  const fps = form.watch("fps") ?? videoGenerationDefaults.fps;
   const activeModel =
     form.watch("model") ?? videoGenerationDefaults.model;
   const initImageValue = form.watch("initImage") ?? "";
   const supportsInitImage =
     videoModelMeta[activeModel]?.supportsInitImage ?? false;
   const hasInitImage = Boolean(initImageValue);
-  const canSubmit = promptValue.trim().length > 0;
-
-  const aspectMeta = useMemo(
-    () => resolveVideoAspectRatioSize(aspectRatio, resolution),
-    [aspectRatio, resolution],
-  );
+  const canSubmit =
+    promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     initImageValue || null,
@@ -347,11 +334,11 @@ export function VideoGenerationForm() {
                                 <ImagePlus className="h-5 w-5" />
                               </button>
                               <span className="text-[10px] font-mono text-gray-600">
-                                {!supportsInitImage
-                                  ? "TEXT ONLY"
-                                  : hasInitImage
+                                {supportsInitImage
+                                  ? hasInitImage
                                     ? "IMAGE TO VIDEO"
-                                    : "TEXT TO VIDEO"}
+                                    : "IMAGE REQUIRED"
+                                  : "TEXT ONLY"}
                               </span>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600">
@@ -402,154 +389,50 @@ export function VideoGenerationForm() {
             <div className="flex flex-col gap-8">
               <div className="flex flex-col gap-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Aspect_Ratio
+                  Output_Size
                 </span>
-                <FormField
-                  control={form.control}
-                  name="aspectRatio"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-3 gap-2">
-                      {videoAspectRatioOptions.map((ratio) => {
-                        const isActive = field.value === ratio;
-                        const boxClass =
-                          ratio === "1:1"
-                            ? "h-4 w-4"
-                            : ratio === "16:9"
-                              ? "h-3 w-5"
-                              : "h-5 w-3";
-
-                        return (
-                          <button
-                            key={ratio}
-                            type="button"
-                            onClick={() => field.onChange(ratio)}
-                            className={cn(
-                              "flex flex-col items-center justify-center gap-1 rounded-lg border px-3 py-3 text-[10px] font-bold transition-all",
-                              isActive
-                                ? "border-primary bg-primary/10 text-white"
-                                : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "rounded-sm border-2",
-                                isActive ? "border-primary" : "border-current",
-                                boxClass,
-                              )}
-                            />
-                            {ratio}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                />
-                <div className="flex items-center justify-between px-1 text-xs text-gray-400">
-                  <span>
-                    Width: <span className="text-white">{aspectMeta.width}</span>
+                <div className="rounded-xl border border-white/10 bg-surface-lighter px-4 py-3 text-xs text-gray-400">
+                  이 스페이스는 해상도/비율 변경을 지원하지 않습니다.{" "}
+                  <span className="text-white">
+                    이미지 입력이 있으면 그 비율을 참고
                   </span>
-                  <span>
-                    Height:{" "}
-                    <span className="text-white">{aspectMeta.height}</span>
-                  </span>
+                  하며, 텍스트 전용은 기본 해상도로 생성됩니다.
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Resolution
-                </span>
-                <FormField
-                  control={form.control}
-                  name="resolution"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-2 gap-2">
-                      {videoResolutionOptions.map((value) => {
-                        const isActive = field.value === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => field.onChange(value)}
-                            className={cn(
-                              "rounded-lg border px-4 py-2 text-xs font-bold transition-all",
-                              isActive
-                                ? "border-primary bg-primary/10 text-white"
-                                : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                            )}
-                          >
-                            {value}p
-                          </button>
-                        );
-                      })}
+              <FormField
+                control={form.control}
+                name="durationSec"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                        Duration_Sec
+                      </span>
+                      <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                        {durationSec}s
+                      </span>
                     </div>
-                  )}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Duration_Sec
-                </span>
-                <FormField
-                  control={form.control}
-                  name="durationSec"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-4 gap-2">
-                      {videoDurationOptions.map((value) => {
-                        const isActive = field.value === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => field.onChange(value)}
-                            className={cn(
-                              "rounded-lg border px-3 py-2 text-xs font-bold transition-all",
-                              isActive
-                                ? "border-primary bg-primary/10 text-white"
-                                : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                            )}
-                          >
-                            {value}s
-                          </button>
-                        );
-                      })}
+                    <FormControl>
+                      <input
+                        type="range"
+                        min={videoDurationRange.min}
+                        max={videoDurationRange.max}
+                        step={videoDurationRange.step}
+                        value={field.value}
+                        onChange={(event) =>
+                          field.onChange(Number(event.target.value))
+                        }
+                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                      />
+                    </FormControl>
+                    <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
+                      <span>{videoDurationRange.min}s</span>
+                      <span>{videoDurationRange.max}s</span>
                     </div>
-                  )}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  FPS
-                </span>
-                <FormField
-                  control={form.control}
-                  name="fps"
-                  render={({ field }) => (
-                    <div className="grid grid-cols-3 gap-2">
-                      {videoFpsOptions.map((value) => {
-                        const isActive = field.value === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => field.onChange(value)}
-                            className={cn(
-                              "rounded-lg border px-3 py-2 text-xs font-bold transition-all",
-                              isActive
-                                ? "border-primary bg-primary/10 text-white"
-                                : "border-white/10 bg-surface-lighter text-gray-400 hover:bg-white/5 hover:text-white",
-                            )}
-                          >
-                            {value} fps
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                />
-              </div>
+                  </FormItem>
+                )}
+              />
             </div>
           </aside>
         </div>
