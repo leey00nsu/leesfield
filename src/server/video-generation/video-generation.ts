@@ -18,6 +18,20 @@ function getAdapter(): VideoGenerationAdapter {
   return hfSpaceVideoAdapter;
 }
 
+function mapProviderError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "비디오 생성에 실패했습니다.";
+  }
+  const message = error.message;
+  if (message.startsWith("HF_SPACE_NOT_READY")) {
+    return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
+  }
+  if (message === "HF_SPACE_STATUS_FETCH_FAILED") {
+    return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
+  }
+  return message || "비디오 생성에 실패했습니다.";
+}
+
 export async function resolveVideoGenerationResult(
   payload: VideoGenerationFormValues,
   requestId: string
@@ -33,8 +47,7 @@ export async function resolveVideoGenerationResult(
   } catch (error) {
     return {
       status: "failed",
-      errorMessage:
-        error instanceof Error ? error.message : "비디오 생성에 실패했습니다.",
+      errorMessage: mapProviderError(error),
     };
   }
 }
