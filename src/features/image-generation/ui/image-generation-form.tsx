@@ -30,14 +30,16 @@ import { cn } from "@/shared/lib/utils";
 import {
   imageGenerationDefaults,
   imageGenerationSchema,
-  imageSizeRange,
-  imageStepsRange,
   type ImageGenerationModel,
   modelDefaults,
   modelImageLimits,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
-import { imageModels } from "@/features/image-generation/model/image-models";
+import {
+  getImageParamConfig,
+  getImageParamRange,
+  imageModels,
+} from "@/features/image-generation/model/image-models";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 
 const modelOptions = imageModels.map((model, index) => ({
@@ -64,6 +66,17 @@ export function ImageGenerationForm() {
   const height = form.watch("height") ?? imageGenerationDefaults.height;
   const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
   const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
+  const widthRange = getImageParamRange(activeModel, "width");
+  const heightRange = getImageParamRange(activeModel, "height");
+  const stepsRange = getImageParamRange(activeModel, "steps");
+  const widthConfig = getImageParamConfig(activeModel, "width");
+  const heightConfig = getImageParamConfig(activeModel, "height");
+  const stepsConfig = getImageParamConfig(activeModel, "steps");
+  const seedConfig = getImageParamConfig(activeModel, "seed");
+  const showSizeControls =
+    widthConfig?.ui !== "hidden" || heightConfig?.ui !== "hidden";
+  const showSteps = stepsConfig?.ui !== "hidden";
+  const showSeed = seedConfig?.ui !== "hidden";
   const [initImagePreviews, setInitImagePreviews] = useState<
     Array<{ id: string; url: string; dataUrl: string }>
   >([]);
@@ -76,8 +89,6 @@ export function ImageGenerationForm() {
   useEffect(() => {
     const defaults = modelDefaults[activeModel];
     form.setValue("steps", defaults.steps);
-    form.setValue("cfgScale", defaults.cfgScale);
-    form.setValue("sampler", defaults.sampler);
     form.setValue("width", defaults.width);
     form.setValue("height", defaults.height);
 
@@ -433,28 +444,6 @@ export function ImageGenerationForm() {
                 </Button>
               </div>
 
-              {/* Negative prompt는 추후 사용 예정 */}
-              {/*
-                <FormField
-                  control={form.control}
-                  name="negativePrompt"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-4 px-2">
-                      <FormLabel className="w-24 shrink-0 text-[10px] font-bold uppercase tracking-widest text-red-500 font-mono">
-                        Negative_Prompt
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="ugly, deformed, blurry, low quality..."
-                          className="h-10 border-white/5 bg-surface-lighter/50 text-sm text-gray-400 transition-colors focus:text-white focus-visible:border-red-500/50 focus-visible:ring-0"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage className="text-xs text-red-400" />
-                    </FormItem>
-                  )}
-                />
-              */}
             </div>
           </div>
 
@@ -478,134 +467,144 @@ export function ImageGenerationForm() {
             </div>
 
             <div className="flex flex-col gap-8">
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Output_Size
-                </span>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name="width"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-2">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Width
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={imageSizeRange.min}
-                            max={imageSizeRange.max}
-                            step={imageSizeRange.step}
-                            value={field.value}
-                            onChange={(event) =>
-                              field.onChange(Number(event.target.value))
-                            }
-                            className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="height"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-2">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Height
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={imageSizeRange.min}
-                            max={imageSizeRange.max}
-                            step={imageSizeRange.step}
-                            value={field.value}
-                            onChange={(event) =>
-                              field.onChange(Number(event.target.value))
-                            }
-                            className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="flex items-center justify-between px-1 text-xs text-gray-500">
-                  <span>
-                    Range: {imageSizeRange.min} ~ {imageSizeRange.max}px
+              {showSizeControls && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                    Output_Size
                   </span>
-                  <span className="text-white">
-                    {width} × {height}
-                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    {widthConfig?.ui !== "hidden" && (
+                      <FormField
+                        control={form.control}
+                        name="width"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col gap-2">
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                              Width
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={widthRange.min}
+                                max={widthRange.max}
+                                step={widthRange.step}
+                                value={field.value}
+                                onChange={(event) =>
+                                  field.onChange(Number(event.target.value))
+                                }
+                                className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    {heightConfig?.ui !== "hidden" && (
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col gap-2">
+                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                              Height
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={heightRange.min}
+                                max={heightRange.max}
+                                step={heightRange.step}
+                                value={field.value}
+                                onChange={(event) =>
+                                  field.onChange(Number(event.target.value))
+                                }
+                                className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-1 text-xs text-gray-500">
+                    <span>
+                      Range: {widthRange.min} ~ {widthRange.max}px
+                    </span>
+                    <span className="text-white">
+                      {width} × {height}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="h-px bg-white/5" />
 
-              <div className="flex flex-col gap-6">
-                <FormField
-                  control={form.control}
-                  name="steps"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Steps
-                        </FormLabel>
-                        <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                          {steps}
-                        </span>
-                      </div>
-                      <FormControl>
-                        <input
-                          type="range"
-                          min={imageStepsRange.min}
-                          max={imageStepsRange.max}
-                          step={1}
-                          value={field.value}
-                          onChange={(event) =>
-                            field.onChange(Number(event.target.value))
-                          }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="h-px bg-white/5" />
-
-              <div className="flex flex-col gap-4">
-                <FormField
-                  control={form.control}
-                  name="seed"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-2">
-                      <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                        Seed
-                      </FormLabel>
-                      <FormControl>
-                        <div className="flex gap-2">
-                          <Input
-                            className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="-1 (Random)"
-                            {...field}
-                          />
-                          <button
-                            type="button"
-                            className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
-                          >
-                            <Dice5 className="h-4 w-4" />
-                          </button>
+              {showSteps && (
+                <div className="flex flex-col gap-6">
+                  <FormField
+                    control={form.control}
+                    name="steps"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                            Steps
+                          </FormLabel>
+                          <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                            {steps}
+                          </span>
                         </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FormControl>
+                          <input
+                            type="range"
+                            min={stepsRange.min}
+                            max={stepsRange.max}
+                            step={stepsRange.step}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(Number(event.target.value))
+                            }
+                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              <div className="h-px bg-white/5" />
+
+              {showSeed && (
+                <div className="flex flex-col gap-4">
+                  <FormField
+                    control={form.control}
+                    name="seed"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-2">
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                          Seed
+                        </FormLabel>
+                        <FormControl>
+                          <div className="flex gap-2">
+                            <Input
+                              className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              placeholder="-1 (Random)"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
+                            >
+                              <Dice5 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
             </div>
           </aside>
         </div>

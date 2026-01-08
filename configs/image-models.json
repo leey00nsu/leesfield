@@ -6,13 +6,54 @@
       "key": "z-image-turbo",
       "label": "Z-Image Turbo",
       "vendor": "HUGGINGFACE",
+      "provider": "hf_space",
       "pipeline": "diffusion",
       "model_id": "leey00nsu/Z-Image-Turbo",
+      "api": {
+        "space_id": "leey00nsu/Z-Image-Turbo",
+        "api_name": "/generate_image",
+        "timeout_ms": 300000
+      },
+      "parameters": {
+        "prompt": {
+          "ui": "textarea",
+          "required": true
+        },
+        "width": {
+          "ui": "input",
+          "min": 512,
+          "max": 2048,
+          "step": 1,
+          "default": 1024
+        },
+        "height": {
+          "ui": "input",
+          "min": 512,
+          "max": 2048,
+          "step": 1,
+          "default": 1024
+        },
+        "steps": {
+          "ui": "range",
+          "min": 1,
+          "max": 20,
+          "step": 1,
+          "default": 9
+        },
+        "seed": {
+          "ui": "input",
+          "default": ""
+        },
+        "imageCount": {
+          "ui": "hidden",
+          "min": 1,
+          "max": 1,
+          "default": 1
+        }
+      },
       "default_width": 1024,
       "default_height": 1024,
       "default_steps": 9,
-      "default_cfg_scale": 0,
-      "default_sampler": "Default",
       "max_input_images": 0
     }
   ]

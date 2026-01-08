@@ -2,18 +2,57 @@ import { z } from "zod";
 import rawCatalog from "@/../configs/image-models.json";
 
 const pipelineOptions = ["diffusion", "sd", "sdxl"] as const;
+const parameterUiOptions = [
+  "range",
+  "input",
+  "textarea",
+  "select",
+  "toggle",
+  "hidden",
+  "card",
+  "upload",
+] as const;
+
+const parameterSchema = z.object({
+  ui: z.enum(parameterUiOptions),
+  label: z.string().optional(),
+  required: z.boolean().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
+  default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  options: z.array(z.union([z.string(), z.number()])).optional(),
+});
+
+const apiSchema = z.object({
+  space_id: z.string().min(1),
+  api_name: z.string().min(1),
+  timeout_ms: z.number().int().positive().optional(),
+  space_url: z.string().min(1).optional(),
+});
+
+const imageParametersSchema = z
+  .object({
+    prompt: parameterSchema,
+    width: parameterSchema,
+    height: parameterSchema,
+    steps: parameterSchema,
+    seed: parameterSchema.optional(),
+    imageCount: parameterSchema,
+  });
 
 const imageModelSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
+  provider: z.string().min(1),
   pipeline: z.enum(pipelineOptions),
   model_id: z.string().min(1),
+  api: apiSchema,
+  parameters: imageParametersSchema,
   default_width: z.number().int().positive(),
   default_height: z.number().int().positive(),
   default_steps: z.number().int().positive(),
-  default_cfg_scale: z.number().nonnegative(),
-  default_sampler: z.string().min(1),
   max_input_images: z.number().int().nonnegative(),
 });
 
@@ -42,23 +81,94 @@ export const modelOptions = ensureNonEmpty(modelKeys);
 
 export type ImageGenerationModel = (typeof modelOptions)[number];
 
+export type ImageModelParameters = ImageModel["parameters"];
+export type ImageParameterKey = keyof ImageModelParameters;
+export type ImageParameterConfig = ImageModelParameters[ImageParameterKey];
+
+type NumericRange = { min: number; max: number; step: number };
+
+const fallbackRanges: Record<"size" | "steps" | "count", NumericRange> = {
+  size: { min: 1, max: 4096, step: 1 },
+  steps: { min: 1, max: 50, step: 1 },
+  count: { min: 1, max: 1, step: 1 },
+};
+
+function resolveNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function resolveRange(
+  param: ImageParameterConfig | undefined,
+  fallback: NumericRange,
+): NumericRange {
+  return {
+    min: resolveNumber(param?.min, fallback.min),
+    max: resolveNumber(param?.max, fallback.max),
+    step: resolveNumber(param?.step, fallback.step),
+  };
+}
+
+export function getImageModelConfig(model: ImageGenerationModel): ImageModel {
+  const resolved = imageModels.find((entry) => entry.key === model);
+  if (!resolved) {
+    throw new Error(`IMAGE_MODEL_NOT_FOUND:${model}`);
+  }
+  return resolved;
+}
+
+export function getImageParamConfig(
+  model: ImageGenerationModel,
+  key: ImageParameterKey,
+) {
+  return getImageModelConfig(model).parameters[key];
+}
+
+export function getImageParamRange(
+  model: ImageGenerationModel,
+  key: ImageParameterKey,
+): NumericRange {
+  const fallback =
+    key === "steps"
+      ? fallbackRanges.steps
+      : key === "imageCount"
+        ? fallbackRanges.count
+        : fallbackRanges.size;
+  return resolveRange(getImageParamConfig(model, key), fallback);
+}
+
+function getNumericDefault(
+  model: ImageGenerationModel,
+  key: ImageParameterKey,
+  fallback: number,
+) {
+  const param = getImageParamConfig(model, key);
+  const value = param?.default;
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 export const modelDefaults: Record<
   ImageGenerationModel,
-  { steps: number; cfgScale: number; sampler: string; width: number; height: number }
+  { steps: number; width: number; height: number }
 > = Object.fromEntries(
   imageModels.map((model) => [
     model.key,
     {
-      steps: model.default_steps,
-      cfgScale: model.default_cfg_scale,
-      sampler: model.default_sampler,
-      width: model.default_width,
-      height: model.default_height,
+      steps: getNumericDefault(model.key as ImageGenerationModel, "steps", model.default_steps),
+      width: getNumericDefault(
+        model.key as ImageGenerationModel,
+        "width",
+        model.default_width,
+      ),
+      height: getNumericDefault(
+        model.key as ImageGenerationModel,
+        "height",
+        model.default_height,
+      ),
     },
   ])
 ) as Record<
   ImageGenerationModel,
-  { steps: number; cfgScale: number; sampler: string; width: number; height: number }
+  { steps: number; width: number; height: number }
 >;
 
 export const modelImageLimits: Record<

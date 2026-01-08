@@ -6,12 +6,70 @@
       "key": "wan2-2-hf",
       "label": "Wan 2.2 (HF Space)",
       "vendor": "HUGGINGFACE",
+      "provider": "hf_space",
       "supports_init_image": true,
       "t2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
       "i2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
+      "api": {
+        "space_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
+        "api_name": "/generate_video",
+        "timeout_ms": 300000
+      },
+      "parameters": {
+        "prompt": {
+          "ui": "textarea",
+          "required": true
+        },
+        "initImage": {
+          "ui": "upload",
+          "required": true
+        },
+        "durationSec": {
+          "ui": "range",
+          "min": 1,
+          "max": 5,
+          "step": 0.5,
+          "default": 3.5
+        },
+        "steps": {
+          "ui": "range",
+          "min": 4,
+          "max": 8,
+          "step": 1,
+          "default": 6
+        },
+        "guidanceScale": {
+          "ui": "range",
+          "min": 0,
+          "max": 10,
+          "step": 0.5,
+          "default": 1
+        },
+        "seed": {
+          "ui": "input",
+          "default": ""
+        },
+        "aspectRatio": {
+          "ui": "hidden",
+          "options": ["16:9", "9:16", "1:1"],
+          "default": "16:9"
+        },
+        "resolution": {
+          "ui": "hidden",
+          "options": [480, 640, 720, 832],
+          "default": 720
+        },
+        "fps": {
+          "ui": "hidden",
+          "min": 16,
+          "max": 16,
+          "step": 1,
+          "default": 16
+        }
+      },
       "default_width": 832,
       "default_height": 480,
-      "default_duration_sec": 2,
+      "default_duration_sec": 3.5,
       "default_fps": 16,
       "default_steps": 6,
       "default_guidance_scale": 1.0

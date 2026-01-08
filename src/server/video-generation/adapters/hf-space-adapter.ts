@@ -1,17 +1,14 @@
 import { Client, handle_file } from "@gradio/client";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import { videoModelMeta } from "@/features/video-generation/model/video-generation-schema";
+import {
+  getVideoModelConfig,
+  getVideoParamRange,
+  videoModelDefaults,
+} from "@/features/video-generation/model/video-models";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
 
-const DEFAULT_SPACE_ID = "leey00nsu/wan2-2-fp8da-aoti-faster";
-const DEFAULT_API_NAME = "/generate_video";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
-const MIN_DURATION_SEC = 0.5;
-const MAX_DURATION_SEC = 5.0;
-const MIN_STEPS = 4;
-const MAX_STEPS = 8;
-const MIN_GUIDANCE = 0.0;
-const MAX_GUIDANCE = 10.0;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
 
@@ -23,47 +20,50 @@ type SpaceConfig = {
   spaceUrl: string;
 };
 
-let cachedClientPromise: Promise<Client> | null = null;
-let lastStatusCheckAt = 0;
-let lastStatusOk: boolean | null = null;
+const clientCache = new Map<string, Promise<Client>>();
+const statusCache = new Map<
+  string,
+  { checkedAt: number; ok: boolean | null }
+>();
 
-function resolveSpaceUrl(spaceId: string) {
-  const explicit = process.env.HF_VIDEO_SPACE_URL?.trim();
-  if (explicit) return explicit;
+function resolveSpaceUrl(spaceId: string, explicit?: string) {
+  if (explicit?.trim()) return explicit.trim();
   const slug = spaceId.replace("/", "-");
   return `https://${slug}.hf.space`;
 }
 
-function getSpaceConfig(): SpaceConfig {
-  const spaceId = process.env.HF_VIDEO_SPACE_ID?.trim() || DEFAULT_SPACE_ID;
-  const apiName = process.env.HF_VIDEO_SPACE_API_NAME?.trim() || DEFAULT_API_NAME;
-  const timeoutRaw = Number(
-    process.env.HF_VIDEO_SPACE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS
-  );
+function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConfig {
+  const model = getVideoModelConfig(modelKey);
+  if (model.provider !== "hf_space") {
+    throw new Error("VIDEO_PROVIDER_NOT_SUPPORTED");
+  }
+  const timeoutRaw = Number(model.api.timeout_ms ?? DEFAULT_TIMEOUT_MS);
   const tokenValue =
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
 
   return {
-    spaceId,
-    apiName,
+    spaceId: model.api.space_id,
+    apiName: model.api.api_name,
     token: tokenValue as `hf_${string}` | undefined,
     timeoutMs: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_TIMEOUT_MS,
-    spaceUrl: resolveSpaceUrl(spaceId),
+    spaceUrl: resolveSpaceUrl(model.api.space_id, model.api.space_url),
   };
 }
 
 async function getClient(config: SpaceConfig) {
-  if (!cachedClientPromise) {
-    cachedClientPromise = Client.connect(config.spaceId, {
+  let cached = clientCache.get(config.spaceId);
+  if (!cached) {
+    cached = Client.connect(config.spaceId, {
       token: config.token,
     });
+    clientCache.set(config.spaceId, cached);
   }
   try {
-    return await cachedClientPromise;
+    return await cached;
   } catch (error) {
-    cachedClientPromise = null;
+    clientCache.delete(config.spaceId);
     throw error;
   }
 }
@@ -91,12 +91,14 @@ function extractRuntimeStage(payload: Record<string, unknown>) {
 
 async function ensureSpaceRunning(config: SpaceConfig) {
   const now = Date.now();
+  const cached = statusCache.get(config.spaceId);
   if (
-    lastStatusCheckAt > 0 &&
-    now - lastStatusCheckAt < STATUS_CHECK_TTL_MS &&
-    lastStatusOk !== null
+    cached &&
+    cached.checkedAt > 0 &&
+    now - cached.checkedAt < STATUS_CHECK_TTL_MS &&
+    cached.ok !== null
   ) {
-    if (!lastStatusOk) {
+    if (!cached.ok) {
       throw new Error("HF_SPACE_NOT_READY");
     }
     return;
@@ -115,24 +117,21 @@ async function ensureSpaceRunning(config: SpaceConfig) {
       signal: controller.signal,
     });
     if (!response.ok) {
-      lastStatusOk = false;
-      lastStatusCheckAt = Date.now();
+      statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
       throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
     }
     const data = (await response.json()) as Record<string, unknown>;
     const stage = extractRuntimeStage(data);
     const normalized = stage?.toUpperCase() ?? "";
     const ok = normalized === "RUNNING" || normalized === "READY";
-    lastStatusOk = ok;
-    lastStatusCheckAt = Date.now();
+    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok });
     if (!ok) {
       throw new Error(
         stage ? `HF_SPACE_NOT_READY:${stage}` : "HF_SPACE_NOT_READY"
       );
     }
   } catch (error) {
-    lastStatusOk = false;
-    lastStatusCheckAt = Date.now();
+    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
     throw error;
   } finally {
     clearTimeout(timeoutId);
@@ -141,24 +140,19 @@ async function ensureSpaceRunning(config: SpaceConfig) {
 
 function normalizeApiName(value: string) {
   const trimmed = value.trim();
-  if (!trimmed) return DEFAULT_API_NAME;
+  if (!trimmed) return "/generate_video";
   if (trimmed.startsWith("/")) return trimmed;
   return `/${trimmed}`;
 }
 
-function clampDuration(seconds: number) {
-  if (!Number.isFinite(seconds)) return MIN_DURATION_SEC;
-  return Math.min(MAX_DURATION_SEC, Math.max(MIN_DURATION_SEC, seconds));
-}
-
-function clampSteps(steps: number) {
-  if (!Number.isFinite(steps)) return MIN_STEPS;
-  return Math.min(MAX_STEPS, Math.max(MIN_STEPS, Math.round(steps)));
-}
-
-function clampGuidance(scale: number) {
-  if (!Number.isFinite(scale)) return MIN_GUIDANCE;
-  return Math.min(MAX_GUIDANCE, Math.max(MIN_GUIDANCE, scale));
+function clampNumber(value: number, range: { min: number; max: number; step: number }) {
+  if (!Number.isFinite(value)) return range.min;
+  let resolved = Math.min(range.max, Math.max(range.min, value));
+  if (range.step > 0) {
+    const steps = Math.round((resolved - range.min) / range.step);
+    resolved = range.min + steps * range.step;
+  }
+  return resolved;
 }
 
 function parseSeed(seed?: string) {
@@ -243,22 +237,35 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       throw new Error("INIT_IMAGE_REQUIRED");
     }
 
-    const config = getSpaceConfig();
+    const config = getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
 
     const { buffer, mime } = decodeImageToBuffer(initImage);
     const imageFile = await handle_file(new Blob([buffer], { type: mime }));
-    const durationSeconds = clampDuration(payload.durationSec);
-    const guidanceScale = clampGuidance(Number(payload.guidanceScale ?? 1));
-    const steps = clampSteps(Number(payload.steps ?? MIN_STEPS));
+    const defaults = videoModelDefaults[payload.model];
+    const durationRange = getVideoParamRange(payload.model, "durationSec");
+    const stepsRange = getVideoParamRange(payload.model, "steps");
+    const guidanceRange = getVideoParamRange(payload.model, "guidanceScale");
+    const durationSeconds = clampNumber(
+      payload.durationSec ?? defaults.durationSec,
+      durationRange,
+    );
+    const guidanceScale = clampNumber(
+      Number(payload.guidanceScale ?? defaults.guidanceScale),
+      guidanceRange,
+    );
+    const steps = clampNumber(
+      Number(payload.steps ?? defaults.steps),
+      stepsRange,
+    );
     const { seedValue, randomize } = parseSeed(payload.seed);
-    const apiName = normalizeApiName(config.apiName || DEFAULT_API_NAME);
+    const apiName = normalizeApiName(config.apiName || "/generate_video");
 
     const predictPromise = client.predict(apiName, {
       input_image: imageFile,
       prompt: payload.prompt,
-      steps,
+      steps: Math.round(steps),
       duration_seconds: durationSeconds,
       guidance_scale: guidanceScale,
       guidance_scale_2: guidanceScale,

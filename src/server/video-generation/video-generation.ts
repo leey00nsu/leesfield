@@ -1,21 +1,22 @@
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
+import { getVideoModelConfig } from "@/features/video-generation/model/video-models";
 import { hfSpaceVideoAdapter } from "@/server/video-generation/adapters/hf-space-adapter";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
 import { uploadGeneratedVideos } from "@/server/video-generation/leemage-storage";
 
 type VideoProvider = "hf_space";
 
-function resolveVideoProvider(): VideoProvider {
-  const raw = process.env.VIDEO_PROVIDER?.trim().toLowerCase();
-  if (raw === "hf_space") return "hf_space";
-  if (!raw) return "hf_space";
-  throw new Error(`VIDEO_PROVIDER 설정이 올바르지 않습니다: ${raw}`);
+function resolveVideoProvider(modelKey: VideoGenerationFormValues["model"]): VideoProvider {
+  const provider = getVideoModelConfig(modelKey).provider;
+  if (provider === "hf_space") return "hf_space";
+  throw new Error(`VIDEO_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
-function getAdapter(): VideoGenerationAdapter {
-  resolveVideoProvider();
-  return hfSpaceVideoAdapter;
+function getAdapter(modelKey: VideoGenerationFormValues["model"]): VideoGenerationAdapter {
+  const provider = resolveVideoProvider(modelKey);
+  if (provider === "hf_space") return hfSpaceVideoAdapter;
+  throw new Error(`VIDEO_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
 function mapProviderError(error: unknown) {
@@ -80,7 +81,7 @@ export async function resolveVideoGenerationResult(
   errorMessage?: string;
 }> {
   try {
-    const adapter = getAdapter();
+    const adapter = getAdapter(payload.model);
     const result = await adapter.generate(payload);
     return uploadGeneratedVideos(payload, requestId, result.videos, result.meta);
   } catch (error) {

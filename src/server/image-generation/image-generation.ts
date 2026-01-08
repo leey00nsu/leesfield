@@ -1,20 +1,22 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
+import { getImageModelConfig } from "@/features/image-generation/model/image-models";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import { uploadGeneratedImages } from "@/server/image-generation/leemage-storage";
 
 type ImageProvider = "hf_space";
 
-function resolveImageProvider(): ImageProvider {
-  const raw = process.env.IMAGE_PROVIDER?.trim().toLowerCase();
-  if (!raw || raw === "hf_space") return "hf_space";
-  throw new Error(`IMAGE_PROVIDER 설정이 올바르지 않습니다: ${raw}`);
+function resolveImageProvider(modelKey: ImageGenerationFormValues["model"]): ImageProvider {
+  const provider = getImageModelConfig(modelKey).provider;
+  if (provider === "hf_space") return "hf_space";
+  throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
-function getAdapter(): ImageGenerationAdapter {
-  resolveImageProvider();
-  return hfSpaceImageAdapter;
+function getAdapter(modelKey: ImageGenerationFormValues["model"]): ImageGenerationAdapter {
+  const provider = resolveImageProvider(modelKey);
+  if (provider === "hf_space") return hfSpaceImageAdapter;
+  throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
 function mapProviderError(error: unknown) {
@@ -79,7 +81,7 @@ export async function resolveImageGenerationResult(
   errorMessage?: string;
 }> {
   try {
-    const adapter = getAdapter();
+    const adapter = getAdapter(payload.model);
     const result = await adapter.generate(payload);
     return uploadGeneratedImages(payload, requestId, result.images);
   } catch (error) {

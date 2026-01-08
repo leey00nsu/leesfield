@@ -1,15 +1,13 @@
 import { Client } from "@gradio/client";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
+import {
+  getImageModelConfig,
+  getImageParamRange,
+  modelDefaults,
+} from "@/features/image-generation/model/image-models";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 
-const DEFAULT_SPACE_ID = "leey00nsu/Z-Image-Turbo";
-const DEFAULT_API_NAME = "/generate_image";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
-const DEFAULT_SHIFT = 3.0;
-const MIN_STEPS = 1;
-const MAX_STEPS = 20;
-const MIN_SIZE = 512;
-const MAX_SIZE = 2048;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
 
@@ -21,51 +19,51 @@ type SpaceConfig = {
   spaceUrl: string;
 };
 
-let cachedClientPromise: Promise<Client> | null = null;
-let lastStatusCheckAt = 0;
-let lastStatusOk: boolean | null = null;
+const clientCache = new Map<string, Promise<Client>>();
+const statusCache = new Map<
+  string,
+  { checkedAt: number; ok: boolean | null }
+>();
 
-function resolveSpaceUrl(spaceId: string) {
-  const explicit = process.env.HF_IMAGE_SPACE_URL?.trim();
-  if (explicit) return explicit;
+function resolveSpaceUrl(spaceId: string, explicit?: string) {
+  if (explicit?.trim()) return explicit.trim();
   const slug = spaceId.replace("/", "-");
   return `https://${slug}.hf.space`;
 }
 
-function getSpaceConfig(): SpaceConfig {
-  const spaceId = process.env.HF_IMAGE_SPACE_ID?.trim() || DEFAULT_SPACE_ID;
-  const apiName =
-    process.env.HF_IMAGE_SPACE_API_NAME?.trim() || DEFAULT_API_NAME;
-  const timeoutRaw = Number(
-    process.env.HF_IMAGE_SPACE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS
-  );
+function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConfig {
+  const model = getImageModelConfig(modelKey);
+  if (model.provider !== "hf_space") {
+    throw new Error("IMAGE_PROVIDER_NOT_SUPPORTED");
+  }
+  const timeoutRaw = Number(model.api.timeout_ms ?? DEFAULT_TIMEOUT_MS);
   const tokenValue =
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
 
   return {
-    spaceId,
-    apiName,
+    spaceId: model.api.space_id,
+    apiName: model.api.api_name,
     token: tokenValue as `hf_${string}` | undefined,
     timeoutMs:
       Number.isFinite(timeoutRaw) && timeoutRaw > 0
         ? timeoutRaw
         : DEFAULT_TIMEOUT_MS,
-    spaceUrl: resolveSpaceUrl(spaceId),
+    spaceUrl: resolveSpaceUrl(model.api.space_id, model.api.space_url),
   };
 }
 
 async function getClient(config: SpaceConfig) {
-  if (!cachedClientPromise) {
-    cachedClientPromise = Client.connect(config.spaceId, {
-      token: config.token,
-    });
+  let cached = clientCache.get(config.spaceId);
+  if (!cached) {
+    cached = Client.connect(config.spaceId, { token: config.token });
+    clientCache.set(config.spaceId, cached);
   }
   try {
-    return await cachedClientPromise;
+    return await cached;
   } catch (error) {
-    cachedClientPromise = null;
+    clientCache.delete(config.spaceId);
     throw error;
   }
 }
@@ -93,12 +91,14 @@ function extractRuntimeStage(payload: Record<string, unknown>) {
 
 async function ensureSpaceRunning(config: SpaceConfig) {
   const now = Date.now();
+  const cached = statusCache.get(config.spaceId);
   if (
-    lastStatusCheckAt > 0 &&
-    now - lastStatusCheckAt < STATUS_CHECK_TTL_MS &&
-    lastStatusOk !== null
+    cached &&
+    cached.checkedAt > 0 &&
+    now - cached.checkedAt < STATUS_CHECK_TTL_MS &&
+    cached.ok !== null
   ) {
-    if (!lastStatusOk) {
+    if (!cached.ok) {
       throw new Error("HF_SPACE_NOT_READY");
     }
     return;
@@ -117,24 +117,21 @@ async function ensureSpaceRunning(config: SpaceConfig) {
       signal: controller.signal,
     });
     if (!response.ok) {
-      lastStatusOk = false;
-      lastStatusCheckAt = Date.now();
+      statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
       throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
     }
     const data = (await response.json()) as Record<string, unknown>;
     const stage = extractRuntimeStage(data);
     const normalized = stage?.toUpperCase() ?? "";
     const ok = normalized === "RUNNING" || normalized === "READY";
-    lastStatusOk = ok;
-    lastStatusCheckAt = Date.now();
+    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok });
     if (!ok) {
       throw new Error(
         stage ? `HF_SPACE_NOT_READY:${stage}` : "HF_SPACE_NOT_READY"
       );
     }
   } catch (error) {
-    lastStatusOk = false;
-    lastStatusCheckAt = Date.now();
+    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
     throw error;
   } finally {
     clearTimeout(timeoutId);
@@ -143,7 +140,7 @@ async function ensureSpaceRunning(config: SpaceConfig) {
 
 function normalizeApiName(value: string) {
   const trimmed = value.trim();
-  if (!trimmed) return DEFAULT_API_NAME;
+  if (!trimmed) return "/generate_image";
   if (trimmed.startsWith("/")) return trimmed;
   return `/${trimmed}`;
 }
@@ -160,14 +157,14 @@ function parseSeed(seed?: string) {
   return { seedValue: isValid ? parsed : -1, randomize: !isValid };
 }
 
-function clampSteps(steps: number) {
-  if (!Number.isFinite(steps)) return MIN_STEPS;
-  return Math.min(MAX_STEPS, Math.max(MIN_STEPS, Math.round(steps)));
-}
-
-function clampSize(value: number) {
-  if (!Number.isFinite(value)) return MIN_SIZE;
-  return Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(value)));
+function clampNumber(value: number, range: { min: number; max: number; step: number }) {
+  if (!Number.isFinite(value)) return range.min;
+  let resolved = Math.min(range.max, Math.max(range.min, value));
+  if (range.step > 0) {
+    const steps = Math.round((resolved - range.min) / range.step);
+    resolved = range.min + steps * range.step;
+  }
+  return resolved;
 }
 
 function extractFileUrl(file: unknown) {
@@ -226,19 +223,24 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
       throw new Error("HF_SPACE_ONLY_SUPPORTS_T2I");
     }
 
-    const config = getSpaceConfig();
+    const config = getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
     const { seedValue, randomize } = parseSeed(payload.seed);
-    const width = clampSize(payload.width);
-    const height = clampSize(payload.height);
-    const apiName = normalizeApiName(config.apiName || DEFAULT_API_NAME);
+    const defaults = modelDefaults[payload.model];
+    const widthRange = getImageParamRange(payload.model, "width");
+    const heightRange = getImageParamRange(payload.model, "height");
+    const stepsRange = getImageParamRange(payload.model, "steps");
+    const width = clampNumber(payload.width ?? defaults.width, widthRange);
+    const height = clampNumber(payload.height ?? defaults.height, heightRange);
+    const steps = clampNumber(payload.steps ?? defaults.steps, stepsRange);
+    const apiName = normalizeApiName(config.apiName || "/generate_image");
 
     const predictPromise = client.predict(apiName, {
       prompt: payload.prompt,
       height,
       width,
-      num_inference_steps: clampSteps(Number(payload.steps ?? 8)),
+      num_inference_steps: Math.round(steps),
       seed: seedValue,
       randomize_seed: randomize,
     });

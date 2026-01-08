@@ -17,11 +17,14 @@ import {
   videoGenerationDefaults,
   videoGenerationSchema,
   videoModelMeta,
-  videoDurationRange,
   type VideoGenerationFormValues,
   type VideoGenerationModel,
 } from "@/features/video-generation/model/video-generation-schema";
-import { videoModels } from "@/features/video-generation/model/video-models";
+import {
+  getVideoParamConfig,
+  getVideoParamRange,
+  videoModels,
+} from "@/features/video-generation/model/video-models";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
 import { Button } from "@/shared/ui/button";
 import {
@@ -58,6 +61,13 @@ export function VideoGenerationForm() {
     form.watch("durationSec") ?? videoGenerationDefaults.durationSec;
   const activeModel =
     form.watch("model") ?? videoGenerationDefaults.model;
+  const durationRange = getVideoParamRange(activeModel, "durationSec");
+  const durationConfig = getVideoParamConfig(activeModel, "durationSec");
+  const aspectRatioConfig = getVideoParamConfig(activeModel, "aspectRatio");
+  const resolutionConfig = getVideoParamConfig(activeModel, "resolution");
+  const showDuration = durationConfig?.ui !== "hidden";
+  const showSizeNotice =
+    aspectRatioConfig?.ui === "hidden" && resolutionConfig?.ui === "hidden";
   const initImageValue = form.watch("initImage") ?? "";
   const supportsInitImage =
     videoModelMeta[activeModel]?.supportsInitImage ?? false;
@@ -387,52 +397,56 @@ export function VideoGenerationForm() {
             </div>
 
             <div className="flex flex-col gap-8">
-              <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  Output_Size
-                </span>
-                <div className="rounded-xl border border-white/10 bg-surface-lighter px-4 py-3 text-xs text-gray-400">
-                  이 스페이스는 해상도/비율 변경을 지원하지 않습니다.{" "}
-                  <span className="text-white">
-                    이미지 입력이 있으면 그 비율을 참고
+              {showSizeNotice && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                    Output_Size
                   </span>
-                  하며, 텍스트 전용은 기본 해상도로 생성됩니다.
+                  <div className="rounded-xl border border-white/10 bg-surface-lighter px-4 py-3 text-xs text-gray-400">
+                    이 스페이스는 해상도/비율 변경을 지원하지 않습니다.{" "}
+                    <span className="text-white">
+                      이미지 입력이 있으면 그 비율을 참고
+                    </span>
+                    하며, 텍스트 전용은 기본 해상도로 생성됩니다.
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <FormField
-                control={form.control}
-                name="durationSec"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                        Duration_Sec
-                      </span>
-                      <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                        {durationSec}s
-                      </span>
-                    </div>
-                    <FormControl>
-                      <input
-                        type="range"
-                        min={videoDurationRange.min}
-                        max={videoDurationRange.max}
-                        step={videoDurationRange.step}
-                        value={field.value}
-                        onChange={(event) =>
-                          field.onChange(Number(event.target.value))
-                        }
-                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
-                      />
-                    </FormControl>
-                    <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
-                      <span>{videoDurationRange.min}s</span>
-                      <span>{videoDurationRange.max}s</span>
-                    </div>
-                  </FormItem>
-                )}
-              />
+              {showDuration && (
+                <FormField
+                  control={form.control}
+                  name="durationSec"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                          Duration_Sec
+                        </span>
+                        <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                          {durationSec}s
+                        </span>
+                      </div>
+                      <FormControl>
+                        <input
+                          type="range"
+                          min={durationRange.min}
+                          max={durationRange.max}
+                          step={durationRange.step}
+                          value={field.value}
+                          onChange={(event) =>
+                            field.onChange(Number(event.target.value))
+                          }
+                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                        />
+                      </FormControl>
+                      <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
+                        <span>{durationRange.min}s</span>
+                        <span>{durationRange.max}s</span>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </aside>
         </div>

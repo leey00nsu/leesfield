@@ -1,30 +1,62 @@
 import { z } from "zod";
 import {
   defaultModelKey,
+  getImageParamRange,
   modelDefaults,
   modelImageLimits,
   modelOptions,
   type ImageGenerationModel,
 } from "@/features/image-generation/model/image-models";
 
-export const imageSizeRange = { min: 512, max: 2048, step: 1 } as const;
-export const imageStepsRange = { min: 1, max: 20, step: 1 } as const;
-
 export { modelOptions, modelDefaults, modelImageLimits, type ImageGenerationModel };
 
 export const imageGenerationSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-  negativePrompt: z.string().optional().or(z.literal("")),
-  width: z.number().int().min(imageSizeRange.min).max(imageSizeRange.max),
-  height: z.number().int().min(imageSizeRange.min).max(imageSizeRange.max),
+  width: z.number().int(),
+  height: z.number().int(),
   initImages: z.array(z.string()).optional(),
   model: z.enum(modelOptions),
-  imageCount: z.number().min(1).max(1),
-  cfgScale: z.number().min(0).max(20),
-  steps: z.number().min(imageStepsRange.min).max(imageStepsRange.max),
+  imageCount: z.number().int(),
+  steps: z.number().int(),
   seed: z.string().optional().or(z.literal("")),
-  sampler: z.string().optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
+  const widthRange = getImageParamRange(data.model, "width");
+  const heightRange = getImageParamRange(data.model, "height");
+  const stepsRange = getImageParamRange(data.model, "steps");
+  const countRange = getImageParamRange(data.model, "imageCount");
+
+  const validateRange = (
+    value: number,
+    range: { min: number; max: number; step: number },
+    path: (string | number)[],
+    label: string,
+  ) => {
+    if (value < range.min || value > range.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path,
+        message: `${label}는 ${range.min}~${range.max} 범위여야 합니다.`,
+      });
+      return;
+    }
+    if (range.step > 0) {
+      const offset = value - range.min;
+      const quotient = offset / range.step;
+      if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path,
+          message: `${label}는 ${range.step} 단위로 입력해야 합니다.`,
+        });
+      }
+    }
+  };
+
+  validateRange(data.width, widthRange, ["width"], "너비");
+  validateRange(data.height, heightRange, ["height"], "높이");
+  validateRange(data.steps, stepsRange, ["steps"], "스텝");
+  validateRange(data.imageCount, countRange, ["imageCount"], "이미지 개수");
+
   const limit = modelImageLimits[data.model]?.maxInputImages ?? 0;
   const count = data.initImages?.length ?? 0;
   if (count > 0 && limit === 0) {
@@ -51,22 +83,11 @@ const defaultModelSettings = modelDefaults[defaultModel];
 
 export const imageGenerationDefaults: ImageGenerationFormValues = {
   prompt: "",
-  negativePrompt: "",
   width: defaultModelSettings.width,
   height: defaultModelSettings.height,
   initImages: [],
   model: defaultModel,
   imageCount: 1,
-  cfgScale: defaultModelSettings.cfgScale,
   steps: defaultModelSettings.steps,
   seed: "",
-  sampler: defaultModelSettings.sampler,
 };
-
-export const samplerOptions = [
-  "Default",
-  "Euler a",
-  "DPM++ 2M Karras",
-  "DPM++ SDE Karras",
-  "DDIM",
-] as const;
