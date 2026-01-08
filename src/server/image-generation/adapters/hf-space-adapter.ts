@@ -27,7 +27,7 @@ const statusCache = new Map<
 >();
 
 function evictOldestIfNeeded<K, V>(cache: Map<K, V>) {
-  if (cache.size <= MAX_CACHE_SIZE) return;
+  if (cache.size < MAX_CACHE_SIZE) return;
   const firstKey = cache.keys().next().value as K | undefined;
   if (firstKey !== undefined) {
     cache.delete(firstKey);
@@ -35,8 +35,10 @@ function evictOldestIfNeeded<K, V>(cache: Map<K, V>) {
 }
 
 function setStatusCache(spaceId: string, value: { checkedAt: number; ok: boolean | null }) {
+  if (!statusCache.has(spaceId)) {
+    evictOldestIfNeeded(statusCache);
+  }
   statusCache.set(spaceId, value);
-  evictOldestIfNeeded(statusCache);
 }
 
 function resolveSpaceUrl(spaceId: string, explicit?: string) {
@@ -74,9 +76,9 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
 async function getClient(config: SpaceConfig) {
   let cached = clientCache.get(config.spaceId);
   if (!cached) {
+    evictOldestIfNeeded(clientCache);
     cached = Client.connect(config.spaceId, { token: config.token });
     clientCache.set(config.spaceId, cached);
-    evictOldestIfNeeded(clientCache);
   }
   try {
     return await cached;
