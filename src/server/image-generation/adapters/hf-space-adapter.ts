@@ -147,14 +147,14 @@ function normalizeApiName(value: string) {
 
 function parseSeed(seed?: string) {
   if (!seed?.trim()) {
-    return { seedValue: -1, randomize: true };
+    return { seedValue: 0, randomize: true };
   }
   const parsed = Number(seed);
   const isValid =
     Number.isSafeInteger(parsed) &&
     parsed >= 0 &&
     parsed <= Number.MAX_SAFE_INTEGER;
-  return { seedValue: isValid ? parsed : -1, randomize: !isValid };
+  return { seedValue: isValid ? parsed : 0, randomize: !isValid };
 }
 
 function clampNumber(value: number, range: { min: number; max: number; step: number }) {

@@ -92,7 +92,8 @@ export function ImageGenerationForm() {
     form.setValue("width", defaults.width);
     form.setValue("height", defaults.height);
 
-    if (activeModel === "z-image-turbo" || activeModel === "sdxl-turbo") {
+    const seedCfg = getImageParamConfig(activeModel, "seed");
+    if (seedCfg?.ui === "hidden") {
       form.setValue("seed", "");
     }
   }, [activeModel, form]);
@@ -126,6 +127,20 @@ export function ImageGenerationForm() {
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
+
+  const handleRandomizeSeed = () => {
+    if (isGenerating) return;
+    let seedValue = Math.floor(Math.random() * 1_000_000_000);
+    if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
+      const buffer = new Uint32Array(1);
+      crypto.getRandomValues(buffer);
+      seedValue = buffer[0] ?? seedValue;
+    }
+    form.setValue("seed", String(seedValue), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
 
   const handleOpenImagePicker = () => {
     if (!canUploadImages || initImagePreviews.length >= maxInputImages) {
@@ -594,6 +609,8 @@ export function ImageGenerationForm() {
                             />
                             <button
                               type="button"
+                              onClick={handleRandomizeSeed}
+                              disabled={isGenerating}
                               className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
                             >
                               <Dice5 className="h-4 w-4" />

@@ -57,7 +57,7 @@ HF_TOKEN 발급 방법
 3) 생성된 토큰을 `HF_TOKEN`에 입력
 
 참고 링크(문서):
-```
+```text
 https://huggingface.co/settings/tokens
 https://huggingface.co/docs/hub/en/security-tokens
 ```
