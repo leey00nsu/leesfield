@@ -57,7 +57,7 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
-  if (tokenValue && (!tokenValue.startsWith("hf_") || tokenValue.length <= 3)) {
+  if (tokenValue && (!tokenValue.startsWith("hf_") || tokenValue.length < 20)) {
     throw new Error("INVALID_HF_TOKEN_FORMAT");
   }
 
@@ -171,9 +171,7 @@ function parseSeed(seed?: string) {
   }
   const parsed = Number(seed);
   const isValid =
-    Number.isSafeInteger(parsed) &&
-    parsed >= 0 &&
-    parsed <= Number.MAX_SAFE_INTEGER;
+    Number.isSafeInteger(parsed) && parsed >= 0;
   return { seedValue: isValid ? parsed : 0, randomize: !isValid };
 }
 
@@ -247,6 +245,9 @@ async function fetchImageDataUrl(
     }
     const buffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") ?? "image/png";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("HF_SPACE_INVALID_CONTENT_TYPE");
+    }
     return `data:${contentType};base64,${buffer.toString("base64")}`;
   } catch (error) {
     if (controller.signal.aborted) {

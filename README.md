@@ -144,13 +144,20 @@ Space/API/파라미터는 JSON 모델 카드에서 관리합니다. JSON은 주�
       "api": {
         "space_id": "owner/space",
         "api_name": "/generate_image",
-        "timeout_ms": 300000,
-        "space_url": "https://owner-space.hf.space"
+        "timeout_ms": 300000
       },
       "parameters": {
         "prompt": { "ui": "textarea", "required": true },
-        "width": { "ui": "input", "min": 512, "max": 2048, "step": 1, "default": 1024 }
-      }
+        "width": { "ui": "input", "min": 512, "max": 2048, "step": 1, "default": 1024 },
+        "height": { "ui": "range", "min": 512, "max": 2048, "step": 64, "default": 1024 },
+        "steps": { "ui": "range", "min": 1, "max": 20, "step": 1, "default": 9 },
+        "seed": { "ui": "input", "default": "" },
+        "imageCount": { "ui": "hidden", "min": 1, "max": 1, "default": 1 }
+      },
+      "default_width": 1024,
+      "default_height": 1024,
+      "default_steps": 9,
+      "max_input_images": 0
     }
   ]
 }
