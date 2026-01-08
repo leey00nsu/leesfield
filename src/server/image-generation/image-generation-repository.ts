@@ -10,17 +10,26 @@ export async function createImageGenerationRecord(
   requestId: string,
   payload: ImageGenerationFormValues
 ) {
+  const requestParams: Prisma.InputJsonValue = {
+    model: payload.model,
+    prompt: payload.prompt,
+    width: payload.width,
+    height: payload.height,
+    steps: payload.steps,
+    seed: payload.seed || null,
+    imageCount: payload.imageCount,
+    initImagesCount: payload.initImages?.length ?? 0,
+  };
+
   return prisma.imageGeneration.create({
     data: {
       requestId,
       prompt: payload.prompt,
-      negativePrompt: payload.negativePrompt || null,
-      aspectRatio: payload.aspectRatio,
+      requestParams,
+      aspectRatio: `${payload.width}x${payload.height}`,
       imageCount: payload.imageCount,
-      cfgScale: payload.cfgScale,
       steps: payload.steps,
       seed: payload.seed || null,
-      sampler: payload.sampler || null,
       status: "pending",
       progress: 0,
     },

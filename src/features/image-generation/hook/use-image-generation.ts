@@ -10,15 +10,15 @@ import {
 } from "@/features/image-generation/api/image-generation-api";
 
 const POLL_INTERVAL_MS = 1200;
-const DEFAULT_MODAL_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000;
 const EXTRA_TIMEOUT_MS = 30_000;
-const modalTimeoutMs = Number(
-  process.env.NEXT_PUBLIC_MODAL_TIMEOUT_MS ?? DEFAULT_MODAL_TIMEOUT_MS,
+const configuredTimeoutMs = Number(
+  process.env.NEXT_PUBLIC_IMAGE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS,
 );
 const POLL_TIMEOUT_MS =
-  (Number.isFinite(modalTimeoutMs) && modalTimeoutMs > 0
-    ? modalTimeoutMs
-    : DEFAULT_MODAL_TIMEOUT_MS) + EXTRA_TIMEOUT_MS;
+  (Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+    ? configuredTimeoutMs
+    : DEFAULT_TIMEOUT_MS) + EXTRA_TIMEOUT_MS;
 
 export type ImageGenerationState = {
   status: ImageGenerationStatus | "idle";

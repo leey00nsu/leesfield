@@ -3,7 +3,7 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
-import { resolveVideoGenerationResult } from "@/server/video-generation/leemage-storage";
+import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
 
 export type VideoGenerationRecord = {
   id: string;

@@ -1,56 +1,62 @@
 import { z } from "zod";
+import {
+  defaultModelKey,
+  getImageParamRange,
+  modelDefaults,
+  modelImageLimits,
+  modelOptions,
+  type ImageGenerationModel,
+} from "@/features/image-generation/model/image-models";
 
-export const aspectRatioOptions = ["1:1", "4:3", "16:9", "9:16"] as const;
-export const resolutionOptions = [512, 1024] as const;
-export type ImageResolution = (typeof resolutionOptions)[number];
-
-export const modelOptions = [
-  "z-image-turbo",
-  "sdxl-base-1.0",
-  "openjourney",
-  "sdxl-turbo",
-] as const;
-
-export type ImageGenerationModel = (typeof modelOptions)[number];
-
-export const modelDefaults: Record<
-  ImageGenerationModel,
-  { steps: number; cfgScale: number; sampler: string }
-> = {
-  "z-image-turbo": { steps: 8, cfgScale: 0, sampler: "Default" },
-  "sdxl-base-1.0": { steps: 30, cfgScale: 7, sampler: "Euler a" },
-  "openjourney": { steps: 30, cfgScale: 7, sampler: "Euler a" },
-  "sdxl-turbo": { steps: 2, cfgScale: 0, sampler: "Default" },
-};
-
-export const modelImageLimits: Record<
-  ImageGenerationModel,
-  { maxInputImages: number }
-> = {
-  "z-image-turbo": { maxInputImages: 1 },
-  "sdxl-base-1.0": { maxInputImages: 0 },
-  "openjourney": { maxInputImages: 0 },
-  "sdxl-turbo": { maxInputImages: 0 },
-};
+export { modelOptions, modelDefaults, modelImageLimits, type ImageGenerationModel };
 
 export const imageGenerationSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-  negativePrompt: z.string().optional().or(z.literal("")),
-  aspectRatio: z.enum(aspectRatioOptions),
-  resolution: z.union(
-    resolutionOptions.map((value) => z.literal(value)) as [
-      z.ZodLiteral<ImageResolution>,
-      z.ZodLiteral<ImageResolution>,
-    ],
-  ),
+  width: z.number().int(),
+  height: z.number().int(),
   initImages: z.array(z.string()).optional(),
   model: z.enum(modelOptions),
-  imageCount: z.number().min(1).max(8),
-  cfgScale: z.number().min(0).max(20),
-  steps: z.number().min(1).max(150),
+  imageCount: z.number().int(),
+  steps: z.number().int(),
   seed: z.string().optional().or(z.literal("")),
-  sampler: z.string().optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
+  const widthRange = getImageParamRange(data.model, "width");
+  const heightRange = getImageParamRange(data.model, "height");
+  const stepsRange = getImageParamRange(data.model, "steps");
+  const countRange = getImageParamRange(data.model, "imageCount");
+
+  const validateRange = (
+    value: number,
+    range: { min: number; max: number; step: number },
+    path: (string | number)[],
+    label: string,
+  ) => {
+    if (value < range.min || value > range.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path,
+        message: `${label}는 ${range.min}~${range.max} 범위여야 합니다.`,
+      });
+      return;
+    }
+    if (range.step > 0) {
+      const offset = value - range.min;
+      const quotient = offset / range.step;
+      if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path,
+          message: `${label}는 ${range.step} 단위로 입력해야 합니다.`,
+        });
+      }
+    }
+  };
+
+  validateRange(data.width, widthRange, ["width"], "너비");
+  validateRange(data.height, heightRange, ["height"], "높이");
+  validateRange(data.steps, stepsRange, ["steps"], "스텝");
+  validateRange(data.imageCount, countRange, ["imageCount"], "이미지 개수");
+
   const limit = modelImageLimits[data.model]?.maxInputImages ?? 0;
   const count = data.initImages?.length ?? 0;
   if (count > 0 && limit === 0) {
@@ -72,46 +78,16 @@ export const imageGenerationSchema = z.object({
 
 export type ImageGenerationFormValues = z.infer<typeof imageGenerationSchema>;
 
-const defaultModel: ImageGenerationModel = "z-image-turbo";
+const defaultModel: ImageGenerationModel = defaultModelKey;
 const defaultModelSettings = modelDefaults[defaultModel];
 
 export const imageGenerationDefaults: ImageGenerationFormValues = {
   prompt: "",
-  negativePrompt: "",
-  aspectRatio: "1:1",
-  resolution: 512,
+  width: defaultModelSettings.width,
+  height: defaultModelSettings.height,
   initImages: [],
   model: defaultModel,
   imageCount: 1,
-  cfgScale: defaultModelSettings.cfgScale,
   steps: defaultModelSettings.steps,
   seed: "",
-  sampler: defaultModelSettings.sampler,
 };
-
-export const samplerOptions = [
-  "Default",
-  "Euler a",
-  "DPM++ 2M Karras",
-  "DPM++ SDE Karras",
-  "DDIM",
-] as const;
-
-const aspectRatioBaseMeta = {
-  "1:1": { width: 512, height: 512 },
-  "4:3": { width: 512, height: 384 },
-  "16:9": { width: 640, height: 360 },
-  "9:16": { width: 360, height: 640 },
-} as const;
-
-export function resolveAspectRatioSize(
-  ratio: (typeof aspectRatioOptions)[number],
-  resolution: ImageResolution
-) {
-  const base = aspectRatioBaseMeta[ratio];
-  const scale = resolution / 512;
-  return {
-    width: Math.round(base.width * scale),
-    height: Math.round(base.height * scale),
-  };
-}

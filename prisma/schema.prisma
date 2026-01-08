@@ -24,13 +24,11 @@ model ImageGeneration {
   id             String                 @id @default(cuid())
   requestId      String                 @unique
   prompt         String
-  negativePrompt String?
+  requestParams  Json?
   aspectRatio    String
   imageCount     Int
-  cfgScale       Float
   steps          Int
   seed           String?
-  sampler        String?
   status         ImageGenerationStatus
   progress       Int
   errorMessage   String?

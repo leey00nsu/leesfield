@@ -72,7 +72,7 @@ describe("useImageGeneration", () => {
   it("폴링 타임아웃이 발생하면 실패 상태로 전환된다", async () => {
     vi.useFakeTimers();
     const startTime = new Date("2024-01-01T00:00:00.000Z");
-    const timeoutMs = 120_000 + 30_000;
+    const timeoutMs = 300_000 + 30_000;
     vi.setSystemTime(startTime);
 
     mockRequestImageGeneration.mockResolvedValueOnce({
