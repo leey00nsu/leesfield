@@ -14,13 +14,13 @@ function resolveVideoProvider(modelKey: VideoGenerationFormValues["model"]): Vid
 }
 
 function getAdapter(modelKey: VideoGenerationFormValues["model"]): VideoGenerationAdapter {
-  const provider = resolveVideoProvider(modelKey);
-  if (provider === "hf_space") return hfSpaceVideoAdapter;
-  throw new Error(`VIDEO_PROVIDER_NOT_SUPPORTED:${provider}`);
+  resolveVideoProvider(modelKey);
+  return hfSpaceVideoAdapter;
 }
 
 function mapProviderError(error: unknown) {
   if (!(error instanceof Error)) {
+    console.error("Video generation error:", error);
     return "비디오 생성에 실패했습니다.";
   }
   const message = error.message || "";
@@ -30,6 +30,18 @@ function mapProviderError(error: unknown) {
   }
   if (lower === "hf_space_status_fetch_failed") {
     return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
+  }
+  if (lower === "hf_space_init_image_unsupported") {
+    return "선택한 모델은 이미지 입력을 지원하지 않습니다.";
+  }
+  if (lower === "hf_space_image_not_base64") {
+    return "업로드한 이미지 형식이 올바르지 않습니다. 다른 이미지를 사용해주세요.";
+  }
+  if (lower === "hf_space_video_fetch_timeout") {
+    return "생성된 비디오 다운로드 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+  }
+  if (lower === "hf_space_request_timeout") {
+    return "비디오 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
   }
   let code: string | null = null;
   if (
@@ -68,7 +80,8 @@ function mapProviderError(error: unknown) {
     case "HF_SPACE_NOT_READY":
       return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
     default:
-      return message || "비디오 생성에 실패했습니다.";
+      console.error("Video generation error:", error);
+      return "비디오 생성에 실패했습니다.";
   }
 }
 

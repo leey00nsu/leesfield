@@ -11,6 +11,7 @@ import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
+const FILE_FETCH_TIMEOUT_MS = 60_000;
 
 type SpaceConfig = {
   spaceId: string;
@@ -175,6 +176,9 @@ function decodeImageToBuffer(dataUrl: string) {
   if (!payload) {
     throw new Error("HF_SPACE_IMAGE_INVALID");
   }
+  if (!header?.includes(";base64")) {
+    throw new Error("HF_SPACE_IMAGE_NOT_BASE64");
+  }
   const mimeMatch = header?.match(/data:(.*?);base64/);
   const mime = mimeMatch?.[1] ?? "image/png";
   const buffer = Buffer.from(payload, "base64");
@@ -214,17 +218,33 @@ function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
   return `${spaceUrl}/file=${fileUrl}`;
 }
 
-async function fetchVideoDataUrl(fileUrl: string, spaceUrl: string) {
+async function fetchVideoDataUrl(
+  fileUrl: string,
+  spaceUrl: string,
+  timeoutMs: number = FILE_FETCH_TIMEOUT_MS
+) {
   const normalized = normalizeFileUrl(fileUrl, spaceUrl);
   if (normalized.startsWith("data:")) {
     return normalized;
   }
-  const response = await fetch(normalized);
-  if (!response.ok) {
-    throw new Error("HF_SPACE_VIDEO_FETCH_FAILED");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(normalized, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error("HF_SPACE_VIDEO_FETCH_FAILED");
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") ?? "video/mp4";
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("HF_SPACE_VIDEO_FETCH_TIMEOUT");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return `data:video/mp4;base64,${buffer.toString("base64")}`;
 }
 
 export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
@@ -234,7 +254,7 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
     const initImage = payload.initImage?.trim() ? payload.initImage : null;
 
     if (!supportsInitImage) {
-      throw new Error("HF_SPACE_ONLY_SUPPORTS_I2V");
+      throw new Error("HF_SPACE_INIT_IMAGE_UNSUPPORTED");
     }
     if (!initImage) {
       throw new Error("INIT_IMAGE_REQUIRED");
@@ -299,12 +319,16 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
-    const dataUrl = await fetchVideoDataUrl(fileUrl, config.spaceUrl);
+    const dataUrl = await fetchVideoDataUrl(
+      fileUrl,
+      config.spaceUrl,
+      Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS)
+    );
     return {
       videos: [dataUrl],
       meta: {
         duration_sec: durationSeconds,
-        fps: 16,
+        fps: defaults?.fps ?? 16,
       },
     };
   },

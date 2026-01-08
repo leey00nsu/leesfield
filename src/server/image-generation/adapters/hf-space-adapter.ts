@@ -206,18 +206,35 @@ function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
   return `${spaceUrl}/file=${fileUrl}`;
 }
 
-async function fetchImageDataUrl(fileUrl: string, spaceUrl: string) {
+const FILE_FETCH_TIMEOUT_MS = 60_000;
+
+async function fetchImageDataUrl(
+  fileUrl: string,
+  spaceUrl: string,
+  timeoutMs: number = FILE_FETCH_TIMEOUT_MS
+) {
   const normalized = normalizeFileUrl(fileUrl, spaceUrl);
   if (normalized.startsWith("data:")) {
     return normalized;
   }
-  const response = await fetch(normalized);
-  if (!response.ok) {
-    throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(normalized, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") ?? "image/png";
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("HF_SPACE_IMAGE_FETCH_TIMEOUT");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const contentType = response.headers.get("content-type") ?? "image/png";
-  return `data:${contentType};base64,${buffer.toString("base64")}`;
 }
 
 export const hfSpaceImageAdapter: ImageGenerationAdapter = {
@@ -271,7 +288,11 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
-    const dataUrl = await fetchImageDataUrl(imageUrl, config.spaceUrl);
+    const dataUrl = await fetchImageDataUrl(
+      imageUrl,
+      config.spaceUrl,
+      Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS)
+    );
     return { images: [dataUrl] };
   },
 };
