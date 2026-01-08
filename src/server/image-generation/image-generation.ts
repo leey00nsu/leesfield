@@ -25,10 +25,10 @@ function mapProviderError(error: unknown) {
   }
   const message = error.message || "";
   const lower = message.toLowerCase();
-  if (message.startsWith("HF_SPACE_NOT_READY")) {
+  if (lower.startsWith("hf_space_not_ready")) {
     return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
   }
-  if (message === "HF_SPACE_STATUS_FETCH_FAILED") {
+  if (lower === "hf_space_status_fetch_failed") {
     return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
   }
   let code: string | null = null;

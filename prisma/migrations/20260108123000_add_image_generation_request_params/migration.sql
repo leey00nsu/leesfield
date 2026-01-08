@@ -13,6 +13,11 @@ SET "requestParams" = COALESCE("requestParams", '{}'::jsonb) || jsonb_strip_null
 WHERE ("requestParams" IS NULL OR "requestParams" = '{}'::jsonb)
   AND ("negativePrompt" IS NOT NULL OR "cfgScale" IS NOT NULL OR "sampler" IS NOT NULL);
 
+-- Ensure requestParams is non-null for legacy rows
+UPDATE "ImageGeneration"
+SET "requestParams" = '{}'::jsonb
+WHERE "requestParams" IS NULL;
+
 -- Drop legacy modal-era columns
 ALTER TABLE "ImageGeneration" DROP COLUMN IF EXISTS "negativePrompt";
 ALTER TABLE "ImageGeneration" DROP COLUMN IF EXISTS "cfgScale";

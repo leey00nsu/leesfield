@@ -41,6 +41,9 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
+  if (tokenValue && (!tokenValue.startsWith("hf_") || tokenValue.length <= 3)) {
+    throw new Error("INVALID_HF_TOKEN_FORMAT");
+  }
 
   return {
     spaceId: model.api.space_id,
@@ -245,14 +248,22 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
       randomize_seed: randomize,
     });
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
+      timeoutId = setTimeout(
         () => reject(new Error("HF_SPACE_REQUEST_TIMEOUT")),
         config.timeoutMs
       );
     });
 
-    const result = await Promise.race([predictPromise, timeoutPromise]);
+    let result: Awaited<typeof predictPromise>;
+    try {
+      result = await Promise.race([predictPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
     const data = Array.isArray(result?.data) ? result.data : result;
     const imageValue = Array.isArray(data) ? data[0] : data;
     const imageUrl = extractFileUrl(imageValue);

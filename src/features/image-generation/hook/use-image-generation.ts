@@ -10,7 +10,7 @@ import {
 } from "@/features/image-generation/api/image-generation-api";
 
 const POLL_INTERVAL_MS = 1200;
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000;
 const EXTRA_TIMEOUT_MS = 30_000;
 const configuredTimeoutMs = Number(
   process.env.NEXT_PUBLIC_IMAGE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS,

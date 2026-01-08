@@ -10,7 +10,7 @@ import {
 } from "@/features/video-generation/api/video-generation-api";
 
 const POLL_INTERVAL_MS = 1500;
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000;
 const EXTRA_TIMEOUT_MS = 30_000;
 const envTimeoutMs = Number(process.env.NEXT_PUBLIC_VIDEO_TIMEOUT_MS);
 const configuredTimeoutMs =
