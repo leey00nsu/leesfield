@@ -10,6 +10,8 @@ const MIN_STEPS = 1;
 const MAX_STEPS = 20;
 const MIN_SIZE = 512;
 const MAX_SIZE = 2048;
+const STATUS_CHECK_TTL_MS = 30_000;
+const STATUS_CHECK_TIMEOUT_MS = 5_000;
 
 type SpaceConfig = {
   spaceId: string;
@@ -20,6 +22,8 @@ type SpaceConfig = {
 };
 
 let cachedClientPromise: Promise<Client> | null = null;
+let lastStatusCheckAt = 0;
+let lastStatusOk: boolean | null = null;
 
 function resolveSpaceUrl(spaceId: string) {
   const explicit = process.env.HF_IMAGE_SPACE_URL?.trim();
@@ -63,6 +67,77 @@ async function getClient(config: SpaceConfig) {
   } catch (error) {
     cachedClientPromise = null;
     throw error;
+  }
+}
+
+function resolveSpaceApiUrl(spaceId: string) {
+  return `https://huggingface.co/api/spaces/${spaceId}`;
+}
+
+function extractRuntimeStage(payload: Record<string, unknown>) {
+  const runtime = payload.runtime as Record<string, unknown> | undefined;
+  const candidates = [
+    runtime?.stage,
+    runtime?.status,
+    payload.stage,
+    payload.status,
+    payload.state,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+async function ensureSpaceRunning(config: SpaceConfig) {
+  const now = Date.now();
+  if (
+    lastStatusCheckAt > 0 &&
+    now - lastStatusCheckAt < STATUS_CHECK_TTL_MS &&
+    lastStatusOk !== null
+  ) {
+    if (!lastStatusOk) {
+      throw new Error("HF_SPACE_NOT_READY");
+    }
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STATUS_CHECK_TIMEOUT_MS);
+  const headers: Record<string, string> = {};
+  if (config.token) {
+    headers.Authorization = `Bearer ${config.token}`;
+  }
+
+  try {
+    const response = await fetch(resolveSpaceApiUrl(config.spaceId), {
+      headers,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      lastStatusOk = false;
+      lastStatusCheckAt = Date.now();
+      throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
+    }
+    const data = (await response.json()) as Record<string, unknown>;
+    const stage = extractRuntimeStage(data);
+    const normalized = stage?.toUpperCase() ?? "";
+    const ok = normalized === "RUNNING" || normalized === "READY";
+    lastStatusOk = ok;
+    lastStatusCheckAt = Date.now();
+    if (!ok) {
+      throw new Error(
+        stage ? `HF_SPACE_NOT_READY:${stage}` : "HF_SPACE_NOT_READY"
+      );
+    }
+  } catch (error) {
+    lastStatusOk = false;
+    lastStatusCheckAt = Date.now();
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -152,6 +227,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     }
 
     const config = getSpaceConfig();
+    await ensureSpaceRunning(config);
     const client = await getClient(config);
     const { seedValue, randomize } = parseSeed(payload.seed);
     const width = clampSize(payload.width);
