@@ -1,10 +1,10 @@
 import { Client, handle_file } from "@gradio/client";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
-import { videoModelMeta } from "@/features/video-generation/model/video-generation-schema";
 import {
   getVideoModelConfig,
   getVideoParamRange,
   videoModelDefaults,
+  videoModelMeta,
 } from "@/features/video-generation/model/video-models";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
 

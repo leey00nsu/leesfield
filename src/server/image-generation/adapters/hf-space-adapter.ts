@@ -164,10 +164,14 @@ function clampNumber(value: number, range: { min: number; max: number; step: num
   if (!Number.isFinite(value)) return range.min;
   let resolved = Math.min(range.max, Math.max(range.min, value));
   if (range.step > 0) {
-    const steps = Math.round((resolved - range.min) / range.step);
+    const maxSteps = Math.floor((range.max - range.min) / range.step);
+    const steps = Math.min(
+      maxSteps,
+      Math.max(0, Math.round((resolved - range.min) / range.step)),
+    );
     resolved = range.min + steps * range.step;
   }
-  return resolved;
+  return Math.min(range.max, Math.max(range.min, resolved));
 }
 
 function extractFileUrl(file: unknown) {
