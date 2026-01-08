@@ -10,6 +10,7 @@ import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
+const MAX_CACHE_SIZE = 100;
 
 type SpaceConfig = {
   spaceId: string;
@@ -24,6 +25,19 @@ const statusCache = new Map<
   string,
   { checkedAt: number; ok: boolean | null }
 >();
+
+function evictOldestIfNeeded<K, V>(cache: Map<K, V>) {
+  if (cache.size <= MAX_CACHE_SIZE) return;
+  const firstKey = cache.keys().next().value as K | undefined;
+  if (firstKey !== undefined) {
+    cache.delete(firstKey);
+  }
+}
+
+function setStatusCache(spaceId: string, value: { checkedAt: number; ok: boolean | null }) {
+  statusCache.set(spaceId, value);
+  evictOldestIfNeeded(statusCache);
+}
 
 function resolveSpaceUrl(spaceId: string, explicit?: string) {
   if (explicit?.trim()) return explicit.trim();
@@ -62,6 +76,7 @@ async function getClient(config: SpaceConfig) {
   if (!cached) {
     cached = Client.connect(config.spaceId, { token: config.token });
     clientCache.set(config.spaceId, cached);
+    evictOldestIfNeeded(clientCache);
   }
   try {
     return await cached;
@@ -120,21 +135,21 @@ async function ensureSpaceRunning(config: SpaceConfig) {
       signal: controller.signal,
     });
     if (!response.ok) {
-      statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
+      setStatusCache(config.spaceId, { checkedAt: Date.now(), ok: false });
       throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
     }
     const data = (await response.json()) as Record<string, unknown>;
     const stage = extractRuntimeStage(data);
     const normalized = stage?.toUpperCase() ?? "";
-    const ok = normalized === "RUNNING" || normalized === "READY";
-    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok });
+    const ok = normalized === "RUNNING";
+    setStatusCache(config.spaceId, { checkedAt: Date.now(), ok });
     if (!ok) {
       throw new Error(
         stage ? `HF_SPACE_NOT_READY:${stage}` : "HF_SPACE_NOT_READY"
       );
     }
   } catch (error) {
-    statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
+    setStatusCache(config.spaceId, { checkedAt: Date.now(), ok: false });
     throw error;
   } finally {
     clearTimeout(timeoutId);
