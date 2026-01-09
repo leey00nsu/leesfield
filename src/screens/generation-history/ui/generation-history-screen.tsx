@@ -122,7 +122,7 @@ export function GenerationHistoryScreen() {
               </h1>
               <p className="mt-2 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                ALL SYSTEMS OPERATIONAL // ARCHIVE ACCESS
+                FIND YOUR GENERATIONS FAST
               </p>
             </div>
             <div className="w-full md:w-96">

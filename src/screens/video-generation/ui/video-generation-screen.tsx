@@ -13,7 +13,7 @@ export function VideoGenerationScreen() {
               </h1>
               <p className="mt-2 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                SYSTEM READY // VIDEO PIPELINE ONLINE
+                MAKE VIDEOS IN ONE CLICK
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

@@ -17,8 +17,8 @@ export function LoginScreen() {
                 </h1>
                 <p className="mt-2 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  AUTHENTICATION REQUIRED // SECURE ACCESS
-                </p>
+                AUTHENTICATION REQUIRED
+              </p>
               </div>
             </div>
           </div>
