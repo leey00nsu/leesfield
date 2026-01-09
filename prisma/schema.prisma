@@ -20,6 +20,13 @@ enum ImageGenerationStatus {
   failed
 }
 
+enum VideoGenerationStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
 model ImageGeneration {
   id             String                 @id @default(cuid())
   requestId      String                 @unique
@@ -45,6 +52,32 @@ model ImageGenerationImage {
   height       Int?
   createdAt    DateTime        @default(now())
   generation   ImageGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+}
+
+model VideoGeneration {
+  id            String               @id @default(cuid())
+  requestId     String               @unique
+  prompt        String
+  requestParams Json?
+  status        VideoGenerationStatus
+  progress      Int
+  errorMessage  String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  videos        VideoGenerationVideo[]
+}
+
+model VideoGenerationVideo {
+  id           String          @id @default(cuid())
+  generationId String
+  url          String
+  width        Int?
+  height       Int?
+  durationSec  Int?
+  createdAt    DateTime        @default(now())
+  generation   VideoGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
 
   @@index([generationId])
 }
