@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import {
   Grid2X2,
   Image as ImageIcon,
@@ -5,80 +8,50 @@ import {
   SlidersHorizontal,
   Video,
 } from "lucide-react";
-import type { GenerationHistoryItem } from "@/entities/generation/model/types";
+import type {
+  GenerationHistorySort,
+  GenerationHistoryType,
+} from "@/entities/generation/model/types";
+import { useHistoryQuery } from "@/features/generation-history/api/use-history-query";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
+import { cn } from "@/shared/lib/utils";
 
-const now = Date.now();
-const mockItems: GenerationHistoryItem[] = [
-  {
-    id: "img-001",
-    type: "image",
-    status: "completed",
-    prompt: "A neon-lit alleyway in the rain, cinematic lighting, ultra-detailed.",
-    model: "Z-Image-Turbo",
-    createdAt: new Date(now - 1000 * 60 * 12).toISOString(),
-    resultUrl: "/sample-image.png",
-    thumbnailUrl: "/sample-image.png",
-    errorMessage: null,
-  },
-  {
-    id: "img-002",
-    type: "image",
-    status: "processing",
-    prompt: "Portrait of a hacker with holographic UI overlays, moody lighting.",
-    model: "Z-Image-Turbo",
-    createdAt: new Date(now - 1000 * 60 * 30).toISOString(),
-    resultUrl: null,
-    thumbnailUrl: null,
-    errorMessage: null,
-  },
-  {
-    id: "img-003",
-    type: "image",
-    status: "failed",
-    prompt: "Midjourney-style surreal desert skyline with floating mirrors.",
-    model: "Z-Image-Turbo",
-    createdAt: new Date(now - 1000 * 60 * 60).toISOString(),
-    resultUrl: null,
-    thumbnailUrl: null,
-    errorMessage: "이미지 생성에 실패했습니다.",
-  },
-  {
-    id: "vid-001",
-    type: "video",
-    status: "completed",
-    prompt: "Slow drone shot over a cyberpunk megacity, dusk, volumetric fog.",
-    model: "HunyuanVideo-1.5",
-    createdAt: new Date(now - 1000 * 60 * 90).toISOString(),
-    resultUrl: "/sample-video.mp4",
-    thumbnailUrl: null,
-    errorMessage: null,
-  },
-  {
-    id: "vid-002",
-    type: "video",
-    status: "pending",
-    prompt: "A futuristic train arriving at a neon station, cinematic wide shot.",
-    model: "HunyuanVideo-1.5",
-    createdAt: new Date(now - 1000 * 60 * 150).toISOString(),
-    resultUrl: null,
-    thumbnailUrl: null,
-    errorMessage: null,
-  },
-  {
-    id: "vid-003",
-    type: "video",
-    status: "failed",
-    prompt: "Underwater bioluminescent forest, glowing jellyfish drifting.",
-    model: "HunyuanVideo-1.5",
-    createdAt: new Date(now - 1000 * 60 * 240).toISOString(),
-    resultUrl: null,
-    thumbnailUrl: null,
-    errorMessage: "비디오 생성 시간이 초과되었습니다.",
-  },
-];
+const DEFAULT_LIMIT = 24;
 
 export function GenerationHistoryScreen() {
+  const [type, setType] = useState<GenerationHistoryType>("all");
+  const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [offset] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(searchInput.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const params = useMemo(
+    () => ({
+      type,
+      query,
+      sort,
+      limit: DEFAULT_LIMIT,
+      offset,
+    }),
+    [type, query, sort, offset],
+  );
+
+  const { data, isLoading, error } = useHistoryQuery(params);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+
+  const filterButtonBase =
+    "flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider transition-all";
+
+  const renderSortLabel = sort === "date_desc" ? "DATE_DESC" : "DATE_ASC";
+
   return (
     <div className="flex flex-col gap-8 pb-20">
       <div className="sticky top-0 z-20 -mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10">
@@ -102,6 +75,8 @@ export function GenerationHistoryScreen() {
                 <input
                   type="text"
                   placeholder="SEARCH_DATABASE..."
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
                   className="w-full border-none bg-transparent px-3 text-sm font-mono text-white placeholder:text-gray-600 focus:outline-none focus:ring-0"
                 />
                 <div className="pr-2">
@@ -120,21 +95,42 @@ export function GenerationHistoryScreen() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-primary-dark"
+              onClick={() => setType("all")}
+              aria-pressed={type === "all"}
+              className={cn(
+                filterButtonBase,
+                type === "all"
+                  ? "bg-primary text-black hover:bg-primary-dark"
+                  : "border border-white/5 bg-surface-dark text-gray-400 hover:bg-surface-lighter hover:text-white",
+              )}
             >
               <Grid2X2 className="h-4 w-4" />
               All
             </button>
             <button
               type="button"
-              className="flex h-9 items-center gap-2 rounded-lg border border-white/5 bg-surface-dark px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:bg-surface-lighter hover:text-white"
+              onClick={() => setType("image")}
+              aria-pressed={type === "image"}
+              className={cn(
+                filterButtonBase,
+                type === "image"
+                  ? "bg-primary text-black hover:bg-primary-dark"
+                  : "border border-white/5 bg-surface-dark text-gray-400 hover:bg-surface-lighter hover:text-white",
+              )}
             >
               <ImageIcon className="h-4 w-4" />
               Images
             </button>
             <button
               type="button"
-              className="flex h-9 items-center gap-2 rounded-lg border border-white/5 bg-surface-dark px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:bg-surface-lighter hover:text-white"
+              onClick={() => setType("video")}
+              aria-pressed={type === "video"}
+              className={cn(
+                filterButtonBase,
+                type === "video"
+                  ? "bg-primary text-black hover:bg-primary-dark"
+                  : "border border-white/5 bg-surface-dark text-gray-400 hover:bg-surface-lighter hover:text-white",
+              )}
             >
               <Video className="h-4 w-4" />
               Videos
@@ -142,17 +138,35 @@ export function GenerationHistoryScreen() {
             <div className="mx-2 h-6 w-px bg-white/10" />
             <button
               type="button"
+              onClick={() =>
+                setSort((prev) =>
+                  prev === "date_desc" ? "date_asc" : "date_desc",
+                )
+              }
               className="flex h-9 items-center gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 transition-colors hover:text-primary"
             >
               <SlidersHorizontal className="h-4 w-4" />
-              SORT: DATE_DESC
+              SORT: {renderSortLabel}
             </button>
+            <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              TOTAL: {total}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-[1600px]">
-        <HistoryList items={mockItems} />
+        {error ? (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : (
+          <HistoryList
+            items={items}
+            isLoading={isLoading}
+            emptyMessage={query ? "검색 결과가 없습니다." : "히스토리가 비어 있습니다."}
+          />
+        )}
       </div>
     </div>
   );
