@@ -11,6 +11,7 @@ export async function getHistory(
   searchParams: URLSearchParams,
 ): Promise<HistoryResponse> {
   const query = parseHistoryQuery(searchParams);
+  const MAX_OFFSET = 200;
 
   const orderBy = {
     createdAt: query.sort === "date_asc" ? "asc" : "desc",
@@ -104,7 +105,8 @@ export async function getHistory(
     };
   }
 
-  const take = query.limit + query.offset;
+  const cappedOffset = Math.min(query.offset, MAX_OFFSET);
+  const take = query.limit + cappedOffset;
   const imageWhere = buildImageWhere(query);
   const videoWhere = buildVideoWhere(query);
 
@@ -183,9 +185,9 @@ export async function getHistory(
   });
 
   return {
-    items: merged.slice(query.offset, query.offset + query.limit),
+    items: merged.slice(cappedOffset, cappedOffset + query.limit),
     total: imageTotal + videoTotal,
     limit: query.limit,
-    offset: query.offset,
+    offset: cappedOffset,
   };
 }
