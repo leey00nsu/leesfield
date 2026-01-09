@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Grid2X2,
   Image as ImageIcon,
@@ -27,6 +27,8 @@ export function GenerationHistoryScreen() {
   const [offset, setOffset] = useState(0);
   const [items, setItems] = useState<GenerationHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const isFetchingNextRef = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -39,6 +41,7 @@ export function GenerationHistoryScreen() {
     setOffset(0);
     setItems([]);
     setTotal(0);
+    isFetchingNextRef.current = false;
   }, [type, sort, query]);
 
   const params = useMemo(
@@ -71,7 +74,36 @@ export function GenerationHistoryScreen() {
       }
       return merged;
     });
+    isFetchingNextRef.current = false;
   }, [data, offset]);
+
+  useEffect(() => {
+    if (error) {
+      isFetchingNextRef.current = false;
+    }
+  }, [error]);
+
+  useEffect(() => {
+    const target = sentinelRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        if (error) return;
+        if (isLoading) return;
+        if (total === 0 || items.length >= total) return;
+        if (isFetchingNextRef.current) return;
+        isFetchingNextRef.current = true;
+        setOffset((prev) => prev + DEFAULT_LIMIT);
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [error, isLoading, items.length, total]);
 
   const filterButtonBase =
     "flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider transition-all";
@@ -194,15 +226,16 @@ export function GenerationHistoryScreen() {
           />
         )}
         {!error && items.length > 0 && items.length < total && (
-          <div className="mt-6 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setOffset((prev) => prev + DEFAULT_LIMIT)}
-              disabled={isLoading}
-              className="flex items-center gap-2 rounded-full border border-white/10 bg-surface-dark px-6 py-3 text-xs font-bold uppercase tracking-wider text-gray-200 transition-all hover:border-primary/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoading ? "Loading..." : "Load More"}
-            </button>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <div
+              ref={sentinelRef}
+              className="h-8 w-full max-w-xs rounded-full border border-white/10 bg-surface-dark/60"
+            />
+            {isLoading && (
+              <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                Loading...
+              </span>
+            )}
           </div>
         )}
       </div>
