@@ -1,8 +1,12 @@
 import type { Prisma } from "@prisma/client";
+import type {
+  GenerationHistoryResponse,
+  GenerationHistorySort,
+  GenerationHistoryType,
+} from "@/entities/generation/model/types";
 
-export type HistoryType = "image" | "video" | "all";
-export type HistorySort = "date_desc" | "date_asc";
-export type HistoryStatus = "pending" | "processing" | "completed" | "failed";
+export type HistoryType = GenerationHistoryType;
+export type HistorySort = GenerationHistorySort;
 
 export type HistoryQuery = {
   type: HistoryType;
@@ -12,24 +16,7 @@ export type HistoryQuery = {
   offset: number;
 };
 
-export type HistoryItem = {
-  id: string;
-  type: "image" | "video";
-  status: HistoryStatus;
-  prompt: string;
-  model: string | null;
-  createdAt: string;
-  resultUrl: string | null;
-  thumbnailUrl: string | null;
-  errorMessage: string | null;
-};
-
-export type HistoryResponse = {
-  items: HistoryItem[];
-  total: number;
-  limit: number;
-  offset: number;
-};
+export type HistoryResponse = GenerationHistoryResponse;
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
