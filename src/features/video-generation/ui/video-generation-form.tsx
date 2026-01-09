@@ -58,7 +58,7 @@ export function VideoGenerationForm() {
     mode: "onChange",
   });
 
-  const promptFromQuery = searchParams.get("prompt") ?? "";
+  const promptFromQuery = searchParams?.get("prompt") ?? "";
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
