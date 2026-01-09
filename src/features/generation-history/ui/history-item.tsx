@@ -74,16 +74,32 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const TypeIcon = type.icon;
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
   const showActions = item.status === "completed";
+  const isVideo = item.type === "video";
+  const downloadUrl =
+    item.type === "image" && item.resultUrl
+      ? `/api/image-generation/${item.id}/download?index=0`
+      : item.resultUrl;
 
   return (
     <article className="group relative mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt="Generated preview"
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
+          isVideo ? (
+            <video
+              src={previewUrl}
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <img
+              src={previewUrl}
+              alt="Generated preview"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          )
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-30" />
         )}
@@ -140,22 +156,45 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               Reuse Prompt
             </button>
             <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={!item.resultUrl}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Download"
-              >
-                <Download className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                disabled={!item.resultUrl}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Open"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
+              {downloadUrl ? (
+                <a
+                  href={downloadUrl}
+                  download={item.type === "video" ? true : undefined}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
+                  aria-label="Download"
+                >
+                  <Download className="h-4 w-4" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  aria-label="Download"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              )}
+              {item.resultUrl ? (
+                <a
+                  href={item.resultUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
+                  aria-label="Open"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  aria-label="Open"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
