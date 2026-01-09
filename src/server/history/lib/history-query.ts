@@ -97,6 +97,29 @@ export function buildImageWhere(
   };
 }
 
+export function buildVideoWhere(
+  query: HistoryQuery,
+): Prisma.VideoGenerationWhereInput {
+  if (!query.query) return {};
+
+  return {
+    OR: [
+      {
+        prompt: {
+          contains: query.query,
+          mode: "insensitive",
+        },
+      },
+      {
+        requestParams: {
+          path: ["model"],
+          string_contains: query.query,
+        },
+      },
+    ],
+  };
+}
+
 export function extractModel(params: unknown): string | null {
   if (!params || typeof params !== "object") return null;
   const record = params as Record<string, unknown>;
