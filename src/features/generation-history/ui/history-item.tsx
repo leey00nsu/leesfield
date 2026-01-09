@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -9,6 +11,7 @@ import {
   RotateCcw,
   Video,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
@@ -68,6 +71,7 @@ function formatDate(value: string) {
 }
 
 export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
+  const router = useRouter();
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -79,6 +83,13 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
     item.type === "image" && item.resultUrl
       ? `/api/image-generation/${item.id}/download?index=0`
       : item.resultUrl;
+
+  const handleReusePrompt = () => {
+    if (!item.prompt.trim()) return;
+    const target = item.type === "video" ? "/video" : "/image";
+    const query = new URLSearchParams({ prompt: item.prompt }).toString();
+    router.push(`${target}?${query}`);
+  };
 
   return (
     <article className="group relative mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
@@ -151,6 +162,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
             <button
               type="button"
               className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)]"
+              onClick={handleReusePrompt}
             >
               <RotateCcw className="h-4 w-4" />
               Reuse Prompt
