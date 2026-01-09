@@ -5,8 +5,78 @@ import {
   SlidersHorizontal,
   Video,
 } from "lucide-react";
+import type { GenerationHistoryItem } from "@/entities/generation/model/types";
+import { HistoryList } from "@/features/generation-history/ui/history-list";
 
-const placeholderCards = Array.from({ length: 8 });
+const now = Date.now();
+const mockItems: GenerationHistoryItem[] = [
+  {
+    id: "img-001",
+    type: "image",
+    status: "completed",
+    prompt: "A neon-lit alleyway in the rain, cinematic lighting, ultra-detailed.",
+    model: "Z-Image-Turbo",
+    createdAt: new Date(now - 1000 * 60 * 12).toISOString(),
+    resultUrl: "/sample-image.png",
+    thumbnailUrl: "/sample-image.png",
+    errorMessage: null,
+  },
+  {
+    id: "img-002",
+    type: "image",
+    status: "processing",
+    prompt: "Portrait of a hacker with holographic UI overlays, moody lighting.",
+    model: "Z-Image-Turbo",
+    createdAt: new Date(now - 1000 * 60 * 30).toISOString(),
+    resultUrl: null,
+    thumbnailUrl: null,
+    errorMessage: null,
+  },
+  {
+    id: "img-003",
+    type: "image",
+    status: "failed",
+    prompt: "Midjourney-style surreal desert skyline with floating mirrors.",
+    model: "Z-Image-Turbo",
+    createdAt: new Date(now - 1000 * 60 * 60).toISOString(),
+    resultUrl: null,
+    thumbnailUrl: null,
+    errorMessage: "이미지 생성에 실패했습니다.",
+  },
+  {
+    id: "vid-001",
+    type: "video",
+    status: "completed",
+    prompt: "Slow drone shot over a cyberpunk megacity, dusk, volumetric fog.",
+    model: "HunyuanVideo-1.5",
+    createdAt: new Date(now - 1000 * 60 * 90).toISOString(),
+    resultUrl: "/sample-video.mp4",
+    thumbnailUrl: null,
+    errorMessage: null,
+  },
+  {
+    id: "vid-002",
+    type: "video",
+    status: "pending",
+    prompt: "A futuristic train arriving at a neon station, cinematic wide shot.",
+    model: "HunyuanVideo-1.5",
+    createdAt: new Date(now - 1000 * 60 * 150).toISOString(),
+    resultUrl: null,
+    thumbnailUrl: null,
+    errorMessage: null,
+  },
+  {
+    id: "vid-003",
+    type: "video",
+    status: "failed",
+    prompt: "Underwater bioluminescent forest, glowing jellyfish drifting.",
+    model: "HunyuanVideo-1.5",
+    createdAt: new Date(now - 1000 * 60 * 240).toISOString(),
+    resultUrl: null,
+    thumbnailUrl: null,
+    errorMessage: "비디오 생성 시간이 초과되었습니다.",
+  },
+];
 
 export function GenerationHistoryScreen() {
   return (
@@ -82,25 +152,7 @@ export function GenerationHistoryScreen() {
       </div>
 
       <div className="mx-auto w-full max-w-[1600px]">
-        <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
-          {placeholderCards.map((_, index) => (
-            <div
-              key={`history-placeholder-${index}`}
-              className="mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50"
-            >
-              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
-              </div>
-              <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4">
-                <div className="h-4 w-3/4 rounded-full bg-white/10" />
-                <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                  <div className="h-4 w-24 rounded-full bg-primary/20" />
-                  <div className="h-3 w-12 rounded-full bg-white/10" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <HistoryList items={mockItems} />
       </div>
     </div>
   );
