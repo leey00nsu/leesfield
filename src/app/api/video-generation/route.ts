@@ -9,7 +9,7 @@ export const revalidate = 0;
 export async function POST(request: Request) {
   const session = await getSession();
 
-  if (!session.isLoggedIn) {
+  if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json(
       { message: "UNAUTHORIZED" },
       { status: 401 },
@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const record = await createMockVideoGeneration(parsed.data);
+    const record = await createMockVideoGeneration(
+      parsed.data,
+      session.adminEmail,
+    );
 
     return NextResponse.json(
       {

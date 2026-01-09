@@ -9,21 +9,23 @@ import {
 
 export async function getHistory(
   searchParams: URLSearchParams,
+  ownerEmail: string,
 ): Promise<HistoryResponse> {
   const query = parseHistoryQuery(searchParams);
   const MAX_OFFSET = 200;
+  const cappedOffset = Math.min(query.offset, MAX_OFFSET);
 
   const orderBy = {
     createdAt: query.sort === "date_asc" ? "asc" : "desc",
   } as const;
 
   if (query.type === "image") {
-    const where = buildImageWhere(query);
+    const where = { ownerEmail, ...buildImageWhere(query) };
     const [records, total] = await prisma.$transaction([
       prisma.imageGeneration.findMany({
         where,
         orderBy,
-        skip: query.offset,
+        skip: cappedOffset,
         take: query.limit,
         include: {
           images: {
@@ -57,17 +59,17 @@ export async function getHistory(
       items,
       total,
       limit: query.limit,
-      offset: query.offset,
+      offset: cappedOffset,
     };
   }
 
   if (query.type === "video") {
-    const where = buildVideoWhere(query);
+    const where = { ownerEmail, ...buildVideoWhere(query) };
     const [records, total] = await prisma.$transaction([
       prisma.videoGeneration.findMany({
         where,
         orderBy,
-        skip: query.offset,
+        skip: cappedOffset,
         take: query.limit,
         include: {
           videos: {
@@ -101,14 +103,13 @@ export async function getHistory(
       items,
       total,
       limit: query.limit,
-      offset: query.offset,
+      offset: cappedOffset,
     };
   }
 
-  const cappedOffset = Math.min(query.offset, MAX_OFFSET);
   const take = query.limit + cappedOffset;
-  const imageWhere = buildImageWhere(query);
-  const videoWhere = buildVideoWhere(query);
+  const imageWhere = { ownerEmail, ...buildImageWhere(query) };
+  const videoWhere = { ownerEmail, ...buildVideoWhere(query) };
 
   const [
     imageRecords,

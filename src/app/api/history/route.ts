@@ -8,7 +8,7 @@ export const revalidate = 0;
 export async function GET(request: Request) {
   const session = await getSession();
 
-  if (!session.isLoggedIn) {
+  if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json(
       { message: "UNAUTHORIZED" },
       { status: 401 },
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const payload = await getHistory(searchParams);
+    const payload = await getHistory(searchParams, session.adminEmail);
 
     return NextResponse.json(payload, {
       headers: {

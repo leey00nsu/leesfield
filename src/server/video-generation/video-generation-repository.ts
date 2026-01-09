@@ -9,6 +9,7 @@ import type {
 export async function createVideoGenerationRecord(
   requestId: string,
   payload: VideoGenerationFormValues,
+  ownerEmail: string,
 ) {
   const requestParams: Prisma.InputJsonValue = {
     model: payload.model,
@@ -26,6 +27,7 @@ export async function createVideoGenerationRecord(
   return prisma.videoGeneration.create({
     data: {
       requestId,
+      ownerEmail,
       prompt: payload.prompt,
       requestParams,
       status: "pending",
@@ -74,9 +76,12 @@ export async function saveVideoGenerationResult(
   await prisma.$transaction(operations);
 }
 
-export async function getVideoGenerationByRequestId(requestId: string) {
-  return prisma.videoGeneration.findUnique({
-    where: { requestId },
+export async function getVideoGenerationByRequestId(
+  requestId: string,
+  ownerEmail: string,
+) {
+  return prisma.videoGeneration.findFirst({
+    where: { requestId, ownerEmail },
     include: {
       videos: {
         orderBy: { createdAt: "asc" },

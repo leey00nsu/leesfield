@@ -8,7 +8,8 @@ import type {
 
 export async function createImageGenerationRecord(
   requestId: string,
-  payload: ImageGenerationFormValues
+  payload: ImageGenerationFormValues,
+  ownerEmail: string
 ) {
   const requestParams: Prisma.InputJsonValue = {
     model: payload.model,
@@ -24,6 +25,7 @@ export async function createImageGenerationRecord(
   return prisma.imageGeneration.create({
     data: {
       requestId,
+      ownerEmail,
       prompt: payload.prompt,
       requestParams,
       aspectRatio: `${payload.width}x${payload.height}`,
@@ -75,9 +77,12 @@ export async function saveImageGenerationResult(
   await prisma.$transaction(operations);
 }
 
-export async function getImageGenerationByRequestId(requestId: string) {
-  return prisma.imageGeneration.findUnique({
-    where: { requestId },
+export async function getImageGenerationByRequestId(
+  requestId: string,
+  ownerEmail: string,
+) {
+  return prisma.imageGeneration.findFirst({
+    where: { requestId, ownerEmail },
     include: {
       images: {
         orderBy: { createdAt: "asc" },

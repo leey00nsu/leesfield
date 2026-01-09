@@ -24,7 +24,7 @@ function resolveExtension(contentType?: string | null) {
 export async function GET(request: Request, { params }: RouteContext) {
   const session = await getSession();
 
-  if (!session.isLoggedIn) {
+  if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   }
 
@@ -37,7 +37,10 @@ export async function GET(request: Request, { params }: RouteContext) {
     return NextResponse.json({ message: "INVALID_INDEX" }, { status: 400 });
   }
 
-  const record = await getImageGenerationByRequestId(requestId);
+  const record = await getImageGenerationByRequestId(
+    requestId,
+    session.adminEmail,
+  );
 
   if (!record) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });

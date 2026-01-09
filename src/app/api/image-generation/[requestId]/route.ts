@@ -17,7 +17,7 @@ export async function GET(
 ) {
   const session = await getSession();
 
-  if (!session.isLoggedIn) {
+  if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json(
       { message: "UNAUTHORIZED" },
       { status: 401 },
@@ -25,7 +25,7 @@ export async function GET(
   }
 
   const { requestId } = await params;
-  const record = await getGeneration(requestId);
+  const record = await getGeneration(requestId, session.adminEmail);
 
   if (!record) {
     return NextResponse.json(

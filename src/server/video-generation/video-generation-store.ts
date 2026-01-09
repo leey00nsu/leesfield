@@ -12,6 +12,7 @@ import {
 export type VideoGenerationRecord = {
   id: string;
   dbId?: string;
+  ownerEmail?: string;
   payload: VideoGenerationFormValues;
   status: VideoGenerationStatus;
   progress: number;
@@ -70,11 +71,13 @@ function resolveProgressStage(elapsedMs: number) {
 
 export async function createMockVideoGeneration(
   payload: VideoGenerationFormValues,
+  ownerEmail: string,
 ) {
   const id = crypto.randomUUID();
   const now = Date.now();
   const record: VideoGenerationRecord = {
     id,
+    ownerEmail,
     payload,
     status: "pending",
     progress: 0,
@@ -84,7 +87,7 @@ export async function createMockVideoGeneration(
 
   store.set(id, record);
 
-  return createVideoGenerationRecord(id, payload)
+  return createVideoGenerationRecord(id, payload, ownerEmail)
     .then((dbRecord) => {
       updateRecord(id, { dbId: dbRecord.id });
       return store.get(id) ?? record;
@@ -95,9 +98,9 @@ export async function createMockVideoGeneration(
     });
 }
 
-export async function getVideoGeneration(id: string) {
+export async function getVideoGeneration(id: string, ownerEmail: string) {
   const record = store.get(id);
-  if (!record) {
+  if (!record || record.ownerEmail !== ownerEmail) {
     return null;
   }
 

@@ -30,6 +30,7 @@ enum VideoGenerationStatus {
 model ImageGeneration {
   id             String                 @id @default(cuid())
   requestId      String                 @unique
+  ownerEmail     String?
   prompt         String
   requestParams  Json?
   aspectRatio    String
@@ -42,6 +43,8 @@ model ImageGeneration {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   images         ImageGenerationImage[]
+
+  @@index([ownerEmail])
 }
 
 model ImageGenerationImage {
@@ -59,6 +62,7 @@ model ImageGenerationImage {
 model VideoGeneration {
   id            String               @id @default(cuid())
   requestId     String               @unique
+  ownerEmail    String?
   prompt        String
   requestParams Json?
   status        VideoGenerationStatus
@@ -67,6 +71,8 @@ model VideoGeneration {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   videos        VideoGenerationVideo[]
+
+  @@index([ownerEmail])
 }
 
 model VideoGenerationVideo {
