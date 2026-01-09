@@ -41,7 +41,7 @@ export async function getHistory(
 
       return {
         id: record.requestId,
-        type: "image",
+        type: "image" as const,
         status: record.status,
         prompt: record.prompt,
         model,
@@ -85,7 +85,7 @@ export async function getHistory(
 
       return {
         id: record.requestId,
-        type: "video",
+        type: "video" as const,
         status: record.status,
         prompt: record.prompt,
         model,
