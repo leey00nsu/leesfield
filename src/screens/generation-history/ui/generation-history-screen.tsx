@@ -38,6 +38,7 @@ export function GenerationHistoryScreen() {
   useEffect(() => {
     setOffset(0);
     setItems([]);
+    setTotal(0);
   }, [type, sort, query]);
 
   const params = useMemo(

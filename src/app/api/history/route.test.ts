@@ -51,6 +51,7 @@ describe("GET /api/history", () => {
   });
 
   it("서버 오류 시 500을 반환한다", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockResolvedValue({ isLoggedIn: true });
     mockGetHistory.mockRejectedValue(new Error("boom"));
 
@@ -60,5 +61,6 @@ describe("GET /api/history", () => {
 
     expect(response.status).toBe(500);
     expect(payload.message).toBe("INTERNAL_SERVER_ERROR");
+    consoleSpy.mockRestore();
   });
 });
