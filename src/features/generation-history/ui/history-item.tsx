@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Copy,
   Download,
   Image as ImageIcon,
   Loader2,
@@ -24,23 +26,23 @@ const statusConfig: Record<
 > = {
   pending: {
     label: "Pending",
-    className: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    className: "border-amber-400/70 bg-amber-400 text-black",
     icon: Clock,
   },
   processing: {
     label: "Processing",
-    className: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+    className: "border-sky-400/70 bg-sky-400 text-black",
     icon: Loader2,
     spin: true,
   },
   completed: {
     label: "Completed",
-    className: "border-primary/40 bg-primary/15 text-primary",
+    className: "border-primary/80 bg-primary text-black",
     icon: CheckCircle2,
   },
   failed: {
     label: "Failed",
-    className: "border-red-500/30 bg-red-500/10 text-red-300",
+    className: "border-red-400/70 bg-red-400 text-black",
     icon: AlertTriangle,
   },
 };
@@ -72,6 +74,7 @@ function formatDate(value: string) {
 
 export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const router = useRouter();
+  const [isCopied, setIsCopied] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -91,8 +94,41 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
     router.push(`${target}?${query}`);
   };
 
+  const handleCopyPrompt = async () => {
+    const text = item.prompt.trim();
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      return;
+    } catch {
+      // fallback below
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setIsCopied(true);
+    } catch {
+      setIsCopied(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isCopied) return;
+    const timer = window.setTimeout(() => setIsCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [isCopied]);
+
   return (
-    <article className="group relative mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
+    <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         {previewUrl ? (
           isVideo ? (
@@ -161,11 +197,19 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
               type="button"
-              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)]"
+              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
               onClick={handleReusePrompt}
             >
               <RotateCcw className="h-4 w-4" />
               Reuse Prompt
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyPrompt}
+              className="flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:border-primary/60 hover:text-primary"
+            >
+              <Copy className="h-4 w-4" />
+              {isCopied ? "Copied" : "Copy Prompt"}
             </button>
             <div className="flex gap-2">
               {downloadUrl ? (

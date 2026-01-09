@@ -9,6 +9,7 @@ import {
   Video,
 } from "lucide-react";
 import type {
+  GenerationHistoryItem,
   GenerationHistorySort,
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
@@ -23,7 +24,9 @@ export function GenerationHistoryScreen() {
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
-  const [offset] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [items, setItems] = useState<GenerationHistoryItem[]>([]);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -31,6 +34,11 @@ export function GenerationHistoryScreen() {
     }, 350);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  useEffect(() => {
+    setOffset(0);
+    setItems([]);
+  }, [type, sort, query]);
 
   const params = useMemo(
     () => ({
@@ -44,8 +52,25 @@ export function GenerationHistoryScreen() {
   );
 
   const { data, isLoading, error } = useHistoryQuery(params);
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
+
+  useEffect(() => {
+    if (!data) return;
+    setTotal(data.total);
+    setItems((prev) => {
+      if (offset === 0) {
+        return data.items;
+      }
+      const merged = [...prev];
+      const seen = new Set(prev.map((item) => `${item.type}-${item.id}`));
+      for (const item of data.items) {
+        const key = `${item.type}-${item.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+      return merged;
+    });
+  }, [data, offset]);
 
   const filterButtonBase =
     "flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider transition-all";
@@ -53,7 +78,7 @@ export function GenerationHistoryScreen() {
   const renderSortLabel = sort === "date_desc" ? "DATE_DESC" : "DATE_ASC";
 
   return (
-    <div className="flex flex-col gap-8 pb-20">
+    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
       <div className="sticky top-0 z-20 -mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -163,9 +188,21 @@ export function GenerationHistoryScreen() {
         ) : (
           <HistoryList
             items={items}
-            isLoading={isLoading}
+            isLoading={isLoading && items.length === 0}
             emptyMessage={query ? "검색 결과가 없습니다." : "히스토리가 비어 있습니다."}
           />
+        )}
+        {!error && items.length > 0 && items.length < total && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setOffset((prev) => prev + DEFAULT_LIMIT)}
+              disabled={isLoading}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-surface-dark px-6 py-3 text-xs font-bold uppercase tracking-wider text-gray-200 transition-all hover:border-primary/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoading ? "Loading..." : "Load More"}
+            </button>
+          </div>
         )}
       </div>
     </div>
