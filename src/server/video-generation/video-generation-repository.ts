@@ -21,7 +21,7 @@ export async function createVideoGenerationRecord(
     fps: payload.fps,
     steps: payload.steps,
     guidanceScale: payload.guidanceScale,
-    seed: payload.seed || null,
+    seed: payload.seed ?? null,
   };
 
   return prisma.videoGeneration.create({
