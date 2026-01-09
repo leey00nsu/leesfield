@@ -29,7 +29,10 @@ describe("GET /api/history", () => {
   });
 
   it("정상 요청이면 히스토리 데이터를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockGetHistory.mockResolvedValue({
       items: [],
       total: 0,
@@ -52,7 +55,10 @@ describe("GET /api/history", () => {
 
   it("서버 오류 시 500을 반환한다", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockGetHistory.mockRejectedValue(new Error("boom"));
 
     const request = new Request("http://localhost/api/history");

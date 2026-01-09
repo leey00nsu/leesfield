@@ -35,7 +35,10 @@ describe("POST /api/image-generation", () => {
   });
 
   it("유효하지 않은 요청이면 400을 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
 
     const request = new Request("http://localhost/api/image-generation", {
       method: "POST",
@@ -51,7 +54,10 @@ describe("POST /api/image-generation", () => {
   });
 
   it("정상 요청이면 생성 정보를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockCreateMockGeneration.mockResolvedValue({
       id: "request-id",
       status: "pending",
@@ -77,7 +83,10 @@ describe("POST /api/image-generation", () => {
   });
 
   it("저장 실패 시 500을 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockCreateMockGeneration.mockRejectedValue(new Error("db fail"));
 
     const request = new Request("http://localhost/api/image-generation", {
