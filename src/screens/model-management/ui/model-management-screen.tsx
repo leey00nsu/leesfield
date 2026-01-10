@@ -54,7 +54,7 @@ export function ModelManagementScreen() {
             <span className="text-primary">Management</span>
           </>
         }
-        subtitle="SYSTEM STATUS: OPTIMAL // LOCAL REPOSITORY"
+        subtitle="FIND YOUR MODELS FAST"
         rightSlot={
           <DashboardSearchInput
             value={searchInput}

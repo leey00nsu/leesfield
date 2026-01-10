@@ -11,11 +11,15 @@ const typeConfig = {
     label: "IMAGE",
     className: "border-white/10 bg-black/80 text-primary",
     icon: ImageIcon,
+    accentText: "text-primary",
+    glowClass: "from-primary/35 via-transparent to-transparent",
   },
   video: {
     label: "VIDEO",
     className: "border-white/10 bg-black/80 text-accent-purple",
     icon: Video,
+    accentText: "text-accent-purple",
+    glowClass: "from-accent-purple/35 via-transparent to-transparent",
   },
 };
 
@@ -70,8 +74,28 @@ export function ModelCard({ item }: ModelCardProps) {
   return (
     <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-        <div className="absolute inset-0 bg-[radial-gradient(circle,_#222_1px,_transparent_1px)] opacity-30" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-90" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#1c1c1c_0,_#0a0a0a_70%)]" />
+        <div
+          className={cn(
+            "absolute inset-0 bg-gradient-to-br opacity-70 transition-opacity duration-300 group-hover:opacity-95",
+            config.glowClass,
+          )}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle,_#222_1px,_transparent_1px)] opacity-25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-black/40 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
+            <TypeIcon className={cn("h-7 w-7", config.accentText)} />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-bold uppercase tracking-widest text-white/80">
+              {item.label}
+            </p>
+            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-500">
+              {item.key}
+            </p>
+          </div>
+        </div>
         <div
           className={cn(
             "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
