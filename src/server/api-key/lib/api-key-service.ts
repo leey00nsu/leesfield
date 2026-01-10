@@ -130,3 +130,27 @@ export async function revokeApiKey(params: {
 
   return mapRecord(updated);
 }
+
+export async function updateApiKeyLabel(params: {
+  id: string;
+  ownerEmail: string;
+  label: string;
+}): Promise<ApiKeyRecord> {
+  const existing = await prisma.apiKey.findFirst({
+    where: {
+      id: params.id,
+      ownerEmail: params.ownerEmail,
+    },
+  });
+
+  if (!existing) {
+    throw new Error("API_KEY_NOT_FOUND");
+  }
+
+  const updated = await prisma.apiKey.update({
+    where: { id: existing.id },
+    data: { label: params.label },
+  });
+
+  return mapRecord(updated);
+}

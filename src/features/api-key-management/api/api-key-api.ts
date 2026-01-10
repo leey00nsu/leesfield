@@ -2,6 +2,7 @@ import type {
   ApiKeyListResponse,
   IssueApiKeyResponse,
   RevokeApiKeyResponse,
+  UpdateApiKeyResponse,
 } from "@/features/api-key-management/model/api-key-types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -44,4 +45,18 @@ export async function revokeApiKey(
     },
   });
   return handleResponse<RevokeApiKeyResponse>(response);
+}
+
+export async function updateApiKeyLabel(
+  apiKeyId: string,
+  label: string,
+): Promise<UpdateApiKeyResponse> {
+  const response = await fetch(`/api/api-keys/${apiKeyId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ label }),
+  });
+  return handleResponse<UpdateApiKeyResponse>(response);
 }

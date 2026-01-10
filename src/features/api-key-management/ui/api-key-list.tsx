@@ -10,8 +10,7 @@ type ApiKeyListItem = {
   lastUsedLabel: string;
   createdAtLabel: string;
   isPrimary?: boolean;
-  onCopy?: () => void;
-  onRevoke?: () => void;
+  onEdit?: () => void;
 };
 
 type ApiKeyListProps = {
@@ -48,8 +47,7 @@ export function ApiKeyList({
           lastUsedLabel={item.lastUsedLabel}
           createdAtLabel={item.createdAtLabel}
           isPrimary={item.isPrimary}
-          onCopy={item.onCopy}
-          onRevoke={item.onRevoke}
+          onEdit={item.onEdit}
         />
       ))}
     </div>

@@ -10,7 +10,7 @@ type ApiKeyCardProps = {
   lastUsedLabel: string;
   createdAtLabel: string;
   isPrimary?: boolean;
-  onRevoke?: () => void;
+  onEdit?: () => void;
 };
 
 const statusConfig = {
@@ -35,11 +35,11 @@ export function ApiKeyCard({
   lastUsedLabel,
   createdAtLabel,
   isPrimary = false,
-  onRevoke,
+  onEdit,
 }: ApiKeyCardProps) {
   const config = statusConfig[status];
   const StatusIcon = config.icon;
-  const canRevoke = status === "active" && Boolean(onRevoke);
+  const canEdit = Boolean(onEdit);
   const usageHint =
     lastUsedLabel === "Never" ? "Never used" : `Last used ${lastUsedLabel}`;
 
@@ -102,17 +102,17 @@ export function ApiKeyCard({
         <div className="flex items-center gap-2 md:ml-auto">
           <button
             type="button"
-            onClick={onRevoke}
-            disabled={!canRevoke}
-            aria-disabled={!canRevoke}
-            title={canRevoke ? "Revoke Key" : "Revoked"}
+            onClick={onEdit}
+            disabled={!canEdit}
+            aria-disabled={!canEdit}
+            title={canEdit ? "Edit" : "준비 중"}
             className={cn(
-              "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-accent-red transition-all hover:border-accent-red/20 hover:bg-accent-red/10",
-              !canRevoke &&
-                "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent",
+              "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white/10 hover:bg-white/5 hover:text-white",
+              !canEdit &&
+                "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent hover:text-gray-400",
             )}
           >
-            Revoke
+            Edit
           </button>
         </div>
       </div>

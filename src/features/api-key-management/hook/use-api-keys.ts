@@ -6,6 +6,7 @@ import {
   fetchApiKeys,
   issueApiKey,
   revokeApiKey,
+  updateApiKeyLabel,
 } from "@/features/api-key-management/api/api-key-api";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -102,6 +103,25 @@ export function useApiKeys() {
     }));
   }, []);
 
+  const updateLabel = useCallback(
+    async (apiKeyId: string, label: string) => {
+      const response = await updateApiKeyLabel(apiKeyId, label);
+      setState((prev) => ({
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === apiKeyId
+            ? {
+                ...item,
+                label: response.record.label,
+              }
+            : item,
+        ),
+      }));
+      return response.record;
+    },
+    [],
+  );
+
   const hasItems = state.items.length > 0;
   const activeCount = useMemo(
     () => state.items.filter((item) => item.status === "active").length,
@@ -115,5 +135,6 @@ export function useApiKeys() {
     refresh: load,
     issue,
     revoke,
+    updateLabel,
   };
 }

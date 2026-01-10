@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
+import { KeyRound, Plus, ShieldCheck, Slash, X } from "lucide-react";
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
 import { useApiKeys } from "@/features/api-key-management/hook/use-api-keys";
 import type { ApiKeyItem } from "@/features/api-key-management/model/api-key-types";
@@ -44,8 +44,13 @@ export function ApiKeyManagementScreen() {
   const [isIssuing, setIsIssuing] = useState(false);
   const [pendingKey, setPendingKey] = useState<PendingKey | null>(null);
   const [pendingCopied, setPendingCopied] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKeyView | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const copyTimerRef = useRef<number | null>(null);
-  const { items, isLoading, error, issue, revoke } = useApiKeys();
+  const { items, isLoading, error, issue, revoke, updateLabel } = useApiKeys();
 
   const filteredKeys = useMemo(() => {
     const normalized = searchInput.trim().toLowerCase();
@@ -113,12 +118,50 @@ export function ApiKeyManagementScreen() {
     }, 1500);
   };
 
-  const handleRevoke = async (item: ApiKeyView) => {
-    if (item.status === "revoked") return;
+  const openEdit = (item: ApiKeyView) => {
+    setEditingKey(item);
+    setEditLabel(item.label);
+    setEditError(null);
+  };
+
+  const closeEdit = () => {
+    setEditingKey(null);
+    setEditLabel("");
+    setEditError(null);
+  };
+
+  const handleUpdateLabel = async () => {
+    if (!editingKey) return;
+    const label = editLabel.trim();
+    if (!label) {
+      setEditError("라벨을 입력해주세요.");
+      return;
+    }
+    setIsUpdating(true);
+    setEditError(null);
     try {
-      await revoke(item.id);
+      await updateLabel(editingKey.id, label);
+      closeEdit();
+    } catch (error) {
+      console.error("[api-keys] update failed", error);
+      setEditError("라벨 업데이트에 실패했습니다.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRevokeFromModal = async () => {
+    if (!editingKey) return;
+    if (editingKey.status === "revoked") return;
+    setIsRevoking(true);
+    try {
+      await revoke(editingKey.id);
+      closeEdit();
     } catch (error) {
       console.error("[api-keys] revoke failed", error);
+      setEditError("키 폐기에 실패했습니다.");
+    } finally {
+      setIsRevoking(false);
     }
   };
 
@@ -131,7 +174,7 @@ export function ApiKeyManagementScreen() {
             <span className="text-primary">Management</span>
           </>
         }
-        subtitle="SECURE ACCESS CONTROL // ACTIVE SESSION"
+        subtitle="SECURE YOUR API ACCESS"
         rightSlot={
           <DashboardSearchInput
             value={searchInput}
@@ -246,7 +289,7 @@ export function ApiKeyManagementScreen() {
             status: item.status,
             lastUsedLabel: item.lastUsedLabel,
             createdAtLabel: item.createdAtLabel,
-            onRevoke: () => handleRevoke(item),
+            onEdit: () => openEdit(item),
           }))}
           emptyMessage={
             isLoading
@@ -257,6 +300,85 @@ export function ApiKeyManagementScreen() {
           }
         />
       </div>
+      {editingKey ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-surface-dark p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  Edit API Key
+                </p>
+                <h3 className="mt-2 text-xl font-bold text-white">
+                  {editingKey.label}
+                </h3>
+                <p className="mt-1 text-xs font-mono text-gray-500">
+                  {editingKey.maskedKey}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEdit}
+                className="rounded-lg border border-white/10 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-6 space-y-3">
+              <label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                Key Label
+              </label>
+              <input
+                type="text"
+                value={editLabel}
+                onChange={(event) => setEditLabel(event.target.value)}
+                className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-4 text-sm text-white focus:border-primary focus:outline-none"
+              />
+              {editError ? (
+                <p className="text-xs text-red-300">{editError}</p>
+              ) : null}
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={handleRevokeFromModal}
+                disabled={editingKey.status === "revoked" || isRevoking}
+                className={cn(
+                  "flex h-10 items-center justify-center rounded-full border border-red-500 px-6 text-xs font-bold uppercase tracking-wider text-white",
+                  "bg-red-500 transition-colors hover:bg-red-400",
+                  "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-red-500",
+                )}
+              >
+                {editingKey.status === "revoked"
+                  ? "Revoked"
+                  : isRevoking
+                    ? "Revoking..."
+                    : "Revoke Key"}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateLabel}
+                  disabled={isUpdating}
+                  className={cn(
+                    "rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-white",
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                  )}
+                >
+                  {isUpdating ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

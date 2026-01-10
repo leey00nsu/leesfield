@@ -22,3 +22,7 @@ export type IssueApiKeyResponse = {
 export type RevokeApiKeyResponse = {
   record: ApiKeyItem;
 };
+
+export type UpdateApiKeyResponse = {
+  record: ApiKeyItem;
+};
