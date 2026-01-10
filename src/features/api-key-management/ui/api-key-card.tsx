@@ -1,4 +1,4 @@
-import { CheckCircle2, Copy, Shield, Slash, XCircle } from "lucide-react";
+import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
@@ -10,7 +10,6 @@ type ApiKeyCardProps = {
   lastUsedLabel: string;
   createdAtLabel: string;
   isPrimary?: boolean;
-  onCopy?: () => void;
   onRevoke?: () => void;
 };
 
@@ -36,11 +35,13 @@ export function ApiKeyCard({
   lastUsedLabel,
   createdAtLabel,
   isPrimary = false,
-  onCopy,
   onRevoke,
 }: ApiKeyCardProps) {
   const config = statusConfig[status];
   const StatusIcon = config.icon;
+  const canRevoke = status === "active" && Boolean(onRevoke);
+  const usageHint =
+    lastUsedLabel === "Never" ? "Never used" : `Last used ${lastUsedLabel}`;
 
   return (
     <article className="group relative flex flex-col gap-6 rounded-xl border border-white/5 bg-surface-dark p-6 shadow-lg transition-all hover:border-primary/50 md:flex-row md:items-center md:justify-between">
@@ -76,15 +77,7 @@ export function ApiKeyCard({
             <code className="rounded border border-white/5 bg-black/50 px-2 py-1 text-xs font-mono text-gray-400">
               {maskedKey}
             </code>
-            <button
-              type="button"
-              onClick={onCopy}
-              className="rounded p-1 text-gray-500 transition-colors hover:text-white"
-              aria-label="API 키 복사"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-mono text-gray-600">• Never shared</span>
+            <span className="text-xs font-mono text-gray-600">• {usageHint}</span>
           </div>
         </div>
       </div>
@@ -109,17 +102,17 @@ export function ApiKeyCard({
         <div className="flex items-center gap-2 md:ml-auto">
           <button
             type="button"
-            className="rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white/10 hover:bg-white/5 hover:text-white"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
             onClick={onRevoke}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-transparent text-accent-red transition-all hover:border-accent-red/20 hover:bg-accent-red/10"
-            title="Revoke Key"
+            disabled={!canRevoke}
+            aria-disabled={!canRevoke}
+            title={canRevoke ? "Revoke Key" : "Revoked"}
+            className={cn(
+              "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-accent-red transition-all hover:border-accent-red/20 hover:bg-accent-red/10",
+              !canRevoke &&
+                "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent",
+            )}
           >
-            <Slash className="h-5 w-5" />
+            Revoke
           </button>
         </div>
       </div>

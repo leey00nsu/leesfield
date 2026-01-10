@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
 import { useApiKeys } from "@/features/api-key-management/hook/use-api-keys";
@@ -27,12 +27,24 @@ type PendingKey = {
   apiKey: string;
 };
 
+function buildDefaultLabel() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `API-Key-${yyyy}${mm}${dd}-${hh}${min}`;
+}
+
 export function ApiKeyManagementScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [filter, setFilter] = useState<ApiKeyStatusFilter>("all");
   const [newKeyLabel, setNewKeyLabel] = useState("");
   const [isIssuing, setIsIssuing] = useState(false);
   const [pendingKey, setPendingKey] = useState<PendingKey | null>(null);
+  const [pendingCopied, setPendingCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
   const { items, isLoading, error, issue, revoke } = useApiKeys();
 
   const filteredKeys = useMemo(() => {
@@ -49,13 +61,21 @@ export function ApiKeyManagementScreen() {
     });
   }, [filter, items, searchInput]);
 
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleIssueKey = async () => {
-    const label = newKeyLabel.trim();
-    if (!label) return;
+    const label = newKeyLabel.trim() || buildDefaultLabel();
     setIsIssuing(true);
     try {
       const result = await issue(label);
       setPendingKey({ label: result.record.label, apiKey: result.apiKey });
+      setPendingCopied(false);
       setNewKeyLabel("");
     } catch (error) {
       console.error("[api-keys] issue failed", error);
@@ -64,7 +84,10 @@ export function ApiKeyManagementScreen() {
     }
   };
 
-  const handleCopy = async (value: string) => {
+  const handleCopy = async (
+    value: string,
+    target?: { pending?: boolean },
+  ) => {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
@@ -78,6 +101,16 @@ export function ApiKeyManagementScreen() {
       document.execCommand("copy");
       document.body.removeChild(textarea);
     }
+
+    if (copyTimerRef.current) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+    if (target?.pending) {
+      setPendingCopied(true);
+    }
+    copyTimerRef.current = window.setTimeout(() => {
+      setPendingCopied(false);
+    }, 1500);
   };
 
   const handleRevoke = async (item: ApiKeyView) => {
@@ -146,11 +179,11 @@ export function ApiKeyManagementScreen() {
             <button
               type="button"
               onClick={handleIssueKey}
-              disabled={isIssuing || newKeyLabel.trim().length === 0}
+              disabled={isIssuing}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold uppercase tracking-wider text-black",
                 "transition-colors hover:bg-white shadow-[0_0_20px_rgba(212,240,50,0.2)]",
-                "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary",
+                "whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary",
               )}
             >
               <Plus className="h-5 w-5" />
@@ -178,14 +211,17 @@ export function ApiKeyManagementScreen() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => handleCopy(pendingKey.apiKey)}
+                  onClick={() => handleCopy(pendingKey.apiKey, { pending: true })}
                   className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
                 >
-                  Copy Key
+                  {pendingCopied ? "Copied" : "Copy Key"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingKey(null)}
+                  onClick={() => {
+                    setPendingKey(null);
+                    setPendingCopied(false);
+                  }}
                   className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
                 >
                   Dismiss
@@ -210,7 +246,6 @@ export function ApiKeyManagementScreen() {
             status: item.status,
             lastUsedLabel: item.lastUsedLabel,
             createdAtLabel: item.createdAtLabel,
-            onCopy: () => handleCopy(item.maskedKey),
             onRevoke: () => handleRevoke(item),
           }))}
           emptyMessage={

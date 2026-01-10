@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     apiKeyId: string;
-  };
+  }>;
 };
 
 export async function POST(_request: Request, context: RouteContext) {
@@ -19,8 +19,9 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   try {
+    const { apiKeyId } = await context.params;
     const record = await revokeApiKeyHandler({
-      id: context.params.apiKeyId,
+      id: apiKeyId,
       ownerEmail: session.adminEmail,
     });
 
