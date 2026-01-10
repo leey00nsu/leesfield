@@ -64,10 +64,10 @@ export function ApiKeyToolbar({
           type="button"
           onClick={onGenerate}
           disabled={isIssuing}
-          variant="ghost"
+          variant="default"
           className={cn(
             "flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold uppercase tracking-wider text-black",
-            "transition-colors hover:bg-white shadow-[0_0_20px_rgba(212,240,50,0.2)]",
+            "transition-colors hover:bg-primary hover:text-black shadow-[0_0_20px_rgba(212,240,50,0.2)]",
             "whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary",
           )}
         >

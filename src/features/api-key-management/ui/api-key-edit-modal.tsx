@@ -72,10 +72,10 @@ export function ApiKeyEditModal({
             type="button"
             onClick={onRevoke}
             disabled={apiKey.status === "revoked" || isRevoking}
-            variant="ghost"
+            variant="destructive"
             className={cn(
               "flex h-10 items-center justify-center rounded-full border border-red-500 px-6 text-xs font-bold uppercase tracking-wider text-white",
-              "bg-red-500 transition-colors hover:bg-red-400",
+              "bg-red-500 transition-colors hover:bg-red-500 hover:text-white",
               "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-red-500",
             )}
           >
@@ -98,9 +98,9 @@ export function ApiKeyEditModal({
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              variant="ghost"
+              variant="default"
               className={cn(
-                "rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-white",
+                "rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-primary hover:text-black",
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
