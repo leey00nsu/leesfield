@@ -1,5 +1,6 @@
 import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 
@@ -100,12 +101,13 @@ export function ApiKeyCard({
           </span>
         </div>
         <div className="flex items-center gap-2 md:ml-auto">
-          <button
+          <Button
             type="button"
             onClick={onEdit}
             disabled={!canEdit}
             aria-disabled={!canEdit}
             title={canEdit ? "Edit" : "준비 중"}
+            variant="ghost"
             className={cn(
               "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white/10 hover:bg-white/5 hover:text-white",
               !canEdit &&
@@ -113,7 +115,7 @@ export function ApiKeyCard({
             )}
           >
             Edit
-          </button>
+          </Button>
         </div>
       </div>
     </article>
