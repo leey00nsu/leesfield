@@ -57,6 +57,8 @@ export function ApiKeyManagementScreen() {
       const result = await issue(label);
       setPendingKey({ label: result.record.label, apiKey: result.apiKey });
       setNewKeyLabel("");
+    } catch (error) {
+      console.error("[api-keys] issue failed", error);
     } finally {
       setIsIssuing(false);
     }
@@ -80,7 +82,11 @@ export function ApiKeyManagementScreen() {
 
   const handleRevoke = async (item: ApiKeyView) => {
     if (item.status === "revoked") return;
-    await revoke(item.id);
+    try {
+      await revoke(item.id);
+    } catch (error) {
+      console.error("[api-keys] revoke failed", error);
+    }
   };
 
   return (
