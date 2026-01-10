@@ -17,7 +17,7 @@ export async function GET(
 ) {
   const session = await getSession();
 
-  if (!session.isLoggedIn) {
+  if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json(
       { message: "UNAUTHORIZED" },
       { status: 401 },
@@ -28,7 +28,7 @@ export async function GET(
   let record = null;
 
   try {
-    record = await getVideoGeneration(requestId);
+    record = await getVideoGeneration(requestId, session.adminEmail);
   } catch (error) {
     console.error("[video-generation] status failed", error);
     return NextResponse.json(

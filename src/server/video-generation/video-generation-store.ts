@@ -4,9 +4,15 @@ import type {
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
 import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
+import {
+  createVideoGenerationRecord,
+  saveVideoGenerationResult,
+} from "@/server/video-generation/video-generation-repository";
 
 export type VideoGenerationRecord = {
   id: string;
+  dbId?: string;
+  ownerEmail?: string;
   payload: VideoGenerationFormValues;
   status: VideoGenerationStatus;
   progress: number;
@@ -65,11 +71,13 @@ function resolveProgressStage(elapsedMs: number) {
 
 export async function createMockVideoGeneration(
   payload: VideoGenerationFormValues,
+  ownerEmail: string,
 ) {
   const id = crypto.randomUUID();
   const now = Date.now();
   const record: VideoGenerationRecord = {
     id,
+    ownerEmail,
     payload,
     status: "pending",
     progress: 0,
@@ -78,12 +86,21 @@ export async function createMockVideoGeneration(
   };
 
   store.set(id, record);
-  return record;
+
+  return createVideoGenerationRecord(id, payload, ownerEmail)
+    .then((dbRecord) => {
+      updateRecord(id, { dbId: dbRecord.id });
+      return store.get(id) ?? record;
+    })
+    .catch((error) => {
+      store.delete(id);
+      throw error;
+    });
 }
 
-export async function getVideoGeneration(id: string) {
+export async function getVideoGeneration(id: string, ownerEmail: string) {
   const record = store.get(id);
-  if (!record) {
+  if (!record || record.ownerEmail !== ownerEmail) {
     return null;
   }
 
@@ -113,12 +130,35 @@ export async function getVideoGeneration(id: string) {
             latest.payload,
             latest.id
           );
+          let dbErrorMessage: string | undefined;
+
+          if (latest.dbId) {
+            try {
+              await saveVideoGenerationResult(
+                latest.dbId,
+                result.status,
+                result.status === "completed" ? 100 : latest.progress,
+                result.result,
+                result.errorMessage,
+              );
+            } catch (error) {
+              dbErrorMessage =
+                error instanceof Error
+                  ? error.message
+                  : "DB 저장에 실패했습니다.";
+              console.error("[video-generation] db save failed", error);
+            }
+          }
+
+          const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
+            .filter(Boolean)
+            .join(" / ");
 
           updateRecord(id, {
             status: result.status,
             progress: result.status === "completed" ? 100 : latest.progress,
             result: result.result,
-            errorMessage: result.errorMessage,
+            errorMessage: mergedErrorMessage || undefined,
             finalizing: false,
           });
         } catch (error) {

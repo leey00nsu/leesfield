@@ -31,7 +31,10 @@ describe("GET /api/image-generation/[requestId]", () => {
   });
 
   it("요청이 없으면 404를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockGetGeneration.mockResolvedValue(null);
 
     const response = await GET(new Request("http://localhost"), {
@@ -45,7 +48,10 @@ describe("GET /api/image-generation/[requestId]", () => {
   });
 
   it("요청이 존재하면 상태를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: true });
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
     mockGetGeneration.mockResolvedValue({
       id: "request-id",
       status: "completed",

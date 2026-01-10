@@ -11,7 +11,8 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import {
   videoGenerationDefaults,
@@ -50,11 +51,23 @@ const modelCards = videoModels.map((model, index) => ({
 }>;
 
 export function VideoGenerationForm() {
+  const searchParams = useSearchParams();
   const form = useForm<VideoGenerationFormValues>({
     resolver: zodResolver(videoGenerationSchema),
     defaultValues: videoGenerationDefaults,
     mode: "onChange",
   });
+
+  const promptFromQuery = searchParams?.get("prompt") ?? "";
+  useEffect(() => {
+    const trimmed = promptFromQuery.trim();
+    if (!trimmed) return;
+    if (form.getValues("prompt") === trimmed) return;
+    form.setValue("prompt", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [promptFromQuery, form]);
 
   const promptValue = form.watch("prompt") ?? "";
   const durationSec =

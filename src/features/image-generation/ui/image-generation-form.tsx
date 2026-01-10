@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -55,11 +56,23 @@ const modelOptions = imageModels.map((model, index) => ({
 }>;
 
 export function ImageGenerationForm() {
+  const searchParams = useSearchParams();
   const form = useForm<ImageGenerationFormValues>({
     resolver: zodResolver(imageGenerationSchema),
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
+
+  const promptFromQuery = searchParams?.get("prompt") ?? "";
+  useEffect(() => {
+    const trimmed = promptFromQuery.trim();
+    if (!trimmed) return;
+    if (form.getValues("prompt") === trimmed) return;
+    form.setValue("prompt", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [promptFromQuery, form]);
 
   const promptValue = form.watch("prompt") ?? "";
   const width = form.watch("width") ?? imageGenerationDefaults.width;

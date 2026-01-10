@@ -12,6 +12,7 @@ import {
 export type ImageGenerationRecord = {
   id: string;
   dbId?: string;
+  ownerEmail?: string;
   payload: ImageGenerationFormValues;
   status: ImageGenerationStatus;
   progress: number;
@@ -70,11 +71,13 @@ function resolveProgressStage(elapsedMs: number) {
 
 export function createMockGeneration(
   payload: ImageGenerationFormValues,
+  ownerEmail: string,
 ): Promise<ImageGenerationRecord> {
   const id = crypto.randomUUID();
   const now = Date.now();
   const record: ImageGenerationRecord = {
     id,
+    ownerEmail,
     payload,
     status: "pending",
     progress: 0,
@@ -84,7 +87,7 @@ export function createMockGeneration(
 
   store.set(id, record);
 
-  return createImageGenerationRecord(id, payload)
+  return createImageGenerationRecord(id, payload, ownerEmail)
     .then((dbRecord) => {
       updateRecord(id, { dbId: dbRecord.id });
       return store.get(id) ?? record;
@@ -95,9 +98,9 @@ export function createMockGeneration(
     });
 }
 
-export async function getGeneration(id: string) {
+export async function getGeneration(id: string, ownerEmail: string) {
   const record = store.get(id);
-  if (!record) {
+  if (!record || record.ownerEmail !== ownerEmail) {
     return null;
   }
 
