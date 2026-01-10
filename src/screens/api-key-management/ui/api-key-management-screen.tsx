@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
+import { useApiKeys } from "@/features/api-key-management/hook/use-api-keys";
+import type { ApiKeyItem } from "@/features/api-key-management/model/api-key-types";
 import {
   DashboardPageHeader,
   DashboardSearchInput,
@@ -15,61 +17,71 @@ import { cn } from "@/shared/lib/utils";
 
 type ApiKeyStatusFilter = "all" | "active" | "revoked";
 
-type ApiKeyItem = {
-  id: string;
-  name: string;
-  maskedKey: string;
-  status: "active" | "revoked";
-  lastUsedLabel: string;
+type ApiKeyView = ApiKeyItem & {
   createdAtLabel: string;
-  isPrimary?: boolean;
+  lastUsedLabel: string;
 };
 
-const mockKeys: ApiKeyItem[] = [
-  {
-    id: "prod-main",
-    name: "Production_Main_App",
-    maskedKey: "lf_live_8s9d...7h2k",
-    status: "active",
-    lastUsedLabel: "2 min ago",
-    createdAtLabel: "JAN 02, 2026",
-    isPrimary: true,
-  },
-  {
-    id: "dev-test",
-    name: "Development_Test_Env",
-    maskedKey: "lf_live_4b2c...1k9p",
-    status: "active",
-    lastUsedLabel: "3 days ago",
-    createdAtLabel: "DEC 18, 2025",
-  },
-  {
-    id: "legacy-revoked",
-    name: "Legacy_Partner",
-    maskedKey: "lf_live_77ad...0qp1",
-    status: "revoked",
-    lastUsedLabel: "Revoked",
-    createdAtLabel: "OCT 24, 2025",
-  },
-];
+type PendingKey = {
+  label: string;
+  apiKey: string;
+};
 
 export function ApiKeyManagementScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [filter, setFilter] = useState<ApiKeyStatusFilter>("all");
+  const [newKeyLabel, setNewKeyLabel] = useState("");
+  const [isIssuing, setIsIssuing] = useState(false);
+  const [pendingKey, setPendingKey] = useState<PendingKey | null>(null);
+  const { items, isLoading, error, issue, revoke } = useApiKeys();
 
   const filteredKeys = useMemo(() => {
     const normalized = searchInput.trim().toLowerCase();
-    return mockKeys.filter((item) => {
+    return items.filter((item) => {
       if (filter !== "all" && item.status !== filter) {
         return false;
       }
       if (!normalized) {
         return true;
       }
-      const target = `${item.name} ${item.maskedKey}`.toLowerCase();
+      const target = `${item.label} ${item.maskedKey}`.toLowerCase();
       return target.includes(normalized);
     });
-  }, [filter, searchInput]);
+  }, [filter, items, searchInput]);
+
+  const handleIssueKey = async () => {
+    const label = newKeyLabel.trim();
+    if (!label) return;
+    setIsIssuing(true);
+    try {
+      const result = await issue(label);
+      setPendingKey({ label: result.record.label, apiKey: result.apiKey });
+      setNewKeyLabel("");
+    } finally {
+      setIsIssuing(false);
+    }
+  };
+
+  const handleCopy = async (value: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const handleRevoke = async (item: ApiKeyView) => {
+    if (item.status === "revoked") return;
+    await revoke(item.id);
+  };
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
@@ -117,24 +129,90 @@ export function ApiKeyManagementScreen() {
               Revoked
             </DashboardFilterToggle>
           </DashboardFilterBar>
-          <button
-            type="button"
-            className={cn(
-              "flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold uppercase tracking-wider text-black",
-              "transition-colors hover:bg-white shadow-[0_0_20px_rgba(212,240,50,0.2)]",
-            )}
-          >
-            <Plus className="h-5 w-5" />
-            Generate New Key
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={newKeyLabel}
+              onChange={(event) => setNewKeyLabel(event.target.value)}
+              placeholder="NEW_KEY_LABEL..."
+              className="h-10 w-full min-w-[220px] rounded-full border border-white/10 bg-surface-dark px-4 text-xs font-mono uppercase tracking-wider text-white placeholder:text-gray-600 focus:border-primary focus:outline-none focus:ring-0"
+            />
+            <button
+              type="button"
+              onClick={handleIssueKey}
+              disabled={isIssuing || newKeyLabel.trim().length === 0}
+              className={cn(
+                "flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold uppercase tracking-wider text-black",
+                "transition-colors hover:bg-white shadow-[0_0_20px_rgba(212,240,50,0.2)]",
+                "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary",
+              )}
+            >
+              <Plus className="h-5 w-5" />
+              {isIssuing ? "Generating..." : "Generate New Key"}
+            </button>
+          </div>
         </div>
       </DashboardPageHeader>
 
       <div className="mx-auto w-full max-w-[1600px]">
+        {pendingKey ? (
+          <div className="mb-6 rounded-2xl border border-primary/30 bg-primary/10 px-6 py-5 text-sm text-primary">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-widest text-primary/80">
+                  NEW API KEY GENERATED
+                </p>
+                <p className="mt-1 text-base font-bold text-white">
+                  {pendingKey.label}
+                </p>
+                <p className="mt-2 font-mono text-xs text-primary/90">
+                  {pendingKey.apiKey}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(pendingKey.apiKey)}
+                  className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+                >
+                  Copy Key
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingKey(null)}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-primary/70">
+              API 키는 이번 화면에서만 전체 값을 확인할 수 있습니다.
+            </p>
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
         <ApiKeyList
-          items={filteredKeys}
+          items={filteredKeys.map((item) => ({
+            id: item.id,
+            name: item.label,
+            maskedKey: item.maskedKey,
+            status: item.status,
+            lastUsedLabel: item.lastUsedLabel,
+            createdAtLabel: item.createdAtLabel,
+            onCopy: () => handleCopy(item.maskedKey),
+            onRevoke: () => handleRevoke(item),
+          }))}
           emptyMessage={
-            searchInput ? "검색 결과가 없습니다." : "API 키가 없습니다."
+            isLoading
+              ? "API 키를 불러오는 중입니다."
+              : searchInput
+                ? "검색 결과가 없습니다."
+                : "API 키가 없습니다."
           }
         />
       </div>

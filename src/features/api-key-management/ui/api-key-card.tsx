@@ -1,7 +1,7 @@
 import { CheckCircle2, Copy, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
-type ApiKeyStatus = "active" | "revoked";
+import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 
 type ApiKeyCardProps = {
   name: string;

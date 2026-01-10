@@ -1,7 +1,6 @@
 import { KeyRound } from "lucide-react";
 import { ApiKeyCard } from "@/features/api-key-management/ui/api-key-card";
-
-type ApiKeyStatus = "active" | "revoked";
+import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 
 type ApiKeyListItem = {
   id: string;
@@ -11,6 +10,8 @@ type ApiKeyListItem = {
   lastUsedLabel: string;
   createdAtLabel: string;
   isPrimary?: boolean;
+  onCopy?: () => void;
+  onRevoke?: () => void;
 };
 
 type ApiKeyListProps = {
@@ -39,7 +40,17 @@ export function ApiKeyList({
   return (
     <div className="flex flex-col gap-4">
       {items.map((item) => (
-        <ApiKeyCard key={item.id} {...item} />
+        <ApiKeyCard
+          key={item.id}
+          name={item.name}
+          maskedKey={item.maskedKey}
+          status={item.status}
+          lastUsedLabel={item.lastUsedLabel}
+          createdAtLabel={item.createdAtLabel}
+          isPrimary={item.isPrimary}
+          onCopy={item.onCopy}
+          onRevoke={item.onRevoke}
+        />
       ))}
     </div>
   );
