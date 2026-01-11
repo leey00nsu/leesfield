@@ -9,7 +9,6 @@ type ApiKeyListItem = {
   status: ApiKeyStatus;
   lastUsedLabel: string;
   createdAtLabel: string;
-  isPrimary?: boolean;
   onEdit?: () => void;
 };
 
@@ -46,7 +45,6 @@ export function ApiKeyList({
           status={item.status}
           lastUsedLabel={item.lastUsedLabel}
           createdAtLabel={item.createdAtLabel}
-          isPrimary={item.isPrimary}
           onEdit={item.onEdit}
         />
       ))}

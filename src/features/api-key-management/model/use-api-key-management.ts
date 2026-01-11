@@ -33,6 +33,7 @@ export function useApiKeyManagement() {
   const [isIssuing, setIsIssuing] = useState(false);
   const [pendingKey, setPendingKey] = useState<PendingKey | null>(null);
   const [pendingCopied, setPendingCopied] = useState(false);
+  const [issueError, setIssueError] = useState<Error | null>(null);
   const [editingKey, setEditingKey] = useState<ApiKeyView | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -67,13 +68,18 @@ export function useApiKeyManagement() {
   const handleIssueKey = async () => {
     const label = newKeyLabel.trim() || buildDefaultLabel();
     setIsIssuing(true);
+    setIssueError(null);
     try {
       const result = await issue(label);
       setPendingKey({ label: result.record.label, apiKey: result.apiKey });
       setPendingCopied(false);
       setNewKeyLabel("");
+      setIssueError(null);
     } catch (error) {
       console.error("[api-keys] issue failed", error);
+      setIssueError(
+        error instanceof Error ? error : new Error("API_KEY_ISSUE_FAILED"),
+      );
     } finally {
       setIsIssuing(false);
     }
@@ -165,6 +171,7 @@ export function useApiKeyManagement() {
     isIssuing,
     pendingKey,
     pendingCopied,
+    issueError,
     handleIssueKey,
     handleCopyPendingKey,
     dismissPendingKey,

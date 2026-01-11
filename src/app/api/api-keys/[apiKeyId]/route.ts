@@ -18,9 +18,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
   try {
     const { apiKeyId } = await context.params;
-    const payload = await request.json();
     const result = await updateApiKeyLabelHandler({
       id: apiKeyId,
       ownerEmail: session.adminEmail,

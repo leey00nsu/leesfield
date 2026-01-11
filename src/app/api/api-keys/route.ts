@@ -36,8 +36,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  let payload: unknown;
   try {
-    const payload = await request.json();
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  try {
     const result = await issueApiKeyHandler({
       ownerEmail: session.adminEmail,
       payload,

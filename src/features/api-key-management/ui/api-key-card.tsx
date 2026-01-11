@@ -10,7 +10,6 @@ type ApiKeyCardProps = {
   status: ApiKeyStatus;
   lastUsedLabel: string;
   createdAtLabel: string;
-  isPrimary?: boolean;
   onEdit?: () => void;
 };
 
@@ -35,7 +34,6 @@ export function ApiKeyCard({
   status,
   lastUsedLabel,
   createdAtLabel,
-  isPrimary = false,
   onEdit,
 }: ApiKeyCardProps) {
   const config = statusConfig[status];
@@ -59,11 +57,6 @@ export function ApiKeyCard({
             <h3 className="text-lg font-bold tracking-tight text-white">
               {name}
             </h3>
-            {isPrimary ? (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
-                Primary
-              </span>
-            ) : null}
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
