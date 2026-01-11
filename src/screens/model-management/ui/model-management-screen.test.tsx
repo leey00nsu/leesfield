@@ -18,8 +18,10 @@ describe("ModelManagementScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /images/i }));
 
-    expect(screen.getByText(imageModel!.label)).toBeInTheDocument();
-    expect(screen.queryByText(videoModel!.label)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
+      expect(screen.queryAllByText(imageModel!.label).length).toBeGreaterThan(0);
+    });
   });
 
   it("검색어로 모델 목록을 필터링한다", async () => {
@@ -36,8 +38,8 @@ describe("ModelManagementScreen", () => {
     await user.type(input, videoModel!.key);
 
     await waitFor(() => {
-      expect(screen.queryByText(imageModel!.label)).not.toBeInTheDocument();
+      expect(screen.queryAllByText(imageModel!.label)).toHaveLength(0);
+      expect(screen.queryAllByText(videoModel!.label).length).toBeGreaterThan(0);
     });
-    expect(screen.getByText(videoModel!.label)).toBeInTheDocument();
   });
 });

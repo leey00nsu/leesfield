@@ -27,6 +27,11 @@ enum VideoGenerationStatus {
   failed
 }
 
+enum ApiKeyStatus {
+  active
+  revoked
+}
+
 model ImageGeneration {
   id             String                 @id @default(cuid())
   requestId      String                 @unique
@@ -86,4 +91,20 @@ model VideoGenerationVideo {
   generation   VideoGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
 
   @@index([generationId])
+}
+
+model ApiKey {
+  id         String       @id @default(cuid())
+  ownerEmail String
+  label      String
+  keyHash    String       @unique
+  maskedKey  String
+  status     ApiKeyStatus @default(active)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([ownerEmail])
+  @@index([status])
 }
