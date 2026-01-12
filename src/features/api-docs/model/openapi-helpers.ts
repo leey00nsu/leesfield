@@ -107,12 +107,12 @@ export function slugifyTag(tag: string) {
 export function formatSchemaType(
   schema: OpenApiSchema | null,
   document?: OpenApiDocument,
-) {
+): string {
   if (!schema) return "object";
   if (schema.format === "binary") return "file";
   if (schema.enum) return "enum";
   if (schema.type === "array") {
-    const itemType = formatSchemaType(
+    const itemType: string = formatSchemaType(
       resolveSchema(schema.items, document ?? null),
       document,
     );

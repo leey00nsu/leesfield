@@ -12,6 +12,12 @@ extendZodWithOpenApi(z);
 
 const registry = new OpenAPIRegistry();
 
+registry.registerComponent("securitySchemes", "ApiKeyAuth", {
+  type: "apiKey",
+  in: "header",
+  name: "X-API-Key",
+});
+
 const errorResponseSchema = z.object({
   message: z.string(),
   errors: z
@@ -363,15 +369,6 @@ export function getOpenApiDocument() {
       version: "v1",
       description:
         "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
-    },
-    components: {
-      securitySchemes: {
-        ApiKeyAuth: {
-          type: "apiKey",
-          in: "header",
-          name: "X-API-Key",
-        },
-      },
     },
     tags: [
       { name: "Images", description: "이미지 생성" },
