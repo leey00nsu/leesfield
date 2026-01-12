@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -19,36 +19,43 @@ import { Button } from "@/shared/ui/button";
 import { useOpenApiDocument } from "@/features/api-docs/model/use-openapi-document";
 import {
   buildApiSections,
+  buildExampleFromSchema,
   type ApiOperation,
   type ApiSection,
 } from "@/features/api-docs/model/openapi-helpers";
 
 const generalNavItems = [
-  { id: "introduction", label: "Introduction", icon: Info, active: true },
-  { id: "authentication", label: "Authentication", icon: Lock },
-  { id: "errors", label: "Errors", icon: AlertTriangle },
+  { id: "introduction", label: "소개", icon: Info },
+  { id: "authentication", label: "인증", icon: Lock },
+  { id: "errors", label: "오류", icon: AlertTriangle },
 ];
 
 const fallbackEndpointItems = [
-  { id: "images", label: "Images", icon: ImageIcon },
-  { id: "videos", label: "Videos", icon: Film },
-  { id: "models", label: "Models", icon: Boxes },
+  { id: "images", label: "이미지", icon: ImageIcon },
+  { id: "videos", label: "비디오", icon: Film },
+  { id: "models", label: "모델", icon: Boxes },
 ];
+
+const tagLabelMap: Record<string, string> = {
+  Images: "이미지",
+  Videos: "비디오",
+  Models: "모델",
+};
 
 const highlightCards = [
   {
-    title: "Low Latency",
-    description: "Optimized inference pipelines for rapid generation.",
+    title: "낮은 지연",
+    description: "최적화된 추론 파이프라인으로 빠르게 생성합니다.",
     icon: Zap,
   },
   {
-    title: "Secure",
-    description: "Scoped API keys with strict validation and rotation tools.",
+    title: "보안",
+    description: "스코프된 API 키로 안전하게 보호합니다.",
     icon: ShieldCheck,
   },
   {
     title: "RESTful",
-    description: "Predictable endpoints and response shapes for fast integration.",
+    description: "일관된 REST 구조로 쉽게 연동할 수 있습니다.",
     icon: BookOpen,
   },
 ];
@@ -56,31 +63,34 @@ const highlightCards = [
 const errorCards = [
   {
     status: "400",
-    title: "Invalid request",
-    description: "Payload validation failed. Fix fields and retry.",
+    title: "잘못된 요청",
+    description: "요청 본문이 유효하지 않습니다.",
   },
   {
     status: "401",
-    title: "Unauthorized",
-    description: "Missing API key header or invalid credentials.",
+    title: "인증 실패",
+    description: "API 키가 없거나 올바르지 않습니다.",
   },
   {
     status: "403",
-    title: "Forbidden",
-    description: "Key is revoked or does not have access to the resource.",
+    title: "접근 거부",
+    description: "키가 폐기되었거나 권한이 없습니다.",
   },
   {
     status: "500",
-    title: "Server error",
-    description: "Unexpected error. Capture the request id and contact support.",
+    title: "서버 오류",
+    description: "서버에서 예기치 않은 오류가 발생했습니다.",
   },
 ];
 
 const errorResponseSnippet = `{
   "message": "INVALID_REQUEST",
-  "errors": {
-    "prompt": ["Required"]
-  }
+  "errors": [
+    {
+      "field": "prompt",
+      "messages": ["필수 입력입니다."]
+    }
+  ]
 }`;
 
 const methodStyles: Record<string, string> = {
@@ -103,29 +113,80 @@ function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-function getPrimaryResponse(operations: ApiOperation["responses"]) {
-  const success = operations.find((response) => response.status.startsWith("2"));
-  return success ?? operations[0] ?? null;
+function getPrimaryResponse(responses: ApiOperation["responses"]) {
+  const success = responses.find((response) => response.status.startsWith("2"));
+  return success ?? responses[0] ?? null;
 }
 
 export function ApiDocsWidget() {
-  const { document, isLoading, error } = useOpenApiDocument();
+  const { document: openApiDocument, isLoading, error } = useOpenApiDocument();
   const apiSections = useMemo(
-    () => (document ? buildApiSections(document) : []),
-    [document],
+    () => (openApiDocument ? buildApiSections(openApiDocument) : []),
+    [openApiDocument],
   );
-  const endpointNavItems = apiSections.length
-    ? apiSections.map((section) => ({
-        id: section.id,
-        label: section.title,
-        icon: getEndpointIcon(section),
-      }))
-    : fallbackEndpointItems;
-  const apiVersion = document?.info.version ?? "v1";
-  const introTitle = document?.info.title ?? "lee's field API";
+  const endpointNavItems = useMemo(
+    () =>
+      apiSections.length
+        ? apiSections.map((section) => ({
+            id: section.id,
+            label: tagLabelMap[section.title] ?? section.title,
+            icon: getEndpointIcon(section),
+          }))
+        : fallbackEndpointItems,
+    [apiSections],
+  );
+  const sectionIds = useMemo(
+    () => [...generalNavItems, ...endpointNavItems].map((item) => item.id),
+    [endpointNavItems],
+  );
+  const [activeSectionId, setActiveSectionId] = useState("introduction");
+
+  useEffect(() => {
+    const elements = sectionIds
+      .map((id) => window.document.getElementById(id))
+      .filter((value): value is HTMLElement => Boolean(value));
+
+    if (elements.length === 0) return;
+
+    const updateActiveSection = () => {
+      const offset = 140;
+      let current = elements[0]?.id ?? "introduction";
+      for (const element of elements) {
+        const top = element.getBoundingClientRect().top - offset;
+        if (top <= 0) {
+          current = element.id;
+        } else {
+          break;
+        }
+      }
+      setActiveSectionId(current);
+    };
+
+    updateActiveSection();
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        updateActiveSection();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", updateActiveSection);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateActiveSection);
+    };
+  }, [sectionIds]);
+
+  const apiVersion = openApiDocument?.info.version ?? "v1";
+  const introTitle = openApiDocument?.info.title ?? "leesfield API";
   const introDescription =
-    document?.info.description ??
-    "Integrate lee's field into your products with REST endpoints for image, video, and model discovery. Everything is protected by API keys and documented directly from our request and response types.";
+    openApiDocument?.info.description ??
+    "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.";
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -133,33 +194,35 @@ export function ApiDocsWidget() {
         title={
           <>
             <span className="text-white">API</span>{" "}
-            <span className="text-primary">Documentation</span>
+            <span className="text-primary">문서</span>
           </>
         }
-        subtitle="REST API REFERENCE"
+        subtitle="REST API 레퍼런스"
+        sticky={false}
       />
 
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-6 sm:px-10 lg:flex-row">
         <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/10 pr-6">
-          <div className="sticky top-28 flex flex-col gap-6">
+          <div className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex flex-col gap-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 font-mono">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              API Reference {apiVersion}
+              API 레퍼런스 {apiVersion}
             </div>
             <nav className="flex flex-col gap-8">
               <div className="flex flex-col gap-2">
                 <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
-                  General
+                  일반
                 </h3>
                 <div className="flex flex-col gap-1">
                   {generalNavItems.map((item) => {
                     const Icon = item.icon;
+                    const isActive = activeSectionId === item.id;
                     return (
                       <a
                         key={item.id}
                         href={`#${item.id}`}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                          item.active
+                          isActive
                             ? "border border-primary/10 bg-primary/10 text-primary"
                             : "text-gray-400 hover:bg-white/5 hover:text-white"
                         }`}
@@ -174,16 +237,21 @@ export function ApiDocsWidget() {
 
               <div className="flex flex-col gap-2">
                 <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
-                  Endpoints
+                  엔드포인트
                 </h3>
                 <div className="flex flex-col gap-1">
                   {endpointNavItems.map((item) => {
                     const Icon = item.icon;
+                    const isActive = activeSectionId === item.id;
                     return (
                       <a
                         key={item.id}
                         href={`#${item.id}`}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "border border-primary/10 bg-primary/10 text-primary"
+                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        }`}
                       >
                         <Icon className="h-4 w-4" />
                         {item.label}
@@ -205,7 +273,7 @@ export function ApiDocsWidget() {
               <div>
                 <h2 className="text-4xl font-black uppercase leading-tight tracking-[-0.033em] text-white sm:text-5xl">
                   <span className="text-white">API</span>{" "}
-                  <span className="text-primary">Documentation</span>
+                  <span className="text-primary">문서</span>
                 </h2>
                 <p className="mt-2 text-xs font-mono uppercase tracking-widest text-gray-500">
                   {introTitle} · {apiVersion}
@@ -246,41 +314,40 @@ export function ApiDocsWidget() {
               <div className="flex flex-col gap-2">
                 <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
                   <KeyRound className="h-5 w-5 text-primary" />
-                  Authentication
+                  인증
                 </h2>
                 <p className="text-gray-400 leading-relaxed">
-                  Authenticate every request with your API key. You can manage
-                  keys in the{" "}
+                  모든 요청은 API 키 인증이 필요합니다. 키는{" "}
                   <Link
                     href="/api-key"
                     className="text-primary hover:underline"
                   >
-                    API Keys
+                    API 키 관리
                   </Link>{" "}
-                  dashboard.
+                  화면에서 확인할 수 있습니다.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                 <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-6 py-4">
                   <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
-                    Header Authentication
+                    헤더 인증
                   </span>
                   <Button
                     asChild
                     variant="outline"
                     className="h-8 rounded-full border-white/10 bg-surface-lighter px-3 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-white/10"
                   >
-                    <Link href="/api-key">View API Keys</Link>
+                    <Link href="/api-key">API 키 보기</Link>
                   </Button>
                 </div>
                 <div className="p-6">
                   <p className="text-sm text-gray-400">
-                    Include your API key in the{" "}
+                    모든 요청에{" "}
                     <code className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-primary">
                       X-API-Key
                     </code>{" "}
-                    header for every request.
+                    헤더를 포함하세요.
                   </p>
                   <div className="mt-4 rounded-lg border border-white/5 bg-black/50 p-4 font-mono text-sm text-gray-300">
                     <span className="text-accent-purple">curl</span> https://api.leesfield.ai/v1/models \
@@ -294,8 +361,7 @@ export function ApiDocsWidget() {
                   <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
                     <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
                     <p className="text-xs text-gray-400">
-                      Keep your keys secure. Never expose secret API keys in
-                      client-side code or public repositories.
+                      API 키는 외부에 노출되지 않도록 안전하게 보관하세요.
                     </p>
                   </div>
                 </div>
@@ -308,11 +374,10 @@ export function ApiDocsWidget() {
               <div className="flex flex-col gap-2">
                 <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
                   <AlertTriangle className="h-5 w-5 text-primary" />
-                  Errors
+                  오류
                 </h2>
                 <p className="text-gray-400 leading-relaxed max-w-2xl">
-                  Every error response follows a consistent structure so you can
-                  reliably surface issues to users and retry when appropriate.
+                  모든 오류 응답은 동일한 구조를 사용합니다.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -337,7 +402,7 @@ export function ApiDocsWidget() {
               </div>
               <div className="rounded-2xl border border-white/5 bg-black/60 p-6">
                 <p className="text-xs font-mono uppercase tracking-wider text-gray-500">
-                  Example error payload
+                  오류 응답 예시
                 </p>
                 <pre className="mt-3 overflow-x-auto text-sm text-gray-300">
                   {errorResponseSnippet}
@@ -362,6 +427,7 @@ export function ApiDocsWidget() {
               apiSections.map((section) => {
                 const Icon = getEndpointIcon(section);
                 const isVideo = section.id.includes("video");
+                const sectionTitle = tagLabelMap[section.title] ?? section.title;
                 return (
                   <section
                     key={section.id}
@@ -371,7 +437,7 @@ export function ApiDocsWidget() {
                     <div className="flex items-center gap-4">
                       <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
                         <Icon className="h-5 w-5 text-primary" />
-                        {section.title}
+                        {sectionTitle}
                       </h2>
                       <span
                         className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
@@ -380,7 +446,7 @@ export function ApiDocsWidget() {
                             : "border border-white/5 bg-white/10 text-gray-400"
                         }`}
                       >
-                        {isVideo ? "Beta" : `Version ${apiVersion}`}
+                        {isVideo ? "Beta" : `버전 ${apiVersion}`}
                       </span>
                     </div>
 
@@ -388,12 +454,19 @@ export function ApiDocsWidget() {
                       {section.operations.map((operation) => {
                         const request = operation.request;
                         const primaryResponse = getPrimaryResponse(operation.responses);
+                        const requestExample = request?.schema
+                          ? buildExampleFromSchema(request.schema, openApiDocument)
+                          : null;
+                        const responseExample = primaryResponse
+                          ? primaryResponse.example ??
+                            buildExampleFromSchema(
+                              primaryResponse.schema,
+                              openApiDocument,
+                            )
+                          : null;
 
                         return (
-                          <div
-                            key={operation.id}
-                            className="flex flex-col gap-6"
-                          >
+                          <div key={operation.id} className="flex flex-col gap-6">
                             <div className="flex flex-col gap-3">
                               <div className="flex items-center gap-3">
                                 <span
@@ -419,7 +492,7 @@ export function ApiDocsWidget() {
                               <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                                 <div className="border-b border-white/5 bg-white/5 px-6 py-4">
                                   <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
-                                    Body Parameters
+                                    요청 본문 파라미터
                                   </span>
                                 </div>
                                 <div className="divide-y divide-white/5">
@@ -439,13 +512,10 @@ export function ApiDocsWidget() {
                                               : "text-gray-500"
                                           }`}
                                         >
-                                          {param.required ? "Required" : "Optional"}
+                                          {param.required ? "필수" : "선택"}
                                         </span>
                                       </div>
                                       <div className="flex flex-col gap-2">
-                                        <span className="text-sm font-medium text-gray-300">
-                                          {param.typeLabel}
-                                        </span>
                                         {param.description ? (
                                           <p className="text-sm text-gray-400">
                                             {param.description}
@@ -458,15 +528,15 @@ export function ApiDocsWidget() {
                               </div>
                             ) : null}
 
-                            {request?.schema ? (
+                            {requestExample ? (
                               <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
                                 <div className="flex items-center justify-between border-b border-white/5 bg-black px-4 py-2">
                                   <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
-                                    Request Schema
+                                    요청 예시
                                   </span>
                                 </div>
                                 <pre className="overflow-x-auto p-6 text-sm text-gray-300">
-                                  {formatJson(request.schema)}
+                                  {formatJson(requestExample)}
                                 </pre>
                               </div>
                             ) : null}
@@ -475,7 +545,7 @@ export function ApiDocsWidget() {
                               <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                                 <div className="flex items-center justify-between border-b border-white/5 bg-surface-lighter px-4 py-2">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                    Example Response
+                                    응답 예시
                                   </span>
                                   <span className="text-[10px] font-mono text-primary">
                                     {primaryResponse.status}
@@ -483,13 +553,11 @@ export function ApiDocsWidget() {
                                 </div>
                                 <pre className="overflow-x-auto p-6 text-sm text-gray-300">
                                   {formatJson(
-                                    primaryResponse.example ??
-                                      primaryResponse.schema ??
-                                      {
-                                        message:
-                                          primaryResponse.description ??
-                                          "No response schema",
-                                      },
+                                    responseExample ?? {
+                                      message:
+                                        primaryResponse.description ??
+                                        "응답 예시 없음",
+                                    },
                                   )}
                                 </pre>
                               </div>
@@ -501,28 +569,34 @@ export function ApiDocsWidget() {
                                   .filter(
                                     (response) => response !== primaryResponse,
                                   )
-                                  .map((response) => (
-                                    <div
-                                      key={response.status}
-                                      className="rounded-xl border border-white/5 bg-surface-dark p-4"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-300">
-                                          {response.status}
-                                        </span>
-                                        <span className="text-sm font-semibold text-white">
-                                          {response.description ?? "Response"}
-                                        </span>
+                                  .map((response) => {
+                                    const responsePayload =
+                                      response.example ??
+                                      buildExampleFromSchema(
+                                        response.schema,
+                                        openApiDocument,
+                                      );
+                                    return (
+                                      <div
+                                        key={response.status}
+                                        className="rounded-xl border border-white/5 bg-surface-dark p-4"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-300">
+                                            {response.status}
+                                          </span>
+                                          <span className="text-sm font-semibold text-white">
+                                            {response.description ?? "응답"}
+                                          </span>
+                                        </div>
+                                        {responsePayload ? (
+                                          <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
+                                            {formatJson(responsePayload)}
+                                          </pre>
+                                        ) : null}
                                       </div>
-                                      {response.schema || response.example ? (
-                                        <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
-                                          {formatJson(
-                                            response.example ?? response.schema,
-                                          )}
-                                        </pre>
-                                      ) : null}
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                               </div>
                             ) : null}
                           </div>
