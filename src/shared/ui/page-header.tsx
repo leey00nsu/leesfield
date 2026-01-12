@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
-type DashboardPageHeaderProps = {
+type PageHeaderProps = {
   title: ReactNode;
   subtitle?: string;
   rightSlot?: ReactNode;
@@ -13,7 +13,7 @@ type DashboardPageHeaderProps = {
   children?: ReactNode;
 };
 
-export function DashboardPageHeader({
+export function PageHeader({
   title,
   subtitle,
   rightSlot,
@@ -22,15 +22,14 @@ export function DashboardPageHeader({
   sticky = true,
   stickyOffset = "var(--dashboard-header-height, 0px)",
   children,
-}: DashboardPageHeaderProps) {
+}: PageHeaderProps) {
   return (
     <div
       className={cn(
         "-mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10",
-        sticky ? "sticky z-20" : "relative z-10",
+        sticky ? "sticky top-0 z-20 pt-[calc(var(--dashboard-header-height,0px)+0.75rem)]" : "relative z-10",
         className,
       )}
-      style={sticky ? { top: stickyOffset } : undefined}
     >
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -57,7 +56,7 @@ export function DashboardPageHeader({
   );
 }
 
-type DashboardSearchInputProps = {
+type PageHeaderSearchInputProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -68,7 +67,7 @@ type DashboardSearchInputProps = {
   inputClassName?: string;
 };
 
-export function DashboardSearchInput({
+export function PageHeaderSearchInput({
   value,
   onChange,
   placeholder = "SEARCH_DATABASE...",
@@ -77,7 +76,7 @@ export function DashboardSearchInput({
   showFilterButton = true,
   className,
   inputClassName,
-}: DashboardSearchInputProps) {
+}: PageHeaderSearchInputProps) {
   return (
     <div
       className={cn(

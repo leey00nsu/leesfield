@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { DashboardPageHeader } from "@/shared/ui/dashboard-page-header";
+import { PageHeader } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
 import { useOpenApiDocument } from "@/features/api-docs/model/use-openapi-document";
 import {
@@ -198,7 +198,7 @@ export function ApiDocsWidget() {
 
   return (
     <div className="flex flex-col gap-8 pb-20">
-      <DashboardPageHeader
+      <PageHeader
         title={
           <>
             <span className="text-white">API</span>{" "}
