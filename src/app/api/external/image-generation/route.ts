@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import { createMockGeneration } from "@/server/image-generation/image-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
+import {
+  buildErrorResponse,
+  buildGenerationSuccessResponse,
+  buildInvalidRequestResponse,
+} from "@/server/http/response";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const FILE_TOO_LARGE_ERROR = "FILE_TOO_LARGE";
@@ -61,10 +67,7 @@ export async function POST(request: Request) {
 
   const formData = await request.formData().catch(() => null);
   if (!formData) {
-    return NextResponse.json(
-      { message: "INVALID_FORM_DATA" },
-      { status: 400 },
-    );
+    return buildErrorResponse("INVALID_FORM_DATA", 400);
   }
 
   let initImages: string[] = [];
@@ -75,26 +78,10 @@ export async function POST(request: Request) {
     ]);
   } catch (error) {
     if (error instanceof Error && error.message === FILE_TOO_LARGE_ERROR) {
-      return NextResponse.json(
-        { message: "FILE_TOO_LARGE" },
-        {
-          status: 413,
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        },
-      );
+      return buildErrorResponse("FILE_TOO_LARGE", 413);
     }
     console.error("[image-generation] file parse failed", error);
-    return NextResponse.json(
-      { message: "INVALID_FORM_DATA" },
-      {
-        status: 400,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    return buildErrorResponse("INVALID_FORM_DATA", 400);
   }
 
   const body = {
@@ -111,37 +98,15 @@ export async function POST(request: Request) {
   const parsed = imageGenerationSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: "INVALID_REQUEST", errors: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return buildInvalidRequestResponse(parsed.error.flatten());
   }
 
   try {
     const record = await createMockGeneration(parsed.data, auth.ownerEmail);
 
-    return NextResponse.json(
-      {
-        requestId: record.id,
-        status: record.status,
-        progress: record.progress,
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    return buildGenerationSuccessResponse(record);
   } catch (error) {
     console.error("[image-generation] create failed", error);
-    return NextResponse.json(
-      { message: "DB_SAVE_FAILED" },
-      {
-        status: 500,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    return buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
