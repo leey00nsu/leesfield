@@ -6,7 +6,11 @@ export function SubscriptionCard() {
           <span className="text-primary">◆</span>
           Subscription
         </h3>
-        <button className="text-xs font-bold uppercase tracking-wide text-primary hover:underline">
+        <button
+          type="button"
+          disabled
+          className="text-xs font-bold uppercase tracking-wide text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        >
           Manage
         </button>
       </div>
@@ -27,7 +31,11 @@ export function SubscriptionCard() {
           NO RENEWAL
         </p>
       </div>
-      <button className="w-full rounded-lg border border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 transition-colors hover:bg-white/5">
+      <button
+        type="button"
+        disabled
+        className="w-full rounded-lg border border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      >
         Upgrade Plan
       </button>
     </section>
