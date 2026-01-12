@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProfileSummary } from "@/features/user-profile/model/profile-types";
+import { NotificationPanel } from "@/features/user-profile/ui/notification-panel";
 import { ProfileHeaderActions } from "@/features/user-profile/ui/profile-header-actions";
 import {
   ProfileForm,
@@ -89,17 +90,7 @@ export function UserProfileWidget() {
           </div>
           <div className="xl:col-span-8 flex flex-col gap-6">
             <ProfileForm values={profileFormValues} />
-            <div className="rounded-2xl border border-white/10 bg-surface-dark p-6">
-              <h3 className="mb-6 text-sm font-bold uppercase tracking-widest text-white">
-                Notifications
-              </h3>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Generation Complete</span>
-                <div className="relative h-6 w-10 cursor-not-allowed rounded-full border border-white/10 bg-surface-lighter opacity-60">
-                  <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-gray-500" />
-                </div>
-              </div>
-            </div>
+            <NotificationPanel />
           </div>
         </div>
       </div>
