@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   Boxes,
   Clapperboard,
   History,
@@ -39,6 +40,7 @@ const headerIcons: Record<string, typeof ImageIcon> = {
   "/history": History,
   "/model": Boxes,
   "/api-key": KeyRound,
+  "/api-docs": BookOpen,
 };
 
 function getInitials(email?: string | null) {
