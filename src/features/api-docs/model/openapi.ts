@@ -5,6 +5,7 @@ import {
 import { z } from "zod";
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
+import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 const registry = new OpenAPIRegistry();
 
@@ -19,14 +20,20 @@ const generationResponseSchema = z.object({
   progress: z.number(),
 });
 
+const modelResponseSchema = z.object({
+  items: z.array(z.unknown()),
+});
+
 registry.register("ErrorResponse", errorResponseSchema);
 registry.register("GenerationResponse", generationResponseSchema);
+registry.register("ModelResponse", modelResponseSchema);
 
 registry.registerPath({
   method: "post",
-  path: "/api/image-generation",
+  path: "/api/external/image-generation",
   tags: ["Images"],
   description: "Create an image generation request",
+  security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
       required: true,
@@ -62,6 +69,14 @@ registry.registerPath({
         },
       },
     },
+    403: {
+      description: "Forbidden",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
     500: {
       description: "Server error",
       content: {
@@ -75,9 +90,10 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: "/api/video-generation",
+  path: "/api/external/video-generation",
   tags: ["Videos"],
   description: "Create a video generation request",
+  security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
       required: true,
@@ -113,8 +129,51 @@ registry.registerPath({
         },
       },
     },
+    403: {
+      description: "Forbidden",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
     500: {
       description: "Server error",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/external/models",
+  tags: ["Models"],
+  description: "List available generation models",
+  security: [{ ApiKeyAuth: [] }],
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: modelResponseSchema,
+          example: { items: modelCatalog },
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Forbidden",
       content: {
         "application/json": {
           schema: errorResponseSchema,
@@ -135,9 +194,19 @@ export function getOpenApiDocument() {
       description:
         "External REST API for image and video generation.",
     },
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+        },
+      },
+    },
     tags: [
       { name: "Images", description: "Image generation" },
       { name: "Videos", description: "Video generation" },
+      { name: "Models", description: "Model catalog" },
     ],
   });
 }
