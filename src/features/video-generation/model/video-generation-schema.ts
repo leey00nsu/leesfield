@@ -11,9 +11,13 @@ import {
 
 export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
+const initImageSchema = z
+  .string()
+  .describe("base64 data URL 또는 공개 이미지 URL");
+
 const videoGenerationBaseSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-  initImage: z.string().optional().or(z.literal("")),
+  initImage: initImageSchema.optional().or(z.literal("")),
   model: z.enum(videoModelOptions),
   aspectRatio: z.string().min(1),
   resolution: z.number().int(),

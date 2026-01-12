@@ -6,13 +6,67 @@ import { requireApiKey } from "@/server/auth/api-key-guard";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+async function fileToDataUrl(file: File) {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const mime = file.type || "image/png";
+  return `data:${mime};base64,${buffer.toString("base64")}`;
+}
+
+function getString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "";
+}
+
+function getNumber(formData: FormData, key: string) {
+  const value = getString(formData, key);
+  if (value === undefined) return undefined;
+  if (value === "") return NaN;
+  const parsed = Number(value);
+  return parsed;
+}
+
+async function getInitImageValue(formData: FormData) {
+  const entry = formData.get("initImage");
+  if (!entry) return undefined;
+  if (typeof entry === "string") {
+    return entry.trim() ? entry.trim() : "";
+  }
+  if (entry instanceof File) {
+    if (entry.size === 0) return undefined;
+    return fileToDataUrl(entry);
+  }
+  return undefined;
+}
+
 export async function POST(request: Request) {
   const auth = await requireApiKey(request);
   if (auth instanceof NextResponse) {
     return auth;
   }
 
-  const body = await request.json().catch(() => null);
+  const formData = await request.formData().catch(() => null);
+  if (!formData) {
+    return NextResponse.json(
+      { message: "INVALID_FORM_DATA" },
+      { status: 400 },
+    );
+  }
+
+  const body = {
+    prompt: getString(formData, "prompt"),
+    initImage: await getInitImageValue(formData),
+    model: getString(formData, "model"),
+    aspectRatio: getString(formData, "aspectRatio"),
+    resolution: getNumber(formData, "resolution"),
+    durationSec: getNumber(formData, "durationSec"),
+    fps: getNumber(formData, "fps"),
+    steps: getNumber(formData, "steps"),
+    guidanceScale: getNumber(formData, "guidanceScale"),
+    seed: getString(formData, "seed"),
+  };
+
   const parsed = videoGenerationSchema.safeParse(body);
 
   if (!parsed.success) {

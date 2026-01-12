@@ -4,8 +4,8 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import { imageGenerationOpenApiSchema } from "@/features/image-generation/model/image-generation-schema";
-import { videoGenerationOpenApiSchema } from "@/features/video-generation/model/video-generation-schema";
+import { modelOptions } from "@/features/image-generation/model/image-generation-schema";
+import { videoModelOptions } from "@/features/video-generation/model/video-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 extendZodWithOpenApi(z);
@@ -30,8 +30,74 @@ const generationResponseSchema = z.object({
   progress: z.number(),
 });
 
+const imageResultSchema = z.object({
+  images: z.array(
+    z.object({
+      url: z.string(),
+      width: z.number().optional(),
+      height: z.number().optional(),
+    }),
+  ),
+});
+
+const videoResultSchema = z.object({
+  videos: z.array(
+    z.object({
+      url: z.string(),
+      width: z.number().optional(),
+      height: z.number().optional(),
+      durationSec: z.number().optional(),
+    }),
+  ),
+});
+
+const imageStatusResponseSchema = z.object({
+  requestId: z.string(),
+  status: z.enum(["pending", "processing", "completed", "failed"]),
+  progress: z.number(),
+  result: imageResultSchema.optional(),
+  errorMessage: z.string().optional(),
+});
+
+const videoStatusResponseSchema = z.object({
+  requestId: z.string(),
+  status: z.enum(["pending", "processing", "completed", "failed"]),
+  progress: z.number(),
+  result: videoResultSchema.optional(),
+  errorMessage: z.string().optional(),
+});
+
 const modelResponseSchema = z.object({
   items: z.array(z.unknown()),
+});
+
+const imageGenerationFormDataSchema = z.object({
+  prompt: z.string(),
+  width: z.number().int(),
+  height: z.number().int(),
+  initImages: z
+    .array(z.string().openapi({ type: "string", format: "binary" }))
+    .optional(),
+  model: z.enum(modelOptions),
+  imageCount: z.number().int(),
+  steps: z.number().int(),
+  seed: z.string().optional(),
+});
+
+const videoGenerationFormDataSchema = z.object({
+  prompt: z.string(),
+  initImage: z
+    .string()
+    .openapi({ type: "string", format: "binary" })
+    .optional(),
+  model: z.enum(videoModelOptions),
+  aspectRatio: z.string(),
+  resolution: z.number().int(),
+  durationSec: z.number(),
+  fps: z.number().int(),
+  steps: z.number().int(),
+  guidanceScale: z.number(),
+  seed: z.string().optional(),
 });
 
 registry.register("ErrorResponse", errorResponseSchema);
@@ -42,14 +108,14 @@ registry.registerPath({
   method: "post",
   path: "/api/external/image-generation",
   tags: ["Images"],
-  description: "Create an image generation request",
+  description: "이미지 생성 요청을 생성합니다.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
       required: true,
       content: {
-        "application/json": {
-          schema: imageGenerationOpenApiSchema,
+        "multipart/form-data": {
+          schema: imageGenerationFormDataSchema,
         },
       },
     },
@@ -102,14 +168,14 @@ registry.registerPath({
   method: "post",
   path: "/api/external/video-generation",
   tags: ["Videos"],
-  description: "Create a video generation request",
+  description: "비디오 생성 요청을 생성합니다.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
       required: true,
       content: {
-        "application/json": {
-          schema: videoGenerationOpenApiSchema,
+        "multipart/form-data": {
+          schema: videoGenerationFormDataSchema,
         },
       },
     },
@@ -160,9 +226,103 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
+  path: "/api/external/image-generation/{requestId}",
+  tags: ["Images"],
+  description: "이미지 생성 결과를 조회합니다.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: z.object({
+      requestId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: imageStatusResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Forbidden",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Not found",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/external/video-generation/{requestId}",
+  tags: ["Videos"],
+  description: "비디오 생성 결과를 조회합니다.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: z.object({
+      requestId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: videoStatusResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Forbidden",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Not found",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
   path: "/api/external/models",
   tags: ["Models"],
-  description: "List available generation models",
+  description: "사용 가능한 생성 모델 목록을 조회합니다.",
   security: [{ ApiKeyAuth: [] }],
   responses: {
     200: {
@@ -199,10 +359,10 @@ export function getOpenApiDocument() {
   return generator.generateDocument({
     openapi: "3.0.0",
     info: {
-      title: "lee's field API",
+      title: "leesfield API",
       version: "v1",
       description:
-        "External REST API for image and video generation.",
+        "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
     },
     components: {
       securitySchemes: {
@@ -214,9 +374,9 @@ export function getOpenApiDocument() {
       },
     },
     tags: [
-      { name: "Images", description: "Image generation" },
-      { name: "Videos", description: "Video generation" },
-      { name: "Models", description: "Model catalog" },
+      { name: "Images", description: "이미지 생성" },
+      { name: "Videos", description: "비디오 생성" },
+      { name: "Models", description: "모델 목록" },
     ],
   });
 }

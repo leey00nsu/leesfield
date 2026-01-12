@@ -120,6 +120,102 @@ export function formatSchemaType(
   return schema.type ?? "object";
 }
 
+export function buildExampleFromSchema(
+  schema: OpenApiSchema | null,
+  document?: OpenApiDocument | null,
+  hintKey?: string,
+): unknown | null {
+  const resolved = resolveSchema(schema, document ?? null);
+  if (!resolved) return null;
+  if (resolved.example !== undefined) return resolved.example;
+  if (resolved.format === "binary") return "<binary>";
+  if (Array.isArray(resolved.enum) && resolved.enum.length > 0) {
+    return resolved.enum[0];
+  }
+  if (resolved.oneOf && resolved.oneOf.length > 0) {
+    return buildExampleFromSchema(resolved.oneOf[0], document, hintKey);
+  }
+  if (resolved.anyOf && resolved.anyOf.length > 0) {
+    return buildExampleFromSchema(resolved.anyOf[0], document, hintKey);
+  }
+  if (resolved.allOf && resolved.allOf.length > 0) {
+    const merged = resolved.allOf.reduce<Record<string, unknown>>(
+      (acc, item) => {
+        const example = buildExampleFromSchema(item, document, hintKey);
+        if (example && typeof example === "object" && !Array.isArray(example)) {
+          Object.assign(acc, example);
+        }
+        return acc;
+      },
+      {},
+    );
+    return merged;
+  }
+
+  switch (resolved.type) {
+    case "string":
+      return buildStringExample(hintKey);
+    case "number":
+    case "integer":
+      return buildNumberExample(hintKey);
+    case "boolean":
+      return true;
+    case "array": {
+      const itemExample = buildExampleFromSchema(
+        resolved.items ?? null,
+        document,
+        hintKey,
+      );
+      return itemExample !== null ? [itemExample] : [];
+    }
+    case "object": {
+      if (!resolved.properties) return {};
+      return Object.fromEntries(
+        Object.entries(resolved.properties).map(([key, value]) => [
+          key,
+          buildExampleFromSchema(value, document, key) ?? null,
+        ]),
+      );
+    }
+    default:
+      return {};
+  }
+}
+
+function buildStringExample(hintKey?: string) {
+  const key = hintKey?.toLowerCase() ?? "";
+  if (key.includes("id")) return `${hintKey ?? "id"}_01`;
+  if (key.includes("status")) return "processing";
+  if (key.includes("email")) return "admin@leesfield.ai";
+  if (key.includes("model")) return "image-core";
+  if (key.includes("prompt")) return "샘플 프롬프트";
+  if (key.includes("url")) return "https://cdn.leesfield.ai/sample.png";
+  if (key.includes("label")) return "샘플";
+  if (key.includes("name")) return "샘플";
+  if (key.includes("type")) return "image";
+  if (key.includes("version")) return "v1";
+  if (key.includes("message")) return "OK";
+  if (key.includes("token") || key.includes("key")) return "lf_live_****";
+  if (key.includes("created") || key.includes("updated")) {
+    return "2026-01-12T00:00:00Z";
+  }
+  if (key.includes("seed")) return "42";
+  return "sample";
+}
+
+function buildNumberExample(hintKey?: string) {
+  const key = hintKey?.toLowerCase() ?? "";
+  if (key.includes("width")) return 1024;
+  if (key.includes("height")) return 1024;
+  if (key.includes("progress")) return 42;
+  if (key.includes("fps")) return 30;
+  if (key.includes("steps")) return 30;
+  if (key.includes("count")) return 1;
+  if (key.includes("duration")) return 5;
+  if (key.includes("resolution")) return 1080;
+  return 1;
+}
+
 function extractRequestInfo(
   requestBody: OpenApiOperation["requestBody"],
   document: OpenApiDocument,
