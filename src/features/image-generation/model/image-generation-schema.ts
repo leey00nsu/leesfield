@@ -10,7 +10,7 @@ import {
 
 export { modelOptions, modelDefaults, modelImageLimits, type ImageGenerationModel };
 
-export const imageGenerationSchema = z.object({
+const imageGenerationBaseSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),
   width: z.number().int(),
   height: z.number().int(),
@@ -19,7 +19,11 @@ export const imageGenerationSchema = z.object({
   imageCount: z.number().int(),
   steps: z.number().int(),
   seed: z.string().optional().or(z.literal("")),
-}).superRefine((data, ctx) => {
+});
+
+export const imageGenerationOpenApiSchema = imageGenerationBaseSchema;
+
+export const imageGenerationSchema = imageGenerationBaseSchema.superRefine((data, ctx) => {
   const widthRange = getImageParamRange(data.model, "width");
   const heightRange = getImageParamRange(data.model, "height");
   const stepsRange = getImageParamRange(data.model, "steps");

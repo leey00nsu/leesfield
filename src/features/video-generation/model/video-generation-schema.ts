@@ -11,20 +11,22 @@ import {
 
 export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
-export const videoGenerationSchema = z
-  .object({
-    prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-    initImage: z.string().optional().or(z.literal("")),
-    model: z.enum(videoModelOptions),
-    aspectRatio: z.string().min(1),
-    resolution: z.number().int(),
-    durationSec: z.number(),
-    fps: z.number().int(),
-    steps: z.number().int(),
-    guidanceScale: z.number(),
-    seed: z.string().optional().or(z.literal("")),
-  })
-  .superRefine((data, ctx) => {
+const videoGenerationBaseSchema = z.object({
+  prompt: z.string().min(1, "프롬프트를 입력해주세요."),
+  initImage: z.string().optional().or(z.literal("")),
+  model: z.enum(videoModelOptions),
+  aspectRatio: z.string().min(1),
+  resolution: z.number().int(),
+  durationSec: z.number(),
+  fps: z.number().int(),
+  steps: z.number().int(),
+  guidanceScale: z.number(),
+  seed: z.string().optional().or(z.literal("")),
+});
+
+export const videoGenerationOpenApiSchema = videoGenerationBaseSchema;
+
+export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data, ctx) => {
     const supportsInitImage =
       videoModelMeta[data.model]?.supportsInitImage ?? false;
     const hasInitImage = Boolean(data.initImage?.trim());

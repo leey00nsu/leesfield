@@ -1,17 +1,27 @@
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV3,
+  extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
-import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
+import { imageGenerationOpenApiSchema } from "@/features/image-generation/model/image-generation-schema";
+import { videoGenerationOpenApiSchema } from "@/features/video-generation/model/video-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
+
+extendZodWithOpenApi(z);
 
 const registry = new OpenAPIRegistry();
 
 const errorResponseSchema = z.object({
   message: z.string(),
-  errors: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        field: z.string(),
+        messages: z.array(z.string()),
+      }),
+    )
+    .optional(),
 });
 
 const generationResponseSchema = z.object({
@@ -39,7 +49,7 @@ registry.registerPath({
       required: true,
       content: {
         "application/json": {
-          schema: imageGenerationSchema,
+          schema: imageGenerationOpenApiSchema,
         },
       },
     },
@@ -99,7 +109,7 @@ registry.registerPath({
       required: true,
       content: {
         "application/json": {
-          schema: videoGenerationSchema,
+          schema: videoGenerationOpenApiSchema,
         },
       },
     },
