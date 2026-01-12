@@ -1,5 +1,22 @@
 "use client";
 
+import type { ProfileSummary } from "@/features/user-profile/model/profile-types";
+import { ProfileSummaryCard } from "@/features/user-profile/ui/profile-summary-card";
+
+const profileSummary: ProfileSummary = {
+  name: "Alex Designer",
+  handle: "@alex_creates",
+  avatarFallback: "LF",
+  badges: [
+    { label: "Creator", tone: "default" },
+    { label: "Pro Member", tone: "primary" },
+  ],
+  stats: [
+    { label: "Generations", value: "1,204" },
+    { label: "Credits", value: "450", tone: "primary" },
+  ],
+};
+
 export function UserProfileWidget() {
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -36,38 +53,7 @@ export function UserProfileWidget() {
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-6 sm:px-10">
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-12">
           <div className="xl:col-span-4 flex flex-col gap-6">
-            <div className="rounded-2xl border border-white/10 bg-surface-dark p-8">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-6 flex h-32 w-32 items-center justify-center rounded-full border-4 border-surface-dark bg-surface-lighter text-primary">
-                  <span className="text-2xl font-bold">LF</span>
-                </div>
-                <h2 className="mb-1 text-2xl font-bold text-white">Alex Designer</h2>
-                <p className="mb-4 text-sm font-mono text-primary">@alex_creates</p>
-                <div className="mb-6 flex items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-300">
-                    Creator
-                  </span>
-                  <span className="rounded-full border border-primary/20 bg-primary/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary">
-                    Pro Member
-                  </span>
-                </div>
-                <div className="my-2 h-px w-full bg-white/5" />
-                <div className="mt-4 grid w-full grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1 rounded-xl border border-white/5 bg-surface-lighter p-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                      Generations
-                    </span>
-                    <span className="text-xl font-mono font-bold text-white">1,204</span>
-                  </div>
-                  <div className="flex flex-col gap-1 rounded-xl border border-white/5 bg-surface-lighter p-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                      Credits
-                    </span>
-                    <span className="text-xl font-mono font-bold text-primary">450</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProfileSummaryCard profile={profileSummary} />
             <div className="rounded-2xl border border-white/10 bg-surface-dark p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-white">
