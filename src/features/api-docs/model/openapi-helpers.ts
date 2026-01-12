@@ -109,6 +109,7 @@ export function formatSchemaType(
   document?: OpenApiDocument,
 ) {
   if (!schema) return "object";
+  if (schema.format === "binary") return "file";
   if (schema.enum) return "enum";
   if (schema.type === "array") {
     const itemType = formatSchemaType(
@@ -128,7 +129,12 @@ export function buildExampleFromSchema(
   const resolved = resolveSchema(schema, document ?? null);
   if (!resolved) return null;
   if (resolved.example !== undefined) return resolved.example;
-  if (resolved.format === "binary") return "<binary>";
+  if (resolved.format === "binary") {
+    const key = hintKey?.toLowerCase() ?? "";
+    if (key.includes("video")) return "sample.mp4";
+    if (key.includes("image") || key.includes("init")) return "sample.png";
+    return "sample.bin";
+  }
   if (Array.isArray(resolved.enum) && resolved.enum.length > 0) {
     return resolved.enum[0];
   }
@@ -222,10 +228,21 @@ function extractRequestInfo(
 ): ApiRequestInfo | null {
   const body = requestBody as OpenApiRequestBody | undefined;
   if (!body || !body.content) return null;
-  const jsonContent = body.content["application/json"];
-  if (!jsonContent) return null;
+  const preferredContentTypes = [
+    "multipart/form-data",
+    "application/json",
+    "application/x-www-form-urlencoded",
+  ];
+  const preferredType = preferredContentTypes.find(
+    (contentType) => body.content?.[contentType],
+  );
+  const fallbackType = Object.keys(body.content)[0];
+  const contentType = preferredType ?? fallbackType;
+  if (!contentType) return null;
+  const content = body.content[contentType];
+  if (!content) return null;
 
-  const schema = resolveSchema(jsonContent.schema, document);
+  const schema = resolveSchema(content.schema, document);
   return {
     schema,
     properties: extractSchemaProperties(schema, document),

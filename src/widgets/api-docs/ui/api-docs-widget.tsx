@@ -502,9 +502,14 @@ export function ApiDocsWidget() {
                                       className="grid grid-cols-1 gap-4 p-6 md:grid-cols-[200px_1fr]"
                                     >
                                       <div className="flex flex-col gap-1">
-                                        <code className="font-mono font-bold text-primary">
-                                          {param.name}
-                                        </code>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <code className="font-mono font-bold text-primary">
+                                            {param.name}
+                                          </code>
+                                          <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-400">
+                                            {param.typeLabel}
+                                          </span>
+                                        </div>
                                         <span
                                           className={`text-[10px] font-bold uppercase tracking-wider ${
                                             param.required
