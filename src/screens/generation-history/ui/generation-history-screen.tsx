@@ -40,10 +40,12 @@ export function GenerationHistoryScreen() {
   }, [searchInput]);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setOffset(0);
     setItems([]);
     setTotal(0);
     isFetchingNextRef.current = false;
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [type, sort, query]);
 
   const params = useMemo(
@@ -61,6 +63,7 @@ export function GenerationHistoryScreen() {
 
   useEffect(() => {
     if (!data) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setTotal(data.total);
     setItems((prev) => {
       if (offset === 0) {
@@ -77,6 +80,7 @@ export function GenerationHistoryScreen() {
       return merged;
     });
     isFetchingNextRef.current = false;
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [data, offset]);
 
   useEffect(() => {

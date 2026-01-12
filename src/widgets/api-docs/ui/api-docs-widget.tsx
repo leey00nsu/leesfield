@@ -286,7 +286,9 @@ export function ApiDocsWidget() {
                     <span className="text-accent-purple">curl</span> https://api.leesfield.ai/v1/models \
                     <div className="pl-4 mt-1">
                       -H{" "}
-                      <span className="text-green-400">"X-API-Key: lf_live_..."</span>
+                      <span className="text-green-400">
+                        &quot;X-API-Key: lf_live_...&quot;
+                      </span>
                     </div>
                   </div>
                   <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">

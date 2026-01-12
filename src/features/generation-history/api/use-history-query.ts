@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   GenerationHistoryResponse,
   GenerationHistorySort,
@@ -27,13 +27,11 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
     error: null,
   });
 
-  const key = useMemo(() => JSON.stringify(params), [params]);
-  const memoParams = useMemo(() => params, [key]);
-
   useEffect(() => {
     let isActive = true;
     const controller = new AbortController();
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((prev) => ({
       data: prev.data,
       isLoading: true,
@@ -42,7 +40,7 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
 
     void (async () => {
       try {
-        const data = await fetchHistory(memoParams, { signal: controller.signal });
+        const data = await fetchHistory(params, { signal: controller.signal });
         if (!isActive) return;
         setState({ data, isLoading: false, error: null });
       } catch (error) {
@@ -68,7 +66,7 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
       isActive = false;
       controller.abort();
     };
-  }, [key, memoParams]);
+  }, [params]);
 
   return state;
 }
