@@ -11,11 +11,20 @@ export type ProfileFormValues = {
   bioMax?: number;
 };
 
-type ProfileFormProps = {
-  values: ProfileFormValues;
+export type ProfileFormPlaceholders = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  username?: string;
+  bio?: string;
 };
 
-export function ProfileForm({ values }: ProfileFormProps) {
+type ProfileFormProps = {
+  values: ProfileFormValues;
+  placeholders?: ProfileFormPlaceholders;
+};
+
+export function ProfileForm({ values, placeholders }: ProfileFormProps) {
   const bioMax = values.bioMax ?? 200;
   const bioCount = values.bio.length;
 
@@ -35,6 +44,7 @@ export function ProfileForm({ values }: ProfileFormProps) {
             </Label>
             <Input
               defaultValue={values.firstName}
+              placeholder={placeholders?.firstName}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
             />
           </div>
@@ -44,6 +54,7 @@ export function ProfileForm({ values }: ProfileFormProps) {
             </Label>
             <Input
               defaultValue={values.lastName}
+              placeholder={placeholders?.lastName}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
             />
           </div>
@@ -56,6 +67,7 @@ export function ProfileForm({ values }: ProfileFormProps) {
             <Input
               type="email"
               defaultValue={values.email}
+              placeholder={placeholders?.email}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
             />
           </div>
@@ -65,6 +77,7 @@ export function ProfileForm({ values }: ProfileFormProps) {
             </Label>
             <Input
               defaultValue={values.username}
+              placeholder={placeholders?.username}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
             />
           </div>
@@ -76,6 +89,7 @@ export function ProfileForm({ values }: ProfileFormProps) {
           <Textarea
             rows={4}
             defaultValue={values.bio}
+            placeholder={placeholders?.bio}
             className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
           />
           <div className="mt-2 flex justify-end">
