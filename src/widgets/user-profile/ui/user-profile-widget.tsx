@@ -1,6 +1,11 @@
 "use client";
 
 import type { ProfileSummary } from "@/features/user-profile/model/profile-types";
+import { ProfileHeaderActions } from "@/features/user-profile/ui/profile-header-actions";
+import {
+  ProfileForm,
+  type ProfileFormValues,
+} from "@/features/user-profile/ui/profile-form";
 import { ProfileSummaryCard } from "@/features/user-profile/ui/profile-summary-card";
 
 const profileSummary: ProfileSummary = {
@@ -15,6 +20,15 @@ const profileSummary: ProfileSummary = {
     { label: "Generations", value: "1,204" },
     { label: "Credits", value: "450", tone: "primary" },
   ],
+};
+
+const profileFormValues: ProfileFormValues = {
+  firstName: "Alex",
+  lastName: "Designer",
+  email: "alex@example.com",
+  username: "alex_creates",
+  bio: "Digital artist exploring the boundaries of AI generation. Based in Neo-Tokyo.",
+  bioMax: 200,
 };
 
 export function UserProfileWidget() {
@@ -33,20 +47,7 @@ export function UserProfileWidget() {
                 IDENTITY VERIFIED // ACCOUNT MANAGEMENT
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="flex h-10 items-center gap-2 rounded-full border border-white/10 bg-surface-dark px-6 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_15px_rgba(212,240,50,0.2)] transition-all hover:bg-primary-dark"
-              >
-                Save Changes
-              </button>
-            </div>
+            <ProfileHeaderActions />
           </div>
         </div>
       </div>
@@ -87,69 +88,7 @@ export function UserProfileWidget() {
             </div>
           </div>
           <div className="xl:col-span-8 flex flex-col gap-6">
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface-dark">
-              <div className="flex items-center justify-between border-b border-white/5 px-8 py-6">
-                <h3 className="flex items-center gap-3 text-lg font-bold text-white">
-                  <span className="h-6 w-1 rounded-full bg-primary" />
-                  Personal Information
-                </h3>
-              </div>
-              <div className="p-8">
-                <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
-                      First Name
-                    </label>
-                    <input
-                      className="w-full rounded-lg border border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value="Alex"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
-                      Last Name
-                    </label>
-                    <input
-                      className="w-full rounded-lg border border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value="Designer"
-                    />
-                  </div>
-                </div>
-                <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
-                      Email Address
-                    </label>
-                    <input
-                      className="w-full rounded-lg border border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value="alex@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
-                      Username
-                    </label>
-                    <input
-                      className="w-full rounded-lg border border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value="alex_creates"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
-                    Bio
-                  </label>
-                  <textarea
-                    rows={4}
-                    className="w-full resize-none rounded-lg border border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    defaultValue="Digital artist exploring the boundaries of AI generation."
-                  />
-                  <div className="mt-2 flex justify-end">
-                    <span className="text-[10px] font-mono text-gray-600">82/200 CHARACTERS</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProfileForm values={profileFormValues} />
             <div className="rounded-2xl border border-white/10 bg-surface-dark p-6">
               <h3 className="mb-6 text-sm font-bold uppercase tracking-widest text-white">
                 Notifications
