@@ -1,6 +1,7 @@
 export type OpenApiSchema = {
   $ref?: string;
   type?: string;
+  format?: string;
   description?: string;
   properties?: Record<string, OpenApiSchema>;
   items?: OpenApiSchema;
@@ -22,6 +23,7 @@ export type OpenApiRequestBody = {
   description?: string;
   required?: boolean;
   content?: Record<string, OpenApiMediaTypeObject>;
+  schema?: OpenApiSchema;
 } & Record<string, unknown>;
 
 export type OpenApiResponse = {
@@ -34,7 +36,7 @@ export type OpenApiOperation = {
   summary?: string;
   description?: string;
   operationId?: string;
-  requestBody?: OpenApiRequestBody | OpenApiSchema;
+  requestBody?: OpenApiRequestBody | ReferenceObject;
   responses?: Record<string, OpenApiResponse>;
 } & Record<string, unknown>;
 
@@ -60,5 +62,10 @@ export type OpenApiDocument = {
   paths: Record<string, OpenApiPathItem>;
   components?: {
     schemas?: Record<string, OpenApiSchema>;
+    requestBodies?: Record<string, OpenApiRequestBody>;
   };
+};
+
+export type ReferenceObject = {
+  $ref: string;
 };

@@ -51,6 +51,23 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
     (document.tags ?? []).map((tag) => [tag.name, tag.description]),
   );
   const sections = new Map<string, ApiSection>();
+  const tagIdMap = new Map<string, string>();
+  const usedSlugs = new Set<string>();
+
+  const ensureUniqueSlug = (base: string) => {
+    const normalized = base || "section";
+    if (!usedSlugs.has(normalized)) {
+      usedSlugs.add(normalized);
+      return normalized;
+    }
+    let counter = 2;
+    while (usedSlugs.has(`${normalized}-${counter}`)) {
+      counter += 1;
+    }
+    const next = `${normalized}-${counter}`;
+    usedSlugs.add(next);
+    return next;
+  };
 
   Object.entries(document.paths ?? {}).forEach(([path, pathItem]) => {
     HTTP_METHODS.forEach((method) => {
@@ -58,7 +75,12 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
       if (!operation) return;
 
       const tag = operation.tags?.[0] ?? "General";
-      const sectionId = slugifyTag(tag);
+      let sectionId = tagIdMap.get(tag);
+      if (!sectionId) {
+        const baseSlug = slugifyTag(tag);
+        sectionId = ensureUniqueSlug(baseSlug || `section-${tagIdMap.size + 1}`);
+        tagIdMap.set(tag, sectionId);
+      }
       const section = sections.get(tag) ?? {
         id: sectionId,
         title: tag,
@@ -226,8 +248,30 @@ function extractRequestInfo(
   requestBody: OpenApiOperation["requestBody"],
   document: OpenApiDocument,
 ): ApiRequestInfo | null {
-  const body = requestBody as OpenApiRequestBody | undefined;
-  if (!body || !body.content) return null;
+  if (!requestBody) return null;
+
+  const resolvedBody = resolveRequestBody(requestBody, document);
+  if (resolvedBody?.schema) {
+    const schema = resolveSchema(resolvedBody.schema, document);
+    return {
+      schema,
+      properties: extractSchemaProperties(schema, document),
+    };
+  }
+
+  const body = resolvedBody;
+  if (!body || !body.content) {
+    const schema = resolveSchema(
+      requestBody as OpenApiSchema,
+      document,
+    );
+    if (!schema) return null;
+    return {
+      schema,
+      properties: extractSchemaProperties(schema, document),
+    };
+  }
+
   const preferredContentTypes = [
     "multipart/form-data",
     "application/json",
@@ -247,6 +291,30 @@ function extractRequestInfo(
     schema,
     properties: extractSchemaProperties(schema, document),
   };
+}
+
+function resolveRequestBody(
+  requestBody: OpenApiOperation["requestBody"],
+  document: OpenApiDocument,
+): OpenApiRequestBody | null {
+  if (!requestBody) return null;
+  if (isReferenceObject(requestBody)) {
+    const refName = requestBody.$ref.split("/").pop();
+    if (!refName) return null;
+    return document.components?.requestBodies?.[refName] ?? null;
+  }
+  return requestBody as OpenApiRequestBody;
+}
+
+function isReferenceObject(
+  value: OpenApiOperation["requestBody"],
+): value is { $ref: string } {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "$ref" in value &&
+      typeof (value as { $ref?: unknown }).$ref === "string",
+  );
 }
 
 function extractResponses(

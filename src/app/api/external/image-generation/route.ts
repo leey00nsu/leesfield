@@ -102,9 +102,15 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
+    console.error("[image-generation] create failed", error);
     return NextResponse.json(
       { message: "DB_SAVE_FAILED" },
-      { status: 500 },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
 }

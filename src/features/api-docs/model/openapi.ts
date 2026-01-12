@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 import { modelOptions } from "@/features/image-generation/model/image-generation-schema";
 import { videoModelOptions } from "@/features/video-generation/model/video-generation-schema";
+import { videoModelMeta } from "@/features/video-generation/model/video-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 extendZodWithOpenApi(z);
@@ -90,13 +91,8 @@ const imageGenerationFormDataSchema = z.object({
   seed: z.string().optional(),
 });
 
-const videoGenerationFormDataSchema = z.object({
+const videoGenerationFormDataBaseSchema = z.object({
   prompt: z.string(),
-  initImage: z
-    .string()
-    .openapi({ type: "string", format: "binary" })
-    .optional(),
-  model: z.enum(videoModelOptions),
   aspectRatio: z.string(),
   resolution: z.number().int(),
   durationSec: z.number(),
@@ -105,6 +101,37 @@ const videoGenerationFormDataSchema = z.object({
   guidanceScale: z.number(),
   seed: z.string().optional(),
 });
+
+const videoInitImageSchema = z
+  .string()
+  .openapi({ type: "string", format: "binary" });
+
+const videoInitImageRequiredModels = videoModelOptions.filter(
+  (model) => videoModelMeta[model]?.supportsInitImage,
+);
+const videoInitImageOptionalModels = videoModelOptions.filter(
+  (model) => !videoModelMeta[model]?.supportsInitImage,
+);
+
+const videoFormVariants = [
+  ...videoInitImageRequiredModels.map((model) =>
+    videoGenerationFormDataBaseSchema.extend({
+      model: z.literal(model),
+      initImage: videoInitImageSchema,
+    }),
+  ),
+  ...videoInitImageOptionalModels.map((model) =>
+    videoGenerationFormDataBaseSchema.extend({
+      model: z.literal(model),
+      initImage: videoInitImageSchema.optional(),
+    }),
+  ),
+];
+
+const videoGenerationFormDataSchema = z.discriminatedUnion(
+  "model",
+  videoFormVariants as [typeof videoFormVariants[number], ...typeof videoFormVariants],
+);
 
 registry.register("ErrorResponse", errorResponseSchema);
 registry.register("GenerationResponse", generationResponseSchema);

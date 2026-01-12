@@ -39,7 +39,7 @@ export async function requireApiKey(
     );
   }
 
-  await prisma.apiKey
+  void prisma.apiKey
     .update({
       where: { id: record.id },
       data: { lastUsedAt: new Date() },

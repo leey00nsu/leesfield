@@ -19,7 +19,7 @@ export default async function DashboardLayout({
       className="min-h-screen bg-background-dark text-white"
       style={
         {
-          "--dashboard-header-height": "64px",
+          "--dashboard-header-height": "60px",
         } as CSSProperties
       }
     >
