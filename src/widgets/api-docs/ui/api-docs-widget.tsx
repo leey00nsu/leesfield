@@ -149,6 +149,14 @@ export function ApiDocsWidget() {
     if (elements.length === 0) return;
 
     const updateActiveSection = () => {
+      const lastElement = elements[elements.length - 1];
+      const pageHeight = document.documentElement.scrollHeight;
+      const scrollPosition = window.scrollY + window.innerHeight;
+      if (lastElement && scrollPosition >= pageHeight - 80) {
+        setActiveSectionId(lastElement.id);
+        return;
+      }
+
       const offset = 140;
       let current = elements[0]?.id ?? "introduction";
       for (const element of elements) {
