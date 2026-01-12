@@ -5,6 +5,10 @@ import { requireApiKey } from "@/server/auth/api-key-guard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const FILE_TOO_LARGE_ERROR = "FILE_TOO_LARGE";
 
 async function fileToDataUrl(file: File) {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -35,6 +39,9 @@ async function getInitImageValue(formData: FormData) {
   }
   if (entry instanceof File) {
     if (entry.size === 0) return undefined;
+    if (entry.size > MAX_UPLOAD_BYTES) {
+      throw new Error(FILE_TOO_LARGE_ERROR);
+    }
     return fileToDataUrl(entry);
   }
   return undefined;
@@ -54,9 +61,36 @@ export async function POST(request: Request) {
     );
   }
 
+  let initImage: string | undefined;
+  try {
+    initImage = await getInitImageValue(formData);
+  } catch (error) {
+    if (error instanceof Error && error.message === FILE_TOO_LARGE_ERROR) {
+      return NextResponse.json(
+        { message: "FILE_TOO_LARGE" },
+        {
+          status: 413,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+    console.error("[video-generation] file parse failed", error);
+    return NextResponse.json(
+      { message: "INVALID_FORM_DATA" },
+      {
+        status: 400,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   const body = {
     prompt: getString(formData, "prompt"),
-    initImage: await getInitImageValue(formData),
+    initImage,
     model: getString(formData, "model"),
     aspectRatio: getString(formData, "aspectRatio"),
     resolution: getNumber(formData, "resolution"),

@@ -6,6 +6,9 @@ import { requireApiKey } from "@/server/auth/api-key-guard";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const FILE_TOO_LARGE_ERROR = "FILE_TOO_LARGE";
+
 async function fileToDataUrl(file: File) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const mime = file.type || "image/png";
@@ -40,6 +43,9 @@ async function getDataUrlList(formData: FormData, keys: string[]) {
     }
     if (entry instanceof File) {
       if (entry.size === 0) continue;
+      if (entry.size > MAX_UPLOAD_BYTES) {
+        throw new Error(FILE_TOO_LARGE_ERROR);
+      }
       results.push(await fileToDataUrl(entry));
     }
   }
@@ -61,10 +67,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const initImages = await getDataUrlList(formData, [
-    "initImages",
-    "initImages[]",
-  ]);
+  let initImages: string[] = [];
+  try {
+    initImages = await getDataUrlList(formData, [
+      "initImages",
+      "initImages[]",
+    ]);
+  } catch (error) {
+    if (error instanceof Error && error.message === FILE_TOO_LARGE_ERROR) {
+      return NextResponse.json(
+        { message: "FILE_TOO_LARGE" },
+        {
+          status: 413,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+    console.error("[image-generation] file parse failed", error);
+    return NextResponse.json(
+      { message: "INVALID_FORM_DATA" },
+      {
+        status: 400,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   const body = {
     prompt: getString(formData, "prompt"),

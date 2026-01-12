@@ -40,12 +40,13 @@ export function GenerationHistoryScreen() {
   }, [searchInput]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotal(0);
     isFetchingNextRef.current = false;
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [type, sort, query]);
 
   const params = useMemo(
@@ -63,8 +64,9 @@ export function GenerationHistoryScreen() {
 
   useEffect(() => {
     if (!data) return;
-    /* eslint-disable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotal(data.total);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems((prev) => {
       if (offset === 0) {
         return data.items;
@@ -80,7 +82,6 @@ export function GenerationHistoryScreen() {
       return merged;
     });
     isFetchingNextRef.current = false;
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [data, offset]);
 
   useEffect(() => {
