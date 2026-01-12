@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   Boxes,
   Clapperboard,
   History,
@@ -39,6 +40,7 @@ const headerIcons: Record<string, typeof ImageIcon> = {
   "/history": History,
   "/model": Boxes,
   "/api-key": KeyRound,
+  "/api-docs": BookOpen,
 };
 
 function getInitials(email?: string | null) {
@@ -61,7 +63,7 @@ export function Header({
   const initials = getInitials(userEmail);
 
   return (
-    <header className="z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
       <Link href="/" className="flex items-center gap-3">
         <Image
           src="/logo.webp"

@@ -10,9 +10,9 @@ import type {
 import { useHistoryQuery } from "@/features/generation-history/api/use-history-query";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import {
-  DashboardPageHeader,
-  DashboardSearchInput,
-} from "@/shared/ui/dashboard-page-header";
+  PageHeader,
+  PageHeaderSearchInput,
+} from "@/shared/ui/page-header";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -40,8 +40,11 @@ export function GenerationHistoryScreen() {
   }, [searchInput]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotal(0);
     isFetchingNextRef.current = false;
   }, [type, sort, query]);
@@ -61,7 +64,9 @@ export function GenerationHistoryScreen() {
 
   useEffect(() => {
     if (!data) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotal(data.total);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems((prev) => {
       if (offset === 0) {
         return data.items;
@@ -111,7 +116,7 @@ export function GenerationHistoryScreen() {
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <DashboardPageHeader
+      <PageHeader
         title={
           <>
             <span className="text-white">Generation</span>{" "}
@@ -120,7 +125,7 @@ export function GenerationHistoryScreen() {
         }
         subtitle="FIND YOUR GENERATIONS FAST"
         rightSlot={
-          <DashboardSearchInput
+          <PageHeaderSearchInput
             value={searchInput}
             onChange={setSearchInput}
             placeholder="SEARCH_DATABASE..."
@@ -170,7 +175,7 @@ export function GenerationHistoryScreen() {
             TOTAL: {total}
           </span>
         </DashboardFilterBar>
-      </DashboardPageHeader>
+      </PageHeader>
 
       <div className="mx-auto w-full max-w-[1600px]">
         {error ? (

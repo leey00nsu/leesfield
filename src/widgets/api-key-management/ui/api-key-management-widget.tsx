@@ -5,9 +5,9 @@ import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-m
 import { ApiKeyToolbar } from "@/features/api-key-management/ui/api-key-toolbar";
 import { useApiKeyManagement } from "@/features/api-key-management/model/use-api-key-management";
 import {
-  DashboardPageHeader,
-  DashboardSearchInput,
-} from "@/shared/ui/dashboard-page-header";
+  PageHeader,
+  PageHeaderSearchInput,
+} from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
 
 export function ApiKeyManagementWidget() {
@@ -41,7 +41,7 @@ export function ApiKeyManagementWidget() {
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <DashboardPageHeader
+      <PageHeader
         title={
           <>
             <span className="text-white">API Key</span>{" "}
@@ -50,7 +50,7 @@ export function ApiKeyManagementWidget() {
         }
         subtitle="SECURE YOUR API ACCESS"
         rightSlot={
-          <DashboardSearchInput
+          <PageHeaderSearchInput
             value={searchInput}
             onChange={setSearchInput}
             placeholder="SEARCH_KEYS..."
@@ -66,7 +66,7 @@ export function ApiKeyManagementWidget() {
           onGenerate={handleIssueKey}
           isIssuing={isIssuing}
         />
-      </DashboardPageHeader>
+      </PageHeader>
 
       <div className="mx-auto w-full max-w-[1600px]">
         {pendingKey ? (

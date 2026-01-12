@@ -18,8 +18,9 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@asteasolutions/zod-to-openapi": "^8.4.0",
     "@gradio/client": "^2.0.1",
+    "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-avatar": "^1.1.11",

@@ -11,20 +11,69 @@ import {
 
 export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
-export const videoGenerationSchema = z
-  .object({
-    prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-    initImage: z.string().optional().or(z.literal("")),
-    model: z.enum(videoModelOptions),
-    aspectRatio: z.string().min(1),
-    resolution: z.number().int(),
-    durationSec: z.number(),
-    fps: z.number().int(),
-    steps: z.number().int(),
-    guidanceScale: z.number(),
-    seed: z.string().optional().or(z.literal("")),
-  })
-  .superRefine((data, ctx) => {
+const initImageSchema = z
+  .string()
+  .refine((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    if (trimmed.startsWith("data:")) {
+      return /^data:[^;]+;base64,/.test(trimmed);
+    }
+    if (/^https?:\/\//.test(trimmed)) {
+      try {
+        const url = new URL(trimmed);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }, "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.")
+  .describe("data URL(base64) 또는 http(s) 이미지 URL");
+
+const videoGenerationSharedSchema = z.object({
+  prompt: z.string().min(1, "프롬프트를 입력해주세요."),
+  aspectRatio: z.string().min(1),
+  resolution: z.number().int(),
+  durationSec: z.number(),
+  fps: z.number().int(),
+  steps: z.number().int(),
+  guidanceScale: z.number(),
+  seed: z.string().optional().or(z.literal("")),
+});
+
+const initImageRequiredSchema = initImageSchema.min(1, "initImage는 필수입니다.");
+
+const initImageRequiredModels = videoModelOptions.filter(
+  (model) => videoModelMeta[model]?.supportsInitImage,
+);
+const initImageOptionalModels = videoModelOptions.filter(
+  (model) => !videoModelMeta[model]?.supportsInitImage,
+);
+
+const videoVariants = [
+  ...initImageRequiredModels.map((model) =>
+    videoGenerationSharedSchema.extend({
+      model: z.literal(model),
+      initImage: initImageRequiredSchema,
+    }),
+  ),
+  ...initImageOptionalModels.map((model) =>
+    videoGenerationSharedSchema.extend({
+      model: z.literal(model),
+      initImage: initImageSchema.optional().or(z.literal("")),
+    }),
+  ),
+];
+
+const videoGenerationBaseSchema = z.discriminatedUnion(
+  "model",
+  videoVariants as [typeof videoVariants[number], ...typeof videoVariants],
+);
+
+export const videoGenerationOpenApiSchema = videoGenerationBaseSchema;
+
+export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data, ctx) => {
     const supportsInitImage =
       videoModelMeta[data.model]?.supportsInitImage ?? false;
     const hasInitImage = Boolean(data.initImage?.trim());

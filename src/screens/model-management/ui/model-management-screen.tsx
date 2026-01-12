@@ -8,9 +8,9 @@ import {
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
 import {
-  DashboardPageHeader,
-  DashboardSearchInput,
-} from "@/shared/ui/dashboard-page-header";
+  PageHeader,
+  PageHeaderSearchInput,
+} from "@/shared/ui/page-header";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -47,7 +47,7 @@ export function ModelManagementScreen() {
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <DashboardPageHeader
+      <PageHeader
         title={
           <>
             <span className="text-white">Model</span>{" "}
@@ -56,7 +56,7 @@ export function ModelManagementScreen() {
         }
         subtitle="FIND YOUR MODELS FAST"
         rightSlot={
-          <DashboardSearchInput
+          <PageHeaderSearchInput
             value={searchInput}
             onChange={setSearchInput}
             placeholder="SEARCH_DATABASE..."
@@ -94,7 +94,7 @@ export function ModelManagementScreen() {
             TOTAL: {filteredModels.length}
           </span>
         </DashboardFilterBar>
-      </DashboardPageHeader>
+      </PageHeader>
 
       <div className="mx-auto w-full max-w-[1600px]">
         <ModelList
