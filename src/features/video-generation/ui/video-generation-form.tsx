@@ -7,13 +7,12 @@ import {
   Grid2x2,
   ImagePlus,
   Maximize2,
-  RotateCcw,
   Sparkles,
   Video,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   videoGenerationDefaults,
   videoGenerationSchema,
@@ -28,6 +27,10 @@ import {
 } from "@/features/video-generation/model/video-models";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
 import { Button } from "@/shared/ui/button";
+import { GenerationCanvas } from "@/shared/ui/generation-canvas";
+import { GenerationModelSection } from "@/shared/ui/generation-model-section";
+import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
+import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import {
   Form,
   FormControl,
@@ -69,10 +72,13 @@ export function VideoGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
-  const promptValue = form.watch("prompt") ?? "";
+  const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const durationSec =
-    form.watch("durationSec") ?? videoGenerationDefaults.durationSec;
-  const activeModel = form.watch("model") ?? videoGenerationDefaults.model;
+    useWatch({ control: form.control, name: "durationSec" }) ??
+    videoGenerationDefaults.durationSec;
+  const activeModel =
+    useWatch({ control: form.control, name: "model" }) ??
+    videoGenerationDefaults.model;
   const durationRange = getVideoParamRange(activeModel, "durationSec");
   const durationConfig = getVideoParamConfig(activeModel, "durationSec");
   const aspectRatioConfig = getVideoParamConfig(activeModel, "aspectRatio");
@@ -80,7 +86,8 @@ export function VideoGenerationForm() {
   const showDuration = durationConfig?.ui !== "hidden";
   const showSizeNotice =
     aspectRatioConfig?.ui === "hidden" && resolutionConfig?.ui === "hidden";
-  const initImageValue = form.watch("initImage") ?? "";
+  const initImageValue =
+    useWatch({ control: form.control, name: "initImage" }) ?? "";
 
   const supportsInitImage =
     videoModelMeta[activeModel]?.supportsInitImage ?? false;
@@ -150,11 +157,11 @@ export function VideoGenerationForm() {
         className="flex flex-col gap-8"
         onSubmit={form.handleSubmit(handleGenerate)}
       >
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 font-mono">
-              Select_Model
-            </h3>
+        <GenerationModelSection
+          items={modelCards}
+          activeId={activeModel}
+          onSelect={(modelId) => form.setValue("model", modelId)}
+          action={
             <Button
               type="button"
               variant="link"
@@ -162,72 +169,43 @@ export function VideoGenerationForm() {
             >
               View All Models
             </Button>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {modelCards.map((model) => (
-              <Button
-                key={model.id}
-                type="button"
-                onClick={() => form.setValue("model", model.id)}
-                variant="ghost"
-                className={cn(
-                  "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
-                  activeModel === model.id
-                    ? "border-2 border-primary"
-                    : "border border-white/5 hover:border-white/20"
-                )}
-              >
-                <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-black/70 to-black opacity-60 transition-opacity group-hover:opacity-80" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-2 left-3">
-                    <div className="text-sm font-bold text-white">
-                      {model.name}
-                    </div>
-                    <div className="text-[10px] font-mono text-primary">
-                      {model.vendor}
-                    </div>
-                  </div>
-                </div>
-                {activeModel === model.id && (
-                  <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1 text-primary">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                )}
-              </Button>
-            ))}
-          </div>
-        </section>
+          }
+        />
 
         <div className="flex flex-col gap-8 xl:flex-row">
           <div className="flex flex-1 flex-col gap-6">
-            <div className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-white/10 bg-black/40">
-              <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-20" />
-              <div className="absolute right-4 top-4 flex gap-2">
-                <Button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  variant="surface"
-                  size="icon"
-                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Grid (disabled)"
-                >
-                  <Grid2x2 className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  variant="surface"
-                  size="icon"
-                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Full Screen (disabled)"
-                >
-                  <Maximize2 className="h-5 w-5" />
-                </Button>
-              </div>
-
+            <GenerationCanvas
+              actions={
+                <>
+                  <Button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    variant="surface"
+                    size="icon"
+                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
+                    title="Grid (disabled)"
+                  >
+                    <Grid2x2 className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    variant="surface"
+                    size="icon"
+                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
+                    title="Full Screen (disabled)"
+                  >
+                    <Maximize2 className="h-5 w-5" />
+                  </Button>
+                </>
+              }
+              isGenerating={isGenerating}
+              progressValue={progressValue}
+              status={state.status}
+              errorMessage={state.errorMessage}
+            >
               {hasResults && primaryVideo ? (
                 <video
                   src={primaryVideo.url}
@@ -247,33 +225,7 @@ export function VideoGenerationForm() {
                   </p>
                 </div>
               )}
-
-              {isGenerating && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
-                  <div className="relative flex h-20 w-20 items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-                    <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                    <span className="text-sm font-bold text-white">
-                      {progressValue}%
-                    </span>
-                  </div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
-                    Generating...
-                  </p>
-                </div>
-              )}
-
-              {state.status === "failed" && !isGenerating && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/60 px-6 text-center">
-                  <p className="text-sm font-bold text-red-300">
-                    생성에 실패했습니다
-                  </p>
-                  <p className="text-xs font-mono text-gray-400">
-                    {state.errorMessage ?? "잠시 후 다시 시도해주세요."}
-                  </p>
-                </div>
-              )}
-            </div>
+            </GenerationCanvas>
 
             {hasResults && state.errorMessage && (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -316,9 +268,8 @@ export function VideoGenerationForm() {
                   name="prompt"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <div className="group relative">
-                        <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/30 to-accent-purple/30 opacity-20 blur transition duration-500 group-focus-within:opacity-100" />
-                        <div className="relative rounded-xl border border-white/10 bg-surface-dark transition-colors focus-within:border-primary/50">
+                      <GenerationPromptField
+                        textarea={
                           <FormControl>
                             <Textarea
                               placeholder="Describe the video you want to generate in detail..."
@@ -326,7 +277,9 @@ export function VideoGenerationForm() {
                               {...field}
                             />
                           </FormControl>
-                          {previewUrl ? (
+                        }
+                        attachments={
+                          previewUrl ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
                               <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -347,47 +300,49 @@ export function VideoGenerationForm() {
                                 </Button>
                               </div>
                             </div>
-                          ) : null}
-                          <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={handleOpenImagePicker}
-                                aria-label="Upload Reference Image"
-                                disabled={!supportsInitImage}
-                                className={cn(
-                                  "transition-colors",
-                                  supportsInitImage
-                                    ? "text-gray-500 hover:bg-white/5 hover:text-white"
-                                    : "cursor-not-allowed text-gray-700"
-                                )}
-                                title="Upload Reference Image"
-                              >
-                                <ImagePlus className="h-5 w-5" />
-                              </Button>
-                              <span className="text-[10px] font-mono text-gray-600">
-                                {supportsInitImage
-                                  ? hasInitImage
-                                    ? "IMAGE TO VIDEO"
-                                    : "IMAGE REQUIRED"
-                                  : "TEXT ONLY"}
-                              </span>
-                            </div>
+                          ) : null
+                        }
+                        footerLeft={
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={handleOpenImagePicker}
+                              aria-label="Upload Reference Image"
+                              disabled={!supportsInitImage}
+                              className={cn(
+                                "transition-colors",
+                                supportsInitImage
+                                  ? "text-gray-500 hover:bg-white/5 hover:text-white"
+                                  : "cursor-not-allowed text-gray-700"
+                              )}
+                              title="Upload Reference Image"
+                            >
+                              <ImagePlus className="h-5 w-5" />
+                            </Button>
                             <span className="text-[10px] font-mono text-gray-600">
-                              {promptValue.length} CHARS
+                              {supportsInitImage
+                                ? hasInitImage
+                                  ? "IMAGE TO VIDEO"
+                                  : "IMAGE REQUIRED"
+                                : "TEXT ONLY"}
                             </span>
-                          </div>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleImageSelection}
-                          />
-                        </div>
-                      </div>
+                          </>
+                        }
+                        footerRight={
+                          <span className="text-[10px] font-mono text-gray-600">
+                            {promptValue.length} CHARS
+                          </span>
+                        }
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageSelection}
+                      />
                       <FormMessage className="text-xs text-red-400" />
                     </FormItem>
                   )}
@@ -407,23 +362,7 @@ export function VideoGenerationForm() {
             </div>
           </div>
 
-          <aside className="flex w-full shrink-0 flex-col gap-6 rounded-2xl border border-white/10 bg-background-dark px-6 py-6 shadow-2xl xl:w-[400px] xl:rounded-none xl:border-l xl:border-white/10 xl:bg-transparent xl:shadow-none">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-white">
-                <span className="h-6 w-1.5 rounded-full bg-primary" />
-                Settings
-              </h3>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleReset}
-                className="text-gray-500 hover:bg-white/5 hover:text-white"
-              >
-                <RotateCcw className="h-5 w-5" />
-              </Button>
-            </div>
-
+          <GenerationSettingsPanel onReset={handleReset}>
             <div className="flex flex-col gap-8">
               {showSizeNotice && (
                 <div className="flex flex-col gap-3">
@@ -476,7 +415,7 @@ export function VideoGenerationForm() {
                 />
               )}
             </div>
-          </aside>
+          </GenerationSettingsPanel>
         </div>
       </form>
     </Form>

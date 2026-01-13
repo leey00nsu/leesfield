@@ -14,6 +14,7 @@ import {
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
+import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -26,7 +27,8 @@ export function GenerationHistoryScreen() {
   const [type, setType] = useState<GenerationHistoryType>("all");
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
   const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(searchInput, 350);
+  const query = debouncedQuery.trim();
   const [{ offset, items, total }, dispatch] = useReducer(
     (
       state: {
@@ -68,13 +70,6 @@ export function GenerationHistoryScreen() {
   );
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const isFetchingNextRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(searchInput.trim());
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
 
   useEffect(() => {
     dispatch({ type: "reset" });

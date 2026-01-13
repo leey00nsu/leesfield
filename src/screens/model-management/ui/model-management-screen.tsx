@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Grid2X2, Image as ImageIcon, Video } from "lucide-react";
 import {
   modelCatalog,
@@ -11,6 +11,7 @@ import {
   PageHeader,
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
+import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -22,14 +23,8 @@ type FilterType = "all" | ModelCatalogType;
 export function ModelManagementScreen() {
   const [type, setType] = useState<FilterType>("all");
   const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(searchInput.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const debouncedQuery = useDebouncedValue(searchInput, 300);
+  const query = debouncedQuery.trim();
 
   const filteredModels = useMemo(() => {
     const normalized = query.trim().toLowerCase();
