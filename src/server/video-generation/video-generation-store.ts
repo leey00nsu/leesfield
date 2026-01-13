@@ -26,7 +26,6 @@ export type VideoGenerationRecord = {
 type Store = Map<string, VideoGenerationRecord>;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __videoGenerationStore: Store | undefined;
 }
 

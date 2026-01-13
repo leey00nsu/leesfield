@@ -69,6 +69,7 @@ export function VideoGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
+  /* eslint-disable react-hooks/incompatible-library */
   const promptValue = form.watch("prompt") ?? "";
   const durationSec =
     form.watch("durationSec") ?? videoGenerationDefaults.durationSec;
@@ -82,6 +83,7 @@ export function VideoGenerationForm() {
   const showSizeNotice =
     aspectRatioConfig?.ui === "hidden" && resolutionConfig?.ui === "hidden";
   const initImageValue = form.watch("initImage") ?? "";
+  /* eslint-enable react-hooks/incompatible-library */
   const supportsInitImage =
     videoModelMeta[activeModel]?.supportsInitImage ?? false;
   const hasInitImage = Boolean(initImageValue);
@@ -329,6 +331,7 @@ export function VideoGenerationForm() {
                           {previewUrl ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
                               <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={previewUrl}
                                   alt="Init image preview"

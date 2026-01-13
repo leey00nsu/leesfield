@@ -143,11 +143,14 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               preload="metadata"
             />
           ) : (
-            <img
-              src={previewUrl}
-              alt="Generated preview"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Generated preview"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            </>
           )
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-30" />

@@ -28,9 +28,14 @@ export function PageHeader({
     <div
       className={cn(
         "-mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10",
-        sticky ? "sticky top-0 z-20 pt-[calc(var(--dashboard-header-height,0px)+0.75rem)]" : "relative z-10",
+        sticky ? "sticky top-0 z-20" : "relative z-10",
         className,
       )}
+      style={
+        sticky
+          ? { paddingTop: `calc(${stickyOffset} + 0.75rem)` }
+          : undefined
+      }
     >
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">

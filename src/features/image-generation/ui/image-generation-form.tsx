@@ -74,11 +74,13 @@ export function ImageGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
+  /* eslint-disable react-hooks/incompatible-library */
   const promptValue = form.watch("prompt") ?? "";
   const width = form.watch("width") ?? imageGenerationDefaults.width;
   const height = form.watch("height") ?? imageGenerationDefaults.height;
   const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
   const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
+  /* eslint-enable react-hooks/incompatible-library */
   const widthRange = getImageParamRange(activeModel, "width");
   const heightRange = getImageParamRange(activeModel, "height");
   const stepsRange = getImageParamRange(activeModel, "steps");
@@ -316,6 +318,7 @@ export function ImageGenerationForm() {
                         key={`${image.url}-${index}`}
                         className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.url}
                           alt={`Generated image ${index + 1}`}
@@ -416,6 +419,7 @@ export function ImageGenerationForm() {
                                   key={item.id}
                                   className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40"
                                 >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={item.url}
                                     alt="Init image preview"
