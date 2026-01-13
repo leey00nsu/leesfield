@@ -110,8 +110,6 @@ export function ImageGenerationForm() {
   const maxInputImages = modelImageLimits[activeModel]?.maxInputImages ?? 0;
   const canUploadImages = maxInputImages > 0;
 
-  const prevModelRef = useRef(activeModel);
-
   useEffect(() => {
     const defaults = modelDefaults[activeModel];
     form.setValue("steps", defaults.steps);
@@ -122,36 +120,7 @@ export function ImageGenerationForm() {
     if (seedCfg?.ui === "hidden") {
       form.setValue("seed", "");
     }
-
-    // 모델이 변경되었을 때 이미지 업로드 불가능하면 프리뷰 초기화
-    if (prevModelRef.current !== activeModel) {
-      prevModelRef.current = activeModel;
-      const newMaxInputImages =
-        modelImageLimits[activeModel]?.maxInputImages ?? 0;
-      if (newMaxInputImages === 0) {
-        // 비동기 처리로 cascading render 방지
-        queueMicrotask(() => {
-          setInitImagePreviews([]);
-          form.setValue("initImages", []);
-        });
-      }
-    }
   }, [activeModel, form]);
-
-  // 업로드된 이미지 수가 최대치를 초과할 때 잘라내기
-  const trimmedPreviews = canUploadImages
-    ? initImagePreviews.slice(0, maxInputImages)
-    : [];
-  if (trimmedPreviews.length !== initImagePreviews.length) {
-    // 비동기적으로 상태 업데이트 (렌더링 중에는 setState 호출 안함)
-    queueMicrotask(() => {
-      setInitImagePreviews(trimmedPreviews);
-      form.setValue(
-        "initImages",
-        trimmedPreviews.map((item) => item.dataUrl)
-      );
-    });
-  }
 
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
@@ -159,6 +128,26 @@ export function ImageGenerationForm() {
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
+
+  const handleSelectModel = (modelId: ImageGenerationModel) => {
+    form.setValue("model", modelId);
+    const newMaxInputImages = modelImageLimits[modelId]?.maxInputImages ?? 0;
+
+    if (newMaxInputImages === 0) {
+      setInitImagePreviews([]);
+      form.setValue("initImages", []);
+      return;
+    }
+
+    if (initImagePreviews.length > newMaxInputImages) {
+      const trimmedPreviews = initImagePreviews.slice(0, newMaxInputImages);
+      setInitImagePreviews(trimmedPreviews);
+      form.setValue(
+        "initImages",
+        trimmedPreviews.map((item) => item.dataUrl),
+      );
+    }
+  };
 
   const handleRandomizeSeed = () => {
     if (isGenerating) return;
@@ -248,7 +237,7 @@ export function ImageGenerationForm() {
         <GenerationModelSection
           items={modelOptions}
           activeId={activeModel}
-          onSelect={(modelId) => form.setValue("model", modelId)}
+          onSelect={handleSelectModel}
           action={
             <Button
               type="button"
