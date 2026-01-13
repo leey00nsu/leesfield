@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { cn } from "@/shared/lib/utils";
 import { useOpenApiDocument } from "@/features/api-docs/model/use-openapi-document";
 import {
   buildApiSections,
@@ -395,9 +397,9 @@ export function ApiDocsWidget() {
                     className="rounded-2xl border border-white/5 bg-surface-dark p-5"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-300">
+                      <Badge variant="muted" size="md" className="px-2.5 py-1 text-gray-300">
                         {card.status}
-                      </span>
+                      </Badge>
                       <h3 className="text-sm font-bold text-white">
                         {card.title}
                       </h3>
@@ -447,15 +449,17 @@ export function ApiDocsWidget() {
                         <Icon className="h-5 w-5 text-primary" />
                         {sectionTitle}
                       </h2>
-                      <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      <Badge
+                        variant={isVideo ? "primary" : "muted"}
+                        className={cn(
+                          "rounded px-2 py-0.5 text-[10px]",
                           isVideo
                             ? "bg-primary text-black"
-                            : "border border-white/5 bg-white/10 text-gray-400"
-                        }`}
+                            : "border border-white/5 bg-white/10 text-gray-400",
+                        )}
                       >
                         {isVideo ? "Beta" : `버전 ${apiVersion}`}
-                      </span>
+                      </Badge>
                     </div>
 
                     <div className="flex flex-col gap-10">
@@ -477,14 +481,17 @@ export function ApiDocsWidget() {
                           <div key={operation.id} className="flex flex-col gap-6">
                             <div className="flex flex-col gap-3">
                               <div className="flex items-center gap-3">
-                                <span
-                                  className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${
+                                <Badge
+                                  variant="muted"
+                                  size="md"
+                                  className={cn(
+                                    "rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider",
                                     methodStyles[operation.method] ??
-                                    "bg-white/10 text-white"
-                                  }`}
+                                      "bg-white/10 text-white",
+                                  )}
                                 >
                                   {operation.method}
-                                </span>
+                                </Badge>
                                 <code className="font-mono text-lg text-white">
                                   {operation.path}
                                 </code>
@@ -514,19 +521,24 @@ export function ApiDocsWidget() {
                                           <code className="font-mono font-bold text-primary">
                                             {param.name}
                                           </code>
-                                          <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-400">
+                                          <Badge
+                                            variant="muted"
+                                            className="rounded bg-white/10 px-2 py-0.5 font-mono uppercase text-gray-400"
+                                          >
                                             {param.typeLabel}
-                                          </span>
+                                          </Badge>
                                         </div>
-                                        <span
-                                          className={`text-[10px] font-bold uppercase tracking-wider ${
+                                        <Badge
+                                          variant="muted"
+                                          className={cn(
+                                            "text-[10px] font-bold uppercase tracking-wider",
                                             param.required
                                               ? "text-destructive"
-                                              : "text-gray-500"
-                                          }`}
+                                              : "text-gray-500",
+                                          )}
                                         >
                                           {param.required ? "필수" : "선택"}
-                                        </span>
+                                        </Badge>
                                       </div>
                                       <div className="flex flex-col gap-2">
                                         {param.description ? (
@@ -560,9 +572,12 @@ export function ApiDocsWidget() {
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                                     응답 예시
                                   </span>
-                                  <span className="text-[10px] font-mono text-primary">
+                                  <Badge
+                                    variant="primary"
+                                    className="px-2 py-0.5 text-[10px] font-mono"
+                                  >
                                     {primaryResponse.status}
-                                  </span>
+                                  </Badge>
                                 </div>
                                 <pre className="overflow-x-auto p-6 text-sm text-gray-300">
                                   {formatJson(
@@ -595,9 +610,13 @@ export function ApiDocsWidget() {
                                         className="rounded-xl border border-white/5 bg-surface-dark p-4"
                                       >
                                         <div className="flex items-center gap-3">
-                                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-300">
+                                          <Badge
+                                            variant="muted"
+                                            size="md"
+                                            className="px-2.5 py-1 text-gray-300"
+                                          >
                                             {response.status}
-                                          </span>
+                                          </Badge>
                                           <span className="text-sm font-semibold text-white">
                                             {response.description ?? "응답"}
                                           </span>

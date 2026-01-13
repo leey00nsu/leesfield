@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/widgets/header/ui/header";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 
 const featureCards = [
   {
@@ -151,9 +152,9 @@ export function LandingWidget({
                     className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-80 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100`}
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="rounded-full border border-white/20 bg-black/70 px-4 py-2 text-xs font-bold uppercase">
+                    <Badge variant="overlay" size="md" className="px-4 py-2">
                       프롬프트 보기
-                    </span>
+                    </Badge>
                   </div>
                 </div>
               ))}

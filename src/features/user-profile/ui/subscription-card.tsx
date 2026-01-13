@@ -1,4 +1,5 @@
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 
 export function SubscriptionCard() {
   return (
@@ -23,9 +24,9 @@ export function SubscriptionCard() {
             <p className="text-sm font-bold text-white">Free Plan</p>
             <p className="text-xs text-gray-400">$0/month</p>
           </div>
-          <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-300">
+          <Badge variant="muted" className="bg-white/10 text-gray-300">
             Free
-          </span>
+          </Badge>
         </div>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/30">
           <div className="h-full w-[15%] bg-white/40" />

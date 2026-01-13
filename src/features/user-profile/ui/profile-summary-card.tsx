@@ -1,17 +1,11 @@
 import { Camera } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import type {
   ProfileBadgeTone,
   ProfileSummary,
 } from "@/features/user-profile/model/profile-types";
-
-const badgeStyles: Record<ProfileBadgeTone, string> = {
-  default:
-    "border-white/10 bg-white/5 text-gray-300",
-  primary:
-    "border-primary/20 bg-primary/20 text-primary",
-};
 
 const statValueStyles: Record<ProfileBadgeTone, string> = {
   default: "text-white",
@@ -70,15 +64,14 @@ export function ProfileSummaryCard({
         <p className="mb-4 text-sm font-mono text-primary">{profile.handle}</p>
         <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
           {profile.badges.map((badge) => (
-            <span
+            <Badge
               key={badge.label}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest",
-                badgeStyles[badge.tone],
-              )}
+              variant={badge.tone === "primary" ? "primary" : "default"}
+              size="md"
+              className="px-3 py-1 tracking-widest"
             >
               {badge.label}
-            </span>
+            </Badge>
           ))}
         </div>
         <div className="my-2 h-px w-full bg-white/5" />

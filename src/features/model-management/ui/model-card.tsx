@@ -1,6 +1,7 @@
 import { Image as ImageIcon, Sparkles, Video } from "lucide-react";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
+import { Badge } from "@/shared/ui/badge";
 
 type ModelCardProps = {
   item: ModelCatalogItem;
@@ -22,9 +23,6 @@ const typeConfig = {
     glowClass: "from-accent-purple/35 via-transparent to-transparent",
   },
 };
-
-const metaBadgeBase =
-  "rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400";
 
 function buildMeta(item: ModelCatalogItem) {
   const base = [
@@ -120,18 +118,19 @@ export function ModelCard({ item }: ModelCardProps) {
             </h3>
             <p className="mt-1 text-xs font-mono text-gray-400">{item.key}</p>
           </div>
-          <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+          <Badge variant="primary" className="px-2 py-1">
             {item.vendor}
-          </span>
+          </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
           {metaItems.map((meta) => (
-            <span
+            <Badge
               key={`${item.key}-${meta.label}`}
-              className={metaBadgeBase}
+              variant="muted"
+              className="px-2 py-0.5 text-gray-400"
             >
               {meta.label}: {meta.value}
-            </span>
+            </Badge>
           ))}
         </div>
       </div>

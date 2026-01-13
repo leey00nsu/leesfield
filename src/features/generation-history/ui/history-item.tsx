@@ -20,6 +20,7 @@ import type {
 } from "@/entities/generation/model/types";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -152,24 +153,26 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-30" />
         )}
 
-        <div
+        <Badge
+          variant="outline"
           className={cn(
-            "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
+            "absolute left-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
             type.className,
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
           {type.label}
-        </div>
-        <div
+        </Badge>
+        <Badge
+          variant="outline"
           className={cn(
-            "absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
+            "absolute right-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
             status.className,
           )}
         >
           <StatusIcon className={cn("h-3.5 w-3.5", status.spin && "animate-spin")} />
           {status.label}
-        </div>
+        </Badge>
 
         {item.status === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 px-4 text-center">
@@ -269,9 +272,9 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
           <div className="flex items-center gap-3">
             {item.model ? (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              <Badge variant="primary" className="px-2 py-0.5">
                 {item.model}
-              </span>
+              </Badge>
             ) : null}
             <span className="text-[10px] font-mono text-gray-500">
               {formatDate(item.createdAt)}
