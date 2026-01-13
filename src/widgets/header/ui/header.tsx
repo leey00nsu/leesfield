@@ -192,6 +192,18 @@ export function Header({
             </Button>
           </form>
         )}
+        {variant === "public" && isAuthenticated && (
+          <form action={logoutAction} className="flex">
+            <Button
+              type="submit"
+              variant="outline"
+              className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
+            >
+              <LogOut className="h-4 w-4 text-primary" />
+              로그아웃
+            </Button>
+          </form>
+        )}
       </div>
     </header>
   );
