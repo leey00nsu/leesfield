@@ -74,13 +74,12 @@ export function ImageGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
-  /* eslint-disable react-hooks/incompatible-library */
   const promptValue = form.watch("prompt") ?? "";
   const width = form.watch("width") ?? imageGenerationDefaults.width;
   const height = form.watch("height") ?? imageGenerationDefaults.height;
   const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
   const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
-  /* eslint-enable react-hooks/incompatible-library */
+
   const widthRange = getImageParamRange(activeModel, "width");
   const heightRange = getImageParamRange(activeModel, "height");
   const stepsRange = getImageParamRange(activeModel, "steps");
@@ -97,8 +96,7 @@ export function ImageGenerationForm() {
   >([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const maxInputImages =
-    modelImageLimits[activeModel]?.maxInputImages ?? 0;
+  const maxInputImages = modelImageLimits[activeModel]?.maxInputImages ?? 0;
   const canUploadImages = maxInputImages > 0;
 
   useEffect(() => {
@@ -129,7 +127,7 @@ export function ImageGenerationForm() {
         const next = prev.slice(0, maxInputImages);
         form.setValue(
           "initImages",
-          next.map((item) => item.dataUrl),
+          next.map((item) => item.dataUrl)
         );
         return next;
       });
@@ -183,8 +181,8 @@ export function ImageGenerationForm() {
             reader.onerror = () =>
               reject(new Error("이미지 업로드에 실패했습니다."));
             reader.readAsDataURL(file);
-          }),
-      ),
+          })
+      )
     );
 
     const next = [
@@ -200,7 +198,7 @@ export function ImageGenerationForm() {
     form.setValue(
       "initImages",
       next.map((item) => item.dataUrl),
-      { shouldValidate: true },
+      { shouldValidate: true }
     );
 
     event.target.value = "";
@@ -212,15 +210,15 @@ export function ImageGenerationForm() {
     form.setValue(
       "initImages",
       next.map((item) => item.dataUrl),
-      { shouldValidate: true },
+      { shouldValidate: true }
     );
   };
   const resultsGridClass =
     resultImages.length <= 1
       ? "grid-cols-1"
       : resultImages.length === 2
-        ? "grid-cols-2"
-        : "grid-cols-2 lg:grid-cols-3";
+      ? "grid-cols-2"
+      : "grid-cols-2 lg:grid-cols-3";
 
   return (
     <Form {...form}>
@@ -252,7 +250,7 @@ export function ImageGenerationForm() {
                   "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
                   activeModel === model.id
                     ? "border-2 border-primary"
-                    : "border border-white/5 hover:border-white/20",
+                    : "border border-white/5 hover:border-white/20"
                 )}
               >
                 <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
@@ -305,7 +303,7 @@ export function ImageGenerationForm() {
                 <div
                   className={cn(
                     "relative z-10 grid h-full w-full gap-3 p-4",
-                    resultsGridClass,
+                    resultsGridClass
                   )}
                 >
                   {resultImages.map((image, index) => {
@@ -427,7 +425,9 @@ export function ImageGenerationForm() {
                                   />
                                   <Button
                                     type="button"
-                                    onClick={() => handleRemoveInitImage(item.id)}
+                                    onClick={() =>
+                                      handleRemoveInitImage(item.id)
+                                    }
                                     variant="ghost"
                                     size="icon-sm"
                                     className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
@@ -446,7 +446,10 @@ export function ImageGenerationForm() {
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={handleOpenImagePicker}
-                                disabled={!canUploadImages || initImagePreviews.length >= maxInputImages}
+                                disabled={
+                                  !canUploadImages ||
+                                  initImagePreviews.length >= maxInputImages
+                                }
                                 className="text-gray-500 hover:bg-white/5 hover:text-white"
                                 title={
                                   canUploadImages
@@ -487,7 +490,6 @@ export function ImageGenerationForm() {
                   {isGenerating ? "Generating" : "Generate"}
                 </Button>
               </div>
-
             </div>
           </div>
 

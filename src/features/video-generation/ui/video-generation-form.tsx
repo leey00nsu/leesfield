@@ -69,12 +69,10 @@ export function VideoGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
-  /* eslint-disable react-hooks/incompatible-library */
   const promptValue = form.watch("prompt") ?? "";
   const durationSec =
     form.watch("durationSec") ?? videoGenerationDefaults.durationSec;
-  const activeModel =
-    form.watch("model") ?? videoGenerationDefaults.model;
+  const activeModel = form.watch("model") ?? videoGenerationDefaults.model;
   const durationRange = getVideoParamRange(activeModel, "durationSec");
   const durationConfig = getVideoParamConfig(activeModel, "durationSec");
   const aspectRatioConfig = getVideoParamConfig(activeModel, "aspectRatio");
@@ -83,7 +81,7 @@ export function VideoGenerationForm() {
   const showSizeNotice =
     aspectRatioConfig?.ui === "hidden" && resolutionConfig?.ui === "hidden";
   const initImageValue = form.watch("initImage") ?? "";
-  /* eslint-enable react-hooks/incompatible-library */
+
   const supportsInitImage =
     videoModelMeta[activeModel]?.supportsInitImage ?? false;
   const hasInitImage = Boolean(initImageValue);
@@ -91,7 +89,7 @@ export function VideoGenerationForm() {
     promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-    initImageValue || null,
+    initImageValue || null
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration();
@@ -176,7 +174,7 @@ export function VideoGenerationForm() {
                   "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
                   activeModel === model.id
                     ? "border-2 border-primary"
-                    : "border border-white/5 hover:border-white/20",
+                    : "border border-white/5 hover:border-white/20"
                 )}
               >
                 <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
