@@ -1,11 +1,11 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 
 const filterToggleBase =
-  "flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider transition-all";
-const filterToggleActive = "bg-primary text-black hover:bg-primary-dark";
-const filterToggleInactive =
-  "border border-white/5 bg-surface-dark text-gray-400 hover:bg-surface-lighter hover:text-white";
+  "h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider";
+const filterToggleActive = "text-black hover:bg-primary-dark";
+const filterToggleInactive = "text-gray-400 hover:text-white";
 
 type DashboardFilterBarProps = {
   children: ReactNode;
@@ -37,8 +37,9 @@ export function DashboardFilterToggle({
   ...rest
 }: DashboardFilterToggleProps) {
   return (
-    <button
+    <Button
       type={type}
+      variant={active ? "default" : "surface"}
       className={cn(
         filterToggleBase,
         active ? filterToggleActive : filterToggleInactive,
@@ -48,7 +49,7 @@ export function DashboardFilterToggle({
     >
       {icon}
       {children}
-    </button>
+    </Button>
   );
 }
 

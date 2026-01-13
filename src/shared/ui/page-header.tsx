@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 
 type PageHeaderProps = {
   title: ReactNode;
@@ -99,14 +100,16 @@ export function PageHeaderSearchInput({
       />
       {showFilterButton ? (
         <div className="pr-2">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={onFilterClick}
-            className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-primary"
+            className="text-gray-500 hover:bg-white/5 hover:text-primary"
             aria-label={filterButtonLabel}
           >
             <SlidersHorizontal className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

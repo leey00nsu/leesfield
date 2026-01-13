@@ -1,4 +1,5 @@
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
+import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/page-header";
 
 export function VideoGenerationScreen() {
@@ -14,24 +15,26 @@ export function VideoGenerationScreen() {
         subtitle="MAKE VIDEOS IN ONE CLICK"
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="surface"
               disabled
               aria-disabled="true"
-              className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface-dark px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:bg-surface-lighter hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
+              className="h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
               title="준비 중"
             >
               Load Preset
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="surface"
               disabled
               aria-disabled="true"
-              className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface-dark px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:bg-surface-lighter hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
+              className="h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
               title="준비 중"
             >
               Clear
-            </button>
+            </Button>
           </div>
         }
         rightSlotClassName="w-full md:w-auto"

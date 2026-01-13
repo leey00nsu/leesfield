@@ -144,13 +144,14 @@ export function Header({
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem asChild>
                 <form action={logoutAction} className="w-full">
-                  <button
+                  <Button
                     type="submit"
-                    className="flex w-full items-center gap-3 text-left text-sm text-gray-200"
+                    variant="ghost"
+                    className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
                     로그아웃
-                  </button>
+                  </Button>
                 </form>
               </DropdownMenuItem>
             </DropdownMenuContent>

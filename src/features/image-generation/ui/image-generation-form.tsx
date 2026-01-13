@@ -231,21 +231,23 @@ export function ImageGenerationForm() {
             <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 font-mono">
               Select_Model
             </h3>
-            <button
+            <Button
               type="button"
-              className="text-primary text-xs font-bold uppercase hover:underline"
+              variant="link"
+              className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
             >
               View All Models
-            </button>
+            </Button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {modelOptions.map((model) => (
-              <button
+              <Button
                 key={model.id}
                 type="button"
                 onClick={() => form.setValue("model", model.id)}
+                variant="ghost"
                 className={cn(
-                  "group relative flex flex-col rounded-xl bg-surface-dark p-1 text-left transition-all",
+                  "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
                   activeModel === model.id
                     ? "border-2 border-primary"
                     : "border border-white/5 hover:border-white/20",
@@ -268,7 +270,7 @@ export function ImageGenerationForm() {
                     <Sparkles className="h-4 w-4" />
                   </div>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         </section>
@@ -278,20 +280,24 @@ export function ImageGenerationForm() {
             <div className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-white/10 bg-black/40">
               <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-20" />
               <div className="absolute right-4 top-4 flex gap-2">
-                <button
+                <Button
                   type="button"
-                  className="rounded-lg border border-white/10 bg-surface-dark/80 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
+                  variant="surface"
+                  size="icon"
+                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
                   title="Toggle Grid"
                 >
                   <Grid2x2 className="h-5 w-5" />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="rounded-lg border border-white/10 bg-surface-dark/80 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
+                  variant="surface"
+                  size="icon"
+                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
                   title="Full Screen"
                 >
                   <Maximize2 className="h-5 w-5" />
-                </button>
+                </Button>
               </div>
               {hasResults ? (
                 <div
@@ -415,25 +421,29 @@ export function ImageGenerationForm() {
                                     alt="Init image preview"
                                     className="h-full w-full object-cover"
                                   />
-                                  <button
+                                  <Button
                                     type="button"
                                     onClick={() => handleRemoveInitImage(item.id)}
-                                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
                                     title="Remove"
                                   >
                                     <X className="h-3 w-3" />
-                                  </button>
+                                  </Button>
                                 </div>
                               ))}
                             </div>
                           )}
                           <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={handleOpenImagePicker}
                                 disabled={!canUploadImages || initImagePreviews.length >= maxInputImages}
-                                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                className="text-gray-500 hover:bg-white/5 hover:text-white"
                                 title={
                                   canUploadImages
                                     ? "Upload Reference Image"
@@ -441,7 +451,7 @@ export function ImageGenerationForm() {
                                 }
                               >
                                 <ImagePlus className="h-5 w-5" />
-                              </button>
+                              </Button>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600">
                               {promptValue.length} / 1000 CHARS
@@ -481,17 +491,19 @@ export function ImageGenerationForm() {
                 <span className="h-6 w-1.5 rounded-full bg-primary" />
                 Settings
               </h3>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => {
                   form.reset(imageGenerationDefaults);
                   setInitImagePreviews([]);
                   reset();
                 }}
-                className="text-gray-500 transition-colors hover:text-white"
+                className="text-gray-500 hover:bg-white/5 hover:text-white"
               >
                 <RotateCcw className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
 
             <div className="flex flex-col gap-8">
@@ -620,14 +632,16 @@ export function ImageGenerationForm() {
                               placeholder="-1 (Random)"
                               {...field}
                             />
-                            <button
+                            <Button
                               type="button"
+                              variant="surface"
+                              size="icon-sm"
                               onClick={handleRandomizeSeed}
                               disabled={isGenerating}
-                              className="rounded-lg border border-white/10 bg-surface-lighter p-2 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-gray-500"
+                              className="border-white/10 bg-surface-lighter text-gray-200 hover:border-primary hover:text-primary disabled:hover:border-white/10 disabled:hover:text-gray-500"
                             >
                               <Dice5 className="h-4 w-4" />
-                            </button>
+                            </Button>
                           </div>
                         </FormControl>
                       </FormItem>

@@ -1,3 +1,5 @@
+import { Button } from "@/shared/ui/button";
+
 export function SubscriptionCard() {
   return (
     <section className="rounded-2xl border border-white/10 bg-surface-dark p-6">
@@ -6,13 +8,14 @@ export function SubscriptionCard() {
           <span className="text-primary">◆</span>
           Subscription
         </h3>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           disabled
-          className="text-xs font-bold uppercase tracking-wide text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-auto p-0 text-xs font-bold uppercase tracking-wide text-primary disabled:opacity-50"
         >
           Manage
-        </button>
+        </Button>
       </div>
       <div className="mb-4 rounded-xl border border-primary/20 bg-surface-lighter p-5">
         <div className="mb-2 flex items-start justify-between">
@@ -31,13 +34,14 @@ export function SubscriptionCard() {
           NO RENEWAL
         </p>
       </div>
-      <button
+      <Button
         type="button"
+        variant="outline"
         disabled
-        className="w-full rounded-lg border border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+        className="w-full rounded-lg border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 disabled:opacity-50 disabled:hover:bg-transparent"
       >
         Upgrade Plan
-      </button>
+      </Button>
     </section>
   );
 }

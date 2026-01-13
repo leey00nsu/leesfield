@@ -13,6 +13,7 @@ import {
   PageHeader,
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
+import { Button } from "@/shared/ui/button";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -159,18 +160,19 @@ export function GenerationHistoryScreen() {
             Videos
           </DashboardFilterToggle>
           <DashboardFilterDivider />
-          <button
+          <Button
             type="button"
             onClick={() =>
               setSort((prev) =>
                 prev === "date_desc" ? "date_asc" : "date_desc",
               )
             }
-            className="flex h-9 items-center gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 transition-colors hover:text-primary"
+            variant="ghost"
+            className="h-9 gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-transparent hover:text-primary"
           >
             <SlidersHorizontal className="h-4 w-4" />
             SORT: {renderSortLabel}
-          </button>
+          </Button>
           <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
             TOTAL: {total}
           </span>

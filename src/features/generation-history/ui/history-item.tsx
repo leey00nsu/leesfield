@@ -19,6 +19,7 @@ import type {
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -195,22 +196,23 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
 
         {showActions && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <button
+            <Button
               type="button"
-              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
+              className="h-auto rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
               onClick={handleReusePrompt}
             >
               <RotateCcw className="h-4 w-4" />
               Reuse Prompt
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleCopyPrompt}
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:border-primary/60 hover:text-primary"
+              variant="outline"
+              className="h-auto rounded-full border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white hover:border-primary/60 hover:text-primary"
             >
               <Copy className="h-4 w-4" />
               {isCopied ? "Copied" : "Copy Prompt"}
-            </button>
+            </Button>
             <div className="flex gap-2">
               {downloadUrl ? (
                 <a
@@ -222,14 +224,16 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   <Download className="h-4 w-4" />
                 </a>
               ) : (
-                <button
+                <Button
                   type="button"
                   disabled
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
                   aria-label="Download"
                 >
                   <Download className="h-4 w-4" />
-                </button>
+                </Button>
               )}
               {item.resultUrl ? (
                 <a
@@ -242,14 +246,16 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   <Maximize2 className="h-4 w-4" />
                 </a>
               ) : (
-                <button
+                <Button
                   type="button"
                   disabled
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
                   aria-label="Open"
                 >
                   <Maximize2 className="h-4 w-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>

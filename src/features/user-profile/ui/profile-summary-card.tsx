@@ -1,5 +1,6 @@
 import { Camera } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 import type {
   ProfileBadgeTone,
   ProfileSummary,
@@ -50,18 +51,20 @@ export function ProfileSummaryCard({
               </span>
             )}
           </div>
-          <button
+          <Button
             type="button"
+            variant="default"
+            size="icon"
             onClick={onChangeAvatar}
             disabled={!canChangeAvatar}
             className={cn(
-              "absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
-              !canChangeAvatar && "cursor-not-allowed opacity-70 hover:bg-primary",
+              "absolute bottom-1 right-1 h-9 w-9 rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
+              !canChangeAvatar && "opacity-70 hover:bg-primary",
             )}
             title="Change Avatar"
           >
             <Camera className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
         <h2 className="mb-1 text-2xl font-bold text-white">{profile.name}</h2>
         <p className="mb-4 text-sm font-mono text-primary">{profile.handle}</p>
