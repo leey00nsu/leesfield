@@ -1,16 +1,11 @@
 import { Camera } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import type {
   ProfileBadgeTone,
   ProfileSummary,
 } from "@/features/user-profile/model/profile-types";
-
-const badgeStyles: Record<ProfileBadgeTone, string> = {
-  default:
-    "border-white/10 bg-white/5 text-gray-300",
-  primary:
-    "border-primary/20 bg-primary/20 text-primary",
-};
 
 const statValueStyles: Record<ProfileBadgeTone, string> = {
   default: "text-white",
@@ -50,32 +45,33 @@ export function ProfileSummaryCard({
               </span>
             )}
           </div>
-          <button
+          <Button
             type="button"
+            variant="default"
+            size="icon"
             onClick={onChangeAvatar}
             disabled={!canChangeAvatar}
             className={cn(
-              "absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
-              !canChangeAvatar && "cursor-not-allowed opacity-70 hover:bg-primary",
+              "absolute bottom-1 right-1 h-9 w-9 rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
+              !canChangeAvatar && "opacity-70 hover:bg-primary",
             )}
             title="Change Avatar"
           >
             <Camera className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
         <h2 className="mb-1 text-2xl font-bold text-white">{profile.name}</h2>
         <p className="mb-4 text-sm font-mono text-primary">{profile.handle}</p>
         <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
           {profile.badges.map((badge) => (
-            <span
+            <Badge
               key={badge.label}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest",
-                badgeStyles[badge.tone],
-              )}
+              variant={badge.tone === "primary" ? "primary" : "default"}
+              size="md"
+              className="px-3 py-1 tracking-widest"
             >
               {badge.label}
-            </span>
+            </Badge>
           ))}
         </div>
         <div className="my-2 h-px w-full bg-white/5" />

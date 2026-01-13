@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Grid2X2, Image as ImageIcon, SlidersHorizontal, Video } from "lucide-react";
 import type {
   GenerationHistoryItem,
@@ -13,6 +13,7 @@ import {
   PageHeader,
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
+import { Button } from "@/shared/ui/button";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -26,9 +27,45 @@ export function GenerationHistoryScreen() {
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
-  const [offset, setOffset] = useState(0);
-  const [items, setItems] = useState<GenerationHistoryItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [{ offset, items, total }, dispatch] = useReducer(
+    (
+      state: {
+        offset: number;
+        items: GenerationHistoryItem[];
+        total: number;
+      },
+      action:
+        | { type: "reset" }
+        | { type: "advance"; amount: number }
+        | { type: "replace"; items: GenerationHistoryItem[]; total: number }
+        | { type: "append"; items: GenerationHistoryItem[]; total: number },
+    ) => {
+      switch (action.type) {
+        case "reset":
+          return { offset: 0, items: [], total: 0 };
+        case "advance":
+          return { ...state, offset: state.offset + action.amount };
+        case "replace":
+          return { ...state, items: action.items, total: action.total };
+        case "append": {
+          const merged = [...state.items];
+          const seen = new Set(
+            state.items.map((item) => `${item.type}-${item.id}`),
+          );
+          for (const item of action.items) {
+            const key = `${item.type}-${item.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(item);
+          }
+          return { ...state, items: merged, total: action.total };
+        }
+        default:
+          return state;
+      }
+    },
+    { offset: 0, items: [], total: 0 },
+  );
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const isFetchingNextRef = useRef(false);
 
@@ -40,12 +77,7 @@ export function GenerationHistoryScreen() {
   }, [searchInput]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOffset(0);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setItems([]);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTotal(0);
+    dispatch({ type: "reset" });
     isFetchingNextRef.current = false;
   }, [type, sort, query]);
 
@@ -64,22 +96,10 @@ export function GenerationHistoryScreen() {
 
   useEffect(() => {
     if (!data) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTotal(data.total);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setItems((prev) => {
-      if (offset === 0) {
-        return data.items;
-      }
-      const merged = [...prev];
-      const seen = new Set(prev.map((item) => `${item.type}-${item.id}`));
-      for (const item of data.items) {
-        const key = `${item.type}-${item.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        merged.push(item);
-      }
-      return merged;
+    dispatch({
+      type: offset === 0 ? "replace" : "append",
+      items: data.items,
+      total: data.total,
     });
     isFetchingNextRef.current = false;
   }, [data, offset]);
@@ -103,7 +123,7 @@ export function GenerationHistoryScreen() {
         if (total === 0 || items.length >= total) return;
         if (isFetchingNextRef.current) return;
         isFetchingNextRef.current = true;
-        setOffset((prev) => prev + DEFAULT_LIMIT);
+        dispatch({ type: "advance", amount: DEFAULT_LIMIT });
       },
       { rootMargin: "200px" },
     );
@@ -159,18 +179,19 @@ export function GenerationHistoryScreen() {
             Videos
           </DashboardFilterToggle>
           <DashboardFilterDivider />
-          <button
+          <Button
             type="button"
             onClick={() =>
               setSort((prev) =>
                 prev === "date_desc" ? "date_asc" : "date_desc",
               )
             }
-            className="flex h-9 items-center gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 transition-colors hover:text-primary"
+            variant="ghost"
+            className="h-9 gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-transparent hover:text-primary"
           >
             <SlidersHorizontal className="h-4 w-4" />
             SORT: {renderSortLabel}
-          </button>
+          </Button>
           <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
             TOTAL: {total}
           </span>

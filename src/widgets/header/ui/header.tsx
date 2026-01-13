@@ -144,13 +144,14 @@ export function Header({
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem asChild>
                 <form action={logoutAction} className="w-full">
-                  <button
+                  <Button
                     type="submit"
-                    className="flex w-full items-center gap-3 text-left text-sm text-gray-200"
+                    variant="ghost"
+                    className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
                     로그아웃
-                  </button>
+                  </Button>
                 </form>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -181,6 +182,18 @@ export function Header({
         )}
         {variant === "dashboard" && isAuthenticated && (
           <form action={logoutAction} className="hidden lg:flex">
+            <Button
+              type="submit"
+              variant="outline"
+              className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
+            >
+              <LogOut className="h-4 w-4 text-primary" />
+              로그아웃
+            </Button>
+          </form>
+        )}
+        {variant === "public" && isAuthenticated && (
+          <form action={logoutAction} className="flex">
             <Button
               type="submit"
               variant="outline"

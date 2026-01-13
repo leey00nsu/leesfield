@@ -1,3 +1,6 @@
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+
 export function SubscriptionCard() {
   return (
     <section className="rounded-2xl border border-white/10 bg-surface-dark p-6">
@@ -6,13 +9,14 @@ export function SubscriptionCard() {
           <span className="text-primary">◆</span>
           Subscription
         </h3>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           disabled
-          className="text-xs font-bold uppercase tracking-wide text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-auto p-0 text-xs font-bold uppercase tracking-wide text-primary disabled:opacity-50"
         >
           Manage
-        </button>
+        </Button>
       </div>
       <div className="mb-4 rounded-xl border border-primary/20 bg-surface-lighter p-5">
         <div className="mb-2 flex items-start justify-between">
@@ -20,9 +24,9 @@ export function SubscriptionCard() {
             <p className="text-sm font-bold text-white">Free Plan</p>
             <p className="text-xs text-gray-400">$0/month</p>
           </div>
-          <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-300">
+          <Badge variant="muted" className="bg-white/10 text-gray-300">
             Free
-          </span>
+          </Badge>
         </div>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/30">
           <div className="h-full w-[15%] bg-white/40" />
@@ -31,13 +35,14 @@ export function SubscriptionCard() {
           NO RENEWAL
         </p>
       </div>
-      <button
+      <Button
         type="button"
+        variant="outline"
         disabled
-        className="w-full rounded-lg border border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+        className="w-full rounded-lg border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 disabled:opacity-50 disabled:hover:bg-transparent"
       >
         Upgrade Plan
-      </button>
+      </Button>
     </section>
   );
 }

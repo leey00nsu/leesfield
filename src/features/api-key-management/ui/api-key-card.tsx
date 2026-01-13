@@ -1,6 +1,7 @@
 import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 
@@ -57,15 +58,13 @@ export function ApiKeyCard({
             <h3 className="text-lg font-bold tracking-tight text-white">
               {name}
             </h3>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                config.text,
-              )}
+            <Badge
+              variant="muted"
+              className={cn("gap-1 bg-white/5", config.text)}
             >
               <StatusIcon className="h-3 w-3" />
               {config.label}
-            </span>
+            </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <code className="rounded border border-white/5 bg-black/50 px-2 py-1 text-xs font-mono text-gray-400">

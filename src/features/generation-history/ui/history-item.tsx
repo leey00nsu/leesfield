@@ -19,6 +19,8 @@ import type {
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -141,34 +143,39 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               preload="metadata"
             />
           ) : (
-            <img
-              src={previewUrl}
-              alt="Generated preview"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Generated preview"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            </>
           )
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-30" />
         )}
 
-        <div
+        <Badge
+          variant="outline"
           className={cn(
-            "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
+            "absolute left-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
             type.className,
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
           {type.label}
-        </div>
-        <div
+        </Badge>
+        <Badge
+          variant="outline"
           className={cn(
-            "absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
+            "absolute right-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
             status.className,
           )}
         >
           <StatusIcon className={cn("h-3.5 w-3.5", status.spin && "animate-spin")} />
           {status.label}
-        </div>
+        </Badge>
 
         {item.status === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 px-4 text-center">
@@ -195,22 +202,23 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
 
         {showActions && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <button
+            <Button
               type="button"
-              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
+              className="h-auto rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
               onClick={handleReusePrompt}
             >
               <RotateCcw className="h-4 w-4" />
               Reuse Prompt
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleCopyPrompt}
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:border-primary/60 hover:text-primary"
+              variant="outline"
+              className="h-auto rounded-full border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white hover:border-primary/60 hover:text-primary"
             >
               <Copy className="h-4 w-4" />
               {isCopied ? "Copied" : "Copy Prompt"}
-            </button>
+            </Button>
             <div className="flex gap-2">
               {downloadUrl ? (
                 <a
@@ -222,14 +230,16 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   <Download className="h-4 w-4" />
                 </a>
               ) : (
-                <button
+                <Button
                   type="button"
                   disabled
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
                   aria-label="Download"
                 >
                   <Download className="h-4 w-4" />
-                </button>
+                </Button>
               )}
               {item.resultUrl ? (
                 <a
@@ -242,14 +252,16 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   <Maximize2 className="h-4 w-4" />
                 </a>
               ) : (
-                <button
+                <Button
                   type="button"
                   disabled
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white opacity-50"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
                   aria-label="Open"
                 >
                   <Maximize2 className="h-4 w-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -263,9 +275,9 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
           <div className="flex items-center gap-3">
             {item.model ? (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              <Badge variant="primary" className="px-2 py-0.5">
                 {item.model}
-              </span>
+              </Badge>
             ) : null}
             <span className="text-[10px] font-mono text-gray-500">
               {formatDate(item.createdAt)}
