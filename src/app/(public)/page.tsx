@@ -7,7 +7,7 @@ export default async function LandingPage() {
   return (
     <LandingScreen
       isAuthenticated={session.isLoggedIn}
-      userEmail={session.adminEmail}
+      userEmail={session.adminEmail ?? null}
     />
   );
 }
