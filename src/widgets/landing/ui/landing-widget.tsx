@@ -76,7 +76,7 @@ export function LandingWidget({
                 </h1>
                 <p className="mt-3 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  개인 AI 생성 플랫폼 // 시스템 온라인
+                  AI 생성 플랫폼 · 시스템 온라인
                 </p>
               </div>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
