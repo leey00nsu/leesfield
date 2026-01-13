@@ -11,6 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        hero: "bg-primary text-primary-content text-sm font-black uppercase tracking-wider shadow-[0_0_30px_rgba(212,240,50,0.2)] transition-all hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(212,240,50,0.4)] active:scale-[0.98]",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
@@ -25,6 +26,7 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        hero: "h-[120px] rounded-xl lg:px-8",
         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-9",
@@ -58,6 +60,8 @@ function Button({
   const isDisabled = props.disabled || isLoading
   const isIconOnly = typeof size === "string" && size.startsWith("icon")
   const contentText = isLoading && loadingText ? loadingText : children
+  const shouldRenderSpinner = !asChild && isLoading
+  const shouldRenderContent = asChild || !isLoading || !isIconOnly
 
   return (
     <Comp
@@ -71,10 +75,16 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
-      {isLoading ? (
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-      ) : null}
-      {!isLoading || !isIconOnly ? contentText : null}
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {shouldRenderSpinner ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : null}
+          {shouldRenderContent ? contentText : null}
+        </>
+      )}
     </Comp>
   )
 }

@@ -474,8 +474,10 @@ export function ImageGenerationForm() {
 
                 <Button
                   type="submit"
+                  variant="hero"
+                  size="hero"
                   disabled={isGenerating}
-                  className="flex h-[120px] flex-col items-center justify-center gap-2 rounded-xl bg-primary text-sm font-black uppercase tracking-wider text-primary-content shadow-[0_0_30px_rgba(212,240,50,0.2)] transition-all hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(212,240,50,0.4)] active:scale-[0.98] lg:px-8"
+                  className="flex-col"
                 >
                   <Sparkles className="h-7 w-7" />
                   {isGenerating ? "Generating" : "Generate"}

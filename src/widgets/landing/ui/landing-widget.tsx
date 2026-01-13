@@ -79,7 +79,7 @@ export function LandingWidget({
                 </p>
               </div>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                <Button asChild size="lg" className="rounded-xl">
+                <Button asChild size="lg" variant="hero">
                   <Link href="/image">
                     <Zap className="h-4 w-4" />
                     생성 시작
@@ -170,7 +170,7 @@ export function LandingWidget({
                     있습니다.
                   </p>
                 </div>
-                <Button asChild size="lg" className="rounded-xl">
+                <Button asChild size="lg" variant="hero">
                   <Link href="/login">대시보드로 이동</Link>
                 </Button>
               </div>
