@@ -417,7 +417,7 @@ export function ImageGenerationForm() {
                         }
                         footerRight={
                           <span className="text-[10px] font-mono text-gray-600">
-                            {promptValue.length} / 1000 CHARS
+                            {promptValue.length} CHARS
                           </span>
                         }
                       />
