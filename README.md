@@ -29,6 +29,7 @@ cp .env.example .env
 - `HF_TOKEN`
 - `NEXT_PUBLIC_IMAGE_TIMEOUT_MS`
 - `NEXT_PUBLIC_VIDEO_TIMEOUT_MS`
+- `NEXT_PUBLIC_API_BASE_URL`
 
 HF Space 설정 파일:
 
@@ -48,6 +49,7 @@ HF Space 설정 파일:
 
 - `HF_TOKEN`: Hugging Face Access Token (Public Space는 선택이지만 권장)
 - `NEXT_PUBLIC_IMAGE_TIMEOUT_MS` / `NEXT_PUBLIC_VIDEO_TIMEOUT_MS`: 프론트 폴링 타임아웃(ms)
+- `NEXT_PUBLIC_API_BASE_URL`: API 문서 예시 요청에 표시할 Base URL
 - HF Space의 `space_id`, `api_name`, `timeout_ms`, UI 파라미터는 `configs/*-models.json`에서 관리
 
 HF_TOKEN 발급 방법

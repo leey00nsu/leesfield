@@ -2,6 +2,11 @@ import Link from "next/link";
 import { AlertTriangle, KeyRound } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const exampleUrl = apiBaseUrl
+  ? `${apiBaseUrl}/v1/models`
+  : "<API_BASE_URL>/v1/models";
+
 export function ApiDocsAuthSection() {
   return (
     <section id="authentication" className="flex flex-col gap-8 scroll-mt-32">
@@ -42,7 +47,7 @@ export function ApiDocsAuthSection() {
           </p>
           <div className="mt-4 rounded-lg border border-white/5 bg-black/50 p-4 font-mono text-sm text-gray-300">
             <span className="text-accent-purple">curl</span>{" "}
-            https://api.leesfield.ai/v1/models \
+            {exampleUrl} \
             <div className="pl-4 mt-1">
               -H{" "}
               <span className="text-green-400">
