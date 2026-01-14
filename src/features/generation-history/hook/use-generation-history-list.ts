@@ -4,7 +4,7 @@ import type {
   GenerationHistorySort,
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
-import { useHistoryQuery } from "@/features/generation-history/api/use-history-query";
+import { useHistoryQuery } from "@/features/generation-history/hook/use-history-query";
 
 const DEFAULT_LIMIT = 24;
 
@@ -68,7 +68,7 @@ export interface UseGenerationHistoryListResult {
   total: number;
   isLoading: boolean;
   error: string | null;
-  sentinelRef: RefObject<HTMLDivElement>;
+  sentinelRef: RefObject<HTMLDivElement | null>;
 }
 
 export function useGenerationHistoryList({

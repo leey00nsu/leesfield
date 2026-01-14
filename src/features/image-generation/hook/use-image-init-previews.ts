@@ -21,7 +21,7 @@ export interface UseImageInitPreviewsOptions {
 export interface UseImageInitPreviewsResult {
   previews: InitImagePreview[];
   canUpload: boolean;
-  inputRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
   openPicker: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   removeImage: (id: string) => void;

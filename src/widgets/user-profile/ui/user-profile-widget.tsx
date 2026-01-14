@@ -4,7 +4,7 @@ import type {
   ProfileStat,
   ProfileSummary,
 } from "@/features/user-profile/model/profile-types";
-import { useProfileMetrics } from "@/features/user-profile/model/use-profile-metrics";
+import { useProfileMetrics } from "@/features/user-profile/hook/use-profile-metrics";
 import { NotificationPanel } from "@/features/user-profile/ui/notification-panel";
 import { ProfileHeaderActions } from "@/features/user-profile/ui/profile-header-actions";
 import {

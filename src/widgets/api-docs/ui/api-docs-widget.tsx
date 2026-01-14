@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { PageHeader } from "@/shared/ui/page-header";
-import { useOpenApiDocument } from "@/features/api-docs/model/use-openapi-document";
+import { useOpenApiDocument } from "@/features/api-docs/hook/use-openapi-document";
 import {
   buildApiSections,
 } from "@/features/api-docs/model/openapi-helpers";
@@ -12,7 +12,7 @@ import {
   getEndpointIcon,
   tagLabelMap,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
-import { useApiDocsNavigation } from "@/widgets/api-docs/model/use-api-docs-navigation";
+import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
 import { ApiDocsSidebar } from "@/widgets/api-docs/ui/api-docs-sidebar";
 import { ApiDocsIntroSection } from "@/widgets/api-docs/ui/api-docs-intro-section";
 import { ApiDocsAuthSection } from "@/widgets/api-docs/ui/api-docs-auth-section";
