@@ -242,7 +242,10 @@ export function ImageGenerationForm() {
             <Button
               type="button"
               variant="link"
+              disabled
+              aria-disabled="true"
               className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+              title="준비 중"
             >
               View All Models
             </Button>
@@ -254,24 +257,28 @@ export function ImageGenerationForm() {
             <GenerationCanvas
               actions={
                 <>
-                  <Button
-                    type="button"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title="Toggle Grid"
-                  >
-                    <Grid2x2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title="Full Screen"
-                  >
-                    <Maximize2 className="h-5 w-5" />
-                  </Button>
+                <Button
+                  type="button"
+                  variant="surface"
+                  size="icon"
+                  disabled
+                  aria-disabled="true"
+                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
+                  title="Grid (disabled)"
+                >
+                  <Grid2x2 className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="surface"
+                  size="icon"
+                  disabled
+                  aria-disabled="true"
+                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
+                  title="Full Screen (disabled)"
+                >
+                  <Maximize2 className="h-5 w-5" />
+                </Button>
                 </>
               }
               isGenerating={isGenerating}

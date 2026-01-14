@@ -165,7 +165,10 @@ export function VideoGenerationForm() {
             <Button
               type="button"
               variant="link"
+              disabled
+              aria-disabled="true"
               className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+              title="준비 중"
             >
               View All Models
             </Button>
