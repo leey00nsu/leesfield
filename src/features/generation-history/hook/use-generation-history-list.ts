@@ -79,9 +79,11 @@ export function useGenerationHistoryList({
 }: UseGenerationHistoryListOptions): UseGenerationHistoryListResult {
   const [state, dispatch] = useReducer(reducer, initialState);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // 옵저버가 연속으로 트리거되는 상황을 막기 위한 플래그.
   const isFetchingNextRef = useRef(false);
 
   useEffect(() => {
+    // 검색 조건이 바뀌면 페이지네이션 상태를 초기화한다.
     dispatch({ type: "reset" });
     isFetchingNextRef.current = false;
   }, [type, sort, query]);

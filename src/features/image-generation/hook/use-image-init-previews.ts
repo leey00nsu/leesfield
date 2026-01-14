@@ -44,9 +44,11 @@ export function useImageInitPreviews({
   );
 
   useEffect(() => {
+    // 업로드 제한 변경 시 프리뷰/폼 값이 어긋나지 않도록 동기화한다.
     setPreviews((prev) => {
       if (!canUpload) {
         if (prev.length === 0) return prev;
+        // 업로드 불가 전환 시 파일 선택과 폼 값을 함께 초기화한다.
         syncFormValue([]);
         if (inputRef.current) {
           inputRef.current.value = "";
@@ -54,6 +56,7 @@ export function useImageInitPreviews({
         return [];
       }
       if (prev.length > maxInputImages) {
+        // 제한 축소 시 초과 프리뷰를 잘라내고 폼 값을 맞춘다.
         const trimmed = prev.slice(0, maxInputImages);
         syncFormValue(trimmed);
         return trimmed;

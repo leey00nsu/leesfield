@@ -207,6 +207,7 @@ export function useApiKeyManagement() {
     try {
       await navigator.clipboard.writeText(state.pendingKey.apiKey);
     } catch {
+      // Clipboard API가 실패하는 환경을 대비한 textarea 폴백.
       const textarea = document.createElement("textarea");
       textarea.value = state.pendingKey.apiKey;
       textarea.style.position = "fixed";
