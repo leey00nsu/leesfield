@@ -315,7 +315,7 @@ export function ApiDocsWidget() {
               </div>
             </section>
 
-            <div className="h-px bg-gradient-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
 
             <section
               id="authentication"
@@ -378,7 +378,7 @@ export function ApiDocsWidget() {
               </div>
             </section>
 
-            <div className="h-px bg-gradient-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
 
             <section id="errors" className="flex flex-col gap-8 scroll-mt-32">
               <div className="flex flex-col gap-2">
@@ -420,7 +420,7 @@ export function ApiDocsWidget() {
               </div>
             </section>
 
-            <div className="h-px bg-gradient-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
 
             {isLoading ? (
               <div className="rounded-2xl border border-white/10 bg-surface-dark/80 px-6 py-4 text-sm text-gray-300">
