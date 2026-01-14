@@ -3,39 +3,62 @@ import path from "path";
 import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
+import type {
+  ImageStorageAdapter,
+  ImageStorageResult,
+} from "@/server/image-generation/storage/storage-adapter";
 
 const PLACEHOLDER_FILE = "sample-image.png";
 const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
 
-const requiredLeemageEnv = [
-  ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
-  ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
-  ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
-] as const;
+let cachedClient: LeemageClient | null = null;
+let cachedConfig:
+  | {
+      apiKey: string;
+      baseUrl?: string;
+      projectId: string;
+    }
+  | null = null;
 
-const missingLeemageEnv = requiredLeemageEnv
-  .filter(([, value]) => !value)
-  .map(([key]) => key);
+function getLeemageConfig() {
+  const requiredLeemageEnv = [
+    ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
+    ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
+    ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
+  ] as const;
 
-if (missingLeemageEnv.length > 0) {
-  throw new Error(
-    `LEEMAGE 설정이 필요합니다: ${missingLeemageEnv.join(", ")}`,
-  );
+  const missingLeemageEnv = requiredLeemageEnv
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingLeemageEnv.length > 0) {
+    throw new Error(
+      `LEEMAGE 설정이 필요합니다: ${missingLeemageEnv.join(", ")}`,
+    );
+  }
+
+  return {
+    apiKey: process.env.LEEMAGE_API_KEY as string,
+    baseUrl: process.env.LEEMAGE_BASE_URL,
+    projectId: process.env.LEEMAGE_PROJECT_ID as string,
+  };
 }
 
-const apiKey = process.env.LEEMAGE_API_KEY as string;
-const baseUrl = process.env.LEEMAGE_BASE_URL;
-const projectIdEnv = process.env.LEEMAGE_PROJECT_ID as string;
-
-let cachedClient: LeemageClient | null = null;
-
 function getLeemageClient() {
-  if (!cachedClient) {
+  const config = getLeemageConfig();
+  if (
+    !cachedClient ||
+    !cachedConfig ||
+    cachedConfig.apiKey !== config.apiKey ||
+    cachedConfig.baseUrl !== config.baseUrl ||
+    cachedConfig.projectId !== config.projectId
+  ) {
     cachedClient = new LeemageClient({
-      apiKey,
-      baseUrl,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
       timeout: 20_000,
     });
+    cachedConfig = config;
   }
 
   return cachedClient;
@@ -135,12 +158,9 @@ export async function uploadGeneratedImages(
   payload: ImageGenerationFormValues,
   requestId: string,
   dataUrls: string[]
-): Promise<{
-  status: "completed" | "failed";
-  result?: ImageGenerationResponse["result"];
-  errorMessage?: string;
-}> {
+): Promise<ImageStorageResult> {
   const client = getLeemageClient();
+  const { projectId } = getLeemageConfig();
   const { width, height } = payload;
 
   try {
@@ -150,7 +170,7 @@ export async function uploadGeneratedImages(
         const extension = resolveExtension(contentType);
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name);
-        return client.files.upload(projectIdEnv, file, {
+        return client.files.upload(projectId, file, {
           variants: [...DEFAULT_VARIANTS],
         });
       })
@@ -175,17 +195,14 @@ export async function uploadGeneratedImages(
 export async function resolveGenerationResult(
   payload: ImageGenerationFormValues,
   requestId: string
-): Promise<{
-  status: "completed" | "failed";
-  result?: ImageGenerationResponse["result"];
-  errorMessage?: string;
-}> {
+): Promise<ImageStorageResult> {
   const filePath = path.join(process.cwd(), "public", PLACEHOLDER_FILE);
   const buffer = await readFile(filePath);
   const contentType = resolveContentType(PLACEHOLDER_FILE);
   const fallbackResult = buildFallbackResult(payload, buffer, contentType);
 
   const client = getLeemageClient();
+  const { projectId } = getLeemageConfig();
 
   try {
     const { width, height } = payload;
@@ -195,7 +212,7 @@ export async function resolveGenerationResult(
           PLACEHOLDER_FILE
         )}`;
         const file = buildUploadFile(buffer, name);
-        return client.files.upload(projectIdEnv, file, {
+        return client.files.upload(projectId, file, {
           variants: [...DEFAULT_VARIANTS],
         });
       })
@@ -216,3 +233,8 @@ export async function resolveGenerationResult(
     };
   }
 }
+
+export const leemageStorageAdapter: ImageStorageAdapter = {
+  name: "leemage",
+  uploadImages: uploadGeneratedImages,
+};

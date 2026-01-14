@@ -3,7 +3,12 @@ import type { ImageGenerationResponse } from "@/features/image-generation/model/
 import { getImageModelConfig } from "@/features/image-generation/model/image-models";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
-import { uploadGeneratedImages } from "@/server/image-generation/leemage-storage";
+import { leemageStorageAdapter } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
+import type {
+  ImageStorageAdapter,
+  ImageStorageProvider,
+} from "@/server/image-generation/storage/storage-adapter";
+import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 
 type ImageProvider = "hf_space";
 
@@ -17,6 +22,12 @@ function getAdapter(modelKey: ImageGenerationFormValues["model"]): ImageGenerati
   const provider = resolveImageProvider(modelKey);
   if (provider === "hf_space") return hfSpaceImageAdapter;
   throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
+}
+
+function getStorageAdapter(): ImageStorageAdapter {
+  const provider: ImageStorageProvider = resolveImageStorageProvider();
+  if (provider === "leemage") return leemageStorageAdapter;
+  throw new Error(`IMAGE_STORAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
 function mapProviderError(error: unknown) {
@@ -83,7 +94,8 @@ export async function resolveImageGenerationResult(
   try {
     const adapter = getAdapter(payload.model);
     const result = await adapter.generate(payload);
-    return uploadGeneratedImages(payload, requestId, result.images);
+    const storageAdapter = getStorageAdapter();
+    return storageAdapter.uploadImages(payload, requestId, result.images);
   } catch (error) {
     return {
       status: "failed",
