@@ -25,13 +25,13 @@ export function ProfileSummaryCard({
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface-dark p-8">
-      <div className="absolute left-0 top-0 h-24 w-full bg-gradient-to-b from-primary/10 to-transparent" />
+      <div className="absolute left-0 top-0 h-24 w-full bg-linear-to-b from-primary/10 to-transparent" />
       <div className="relative z-10 flex flex-col items-center text-center">
         <div className="relative mb-6">
           <div
             className={cn(
               "flex h-32 w-32 items-center justify-center rounded-full border-4 border-surface-dark",
-              profile.avatarUrl ? "bg-cover bg-center" : "bg-surface-lighter",
+              profile.avatarUrl ? "bg-cover bg-center" : "bg-surface-lighter"
             )}
             style={
               profile.avatarUrl
@@ -53,7 +53,7 @@ export function ProfileSummaryCard({
             disabled={!canChangeAvatar}
             className={cn(
               "absolute bottom-1 right-1 h-9 w-9 rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
-              !canChangeAvatar && "opacity-70 hover:bg-primary",
+              !canChangeAvatar && "opacity-70 hover:bg-primary"
             )}
             title="Change Avatar"
           >
@@ -87,7 +87,7 @@ export function ProfileSummaryCard({
               <span
                 className={cn(
                   "text-xl font-mono font-bold",
-                  statValueStyles[stat.tone ?? "default"],
+                  statValueStyles[stat.tone ?? "default"]
                 )}
               >
                 {stat.value}

@@ -1,11 +1,5 @@
 import Link from "next/link";
-import {
-  Boxes,
-  History,
-  Palette,
-  Terminal,
-  Zap,
-} from "lucide-react";
+import { Boxes, History, Palette, Terminal, Zap } from "lucide-react";
 import { Header } from "@/widgets/header/ui/header";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
@@ -149,7 +143,7 @@ export function LandingWidget({
                   className="group relative aspect-square overflow-hidden rounded-2xl border border-white/5 bg-black"
                 >
                   <div
-                    className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-80 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100`}
+                    className={`absolute inset-0 bg-linear-to-br ${gradient} opacity-80 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100`}
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                     <Badge variant="overlay" size="md" className="px-4 py-2">

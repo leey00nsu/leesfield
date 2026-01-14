@@ -72,15 +72,15 @@ export function ModelCard({ item }: ModelCardProps) {
   return (
     <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#1c1c1c_0,_#0a0a0a_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1c1c1c_0,#0a0a0a_70%)]" />
         <div
           className={cn(
-            "absolute inset-0 bg-gradient-to-br opacity-70 transition-opacity duration-300 group-hover:opacity-95",
-            config.glowClass,
+            "absolute inset-0 bg-linear-to-br opacity-70 transition-opacity duration-300 group-hover:opacity-95",
+            config.glowClass
           )}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,_#222_1px,_transparent_1px)] opacity-25" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle,#222_1px,transparent_1px)] opacity-25" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-black/40 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
             <TypeIcon className={cn("h-7 w-7", config.accentText)} />
@@ -97,7 +97,7 @@ export function ModelCard({ item }: ModelCardProps) {
         <div
           className={cn(
             "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            config.className,
+            config.className
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />

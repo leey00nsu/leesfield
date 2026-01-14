@@ -153,14 +153,14 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
             </>
           )
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-30" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle,#333_1px,transparent_1px)] opacity-30" />
         )}
 
         <Badge
           variant="outline"
           className={cn(
             "absolute left-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            type.className,
+            type.className
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
@@ -170,10 +170,12 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           variant="outline"
           className={cn(
             "absolute right-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            status.className,
+            status.className
           )}
         >
-          <StatusIcon className={cn("h-3.5 w-3.5", status.spin && "animate-spin")} />
+          <StatusIcon
+            className={cn("h-3.5 w-3.5", status.spin && "animate-spin")}
+          />
           {status.label}
         </Badge>
 
@@ -184,9 +186,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               FAILED
             </p>
             {item.errorMessage ? (
-              <p className="text-xs text-red-200/80">
-                {item.errorMessage}
-              </p>
+              <p className="text-xs text-red-200/80">{item.errorMessage}</p>
             ) : null}
           </div>
         )}
@@ -294,7 +294,7 @@ export function HistoryItemSkeleton() {
   return (
     <div className="mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
       </div>
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4">
         <div className="h-4 w-3/4 rounded-full bg-white/10" />
