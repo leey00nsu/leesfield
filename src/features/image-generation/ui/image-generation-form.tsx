@@ -307,7 +307,7 @@ export function ImageGenerationForm() {
                         <img
                           src={image.url}
                           alt={`Generated image ${index + 1}`}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover/result:scale-105"
+                          className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
                         />
                         <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
                         <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
