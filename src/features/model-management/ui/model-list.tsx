@@ -2,10 +2,10 @@ import { Boxes } from "lucide-react";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { ModelCard } from "@/features/model-management/ui/model-card";
 
-type ModelListProps = {
+interface ModelListProps {
   items: ModelCatalogItem[];
   emptyMessage?: string;
-};
+}
 
 export function ModelList({
   items,

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Grid2X2, Image as ImageIcon, Video } from "lucide-react";
 import {
+  filterModelCatalog,
   modelCatalog,
-  type ModelCatalogType,
+  type ModelCatalogFilterType,
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
 import {
@@ -18,27 +19,12 @@ import {
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
 
-type FilterType = "all" | ModelCatalogType;
-
 export function ModelManagementScreen() {
-  const [type, setType] = useState<FilterType>("all");
+  const [type, setType] = useState<ModelCatalogFilterType>("all");
   const [searchInput, setSearchInput] = useState("");
   const debouncedQuery = useDebouncedValue(searchInput, 300);
   const query = debouncedQuery.trim();
-
-  const filteredModels = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return modelCatalog.filter((item) => {
-      if (type !== "all" && item.type !== type) {
-        return false;
-      }
-      if (!normalized) {
-        return true;
-      }
-      const target = `${item.label} ${item.key}`.toLowerCase();
-      return target.includes(normalized);
-    });
-  }, [query, type]);
+  const filteredModels = filterModelCatalog(modelCatalog, { type, query });
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
