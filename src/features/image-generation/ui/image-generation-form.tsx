@@ -2,18 +2,17 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dice5,
-  ImagePlus,
-  Image as ImageIcon,
-  Maximize2,
-  Grid2x2,
-  RotateCcw,
-  Sparkles,
   Download,
   ExternalLink,
+  Grid2x2,
+  Image as ImageIcon,
+  ImagePlus,
+  Maximize2,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -28,6 +27,10 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+import { GenerationCanvas } from "@/shared/ui/generation-canvas";
+import { GenerationModelSection } from "@/shared/ui/generation-model-section";
+import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
+import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import {
   imageGenerationDefaults,
   imageGenerationSchema,
@@ -74,11 +77,19 @@ export function ImageGenerationForm() {
     });
   }, [promptFromQuery, form]);
 
-  const promptValue = form.watch("prompt") ?? "";
-  const width = form.watch("width") ?? imageGenerationDefaults.width;
-  const height = form.watch("height") ?? imageGenerationDefaults.height;
-  const steps = form.watch("steps") ?? imageGenerationDefaults.steps;
-  const activeModel = form.watch("model") ?? imageGenerationDefaults.model;
+  const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
+  const width =
+    useWatch({ control: form.control, name: "width" }) ??
+    imageGenerationDefaults.width;
+  const height =
+    useWatch({ control: form.control, name: "height" }) ??
+    imageGenerationDefaults.height;
+  const steps =
+    useWatch({ control: form.control, name: "steps" }) ??
+    imageGenerationDefaults.steps;
+  const activeModel =
+    useWatch({ control: form.control, name: "model" }) ??
+    imageGenerationDefaults.model;
 
   const widthRange = getImageParamRange(activeModel, "width");
   const heightRange = getImageParamRange(activeModel, "height");
@@ -111,35 +122,32 @@ export function ImageGenerationForm() {
     }
   }, [activeModel, form]);
 
-  useEffect(() => {
-    if (!canUploadImages) {
-      setInitImagePreviews((prev) => {
-        if (prev.length === 0) return prev;
-        form.setValue("initImages", []);
-        return [];
-      });
-      return;
-    }
-
-    if (initImagePreviews.length > maxInputImages) {
-      setInitImagePreviews((prev) => {
-        if (prev.length <= maxInputImages) return prev;
-        const next = prev.slice(0, maxInputImages);
-        form.setValue(
-          "initImages",
-          next.map((item) => item.dataUrl)
-        );
-        return next;
-      });
-    }
-  }, [canUploadImages, initImagePreviews.length, maxInputImages, form]);
-
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
   const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
+
+  const handleSelectModel = (modelId: ImageGenerationModel) => {
+    form.setValue("model", modelId);
+    const newMaxInputImages = modelImageLimits[modelId]?.maxInputImages ?? 0;
+
+    if (newMaxInputImages === 0) {
+      setInitImagePreviews([]);
+      form.setValue("initImages", []);
+      return;
+    }
+
+    if (initImagePreviews.length > newMaxInputImages) {
+      const trimmedPreviews = initImagePreviews.slice(0, newMaxInputImages);
+      setInitImagePreviews(trimmedPreviews);
+      form.setValue(
+        "initImages",
+        trimmedPreviews.map((item) => item.dataUrl),
+      );
+    }
+  };
 
   const handleRandomizeSeed = () => {
     if (isGenerating) return;
@@ -226,66 +234,37 @@ export function ImageGenerationForm() {
         className="flex flex-col gap-8"
         onSubmit={form.handleSubmit((values) => startGeneration(values))}
       >
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 font-mono">
-              Select_Model
-            </h3>
+        <GenerationModelSection
+          items={modelOptions}
+          activeId={activeModel}
+          onSelect={handleSelectModel}
+          action={
             <Button
               type="button"
               variant="link"
+              disabled
+              aria-disabled="true"
               className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+              title="준비 중"
             >
               View All Models
             </Button>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {modelOptions.map((model) => (
-              <Button
-                key={model.id}
-                type="button"
-                onClick={() => form.setValue("model", model.id)}
-                variant="ghost"
-                className={cn(
-                  "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
-                  activeModel === model.id
-                    ? "border-2 border-primary"
-                    : "border border-white/5 hover:border-white/20"
-                )}
-              >
-                <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-black/70 to-black opacity-60 transition-opacity group-hover:opacity-80" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-2 left-3">
-                    <div className="text-sm font-bold text-white">
-                      {model.name}
-                    </div>
-                    <div className="text-[10px] font-mono text-primary">
-                      {model.vendor}
-                    </div>
-                  </div>
-                </div>
-                {activeModel === model.id && (
-                  <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1 text-primary">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                )}
-              </Button>
-            ))}
-          </div>
-        </section>
+          }
+        />
 
         <div className="flex flex-col gap-8 xl:flex-row">
           <div className="flex flex-1 flex-col gap-6">
-            <div className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-white/10 bg-black/40">
-              <div className="absolute inset-0 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] opacity-20" />
-              <div className="absolute right-4 top-4 flex gap-2">
+            <GenerationCanvas
+              actions={
+                <>
                 <Button
                   type="button"
                   variant="surface"
                   size="icon"
+                  disabled
+                  aria-disabled="true"
                   className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Toggle Grid"
+                  title="Grid (disabled)"
                 >
                   <Grid2x2 className="h-5 w-5" />
                 </Button>
@@ -293,12 +272,20 @@ export function ImageGenerationForm() {
                   type="button"
                   variant="surface"
                   size="icon"
+                  disabled
+                  aria-disabled="true"
                   className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Full Screen"
+                  title="Full Screen (disabled)"
                 >
                   <Maximize2 className="h-5 w-5" />
                 </Button>
-              </div>
+                </>
+              }
+              isGenerating={isGenerating}
+              progressValue={progressValue}
+              status={state.status}
+              errorMessage={state.errorMessage}
+            >
               {hasResults ? (
                 <div
                   className={cn(
@@ -322,7 +309,7 @@ export function ImageGenerationForm() {
                           alt={`Generated image ${index + 1}`}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover/result:scale-105"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
                         <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
                           <a
                             href={image.url}
@@ -359,33 +346,7 @@ export function ImageGenerationForm() {
                   </p>
                 </div>
               )}
-
-              {isGenerating && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
-                  <div className="relative flex h-20 w-20 items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-                    <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                    <span className="text-sm font-bold text-white">
-                      {progressValue}%
-                    </span>
-                  </div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
-                    Generating...
-                  </p>
-                </div>
-              )}
-
-              {state.status === "failed" && !isGenerating && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/60 px-6 text-center">
-                  <p className="text-sm font-bold text-red-300">
-                    생성에 실패했습니다
-                  </p>
-                  <p className="text-xs font-mono text-gray-400">
-                    {state.errorMessage ?? "잠시 후 다시 시도해주세요."}
-                  </p>
-                </div>
-              )}
-            </div>
+            </GenerationCanvas>
 
             {hasResults && state.errorMessage && (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -400,9 +361,8 @@ export function ImageGenerationForm() {
                   name="prompt"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <div className="group relative">
-                        <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/30 to-accent-purple/30 opacity-20 blur transition duration-500 group-focus-within:opacity-100" />
-                        <div className="relative rounded-xl border border-white/10 bg-surface-dark transition-colors focus-within:border-primary/50">
+                      <GenerationPromptField
+                        textarea={
                           <FormControl>
                             <Textarea
                               placeholder="Describe your imagination in detail..."
@@ -410,7 +370,9 @@ export function ImageGenerationForm() {
                               {...field}
                             />
                           </FormControl>
-                          {initImagePreviews.length > 0 && (
+                        }
+                        attachments={
+                          initImagePreviews.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
                               {initImagePreviews.map((item) => (
                                 <div
@@ -438,42 +400,42 @@ export function ImageGenerationForm() {
                                 </div>
                               ))}
                             </div>
-                          )}
-                          <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={handleOpenImagePicker}
-                                disabled={
-                                  !canUploadImages ||
-                                  initImagePreviews.length >= maxInputImages
-                                }
-                                className="text-gray-500 hover:bg-white/5 hover:text-white"
-                                title={
-                                  canUploadImages
-                                    ? "Upload Reference Image"
-                                    : "이미지 입력을 지원하지 않는 모델입니다."
-                                }
-                              >
-                                <ImagePlus className="h-5 w-5" />
-                              </Button>
-                            </div>
-                            <span className="text-[10px] font-mono text-gray-600">
-                              {promptValue.length} / 1000 CHARS
-                            </span>
-                          </div>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            multiple={maxInputImages > 1}
-                            className="hidden"
-                            onChange={handleImageSelection}
-                          />
-                        </div>
-                      </div>
+                          ) : null
+                        }
+                        footerLeft={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={handleOpenImagePicker}
+                            disabled={
+                              !canUploadImages ||
+                              initImagePreviews.length >= maxInputImages
+                            }
+                            className="text-gray-500 hover:bg-white/5 hover:text-white"
+                            title={
+                              canUploadImages
+                                ? "Upload Reference Image"
+                                : "이미지 입력을 지원하지 않는 모델입니다."
+                            }
+                          >
+                            <ImagePlus className="h-5 w-5" />
+                          </Button>
+                        }
+                        footerRight={
+                          <span className="text-[10px] font-mono text-gray-600">
+                            {promptValue.length} CHARS
+                          </span>
+                        }
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple={maxInputImages > 1}
+                        className="hidden"
+                        onChange={handleImageSelection}
+                      />
                       <FormMessage className="text-xs text-red-400" />
                     </FormItem>
                   )}
@@ -493,27 +455,13 @@ export function ImageGenerationForm() {
             </div>
           </div>
 
-          <aside className="flex w-full shrink-0 flex-col gap-6 rounded-2xl border border-white/10 bg-background-dark px-6 py-6 shadow-2xl xl:w-[400px] xl:rounded-none xl:border-l xl:border-white/10 xl:bg-transparent xl:shadow-none">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-white">
-                <span className="h-6 w-1.5 rounded-full bg-primary" />
-                Settings
-              </h3>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  form.reset(imageGenerationDefaults);
-                  setInitImagePreviews([]);
-                  reset();
-                }}
-                className="text-gray-500 hover:bg-white/5 hover:text-white"
-              >
-                <RotateCcw className="h-5 w-5" />
-              </Button>
-            </div>
-
+          <GenerationSettingsPanel
+            onReset={() => {
+              form.reset(imageGenerationDefaults);
+              setInitImagePreviews([]);
+              reset();
+            }}
+          >
             <div className="flex flex-col gap-8">
               {showSizeControls && (
                 <div className="flex flex-col gap-3">
@@ -658,7 +606,7 @@ export function ImageGenerationForm() {
                 </div>
               )}
             </div>
-          </aside>
+          </GenerationSettingsPanel>
         </div>
       </form>
     </Form>

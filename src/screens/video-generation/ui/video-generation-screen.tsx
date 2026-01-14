@@ -1,5 +1,5 @@
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
-import { Button } from "@/shared/ui/button";
+import { GenerationHeaderActions } from "@/shared/ui/generation-header-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 
 export function VideoGenerationScreen() {
@@ -14,28 +14,12 @@ export function VideoGenerationScreen() {
         }
         subtitle="MAKE VIDEOS IN ONE CLICK"
         rightSlot={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="surface"
-              disabled
-              aria-disabled="true"
-              className="h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
-              title="준비 중"
-            >
-              Load Preset
-            </Button>
-            <Button
-              type="button"
-              variant="surface"
-              disabled
-              aria-disabled="true"
-              className="h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white disabled:hover:bg-surface-dark disabled:hover:text-gray-400"
-              title="준비 중"
-            >
-              Clear
-            </Button>
-          </div>
+          <GenerationHeaderActions
+            actions={[
+              { label: "Load Preset", disabled: true, title: "준비 중" },
+              { label: "Clear", disabled: true, title: "준비 중" },
+            ]}
+          />
         }
         rightSlotClassName="w-full md:w-auto"
       />
