@@ -4,13 +4,13 @@ import type {
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
 
-export type HistoryQueryParams = {
+export interface HistoryQueryParams {
   type: GenerationHistoryType;
   query: string;
   sort: GenerationHistorySort;
   limit: number;
   offset: number;
-};
+}
 
 function buildHistoryUrl(params: HistoryQueryParams) {
   const searchParams = new URLSearchParams();

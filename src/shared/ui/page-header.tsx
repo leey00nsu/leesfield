@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
-type PageHeaderProps = {
+interface PageHeaderProps {
   title: ReactNode;
   subtitle?: string;
   rightSlot?: ReactNode;
@@ -12,7 +12,7 @@ type PageHeaderProps = {
   sticky?: boolean;
   stickyOffset?: string;
   children?: ReactNode;
-};
+}
 
 export function PageHeader({
   title,
@@ -62,7 +62,7 @@ export function PageHeader({
   );
 }
 
-type PageHeaderSearchInputProps = {
+interface PageHeaderSearchInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -71,7 +71,7 @@ type PageHeaderSearchInputProps = {
   showFilterButton?: boolean;
   className?: string;
   inputClassName?: string;
-};
+}
 
 export function PageHeaderSearchInput({
   value,

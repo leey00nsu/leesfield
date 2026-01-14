@@ -2,27 +2,27 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 
-export type ProfileFormValues = {
+export interface ProfileFormValues {
   firstName: string;
   lastName: string;
   email: string;
   username: string;
   bio: string;
   bioMax?: number;
-};
+}
 
-export type ProfileFormPlaceholders = {
+export interface ProfileFormPlaceholders {
   firstName?: string;
   lastName?: string;
   email?: string;
   username?: string;
   bio?: string;
-};
+}
 
-type ProfileFormProps = {
+interface ProfileFormProps {
   values: ProfileFormValues;
   placeholders?: ProfileFormPlaceholders;
-};
+}
 
 export function ProfileForm({ values, placeholders }: ProfileFormProps) {
   const bioMax = values.bioMax ?? 200;

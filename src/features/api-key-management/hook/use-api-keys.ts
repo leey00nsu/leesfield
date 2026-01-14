@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiKeyItem } from "@/features/api-key-management/model/api-key-types";
 import {
   fetchApiKeys,
@@ -22,118 +23,135 @@ function formatDate(value: string | null) {
   return dateFormatter.format(date).toUpperCase();
 }
 
-type ApiKeyView = ApiKeyItem & {
+export interface ApiKeyView extends ApiKeyItem {
   createdAtLabel: string;
   lastUsedLabel: string;
-};
+}
 
-type ApiKeyState = {
-  items: ApiKeyView[];
-  isLoading: boolean;
-  error: string | null;
-};
-
-type IssueResult = {
+interface IssueResult {
   apiKey: string;
   record: ApiKeyView;
-};
+}
+
+const API_KEYS_QUERY_KEY = ["api-keys"] as const;
+
+function toApiKeyView(item: ApiKeyItem): ApiKeyView {
+  return {
+    ...item,
+    createdAtLabel: formatDate(item.createdAt),
+    lastUsedLabel: formatDate(item.lastUsedAt),
+  };
+}
 
 export function useApiKeys() {
-  const [state, setState] = useState<ApiKeyState>({
-    items: [],
-    isLoading: true,
-    error: null,
+  const queryClient = useQueryClient();
+  const apiKeysQuery = useQuery({
+    queryKey: API_KEYS_QUERY_KEY,
+    queryFn: async () => {
+      const response = await fetchApiKeys();
+      return response.items.map(toApiKeyView);
+    },
+    staleTime: 20_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
   });
 
-  const load = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    try {
-      const response = await fetchApiKeys();
-      const items = response.items.map((item) => ({
-        ...item,
-        createdAtLabel: formatDate(item.createdAt),
-        lastUsedLabel: formatDate(item.lastUsedAt),
-      }));
-      setState({ items, isLoading: false, error: null });
-    } catch (error) {
-      setState({
-        items: [],
-        isLoading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "API_KEY_LIST_FAILED",
-      });
-    }
-  }, []);
+  const issueMutation = useMutation({
+    mutationFn: issueApiKey,
+    onSuccess: (response) => {
+      const record = toApiKeyView(response.record);
+      queryClient.setQueryData<ApiKeyView[]>(
+        API_KEYS_QUERY_KEY,
+        (previous) => (previous ? [record, ...previous] : [record]),
+      );
+    },
+  });
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  const revokeMutation = useMutation({
+    mutationFn: revokeApiKey,
+    onSuccess: (response, apiKeyId) => {
+      queryClient.setQueryData<ApiKeyView[]>(API_KEYS_QUERY_KEY, (previous) =>
+        previous
+          ? previous.map((item) =>
+              item.id === apiKeyId
+                ? {
+                    ...item,
+                    status: response.record.status,
+                    revokedAt: response.record.revokedAt,
+                    lastUsedAt: response.record.lastUsedAt,
+                    lastUsedLabel: formatDate(response.record.lastUsedAt),
+                  }
+                : item,
+            )
+          : previous,
+      );
+    },
+  });
 
-  const issue = useCallback(async (label: string): Promise<IssueResult> => {
-    const response = await issueApiKey(label);
-    const record = {
-      ...response.record,
-      createdAtLabel: formatDate(response.record.createdAt),
-      lastUsedLabel: formatDate(response.record.lastUsedAt),
-    };
-    setState((prev) => ({
-      ...prev,
-      items: [record, ...prev.items],
-    }));
-    return { apiKey: response.apiKey, record };
-  }, []);
+  const updateLabelMutation = useMutation({
+    mutationFn: ({ apiKeyId, label }: { apiKeyId: string; label: string }) =>
+      updateApiKeyLabel(apiKeyId, label),
+    onSuccess: (response, variables) => {
+      queryClient.setQueryData<ApiKeyView[]>(API_KEYS_QUERY_KEY, (previous) =>
+        previous
+          ? previous.map((item) =>
+              item.id === variables.apiKeyId
+                ? { ...item, label: response.record.label }
+                : item,
+            )
+          : previous,
+      );
+    },
+  });
 
-  const revoke = useCallback(async (apiKeyId: string) => {
-    const response = await revokeApiKey(apiKeyId);
-    setState((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === apiKeyId
-          ? {
-              ...item,
-              status: response.record.status,
-              revokedAt: response.record.revokedAt,
-              lastUsedAt: response.record.lastUsedAt,
-              lastUsedLabel: formatDate(response.record.lastUsedAt),
-            }
-          : item,
-      ),
-    }));
-  }, []);
+  const issue = useCallback(
+    async (label: string): Promise<IssueResult> => {
+      const response = await issueMutation.mutateAsync(label);
+      return { apiKey: response.apiKey, record: toApiKeyView(response.record) };
+    },
+    [issueMutation],
+  );
+
+  const revoke = useCallback(
+    async (apiKeyId: string) => {
+      await revokeMutation.mutateAsync(apiKeyId);
+    },
+    [revokeMutation],
+  );
 
   const updateLabel = useCallback(
     async (apiKeyId: string, label: string) => {
-      const response = await updateApiKeyLabel(apiKeyId, label);
-      setState((prev) => ({
-        ...prev,
-        items: prev.items.map((item) =>
-          item.id === apiKeyId
-            ? {
-                ...item,
-                label: response.record.label,
-              }
-            : item,
-        ),
-      }));
+      const response = await updateLabelMutation.mutateAsync({
+        apiKeyId,
+        label,
+      });
       return response.record;
     },
-    [],
+    [updateLabelMutation],
   );
 
-  const hasItems = state.items.length > 0;
+  const items = useMemo(() => apiKeysQuery.data ?? [], [apiKeysQuery.data]);
+  const hasItems = items.length > 0;
   const activeCount = useMemo(
-    () => state.items.filter((item) => item.status === "active").length,
-    [state.items],
+    () => items.filter((item) => item.status === "active").length,
+    [items],
   );
 
   return {
-    ...state,
+    items,
+    isLoading: apiKeysQuery.isLoading,
+    error:
+      apiKeysQuery.error instanceof Error
+        ? apiKeysQuery.error.message
+        : apiKeysQuery.error
+          ? "API_KEY_LIST_FAILED"
+          : null,
+    isIssuing: issueMutation.isPending,
+    isUpdating: updateLabelMutation.isPending,
+    isRevoking: revokeMutation.isPending,
     hasItems,
     activeCount,
-    refresh: load,
+    refresh: apiKeysQuery.refetch,
     issue,
     revoke,
     updateLabel,

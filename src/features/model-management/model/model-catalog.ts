@@ -10,26 +10,27 @@ import {
 } from "@/features/video-generation/model/video-models";
 
 export type ModelCatalogType = "image" | "video";
+export type ModelCatalogFilterType = "all" | ModelCatalogType;
 
-type BaseModelCatalogItem = {
+interface BaseModelCatalogItem {
   type: ModelCatalogType;
   key: string;
   label: string;
   vendor: string;
   provider: string;
   isDefault: boolean;
-};
+}
 
-export type ImageModelMeta = {
+export interface ImageModelMeta {
   pipeline: ImageModel["pipeline"];
   modelId: ImageModel["model_id"];
   defaultWidth: ImageModel["default_width"];
   defaultHeight: ImageModel["default_height"];
   defaultSteps: ImageModel["default_steps"];
   maxInputImages: ImageModel["max_input_images"];
-};
+}
 
-export type VideoModelMeta = {
+export interface VideoModelMeta {
   supportsInitImage: VideoModel["supports_init_image"];
   t2vModelId: VideoModel["t2v_model_id"];
   i2vModelId: VideoModel["i2v_model_id"] | null;
@@ -39,17 +40,17 @@ export type VideoModelMeta = {
   defaultFps: VideoModel["default_fps"];
   defaultSteps: VideoModel["default_steps"];
   defaultGuidanceScale: VideoModel["default_guidance_scale"];
-};
+}
 
-export type ImageModelCatalogItem = BaseModelCatalogItem & {
+export interface ImageModelCatalogItem extends BaseModelCatalogItem {
   type: "image";
   meta: ImageModelMeta;
-};
+}
 
-export type VideoModelCatalogItem = BaseModelCatalogItem & {
+export interface VideoModelCatalogItem extends BaseModelCatalogItem {
   type: "video";
   meta: VideoModelMeta;
-};
+}
 
 export type ModelCatalogItem = ImageModelCatalogItem | VideoModelCatalogItem;
 
@@ -101,4 +102,26 @@ export const modelCatalog: ModelCatalogItem[] = [
 
 export function getModelCatalogByType(type: ModelCatalogType) {
   return type === "image" ? imageModelCatalog : videoModelCatalog;
+}
+
+export interface ModelCatalogFilterOptions {
+  type: ModelCatalogFilterType;
+  query: string;
+}
+
+export function filterModelCatalog(
+  items: ModelCatalogItem[],
+  { type, query }: ModelCatalogFilterOptions,
+) {
+  const normalized = query.trim().toLowerCase();
+  return items.filter((item) => {
+    if (type !== "all" && item.type !== type) {
+      return false;
+    }
+    if (!normalized) {
+      return true;
+    }
+    const target = `${item.label} ${item.key}`.toLowerCase();
+    return target.includes(normalized);
+  });
 }

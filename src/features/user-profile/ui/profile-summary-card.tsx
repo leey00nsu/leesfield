@@ -12,10 +12,10 @@ const statValueStyles: Record<ProfileBadgeTone, string> = {
   primary: "text-primary",
 };
 
-type ProfileSummaryCardProps = {
+interface ProfileSummaryCardProps {
   profile: ProfileSummary;
   onChangeAvatar?: () => void;
-};
+}
 
 export function ProfileSummaryCard({
   profile,

@@ -2,18 +2,18 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
-type GenerationHeaderAction = {
+interface GenerationHeaderAction {
   label: string;
   icon?: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   title?: string;
-};
+}
 
-type GenerationHeaderActionsProps = {
+interface GenerationHeaderActionsProps {
   actions: GenerationHeaderAction[];
   className?: string;
-};
+}
 
 export function GenerationHeaderActions({
   actions,

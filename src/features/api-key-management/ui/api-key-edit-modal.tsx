@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { ApiKeyView } from "@/features/api-key-management/model/use-api-key-management";
+import type { ApiKeyView } from "@/features/api-key-management/hook/use-api-key-management";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import {

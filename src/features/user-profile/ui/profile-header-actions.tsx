@@ -1,8 +1,8 @@
 import { Button } from "@/shared/ui/button";
 
-type ProfileHeaderActionsProps = {
+interface ProfileHeaderActionsProps {
   onSave?: () => void;
-};
+}
 
 export function ProfileHeaderActions({
   onSave,

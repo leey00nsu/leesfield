@@ -85,7 +85,11 @@ export type ImageModelParameters = ImageModel["parameters"];
 export type ImageParameterKey = keyof ImageModelParameters;
 export type ImageParameterConfig = ImageModelParameters[ImageParameterKey];
 
-type NumericRange = { min: number; max: number; step: number };
+interface NumericRange {
+  min: number;
+  max: number;
+  step: number;
+}
 
 const fallbackRanges: Record<"size" | "steps" | "count", NumericRange> = {
   size: { min: 1, max: 4096, step: 1 },

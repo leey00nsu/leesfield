@@ -1,5 +1,5 @@
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
-import type { ApiKeyStatusFilter } from "@/features/api-key-management/model/use-api-key-management";
+import type { ApiKeyStatusFilter } from "@/features/api-key-management/hook/use-api-key-management";
 import {
   DashboardFilterBar,
   DashboardFilterToggle,

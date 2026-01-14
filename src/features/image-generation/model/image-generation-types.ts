@@ -4,18 +4,18 @@ export type ImageGenerationStatus =
   | "completed"
   | "failed";
 
-export type ImageGenerationResult = {
+export interface ImageGenerationResult {
   images: Array<{
     url: string;
     width?: number;
     height?: number;
   }>;
-};
+}
 
-export type ImageGenerationResponse = {
+export interface ImageGenerationResponse {
   requestId: string;
   status: ImageGenerationStatus;
   progress: number;
   result?: ImageGenerationResult;
   errorMessage?: string;
-};
+}

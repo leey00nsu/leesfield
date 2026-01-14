@@ -4,19 +4,19 @@ export type VideoGenerationStatus =
   | "completed"
   | "failed";
 
-export type VideoGenerationResult = {
+export interface VideoGenerationResult {
   videos: Array<{
     url: string;
     width?: number;
     height?: number;
     durationSec?: number;
   }>;
-};
+}
 
-export type VideoGenerationResponse = {
+export interface VideoGenerationResponse {
   requestId: string;
   status: VideoGenerationStatus;
   progress: number;
   result?: VideoGenerationResult;
   errorMessage?: string;
-};
+}

@@ -3,9 +3,9 @@ import type { ModelCatalogItem } from "@/features/model-management/model/model-c
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
 
-type ModelCardProps = {
+interface ModelCardProps {
   item: ModelCatalogItem;
-};
+}
 
 const typeConfig = {
   image: {

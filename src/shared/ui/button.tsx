@@ -41,6 +41,14 @@ const buttonVariants = cva(
   }
 )
 
+interface ButtonProps
+  extends React.ComponentProps<"button">,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+  isLoading?: boolean
+  loadingText?: string
+}
+
 function Button({
   className,
   variant = "default",
@@ -50,12 +58,7 @@ function Button({
   loadingText,
   children,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-    isLoading?: boolean
-    loadingText?: string
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : "button"
   const isDisabled = props.disabled || isLoading
   const isIconOnly = typeof size === "string" && size.startsWith("icon")

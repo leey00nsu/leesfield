@@ -3,7 +3,7 @@
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
 import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
 import { ApiKeyToolbar } from "@/features/api-key-management/ui/api-key-toolbar";
-import { useApiKeyManagement } from "@/features/api-key-management/model/use-api-key-management";
+import { useApiKeyManagement } from "@/features/api-key-management/hook/use-api-key-management";
 import {
   PageHeader,
   PageHeaderSearchInput,
@@ -11,33 +11,7 @@ import {
 import { Button } from "@/shared/ui/button";
 
 export function ApiKeyManagementWidget() {
-  const {
-    searchInput,
-    setSearchInput,
-    filter,
-    setFilter,
-    newKeyLabel,
-    setNewKeyLabel,
-    isIssuing,
-    pendingKey,
-    pendingCopied,
-    handleIssueKey,
-    handleCopyPendingKey,
-    dismissPendingKey,
-    filteredKeys,
-    isLoading,
-    error,
-    editingKey,
-    editLabel,
-    setEditLabel,
-    editError,
-    isUpdating,
-    isRevoking,
-    openEdit,
-    closeEdit,
-    handleUpdateLabel,
-    handleRevokeFromModal,
-  } = useApiKeyManagement();
+  const { filters, issue, pending, edit, list } = useApiKeyManagement();
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
@@ -51,25 +25,25 @@ export function ApiKeyManagementWidget() {
         subtitle="SECURE YOUR API ACCESS"
         rightSlot={
           <PageHeaderSearchInput
-            value={searchInput}
-            onChange={setSearchInput}
+            value={filters.searchInput}
+            onChange={filters.setSearchInput}
             placeholder="SEARCH_KEYS..."
             filterButtonLabel="필터 옵션"
           />
         }
       >
         <ApiKeyToolbar
-          filter={filter}
-          onFilterChange={setFilter}
-          newKeyLabel={newKeyLabel}
-          onNewKeyLabelChange={setNewKeyLabel}
-          onGenerate={handleIssueKey}
-          isIssuing={isIssuing}
+          filter={filters.filter}
+          onFilterChange={filters.setFilter}
+          newKeyLabel={issue.newKeyLabel}
+          onNewKeyLabelChange={issue.setNewKeyLabel}
+          onGenerate={issue.handleIssueKey}
+          isIssuing={issue.isIssuing}
         />
       </PageHeader>
 
       <div className="mx-auto w-full max-w-[1600px]">
-        {pendingKey ? (
+        {pending.pendingKey ? (
           <div className="mb-6 rounded-2xl border border-primary/30 bg-primary/10 px-6 py-5 text-sm text-primary">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -77,24 +51,24 @@ export function ApiKeyManagementWidget() {
                   NEW API KEY GENERATED
                 </p>
                 <p className="mt-1 text-base font-bold text-white">
-                  {pendingKey.label}
+                  {pending.pendingKey.label}
                 </p>
                 <p className="mt-2 font-mono text-xs text-primary/90">
-                  {pendingKey.apiKey}
+                  {pending.pendingKey.apiKey}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  onClick={handleCopyPendingKey}
+                  onClick={pending.copy}
                   variant="ghost"
                   className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
                 >
-                  {pendingCopied ? "Copied" : "Copy Key"}
+                  {pending.pendingCopied ? "Copied" : "Copy Key"}
                 </Button>
                 <Button
                   type="button"
-                  onClick={dismissPendingKey}
+                  onClick={pending.dismiss}
                   variant="ghost"
                   className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
                 >
@@ -107,25 +81,25 @@ export function ApiKeyManagementWidget() {
             </p>
           </div>
         ) : null}
-        {error ? (
+        {list.error ? (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
-            {error}
+            {list.error}
           </div>
         ) : null}
         <ApiKeyList
-          items={filteredKeys.map((item) => ({
+          items={list.filteredKeys.map((item) => ({
             id: item.id,
             name: item.label,
             maskedKey: item.maskedKey,
             status: item.status,
             lastUsedLabel: item.lastUsedLabel,
             createdAtLabel: item.createdAtLabel,
-            onEdit: () => openEdit(item),
+            onEdit: () => edit.open(item),
           }))}
           emptyMessage={
-            isLoading
+            list.isLoading
               ? "API 키를 불러오는 중입니다."
-              : searchInput
+              : filters.searchInput
                 ? "검색 결과가 없습니다."
                 : "API 키가 없습니다."
           }
@@ -133,16 +107,16 @@ export function ApiKeyManagementWidget() {
       </div>
 
       <ApiKeyEditModal
-        open={Boolean(editingKey)}
-        apiKey={editingKey}
-        label={editLabel}
-        error={editError}
-        isSaving={isUpdating}
-        isRevoking={isRevoking}
-        onLabelChange={setEditLabel}
-        onClose={closeEdit}
-        onSave={handleUpdateLabel}
-        onRevoke={handleRevokeFromModal}
+        open={Boolean(edit.editingKey)}
+        apiKey={edit.editingKey}
+        label={edit.editLabel}
+        error={edit.error}
+        isSaving={edit.isUpdating}
+        isRevoking={edit.isRevoking}
+        onLabelChange={edit.setEditLabel}
+        onClose={edit.close}
+        onSave={edit.update}
+        onRevoke={edit.revoke}
       />
     </div>
   );

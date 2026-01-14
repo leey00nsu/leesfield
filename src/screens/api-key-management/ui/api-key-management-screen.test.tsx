@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { ApiKeyManagementScreen } from "@/screens/api-key-management/ui/api-key-management-screen";
 
 const fetchApiKeysMock = vi.fn();
@@ -12,6 +14,17 @@ vi.mock("@/features/api-key-management/api/api-key-api", () => ({
   issueApiKey: (label: string) => issueApiKeyMock(label),
   revokeApiKey: (id: string) => revokeApiKeyMock(id),
 }));
+
+const renderWithQueryClient = (ui: ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+};
 
 describe("ApiKeyManagementScreen", () => {
   it("검색 필터가 동작한다", async () => {
@@ -39,7 +52,7 @@ describe("ApiKeyManagementScreen", () => {
     });
 
     const user = userEvent.setup();
-    render(<ApiKeyManagementScreen />);
+    renderWithQueryClient(<ApiKeyManagementScreen />);
 
     const input = await screen.findByPlaceholderText("SEARCH_KEYS...");
     await user.type(input, "Legacy");
@@ -66,7 +79,7 @@ describe("ApiKeyManagementScreen", () => {
     });
 
     const user = userEvent.setup();
-    render(<ApiKeyManagementScreen />);
+    renderWithQueryClient(<ApiKeyManagementScreen />);
 
     const labelInput = await screen.findByPlaceholderText("NEW_KEY_LABEL...");
     await user.type(labelInput, "NewKey");
@@ -103,7 +116,7 @@ describe("ApiKeyManagementScreen", () => {
     });
 
     const user = userEvent.setup();
-    render(<ApiKeyManagementScreen />);
+    renderWithQueryClient(<ApiKeyManagementScreen />);
 
     await user.click(await screen.findByRole("button", { name: /revoked/i }));
 
