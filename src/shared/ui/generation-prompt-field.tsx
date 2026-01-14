@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
-type GenerationPromptFieldProps = {
+interface GenerationPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
   className?: string;
-};
+}
 
 export function GenerationPromptField({
   textarea,

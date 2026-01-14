@@ -3,20 +3,20 @@ import { Sparkles } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
-type GenerationModelOption<T extends string> = {
+interface GenerationModelOption<T extends string> {
   id: T;
   name: string;
   vendor: string;
-};
+}
 
-type GenerationModelSectionProps<T extends string> = {
+interface GenerationModelSectionProps<T extends string> {
   title?: ReactNode;
   action?: ReactNode;
   items: ReadonlyArray<GenerationModelOption<T>>;
   activeId: T;
   onSelect: (id: T) => void;
   className?: string;
-};
+}
 
 export function GenerationModelSection<T extends string>({
   title = "Select_Model",

@@ -7,10 +7,10 @@ const filterToggleBase =
 const filterToggleActive = "text-black hover:bg-primary-dark";
 const filterToggleInactive = "text-gray-400 hover:text-white";
 
-type DashboardFilterBarProps = {
+interface DashboardFilterBarProps {
   children: ReactNode;
   className?: string;
-};
+}
 
 export function DashboardFilterBar({
   children,
@@ -23,10 +23,11 @@ export function DashboardFilterBar({
   );
 }
 
-type DashboardFilterToggleProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+interface DashboardFilterToggleProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   active: boolean;
   icon?: ReactNode;
-};
+}
 
 export function DashboardFilterToggle({
   active,
@@ -53,9 +54,9 @@ export function DashboardFilterToggle({
   );
 }
 
-type DashboardFilterDividerProps = {
+interface DashboardFilterDividerProps {
   className?: string;
-};
+}
 
 export function DashboardFilterDivider({
   className,

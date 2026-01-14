@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
-type GenerationCanvasProps = {
+interface GenerationCanvasProps {
   children: ReactNode;
   actions?: ReactNode;
   isGenerating: boolean;
@@ -9,7 +9,7 @@ type GenerationCanvasProps = {
   status: string;
   errorMessage?: string;
   className?: string;
-};
+}
 
 export function GenerationCanvas({
   children,

@@ -3,12 +3,12 @@ import { RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
-type GenerationSettingsPanelProps = {
+interface GenerationSettingsPanelProps {
   title?: ReactNode;
   onReset: () => void;
   children: ReactNode;
   className?: string;
-};
+}
 
 export function GenerationSettingsPanel({
   title = "Settings",
