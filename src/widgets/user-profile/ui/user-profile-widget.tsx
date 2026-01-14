@@ -16,9 +16,9 @@ import { SubscriptionCard } from "@/features/user-profile/ui/subscription-card";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-type UserProfileWidgetProps = {
+interface UserProfileWidgetProps {
   adminEmail: string;
-};
+}
 
 export function UserProfileWidget({ adminEmail }: UserProfileWidgetProps) {
   const { generationTotal } = useProfileMetrics();

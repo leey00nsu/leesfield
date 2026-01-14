@@ -5,9 +5,9 @@ import bcrypt from "bcryptjs";
 import { loginSchema } from "@/features/auth/login/model/login-schema";
 import { getSession } from "@/server/auth/session";
 
-export type LoginActionState = {
+export interface LoginActionState {
   errorCode?: "INVALID_CREDENTIALS" | "SERVER_CONFIG" | "UNKNOWN";
-};
+}
 
 const INVALID_CODE = "INVALID_CREDENTIALS" as const;
 const SERVER_CONFIG_CODE = "SERVER_CONFIG" as const;

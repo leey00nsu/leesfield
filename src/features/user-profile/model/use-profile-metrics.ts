@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-type ProfileMetricsState = {
+interface ProfileMetricsState {
   generationTotal: number | null;
   isLoading: boolean;
   error: string | null;
-};
+}
 
-type HistoryResponse = {
+interface HistoryResponse {
   total?: number;
-};
+}
 
 export function useProfileMetrics() {
   const [state, setState] = useState<ProfileMetricsState>({
@@ -50,6 +50,7 @@ export function useProfileMetrics() {
           throw new Error("응답 파싱에 실패했습니다.");
         })) as HistoryResponse;
 
+        // 언마운트/취소 후에는 상태 업데이트를 막는다.
         if (!isActive) return;
         setState({
           generationTotal:

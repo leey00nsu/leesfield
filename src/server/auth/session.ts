@@ -1,10 +1,10 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 
-export type SessionData = {
+export interface SessionData {
   isLoggedIn: boolean;
   adminEmail?: string;
-};
+}
 
 const sessionPassword = process.env.SESSION_PASSWORD;
 

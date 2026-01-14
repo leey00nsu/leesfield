@@ -1,21 +1,21 @@
 export type ProfileBadgeTone = "default" | "primary";
 
-export type ProfileBadge = {
+export interface ProfileBadge {
   label: string;
   tone: ProfileBadgeTone;
-};
+}
 
-export type ProfileStat = {
+export interface ProfileStat {
   label: string;
   value: string;
   tone?: ProfileBadgeTone;
-};
+}
 
-export type ProfileSummary = {
+export interface ProfileSummary {
   name: string;
   handle: string;
   avatarUrl?: string;
   avatarFallback: string;
   badges: ProfileBadge[];
   stats: ProfileStat[];
-};
+}
