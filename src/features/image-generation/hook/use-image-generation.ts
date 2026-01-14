@@ -26,11 +26,10 @@ const pollTimeoutMs =
 
 const terminalStatuses = ["completed", "failed"] as const;
 
-export interface ImageGenerationState
-  extends GenerationPollingState<
-    ImageGenerationStatus,
-    ImageGenerationResponse["result"]
-  > {}
+export type ImageGenerationState = GenerationPollingState<
+  ImageGenerationStatus,
+  ImageGenerationResponse["result"]
+>;
 
 export function useImageGeneration() {
   return useGenerationPolling<

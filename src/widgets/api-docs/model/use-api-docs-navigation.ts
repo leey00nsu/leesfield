@@ -17,13 +17,6 @@ export function useApiDocsNavigation({
 
   useEffect(() => {
     if (sectionIds.length === 0) return;
-    if (!sectionIds.includes(activeSectionId)) {
-      setActiveSectionId(sectionIds[0]);
-    }
-  }, [activeSectionId, sectionIds]);
-
-  useEffect(() => {
-    if (sectionIds.length === 0) return;
 
     const elements = sectionIds
       .map((id) => window.document.getElementById(id))

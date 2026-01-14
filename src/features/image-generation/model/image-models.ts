@@ -64,7 +64,7 @@ const imageModelCatalogSchema = z.object({
 
 const catalog = imageModelCatalogSchema.parse(rawCatalog);
 
-export interface ImageModel extends z.infer<typeof imageModelSchema> {}
+export type ImageModel = z.infer<typeof imageModelSchema>;
 
 export const imageModels: ImageModel[] = catalog.models;
 

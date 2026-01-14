@@ -25,11 +25,10 @@ const pollTimeoutMs = configuredTimeoutMs + EXTRA_TIMEOUT_MS;
 
 const terminalStatuses = ["completed", "failed"] as const;
 
-export interface VideoGenerationState
-  extends GenerationPollingState<
-    VideoGenerationStatus,
-    VideoGenerationResponse["result"]
-  > {}
+export type VideoGenerationState = GenerationPollingState<
+  VideoGenerationStatus,
+  VideoGenerationResponse["result"]
+>;
 
 export function useVideoGeneration() {
   return useGenerationPolling<

@@ -69,7 +69,7 @@ const videoModelCatalogSchema = z.object({
 
 const catalog = videoModelCatalogSchema.parse(rawCatalog);
 
-export interface VideoModel extends z.infer<typeof videoModelSchema> {}
+export type VideoModel = z.infer<typeof videoModelSchema>;
 
 export const videoModels: VideoModel[] = catalog.models;
 

@@ -5,4 +5,4 @@ export const loginSchema = z.object({
   password: z.string().min(1, "비밀번호를 입력해주세요."),
 });
 
-export interface LoginFormValues extends z.infer<typeof loginSchema> {}
+export type LoginFormValues = z.infer<typeof loginSchema>;
