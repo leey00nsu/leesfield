@@ -6,21 +6,22 @@ import type {
 } from "@/entities/generation/model/types";
 import { fetchHistory } from "@/features/generation-history/api/history-api";
 
-export type UseHistoryQueryParams = {
+export interface UseHistoryQueryParams {
   type: GenerationHistoryType;
   query: string;
   sort: GenerationHistorySort;
   limit: number;
   offset: number;
-};
+}
 
-export type HistoryQueryState = {
+export interface HistoryQueryState {
   data: GenerationHistoryResponse | null;
   isLoading: boolean;
   error: string | null;
-};
+}
 
 export function useHistoryQuery(params: UseHistoryQueryParams) {
+  const { type, query, sort, limit, offset } = params;
   const [state, setState] = useState<HistoryQueryState>({
     data: null,
     isLoading: true,
@@ -31,6 +32,7 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
     let isActive = true;
     const controller = new AbortController();
 
+    // params 변경 시 로딩 상태를 초기화한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((prev) => ({
       data: prev.data,
@@ -40,7 +42,10 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
 
     void (async () => {
       try {
-        const data = await fetchHistory(params, { signal: controller.signal });
+        const data = await fetchHistory(
+          { type, query, sort, limit, offset },
+          { signal: controller.signal },
+        );
         if (!isActive) return;
         setState({ data, isLoading: false, error: null });
       } catch (error) {
@@ -66,7 +71,7 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
       isActive = false;
       controller.abort();
     };
-  }, [params]);
+  }, [limit, offset, query, sort, type]);
 
   return state;
 }

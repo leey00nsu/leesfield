@@ -69,7 +69,7 @@ const videoModelCatalogSchema = z.object({
 
 const catalog = videoModelCatalogSchema.parse(rawCatalog);
 
-export type VideoModel = z.infer<typeof videoModelSchema>;
+export interface VideoModel extends z.infer<typeof videoModelSchema> {}
 
 export const videoModels: VideoModel[] = catalog.models;
 
@@ -90,7 +90,11 @@ export type VideoModelParameters = VideoModel["parameters"];
 export type VideoParameterKey = keyof VideoModelParameters;
 export type VideoParameterConfig = VideoModelParameters[VideoParameterKey];
 
-type NumericRange = { min: number; max: number; step: number };
+interface NumericRange {
+  min: number;
+  max: number;
+  step: number;
+}
 
 const fallbackRanges: Record<"duration" | "steps" | "guidance" | "fps", NumericRange> = {
   duration: { min: 0.5, max: 10, step: 0.5 },

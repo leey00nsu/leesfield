@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,7 @@ import {
   imageModels,
 } from "@/features/image-generation/model/image-models";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
+import { useImageInitPreviews } from "@/features/image-generation/hook/use-image-init-previews";
 
 const modelOptions = imageModels.map((model, index) => ({
   id: model.key as ImageGenerationModel,
@@ -102,13 +103,25 @@ export function ImageGenerationForm() {
     widthConfig?.ui !== "hidden" || heightConfig?.ui !== "hidden";
   const showSteps = stepsConfig?.ui !== "hidden";
   const showSeed = seedConfig?.ui !== "hidden";
-  const [initImagePreviews, setInitImagePreviews] = useState<
-    Array<{ id: string; url: string; dataUrl: string }>
-  >([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const maxInputImages = modelImageLimits[activeModel]?.maxInputImages ?? 0;
-  const canUploadImages = maxInputImages > 0;
+  const handleInitImagesChange = useCallback(
+    (dataUrls: string[]) => {
+      form.setValue("initImages", dataUrls, { shouldValidate: true });
+    },
+    [form],
+  );
+  const {
+    previews: initImagePreviews,
+    canUpload: canUploadImages,
+    inputRef: fileInputRef,
+    openPicker: handleOpenImagePicker,
+    handleFileChange: handleImageSelection,
+    removeImage: handleRemoveInitImage,
+    reset: resetInitImagePreviews,
+  } = useImageInitPreviews({
+    maxInputImages,
+    onChange: handleInitImagesChange,
+  });
 
   useEffect(() => {
     const defaults = modelDefaults[activeModel];
@@ -131,22 +144,6 @@ export function ImageGenerationForm() {
 
   const handleSelectModel = (modelId: ImageGenerationModel) => {
     form.setValue("model", modelId);
-    const newMaxInputImages = modelImageLimits[modelId]?.maxInputImages ?? 0;
-
-    if (newMaxInputImages === 0) {
-      setInitImagePreviews([]);
-      form.setValue("initImages", []);
-      return;
-    }
-
-    if (initImagePreviews.length > newMaxInputImages) {
-      const trimmedPreviews = initImagePreviews.slice(0, newMaxInputImages);
-      setInitImagePreviews(trimmedPreviews);
-      form.setValue(
-        "initImages",
-        trimmedPreviews.map((item) => item.dataUrl),
-      );
-    }
   };
 
   const handleRandomizeSeed = () => {
@@ -163,64 +160,6 @@ export function ImageGenerationForm() {
     });
   };
 
-  const handleOpenImagePicker = () => {
-    if (!canUploadImages || initImagePreviews.length >= maxInputImages) {
-      return;
-    }
-    fileInputRef.current?.click();
-  };
-
-  const handleImageSelection = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (!files.length || !canUploadImages) {
-      event.target.value = "";
-      return;
-    }
-
-    const remaining = Math.max(0, maxInputImages - initImagePreviews.length);
-    const selected = files.slice(0, remaining);
-
-    const dataUrls = await Promise.all(
-      selected.map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () =>
-              reject(new Error("이미지 업로드에 실패했습니다."));
-            reader.readAsDataURL(file);
-          })
-      )
-    );
-
-    const next = [
-      ...initImagePreviews,
-      ...dataUrls.map((dataUrl) => ({
-        id: crypto.randomUUID(),
-        url: dataUrl,
-        dataUrl,
-      })),
-    ];
-
-    setInitImagePreviews(next);
-    form.setValue(
-      "initImages",
-      next.map((item) => item.dataUrl),
-      { shouldValidate: true }
-    );
-
-    event.target.value = "";
-  };
-
-  const handleRemoveInitImage = (id: string) => {
-    const next = initImagePreviews.filter((item) => item.id !== id);
-    setInitImagePreviews(next);
-    form.setValue(
-      "initImages",
-      next.map((item) => item.dataUrl),
-      { shouldValidate: true }
-    );
-  };
   const resultsGridClass =
     resultImages.length <= 1
       ? "grid-cols-1"
@@ -458,7 +397,7 @@ export function ImageGenerationForm() {
           <GenerationSettingsPanel
             onReset={() => {
               form.reset(imageGenerationDefaults);
-              setInitImagePreviews([]);
+              resetInitImagePreviews();
               reset();
             }}
           >

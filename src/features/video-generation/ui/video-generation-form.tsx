@@ -10,7 +10,7 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import {
@@ -95,9 +95,6 @@ export function VideoGenerationForm() {
   const canSubmit =
     promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    initImageValue || null
-  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration();
   const isGenerating =
@@ -123,7 +120,6 @@ export function VideoGenerationForm() {
       if (typeof result !== "string") {
         return;
       }
-      setPreviewUrl(result);
       form.setValue("initImage", result, { shouldValidate: true });
       event.target.value = "";
     };
@@ -131,7 +127,6 @@ export function VideoGenerationForm() {
   };
 
   const handleRemoveInitImage = () => {
-    setPreviewUrl(null);
     form.setValue("initImage", "", { shouldValidate: true });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -140,7 +135,6 @@ export function VideoGenerationForm() {
 
   const handleReset = () => {
     form.reset(videoGenerationDefaults);
-    setPreviewUrl(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -282,12 +276,12 @@ export function VideoGenerationForm() {
                           </FormControl>
                         }
                         attachments={
-                          previewUrl ? (
+                          initImageValue ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
                               <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={previewUrl}
+                                  src={initImageValue}
                                   alt="Init image preview"
                                   className="h-full w-full object-cover"
                                 />
