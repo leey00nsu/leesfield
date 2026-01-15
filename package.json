@@ -5,6 +5,7 @@
   "scripts": {
     "predev": "node scripts/check-auth-env.mjs && pnpm db:prepare",
     "dev": "next dev",
+    "prebuild": "pnpm db:generate",
     "build": "next build",
     "prestart": "node scripts/check-auth-env.mjs && pnpm db:prepare",
     "start": "next start",
