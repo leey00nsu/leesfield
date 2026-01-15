@@ -27,7 +27,6 @@ if (fs.existsSync(envPath)) {
 }
 
 const missing = [];
-let needsEscapeNotice = false;
 
 if (!process.env.ADMIN_PASSWORD_HASH) {
   missing.push("ADMIN_PASSWORD_HASH");
@@ -42,18 +41,14 @@ if (missing.length > 0) {
   }
 }
 
-if (fs.existsSync(envPath) && !missing.includes("ADMIN_PASSWORD_HASH")) {
-  const rawLine = (fs.readFileSync(envPath, "utf8")
-    .split(/\r?\n/)
-    .find((line) => line.trim().startsWith("ADMIN_PASSWORD_HASH=")) ?? "");
-  const rawValue = rawLine.slice(rawLine.indexOf("=") + 1).trim();
-  if (rawValue.includes("$") && !rawValue.includes("\\$")) {
-    needsEscapeNotice = true;
+if (!missing.includes("ADMIN_PASSWORD_HASH")) {
+  const decoded = Buffer.from(
+    process.env.ADMIN_PASSWORD_HASH ?? "",
+    "base64url"
+  ).toString("utf8");
+  if (!decoded.startsWith("$2")) {
+    console.error(
+      "[env] ADMIN_PASSWORD_HASH는 base64url 인코딩된 bcrypt 해시여야 합니다.",
+    );
   }
-}
-
-if (needsEscapeNotice) {
-  console.error(
-    "[env] ADMIN_PASSWORD_HASH에 $가 포함되어 있습니다. `\\$`로 이스케이프하세요.",
-  );
 }
