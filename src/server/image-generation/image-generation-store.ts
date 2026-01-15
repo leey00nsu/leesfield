@@ -131,7 +131,7 @@ export async function getGeneration(id: string, ownerEmail: string) {
           );
           let dbErrorMessage: string | undefined;
 
-          if (latest.dbId) {
+          if (latest.dbId && !result.skipDbSave) {
             try {
               await saveImageGenerationResult(
                 latest.dbId,

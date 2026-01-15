@@ -7,6 +7,7 @@ export interface ImageStorageResult {
   status: "completed" | "failed";
   result?: ImageGenerationResponse["result"];
   errorMessage?: string;
+  skipDbSave?: boolean;
 }
 
 export interface ImageStorageAdapter {

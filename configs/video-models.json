@@ -10,7 +10,7 @@
       "supports_init_image": true,
       "t2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
       "i2v_model_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
-      "api": {
+      "provider_config": {
         "space_id": "leey00nsu/wan2-2-fp8da-aoti-faster",
         "api_name": "/generate_video",
         "timeout_ms": 300000

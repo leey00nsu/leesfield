@@ -24,12 +24,7 @@ const parameterSchema = z.object({
   options: z.array(z.union([z.string(), z.number()])).optional(),
 });
 
-const apiSchema = z.object({
-  space_id: z.string().min(1),
-  api_name: z.string().min(1),
-  timeout_ms: z.number().int().positive().optional(),
-  space_url: z.string().min(1).optional(),
-});
+const providerConfigSchema = z.record(z.string(), z.unknown());
 
 const imageParametersSchema = z
   .object({
@@ -48,7 +43,7 @@ const imageModelSchema = z.object({
   provider: z.string().min(1),
   pipeline: z.enum(pipelineOptions),
   model_id: z.string().min(1),
-  api: apiSchema,
+  provider_config: providerConfigSchema,
   parameters: imageParametersSchema,
   default_width: z.number().int().positive(),
   default_height: z.number().int().positive(),

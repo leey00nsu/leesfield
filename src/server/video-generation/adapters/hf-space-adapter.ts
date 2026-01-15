@@ -1,4 +1,5 @@
 import { Client, handle_file } from "@gradio/client";
+import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import {
   getVideoModelConfig,
@@ -12,6 +13,15 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
 const FILE_FETCH_TIMEOUT_MS = 60_000;
+
+const hfSpaceConfigSchema = z
+  .object({
+    space_id: z.string().min(1),
+    api_name: z.string().min(1),
+    timeout_ms: z.number().int().positive().optional(),
+    space_url: z.string().min(1).optional(),
+  })
+  .passthrough();
 
 type SpaceConfig = {
   spaceId: string;
@@ -38,7 +48,12 @@ function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConf
   if (model.provider !== "hf_space") {
     throw new Error("VIDEO_PROVIDER_NOT_SUPPORTED");
   }
-  const timeoutRaw = Number(model.api.timeout_ms ?? DEFAULT_TIMEOUT_MS);
+  const parsedConfig = hfSpaceConfigSchema.safeParse(model.provider_config);
+  if (!parsedConfig.success) {
+    throw new Error("HF_SPACE_CONFIG_INVALID");
+  }
+  const providerConfig = parsedConfig.data;
+  const timeoutRaw = Number(providerConfig.timeout_ms ?? DEFAULT_TIMEOUT_MS);
   const tokenValue =
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
@@ -48,11 +63,11 @@ function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConf
   }
 
   return {
-    spaceId: model.api.space_id,
-    apiName: model.api.api_name,
+    spaceId: providerConfig.space_id,
+    apiName: providerConfig.api_name,
     token: tokenValue as `hf_${string}` | undefined,
     timeoutMs: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_TIMEOUT_MS,
-    spaceUrl: resolveSpaceUrl(model.api.space_id, model.api.space_url),
+    spaceUrl: resolveSpaceUrl(providerConfig.space_id, providerConfig.space_url),
   };
 }
 
