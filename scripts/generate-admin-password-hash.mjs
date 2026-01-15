@@ -42,7 +42,7 @@ if (!password) {
 }
 
 const hash = await bcrypt.hash(password, 10);
-const escapedHash = hash.replace(/\$/g, "\\$");
+const encodedHash = Buffer.from(hash, "utf8").toString("base64url");
 
-console.log(`\nADMIN_PASSWORD_HASH=${escapedHash}`);
-console.log(".env에 위 값을 추가하세요. ($는 \\$로 출력됨)");
+console.log(`\nADMIN_PASSWORD_HASH=${encodedHash}`);
+console.log(".env에 위 값을 추가하세요. (base64url)");

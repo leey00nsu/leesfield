@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "@/features/auth/login/model/login-schema";
+import { decodeBase64UrlHash } from "@/server/auth/password-hash";
 import { getSession } from "@/server/auth/session";
 
 export interface LoginActionState {
@@ -31,7 +32,11 @@ export async function loginAction(
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
 
-  if (!adminEmail || !adminPasswordHash) {
+  const decodedHash = adminPasswordHash
+    ? decodeBase64UrlHash(adminPasswordHash)
+    : null;
+
+  if (!adminEmail || !decodedHash) {
     return { errorCode: SERVER_CONFIG_CODE };
   }
 
@@ -41,7 +46,7 @@ export async function loginAction(
   try {
     passwordMatches = await bcrypt.compare(
       parsed.data.password,
-      adminPasswordHash,
+      decodedHash,
     );
   } catch {
     return { errorCode: UNKNOWN_CODE };

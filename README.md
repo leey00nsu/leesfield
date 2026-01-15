@@ -13,7 +13,7 @@ cp .env.example .env
 #### 기본 환경변수
 
 - `ADMIN_EMAIL`: 관리자 로그인 이메일
-- `ADMIN_PASSWORD_HASH`: bcrypt 해시(아래 커맨드로 생성)
+- `ADMIN_PASSWORD_HASH`: base64url 인코딩된 bcrypt 해시(아래 커맨드로 생성)
 - `SESSION_PASSWORD`: 세션 암호(32자 이상)
 - `DATABASE_URL`: Postgres 연결 문자열
 
@@ -51,13 +51,7 @@ https://huggingface.co/docs/hub/en/security-tokens
 pnpm gen:admin-password-hash
 ```
 
-출력된 값을 그대로 `.env`에 넣으면 됩니다. (`$`는 자동으로 `\\$`로 출력됩니다)
-
-`$` 이스케이프 이유:
-
-- Next.js는 `.env`에서 `$VARIABLE` 형태를 다른 변수 참조로 확장합니다.
-- bcrypt 해시는 `$`를 포함하므로, 값이 비어지는 것을 막기 위해 `\\$`로 이스케이프합니다.
-- 참고: `https://nextjs.org/docs/app/guides/environment-variables#referencing-other-variables`
+출력된 값은 base64url 형태이므로 그대로 `.env`에 넣으면 됩니다.
 
 ### 2) 로컬 DB 실행 (PostgreSQL)
 
@@ -145,15 +139,7 @@ pnpm test
 
 ## 로그인
 
-로그인 입력 비밀번호는 `ADMIN_PASSWORD_HASH`(bcrypt 해시)와 비교됩니다.
-
-예시 (직접 생성):
-
-```bash
-node -e "import('bcryptjs').then(b => b.hash('change-me', 10).then(console.log))"
-```
-
-> bcrypt 해시에는 `$`가 포함되므로 `.env`에 넣을 때는 `\\$`로 이스케이프해야 합니다.
+로그인 입력 비밀번호는 `ADMIN_PASSWORD_HASH`(base64url 인코딩된 bcrypt 해시)와 비교됩니다.
 
 ## 모델 카드 설정 (configs/\*-models.json)
 
