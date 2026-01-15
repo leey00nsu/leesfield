@@ -3,7 +3,6 @@ import { imageGenerationDefaults } from "@/features/image-generation/model/image
 const baseEnv = {
   LEEMAGE_API_KEY: process.env.LEEMAGE_API_KEY,
   LEEMAGE_PROJECT_ID: process.env.LEEMAGE_PROJECT_ID,
-  LEEMAGE_STORAGE_PROVIDER: process.env.LEEMAGE_STORAGE_PROVIDER,
   LEEMAGE_BASE_URL: process.env.LEEMAGE_BASE_URL,
 };
 
@@ -19,7 +18,6 @@ describe("resolveGenerationResult", () => {
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "",
       LEEMAGE_PROJECT_ID: "",
-      LEEMAGE_STORAGE_PROVIDER: "",
     });
 
     vi.resetModules();
@@ -49,7 +47,6 @@ describe("resolveGenerationResult", () => {
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "test-key",
       LEEMAGE_PROJECT_ID: "project-id",
-      LEEMAGE_STORAGE_PROVIDER: "provider",
     });
 
     const { resolveGenerationResult } = await import(

@@ -86,7 +86,7 @@ pnpm dev
 설정:
 
 - `IMAGE_STORAGE_PROVIDER`로 저장 어댑터를 선택합니다.
-- `leemage`를 사용하는 경우 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`, `LEEMAGE_STORAGE_PROVIDER`가 필수입니다.
+- `leemage`를 사용하는 경우 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`가 필수입니다.
 - 저장소 설정이 없거나 지원되지 않는 경우: 결과는 즉시 응답되지만 히스토리(DB) 저장은 생략됩니다.
 
 ## 어댑터 구현 방식
@@ -125,7 +125,7 @@ pnpm dev
 
 - 이미지: `IMAGE_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
 - 비디오: `VIDEO_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
-- `leemage` 사용 시 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`, `LEEMAGE_STORAGE_PROVIDER`가 필수입니다.
+- `leemage` 사용 시 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`가 필수입니다.
 - 설정이 없거나 지원되지 않으면 **결과는 응답되지만 히스토리(DB) 저장은 생략**됩니다.
 
 추가 방법:

@@ -27,7 +27,6 @@ function getMissingLeemageEnv() {
   const requiredLeemageEnv = [
     ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
     ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
-    ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
   ] as const;
 
   return requiredLeemageEnv
