@@ -10,6 +10,11 @@ export interface ImageStorageResult {
   skipDbSave?: boolean;
 }
 
+export interface ImageStorageAvailability {
+  isAvailable: boolean;
+  warningMessage?: string;
+}
+
 export interface ImageStorageAdapter {
   name: ImageStorageProvider;
   uploadImages: (
@@ -17,4 +22,5 @@ export interface ImageStorageAdapter {
     requestId: string,
     dataUrls: string[],
   ) => Promise<ImageStorageResult>;
+  checkAvailability?: () => ImageStorageAvailability;
 }

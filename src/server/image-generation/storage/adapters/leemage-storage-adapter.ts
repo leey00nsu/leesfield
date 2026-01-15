@@ -5,11 +5,14 @@ import type { ImageGenerationFormValues } from "@/features/image-generation/mode
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 import type {
   ImageStorageAdapter,
+  ImageStorageAvailability,
   ImageStorageResult,
 } from "@/server/image-generation/storage/storage-adapter";
 
 const PLACEHOLDER_FILE = "sample-image.png";
 const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
+const MISSING_LEEMAGE_MESSAGE =
+  "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
 
 let cachedClient: LeemageClient | null = null;
 let cachedConfig:
@@ -20,16 +23,28 @@ let cachedConfig:
     }
   | null = null;
 
-function getLeemageConfig() {
+function getMissingLeemageEnv() {
   const requiredLeemageEnv = [
     ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
     ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
     ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
   ] as const;
 
-  const missingLeemageEnv = requiredLeemageEnv
+  return requiredLeemageEnv
     .filter(([, value]) => !value)
     .map(([key]) => key);
+}
+
+function checkLeemageAvailability(): ImageStorageAvailability {
+  const missing = getMissingLeemageEnv();
+  if (missing.length === 0) {
+    return { isAvailable: true };
+  }
+  return { isAvailable: false, warningMessage: MISSING_LEEMAGE_MESSAGE };
+}
+
+function getLeemageConfig() {
+  const missingLeemageEnv = getMissingLeemageEnv();
 
   if (missingLeemageEnv.length > 0) {
     throw new Error(
@@ -236,5 +251,6 @@ export async function resolveGenerationResult(
 
 export const leemageStorageAdapter: ImageStorageAdapter = {
   name: "leemage",
+  checkAvailability: checkLeemageAvailability,
   uploadImages: uploadGeneratedImages,
 };

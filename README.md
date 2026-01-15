@@ -10,7 +10,7 @@ AI 생성 플랫폼 leesfield
 cp .env.example .env
 ```
 
-환경변수 설명
+#### 기본 환경변수
 
 - `ADMIN_EMAIL`: 관리자 로그인 이메일
 - `ADMIN_PASSWORD_HASH`: bcrypt 해시(아래 커맨드로 생성)
@@ -21,7 +21,10 @@ cp .env.example .env
 - `NEXT_PUBLIC_API_BASE_URL`: API 문서 예시 요청에 표시할 Base URL
 - `IMAGE_STORAGE_PROVIDER`: 이미지 저장 어댑터 선택 (미설정/미지원 시 히스토리 저장 생략)
 
+#### 어댑터 환경변수
+
 - `HF_TOKEN`: Hugging Face Access Token (Public Space는 선택이지만 권장)
+
 - `LEEMAGE_API_KEY` / `LEEMAGE_PROJECT_ID`: Leemage 업로드용 키/프로젝트 ID
 - `LEEMAGE_STORAGE_PROVIDER`: Leemage 스토리지 제공자 명
 - `LEEMAGE_BASE_URL`: 필요 시 커스텀 API 엔드포인트
