@@ -13,7 +13,7 @@ cp .env.example .env
 #### 기본 환경변수
 
 - `ADMIN_EMAIL`: 관리자 로그인 이메일
-- `ADMIN_PASSWORD_HASH`: bcrypt 해시(아래 커맨드로 생성)
+- `ADMIN_PASSWORD_HASH`: base64url 인코딩된 bcrypt 해시(아래 커맨드로 생성)
 - `SESSION_PASSWORD`: 세션 암호(32자 이상)
 - `DATABASE_URL`: Postgres 연결 문자열
 
@@ -145,15 +145,15 @@ pnpm test
 
 ## 로그인
 
-로그인 입력 비밀번호는 `ADMIN_PASSWORD_HASH`(bcrypt 해시)와 비교됩니다.
+로그인 입력 비밀번호는 `ADMIN_PASSWORD_HASH`(base64url 인코딩된 bcrypt 해시)와 비교됩니다.
 
 예시 (직접 생성):
 
 ```bash
-node -e "import('bcryptjs').then(b => b.hash('change-me', 10).then(console.log))"
+pnpm gen:admin-password-hash
 ```
 
-> bcrypt 해시에는 `$`가 포함되므로 `.env`에 넣을 때는 `\\$`로 이스케이프해야 합니다.
+생성된 값은 base64url 형태입니다.
 
 ## 모델 카드 설정 (configs/\*-models.json)
 
