@@ -1,54 +1,84 @@
-import { readFile } from "fs/promises";
-import path from "path";
 import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
-import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
 import {
   resolveVideoAspectRatioSize,
   type VideoGenerationFormValues,
 } from "@/features/video-generation/model/video-generation-schema";
+import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
+import type {
+  VideoStorageAdapter,
+  VideoStorageAvailability,
+  VideoStorageMeta,
+  VideoStorageResult,
+} from "@/server/video-generation/storage/storage-adapter";
 
-const PLACEHOLDER_FILE = "sample-video.mp4";
 const DEFAULT_VIDEO_META = {
   width: 640,
   height: 360,
   durationSec: 1,
 };
 
-type ModalVideoMeta = {
-  width?: number;
-  height?: number;
-  duration_sec?: number;
-};
-
-const requiredLeemageEnv = [
-  ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
-  ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
-  ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
-] as const;
-
-const missingLeemageEnv = requiredLeemageEnv
-  .filter(([, value]) => !value)
-  .map(([key]) => key);
-
-if (missingLeemageEnv.length > 0) {
-  throw new Error(
-    `LEEMAGE 설정이 필요합니다: ${missingLeemageEnv.join(", ")}`,
-  );
-}
-
-const apiKey = process.env.LEEMAGE_API_KEY as string;
-const baseUrl = process.env.LEEMAGE_BASE_URL;
-const projectIdEnv = process.env.LEEMAGE_PROJECT_ID as string;
+const MISSING_LEEMAGE_MESSAGE =
+  "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
 
 let cachedClient: LeemageClient | null = null;
+let cachedConfig:
+  | {
+      apiKey: string;
+      baseUrl?: string;
+      projectId: string;
+    }
+  | null = null;
+
+function getMissingLeemageEnv() {
+  const requiredLeemageEnv = [
+    ["LEEMAGE_API_KEY", process.env.LEEMAGE_API_KEY],
+    ["LEEMAGE_PROJECT_ID", process.env.LEEMAGE_PROJECT_ID],
+    ["LEEMAGE_STORAGE_PROVIDER", process.env.LEEMAGE_STORAGE_PROVIDER],
+  ] as const;
+
+  return requiredLeemageEnv
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+}
+
+function checkLeemageAvailability(): VideoStorageAvailability {
+  const missing = getMissingLeemageEnv();
+  if (missing.length === 0) {
+    return { isAvailable: true };
+  }
+  return { isAvailable: false, warningMessage: MISSING_LEEMAGE_MESSAGE };
+}
+
+function getLeemageConfig() {
+  const missingLeemageEnv = getMissingLeemageEnv();
+  if (missingLeemageEnv.length > 0) {
+    throw new Error(
+      `LEEMAGE 설정이 필요합니다: ${missingLeemageEnv.join(", ")}`,
+    );
+  }
+
+  return {
+    apiKey: process.env.LEEMAGE_API_KEY as string,
+    baseUrl: process.env.LEEMAGE_BASE_URL,
+    projectId: process.env.LEEMAGE_PROJECT_ID as string,
+  };
+}
 
 function getLeemageClient() {
-  if (!cachedClient) {
+  const config = getLeemageConfig();
+  if (
+    !cachedClient ||
+    !cachedConfig ||
+    cachedConfig.apiKey !== config.apiKey ||
+    cachedConfig.baseUrl !== config.baseUrl ||
+    cachedConfig.projectId !== config.projectId
+  ) {
     cachedClient = new LeemageClient({
-      apiKey,
-      baseUrl,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
       timeout: 20_000,
     });
+    cachedConfig = config;
   }
 
   return cachedClient;
@@ -87,7 +117,7 @@ function resolveVideoExtension(contentType: string) {
 
 function resolveVideoMeta(
   payload: VideoGenerationFormValues,
-  meta?: ModalVideoMeta
+  meta?: VideoStorageMeta
 ) {
   const fallbackSize = resolveVideoAspectRatioSize(
     payload.aspectRatio,
@@ -96,34 +126,17 @@ function resolveVideoMeta(
   return {
     width: meta?.width ?? fallbackSize.width ?? DEFAULT_VIDEO_META.width,
     height: meta?.height ?? fallbackSize.height ?? DEFAULT_VIDEO_META.height,
-    durationSec: meta?.duration_sec ?? payload.durationSec ?? DEFAULT_VIDEO_META.durationSec,
-  };
-}
-
-function buildFallbackResult(
-  payload: VideoGenerationFormValues,
-  buffer: Buffer,
-  contentType: string,
-  meta?: ModalVideoMeta
-): NonNullable<VideoGenerationResponse["result"]> {
-  const base64 = buffer.toString("base64");
-  const dataUrl = `data:${contentType};base64,${base64}`;
-  const resolvedMeta = resolveVideoMeta(payload, meta);
-
-  return {
-    videos: [
-      {
-        url: dataUrl,
-        ...resolvedMeta,
-      },
-    ],
+    durationSec:
+      meta?.duration_sec ??
+      payload.durationSec ??
+      DEFAULT_VIDEO_META.durationSec,
   };
 }
 
 function buildResultFromDataUrls(
   payload: VideoGenerationFormValues,
   dataUrls: string[],
-  meta?: ModalVideoMeta
+  meta?: VideoStorageMeta
 ): NonNullable<VideoGenerationResponse["result"]> {
   const resolvedMeta = resolveVideoMeta(payload, meta);
   return {
@@ -141,17 +154,14 @@ function resolveFileUrl(file: { url: string | null }) {
   return file.url;
 }
 
-export async function uploadGeneratedVideos(
+async function uploadGeneratedVideos(
   payload: VideoGenerationFormValues,
   requestId: string,
   dataUrls: string[],
-  meta?: ModalVideoMeta
-): Promise<{
-  status: "completed" | "failed";
-  result?: VideoGenerationResponse["result"];
-  errorMessage?: string;
-}> {
+  meta?: VideoStorageMeta
+): Promise<VideoStorageResult> {
   const client = getLeemageClient();
+  const { projectId } = getLeemageConfig();
 
   try {
     const uploads = await Promise.all(
@@ -160,7 +170,7 @@ export async function uploadGeneratedVideos(
         const extension = resolveVideoExtension(contentType);
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name, contentType);
-        return client.files.upload(projectIdEnv, file);
+        return client.files.upload(projectId, file);
       })
     );
 
@@ -183,43 +193,8 @@ export async function uploadGeneratedVideos(
   }
 }
 
-export async function resolveVideoGenerationResult(
-  payload: VideoGenerationFormValues,
-  requestId: string,
-): Promise<{
-  status: "completed" | "failed";
-  result?: VideoGenerationResponse["result"];
-  errorMessage?: string;
-}> {
-  const filePath = path.join(process.cwd(), "public", PLACEHOLDER_FILE);
-  const buffer = await readFile(filePath);
-  const contentType = "video/mp4";
-  const fallbackResult = buildFallbackResult(payload, buffer, contentType);
-
-  const client = getLeemageClient();
-
-  try {
-    const name = `${requestId}${path.extname(PLACEHOLDER_FILE)}`;
-    const file = buildUploadFile(buffer, name, contentType);
-    const uploaded = await client.files.upload(projectIdEnv, file);
-
-    return {
-      status: "completed",
-      result: {
-        videos: [
-          {
-            url: resolveFileUrl(uploaded),
-            ...resolveVideoMeta(payload),
-          },
-        ],
-      },
-    };
-  } catch (error) {
-    return {
-      status: "completed",
-      result: fallbackResult,
-      errorMessage:
-        error instanceof Error ? error.message : "저장에 실패했습니다.",
-    };
-  }
-}
+export const leemageVideoStorageAdapter: VideoStorageAdapter = {
+  name: "leemage",
+  checkAvailability: checkLeemageAvailability,
+  uploadVideos: uploadGeneratedVideos,
+};
