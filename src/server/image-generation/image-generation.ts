@@ -41,8 +41,8 @@ function buildInlineResult(
   };
 }
 
-function mapProviderError(adapter: ImageGenerationAdapter, error: unknown) {
-  if (adapter.mapError) {
+function mapProviderError(adapter: ImageGenerationAdapter | null, error: unknown) {
+  if (adapter?.mapError) {
     return adapter.mapError(error);
   }
   return error instanceof Error && error.message
@@ -59,8 +59,9 @@ export async function resolveImageGenerationResult(
   errorMessage?: string;
   skipDbSave?: boolean;
 }> {
+  let adapter: ImageGenerationAdapter | null = null;
   try {
-    const adapter = getAdapter(payload.model);
+    adapter = getAdapter(payload.model);
     const result = await adapter.generate(payload);
     const { provider, warningMessage } = resolveImageStorageProvider();
 
