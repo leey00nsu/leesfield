@@ -3,7 +3,6 @@ import { imageGenerationDefaults } from "@/features/image-generation/model/image
 const baseEnv = {
   LEEMAGE_API_KEY: process.env.LEEMAGE_API_KEY,
   LEEMAGE_PROJECT_ID: process.env.LEEMAGE_PROJECT_ID,
-  LEEMAGE_STORAGE_PROVIDER: process.env.LEEMAGE_STORAGE_PROVIDER,
   LEEMAGE_BASE_URL: process.env.LEEMAGE_BASE_URL,
 };
 
@@ -15,17 +14,23 @@ describe("resolveGenerationResult", () => {
     Object.assign(process.env, baseEnv);
   });
 
-  it("LEEMAGE 설정이 없으면 초기화 단계에서 오류가 발생한다", async () => {
+  it("LEEMAGE 설정이 없으면 호출 시 오류가 발생한다", async () => {
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "",
       LEEMAGE_PROJECT_ID: "",
-      LEEMAGE_STORAGE_PROVIDER: "",
     });
 
     vi.resetModules();
 
+    const { resolveGenerationResult } = await import(
+      "@/server/image-generation/storage/adapters/leemage-storage-adapter"
+    );
+
     await expect(
-      import("@/server/image-generation/leemage-storage")
+      resolveGenerationResult(
+        { ...imageGenerationDefaults, prompt: "test" },
+        "request-id"
+      )
     ).rejects.toThrow(/LEEMAGE 설정이 필요합니다/);
   });
 
@@ -42,11 +47,10 @@ describe("resolveGenerationResult", () => {
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "test-key",
       LEEMAGE_PROJECT_ID: "project-id",
-      LEEMAGE_STORAGE_PROVIDER: "provider",
     });
 
     const { resolveGenerationResult } = await import(
-      "@/server/image-generation/leemage-storage"
+      "@/server/image-generation/storage/adapters/leemage-storage-adapter"
     );
 
     const result = await resolveGenerationResult(

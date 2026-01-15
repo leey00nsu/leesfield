@@ -14,4 +14,5 @@ export type VideoGenerationAdapter = {
   generate: (
     payload: VideoGenerationFormValues,
   ) => Promise<VideoGenerationAdapterResult>;
+  mapError?: (error: unknown) => string;
 };

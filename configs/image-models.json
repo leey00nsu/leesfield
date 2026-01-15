@@ -9,7 +9,7 @@
       "provider": "hf_space",
       "pipeline": "diffusion",
       "model_id": "leey00nsu/Z-Image-Turbo",
-      "api": {
+      "provider_config": {
         "space_id": "leey00nsu/Z-Image-Turbo",
         "api_name": "/generate_image",
         "timeout_ms": 300000

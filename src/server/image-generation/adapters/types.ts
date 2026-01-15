@@ -8,4 +8,5 @@ export type ImageGenerationAdapter = {
   generate: (
     payload: ImageGenerationFormValues,
   ) => Promise<ImageGenerationAdapterResult>;
+  mapError?: (error: unknown) => string;
 };

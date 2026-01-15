@@ -131,7 +131,7 @@ export async function getVideoGeneration(id: string, ownerEmail: string) {
           );
           let dbErrorMessage: string | undefined;
 
-          if (latest.dbId) {
+          if (latest.dbId && !result.skipDbSave) {
             try {
               await saveVideoGenerationResult(
                 latest.dbId,

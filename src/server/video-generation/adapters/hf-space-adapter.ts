@@ -1,4 +1,5 @@
 import { Client, handle_file } from "@gradio/client";
+import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import {
   getVideoModelConfig,
@@ -12,6 +13,15 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
 const FILE_FETCH_TIMEOUT_MS = 60_000;
+
+const hfSpaceConfigSchema = z
+  .object({
+    space_id: z.string().min(1),
+    api_name: z.string().min(1),
+    timeout_ms: z.number().int().positive().optional(),
+    space_url: z.string().min(1).optional(),
+  })
+  .passthrough();
 
 type SpaceConfig = {
   spaceId: string;
@@ -38,7 +48,12 @@ function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConf
   if (model.provider !== "hf_space") {
     throw new Error("VIDEO_PROVIDER_NOT_SUPPORTED");
   }
-  const timeoutRaw = Number(model.api.timeout_ms ?? DEFAULT_TIMEOUT_MS);
+  const parsedConfig = hfSpaceConfigSchema.safeParse(model.provider_config);
+  if (!parsedConfig.success) {
+    throw new Error("HF_SPACE_CONFIG_INVALID");
+  }
+  const providerConfig = parsedConfig.data;
+  const timeoutRaw = Number(providerConfig.timeout_ms ?? DEFAULT_TIMEOUT_MS);
   const tokenValue =
     process.env.HF_TOKEN?.trim() ||
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
@@ -48,11 +63,11 @@ function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConf
   }
 
   return {
-    spaceId: model.api.space_id,
-    apiName: model.api.api_name,
+    spaceId: providerConfig.space_id,
+    apiName: providerConfig.api_name,
     token: tokenValue as `hf_${string}` | undefined,
     timeoutMs: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_TIMEOUT_MS,
-    spaceUrl: resolveSpaceUrl(model.api.space_id, model.api.space_url),
+    spaceUrl: resolveSpaceUrl(providerConfig.space_id, providerConfig.space_url),
   };
 }
 
@@ -248,6 +263,70 @@ async function fetchVideoDataUrl(
 }
 
 export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
+  mapError(error: unknown) {
+    if (!(error instanceof Error)) {
+      return "비디오 생성에 실패했습니다.";
+    }
+    const message = error.message || "";
+    const lower = message.toLowerCase();
+    if (lower.startsWith("hf_space_not_ready")) {
+      return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
+    }
+    if (lower === "hf_space_status_fetch_failed") {
+      return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
+    }
+    if (lower === "hf_space_init_image_unsupported") {
+      return "선택한 모델은 이미지 입력을 지원하지 않습니다.";
+    }
+    if (lower === "hf_space_image_not_base64") {
+      return "업로드한 이미지 형식이 올바르지 않습니다. 다른 이미지를 사용해주세요.";
+    }
+    if (lower === "hf_space_video_fetch_timeout") {
+      return "생성된 비디오 다운로드 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+    }
+    if (lower === "hf_space_request_timeout") {
+      return "비디오 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+    }
+    let code: string | null = null;
+    if (
+      lower.includes("quota") ||
+      lower.includes("exceed") ||
+      lower.includes("limit") ||
+      lower.includes("daily") ||
+      lower.includes("zero gpu") ||
+      lower.includes("zerogpu")
+    ) {
+      code = "HF_SPACE_QUOTA_EXCEEDED";
+    } else if (lower.includes("queue") || lower.includes("queued")) {
+      code = "HF_SPACE_QUEUE_FULL";
+    } else if (
+      lower.includes("too many requests") ||
+      lower.includes("rate limit") ||
+      lower.includes("429")
+    ) {
+      code = "HF_SPACE_RATE_LIMITED";
+    } else if (
+      lower.includes("sleep") ||
+      lower.includes("paused") ||
+      lower.includes("building") ||
+      lower.includes("loading")
+    ) {
+      code = "HF_SPACE_NOT_READY";
+    }
+
+    switch (code) {
+      case "HF_SPACE_QUOTA_EXCEEDED":
+        return "ZeroGPU 일일 쿼터를 초과했습니다. 내일 다시 시도하거나 다른 제공자를 사용해주세요.";
+      case "HF_SPACE_QUEUE_FULL":
+        return "현재 대기열이 가득합니다. 잠시 후 다시 시도해주세요.";
+      case "HF_SPACE_RATE_LIMITED":
+        return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+      case "HF_SPACE_NOT_READY":
+        return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
+      default:
+        return message || "비디오 생성에 실패했습니다.";
+    }
+  },
   async generate(payload: VideoGenerationFormValues) {
     const supportsInitImage =
       videoModelMeta[payload.model]?.supportsInitImage ?? false;

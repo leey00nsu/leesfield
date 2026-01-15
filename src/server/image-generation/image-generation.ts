@@ -3,7 +3,9 @@ import type { ImageGenerationResponse } from "@/features/image-generation/model/
 import { getImageModelConfig } from "@/features/image-generation/model/image-models";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
-import { uploadGeneratedImages } from "@/server/image-generation/leemage-storage";
+import { leemageStorageAdapter } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
+import type { ImageStorageAdapter } from "@/server/image-generation/storage/storage-adapter";
+import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 
 type ImageProvider = "hf_space";
 
@@ -19,57 +21,33 @@ function getAdapter(modelKey: ImageGenerationFormValues["model"]): ImageGenerati
   throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
-function mapProviderError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "이미지 생성에 실패했습니다.";
-  }
-  const message = error.message || "";
-  const lower = message.toLowerCase();
-  if (lower.startsWith("hf_space_not_ready")) {
-    return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
-  }
-  if (lower === "hf_space_status_fetch_failed") {
-    return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
-  }
-  let code: string | null = null;
-  if (
-    lower.includes("quota") ||
-    lower.includes("exceed") ||
-    lower.includes("limit") ||
-    lower.includes("daily") ||
-    lower.includes("zero gpu") ||
-    lower.includes("zerogpu")
-  ) {
-    code = "HF_SPACE_QUOTA_EXCEEDED";
-  } else if (lower.includes("queue") || lower.includes("queued")) {
-    code = "HF_SPACE_QUEUE_FULL";
-  } else if (
-    lower.includes("too many requests") ||
-    lower.includes("rate limit") ||
-    lower.includes("429")
-  ) {
-    code = "HF_SPACE_RATE_LIMITED";
-  } else if (
-    lower.includes("sleep") ||
-    lower.includes("paused") ||
-    lower.includes("building") ||
-    lower.includes("loading")
-  ) {
-    code = "HF_SPACE_NOT_READY";
-  }
+function getStorageAdapter(): ImageStorageAdapter {
+  const { provider } = resolveImageStorageProvider();
+  if (provider === "leemage") return leemageStorageAdapter;
+  throw new Error("IMAGE_STORAGE_PROVIDER_NOT_RESOLVED");
+}
 
-  switch (code) {
-    case "HF_SPACE_QUOTA_EXCEEDED":
-      return "ZeroGPU 일일 쿼터를 초과했습니다. 내일 다시 시도하거나 다른 제공자를 사용해주세요.";
-    case "HF_SPACE_QUEUE_FULL":
-      return "현재 대기열이 가득합니다. 잠시 후 다시 시도해주세요.";
-    case "HF_SPACE_RATE_LIMITED":
-      return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
-    case "HF_SPACE_NOT_READY":
-      return "HF Space가 준비 중입니다. 잠시 후 다시 시도해주세요.";
-    default:
-      return message || "이미지 생성에 실패했습니다.";
+function buildInlineResult(
+  payload: ImageGenerationFormValues,
+  dataUrls: string[]
+): NonNullable<ImageGenerationResponse["result"]> {
+  const { width, height } = payload;
+  return {
+    images: dataUrls.map((url) => ({
+      url,
+      width,
+      height,
+    })),
+  };
+}
+
+function mapProviderError(adapter: ImageGenerationAdapter | null, error: unknown) {
+  if (adapter?.mapError) {
+    return adapter.mapError(error);
   }
+  return error instanceof Error && error.message
+    ? error.message
+    : "이미지 생성에 실패했습니다.";
 }
 
 export async function resolveImageGenerationResult(
@@ -79,15 +57,33 @@ export async function resolveImageGenerationResult(
   status: "completed" | "failed";
   result?: ImageGenerationResponse["result"];
   errorMessage?: string;
+  skipDbSave?: boolean;
 }> {
+  let adapter: ImageGenerationAdapter | null = null;
   try {
-    const adapter = getAdapter(payload.model);
+    adapter = getAdapter(payload.model);
     const result = await adapter.generate(payload);
-    return uploadGeneratedImages(payload, requestId, result.images);
+    const { provider, warningMessage } = resolveImageStorageProvider();
+
+    if (!provider) {
+      const message =
+        warningMessage ??
+        "이미지 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
+      console.warn(`[image-storage] ${message}`, { requestId });
+      return {
+        status: "completed",
+        result: buildInlineResult(payload, result.images),
+        errorMessage: message,
+        skipDbSave: true,
+      };
+    }
+
+    const storageAdapter = getStorageAdapter();
+    return storageAdapter.uploadImages(payload, requestId, result.images);
   } catch (error) {
     return {
       status: "failed",
-      errorMessage: mapProviderError(error),
+      errorMessage: mapProviderError(adapter, error),
     };
   }
 }
