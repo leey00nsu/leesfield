@@ -43,12 +43,15 @@ if (missing.length > 0) {
 
 if (!missing.includes("ADMIN_PASSWORD_HASH")) {
   const decoded = Buffer.from(
-    process.env.ADMIN_PASSWORD_HASH ?? "",
+    process.env.ADMIN_PASSWORD_HASH,
     "base64url"
   ).toString("utf8");
   if (!decoded.startsWith("$2")) {
     console.error(
       "[env] ADMIN_PASSWORD_HASH는 base64url 인코딩된 bcrypt 해시여야 합니다.",
     );
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
   }
 }
