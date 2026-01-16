@@ -54,6 +54,7 @@
       "default_width": 1024,
       "default_height": 1024,
       "default_steps": 9,
+      "concurrent_limit": 1,
       "max_input_images": 0
     }
   ]
