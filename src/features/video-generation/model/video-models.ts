@@ -124,7 +124,9 @@ export function getVideoModelConfig(model: VideoGenerationModel): VideoModel {
 
 export function getVideoModelConcurrentLimit(model: VideoGenerationModel) {
   const limit = getVideoModelConfig(model).concurrent_limit;
-  return Number.isFinite(limit) && limit > 0 ? limit : 1;
+  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
+    ? limit
+    : 1;
 }
 
 export function getVideoParamConfig(

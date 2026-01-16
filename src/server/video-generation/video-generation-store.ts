@@ -47,6 +47,10 @@ const PROGRESS_STAGES: Array<{
 
 const EXPIRY_MS = 10 * 60 * 1000;
 const FINALIZE_DELAY = 2600;
+const TERMINAL_STATUSES: Array<VideoGenerationRecord["status"]> = [
+  "completed",
+  "failed",
+];
 
 function updateRecord(id: string, patch: Partial<VideoGenerationRecord>) {
   const current = store.get(id);
@@ -95,6 +99,31 @@ export async function createMockVideoGeneration(
       store.delete(id);
       throw error;
     });
+}
+
+export function findActiveVideoGenerations(
+  ownerEmail: string,
+  model: VideoGenerationFormValues["model"],
+) {
+  let count = 0;
+  let latest: VideoGenerationRecord | null = null;
+  const now = Date.now();
+
+  for (const record of store.values()) {
+    if (record.ownerEmail !== ownerEmail) continue;
+    if (record.payload.model !== model) continue;
+    if (now - record.createdAt > EXPIRY_MS) {
+      store.delete(record.id);
+      continue;
+    }
+    if (TERMINAL_STATUSES.includes(record.status)) continue;
+    count += 1;
+    if (!latest || record.updatedAt > latest.updatedAt) {
+      latest = record;
+    }
+  }
+
+  return { count, latest };
 }
 
 export async function getVideoGeneration(id: string, ownerEmail: string) {

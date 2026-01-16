@@ -39,3 +39,13 @@ export function buildInvalidRequestResponse(errors: unknown) {
 export function buildErrorResponse(message: string, status = 500) {
   return jsonWithNoStore({ message }, { status });
 }
+
+export function buildConcurrentLimitResponse(
+  requestId?: string,
+  status = 429,
+) {
+  return jsonWithNoStore(
+    { message: "IN_PROGRESS_ALREADY", requestId },
+    { status },
+  );
+}

@@ -47,6 +47,10 @@ const PROGRESS_STAGES: Array<{
 
 const EXPIRY_MS = 10 * 60 * 1000;
 const FINALIZE_DELAY = 1200;
+const TERMINAL_STATUSES: Array<ImageGenerationRecord["status"]> = [
+  "completed",
+  "failed",
+];
 
 function updateRecord(id: string, patch: Partial<ImageGenerationRecord>) {
   const current = store.get(id);
@@ -95,6 +99,31 @@ export function createMockGeneration(
       store.delete(id);
       throw error;
     });
+}
+
+export function findActiveImageGenerations(
+  ownerEmail: string,
+  model: ImageGenerationFormValues["model"],
+) {
+  let count = 0;
+  let latest: ImageGenerationRecord | null = null;
+  const now = Date.now();
+
+  for (const record of store.values()) {
+    if (record.ownerEmail !== ownerEmail) continue;
+    if (record.payload.model !== model) continue;
+    if (now - record.createdAt > EXPIRY_MS) {
+      store.delete(record.id);
+      continue;
+    }
+    if (TERMINAL_STATUSES.includes(record.status)) continue;
+    count += 1;
+    if (!latest || record.updatedAt > latest.updatedAt) {
+      latest = record;
+    }
+  }
+
+  return { count, latest };
 }
 
 export async function getGeneration(id: string, ownerEmail: string) {

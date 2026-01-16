@@ -118,7 +118,9 @@ export function getImageModelConfig(model: ImageGenerationModel): ImageModel {
 
 export function getImageModelConcurrentLimit(model: ImageGenerationModel) {
   const limit = getImageModelConfig(model).concurrent_limit;
-  return Number.isFinite(limit) && limit > 0 ? limit : 1;
+  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
+    ? limit
+    : 1;
 }
 
 export function getImageParamConfig(
