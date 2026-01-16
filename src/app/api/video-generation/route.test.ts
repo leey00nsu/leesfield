@@ -1,8 +1,8 @@
-import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
-import { POST } from "@/app/api/image-generation/route";
+import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
+import { POST } from "@/app/api/video-generation/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
-const mockCreateMockGeneration = vi.hoisted(() => vi.fn());
+const mockCreateMockVideoGeneration = vi.hoisted(() => vi.fn());
 const mockFindActiveGenerations = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -10,16 +10,16 @@ vi.mock("@/server/auth/session", () => ({
   getSession: mockGetSession,
 }));
 
-vi.mock("@/server/image-generation/image-generation-store", () => ({
-  createMockGeneration: mockCreateMockGeneration,
-  findActiveImageGenerations: mockFindActiveGenerations,
+vi.mock("@/server/video-generation/video-generation-store", () => ({
+  createMockVideoGeneration: mockCreateMockVideoGeneration,
+  findActiveVideoGenerations: mockFindActiveGenerations,
 }));
 
-describe("POST /api/image-generation", () => {
+describe("POST /api/video-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
-    mockCreateMockGeneration.mockReset();
+    mockCreateMockVideoGeneration.mockReset();
     mockFindActiveGenerations.mockReset();
     mockFindActiveGenerations.mockReturnValue({ count: 0, latest: null });
   });
@@ -31,7 +31,7 @@ describe("POST /api/image-generation", () => {
   it("로그인하지 않은 경우 401을 반환한다", async () => {
     mockGetSession.mockResolvedValue({ isLoggedIn: false });
 
-    const request = new Request("http://localhost/api/image-generation", {
+    const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -50,7 +50,7 @@ describe("POST /api/image-generation", () => {
       adminEmail: "admin@example.com",
     });
 
-    const request = new Request("http://localhost/api/image-generation", {
+    const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: "" }),
@@ -68,18 +68,19 @@ describe("POST /api/image-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockGeneration.mockResolvedValue({
+    mockCreateMockVideoGeneration.mockResolvedValue({
       id: "request-id",
       status: "pending",
       progress: 0,
     });
 
-    const request = new Request("http://localhost/api/image-generation", {
+    const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...imageGenerationDefaults,
+        ...videoGenerationDefaults,
         prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
       }),
     });
 
@@ -102,12 +103,13 @@ describe("POST /api/image-generation", () => {
       latest: { id: "existing-request" },
     });
 
-    const request = new Request("http://localhost/api/image-generation", {
+    const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...imageGenerationDefaults,
+        ...videoGenerationDefaults,
         prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
       }),
     });
 
@@ -117,7 +119,7 @@ describe("POST /api/image-generation", () => {
     expect(response.status).toBe(429);
     expect(payload.message).toBe("IN_PROGRESS_ALREADY");
     expect(payload.requestId).toBe("existing-request");
-    expect(mockCreateMockGeneration).not.toHaveBeenCalled();
+    expect(mockCreateMockVideoGeneration).not.toHaveBeenCalled();
   });
 
   it("저장 실패 시 500을 반환한다", async () => {
@@ -125,14 +127,15 @@ describe("POST /api/image-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockGeneration.mockRejectedValue(new Error("db fail"));
+    mockCreateMockVideoGeneration.mockRejectedValue(new Error("db fail"));
 
-    const request = new Request("http://localhost/api/image-generation", {
+    const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...imageGenerationDefaults,
+        ...videoGenerationDefaults,
         prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
       }),
     });
 
@@ -140,6 +143,6 @@ describe("POST /api/image-generation", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(payload.message).toBe("DB_SAVE_FAILED");
+    expect(payload.message).toBe("INTERNAL_SERVER_ERROR");
   });
 });
