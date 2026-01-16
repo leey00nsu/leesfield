@@ -1,10 +1,7 @@
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import { getImageModelConcurrentLimit } from "@/features/image-generation/model/image-models";
 import { getSession } from "@/server/auth/session";
-import {
-  createMockGeneration,
-  findActiveImageGenerations,
-} from "@/server/image-generation/image-generation-store";
+import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
 import {
   buildConcurrentLimitResponse,
   buildErrorResponse,
@@ -31,16 +28,14 @@ export async function POST(request: Request) {
 
   try {
     const limit = getImageModelConcurrentLimit(parsed.data.model);
-    if (limit > 0) {
-      const active = findActiveImageGenerations(
-        session.adminEmail,
-        parsed.data.model,
-      );
-      if (active.count >= limit) {
-        return buildConcurrentLimitResponse(active.latest?.id);
-      }
+    const { record, latest } = await createMockGenerationWithLimit(
+      parsed.data,
+      session.adminEmail,
+      limit,
+    );
+    if (!record) {
+      return buildConcurrentLimitResponse(latest?.id);
     }
-    const record = await createMockGeneration(parsed.data, session.adminEmail);
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {

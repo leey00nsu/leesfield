@@ -2,8 +2,7 @@ import { imageGenerationDefaults } from "@/features/image-generation/model/image
 import { POST } from "@/app/api/image-generation/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
-const mockCreateMockGeneration = vi.hoisted(() => vi.fn());
-const mockFindActiveGenerations = vi.hoisted(() => vi.fn());
+const mockCreateWithLimit = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@/server/auth/session", () => ({
@@ -11,17 +10,14 @@ vi.mock("@/server/auth/session", () => ({
 }));
 
 vi.mock("@/server/image-generation/image-generation-store", () => ({
-  createMockGeneration: mockCreateMockGeneration,
-  findActiveImageGenerations: mockFindActiveGenerations,
+  createMockGenerationWithLimit: mockCreateWithLimit,
 }));
 
 describe("POST /api/image-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
-    mockCreateMockGeneration.mockReset();
-    mockFindActiveGenerations.mockReset();
-    mockFindActiveGenerations.mockReturnValue({ count: 0, latest: null });
+    mockCreateWithLimit.mockReset();
   });
 
   afterEach(() => {
@@ -68,10 +64,9 @@ describe("POST /api/image-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockGeneration.mockResolvedValue({
-      id: "request-id",
-      status: "pending",
-      progress: 0,
+    mockCreateWithLimit.mockResolvedValue({
+      record: { id: "request-id", status: "pending", progress: 0 },
+      latest: null,
     });
 
     const request = new Request("http://localhost/api/image-generation", {
@@ -97,8 +92,8 @@ describe("POST /api/image-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockFindActiveGenerations.mockReturnValue({
-      count: 1,
+    mockCreateWithLimit.mockResolvedValue({
+      record: null,
       latest: { id: "existing-request" },
     });
 
@@ -117,7 +112,7 @@ describe("POST /api/image-generation", () => {
     expect(response.status).toBe(429);
     expect(payload.message).toBe("IN_PROGRESS_ALREADY");
     expect(payload.requestId).toBe("existing-request");
-    expect(mockCreateMockGeneration).not.toHaveBeenCalled();
+    expect(mockCreateWithLimit).toHaveBeenCalled();
   });
 
   it("저장 실패 시 500을 반환한다", async () => {
@@ -125,7 +120,7 @@ describe("POST /api/image-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockGeneration.mockRejectedValue(new Error("db fail"));
+    mockCreateWithLimit.mockRejectedValue(new Error("db fail"));
 
     const request = new Request("http://localhost/api/image-generation", {
       method: "POST",

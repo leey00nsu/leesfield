@@ -51,6 +51,32 @@ const TERMINAL_STATUSES: Array<ImageGenerationRecord["status"]> = [
   "completed",
   "failed",
 ];
+const reservationLocks = new Map<string, Promise<void>>();
+
+async function withReservationLock<T>(key: string, task: () => Promise<T>) {
+  const previous = reservationLocks.get(key) ?? Promise.resolve();
+  let release = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  reservationLocks.set(key, previous.then(() => current));
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (reservationLocks.get(key) === current) {
+      reservationLocks.delete(key);
+    }
+  }
+}
+
+function buildReservationKey(
+  ownerEmail: string,
+  model: ImageGenerationFormValues["model"],
+) {
+  return `${ownerEmail}:${model}`;
+}
 
 function updateRecord(id: string, patch: Partial<ImageGenerationRecord>) {
   const current = store.get(id);
@@ -124,6 +150,29 @@ export function findActiveImageGenerations(
   }
 
   return { count, latest };
+}
+
+export async function createMockGenerationWithLimit(
+  payload: ImageGenerationFormValues,
+  ownerEmail: string,
+  limit: number,
+) {
+  if (!Number.isFinite(limit) || limit <= 0) {
+    const record = await createMockGeneration(payload, ownerEmail);
+    return { record, latest: null };
+  }
+
+  return withReservationLock(
+    buildReservationKey(ownerEmail, payload.model),
+    async () => {
+      const active = findActiveImageGenerations(ownerEmail, payload.model);
+      if (active.count >= limit) {
+        return { record: null, latest: active.latest };
+      }
+      const record = await createMockGeneration(payload, ownerEmail);
+      return { record, latest: null };
+    },
+  );
 }
 
 export async function getGeneration(id: string, ownerEmail: string) {

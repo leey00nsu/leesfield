@@ -1,9 +1,6 @@
 import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
 import { getVideoModelConcurrentLimit } from "@/features/video-generation/model/video-models";
-import {
-  createMockVideoGeneration,
-  findActiveVideoGenerations,
-} from "@/server/video-generation/video-generation-store";
+import { createMockVideoGenerationWithLimit } from "@/server/video-generation/video-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
   buildConcurrentLimitResponse,
@@ -70,19 +67,14 @@ export async function POST(request: Request) {
 
   try {
     const limit = getVideoModelConcurrentLimit(parsed.data.model);
-    if (limit > 0) {
-      const active = findActiveVideoGenerations(
-        auth.ownerEmail,
-        parsed.data.model,
-      );
-      if (active.count >= limit) {
-        return buildConcurrentLimitResponse(active.latest?.id);
-      }
-    }
-    const record = await createMockVideoGeneration(
+    const { record, latest } = await createMockVideoGenerationWithLimit(
       parsed.data,
       auth.ownerEmail,
+      limit,
     );
+    if (!record) {
+      return buildConcurrentLimitResponse(latest?.id);
+    }
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {

@@ -51,6 +51,32 @@ const TERMINAL_STATUSES: Array<VideoGenerationRecord["status"]> = [
   "completed",
   "failed",
 ];
+const reservationLocks = new Map<string, Promise<void>>();
+
+async function withReservationLock<T>(key: string, task: () => Promise<T>) {
+  const previous = reservationLocks.get(key) ?? Promise.resolve();
+  let release = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  reservationLocks.set(key, previous.then(() => current));
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (reservationLocks.get(key) === current) {
+      reservationLocks.delete(key);
+    }
+  }
+}
+
+function buildReservationKey(
+  ownerEmail: string,
+  model: VideoGenerationFormValues["model"],
+) {
+  return `${ownerEmail}:${model}`;
+}
 
 function updateRecord(id: string, patch: Partial<VideoGenerationRecord>) {
   const current = store.get(id);
@@ -124,6 +150,29 @@ export function findActiveVideoGenerations(
   }
 
   return { count, latest };
+}
+
+export async function createMockVideoGenerationWithLimit(
+  payload: VideoGenerationFormValues,
+  ownerEmail: string,
+  limit: number,
+) {
+  if (!Number.isFinite(limit) || limit <= 0) {
+    const record = await createMockVideoGeneration(payload, ownerEmail);
+    return { record, latest: null };
+  }
+
+  return withReservationLock(
+    buildReservationKey(ownerEmail, payload.model),
+    async () => {
+      const active = findActiveVideoGenerations(ownerEmail, payload.model);
+      if (active.count >= limit) {
+        return { record: null, latest: active.latest };
+      }
+      const record = await createMockVideoGeneration(payload, ownerEmail);
+      return { record, latest: null };
+    },
+  );
 }
 
 export async function getVideoGeneration(id: string, ownerEmail: string) {

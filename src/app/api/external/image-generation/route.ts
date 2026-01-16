@@ -1,6 +1,6 @@
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import { getImageModelConcurrentLimit } from "@/features/image-generation/model/image-models";
-import { createMockGeneration } from "@/server/image-generation/image-generation-store";
+import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
   buildConcurrentLimitResponse,
@@ -14,7 +14,6 @@ import {
   getNumber,
   getString,
 } from "@/server/http/form-data-utils";
-import { findActiveImageGenerations } from "@/server/image-generation/image-generation-store";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -65,16 +64,14 @@ export async function POST(request: Request) {
 
   try {
     const limit = getImageModelConcurrentLimit(parsed.data.model);
-    if (limit > 0) {
-      const active = findActiveImageGenerations(
-        auth.ownerEmail,
-        parsed.data.model,
-      );
-      if (active.count >= limit) {
-        return buildConcurrentLimitResponse(active.latest?.id);
-      }
+    const { record, latest } = await createMockGenerationWithLimit(
+      parsed.data,
+      auth.ownerEmail,
+      limit,
+    );
+    if (!record) {
+      return buildConcurrentLimitResponse(latest?.id);
     }
-    const record = await createMockGeneration(parsed.data, auth.ownerEmail);
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {

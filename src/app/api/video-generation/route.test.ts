@@ -2,8 +2,7 @@ import { videoGenerationDefaults } from "@/features/video-generation/model/video
 import { POST } from "@/app/api/video-generation/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
-const mockCreateMockVideoGeneration = vi.hoisted(() => vi.fn());
-const mockFindActiveGenerations = vi.hoisted(() => vi.fn());
+const mockCreateWithLimit = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@/server/auth/session", () => ({
@@ -11,17 +10,14 @@ vi.mock("@/server/auth/session", () => ({
 }));
 
 vi.mock("@/server/video-generation/video-generation-store", () => ({
-  createMockVideoGeneration: mockCreateMockVideoGeneration,
-  findActiveVideoGenerations: mockFindActiveGenerations,
+  createMockVideoGenerationWithLimit: mockCreateWithLimit,
 }));
 
 describe("POST /api/video-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
-    mockCreateMockVideoGeneration.mockReset();
-    mockFindActiveGenerations.mockReset();
-    mockFindActiveGenerations.mockReturnValue({ count: 0, latest: null });
+    mockCreateWithLimit.mockReset();
   });
 
   afterEach(() => {
@@ -68,10 +64,9 @@ describe("POST /api/video-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockVideoGeneration.mockResolvedValue({
-      id: "request-id",
-      status: "pending",
-      progress: 0,
+    mockCreateWithLimit.mockResolvedValue({
+      record: { id: "request-id", status: "pending", progress: 0 },
+      latest: null,
     });
 
     const request = new Request("http://localhost/api/video-generation", {
@@ -98,8 +93,8 @@ describe("POST /api/video-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockFindActiveGenerations.mockReturnValue({
-      count: 1,
+    mockCreateWithLimit.mockResolvedValue({
+      record: null,
       latest: { id: "existing-request" },
     });
 
@@ -119,7 +114,7 @@ describe("POST /api/video-generation", () => {
     expect(response.status).toBe(429);
     expect(payload.message).toBe("IN_PROGRESS_ALREADY");
     expect(payload.requestId).toBe("existing-request");
-    expect(mockCreateMockVideoGeneration).not.toHaveBeenCalled();
+    expect(mockCreateWithLimit).toHaveBeenCalled();
   });
 
   it("저장 실패 시 500을 반환한다", async () => {
@@ -127,7 +122,7 @@ describe("POST /api/video-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
-    mockCreateMockVideoGeneration.mockRejectedValue(new Error("db fail"));
+    mockCreateWithLimit.mockRejectedValue(new Error("db fail"));
 
     const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
