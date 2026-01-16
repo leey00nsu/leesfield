@@ -48,6 +48,7 @@ const imageModelSchema = z.object({
   default_width: z.number().int().positive(),
   default_height: z.number().int().positive(),
   default_steps: z.number().int().positive(),
+  concurrent_limit: z.number().int().positive().optional(),
   max_input_images: z.number().int().nonnegative(),
 });
 
@@ -113,6 +114,13 @@ export function getImageModelConfig(model: ImageGenerationModel): ImageModel {
     throw new Error(`IMAGE_MODEL_NOT_FOUND:${model}`);
   }
   return resolved;
+}
+
+export function getImageModelConcurrentLimit(model: ImageGenerationModel) {
+  const limit = getImageModelConfig(model).concurrent_limit;
+  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
+    ? limit
+    : 1;
 }
 
 export function getImageParamConfig(

@@ -54,6 +54,7 @@ const videoModelSchema = z.object({
   default_fps: z.number().int().positive(),
   default_steps: z.number().int().positive(),
   default_guidance_scale: z.number().nonnegative(),
+  concurrent_limit: z.number().int().positive().optional(),
 });
 
 const videoModelCatalogSchema = z.object({
@@ -119,6 +120,13 @@ export function getVideoModelConfig(model: VideoGenerationModel): VideoModel {
     throw new Error(`VIDEO_MODEL_NOT_FOUND:${model}`);
   }
   return resolved;
+}
+
+export function getVideoModelConcurrentLimit(model: VideoGenerationModel) {
+  const limit = getVideoModelConfig(model).concurrent_limit;
+  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
+    ? limit
+    : 1;
 }
 
 export function getVideoParamConfig(

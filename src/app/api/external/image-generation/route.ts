@@ -1,7 +1,9 @@
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
-import { createMockGeneration } from "@/server/image-generation/image-generation-store";
+import { getImageModelConcurrentLimit } from "@/features/image-generation/model/image-models";
+import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
+  buildConcurrentLimitResponse,
   buildErrorResponse,
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
@@ -61,7 +63,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const record = await createMockGeneration(parsed.data, auth.ownerEmail);
+    const limit = getImageModelConcurrentLimit(parsed.data.model);
+    const { record, latest } = await createMockGenerationWithLimit(
+      parsed.data,
+      auth.ownerEmail,
+      limit,
+    );
+    if (!record) {
+      return buildConcurrentLimitResponse(latest?.id);
+    }
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {

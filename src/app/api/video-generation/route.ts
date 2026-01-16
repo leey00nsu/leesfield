@@ -1,7 +1,9 @@
 import { getSession } from "@/server/auth/session";
 import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
-import { createMockVideoGeneration } from "@/server/video-generation/video-generation-store";
+import { getVideoModelConcurrentLimit } from "@/features/video-generation/model/video-models";
+import { createMockVideoGenerationWithLimit } from "@/server/video-generation/video-generation-store";
 import {
+  buildConcurrentLimitResponse,
   buildErrorResponse,
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
@@ -25,10 +27,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const record = await createMockVideoGeneration(
+    const limit = getVideoModelConcurrentLimit(parsed.data.model);
+    const { record, latest } = await createMockVideoGenerationWithLimit(
       parsed.data,
       session.adminEmail,
+      limit,
     );
+    if (!record) {
+      return buildConcurrentLimitResponse(latest?.id);
+    }
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {
