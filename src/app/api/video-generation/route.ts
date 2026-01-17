@@ -8,6 +8,7 @@ import {
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
 } from "@/server/http/response";
+import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    startGenerationWorker();
     const limit = getVideoModelConcurrentLimit(parsed.data.model);
     const { record, latest } = await createMockVideoGenerationWithLimit(
       parsed.data,
