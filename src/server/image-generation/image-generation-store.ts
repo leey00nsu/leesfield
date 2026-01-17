@@ -3,54 +3,25 @@ import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
-import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
+import { prisma } from "@/server/db/prisma";
 import {
   createImageGenerationRecord,
-  saveImageGenerationResult,
+  getImageGenerationByRequestId,
 } from "@/server/image-generation/image-generation-repository";
 
 export type ImageGenerationRecord = {
   id: string;
-  dbId?: string;
-  ownerEmail?: string;
-  payload: ImageGenerationFormValues;
   status: ImageGenerationStatus;
   progress: number;
-  finalizing?: boolean;
-  createdAt: number;
-  updatedAt: number;
-  errorMessage?: string;
   result?: ImageGenerationResponse["result"];
+  errorMessage?: string;
 };
 
-type Store = Map<string, ImageGenerationRecord>;
-
-declare global {
-  var __imageGenerationStore: Store | undefined;
-}
-
-const store: Store = globalThis.__imageGenerationStore ?? new Map();
-
-globalThis.__imageGenerationStore = store;
-
-const PROGRESS_STAGES: Array<{
-  at: number;
-  status: ImageGenerationStatus;
-  progress: number;
-}> = [
-  { at: 0, status: "pending", progress: 0 },
-  { at: 200, status: "processing", progress: 12 },
-  { at: 450, status: "processing", progress: 42 },
-  { at: 750, status: "processing", progress: 74 },
-  { at: 1000, status: "processing", progress: 92 },
+const ACTIVE_STATUSES: ImageGenerationStatus[] = [
+  "pending",
+  "processing",
 ];
-
 const EXPIRY_MS = 10 * 60 * 1000;
-const FINALIZE_DELAY = 1200;
-const TERMINAL_STATUSES: Array<ImageGenerationRecord["status"]> = [
-  "completed",
-  "failed",
-];
 const reservationLocks = new Map<string, Promise<void>>();
 
 async function withReservationLock<T>(key: string, task: () => Promise<T>) {
@@ -78,78 +49,63 @@ function buildReservationKey(
   return `${ownerEmail}:${model}`;
 }
 
-function updateRecord(id: string, patch: Partial<ImageGenerationRecord>) {
-  const current = store.get(id);
-  if (!current) return;
-  store.set(id, {
-    ...current,
-    ...patch,
-    updatedAt: Date.now(),
-  });
-}
+function mapRecord(
+  record: Awaited<ReturnType<typeof getImageGenerationByRequestId>>,
+): ImageGenerationRecord | null {
+  if (!record) return null;
+  const images = record.images ?? [];
+  const result = images.length
+    ? {
+        images: images.map((image) => ({
+          url: image.url,
+          width: image.width ?? undefined,
+          height: image.height ?? undefined,
+        })),
+      }
+    : undefined;
 
-function resolveProgressStage(elapsedMs: number) {
-  let stage = PROGRESS_STAGES[0];
-  for (const candidate of PROGRESS_STAGES) {
-    if (elapsedMs >= candidate.at) {
-      stage = candidate;
-    }
-  }
-  return stage;
-}
-
-export function createMockGeneration(
-  payload: ImageGenerationFormValues,
-  ownerEmail: string,
-): Promise<ImageGenerationRecord> {
-  const id = crypto.randomUUID();
-  const now = Date.now();
-  const record: ImageGenerationRecord = {
-    id,
-    ownerEmail,
-    payload,
-    status: "pending",
-    progress: 0,
-    createdAt: now,
-    updatedAt: now,
+  return {
+    id: record.requestId,
+    status: record.status,
+    progress: record.progress,
+    result,
+    errorMessage: record.errorMessage ?? undefined,
   };
-
-  store.set(id, record);
-
-  return createImageGenerationRecord(id, payload, ownerEmail)
-    .then((dbRecord) => {
-      updateRecord(id, { dbId: dbRecord.id });
-      return store.get(id) ?? record;
-    })
-    .catch((error) => {
-      store.delete(id);
-      throw error;
-    });
 }
 
-export function findActiveImageGenerations(
+export async function findActiveImageGenerations(
   ownerEmail: string,
   model: ImageGenerationFormValues["model"],
 ) {
-  let count = 0;
-  let latest: ImageGenerationRecord | null = null;
-  const now = Date.now();
+  const cutoff = new Date(Date.now() - EXPIRY_MS);
+  const where = {
+    ownerEmail,
+    status: { in: ACTIVE_STATUSES },
+    updatedAt: { gt: cutoff },
+    requestParams: {
+      path: ["model"],
+      equals: model,
+    },
+  };
 
-  for (const record of store.values()) {
-    if (record.ownerEmail !== ownerEmail) continue;
-    if (record.payload.model !== model) continue;
-    if (now - record.createdAt > EXPIRY_MS) {
-      store.delete(record.id);
-      continue;
-    }
-    if (TERMINAL_STATUSES.includes(record.status)) continue;
-    count += 1;
-    if (!latest || record.updatedAt > latest.updatedAt) {
-      latest = record;
-    }
-  }
+  const [count, latest] = await prisma.$transaction([
+    prisma.imageGeneration.count({ where }),
+    prisma.imageGeneration.findFirst({
+      where,
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
 
-  return { count, latest };
+  return {
+    count,
+    latest: latest
+      ? ({
+          id: latest.requestId,
+          status: latest.status,
+          progress: latest.progress,
+        } satisfies ImageGenerationRecord)
+      : null,
+  };
 }
 
 export async function createMockGenerationWithLimit(
@@ -157,98 +113,49 @@ export async function createMockGenerationWithLimit(
   ownerEmail: string,
   limit: number,
 ) {
+  const requestId = crypto.randomUUID();
+
   if (!Number.isFinite(limit) || limit <= 0) {
-    const record = await createMockGeneration(payload, ownerEmail);
-    return { record, latest: null };
+    const record = await createImageGenerationRecord(
+      requestId,
+      payload,
+      ownerEmail,
+    );
+    return {
+      record: {
+        id: record.requestId,
+        status: record.status,
+        progress: record.progress,
+      } satisfies ImageGenerationRecord,
+      latest: null,
+    };
   }
 
   return withReservationLock(
     buildReservationKey(ownerEmail, payload.model),
     async () => {
-      const active = findActiveImageGenerations(ownerEmail, payload.model);
+      const active = await findActiveImageGenerations(ownerEmail, payload.model);
       if (active.count >= limit) {
         return { record: null, latest: active.latest };
       }
-      const record = await createMockGeneration(payload, ownerEmail);
-      return { record, latest: null };
+      const record = await createImageGenerationRecord(
+        requestId,
+        payload,
+        ownerEmail,
+      );
+      return {
+        record: {
+          id: record.requestId,
+          status: record.status,
+          progress: record.progress,
+        } satisfies ImageGenerationRecord,
+        latest: null,
+      };
     },
   );
 }
 
 export async function getGeneration(id: string, ownerEmail: string) {
-  const record = store.get(id);
-  if (!record || record.ownerEmail !== ownerEmail) {
-    return null;
-  }
-
-  const elapsed = Date.now() - record.createdAt;
-  if (elapsed > EXPIRY_MS) {
-    store.delete(id);
-    return null;
-  }
-
-  if (record.status !== "completed" && record.status !== "failed") {
-    const stage = resolveProgressStage(elapsed);
-    if (record.progress !== stage.progress || record.status !== stage.status) {
-      updateRecord(id, {
-        status: stage.status,
-        progress: stage.progress,
-      });
-    }
-
-    const nextRecord = store.get(id) ?? record;
-    if (elapsed >= FINALIZE_DELAY && !nextRecord.finalizing) {
-      updateRecord(id, { finalizing: true });
-      const latest = store.get(id) ?? nextRecord;
-
-      void (async () => {
-        try {
-          const result = await resolveImageGenerationResult(
-            latest.payload,
-            latest.id
-          );
-          let dbErrorMessage: string | undefined;
-
-          if (latest.dbId && !result.skipDbSave) {
-            try {
-              await saveImageGenerationResult(
-                latest.dbId,
-                result.status,
-                result.status === "completed" ? 100 : latest.progress,
-                result.result,
-                result.errorMessage,
-              );
-            } catch (error) {
-              dbErrorMessage =
-                error instanceof Error
-                  ? error.message
-                  : "DB 저장에 실패했습니다.";
-              console.error("[image-generation] db save failed", error);
-            }
-          }
-
-          const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
-            .filter(Boolean)
-            .join(" / ");
-
-          updateRecord(id, {
-            status: result.status,
-            progress: result.status === "completed" ? 100 : latest.progress,
-            result: result.result,
-            errorMessage: mergedErrorMessage || undefined,
-            finalizing: false,
-          });
-        } catch (error) {
-          updateRecord(id, {
-            status: "failed",
-            errorMessage:
-              error instanceof Error ? error.message : "생성에 실패했습니다.",
-            finalizing: false,
-          });
-        }
-      })();
-    }
-  }
-
-  return store.get(id) ?? record;
+  const record = await getImageGenerationByRequestId(id, ownerEmail);
+  return mapRecord(record);
 }

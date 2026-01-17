@@ -3,54 +3,22 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
-import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
+import { prisma } from "@/server/db/prisma";
 import {
   createVideoGenerationRecord,
-  saveVideoGenerationResult,
+  getVideoGenerationByRequestId,
 } from "@/server/video-generation/video-generation-repository";
 
 export type VideoGenerationRecord = {
   id: string;
-  dbId?: string;
-  ownerEmail?: string;
-  payload: VideoGenerationFormValues;
   status: VideoGenerationStatus;
   progress: number;
-  finalizing?: boolean;
-  createdAt: number;
-  updatedAt: number;
-  errorMessage?: string;
   result?: VideoGenerationResponse["result"];
+  errorMessage?: string;
 };
 
-type Store = Map<string, VideoGenerationRecord>;
-
-declare global {
-  var __videoGenerationStore: Store | undefined;
-}
-
-const store: Store = globalThis.__videoGenerationStore ?? new Map();
-
-globalThis.__videoGenerationStore = store;
-
-const PROGRESS_STAGES: Array<{
-  at: number;
-  status: VideoGenerationStatus;
-  progress: number;
-}> = [
-  { at: 0, status: "pending", progress: 0 },
-  { at: 400, status: "processing", progress: 18 },
-  { at: 900, status: "processing", progress: 46 },
-  { at: 1500, status: "processing", progress: 74 },
-  { at: 2200, status: "processing", progress: 92 },
-];
-
+const ACTIVE_STATUSES: VideoGenerationStatus[] = ["pending", "processing"];
 const EXPIRY_MS = 10 * 60 * 1000;
-const FINALIZE_DELAY = 2600;
-const TERMINAL_STATUSES: Array<VideoGenerationRecord["status"]> = [
-  "completed",
-  "failed",
-];
 const reservationLocks = new Map<string, Promise<void>>();
 
 async function withReservationLock<T>(key: string, task: () => Promise<T>) {
@@ -78,78 +46,64 @@ function buildReservationKey(
   return `${ownerEmail}:${model}`;
 }
 
-function updateRecord(id: string, patch: Partial<VideoGenerationRecord>) {
-  const current = store.get(id);
-  if (!current) return;
-  store.set(id, {
-    ...current,
-    ...patch,
-    updatedAt: Date.now(),
-  });
-}
+function mapRecord(
+  record: Awaited<ReturnType<typeof getVideoGenerationByRequestId>>,
+): VideoGenerationRecord | null {
+  if (!record) return null;
+  const videos = record.videos ?? [];
+  const result = videos.length
+    ? {
+        videos: videos.map((video) => ({
+          url: video.url,
+          width: video.width ?? undefined,
+          height: video.height ?? undefined,
+          durationSec: video.durationSec ?? undefined,
+        })),
+      }
+    : undefined;
 
-function resolveProgressStage(elapsedMs: number) {
-  let stage = PROGRESS_STAGES[0];
-  for (const candidate of PROGRESS_STAGES) {
-    if (elapsedMs >= candidate.at) {
-      stage = candidate;
-    }
-  }
-  return stage;
-}
-
-export async function createMockVideoGeneration(
-  payload: VideoGenerationFormValues,
-  ownerEmail: string,
-) {
-  const id = crypto.randomUUID();
-  const now = Date.now();
-  const record: VideoGenerationRecord = {
-    id,
-    ownerEmail,
-    payload,
-    status: "pending",
-    progress: 0,
-    createdAt: now,
-    updatedAt: now,
+  return {
+    id: record.requestId,
+    status: record.status,
+    progress: record.progress,
+    result,
+    errorMessage: record.errorMessage ?? undefined,
   };
-
-  store.set(id, record);
-
-  return createVideoGenerationRecord(id, payload, ownerEmail)
-    .then((dbRecord) => {
-      updateRecord(id, { dbId: dbRecord.id });
-      return store.get(id) ?? record;
-    })
-    .catch((error) => {
-      store.delete(id);
-      throw error;
-    });
 }
 
-export function findActiveVideoGenerations(
+export async function findActiveVideoGenerations(
   ownerEmail: string,
   model: VideoGenerationFormValues["model"],
 ) {
-  let count = 0;
-  let latest: VideoGenerationRecord | null = null;
-  const now = Date.now();
+  const cutoff = new Date(Date.now() - EXPIRY_MS);
+  const where = {
+    ownerEmail,
+    status: { in: ACTIVE_STATUSES },
+    updatedAt: { gt: cutoff },
+    requestParams: {
+      path: ["model"],
+      equals: model,
+    },
+  };
 
-  for (const record of store.values()) {
-    if (record.ownerEmail !== ownerEmail) continue;
-    if (record.payload.model !== model) continue;
-    if (now - record.createdAt > EXPIRY_MS) {
-      store.delete(record.id);
-      continue;
-    }
-    if (TERMINAL_STATUSES.includes(record.status)) continue;
-    count += 1;
-    if (!latest || record.updatedAt > latest.updatedAt) {
-      latest = record;
-    }
-  }
+  const [count, latest] = await prisma.$transaction([
+    prisma.videoGeneration.count({ where }),
+    prisma.videoGeneration.findFirst({
+      where,
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
 
-  return { count, latest };
+  return {
+    count,
+    latest: latest
+      ? ({
+          id: latest.requestId,
+          status: latest.status,
+          progress: latest.progress,
+        } satisfies VideoGenerationRecord)
+      : null,
+  };
 }
 
 export async function createMockVideoGenerationWithLimit(
@@ -157,98 +111,49 @@ export async function createMockVideoGenerationWithLimit(
   ownerEmail: string,
   limit: number,
 ) {
+  const requestId = crypto.randomUUID();
+
   if (!Number.isFinite(limit) || limit <= 0) {
-    const record = await createMockVideoGeneration(payload, ownerEmail);
-    return { record, latest: null };
+    const record = await createVideoGenerationRecord(
+      requestId,
+      payload,
+      ownerEmail,
+    );
+    return {
+      record: {
+        id: record.requestId,
+        status: record.status,
+        progress: record.progress,
+      } satisfies VideoGenerationRecord,
+      latest: null,
+    };
   }
 
   return withReservationLock(
     buildReservationKey(ownerEmail, payload.model),
     async () => {
-      const active = findActiveVideoGenerations(ownerEmail, payload.model);
+      const active = await findActiveVideoGenerations(ownerEmail, payload.model);
       if (active.count >= limit) {
         return { record: null, latest: active.latest };
       }
-      const record = await createMockVideoGeneration(payload, ownerEmail);
-      return { record, latest: null };
+      const record = await createVideoGenerationRecord(
+        requestId,
+        payload,
+        ownerEmail,
+      );
+      return {
+        record: {
+          id: record.requestId,
+          status: record.status,
+          progress: record.progress,
+        } satisfies VideoGenerationRecord,
+        latest: null,
+      };
     },
   );
 }
 
 export async function getVideoGeneration(id: string, ownerEmail: string) {
-  const record = store.get(id);
-  if (!record || record.ownerEmail !== ownerEmail) {
-    return null;
-  }
-
-  const elapsed = Date.now() - record.createdAt;
-  if (elapsed > EXPIRY_MS) {
-    store.delete(id);
-    return null;
-  }
-
-  if (record.status !== "completed" && record.status !== "failed") {
-    const stage = resolveProgressStage(elapsed);
-    if (record.progress !== stage.progress || record.status !== stage.status) {
-      updateRecord(id, {
-        status: stage.status,
-        progress: stage.progress,
-      });
-    }
-
-    const nextRecord = store.get(id) ?? record;
-    if (elapsed >= FINALIZE_DELAY && !nextRecord.finalizing) {
-      updateRecord(id, { finalizing: true });
-      const latest = store.get(id) ?? nextRecord;
-
-      void (async () => {
-        try {
-          const result = await resolveVideoGenerationResult(
-            latest.payload,
-            latest.id
-          );
-          let dbErrorMessage: string | undefined;
-
-          if (latest.dbId && !result.skipDbSave) {
-            try {
-              await saveVideoGenerationResult(
-                latest.dbId,
-                result.status,
-                result.status === "completed" ? 100 : latest.progress,
-                result.result,
-                result.errorMessage,
-              );
-            } catch (error) {
-              dbErrorMessage =
-                error instanceof Error
-                  ? error.message
-                  : "DB 저장에 실패했습니다.";
-              console.error("[video-generation] db save failed", error);
-            }
-          }
-
-          const mergedErrorMessage = [result.errorMessage, dbErrorMessage]
-            .filter(Boolean)
-            .join(" / ");
-
-          updateRecord(id, {
-            status: result.status,
-            progress: result.status === "completed" ? 100 : latest.progress,
-            result: result.result,
-            errorMessage: mergedErrorMessage || undefined,
-            finalizing: false,
-          });
-        } catch (error) {
-          updateRecord(id, {
-            status: "failed",
-            errorMessage:
-              error instanceof Error ? error.message : "생성에 실패했습니다.",
-            finalizing: false,
-          });
-        }
-      })();
-    }
-  }
-
-  return store.get(id) ?? record;
+  const record = await getVideoGenerationByRequestId(id, ownerEmail);
+  return mapRecord(record);
 }
