@@ -30,6 +30,7 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
   return {
     data: queryResult.data ?? null,
     isLoading: queryResult.isLoading,
+    refetch: queryResult.refetch,
     error:
       queryResult.error instanceof Error
         ? queryResult.error.message

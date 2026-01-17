@@ -5,6 +5,7 @@ import type {
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
 import { useHistoryQuery } from "@/features/generation-history/hook/use-history-query";
+import { useHistoryStatusQuery } from "@/features/generation-history/hook/use-history-status-query";
 
 const DEFAULT_LIMIT = 24;
 
@@ -81,19 +82,25 @@ export function useGenerationHistoryList({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // 옵저버가 연속으로 트리거되는 상황을 막기 위한 플래그.
   const isFetchingNextRef = useRef(false);
+  const lastStatusTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     // 검색 조건이 바뀌면 페이지네이션 상태를 초기화한다.
     dispatch({ type: "reset" });
     isFetchingNextRef.current = false;
+    lastStatusTokenRef.current = null;
   }, [type, sort, query]);
 
-  const { data, isLoading, error } = useHistoryQuery({
+  const { data, isLoading, error, refetch } = useHistoryQuery({
     type,
     query,
     sort,
     limit,
     offset: state.offset,
+  });
+  const { data: statusData } = useHistoryStatusQuery({
+    type,
+    query,
   });
 
   useEffect(() => {
@@ -111,6 +118,15 @@ export function useGenerationHistoryList({
       isFetchingNextRef.current = false;
     }
   }, [error]);
+
+  useEffect(() => {
+    if (!statusData) return;
+    const token = `${statusData.activeCount}:${statusData.latestUpdatedAt ?? "none"}`;
+    if (lastStatusTokenRef.current && lastStatusTokenRef.current !== token) {
+      void refetch();
+    }
+    lastStatusTokenRef.current = token;
+  }, [statusData, refetch]);
 
   useEffect(() => {
     const target = sentinelRef.current;
