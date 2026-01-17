@@ -77,6 +77,22 @@ export async function saveImageGenerationResult(
   await prisma.$transaction(operations);
 }
 
+export async function updateImageGenerationStatus(
+  generationId: string,
+  status: ImageGenerationStatus,
+  progress: number,
+  errorMessage?: string,
+) {
+  return prisma.imageGeneration.update({
+    where: { id: generationId },
+    data: {
+      status,
+      progress,
+      errorMessage: errorMessage ?? null,
+    },
+  });
+}
+
 export async function getImageGenerationByRequestId(
   requestId: string,
   ownerEmail: string,

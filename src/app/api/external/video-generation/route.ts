@@ -8,6 +8,7 @@ import {
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
 } from "@/server/http/response";
+import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import {
   FILE_TOO_LARGE_ERROR,
   getNumber,
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    startGenerationWorker();
     const limit = getVideoModelConcurrentLimit(parsed.data.model);
     const { record, latest } = await createMockVideoGenerationWithLimit(
       parsed.data,

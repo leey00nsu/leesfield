@@ -76,6 +76,22 @@ export async function saveVideoGenerationResult(
   await prisma.$transaction(operations);
 }
 
+export async function updateVideoGenerationStatus(
+  generationId: string,
+  status: VideoGenerationStatus,
+  progress: number,
+  errorMessage?: string,
+) {
+  return prisma.videoGeneration.update({
+    where: { id: generationId },
+    data: {
+      status,
+      progress,
+      errorMessage: errorMessage ?? null,
+    },
+  });
+}
+
 export async function getVideoGenerationByRequestId(
   requestId: string,
   ownerEmail: string,
