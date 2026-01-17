@@ -3,6 +3,7 @@ import { POST } from "@/app/api/image-generation/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
 const mockCreateWithLimit = vi.hoisted(() => vi.fn());
+const mockStartWorker = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@/server/auth/session", () => ({
@@ -13,11 +14,16 @@ vi.mock("@/server/image-generation/image-generation-store", () => ({
   createMockGenerationWithLimit: mockCreateWithLimit,
 }));
 
+vi.mock("@/server/generation-worker/generation-worker", () => ({
+  startGenerationWorker: mockStartWorker,
+}));
+
 describe("POST /api/image-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
     mockCreateWithLimit.mockReset();
+    mockStartWorker.mockReset();
   });
 
   afterEach(() => {
