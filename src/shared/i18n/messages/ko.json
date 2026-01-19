@@ -1,0 +1,17 @@
+{
+  "header": {
+    "login": "로그인",
+    "logout": "로그아웃",
+    "profile": "프로필",
+    "menu": "메뉴",
+    "language": "언어"
+  },
+  "nav": {
+    "image": "이미지",
+    "video": "비디오",
+    "history": "히스토리",
+    "model": "모델",
+    "apiKey": "API 키",
+    "apiDocs": "API 문서"
+  }
+}

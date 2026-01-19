@@ -1,0 +1,17 @@
+{
+  "header": {
+    "login": "Log in",
+    "logout": "Log out",
+    "profile": "Profile",
+    "menu": "Menu",
+    "language": "Language"
+  },
+  "nav": {
+    "image": "Image",
+    "video": "Video",
+    "history": "History",
+    "model": "Model",
+    "apiKey": "API keys",
+    "apiDocs": "API docs"
+  }
+}
