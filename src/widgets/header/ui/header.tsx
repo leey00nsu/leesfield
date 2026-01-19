@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   BookOpen,
   Boxes,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
+import { LanguageSwitcher } from "@/shared/ui/language-switcher";
 
 type HeaderProps = {
   variant?: "public" | "dashboard";
@@ -61,6 +63,8 @@ export function Header({
   userAvatarUrl,
 }: HeaderProps) {
   const initials = getInitials(userEmail);
+  const tHeader = useTranslations("header");
+  const tNav = useTranslations("nav");
 
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
@@ -89,7 +93,7 @@ export function Header({
               className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white"
             >
               <Icon className="h-4 w-4" />
-              {item.label}
+              {tNav(item.key)}
             </Link>
           );
         })}
@@ -126,7 +130,7 @@ export function Header({
                       className="flex items-center gap-3 text-sm text-gray-200"
                     >
                       <Icon className="h-4 w-4 text-primary" />
-                      {item.label}
+                      {tNav(item.key)}
                     </Link>
                   </DropdownMenuItem>
                 );
@@ -138,7 +142,7 @@ export function Header({
                   className="flex items-center gap-3 text-sm text-gray-200"
                 >
                   <User className="h-4 w-4 text-primary" />
-                  프로필
+                  {tHeader("profile")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
@@ -150,13 +154,14 @@ export function Header({
                     className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
-                    로그아웃
+                    {tHeader("logout")}
                   </Button>
                 </form>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        <LanguageSwitcher />
         {isAuthenticated ? (
           <Link href="/profile" className="flex items-center">
             <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
@@ -176,7 +181,7 @@ export function Header({
           >
             <Link href="/login">
               <LogIn className="h-4 w-4 text-primary" />
-              로그인
+              {tHeader("login")}
             </Link>
           </Button>
         )}
@@ -188,7 +193,7 @@ export function Header({
               className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
             >
               <LogOut className="h-4 w-4 text-primary" />
-              로그아웃
+              {tHeader("logout")}
             </Button>
           </form>
         )}
@@ -200,7 +205,7 @@ export function Header({
               className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
             >
               <LogOut className="h-4 w-4 text-primary" />
-              로그아웃
+              {tHeader("logout")}
             </Button>
           </form>
         )}
