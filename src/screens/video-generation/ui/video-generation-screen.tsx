@@ -1,23 +1,35 @@
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
 import { GenerationHeaderActions } from "@/shared/ui/generation-header-actions";
 import { PageHeader } from "@/shared/ui/page-header";
+import { useTranslations } from "next-intl";
 
 export function VideoGenerationScreen() {
+  const tVideo = useTranslations("generation.video");
+  const tCommonActions = useTranslations("common.actions");
+
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
       <PageHeader
         title={
           <>
-            <span className="text-white">Video</span>{" "}
-            <span className="text-primary">Generation</span>
+            <span className="text-white">{tVideo("title.leading")}</span>{" "}
+            <span className="text-primary">{tVideo("title.accent")}</span>
           </>
         }
-        subtitle="MAKE VIDEOS IN ONE CLICK"
+        subtitle={tVideo("subtitle")}
         rightSlot={
           <GenerationHeaderActions
             actions={[
-              { label: "Load Preset", disabled: true, title: "준비 중" },
-              { label: "Clear", disabled: true, title: "준비 중" },
+              {
+                label: tCommonActions("loadPreset"),
+                disabled: true,
+                title: tCommonActions("comingSoon"),
+              },
+              {
+                label: tCommonActions("clear"),
+                disabled: true,
+                title: tCommonActions("comingSoon"),
+              },
             ]}
           />
         }

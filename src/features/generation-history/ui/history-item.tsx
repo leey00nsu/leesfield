@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +14,7 @@ import {
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
@@ -24,26 +25,22 @@ import { Badge } from "@/shared/ui/badge";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
-  { label: string; className: string; icon: typeof Clock; spin?: boolean }
+  { className: string; icon: typeof Clock; spin?: boolean }
 > = {
   pending: {
-    label: "Pending",
     className: "border-amber-400/70 bg-amber-400 text-black",
     icon: Clock,
   },
   processing: {
-    label: "Processing",
     className: "border-sky-400/70 bg-sky-400 text-black",
     icon: Loader2,
     spin: true,
   },
   completed: {
-    label: "Completed",
     className: "border-primary/80 bg-primary text-black",
     icon: CheckCircle2,
   },
   failed: {
-    label: "Failed",
     className: "border-red-400/70 bg-red-400 text-black",
     icon: AlertTriangle,
   },
@@ -51,31 +48,24 @@ const statusConfig: Record<
 
 const typeConfig = {
   image: {
-    label: "IMAGE",
     className: "border-white/10 bg-black/80 text-primary",
     icon: ImageIcon,
   },
   video: {
-    label: "VIDEO",
     className: "border-white/10 bg-black/80 text-accent-purple",
     icon: Video,
   },
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "2-digit",
-  year: "numeric",
-});
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return dateFormatter.format(date).toUpperCase();
-}
-
 export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const router = useRouter();
+  const locale = useLocale();
+  const tStatuses = useTranslations("history.statuses");
+  const tTypes = useTranslations("history.types");
+  const tStates = useTranslations("history.states");
+  const tActions = useTranslations("history.actions");
+  const tCommonActions = useTranslations("common.actions");
+  const tHistory = useTranslations("history");
   const [isCopied, setIsCopied] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
@@ -88,6 +78,20 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
     item.type === "image" && item.resultUrl
       ? `/api/image-generation/${item.id}/download?index=0`
       : item.resultUrl;
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+      }),
+    [locale],
+  );
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return tStates("unknownDate");
+    return dateFormatter.format(date);
+  };
 
   const handleReusePrompt = () => {
     if (!item.prompt.trim()) return;
@@ -147,7 +151,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl}
-                alt="Generated preview"
+                alt={tHistory("previewAlt")}
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
             </>
@@ -164,7 +168,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
-          {type.label}
+          {tTypes(item.type)}
         </Badge>
         <Badge
           variant="outline"
@@ -176,14 +180,14 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           <StatusIcon
             className={cn("h-3.5 w-3.5", status.spin && "animate-spin")}
           />
-          {status.label}
+          {tStatuses(item.status)}
         </Badge>
 
         {item.status === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 px-4 text-center">
             <AlertTriangle className="h-6 w-6 text-red-300" />
             <p className="text-xs font-mono uppercase tracking-widest text-red-200">
-              FAILED
+              {tStates("failed")}
             </p>
             {item.errorMessage ? (
               <p className="text-xs text-red-200/80">{item.errorMessage}</p>
@@ -195,7 +199,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
             <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-200">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Generating...
+              {tStates("generating")}
             </div>
           </div>
         )}
@@ -208,7 +212,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               onClick={handleReusePrompt}
             >
               <RotateCcw className="h-4 w-4" />
-              Reuse Prompt
+              {tActions("reusePrompt")}
             </Button>
             <Button
               type="button"
@@ -217,7 +221,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               className="h-auto rounded-full border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white hover:border-primary/60 hover:text-primary"
             >
               <Copy className="h-4 w-4" />
-              {isCopied ? "Copied" : "Copy Prompt"}
+              {isCopied ? tCommonActions("copied") : tActions("copyPrompt")}
             </Button>
             <div className="flex gap-2">
               {downloadUrl ? (
@@ -225,7 +229,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   href={downloadUrl}
                   download={item.type === "video" ? true : undefined}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
-                  aria-label="Download"
+                  aria-label={tCommonActions("download")}
                 >
                   <Download className="h-4 w-4" />
                 </a>
@@ -236,7 +240,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
-                  aria-label="Download"
+                  aria-label={tCommonActions("download")}
                 >
                   <Download className="h-4 w-4" />
                 </Button>
@@ -247,7 +251,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   target="_blank"
                   rel="noreferrer"
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
-                  aria-label="Open"
+                  aria-label={tCommonActions("open")}
                 >
                   <Maximize2 className="h-4 w-4" />
                 </a>
@@ -258,7 +262,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
-                  aria-label="Open"
+                  aria-label={tCommonActions("open")}
                 >
                   <Maximize2 className="h-4 w-4" />
                 </Button>

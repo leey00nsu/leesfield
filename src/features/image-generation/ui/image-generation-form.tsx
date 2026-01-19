@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,7 +33,7 @@ import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import {
   imageGenerationDefaults,
-  imageGenerationSchema,
+  createImageGenerationSchema,
   type ImageGenerationModel,
   modelDefaults,
   modelImageLimits,
@@ -46,6 +46,7 @@ import {
 } from "@/features/image-generation/model/image-models";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 import { useImageInitPreviews } from "@/features/image-generation/hook/use-image-init-previews";
+import { useTranslations } from "next-intl";
 
 const modelOptions = imageModels.map((model, index) => ({
   id: model.key as ImageGenerationModel,
@@ -61,8 +62,18 @@ const modelOptions = imageModels.map((model, index) => ({
 
 export function ImageGenerationForm() {
   const searchParams = useSearchParams();
+  const tGeneration = useTranslations("generation");
+  const tImage = useTranslations("generation.image");
+  const tActions = useTranslations("common.actions");
+  const tLabels = useTranslations("common.labels");
+  const tGenerationActions = useTranslations("generation.actions");
+  const tValidation = useTranslations("generation.validation.image");
+  const schema = useMemo(
+    () => createImageGenerationSchema(tValidation),
+    [tValidation],
+  );
   const form = useForm<ImageGenerationFormValues>({
-    resolver: zodResolver(imageGenerationSchema),
+    resolver: zodResolver(schema),
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
@@ -184,9 +195,9 @@ export function ImageGenerationForm() {
               disabled
               aria-disabled="true"
               className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-              title="준비 중"
+              title={tActions("comingSoon")}
             >
-              View All Models
+              {tActions("viewAllModels")}
             </Button>
           }
         />
@@ -203,7 +214,7 @@ export function ImageGenerationForm() {
                   disabled
                   aria-disabled="true"
                   className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Grid (disabled)"
+                  title={tGenerationActions("gridDisabled")}
                 >
                   <Grid2x2 className="h-5 w-5" />
                 </Button>
@@ -214,7 +225,7 @@ export function ImageGenerationForm() {
                   disabled
                   aria-disabled="true"
                   className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title="Full Screen (disabled)"
+                  title={tGenerationActions("fullScreenDisabled")}
                 >
                   <Maximize2 className="h-5 w-5" />
                 </Button>
@@ -245,7 +256,7 @@ export function ImageGenerationForm() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.url}
-                          alt={`Generated image ${index + 1}`}
+                          alt={tImage("generatedImageAlt", { index: index + 1 })}
                           className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
                         />
                         <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
@@ -255,7 +266,7 @@ export function ImageGenerationForm() {
                             target="_blank"
                             rel="noreferrer"
                             className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title="Open"
+                            title={tActions("open")}
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
@@ -263,7 +274,7 @@ export function ImageGenerationForm() {
                             href={downloadUrl}
                             download
                             className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title="Download"
+                            title={tActions("download")}
                           >
                             <Download className="h-4 w-4" />
                           </a>
@@ -278,10 +289,10 @@ export function ImageGenerationForm() {
                     <ImageIcon className="h-8 w-8 text-gray-600" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-300">
-                    Canvas Empty
+                    {tGeneration("canvas.emptyTitle")}
                   </h3>
                   <p className="mt-1 text-sm font-mono text-gray-600">
-                    Configure your prompt below to start generating
+                    {tGeneration("canvas.emptyDescription")}
                   </p>
                 </div>
               )}
@@ -304,7 +315,7 @@ export function ImageGenerationForm() {
                         textarea={
                           <FormControl>
                             <Textarea
-                              placeholder="Describe your imagination in detail..."
+                              placeholder={tImage("promptPlaceholder")}
                               className="min-h-[120px] border-none bg-transparent px-4 py-4 text-white placeholder:text-gray-600 focus-visible:ring-0"
                               {...field}
                             />
@@ -321,7 +332,7 @@ export function ImageGenerationForm() {
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={item.url}
-                                    alt="Init image preview"
+                                    alt={tImage("initImageAlt")}
                                     className="h-full w-full object-cover"
                                   />
                                   <Button
@@ -332,7 +343,7 @@ export function ImageGenerationForm() {
                                     variant="ghost"
                                     size="icon-sm"
                                     className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                                    title="Remove"
+                                    title={tActions("remove")}
                                   >
                                     <X className="h-3 w-3" />
                                   </Button>
@@ -354,8 +365,8 @@ export function ImageGenerationForm() {
                             className="text-gray-500 hover:bg-white/5 hover:text-white"
                             title={
                               canUploadImages
-                                ? "Upload Reference Image"
-                                : "이미지 입력을 지원하지 않는 모델입니다."
+                                ? tImage("uploadReference")
+                                : tImage("uploadUnsupported")
                             }
                           >
                             <ImagePlus className="h-5 w-5" />
@@ -363,7 +374,7 @@ export function ImageGenerationForm() {
                         }
                         footerRight={
                           <span className="text-[10px] font-mono text-gray-600">
-                            {promptValue.length} CHARS
+                            {tLabels("chars", { count: promptValue.length })}
                           </span>
                         }
                       />
@@ -388,7 +399,7 @@ export function ImageGenerationForm() {
                   className="flex-col"
                 >
                   <Sparkles className="h-7 w-7" />
-                  {isGenerating ? "Generating" : "Generate"}
+                  {isGenerating ? tActions("generating") : tActions("generate")}
                 </Button>
               </div>
             </div>
@@ -405,7 +416,7 @@ export function ImageGenerationForm() {
               {showSizeControls && (
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                    Output_Size
+                    {tLabels("outputSize")}
                   </span>
                   <div className="grid grid-cols-2 gap-3">
                     {widthConfig?.ui !== "hidden" && (
@@ -415,7 +426,7 @@ export function ImageGenerationForm() {
                         render={({ field }) => (
                           <FormItem className="flex flex-col gap-2">
                             <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                              Width
+                              {tLabels("width")}
                             </FormLabel>
                             <FormControl>
                               <Input
@@ -441,7 +452,7 @@ export function ImageGenerationForm() {
                         render={({ field }) => (
                           <FormItem className="flex flex-col gap-2">
                             <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                              Height
+                              {tLabels("height")}
                             </FormLabel>
                             <FormControl>
                               <Input
@@ -463,7 +474,10 @@ export function ImageGenerationForm() {
                   </div>
                   <div className="flex items-center justify-between px-1 text-xs text-gray-500">
                     <span>
-                      Range: {widthRange.min} ~ {widthRange.max}px
+                      {tLabels("range", {
+                        min: widthRange.min,
+                        max: widthRange.max,
+                      })}
                     </span>
                     <span className="text-white">
                       {width} × {height}
@@ -483,7 +497,7 @@ export function ImageGenerationForm() {
                       <FormItem className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                           <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                            Steps
+                            {tLabels("steps")}
                           </FormLabel>
                           <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
                             {steps}
@@ -518,13 +532,13 @@ export function ImageGenerationForm() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col gap-2">
                         <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Seed
+                          {tLabels("seed")}
                         </FormLabel>
                         <FormControl>
                           <div className="flex gap-2">
                             <Input
                               className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                              placeholder="-1 (Random)"
+                              placeholder={tImage("seedPlaceholder")}
                               {...field}
                             />
                             <Button

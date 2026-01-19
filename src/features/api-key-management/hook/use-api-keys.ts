@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import type { ApiKeyItem } from "@/features/api-key-management/model/api-key-types";
 import {
   fetchApiKeys,
@@ -9,19 +10,6 @@ import {
   revokeApiKey,
   updateApiKeyLabel,
 } from "@/features/api-key-management/api/api-key-api";
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "2-digit",
-  year: "numeric",
-});
-
-function formatDate(value: string | null) {
-  if (!value) return "Never";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return dateFormatter.format(date).toUpperCase();
-}
 
 export interface ApiKeyView extends ApiKeyItem {
   createdAtLabel: string;
@@ -35,16 +23,37 @@ interface IssueResult {
 
 const API_KEYS_QUERY_KEY = ["api-keys"] as const;
 
-function toApiKeyView(item: ApiKeyItem): ApiKeyView {
-  return {
-    ...item,
-    createdAtLabel: formatDate(item.createdAt),
-    lastUsedLabel: formatDate(item.lastUsedAt),
-  };
-}
-
 export function useApiKeys() {
+  const locale = useLocale();
+  const tCard = useTranslations("apiKey.card");
+  const tCommonLabels = useTranslations("common.labels");
   const queryClient = useQueryClient();
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+      }),
+    [locale],
+  );
+  const formatDate = useCallback(
+    (value: string | null) => {
+      if (!value) return tCard("usage.never");
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return tCommonLabels("unknown");
+      return dateFormatter.format(date);
+    },
+    [dateFormatter, tCard, tCommonLabels],
+  );
+  const toApiKeyView = useCallback(
+    (item: ApiKeyItem): ApiKeyView => ({
+      ...item,
+      createdAtLabel: formatDate(item.createdAt),
+      lastUsedLabel: formatDate(item.lastUsedAt),
+    }),
+    [formatDate],
+  );
   const apiKeysQuery = useQuery({
     queryKey: API_KEYS_QUERY_KEY,
     queryFn: async () => {

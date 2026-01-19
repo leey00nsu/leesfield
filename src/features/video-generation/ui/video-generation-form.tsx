@@ -10,12 +10,12 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useEffect, useRef, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import {
+  createVideoGenerationSchema,
   videoGenerationDefaults,
-  videoGenerationSchema,
   videoModelMeta,
   type VideoGenerationFormValues,
   type VideoGenerationModel,
@@ -40,6 +40,7 @@ import {
 } from "@/shared/ui/form";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+import { useTranslations } from "next-intl";
 
 const modelCards = videoModels.map((model, index) => ({
   id: model.key as VideoGenerationModel,
@@ -55,8 +56,18 @@ const modelCards = videoModels.map((model, index) => ({
 
 export function VideoGenerationForm() {
   const searchParams = useSearchParams();
+  const tGeneration = useTranslations("generation");
+  const tVideo = useTranslations("generation.video");
+  const tActions = useTranslations("common.actions");
+  const tLabels = useTranslations("common.labels");
+  const tGenerationActions = useTranslations("generation.actions");
+  const tValidation = useTranslations("generation.validation.video");
+  const schema = useMemo(
+    () => createVideoGenerationSchema(tValidation),
+    [tValidation],
+  );
   const form = useForm<VideoGenerationFormValues>({
-    resolver: zodResolver(videoGenerationSchema),
+    resolver: zodResolver(schema),
     defaultValues: videoGenerationDefaults,
     mode: "onChange",
   });
@@ -162,9 +173,9 @@ export function VideoGenerationForm() {
               disabled
               aria-disabled="true"
               className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-              title="준비 중"
+              title={tActions("comingSoon")}
             >
-              View All Models
+              {tActions("viewAllModels")}
             </Button>
           }
         />
@@ -181,7 +192,7 @@ export function VideoGenerationForm() {
                     variant="surface"
                     size="icon"
                     className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title="Grid (disabled)"
+                    title={tGenerationActions("gridDisabled")}
                   >
                     <Grid2x2 className="h-5 w-5" />
                   </Button>
@@ -192,7 +203,7 @@ export function VideoGenerationForm() {
                     variant="surface"
                     size="icon"
                     className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title="Full Screen (disabled)"
+                    title={tGenerationActions("fullScreenDisabled")}
                   >
                     <Maximize2 className="h-5 w-5" />
                   </Button>
@@ -215,10 +226,10 @@ export function VideoGenerationForm() {
                     <Video className="h-8 w-8 text-gray-600" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-300">
-                    Canvas Empty
+                    {tGeneration("canvas.emptyTitle")}
                   </h3>
                   <p className="mt-1 text-sm font-mono text-gray-600">
-                    Configure your prompt below to start generating
+                    {tGeneration("canvas.emptyDescription")}
                   </p>
                 </div>
               )}
@@ -233,7 +244,7 @@ export function VideoGenerationForm() {
             {hasResults && primaryVideo ? (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-                  READY • {primaryVideo.width ?? "--"}x
+                  {tLabels("ready")} • {primaryVideo.width ?? "--"}x
                   {primaryVideo.height ?? "--"}
                 </div>
                 <div className="flex items-center gap-2">
@@ -242,7 +253,7 @@ export function VideoGenerationForm() {
                     target="_blank"
                     rel="noreferrer"
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                    title="Open"
+                    title={tActions("open")}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </a>
@@ -250,7 +261,7 @@ export function VideoGenerationForm() {
                     href={primaryVideo.url}
                     download
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                    title="Download"
+                    title={tActions("download")}
                   >
                     <Download className="h-4 w-4" />
                   </a>
@@ -269,7 +280,7 @@ export function VideoGenerationForm() {
                         textarea={
                           <FormControl>
                             <Textarea
-                              placeholder="Describe the video you want to generate in detail..."
+                              placeholder={tVideo("promptPlaceholder")}
                               className="min-h-[120px] border-none bg-transparent px-4 py-4 text-white placeholder:text-gray-600 focus-visible:ring-0"
                               {...field}
                             />
@@ -282,7 +293,7 @@ export function VideoGenerationForm() {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={initImageValue}
-                                  alt="Init image preview"
+                                  alt={tVideo("initImageAlt")}
                                   className="h-full w-full object-cover"
                                 />
                                 <Button
@@ -291,7 +302,7 @@ export function VideoGenerationForm() {
                                   variant="ghost"
                                   size="icon-sm"
                                   className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                                  title="Remove"
+                                  title={tActions("remove")}
                                 >
                                   <span className="text-xs">×</span>
                                 </Button>
@@ -306,7 +317,7 @@ export function VideoGenerationForm() {
                               variant="ghost"
                               size="icon-sm"
                               onClick={handleOpenImagePicker}
-                              aria-label="Upload Reference Image"
+                              aria-label={tVideo("uploadReference")}
                               disabled={!supportsInitImage}
                               className={cn(
                                 "transition-colors",
@@ -314,22 +325,22 @@ export function VideoGenerationForm() {
                                   ? "text-gray-500 hover:bg-white/5 hover:text-white"
                                   : "cursor-not-allowed text-gray-700"
                               )}
-                              title="Upload Reference Image"
+                              title={tVideo("uploadReference")}
                             >
                               <ImagePlus className="h-5 w-5" />
                             </Button>
                             <span className="text-[10px] font-mono text-gray-600">
                               {supportsInitImage
                                 ? hasInitImage
-                                  ? "IMAGE TO VIDEO"
-                                  : "IMAGE REQUIRED"
-                                : "TEXT ONLY"}
+                                  ? tVideo("mode.imageToVideo")
+                                  : tVideo("mode.imageRequired")
+                                : tVideo("mode.textOnly")}
                             </span>
                           </>
                         }
                         footerRight={
                           <span className="text-[10px] font-mono text-gray-600">
-                            {promptValue.length} CHARS
+                            {tLabels("chars", { count: promptValue.length })}
                           </span>
                         }
                       />
@@ -353,7 +364,7 @@ export function VideoGenerationForm() {
                   className="flex-col"
                 >
                   <Sparkles className="h-7 w-7" />
-                  {isGenerating ? "Generating" : "Generate"}
+                  {isGenerating ? tActions("generating") : tActions("generate")}
                 </Button>
               </div>
             </div>
@@ -364,14 +375,10 @@ export function VideoGenerationForm() {
               {showSizeNotice && (
                 <div className="flex flex-col gap-3">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                    Output_Size
+                    {tLabels("outputSize")}
                   </span>
                   <div className="rounded-xl border border-white/10 bg-surface-lighter px-4 py-3 text-xs text-gray-400">
-                    이 스페이스는 해상도/비율 변경을 지원하지 않습니다.{" "}
-                    <span className="text-white">
-                      이미지 입력이 있으면 그 비율을 참고
-                    </span>
-                    하며, 텍스트 전용은 기본 해상도로 생성됩니다.
+                    {tVideo("sizeNotice")}
                   </div>
                 </div>
               )}
@@ -384,7 +391,7 @@ export function VideoGenerationForm() {
                     <FormItem className="flex flex-col gap-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          Duration_Sec
+                          {tLabels("durationSec")}
                         </span>
                         <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
                           {durationSec}s

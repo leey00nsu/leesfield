@@ -4,10 +4,11 @@ import { dashboardNavigation } from "@/shared/config/navigation";
 
 export async function Sidebar() {
   const tNav = await getTranslations("nav");
+  const tBrand = await getTranslations("common.brand");
 
   return (
     <aside className="hidden w-64 border-r border-white/10 bg-surface-dark px-5 py-8 text-white lg:block">
-      <div className="mb-8 text-lg font-semibold">Leesfield</div>
+      <div className="mb-8 text-lg font-semibold">{tBrand("nameTitle")}</div>
       <nav className="space-y-1 text-sm">
         {dashboardNavigation.map((item) => (
           <Link

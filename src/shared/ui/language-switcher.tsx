@@ -4,7 +4,6 @@ import { Check, Globe } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { localeCookie, locales } from "@/shared/i18n/config";
-import { localeLabels } from "@/shared/i18n/locale-labels";
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +21,7 @@ export function LanguageSwitcher() {
   const pathname = usePathname();
   const locale = useLocale();
   const t = useTranslations("header");
+  const tLocales = useTranslations("common.locales");
 
   const handleSelect = (nextLocale: string) => {
     if (nextLocale === locale) return;
@@ -57,7 +57,7 @@ export function LanguageSwitcher() {
             onClick={() => handleSelect(option)}
             className="flex items-center justify-between text-sm text-gray-200"
           >
-            <span>{localeLabels[option]}</span>
+            <span>{tLocales(option)}</span>
             {locale === option ? (
               <Check className="h-4 w-4 text-primary" />
             ) : null}

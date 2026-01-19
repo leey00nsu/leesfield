@@ -44,6 +44,14 @@ export type ApiSection = {
   operations: ApiOperation[];
 };
 
+export type ExampleStrings = {
+  sample: string;
+  samplePrompt: string;
+  sampleLabel: string;
+  sampleName: string;
+  sampleMessage: string;
+};
+
 const HTTP_METHODS: HttpMethod[] = ["get", "post", "put", "patch", "delete"];
 
 export function buildApiSections(document: OpenApiDocument): ApiSection[] {
@@ -147,6 +155,7 @@ export function buildExampleFromSchema(
   schema: OpenApiSchema | null,
   document?: OpenApiDocument | null,
   hintKey?: string,
+  examples?: ExampleStrings,
 ): unknown | null {
   const resolved = resolveSchema(schema, document ?? null);
   if (!resolved) return null;
@@ -161,15 +170,15 @@ export function buildExampleFromSchema(
     return resolved.enum[0];
   }
   if (resolved.oneOf && resolved.oneOf.length > 0) {
-    return buildExampleFromSchema(resolved.oneOf[0], document, hintKey);
+    return buildExampleFromSchema(resolved.oneOf[0], document, hintKey, examples);
   }
   if (resolved.anyOf && resolved.anyOf.length > 0) {
-    return buildExampleFromSchema(resolved.anyOf[0], document, hintKey);
+    return buildExampleFromSchema(resolved.anyOf[0], document, hintKey, examples);
   }
   if (resolved.allOf && resolved.allOf.length > 0) {
     const merged = resolved.allOf.reduce<Record<string, unknown>>(
       (acc, item) => {
-        const example = buildExampleFromSchema(item, document, hintKey);
+        const example = buildExampleFromSchema(item, document, hintKey, examples);
         if (example && typeof example === "object" && !Array.isArray(example)) {
           Object.assign(acc, example);
         }
@@ -182,7 +191,7 @@ export function buildExampleFromSchema(
 
   switch (resolved.type) {
     case "string":
-      return buildStringExample(hintKey);
+      return buildStringExample(hintKey, examples);
     case "number":
     case "integer":
       return buildNumberExample(hintKey);
@@ -193,6 +202,7 @@ export function buildExampleFromSchema(
         resolved.items ?? null,
         document,
         hintKey,
+        examples,
       );
       return itemExample !== null ? [itemExample] : [];
     }
@@ -201,7 +211,7 @@ export function buildExampleFromSchema(
       return Object.fromEntries(
         Object.entries(resolved.properties).map(([key, value]) => [
           key,
-          buildExampleFromSchema(value, document, key) ?? null,
+          buildExampleFromSchema(value, document, key, examples) ?? null,
         ]),
       );
     }
@@ -210,25 +220,25 @@ export function buildExampleFromSchema(
   }
 }
 
-function buildStringExample(hintKey?: string) {
+function buildStringExample(hintKey?: string, examples?: ExampleStrings) {
   const key = hintKey?.toLowerCase() ?? "";
   if (key.includes("id")) return `${hintKey ?? "id"}_01`;
   if (key.includes("status")) return "processing";
   if (key.includes("email")) return "admin@leesfield.ai";
   if (key.includes("model")) return "image-core";
-  if (key.includes("prompt")) return "샘플 프롬프트";
+  if (key.includes("prompt")) return examples?.samplePrompt ?? "Sample prompt";
   if (key.includes("url")) return "https://cdn.leesfield.ai/sample.png";
-  if (key.includes("label")) return "샘플";
-  if (key.includes("name")) return "샘플";
+  if (key.includes("label")) return examples?.sampleLabel ?? "Sample";
+  if (key.includes("name")) return examples?.sampleName ?? "Sample";
   if (key.includes("type")) return "image";
   if (key.includes("version")) return "v1";
-  if (key.includes("message")) return "OK";
+  if (key.includes("message")) return examples?.sampleMessage ?? "OK";
   if (key.includes("token") || key.includes("key")) return "lf_live_****";
   if (key.includes("created") || key.includes("updated")) {
     return "2026-01-12T00:00:00Z";
   }
   if (key.includes("seed")) return "42";
-  return "sample";
+  return examples?.sample ?? "sample";
 }
 
 function buildNumberExample(hintKey?: string) {

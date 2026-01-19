@@ -1,4 +1,5 @@
 import { Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
@@ -9,14 +10,12 @@ interface ModelCardProps {
 
 const typeConfig = {
   image: {
-    label: "IMAGE",
     className: "border-white/10 bg-black/80 text-primary",
     icon: ImageIcon,
     accentText: "text-primary",
     glowClass: "from-primary/35 via-transparent to-transparent",
   },
   video: {
-    label: "VIDEO",
     className: "border-white/10 bg-black/80 text-accent-purple",
     icon: Video,
     accentText: "text-accent-purple",
@@ -24,10 +23,10 @@ const typeConfig = {
   },
 };
 
-function buildMeta(item: ModelCatalogItem) {
+function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
   const base = [
     {
-      label: "PROVIDER",
+      label: t("meta.provider"),
       value: item.provider,
     },
   ];
@@ -35,13 +34,13 @@ function buildMeta(item: ModelCatalogItem) {
   if (item.type === "image") {
     return [
       ...base,
-      { label: "PIPELINE", value: item.meta.pipeline },
+      { label: t("meta.pipeline"), value: item.meta.pipeline },
       {
-        label: "SIZE",
+        label: t("meta.size"),
         value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
       },
       {
-        label: "INPUT",
+        label: t("meta.input"),
         value: `${item.meta.maxInputImages}`,
       },
     ];
@@ -50,24 +49,25 @@ function buildMeta(item: ModelCatalogItem) {
   return [
     ...base,
     {
-      label: "MODE",
+      label: t("meta.mode"),
       value: item.meta.supportsInitImage ? "I2V" : "T2V",
     },
     {
-      label: "SIZE",
+      label: t("meta.size"),
       value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
     },
     {
-      label: "DURATION",
+      label: t("meta.duration"),
       value: `${item.meta.defaultDurationSec}s`,
     },
   ];
 }
 
 export function ModelCard({ item }: ModelCardProps) {
+  const tCard = useTranslations("model.card");
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
-  const metaItems = buildMeta(item);
+  const metaItems = buildMeta(item, tCard);
 
   return (
     <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
@@ -101,12 +101,12 @@ export function ModelCard({ item }: ModelCardProps) {
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
-          {config.label}
+          {tCard(`type.${item.type}`)}
         </div>
         {item.isDefault ? (
           <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/90 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-black">
             <Sparkles className="h-3.5 w-3.5" />
-            DEFAULT
+            {tCard("default")}
           </div>
         ) : null}
       </div>

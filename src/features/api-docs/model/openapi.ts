@@ -78,6 +78,22 @@ const modelResponseSchema = z.object({
   items: z.array(z.unknown()),
 });
 
+export type OpenApiTranslations = {
+  infoDescription?: string;
+  tags?: {
+    images?: string;
+    videos?: string;
+    models?: string;
+  };
+  paths?: {
+    imageGeneration?: string;
+    videoGeneration?: string;
+    imageStatus?: string;
+    videoStatus?: string;
+    models?: string;
+  };
+};
+
 const imageGenerationFormDataSchema = z.object({
   prompt: z.string(),
   width: z.number().int(),
@@ -141,7 +157,7 @@ registry.registerPath({
   method: "post",
   path: "/api/external/image-generation",
   tags: ["Images"],
-  description: "이미지 생성 요청을 생성합니다.",
+  description: "Creates an image generation request.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
@@ -201,7 +217,7 @@ registry.registerPath({
   method: "post",
   path: "/api/external/video-generation",
   tags: ["Videos"],
-  description: "비디오 생성 요청을 생성합니다.",
+  description: "Creates a video generation request.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     body: {
@@ -261,7 +277,7 @@ registry.registerPath({
   method: "get",
   path: "/api/external/image-generation/{requestId}",
   tags: ["Images"],
-  description: "이미지 생성 결과를 조회합니다.",
+  description: "Fetches the image generation result.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     params: z.object({
@@ -308,7 +324,7 @@ registry.registerPath({
   method: "get",
   path: "/api/external/video-generation/{requestId}",
   tags: ["Videos"],
-  description: "비디오 생성 결과를 조회합니다.",
+  description: "Fetches the video generation result.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     params: z.object({
@@ -355,7 +371,7 @@ registry.registerPath({
   method: "get",
   path: "/api/external/models",
   tags: ["Models"],
-  description: "사용 가능한 생성 모델 목록을 조회합니다.",
+  description: "Fetches available generation models.",
   security: [{ ApiKeyAuth: [] }],
   responses: {
     200: {
@@ -386,21 +402,81 @@ registry.registerPath({
   },
 });
 
-export function getOpenApiDocument() {
+export function getOpenApiDocument(translations?: OpenApiTranslations) {
   const generator = new OpenApiGeneratorV3(registry.definitions);
+  const tags = {
+    images: translations?.tags?.images ?? "Image generation",
+    videos: translations?.tags?.videos ?? "Video generation",
+    models: translations?.tags?.models ?? "Model catalog",
+  };
+  const paths = {
+    imageGeneration:
+      translations?.paths?.imageGeneration ??
+      "Creates an image generation request.",
+    videoGeneration:
+      translations?.paths?.videoGeneration ??
+      "Creates a video generation request.",
+    imageStatus:
+      translations?.paths?.imageStatus ??
+      "Fetches the image generation result.",
+    videoStatus:
+      translations?.paths?.videoStatus ??
+      "Fetches the video generation result.",
+    models:
+      translations?.paths?.models ??
+      "Fetches available generation models.",
+  };
 
-  return generator.generateDocument({
+  const document = generator.generateDocument({
     openapi: "3.0.0",
     info: {
       title: "leesfield API",
       version: "v1",
       description:
-        "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+        translations?.infoDescription ??
+        "External REST API documentation for leesfield. Provides image/video generation and model listing.",
     },
     tags: [
-      { name: "Images", description: "이미지 생성" },
-      { name: "Videos", description: "비디오 생성" },
-      { name: "Models", description: "모델 목록" },
+      { name: "Images", description: tags.images },
+      { name: "Videos", description: tags.videos },
+      { name: "Models", description: tags.models },
     ],
   });
+
+  const updateDescription = (
+    path: string,
+    method: "get" | "post",
+    description: string,
+  ) => {
+    const pathItem = document.paths?.[path];
+    if (!pathItem) return;
+    const operation = pathItem[method];
+    if (operation) {
+      operation.description = description;
+    }
+  };
+
+  updateDescription(
+    "/api/external/image-generation",
+    "post",
+    paths.imageGeneration,
+  );
+  updateDescription(
+    "/api/external/video-generation",
+    "post",
+    paths.videoGeneration,
+  );
+  updateDescription(
+    "/api/external/image-generation/{requestId}",
+    "get",
+    paths.imageStatus,
+  );
+  updateDescription(
+    "/api/external/video-generation/{requestId}",
+    "get",
+    paths.videoStatus,
+  );
+  updateDescription("/api/external/models", "get", paths.models);
+
+  return document;
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import type {
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
@@ -16,6 +17,7 @@ const HISTORY_STATUS_QUERY_KEY = "history-status";
 const HISTORY_STATUS_POLL_INTERVAL_MS = 2000;
 
 export function useHistoryStatusQuery(params: UseHistoryStatusQueryParams) {
+  const t = useTranslations("history");
   const { type, query } = params;
   const queryResult = useQuery({
     queryKey: [HISTORY_STATUS_QUERY_KEY, type, query],
@@ -34,11 +36,6 @@ export function useHistoryStatusQuery(params: UseHistoryStatusQueryParams) {
   return {
     data: queryResult.data ?? null,
     isLoading: queryResult.isLoading,
-    error:
-      queryResult.error instanceof Error
-        ? queryResult.error.message
-        : queryResult.error
-        ? "히스토리 상태 조회에 실패했습니다."
-        : null,
+    error: queryResult.error ? t("error") : null,
   };
 }

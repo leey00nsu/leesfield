@@ -13,5 +13,491 @@
     "model": "Model",
     "apiKey": "API keys",
     "apiDocs": "API docs"
+  },
+  "common": {
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating...",
+      "loading": "Loading...",
+      "copy": "Copy",
+      "copied": "Copied",
+      "open": "Open",
+      "download": "Download",
+      "remove": "Remove",
+      "close": "Close",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "dismiss": "Dismiss",
+      "edit": "Edit",
+      "viewAllModels": "View All Models",
+      "loadPreset": "Load Preset",
+      "clear": "Clear",
+      "reset": "Reset",
+      "comingSoon": "Coming soon"
+    },
+    "labels": {
+      "filterOptions": "Filter options",
+      "searchPlaceholder": "SEARCH_DATABASE...",
+      "all": "All",
+      "images": "Images",
+      "videos": "Videos",
+      "total": "TOTAL: {total}",
+      "sort": "SORT: {order}",
+      "dateDesc": "Newest",
+      "dateAsc": "Oldest",
+      "ready": "Ready",
+      "chars": "{count} CHARS",
+      "outputSize": "Output_Size",
+      "width": "Width",
+      "height": "Height",
+      "steps": "Steps",
+      "seed": "Seed",
+      "durationSec": "Duration_Sec",
+      "range": "Range: {min} ~ {max}px",
+      "required": "Required",
+      "optional": "Optional",
+      "beta": "Beta",
+      "version": "Version {version}",
+      "unknown": "Unknown",
+      "user": "User"
+    },
+    "brand": {
+      "name": "leesfield",
+      "nameTitle": "Leesfield",
+      "leading": "LEES",
+      "trailing": "FIELD",
+      "initials": "LF"
+    },
+    "locales": {
+      "ko": "Korean",
+      "en": "English"
+    }
+  },
+  "landing": {
+    "hero": {
+      "status": "AI generation platform",
+      "primaryCta": "Start generating",
+      "secondaryCta": "View demo",
+      "description": "leesfield is an immersive generation interface for creators. It combines an intuitive canvas UI with powerful models to visualize ideas instantly."
+    },
+    "features": {
+      "title": "Core features",
+      "cards": {
+        "canvas": {
+          "title": "Canvas-based creation",
+          "description": "Arrange, compare, and iterate fast across an infinite canvas."
+        },
+        "history": {
+          "title": "Generation history",
+          "description": "Keep all prompts and settings to return to results anytime."
+        },
+        "model": {
+          "title": "Model management",
+          "description": "Switch image/video models to match the task and get the best results."
+        },
+        "api": {
+          "title": "Developer API",
+          "description": "Automate workflows and integrate generation into your services with REST APIs."
+        }
+      }
+    },
+    "showcase": {
+      "title": "Community showcase",
+      "viewPrompt": "View prompt"
+    },
+    "cta": {
+      "title": "Start with leesfield today",
+      "description": "Experience powerful generation models and an intuitive workflow in one place.",
+      "button": "Go to dashboard"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": {
+        "leading": "User",
+        "accent": "Login"
+      },
+      "subtitle": "AUTHENTICATION REQUIRED",
+      "form": {
+        "emailLabel": "Username or Email",
+        "emailPlaceholder": "ENTER_ID...",
+        "passwordLabel": "Password",
+        "submit": "Authenticate",
+        "submitting": "Authenticating...",
+  "errors": {
+          "invalidCredentials": "Email or password is incorrect.",
+          "serverConfig": "Server configuration is required.",
+          "unknown": "Login failed."
+        }
+      },
+      "validation": {
+        "email": "Please enter a valid email.",
+        "password": "Please enter a password."
+      }
+    }
+  },
+  "generation": {
+    "modelSelect": "Select_Model",
+    "settings": "Settings",
+    "canvas": {
+      "emptyTitle": "Canvas Empty",
+      "emptyDescription": "Configure your prompt below to start generating",
+      "generating": "Generating...",
+      "failedTitle": "Generation failed",
+      "failedDescription": "Please try again later."
+    },
+    "actions": {
+      "gridDisabled": "Grid (disabled)",
+      "fullScreenDisabled": "Full Screen (disabled)"
+    },
+    "image": {
+      "title": {
+        "leading": "Image",
+        "accent": "Generation"
+      },
+      "subtitle": "Make images in one click",
+      "promptPlaceholder": "Describe your imagination in detail...",
+      "uploadReference": "Upload Reference Image",
+      "uploadUnsupported": "This model does not support image input.",
+      "initImageAlt": "Init image preview",
+      "generatedImageAlt": "Generated image {index}",
+      "seedPlaceholder": "-1 (Random)"
+    },
+    "video": {
+      "title": {
+        "leading": "Video",
+        "accent": "Generation"
+      },
+      "subtitle": "Make videos in one click",
+      "promptPlaceholder": "Describe the video you want to generate in detail...",
+      "uploadReference": "Upload Reference Image",
+      "initImageAlt": "Init image preview",
+      "mode": {
+        "imageToVideo": "IMAGE TO VIDEO",
+        "imageRequired": "IMAGE REQUIRED",
+        "textOnly": "TEXT ONLY"
+      },
+      "sizeNotice": "This space does not support changing resolution or aspect ratio. If an image is provided, its aspect ratio is used; text-only uses the default resolution."
+    },
+    "errors": {
+      "requestFailed": "Request failed.",
+      "pollFailed": "Status check failed.",
+      "timeout": "The response timed out.",
+      "inProgress": "A request for this model is already in progress."
+    },
+    "validation": {
+      "image": {
+        "promptRequired": "Please enter a prompt.",
+        "range": "{label} must be between {min} and {max}.",
+        "step": "{label} must be in increments of {step}.",
+        "initImageUnsupported": "Selected model does not support image input.",
+        "maxInputImages": "You can upload up to {limit} images.",
+        "labels": {
+          "width": "Width",
+          "height": "Height",
+          "steps": "Steps",
+          "imageCount": "Image count"
+        }
+      },
+      "video": {
+        "promptRequired": "Please enter a prompt.",
+        "initImageInvalid": "initImage must be a data URL (base64) or an http(s) URL.",
+        "initImageRequired": "initImage is required.",
+        "initImageNeeded": "Selected model requires an image input.",
+        "initImageUnsupported": "Selected model does not support image input.",
+        "intOnly": "{label} must be an integer.",
+        "range": "{label} must be between {min} and {max}.",
+        "step": "{label} must be in increments of {step}.",
+        "unsupportedAspectRatio": "Unsupported aspect ratio.",
+        "unsupportedResolution": "Unsupported resolution.",
+        "labels": {
+          "durationSec": "Duration",
+          "steps": "Steps",
+          "guidanceScale": "Guidance",
+          "fps": "FPS"
+        }
+      }
+    }
+  },
+  "history": {
+    "title": {
+      "leading": "Generation",
+      "accent": "History"
+    },
+    "subtitle": "Find your generations fast",
+    "error": "Failed to load history.",
+    "previewAlt": "Generated preview",
+    "empty": {
+      "title": "History Empty",
+      "default": "No history yet.",
+      "search": "No results found."
+    },
+    "loading": "Loading...",
+    "statuses": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "types": {
+      "image": "IMAGE",
+      "video": "VIDEO"
+    },
+    "actions": {
+      "reusePrompt": "Reuse Prompt",
+      "copyPrompt": "Copy Prompt"
+    },
+    "states": {
+      "failed": "FAILED",
+      "generating": "Generating...",
+      "unknownDate": "Unknown"
+    }
+  },
+  "model": {
+    "title": {
+      "leading": "Model",
+      "accent": "Management"
+    },
+    "subtitle": "Find your models fast",
+    "empty": {
+      "title": "Models Empty",
+      "default": "No models available.",
+      "search": "No results found."
+    },
+    "card": {
+      "type": {
+        "image": "IMAGE",
+        "video": "VIDEO"
+      },
+      "default": "DEFAULT",
+      "meta": {
+        "provider": "PROVIDER",
+        "pipeline": "PIPELINE",
+        "size": "SIZE",
+        "input": "INPUT",
+        "mode": "MODE",
+        "duration": "DURATION"
+      }
+    }
+  },
+  "apiKey": {
+    "title": {
+      "leading": "API Key",
+      "accent": "Management"
+    },
+    "subtitle": "Secure your API access",
+    "toolbar": {
+      "allKeys": "All Keys",
+      "active": "Active",
+      "revoked": "Revoked",
+      "newKeyPlaceholder": "NEW_KEY_LABEL...",
+      "generate": "Generate New Key",
+      "generating": "Generating..."
+    },
+    "pending": {
+      "title": "NEW API KEY GENERATED",
+      "copy": "Copy Key",
+      "copied": "Copied",
+      "dismiss": "Dismiss",
+      "note": "You can only view the full API key on this screen."
+    },
+    "list": {
+      "emptyTitle": "Keys Empty",
+      "default": "No API keys.",
+      "loading": "Loading API keys...",
+      "search": "No results found.",
+      "error": "Failed to load API keys."
+    },
+    "card": {
+      "status": {
+        "active": "Active",
+        "revoked": "Revoked"
+      },
+      "usage": {
+        "never": "Never used",
+        "lastUsed": "Last used {value}"
+      },
+      "lastUsedLabel": "Last Used",
+      "createdLabel": "Created",
+      "edit": "Edit",
+      "editDisabled": "Coming soon"
+    },
+    "modal": {
+      "editTitle": "Edit API Key",
+      "keyLabel": "Key Label",
+      "revoke": "Revoke Key",
+      "revoked": "Revoked",
+      "revoking": "Revoking...",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "close": "Close"
+    },
+    "errors": {
+      "labelRequired": "Please enter a label.",
+      "labelUpdateFailed": "Failed to update label.",
+      "revokeFailed": "Failed to revoke key."
+    }
+  },
+  "apiDocs": {
+    "title": {
+      "leading": "API",
+      "accent": "Docs"
+    },
+    "subtitle": "REST API Reference",
+    "intro": {
+      "titleFallback": "leesfield API",
+      "descriptionFallback": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+      "highlights": {
+        "latency": {
+          "title": "Low latency",
+          "description": "Generate fast with an optimized inference pipeline."
+        },
+        "security": {
+          "title": "Security",
+          "description": "Protected with scoped API keys."
+        },
+        "restful": {
+          "title": "RESTful",
+          "description": "Integrate easily with a consistent REST structure."
+        }
+      }
+    },
+    "sidebar": {
+      "label": "API Reference {version}",
+      "general": "General",
+      "endpoints": "Endpoints",
+      "nav": {
+        "introduction": "Introduction",
+        "authentication": "Authentication",
+        "errors": "Errors",
+        "images": "Images",
+        "videos": "Videos",
+        "models": "Models"
+      }
+    },
+  "auth": {
+    "title": "Authentication",
+    "description": "All requests require an API key. You can find it on the <link>API keys</link> screen.",
+    "headerAuth": "Header Authentication",
+    "viewKey": "View API Key",
+    "includeHeader": "Include the <header>X-API-Key</header> header in all requests.",
+    "warning": "Keep your API key secure and never expose it publicly."
+  },
+    "errors": {
+      "title": "Errors",
+      "description": "All error responses share the same structure.",
+      "cards": {
+        "badRequest": {
+          "title": "Bad Request",
+          "description": "The request body is invalid."
+        },
+        "unauthorized": {
+          "title": "Unauthorized",
+          "description": "The API key is missing or invalid."
+        },
+        "forbidden": {
+          "title": "Forbidden",
+          "description": "The key is revoked or lacks permission."
+        },
+        "serverError": {
+          "title": "Server Error",
+          "description": "An unexpected server error occurred."
+        }
+      },
+      "exampleTitle": "Error Response Example",
+      "exampleMessage": "INVALID_REQUEST",
+    "exampleFieldMessage": "Required field."
+  },
+  "openapi": {
+    "infoDescription": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+    "tags": {
+      "images": "Image generation",
+      "videos": "Video generation",
+      "models": "Model catalog"
+    },
+    "paths": {
+      "imageGeneration": "Creates an image generation request.",
+      "videoGeneration": "Creates a video generation request.",
+      "imageStatus": "Fetches the image generation result.",
+      "videoStatus": "Fetches the video generation result.",
+      "models": "Fetches available generation models."
+    }
+  },
+  "endpoints": {
+    "requestParams": "Request body parameters",
+    "required": "Required",
+    "optional": "Optional",
+    "requestExample": "Request example",
+    "responseExample": "Response example",
+    "responseFallback": "No response example",
+    "response": "Response"
+  },
+  "examples": {
+    "sample": "sample",
+    "samplePrompt": "Sample prompt",
+    "sampleLabel": "Sample",
+    "sampleName": "Sample",
+    "sampleMessage": "OK"
+  },
+  "states": {
+    "loadingSchema": "Loading OpenAPI schema...",
+    "schemaError": "Failed to load OpenAPI schema.",
+    "missingEndpoints": "Unable to load OpenAPI schema, cannot display endpoint details."
+  }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Generation pages and management tools are in progress."
+  },
+  "profile": {
+    "title": {
+      "leading": "User",
+      "accent": "Profile"
+    },
+    "subtitle": "Manage your profile details",
+    "summary": {
+      "changeAvatar": "Change Avatar",
+      "badges": {
+        "creator": "Creator",
+        "proMember": "Pro Member"
+      },
+      "stats": {
+        "generations": "Generations",
+        "credits": "Credits"
+      }
+    },
+    "form": {
+      "title": "Personal Information",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "username": "Username",
+      "bio": "Bio",
+      "characters": "{count}/{max} CHARACTERS",
+      "placeholders": {
+        "notSet": "Not set",
+        "email": "admin@example.com",
+        "username": "admin",
+        "bio": "Tell us about yourself..."
+      }
+    },
+    "headerActions": {
+      "saveChanges": "Save Changes"
+    },
+    "subscription": {
+      "title": "Subscription",
+      "manage": "Manage",
+      "plan": "Free Plan",
+      "price": "$0/month",
+      "badge": "Free",
+      "noRenewal": "NO RENEWAL",
+      "upgrade": "Upgrade Plan"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "generationComplete": "Generation Complete"
+    }
   }
 }

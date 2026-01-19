@@ -11,69 +11,97 @@ import {
 
 export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
-const initImageSchema = z
-  .string()
-  .refine((value) => {
-    const trimmed = value.trim();
-    if (!trimmed) return true;
-    if (trimmed.startsWith("data:")) {
-      return /^data:[^;]+;base64,/.test(trimmed);
-    }
-    if (/^https?:\/\//.test(trimmed)) {
-      try {
-        const url = new URL(trimmed);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
+type TranslationFn = (key: string, values?: Record<string, unknown>) => string;
+
+const buildInitImageSchema = (t?: TranslationFn) =>
+  z
+    .string()
+    .refine((value) => {
+      const trimmed = value.trim();
+      if (!trimmed) return true;
+      if (trimmed.startsWith("data:")) {
+        return /^data:[^;]+;base64,/.test(trimmed);
       }
-    }
-    return false;
-  }, "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.")
-  .describe("data URL(base64) 또는 http(s) 이미지 URL");
+      if (/^https?:\/\//.test(trimmed)) {
+        try {
+          const url = new URL(trimmed);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    }, t ? t("initImageInvalid") : "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.")
+    .describe("data URL(base64) 또는 http(s) 이미지 URL");
 
-const videoGenerationSharedSchema = z.object({
-  prompt: z.string().min(1, "프롬프트를 입력해주세요."),
-  aspectRatio: z.string().min(1),
-  resolution: z.number().int(),
-  durationSec: z.number(),
-  fps: z.number().int(),
-  steps: z.number().int(),
-  guidanceScale: z.number(),
-  seed: z.string().optional().or(z.literal("")),
-});
+const buildVideoGenerationBaseSchema = (t?: TranslationFn) => {
+  const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
+  const initImageRequiredMessage = t ? t("initImageRequired") : "initImage는 필수입니다.";
+  const initImageSchema = buildInitImageSchema(t);
+  const videoGenerationSharedSchema = z.object({
+    prompt: z.string().min(1, promptRequired),
+    aspectRatio: z.string().min(1),
+    resolution: z.number().int(),
+    durationSec: z.number(),
+    fps: z.number().int(),
+    steps: z.number().int(),
+    guidanceScale: z.number(),
+    seed: z.string().optional().or(z.literal("")),
+  });
 
-const initImageRequiredSchema = initImageSchema.min(1, "initImage는 필수입니다.");
+  const initImageRequiredSchema = initImageSchema.min(1, initImageRequiredMessage);
 
-const initImageRequiredModels = videoModelOptions.filter(
-  (model) => videoModelMeta[model]?.supportsInitImage,
-);
-const initImageOptionalModels = videoModelOptions.filter(
-  (model) => !videoModelMeta[model]?.supportsInitImage,
-);
+  const initImageRequiredModels = videoModelOptions.filter(
+    (model) => videoModelMeta[model]?.supportsInitImage,
+  );
+  const initImageOptionalModels = videoModelOptions.filter(
+    (model) => !videoModelMeta[model]?.supportsInitImage,
+  );
 
-const videoVariants = [
-  ...initImageRequiredModels.map((model) =>
-    videoGenerationSharedSchema.extend({
-      model: z.literal(model),
-      initImage: initImageRequiredSchema,
-    }),
-  ),
-  ...initImageOptionalModels.map((model) =>
-    videoGenerationSharedSchema.extend({
-      model: z.literal(model),
-      initImage: initImageSchema.optional().or(z.literal("")),
-    }),
-  ),
-];
+  const videoVariants = [
+    ...initImageRequiredModels.map((model) =>
+      videoGenerationSharedSchema.extend({
+        model: z.literal(model),
+        initImage: initImageRequiredSchema,
+      }),
+    ),
+    ...initImageOptionalModels.map((model) =>
+      videoGenerationSharedSchema.extend({
+        model: z.literal(model),
+        initImage: initImageSchema.optional().or(z.literal("")),
+      }),
+    ),
+  ];
 
-const videoGenerationBaseSchema = z.discriminatedUnion(
-  "model",
-  videoVariants as [typeof videoVariants[number], ...typeof videoVariants],
-);
+  return z.discriminatedUnion(
+    "model",
+    videoVariants as [typeof videoVariants[number], ...typeof videoVariants],
+  );
+};
 
-export const videoGenerationOpenApiSchema = videoGenerationBaseSchema;
+export const videoGenerationOpenApiSchema = buildVideoGenerationBaseSchema();
 
-export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data, ctx) => {
+export const createVideoGenerationSchema = (t?: TranslationFn) => {
+  const labels = {
+    durationSec: t ? t("labels.durationSec") : "재생시간",
+    steps: t ? t("labels.steps") : "스텝",
+    guidanceScale: t ? t("labels.guidanceScale") : "가이던스",
+    fps: t ? t("labels.fps") : "FPS",
+  };
+  const intOnlyMessage = (label: string) =>
+    t ? t("intOnly", { label }) : `${label}는 정수만 허용됩니다.`;
+  const rangeMessage = (label: string, min: number, max: number) =>
+    t ? t("range", { label, min, max }) : `${label}는 ${min}~${max} 범위여야 합니다.`;
+  const stepMessage = (label: string, step: number) =>
+    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
+  const initImageNeeded = t ? t("initImageNeeded") : "선택한 모델은 이미지 입력이 필요합니다.";
+  const initImageUnsupported = t
+    ? t("initImageUnsupported")
+    : "선택한 모델은 이미지 입력을 지원하지 않습니다.";
+  const unsupportedAspectRatio = t ? t("unsupportedAspectRatio") : "지원하지 않는 비율입니다.";
+  const unsupportedResolution = t ? t("unsupportedResolution") : "지원하지 않는 해상도입니다.";
+
+  return buildVideoGenerationBaseSchema(t).superRefine((data, ctx) => {
     const supportsInitImage =
       videoModelMeta[data.model]?.supportsInitImage ?? false;
     const hasInitImage = Boolean(data.initImage?.trim());
@@ -81,14 +109,14 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["initImage"],
-        message: "선택한 모델은 이미지 입력이 필요합니다.",
+        message: initImageNeeded,
       });
     }
     if (hasInitImage && !supportsInitImage) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["initImage"],
-        message: "선택한 모델은 이미지 입력을 지원하지 않습니다.",
+        message: initImageUnsupported,
       });
     }
 
@@ -103,7 +131,7 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path,
-          message: `${label}는 정수만 허용됩니다.`,
+          message: intOnlyMessage(label),
         });
         return;
       }
@@ -111,7 +139,7 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path,
-          message: `${label}는 ${range.min}~${range.max} 범위여야 합니다.`,
+          message: rangeMessage(label, range.min, range.max),
         });
         return;
       }
@@ -122,7 +150,7 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path,
-            message: `${label}는 ${range.step} 단위로 입력해야 합니다.`,
+            message: stepMessage(label, range.step),
           });
         }
       }
@@ -133,10 +161,16 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
     const guidanceRange = getVideoParamRange(data.model, "guidanceScale");
     const fpsRange = getVideoParamRange(data.model, "fps");
 
-    validateRange(data.durationSec, durationRange, ["durationSec"], "재생시간", true);
-    validateRange(data.steps, stepsRange, ["steps"], "스텝");
-    validateRange(data.guidanceScale, guidanceRange, ["guidanceScale"], "가이던스", true);
-    validateRange(data.fps, fpsRange, ["fps"], "FPS");
+    validateRange(data.durationSec, durationRange, ["durationSec"], labels.durationSec, true);
+    validateRange(data.steps, stepsRange, ["steps"], labels.steps);
+    validateRange(
+      data.guidanceScale,
+      guidanceRange,
+      ["guidanceScale"],
+      labels.guidanceScale,
+      true,
+    );
+    validateRange(data.fps, fpsRange, ["fps"], labels.fps);
 
     const aspectOptions = getVideoParamConfig(data.model, "aspectRatio")?.options;
     if (Array.isArray(aspectOptions) && aspectOptions.length > 0) {
@@ -144,7 +178,7 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["aspectRatio"],
-          message: "지원하지 않는 비율입니다.",
+          message: unsupportedAspectRatio,
         });
       }
     }
@@ -155,11 +189,14 @@ export const videoGenerationSchema = videoGenerationBaseSchema.superRefine((data
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["resolution"],
-          message: "지원하지 않는 해상도입니다.",
+          message: unsupportedResolution,
         });
       }
     }
   });
+};
+
+export const videoGenerationSchema = createVideoGenerationSchema();
 
 export type VideoGenerationFormValues = z.infer<typeof videoGenerationSchema>;
 

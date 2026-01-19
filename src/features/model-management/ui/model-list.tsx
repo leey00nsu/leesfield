@@ -1,4 +1,5 @@
 import { Boxes } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { ModelCard } from "@/features/model-management/ui/model-card";
 
@@ -9,17 +10,22 @@ interface ModelListProps {
 
 export function ModelList({
   items,
-  emptyMessage = "모델이 없습니다.",
+  emptyMessage,
 }: ModelListProps) {
+  const tEmpty = useTranslations("model.empty");
+  const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
+
   if (items.length === 0) {
     return (
       <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Boxes className="h-6 w-6 text-gray-500" />
         </div>
-        <h3 className="text-lg font-bold text-gray-200">Models Empty</h3>
+        <h3 className="text-lg font-bold text-gray-200">
+          {tEmpty("title")}
+        </h3>
         <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
-          {emptyMessage}
+          {resolvedEmptyMessage}
         </p>
       </div>
     );

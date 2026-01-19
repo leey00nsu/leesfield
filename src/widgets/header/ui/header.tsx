@@ -64,21 +64,23 @@ export function Header({
 }: HeaderProps) {
   const initials = getInitials(userEmail);
   const tHeader = useTranslations("header");
+  const tBrand = useTranslations("common.brand");
   const tNav = useTranslations("nav");
+  const tCommonLabels = useTranslations("common.labels");
 
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
       <Link href="/" className="flex items-center gap-3">
         <Image
           src="/logo.webp"
-          alt="leesfield"
+          alt={tBrand("name")}
           width={36}
           height={36}
           className="h-9 w-auto object-contain"
           priority
         />
         <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">
-          leesfield
+          {tBrand("name")}
         </h2>
       </Link>
 
@@ -117,7 +119,7 @@ export function Header({
             className="w-64 border-white/10 bg-background-dark text-white"
           >
             <DropdownMenuLabel className="font-display text-white">
-              leesfield
+              {tBrand("name")}
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/10" />
             {isAuthenticated ? (
@@ -179,7 +181,10 @@ export function Header({
           <Link href="/profile" className="flex items-center">
             <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
               {userAvatarUrl ? (
-                <AvatarImage src={userAvatarUrl} alt={userEmail ?? "user"} />
+                <AvatarImage
+                  src={userAvatarUrl}
+                  alt={userEmail ?? tCommonLabels("user")}
+                />
               ) : null}
               <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
                 {initials || <User className="h-4 w-4" />}

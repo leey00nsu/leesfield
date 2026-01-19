@@ -9,26 +9,30 @@ import {
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
+import { useTranslations } from "next-intl";
 
 export function ApiKeyManagementWidget() {
   const { filters, issue, pending, edit, list } = useApiKeyManagement();
+  const t = useTranslations("apiKey");
+  const tCommonLabels = useTranslations("common.labels");
+  const tCommonActions = useTranslations("common.actions");
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
       <PageHeader
         title={
           <>
-            <span className="text-white">API Key</span>{" "}
-            <span className="text-primary">Management</span>
+            <span className="text-white">{t("title.leading")}</span>{" "}
+            <span className="text-primary">{t("title.accent")}</span>
           </>
         }
-        subtitle="SECURE YOUR API ACCESS"
+        subtitle={t("subtitle")}
         rightSlot={
           <PageHeaderSearchInput
             value={filters.searchInput}
             onChange={filters.setSearchInput}
-            placeholder="SEARCH_KEYS..."
-            filterButtonLabel="필터 옵션"
+            placeholder={tCommonLabels("searchPlaceholder")}
+            filterButtonLabel={tCommonLabels("filterOptions")}
           />
         }
       >
@@ -48,7 +52,7 @@ export function ApiKeyManagementWidget() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-mono uppercase tracking-widest text-primary/80">
-                  NEW API KEY GENERATED
+                  {t("pending.title")}
                 </p>
                 <p className="mt-1 text-base font-bold text-white">
                   {pending.pendingKey.label}
@@ -64,7 +68,9 @@ export function ApiKeyManagementWidget() {
                   variant="ghost"
                   className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
                 >
-                  {pending.pendingCopied ? "Copied" : "Copy Key"}
+                  {pending.pendingCopied
+                    ? t("pending.copied")
+                    : t("pending.copy")}
                 </Button>
                 <Button
                   type="button"
@@ -72,18 +78,18 @@ export function ApiKeyManagementWidget() {
                   variant="ghost"
                   className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
                 >
-                  Dismiss
+                  {tCommonActions("dismiss")}
                 </Button>
               </div>
             </div>
             <p className="mt-3 text-xs text-primary/70">
-              API 키는 이번 화면에서만 전체 값을 확인할 수 있습니다.
+              {t("pending.note")}
             </p>
           </div>
         ) : null}
         {list.error ? (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
-            {list.error}
+            {t("list.error")}
           </div>
         ) : null}
         <ApiKeyList
@@ -98,10 +104,10 @@ export function ApiKeyManagementWidget() {
           }))}
           emptyMessage={
             list.isLoading
-              ? "API 키를 불러오는 중입니다."
+              ? t("list.loading")
               : filters.searchInput
-                ? "검색 결과가 없습니다."
-                : "API 키가 없습니다."
+                ? t("list.search")
+                : t("list.default")
           }
         />
       </div>

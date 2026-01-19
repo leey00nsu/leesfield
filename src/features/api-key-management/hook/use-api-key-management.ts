@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   useApiKeys,
   type ApiKeyView,
@@ -171,6 +172,7 @@ function useApiKeyFilters(items: ApiKeyView[]) {
 }
 
 export function useApiKeyManagement() {
+  const tErrors = useTranslations("apiKey.errors");
   const [newKeyLabel, setNewKeyLabel] = useState("");
   const {
     items,
@@ -229,7 +231,7 @@ export function useApiKeyManagement() {
     if (!state.editingKey) return;
     const label = state.editLabel.trim();
     if (!label) {
-      actions.setEditError("라벨을 입력해주세요.");
+      actions.setEditError(tErrors("labelRequired"));
       return;
     }
     actions.setEditError(null);
@@ -238,7 +240,7 @@ export function useApiKeyManagement() {
       actions.closeEdit();
     } catch (error) {
       console.error("[api-keys] update failed", error);
-      actions.setEditError("라벨 업데이트에 실패했습니다.");
+      actions.setEditError(tErrors("labelUpdateFailed"));
     }
   };
 
@@ -250,7 +252,7 @@ export function useApiKeyManagement() {
       actions.closeEdit();
     } catch (error) {
       console.error("[api-keys] revoke failed", error);
-      actions.setEditError("키 폐기에 실패했습니다.");
+      actions.setEditError(tErrors("revokeFailed"));
     }
   };
 

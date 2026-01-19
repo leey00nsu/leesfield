@@ -1,4 +1,5 @@
 import { Camera } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
@@ -21,6 +22,7 @@ export function ProfileSummaryCard({
   profile,
   onChangeAvatar,
 }: ProfileSummaryCardProps) {
+  const tSummary = useTranslations("profile.summary");
   const canChangeAvatar = Boolean(onChangeAvatar);
 
   return (
@@ -55,7 +57,7 @@ export function ProfileSummaryCard({
               "absolute bottom-1 right-1 h-9 w-9 rounded-full bg-primary text-black shadow-lg transition-colors hover:bg-white",
               !canChangeAvatar && "opacity-70 hover:bg-primary"
             )}
-            title="Change Avatar"
+            title={tSummary("changeAvatar")}
           >
             <Camera className="h-4 w-4" />
           </Button>

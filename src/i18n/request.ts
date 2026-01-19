@@ -9,6 +9,7 @@ export default getRequestConfig(async () => {
 
   return {
     locale,
+    timeZone: "UTC",
     messages: (await import(`@/shared/i18n/messages/${locale}.json`)).default,
   };
 });

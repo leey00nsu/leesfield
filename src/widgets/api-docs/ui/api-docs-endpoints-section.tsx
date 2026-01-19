@@ -1,14 +1,16 @@
 import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/shared/lib/utils";
+import { useTranslations } from "next-intl";
 import {
   buildExampleFromSchema,
   type ApiOperation,
   type ApiSection,
+  type ExampleStrings,
 } from "@/features/api-docs/model/openapi-helpers";
 import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
 import {
   getEndpointIcon,
-  tagLabelMap,
+  tagIdMap,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
 
 const methodStyles: Record<string, string> = {
@@ -39,12 +41,26 @@ export function ApiDocsEndpointsSection({
   apiVersion,
   openApiDocument,
 }: ApiDocsEndpointsSectionProps) {
+  const tNav = useTranslations("apiDocs.sidebar.nav");
+  const tEndpoints = useTranslations("apiDocs.endpoints");
+  const tCommonLabels = useTranslations("common.labels");
+  const tExamples = useTranslations("apiDocs.examples");
+  const exampleStrings: ExampleStrings = {
+    sample: tExamples("sample"),
+    samplePrompt: tExamples("samplePrompt"),
+    sampleLabel: tExamples("sampleLabel"),
+    sampleName: tExamples("sampleName"),
+    sampleMessage: tExamples("sampleMessage"),
+  };
+
   return (
     <>
       {apiSections.map((section) => {
         const Icon = getEndpointIcon(section);
         const isVideo = section.id.includes("video");
-        const sectionTitle = tagLabelMap[section.title] ?? section.title;
+        const sectionTitle = tagIdMap[section.title]
+          ? tNav(tagIdMap[section.title])
+          : section.title;
         return (
           <section
             key={section.id}
@@ -65,7 +81,9 @@ export function ApiDocsEndpointsSection({
                     : "border border-white/5 bg-white/10 text-gray-400",
                 )}
               >
-                {isVideo ? "Beta" : `버전 ${apiVersion}`}
+                {isVideo
+                  ? tCommonLabels("beta")
+                  : tCommonLabels("version", { version: apiVersion })}
               </Badge>
             </div>
 
@@ -74,13 +92,20 @@ export function ApiDocsEndpointsSection({
                 const request = operation.request;
                 const primaryResponse = getPrimaryResponse(operation.responses);
                 const requestExample = request?.schema
-                  ? buildExampleFromSchema(request.schema, openApiDocument)
+                  ? buildExampleFromSchema(
+                      request.schema,
+                      openApiDocument,
+                      undefined,
+                      exampleStrings,
+                    )
                   : null;
                 const responseExample = primaryResponse
                   ? primaryResponse.example ??
                     buildExampleFromSchema(
                       primaryResponse.schema,
                       openApiDocument,
+                      undefined,
+                      exampleStrings,
                     )
                   : null;
 
@@ -114,7 +139,7 @@ export function ApiDocsEndpointsSection({
                       <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                         <div className="border-b border-white/5 bg-white/5 px-6 py-4">
                           <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
-                            요청 본문 파라미터
+                            {tEndpoints("requestParams")}
                           </span>
                         </div>
                         <div className="divide-y divide-white/5">
@@ -144,7 +169,9 @@ export function ApiDocsEndpointsSection({
                                       : "text-gray-500",
                                   )}
                                 >
-                                  {param.required ? "필수" : "선택"}
+                                  {param.required
+                                    ? tEndpoints("required")
+                                    : tEndpoints("optional")}
                                 </Badge>
                               </div>
                               <div className="flex flex-col gap-2">
@@ -164,7 +191,7 @@ export function ApiDocsEndpointsSection({
                       <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
                         <div className="flex items-center justify-between border-b border-white/5 bg-black px-4 py-2">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
-                            요청 예시
+                            {tEndpoints("requestExample")}
                           </span>
                         </div>
                         <pre className="overflow-x-auto p-6 text-sm text-gray-300">
@@ -177,7 +204,7 @@ export function ApiDocsEndpointsSection({
                       <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                         <div className="flex items-center justify-between border-b border-white/5 bg-surface-lighter px-4 py-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            응답 예시
+                            {tEndpoints("responseExample")}
                           </span>
                           <Badge
                             variant="primary"
@@ -190,7 +217,8 @@ export function ApiDocsEndpointsSection({
                           {formatJson(
                             responseExample ?? {
                               message:
-                                primaryResponse.description ?? "응답 예시 없음",
+                                primaryResponse.description ??
+                                tEndpoints("responseFallback"),
                             },
                           )}
                         </pre>
@@ -207,6 +235,8 @@ export function ApiDocsEndpointsSection({
                               buildExampleFromSchema(
                                 response.schema,
                                 openApiDocument,
+                                undefined,
+                                exampleStrings,
                               );
                             return (
                               <div
@@ -222,7 +252,8 @@ export function ApiDocsEndpointsSection({
                                     {response.status}
                                   </Badge>
                                   <span className="text-sm font-semibold text-white">
-                                    {response.description ?? "응답"}
+                                    {response.description ??
+                                      tEndpoints("response")}
                                   </span>
                                 </div>
                                 {responsePayload ? (
