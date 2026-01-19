@@ -57,7 +57,7 @@ function getInitials(email?: string | null) {
 }
 
 export function Header({
-  variant = "dashboard",
+  variant: _variant = "dashboard",
   isAuthenticated = false,
   userEmail = null,
   userAvatarUrl,
@@ -100,67 +100,80 @@ export function Header({
       </nav>
 
       <div className="flex items-center gap-3">
-        {variant === "dashboard" && isAuthenticated && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="lg:hidden text-gray-200 hover:bg-white/10 hover:text-white"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-64 border-white/10 bg-background-dark text-white"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="lg:hidden text-gray-200 hover:bg-white/10 hover:text-white"
+              aria-label={tHeader("menu")}
             >
-              <DropdownMenuLabel className="font-display text-white">
-                leesfield
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              {dashboardNavigation.map((item) => {
-                const Icon = headerIcons[item.href] ?? ImageIcon;
+              <Menu className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-64 border-white/10 bg-background-dark text-white"
+          >
+            <DropdownMenuLabel className="font-display text-white">
+              leesfield
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-white/10" />
+            {isAuthenticated ? (
+              <>
+                {dashboardNavigation.map((item) => {
+                  const Icon = headerIcons[item.href] ?? ImageIcon;
 
-                return (
-                  <DropdownMenuItem key={item.href} asChild>
-                    <Link
-                      href={item.href}
-                      className="flex items-center gap-3 text-sm text-gray-200"
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-3 text-sm text-gray-200"
+                      >
+                        <Icon className="h-4 w-4 text-primary" />
+                        {tNav(item.key)}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 text-sm text-gray-200"
+                  >
+                    <User className="h-4 w-4 text-primary" />
+                    {tHeader("profile")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem asChild>
+                  <form action={logoutAction} className="w-full">
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                     >
-                      <Icon className="h-4 w-4 text-primary" />
-                      {tNav(item.key)}
-                    </Link>
-                  </DropdownMenuItem>
-                );
-              })}
-              <DropdownMenuSeparator className="bg-white/10" />
+                      <LogOut className="h-4 w-4" />
+                      {tHeader("logout")}
+                    </Button>
+                  </form>
+                </DropdownMenuItem>
+              </>
+            ) : (
               <DropdownMenuItem asChild>
                 <Link
-                  href="/profile"
+                  href="/login"
                   className="flex items-center gap-3 text-sm text-gray-200"
                 >
-                  <User className="h-4 w-4 text-primary" />
-                  {tHeader("profile")}
+                  <LogIn className="h-4 w-4 text-primary" />
+                  {tHeader("login")}
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem asChild>
-                <form action={logoutAction} className="w-full">
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {tHeader("logout")}
-                  </Button>
-                </form>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <LanguageSwitcher />
         {isAuthenticated ? (
           <Link href="/profile" className="flex items-center">
@@ -174,18 +187,15 @@ export function Header({
             </Avatar>
           </Link>
         ) : (
-          <Button
-            asChild
-            variant="outline"
-            className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
-          >
-            <Link href="/login">
-              <LogIn className="h-4 w-4 text-primary" />
-              {tHeader("login")}
-            </Link>
-          </Button>
+          <Link href="/login" className="flex items-center">
+            <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
+              <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
+                <User className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         )}
-        {variant === "dashboard" && isAuthenticated && (
+        {isAuthenticated ? (
           <form action={logoutAction} className="hidden lg:flex">
             <Button
               type="submit"
@@ -196,18 +206,17 @@ export function Header({
               {tHeader("logout")}
             </Button>
           </form>
-        )}
-        {variant === "public" && isAuthenticated && (
-          <form action={logoutAction} className="flex">
-            <Button
-              type="submit"
-              variant="outline"
-              className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
-            >
-              <LogOut className="h-4 w-4 text-primary" />
-              {tHeader("logout")}
-            </Button>
-          </form>
+        ) : (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary lg:flex"
+          >
+            <Link href="/login">
+              <LogIn className="h-4 w-4 text-primary" />
+              {tHeader("login")}
+            </Link>
+          </Button>
         )}
       </div>
     </header>
