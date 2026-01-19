@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 import { ModelManagementScreen } from "@/screens/model-management/ui/model-management-screen";
+import { renderWithIntl } from "@/test-utils/intl";
 
 describe("ModelManagementScreen", () => {
   const imageModel = modelCatalog.find((item) => item.type === "image");
@@ -14,9 +15,9 @@ describe("ModelManagementScreen", () => {
 
     const user = userEvent.setup();
 
-    render(<ModelManagementScreen />);
+    renderWithIntl(<ModelManagementScreen />);
 
-    await user.click(screen.getByRole("button", { name: /images/i }));
+    await user.click(screen.getByRole("button", { name: "이미지" }));
 
     await waitFor(() => {
       expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
@@ -30,9 +31,9 @@ describe("ModelManagementScreen", () => {
 
     const user = userEvent.setup();
 
-    render(<ModelManagementScreen />);
+    renderWithIntl(<ModelManagementScreen />);
 
-    const input = screen.getByPlaceholderText("SEARCH_DATABASE...");
+    const input = screen.getByPlaceholderText("검색...");
 
     await user.clear(input);
     await user.type(input, videoModel!.key);

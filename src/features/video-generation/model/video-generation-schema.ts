@@ -11,7 +11,10 @@ import {
 
 export { videoModelMeta, videoModelOptions, type VideoGenerationModel };
 
-type TranslationFn = (key: string, values?: Record<string, unknown>) => string;
+type TranslationFn = (
+  key: string,
+  values?: Record<string, string | number | Date>,
+) => string;
 
 const buildInitImageSchema = (t?: TranslationFn) =>
   z

@@ -118,7 +118,7 @@ export function useApiKeys() {
       const response = await issueMutation.mutateAsync(label);
       return { apiKey: response.apiKey, record: toApiKeyView(response.record) };
     },
-    [issueMutation],
+    [issueMutation, toApiKeyView],
   );
 
   const revoke = useCallback(

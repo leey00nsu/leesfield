@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
 import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
+import { renderWithIntl } from "@/test-utils/intl";
 
 const startGenerationMock = vi.fn();
 const resetMock = vi.fn();
@@ -42,19 +43,19 @@ describe("VideoGenerationForm", () => {
   });
 
   it("renders model selection cards", () => {
-    render(<VideoGenerationForm />);
+    renderWithIntl(<VideoGenerationForm />);
 
     expect(screen.getByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {
-    const { container } = render(<VideoGenerationForm />);
+    const { container } = renderWithIntl(<VideoGenerationForm />);
     const user = userEvent.setup();
 
     const prompt = screen.getByPlaceholderText(
-      "Describe the video you want to generate in detail...",
+      "생성할 비디오를 자세히 설명하세요...",
     );
-    const submit = screen.getByRole("button", { name: /generate/i });
+    const submit = screen.getByRole("button", { name: "생성" });
     const fileInput = container.querySelector(
       "input[type=\"file\"]",
     ) as HTMLInputElement | null;
@@ -69,7 +70,7 @@ describe("VideoGenerationForm", () => {
       await user.upload(fileInput, file);
     }
 
-    await screen.findByAltText("Init image preview");
+    await screen.findByAltText("입력 이미지 미리보기");
     expect(submit).not.toBeDisabled();
     await user.click(submit);
 
@@ -82,9 +83,9 @@ describe("VideoGenerationForm", () => {
   });
 
   it("exposes upload trigger", () => {
-    render(<VideoGenerationForm />);
+    renderWithIntl(<VideoGenerationForm />);
 
-    const uploadButton = screen.getByLabelText("Upload Reference Image");
+    const uploadButton = screen.getByLabelText("레퍼런스 이미지 업로드");
 
     expect(uploadButton).toBeInTheDocument();
   });

@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
+import { renderWithIntl } from "@/test-utils/intl";
 
 const mockUseImageGeneration = vi.hoisted(() => vi.fn());
 
@@ -23,9 +24,9 @@ describe("ImageGenerationForm", () => {
 
     const user = userEvent.setup();
 
-    render(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm />);
 
-    await user.click(screen.getByRole("button", { name: /generate/i }));
+    await user.click(screen.getByRole("button", { name: "생성" }));
 
     expect(
       await screen.findByText("프롬프트를 입력해주세요."),
@@ -43,10 +44,10 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    render(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm />);
 
     expect(screen.getByText("42%")).toBeInTheDocument();
-    expect(screen.getByText(/Generating.../i)).toBeInTheDocument();
+    expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
   });
 
   it("완료된 결과 이미지를 표시한다", () => {
@@ -62,10 +63,10 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    render(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm />);
 
-    expect(screen.getByAltText("Generated image 1")).toBeInTheDocument();
-    expect(screen.queryByText("Canvas Empty")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Generating.../i)).not.toBeInTheDocument();
+    expect(screen.getByAltText("생성된 이미지 1")).toBeInTheDocument();
+    expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
+    expect(screen.queryByText("생성 중...")).not.toBeInTheDocument();
   });
 });

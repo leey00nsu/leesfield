@@ -57,7 +57,6 @@ function getInitials(email?: string | null) {
 }
 
 export function Header({
-  variant: _variant = "dashboard",
   isAuthenticated = false,
   userEmail = null,
   userAvatarUrl,

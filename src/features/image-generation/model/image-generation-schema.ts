@@ -10,7 +10,10 @@ import {
 
 export { modelOptions, modelDefaults, modelImageLimits, type ImageGenerationModel };
 
-type TranslationFn = (key: string, values?: Record<string, unknown>) => string;
+type TranslationFn = (
+  key: string,
+  values?: Record<string, string | number | Date>,
+) => string;
 
 const imageGenerationBaseSchema = z.object({
   prompt: z.string().min(1, "프롬프트를 입력해주세요."),

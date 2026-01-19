@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ApiKeyManagementScreen } from "@/screens/api-key-management/ui/api-key-management-screen";
+import { renderWithIntl } from "@/test-utils/intl";
 
 const fetchApiKeysMock = vi.fn();
 const issueApiKeyMock = vi.fn();
@@ -21,7 +22,7 @@ const renderWithQueryClient = (ui: ReactElement) => {
       queries: { retry: false },
     },
   });
-  return render(
+  return renderWithIntl(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
 };
@@ -54,7 +55,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    const input = await screen.findByPlaceholderText("SEARCH_KEYS...");
+    const input = await screen.findByPlaceholderText("검색...");
     await user.type(input, "Legacy");
 
     await waitFor(() => {
@@ -81,9 +82,9 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    const labelInput = await screen.findByPlaceholderText("NEW_KEY_LABEL...");
+    const labelInput = await screen.findByPlaceholderText("새 키 라벨...");
     await user.type(labelInput, "NewKey");
-    await user.click(screen.getByRole("button", { name: /generate new key/i }));
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
 
     await waitFor(() => {
       expect(issueApiKeyMock).toHaveBeenCalledWith("NewKey");
@@ -118,7 +119,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    await user.click(await screen.findByRole("button", { name: /revoked/i }));
+    await user.click(await screen.findByRole("button", { name: "폐기됨" }));
 
     await waitFor(() => {
       expect(screen.queryByText("Production")).not.toBeInTheDocument();

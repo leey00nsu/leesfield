@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Check, Globe } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,13 +23,19 @@ export function LanguageSwitcher() {
   const locale = useLocale();
   const t = useTranslations("header");
   const tLocales = useTranslations("common.locales");
+  const [pendingLocale, setPendingLocale] = useState<string | null>(null);
 
   const handleSelect = (nextLocale: string) => {
     if (nextLocale === locale) return;
-    document.cookie = `${localeCookie}=${nextLocale}; path=/; max-age=${COOKIE_MAX_AGE}`;
+    setPendingLocale(nextLocale);
+  };
+
+  useEffect(() => {
+    if (!pendingLocale || pendingLocale === locale) return;
+    document.cookie = `${localeCookie}=${pendingLocale}; path=/; max-age=${COOKIE_MAX_AGE}`;
     router.replace(pathname);
     router.refresh();
-  };
+  }, [locale, pathname, pendingLocale, router]);
 
   return (
     <DropdownMenu>

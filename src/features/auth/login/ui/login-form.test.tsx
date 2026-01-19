@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
+import { renderWithIntl } from "@/test-utils/intl";
 
 const mockLoginAction = vi.hoisted(() =>
   vi.fn(async () => ({ errorCode: "INVALID_CREDENTIALS" })),
@@ -14,9 +15,9 @@ describe("LoginForm", () => {
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
     const user = userEvent.setup();
 
-    render(<LoginForm />);
+    renderWithIntl(<LoginForm />);
 
-    await user.click(screen.getByRole("button", { name: /authenticate/i }));
+    await user.click(screen.getByRole("button", { name: "로그인" }));
 
     expect(
       screen.getByText("올바른 이메일을 입력해주세요."),
@@ -29,15 +30,15 @@ describe("LoginForm", () => {
   it("로그인 실패 시 서버 오류 메시지를 표시한다", async () => {
     const user = userEvent.setup();
 
-    render(<LoginForm />);
+    renderWithIntl(<LoginForm />);
 
     await user.type(
-      screen.getByPlaceholderText("ENTER_ID..."),
+      screen.getByPlaceholderText("아이디 입력..."),
       "admin@example.com",
     );
     await user.type(screen.getByPlaceholderText("••••••••"), "secret");
 
-    await user.click(screen.getByRole("button", { name: /authenticate/i }));
+    await user.click(screen.getByRole("button", { name: "로그인" }));
 
     expect(
       await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다."),
