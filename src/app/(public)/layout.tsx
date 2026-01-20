@@ -1,18 +1,13 @@
 import type { CSSProperties } from "react";
-import { redirect } from "next/navigation";
-import { getSession } from "@/server/auth/session";
 import { Header } from "@/widgets/header/ui/header";
+import { getSession } from "@/server/auth/session";
 
-export default async function DashboardLayout({
+export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await getSession();
-
-  if (!session.isLoggedIn) {
-    redirect("/login");
-  }
 
   return (
     <div
@@ -24,6 +19,7 @@ export default async function DashboardLayout({
       }
     >
       <Header
+        variant="public"
         isAuthenticated={session.isLoggedIn}
         userEmail={session.adminEmail}
       />
