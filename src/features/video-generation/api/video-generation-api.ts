@@ -7,15 +7,14 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
   const response = await fetch(input, init);
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    const code = payload?.message;
+    const code = payload?.message ?? "REQUEST_FAILED";
     if (code === "IN_PROGRESS_ALREADY") {
       const error = new Error(code);
       (error as Error & { code?: string }).code = code;
       (error as Error & { requestId?: string }).requestId = payload?.requestId;
       throw error;
     }
-    const message = payload?.message ?? "REQUEST_FAILED";
-    const error = new Error(message);
+    const error = new Error(code);
     (error as Error & { code?: string }).code = code;
     throw error;
   }

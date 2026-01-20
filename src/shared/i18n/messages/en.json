@@ -377,14 +377,14 @@
         "models": "Models"
       }
     },
-  "auth": {
-    "title": "Authentication",
-    "description": "All requests require an API key. You can find it on the <link>API keys</link> screen.",
-    "headerAuth": "Header Authentication",
-    "viewKey": "View API Key",
-    "includeHeader": "Include the <header>X-API-Key</header> header in all requests.",
-    "warning": "Keep your API key secure and never expose it publicly."
-  },
+    "auth": {
+      "title": "Authentication",
+      "description": "All requests require an API key. You can find it on the <link>API keys</link> screen.",
+      "headerAuth": "Header Authentication",
+      "viewKey": "View API Key",
+      "includeHeader": "Include the <header>X-API-Key</header> header in all requests.",
+      "warning": "Keep your API key secure and never expose it publicly."
+    },
     "errors": {
       "title": "Errors",
       "description": "All error responses share the same structure.",
@@ -408,44 +408,44 @@
       },
       "exampleTitle": "Error Response Example",
       "exampleMessage": "INVALID_REQUEST",
-    "exampleFieldMessage": "Required field."
-  },
-  "openapi": {
-    "infoDescription": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
-    "tags": {
-      "images": "Image generation",
-      "videos": "Video generation",
-      "models": "Model catalog"
+      "exampleFieldMessage": "Required field."
     },
-    "paths": {
-      "imageGeneration": "Creates an image generation request.",
-      "videoGeneration": "Creates a video generation request.",
-      "imageStatus": "Fetches the image generation result.",
-      "videoStatus": "Fetches the video generation result.",
-      "models": "Fetches available generation models."
+    "openapi": {
+      "infoDescription": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+      "tags": {
+        "images": "Image generation",
+        "videos": "Video generation",
+        "models": "Model catalog"
+      },
+      "paths": {
+        "imageGeneration": "Creates an image generation request.",
+        "videoGeneration": "Creates a video generation request.",
+        "imageStatus": "Fetches the image generation result.",
+        "videoStatus": "Fetches the video generation result.",
+        "models": "Fetches available generation models."
+      }
+    },
+    "endpoints": {
+      "requestParams": "Request body parameters",
+      "required": "Required",
+      "optional": "Optional",
+      "requestExample": "Request example",
+      "responseExample": "Response example",
+      "responseFallback": "No response example",
+      "response": "Response"
+    },
+    "examples": {
+      "sample": "sample",
+      "samplePrompt": "Sample prompt",
+      "sampleLabel": "Sample",
+      "sampleName": "Sample",
+      "sampleMessage": "OK"
+    },
+    "states": {
+      "loadingSchema": "Loading OpenAPI schema...",
+      "schemaError": "Failed to load OpenAPI schema.",
+      "missingEndpoints": "Unable to load OpenAPI schema, cannot display endpoint details."
     }
-  },
-  "endpoints": {
-    "requestParams": "Request body parameters",
-    "required": "Required",
-    "optional": "Optional",
-    "requestExample": "Request example",
-    "responseExample": "Response example",
-    "responseFallback": "No response example",
-    "response": "Response"
-  },
-  "examples": {
-    "sample": "sample",
-    "samplePrompt": "Sample prompt",
-    "sampleLabel": "Sample",
-    "sampleName": "Sample",
-    "sampleMessage": "OK"
-  },
-  "states": {
-    "loadingSchema": "Loading OpenAPI schema...",
-    "schemaError": "Failed to load OpenAPI schema.",
-    "missingEndpoints": "Unable to load OpenAPI schema, cannot display endpoint details."
-  }
   },
   "dashboard": {
     "title": "Dashboard",

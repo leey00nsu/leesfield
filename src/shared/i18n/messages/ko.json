@@ -377,14 +377,14 @@
         "models": "모델"
       }
     },
-  "auth": {
-    "title": "인증",
-    "description": "모든 요청은 API 키 인증이 필요합니다. 키는 <link>API 키</link> 화면에서 확인할 수 있습니다.",
-    "headerAuth": "헤더 인증",
-    "viewKey": "API 키 보기",
-    "includeHeader": "모든 요청에 <header>X-API-Key</header> 헤더를 포함하세요.",
-    "warning": "API 키는 외부에 노출되지 않도록 안전하게 보관하세요."
-  },
+    "auth": {
+      "title": "인증",
+      "description": "모든 요청은 API 키 인증이 필요합니다. 키는 <link>API 키</link> 화면에서 확인할 수 있습니다.",
+      "headerAuth": "헤더 인증",
+      "viewKey": "API 키 보기",
+      "includeHeader": "모든 요청에 <header>X-API-Key</header> 헤더를 포함하세요.",
+      "warning": "API 키는 외부에 노출되지 않도록 안전하게 보관하세요."
+    },
     "errors": {
       "title": "오류",
       "description": "모든 오류 응답은 동일한 구조를 사용합니다.",
@@ -408,44 +408,44 @@
       },
       "exampleTitle": "오류 응답 예시",
       "exampleMessage": "INVALID_REQUEST",
-    "exampleFieldMessage": "필수 입력입니다."
-  },
-  "openapi": {
-    "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
-    "tags": {
-      "images": "이미지 생성",
-      "videos": "비디오 생성",
-      "models": "모델 목록"
+      "exampleFieldMessage": "필수 입력입니다."
     },
-    "paths": {
-      "imageGeneration": "이미지 생성 요청을 생성합니다.",
-      "videoGeneration": "비디오 생성 요청을 생성합니다.",
-      "imageStatus": "이미지 생성 결과를 조회합니다.",
-      "videoStatus": "비디오 생성 결과를 조회합니다.",
-      "models": "사용 가능한 생성 모델 목록을 조회합니다."
+    "openapi": {
+      "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+      "tags": {
+        "images": "이미지 생성",
+        "videos": "비디오 생성",
+        "models": "모델 목록"
+      },
+      "paths": {
+        "imageGeneration": "이미지 생성 요청을 생성합니다.",
+        "videoGeneration": "비디오 생성 요청을 생성합니다.",
+        "imageStatus": "이미지 생성 결과를 조회합니다.",
+        "videoStatus": "비디오 생성 결과를 조회합니다.",
+        "models": "사용 가능한 생성 모델 목록을 조회합니다."
+      }
+    },
+    "endpoints": {
+      "requestParams": "요청 본문 파라미터",
+      "required": "필수",
+      "optional": "선택",
+      "requestExample": "요청 예시",
+      "responseExample": "응답 예시",
+      "responseFallback": "응답 예시 없음",
+      "response": "응답"
+    },
+    "examples": {
+      "sample": "샘플",
+      "samplePrompt": "샘플 프롬프트",
+      "sampleLabel": "샘플",
+      "sampleName": "샘플",
+      "sampleMessage": "OK"
+    },
+    "states": {
+      "loadingSchema": "OpenAPI 스키마를 불러오는 중입니다.",
+      "schemaError": "OpenAPI 스키마를 불러오지 못했습니다.",
+      "missingEndpoints": "OpenAPI 스키마를 불러오지 못해 엔드포인트 정보를 표시할 수 없습니다."
     }
-  },
-  "endpoints": {
-    "requestParams": "요청 본문 파라미터",
-    "required": "필수",
-    "optional": "선택",
-    "requestExample": "요청 예시",
-    "responseExample": "응답 예시",
-    "responseFallback": "응답 예시 없음",
-    "response": "응답"
-  },
-  "examples": {
-    "sample": "샘플",
-    "samplePrompt": "샘플 프롬프트",
-    "sampleLabel": "샘플",
-    "sampleName": "샘플",
-    "sampleMessage": "OK"
-  },
-  "states": {
-    "loadingSchema": "OpenAPI 스키마를 불러오는 중입니다.",
-    "schemaError": "OpenAPI 스키마를 불러오지 못했습니다.",
-    "missingEndpoints": "OpenAPI 스키마를 불러오지 못해 엔드포인트 정보를 표시할 수 없습니다."
-  }
   },
   "dashboard": {
     "title": "대시보드",
