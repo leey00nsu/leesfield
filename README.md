@@ -2,8 +2,6 @@
 
 AI 생성 플랫폼 leesfield
 
-> next-intl은 Next.js 16(App Router) 호환성을 위해 4.7.0으로 고정합니다.
-
 ## 시작하기
 
 ### 1) 환경 변수
