@@ -10,7 +10,14 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import {
@@ -31,6 +38,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
+import { LoginGateDialog } from "@/shared/ui/login-gate-dialog";
 import {
   Form,
   FormControl,
@@ -54,7 +62,11 @@ const modelCards = videoModels.map((model, index) => ({
   active: boolean;
 }>;
 
-export function VideoGenerationForm() {
+type VideoGenerationFormProps = {
+  isAuthenticated: boolean;
+};
+
+export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
   const tGeneration = useTranslations("generation");
   const tVideo = useTranslations("generation.video");
@@ -62,6 +74,7 @@ export function VideoGenerationForm() {
   const tLabels = useTranslations("common.labels");
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.video");
+  const tLoginGate = useTranslations("auth.loginGate");
   const schema = useMemo(
     () => createVideoGenerationSchema(tValidation),
     [tValidation],
@@ -71,6 +84,7 @@ export function VideoGenerationForm() {
     defaultValues: videoGenerationDefaults,
     mode: "onChange",
   });
+  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
 
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   useEffect(() => {
@@ -152,15 +166,21 @@ export function VideoGenerationForm() {
     reset();
   };
 
-  const handleGenerate = (values: VideoGenerationFormValues) => {
-    startGeneration(values);
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (!isAuthenticated) {
+      event.preventDefault();
+      setIsLoginGateOpen(true);
+      return;
+    }
+
+    void form.handleSubmit((values) => startGeneration(values))(event);
   };
 
   return (
     <Form {...form}>
       <form
         className="flex flex-col gap-8"
-        onSubmit={form.handleSubmit(handleGenerate)}
+        onSubmit={handleFormSubmit}
       >
         <GenerationModelSection
           items={modelCards}
@@ -357,11 +377,16 @@ export function VideoGenerationForm() {
                 />
 
                 <Button
-                  type="submit"
+                  type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
-                  disabled={isGenerating || !canSubmit}
+                  disabled={isGenerating || (isAuthenticated && !canSubmit)}
                   className="flex-col"
+                  onClick={
+                    isAuthenticated
+                      ? undefined
+                      : () => setIsLoginGateOpen(true)
+                  }
                 >
                   <Sparkles className="h-7 w-7" />
                   {isGenerating ? tActions("generating") : tActions("generate")}
@@ -422,6 +447,14 @@ export function VideoGenerationForm() {
           </GenerationSettingsPanel>
         </div>
       </form>
+      <LoginGateDialog
+        open={isLoginGateOpen}
+        onOpenChange={setIsLoginGateOpen}
+        title={tLoginGate("title")}
+        description={tLoginGate("description")}
+        actionLabel={tLoginGate("action")}
+        cancelLabel={tLoginGate("cancel")}
+      />
     </Form>
   );
 }

@@ -3,7 +3,13 @@ import { GenerationHeaderActions } from "@/shared/ui/generation-header-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { useTranslations } from "next-intl";
 
-export function VideoGenerationScreen() {
+type VideoGenerationScreenProps = {
+  isAuthenticated: boolean;
+};
+
+export function VideoGenerationScreen({
+  isAuthenticated,
+}: VideoGenerationScreenProps) {
   const tVideo = useTranslations("generation.video");
   const tCommonActions = useTranslations("common.actions");
 
@@ -37,7 +43,7 @@ export function VideoGenerationScreen() {
       />
 
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-8">
-        <VideoGenerationForm />
+        <VideoGenerationForm isAuthenticated={isAuthenticated} />
       </div>
     </div>
   );

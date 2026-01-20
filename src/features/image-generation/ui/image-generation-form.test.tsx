@@ -24,7 +24,7 @@ describe("ImageGenerationForm", () => {
 
     const user = userEvent.setup();
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -44,7 +44,7 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.getByText("42%")).toBeInTheDocument();
     expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
@@ -63,7 +63,7 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.getByAltText("생성된 이미지 1")).toBeInTheDocument();
     expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();

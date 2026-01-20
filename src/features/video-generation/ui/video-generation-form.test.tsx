@@ -43,13 +43,13 @@ describe("VideoGenerationForm", () => {
   });
 
   it("renders model selection cards", () => {
-    renderWithIntl(<VideoGenerationForm />);
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
 
     expect(screen.getByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {
-    const { container } = renderWithIntl(<VideoGenerationForm />);
+    const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();
 
     const prompt = screen.getByPlaceholderText(
@@ -83,7 +83,7 @@ describe("VideoGenerationForm", () => {
   });
 
   it("exposes upload trigger", () => {
-    renderWithIntl(<VideoGenerationForm />);
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
 
     const uploadButton = screen.getByLabelText("레퍼런스 이미지 업로드");
 
