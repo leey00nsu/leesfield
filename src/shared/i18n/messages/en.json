@@ -441,6 +441,18 @@
       "sampleName": "Sample",
       "sampleMessage": "OK"
     },
+    "snippets": {
+      "title": "Code snippet",
+      "description": "Copy an API example and use it right away.",
+      "languageLabel": "Language",
+      "copy": "Copy code",
+      "copied": "Copied",
+      "languages": {
+        "curl": "curl",
+        "javascript": "JavaScript",
+        "python": "Python"
+      }
+    },
     "states": {
       "loadingSchema": "Loading OpenAPI schema...",
       "schemaError": "Failed to load OpenAPI schema.",

@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { useTranslations } from "next-intl";
 import {
@@ -9,9 +13,19 @@ import {
 } from "@/features/api-docs/model/openapi-helpers";
 import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
 import {
+  buildSnippet,
+  snippetLanguages,
+  type SnippetLanguage,
+} from "@/features/api-docs/model/snippet-templates";
+import {
   getEndpointIcon,
   tagIdMap,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
+
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  "<API_BASE_URL>";
+const methodsWithBody = new Set(["POST", "PUT", "PATCH"]);
 
 const methodStyles: Record<string, string> = {
   GET: "bg-white/10 text-white",
@@ -45,12 +59,49 @@ export function ApiDocsEndpointsSection({
   const tEndpoints = useTranslations("apiDocs.endpoints");
   const tCommonLabels = useTranslations("common.labels");
   const tExamples = useTranslations("apiDocs.examples");
+  const tSnippets = useTranslations("apiDocs.snippets");
+  const [snippetLanguagesById, setSnippetLanguagesById] = useState<
+    Record<string, SnippetLanguage>
+  >({});
+  const [copiedOperationId, setCopiedOperationId] = useState<string | null>(null);
   const exampleStrings: ExampleStrings = {
     sample: tExamples("sample"),
     samplePrompt: tExamples("samplePrompt"),
     sampleLabel: tExamples("sampleLabel"),
     sampleName: tExamples("sampleName"),
     sampleMessage: tExamples("sampleMessage"),
+  };
+  const orderedLanguages = useMemo(() => snippetLanguages, []);
+
+  useEffect(() => {
+    if (!copiedOperationId) return;
+    const timer = window.setTimeout(() => setCopiedOperationId(null), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copiedOperationId]);
+
+  const handleCopySnippet = async (operationId: string, snippet: string) => {
+    if (!snippet.trim()) return;
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopiedOperationId(operationId);
+      return;
+    } catch {
+      // fallback below
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = snippet;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopiedOperationId(operationId);
+    } catch {
+      setCopiedOperationId(null);
+    }
   };
 
   return (
@@ -108,6 +159,25 @@ export function ApiDocsEndpointsSection({
                       exampleStrings,
                     )
                   : null;
+                const selectedLanguage =
+                  snippetLanguagesById[operation.id] ?? "curl";
+                const methodAllowsBody = methodsWithBody.has(
+                  operation.method.toUpperCase(),
+                );
+                const fileFields =
+                  request?.properties
+                    ?.filter((param) => param.typeLabel.includes("file"))
+                    .map((param) => param.name) ?? [];
+                const snippet = buildSnippet(selectedLanguage, {
+                  baseUrl: apiBaseUrl,
+                  path: operation.path,
+                  method: operation.method,
+                  body: methodAllowsBody ? requestExample ?? undefined : undefined,
+                  contentType:
+                    request?.contentType ??
+                    (methodAllowsBody ? "application/json" : undefined),
+                  fileFields,
+                });
 
                 return (
                   <div key={operation.id} className="flex flex-col gap-6">
@@ -133,6 +203,68 @@ export function ApiDocsEndpointsSection({
                           {operation.description}
                         </p>
                       ) : null}
+                    </div>
+
+                    <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
+                      <div className="flex flex-col gap-4 border-b border-white/5 bg-black px-4 py-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                            {tSnippets("title")}
+                          </span>
+                          <p className="text-xs text-gray-500">
+                            {tSnippets("description")}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                            {tSnippets("languageLabel")}
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {orderedLanguages.map((language) => {
+                              const isActive = language === selectedLanguage;
+                              return (
+                                <Button
+                                  key={language}
+                                  type="button"
+                                  size="sm"
+                                  variant={isActive ? "default" : "ghost"}
+                                  className={cn(
+                                    "h-7 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider",
+                                    isActive
+                                      ? "bg-primary text-black"
+                                      : "border border-white/10 text-gray-300 hover:bg-white/5",
+                                  )}
+                                  aria-pressed={isActive}
+                                  onClick={() =>
+                                    setSnippetLanguagesById((prev) => ({
+                                      ...prev,
+                                      [operation.id]: language,
+                                    }))
+                                  }
+                                >
+                                  {tSnippets(`languages.${language}`)}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="surface"
+                            className="h-7 rounded-full border-white/10 px-3 text-[11px] font-bold uppercase tracking-wider"
+                            onClick={() =>
+                              handleCopySnippet(operation.id, snippet)
+                            }
+                          >
+                            {copiedOperationId === operation.id
+                              ? tSnippets("copied")
+                              : tSnippets("copy")}
+                          </Button>
+                        </div>
+                      </div>
+                      <pre className="overflow-x-auto p-6 text-sm text-gray-300">
+                        {snippet}
+                      </pre>
                     </div>
 
                     {request?.properties?.length ? (
