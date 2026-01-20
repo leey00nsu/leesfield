@@ -21,7 +21,15 @@ const snippetOrder: SnippetLanguage[] = ["curl", "javascript", "python"];
 export const snippetLanguages = snippetOrder;
 
 function serializeBody(body: unknown) {
-  return JSON.stringify(body ?? {}, null, 2);
+  return body ?? {};
+}
+
+function stringifyBody(body: unknown) {
+  return JSON.stringify(serializeBody(body), null, 2);
+}
+
+function formatBodyLiteral(body: unknown) {
+  return JSON.stringify(serializeBody(body), null, 2);
 }
 
 function getHeaders(headers?: Record<string, string>, contentType?: string) {
@@ -108,7 +116,7 @@ export function buildCurlSnippet(context: SnippetContext) {
     .map(([key, value]) => `-H "${key}: ${value}"`)
     .join(" \\\n  ");
   const bodyLine = body
-    ? ` \\\n  -d '${serializeBody(body)}'`
+    ? ` \\\n  -d '${stringifyBody(body)}'`
     : "";
   return [
     `curl -X ${method.toUpperCase()} \"${baseUrl}${path}\" \\\n  ${headerLines}${bodyLine}`,
@@ -162,7 +170,7 @@ export function buildJavascriptSnippet(context: SnippetContext) {
 
   const combinedHeaders = getHeaders(headers, contentType);
   const bodyLine = body
-    ? `  body: JSON.stringify(${serializeBody(body)}),\n`
+    ? `  body: JSON.stringify(${formatBodyLiteral(body)}),\n`
     : "";
   return [
     `const response = await fetch(\"${baseUrl}${path}\", {\n` +
@@ -209,7 +217,7 @@ export function buildPythonSnippet(context: SnippetContext) {
   }
 
   const payloadBlock = body
-    ? `import json\n\npayload = json.loads('''${serializeBody(body)}''')\n\n`
+    ? `import json\n\npayload = json.loads('''${stringifyBody(body)}''')\n\n`
     : "";
   const bodyLine = body ? "json=payload, " : "";
   return [

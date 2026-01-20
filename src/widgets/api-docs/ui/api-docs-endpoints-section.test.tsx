@@ -7,6 +7,8 @@ import type {
 } from "@/features/api-docs/model/openapi-helpers";
 import { renderWithIntl } from "@/test-utils/intl";
 
+const originalClipboard = window.navigator.clipboard;
+
 const apiSections: ApiSection[] = [
   {
     id: "images",
@@ -36,6 +38,18 @@ const apiSections: ApiSection[] = [
 ];
 
 describe("ApiDocsEndpointsSection", () => {
+  afterEach(() => {
+    if (originalClipboard) {
+      Object.defineProperty(window.navigator, "clipboard", {
+        value: originalClipboard,
+        configurable: true,
+      });
+    } else {
+      // @ts-expect-error - cleanup optional test stub
+      delete window.navigator.clipboard;
+    }
+  });
+
   it("스니펫 복사를 수행하고 상태를 표시한다", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, "clipboard", {
