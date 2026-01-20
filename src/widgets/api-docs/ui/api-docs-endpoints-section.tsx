@@ -164,11 +164,19 @@ export function ApiDocsEndpointsSection({
                 const methodAllowsBody = methodsWithBody.has(
                   operation.method.toUpperCase(),
                 );
+                const fileFields =
+                  request?.properties
+                    ?.filter((param) => param.typeLabel.includes("file"))
+                    .map((param) => param.name) ?? [];
                 const snippet = buildSnippet(selectedLanguage, {
                   baseUrl: apiBaseUrl,
                   path: operation.path,
                   method: operation.method,
                   body: methodAllowsBody ? requestExample ?? undefined : undefined,
+                  contentType:
+                    request?.contentType ??
+                    (methodAllowsBody ? "application/json" : undefined),
+                  fileFields,
                 });
 
                 return (

@@ -19,6 +19,7 @@ export type ApiSchemaProperty = {
 export type ApiRequestInfo = {
   schema: OpenApiSchema | null;
   properties: ApiSchemaProperty[] | null;
+  contentType?: string;
 };
 
 export type ApiResponseInfo = {
@@ -266,6 +267,7 @@ function extractRequestInfo(
     return {
       schema,
       properties: extractSchemaProperties(schema, document),
+      contentType: "application/json",
     };
   }
 
@@ -279,6 +281,7 @@ function extractRequestInfo(
     return {
       schema,
       properties: extractSchemaProperties(schema, document),
+      contentType: "application/json",
     };
   }
 
@@ -300,6 +303,7 @@ function extractRequestInfo(
   return {
     schema,
     properties: extractSchemaProperties(schema, document),
+    contentType,
   };
 }
 
