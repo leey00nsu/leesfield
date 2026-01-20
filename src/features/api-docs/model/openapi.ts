@@ -21,14 +21,8 @@ registry.registerComponent("securitySchemes", "ApiKeyAuth", {
 
 const errorResponseSchema = z.object({
   message: z.string(),
-  errors: z
-    .array(
-      z.object({
-        field: z.string(),
-        messages: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  errors: z.unknown().optional(),
+  requestId: z.string().optional(),
 });
 
 const generationResponseSchema = z.object({
@@ -183,6 +177,56 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidRequest: {
+              value: {
+                message: "INVALID_REQUEST",
+                errors: {
+                  formErrors: [],
+                  fieldErrors: {
+                    prompt: ["프롬프트를 입력해주세요."],
+                  },
+                },
+              },
+            },
+            invalidFormData: {
+              value: {
+                message: "INVALID_FORM_DATA",
+              },
+            },
+          },
+        },
+      },
+    },
+    413: {
+      description: "Payload too large",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          example: {
+            message: "FILE_TOO_LARGE",
+          },
+        },
+      },
+    },
+    429: {
+      description: "Too many requests",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            withRequestId: {
+              value: {
+                message: "IN_PROGRESS_ALREADY",
+                requestId: "req_01j4s1x2z3a4b5c6d7e8f9g0h1",
+              },
+            },
+            withoutRequestId: {
+              value: {
+                message: "IN_PROGRESS_ALREADY",
+              },
+            },
+          },
         },
       },
     },
@@ -191,6 +235,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
         },
       },
     },
@@ -199,6 +246,18 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidApiKey: {
+              value: {
+                message: "INVALID_API_KEY",
+              },
+            },
+            revokedApiKey: {
+              value: {
+                message: "API_KEY_REVOKED",
+              },
+            },
+          },
         },
       },
     },
@@ -207,6 +266,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "DB_SAVE_FAILED",
+          },
         },
       },
     },
@@ -243,6 +305,56 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidRequest: {
+              value: {
+                message: "INVALID_REQUEST",
+                errors: {
+                  formErrors: [],
+                  fieldErrors: {
+                    prompt: ["프롬프트를 입력해주세요."],
+                  },
+                },
+              },
+            },
+            invalidFormData: {
+              value: {
+                message: "INVALID_FORM_DATA",
+              },
+            },
+          },
+        },
+      },
+    },
+    413: {
+      description: "Payload too large",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          example: {
+            message: "FILE_TOO_LARGE",
+          },
+        },
+      },
+    },
+    429: {
+      description: "Too many requests",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            withRequestId: {
+              value: {
+                message: "IN_PROGRESS_ALREADY",
+                requestId: "req_01j4s1x2z3a4b5c6d7e8f9g0h1",
+              },
+            },
+            withoutRequestId: {
+              value: {
+                message: "IN_PROGRESS_ALREADY",
+              },
+            },
+          },
         },
       },
     },
@@ -251,6 +363,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
         },
       },
     },
@@ -259,6 +374,18 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidApiKey: {
+              value: {
+                message: "INVALID_API_KEY",
+              },
+            },
+            revokedApiKey: {
+              value: {
+                message: "API_KEY_REVOKED",
+              },
+            },
+          },
         },
       },
     },
@@ -267,6 +394,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "INTERNAL_SERVER_ERROR",
+          },
         },
       },
     },
@@ -298,6 +428,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
         },
       },
     },
@@ -306,6 +439,18 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidApiKey: {
+              value: {
+                message: "INVALID_API_KEY",
+              },
+            },
+            revokedApiKey: {
+              value: {
+                message: "API_KEY_REVOKED",
+              },
+            },
+          },
         },
       },
     },
@@ -314,6 +459,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "NOT_FOUND",
+          },
         },
       },
     },
@@ -345,6 +493,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
         },
       },
     },
@@ -353,6 +504,18 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidApiKey: {
+              value: {
+                message: "INVALID_API_KEY",
+              },
+            },
+            revokedApiKey: {
+              value: {
+                message: "API_KEY_REVOKED",
+              },
+            },
+          },
         },
       },
     },
@@ -361,6 +524,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "NOT_FOUND",
+          },
         },
       },
     },
@@ -388,6 +554,9 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
         },
       },
     },
@@ -396,6 +565,18 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: errorResponseSchema,
+          examples: {
+            invalidApiKey: {
+              value: {
+                message: "INVALID_API_KEY",
+              },
+            },
+            revokedApiKey: {
+              value: {
+                message: "API_KEY_REVOKED",
+              },
+            },
+          },
         },
       },
     },
