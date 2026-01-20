@@ -25,6 +25,7 @@ import {
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "<API_BASE_URL>";
+const methodsWithBody = new Set(["POST", "PUT", "PATCH"]);
 
 const methodStyles: Record<string, string> = {
   GET: "bg-white/10 text-white",
@@ -160,10 +161,14 @@ export function ApiDocsEndpointsSection({
                   : null;
                 const selectedLanguage =
                   snippetLanguagesById[operation.id] ?? "curl";
+                const methodAllowsBody = methodsWithBody.has(
+                  operation.method.toUpperCase(),
+                );
                 const snippet = buildSnippet(selectedLanguage, {
                   baseUrl: apiBaseUrl,
                   path: operation.path,
                   method: operation.method,
+                  body: methodAllowsBody ? requestExample ?? undefined : undefined,
                 });
 
                 return (
