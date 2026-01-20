@@ -1,4 +1,5 @@
 import { Archive } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
 
@@ -11,8 +12,11 @@ type HistoryListProps = {
 export function HistoryList({
   items,
   isLoading = false,
-  emptyMessage = "No history yet.",
+  emptyMessage,
 }: HistoryListProps) {
+  const tEmpty = useTranslations("history.empty");
+  const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
+
   if (isLoading) {
     return (
       <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
@@ -29,9 +33,11 @@ export function HistoryList({
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Archive className="h-6 w-6 text-gray-500" />
         </div>
-        <h3 className="text-lg font-bold text-gray-200">History Empty</h3>
+        <h3 className="text-lg font-bold text-gray-200">
+          {tEmpty("title")}
+        </h3>
         <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
-          {emptyMessage}
+          {resolvedEmptyMessage}
         </p>
       </div>
     );

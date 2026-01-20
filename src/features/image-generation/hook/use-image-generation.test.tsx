@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
+import { createIntlWrapper } from "@/test-utils/intl";
 
 const mockRequestImageGeneration = vi.hoisted(() => vi.fn());
 const mockFetchImageGenerationStatus = vi.hoisted(() => vi.fn());
@@ -38,7 +39,9 @@ describe("useImageGeneration", () => {
       },
     });
 
-    const { result } = renderHook(() => useImageGeneration());
+    const { result } = renderHook(() => useImageGeneration(), {
+      wrapper: createIntlWrapper(),
+    });
 
     await act(async () => {
       await result.current.startGeneration(payload);
@@ -58,14 +61,16 @@ describe("useImageGeneration", () => {
   it("요청 실패 시 실패 상태와 메시지를 설정한다", async () => {
     mockRequestImageGeneration.mockRejectedValueOnce(new Error("boom"));
 
-    const { result } = renderHook(() => useImageGeneration());
+    const { result } = renderHook(() => useImageGeneration(), {
+      wrapper: createIntlWrapper(),
+    });
 
     await act(async () => {
       await result.current.startGeneration(payload);
     });
 
     expect(result.current.state.status).toBe("failed");
-    expect(result.current.state.errorMessage).toBe("boom");
+    expect(result.current.state.errorMessage).toBe("요청에 실패했습니다.");
     expect(mockFetchImageGenerationStatus).not.toHaveBeenCalled();
   });
 
@@ -87,7 +92,9 @@ describe("useImageGeneration", () => {
       progress: 42,
     });
 
-    const { result } = renderHook(() => useImageGeneration());
+    const { result } = renderHook(() => useImageGeneration(), {
+      wrapper: createIntlWrapper(),
+    });
 
     await act(async () => {
       await result.current.startGeneration(payload);

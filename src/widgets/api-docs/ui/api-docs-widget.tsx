@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { PageHeader } from "@/shared/ui/page-header";
 import { useOpenApiDocument } from "@/features/api-docs/hook/use-openapi-document";
 import {
@@ -10,7 +11,7 @@ import {
   fallbackEndpointItems,
   generalNavItems,
   getEndpointIcon,
-  tagLabelMap,
+  tagIdMap,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
 import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
 import { ApiDocsSidebar } from "@/widgets/api-docs/ui/api-docs-sidebar";
@@ -20,48 +21,64 @@ import { ApiDocsErrorSection } from "@/widgets/api-docs/ui/api-docs-error-sectio
 import { ApiDocsEndpointsSection } from "@/widgets/api-docs/ui/api-docs-endpoints-section";
 
 export function ApiDocsWidget() {
+  const t = useTranslations("apiDocs");
+  const tNav = useTranslations("apiDocs.sidebar.nav");
+  const tStates = useTranslations("apiDocs.states");
   const { document: openApiDocument, isLoading, error } = useOpenApiDocument();
   const apiSections = useMemo(
     () => (openApiDocument ? buildApiSections(openApiDocument) : []),
     [openApiDocument],
   );
+  const generalItems = useMemo(
+    () =>
+      generalNavItems.map((item) => ({
+        ...item,
+        label: tNav(item.id),
+      })),
+    [tNav],
+  );
   const endpointNavItems = useMemo(() => {
-    if (!apiSections.length) return fallbackEndpointItems;
+    if (!apiSections.length) {
+      return fallbackEndpointItems.map((item) => ({
+        ...item,
+        label: tNav(item.id),
+      }));
+    }
     return apiSections.map((section) => ({
       id: section.id,
-      label: tagLabelMap[section.title] ?? section.title,
+      label: tagIdMap[section.title]
+        ? tNav(tagIdMap[section.title])
+        : section.title,
       icon: getEndpointIcon(section),
     }));
-  }, [apiSections]);
+  }, [apiSections, tNav]);
   const sectionIds = useMemo(
-    () => [...generalNavItems, ...endpointNavItems].map((item) => item.id),
-    [endpointNavItems],
+    () => [...generalItems, ...endpointNavItems].map((item) => item.id),
+    [endpointNavItems, generalItems],
   );
   const { activeSectionId } = useApiDocsNavigation({ sectionIds });
 
   const apiVersion = openApiDocument?.info.version ?? "v1";
-  const introTitle = openApiDocument?.info.title ?? "leesfield API";
-  const introDescription =
-    openApiDocument?.info.description ??
-    "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.";
+  const introTitle = t("intro.titleFallback");
+  const introDescription = t("intro.descriptionFallback");
 
   return (
     <div className="flex flex-col gap-8 pb-20">
       <PageHeader
         title={
           <>
-            <span className="text-white">API</span>{" "}
-            <span className="text-primary">문서</span>
+            <span className="text-white">{t("title.leading")}</span>{" "}
+            <span className="text-primary">{t("title.accent")}</span>
           </>
         }
-        subtitle="REST API 레퍼런스"
+        subtitle={t("subtitle")}
         sticky={false}
       />
 
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-6 sm:px-10 lg:flex-row">
         <ApiDocsSidebar
           apiVersion={apiVersion}
-          generalItems={generalNavItems}
+          generalItems={generalItems}
           endpointItems={endpointNavItems}
           activeSectionId={activeSectionId}
         />
@@ -86,12 +103,12 @@ export function ApiDocsWidget() {
 
             {isLoading ? (
               <div className="rounded-2xl border border-white/10 bg-surface-dark/80 px-6 py-4 text-sm text-gray-300">
-                OpenAPI 스키마를 불러오는 중입니다.
+                {tStates("loadingSchema")}
               </div>
             ) : null}
             {error ? (
               <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-6 py-4 text-sm text-red-200">
-                {error}
+                {tStates("schemaError")}
               </div>
             ) : null}
 
@@ -103,7 +120,7 @@ export function ApiDocsWidget() {
               />
             ) : !isLoading ? (
               <div className="rounded-2xl border border-white/10 bg-surface-dark/80 px-6 py-6 text-sm text-gray-300">
-                OpenAPI 스키마를 불러오지 못해 엔드포인트 정보를 표시할 수 없습니다.
+                {tStates("missingEndpoints")}
               </div>
             ) : null}
           </div>

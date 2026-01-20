@@ -1,0 +1,503 @@
+{
+  "header": {
+    "login": "로그인",
+    "logout": "로그아웃",
+    "profile": "프로필",
+    "menu": "메뉴",
+    "language": "언어"
+  },
+  "nav": {
+    "image": "이미지",
+    "video": "비디오",
+    "history": "히스토리",
+    "model": "모델",
+    "apiKey": "API 키",
+    "apiDocs": "API 문서"
+  },
+  "common": {
+    "actions": {
+      "generate": "생성",
+      "generating": "생성 중...",
+      "loading": "로딩 중...",
+      "copy": "복사",
+      "copied": "복사됨",
+      "open": "열기",
+      "download": "다운로드",
+      "remove": "삭제",
+      "close": "닫기",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중...",
+      "dismiss": "닫기",
+      "edit": "편집",
+      "viewAllModels": "전체 모델 보기",
+      "loadPreset": "프리셋 불러오기",
+      "clear": "초기화",
+      "reset": "리셋",
+      "comingSoon": "준비 중"
+    },
+  "labels": {
+    "filterOptions": "필터 옵션",
+    "searchPlaceholder": "검색...",
+    "all": "전체",
+    "images": "이미지",
+      "videos": "비디오",
+      "total": "총 {total}",
+      "sort": "정렬: {order}",
+      "dateDesc": "최신순",
+      "dateAsc": "오래된순",
+      "ready": "완료",
+      "chars": "{count}자",
+      "outputSize": "출력 크기",
+      "width": "너비",
+      "height": "높이",
+      "steps": "스텝",
+      "seed": "시드",
+      "durationSec": "재생시간",
+      "range": "범위: {min} ~ {max}px",
+      "required": "필수",
+    "optional": "선택",
+    "beta": "Beta",
+    "version": "버전 {version}",
+    "unknown": "알 수 없음",
+    "user": "사용자"
+  },
+  "brand": {
+    "name": "leesfield",
+    "nameTitle": "Leesfield",
+    "leading": "LEES",
+    "trailing": "FIELD",
+    "initials": "LF"
+  },
+  "locales": {
+    "ko": "한국어",
+    "en": "English"
+  }
+  },
+  "landing": {
+    "hero": {
+      "status": "AI 생성 플랫폼",
+      "primaryCta": "생성 시작",
+      "secondaryCta": "데모 보기",
+      "description": "leesfield는 창작을 위한 AI 생성 플랫폼으로, 간결한 워크플로우와 모델 선택을 통해 결과를 빠르게 완성합니다."
+    },
+    "features": {
+      "title": "핵심 기능",
+      "cards": {
+        "canvas": {
+          "title": "캔버스 기반 생성",
+          "description": "무한 캔버스에서 생성 결과를 배치하고 비교하며 빠르게 반복할 수 있습니다."
+        },
+        "history": {
+          "title": "생성 히스토리",
+          "description": "모든 프롬프트와 설정을 보관해 언제든 동일한 결과로 되돌릴 수 있습니다."
+        },
+        "model": {
+          "title": "모델 관리",
+          "description": "이미지/비디오 모델을 상황에 맞게 전환하고 최적의 결과를 얻습니다."
+        },
+        "api": {
+          "title": "개발자 API",
+          "description": "REST API로 워크플로우를 자동화하고 자체 서비스에 생성 기능을 통합합니다."
+        }
+      }
+    },
+    "showcase": {
+      "title": "커뮤니티 쇼케이스",
+      "viewPrompt": "프롬프트 보기"
+    },
+    "cta": {
+      "title": "지금 바로 leesfield로 시작하세요",
+      "description": "강력한 생성 모델과 직관적인 워크플로우를 한 번에 경험할 수 있습니다.",
+      "button": "대시보드로 이동"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": {
+        "leading": "사용자",
+        "accent": "로그인"
+      },
+      "subtitle": "인증이 필요합니다",
+      "form": {
+        "emailLabel": "아이디 또는 이메일",
+        "emailPlaceholder": "아이디 입력...",
+        "passwordLabel": "비밀번호",
+        "submit": "로그인",
+        "submitting": "로그인 중...",
+  "errors": {
+          "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
+          "serverConfig": "서버 설정이 필요합니다.",
+          "unknown": "로그인에 실패했습니다."
+        }
+      },
+      "validation": {
+        "email": "올바른 이메일을 입력해주세요.",
+        "password": "비밀번호를 입력해주세요."
+      }
+    }
+  },
+  "generation": {
+    "modelSelect": "모델 선택",
+    "settings": "설정",
+    "canvas": {
+      "emptyTitle": "캔버스 비어 있음",
+      "emptyDescription": "아래에서 프롬프트를 입력해 생성을 시작하세요.",
+      "generating": "생성 중...",
+      "failedTitle": "생성에 실패했습니다",
+      "failedDescription": "잠시 후 다시 시도해주세요."
+    },
+    "actions": {
+      "gridDisabled": "그리드 (비활성)",
+      "fullScreenDisabled": "전체 화면 (비활성)"
+    },
+    "image": {
+      "title": {
+        "leading": "이미지",
+        "accent": "생성"
+      },
+      "subtitle": "원클릭 이미지 생성",
+      "promptPlaceholder": "상세하게 프롬프트를 입력하세요...",
+      "uploadReference": "레퍼런스 이미지 업로드",
+      "uploadUnsupported": "이미지 입력을 지원하지 않는 모델입니다.",
+      "initImageAlt": "입력 이미지 미리보기",
+      "generatedImageAlt": "생성된 이미지 {index}",
+      "seedPlaceholder": "-1 (랜덤)"
+    },
+    "video": {
+      "title": {
+        "leading": "비디오",
+        "accent": "생성"
+      },
+      "subtitle": "원클릭 비디오 생성",
+      "promptPlaceholder": "생성할 비디오를 자세히 설명하세요...",
+      "uploadReference": "레퍼런스 이미지 업로드",
+      "initImageAlt": "입력 이미지 미리보기",
+      "mode": {
+        "imageToVideo": "이미지 → 비디오",
+        "imageRequired": "이미지 필요",
+        "textOnly": "텍스트 전용"
+      },
+      "sizeNotice": "이 스페이스는 해상도/비율 변경을 지원하지 않습니다. 이미지 입력이 있으면 그 비율을 참고하며, 텍스트 전용은 기본 해상도로 생성됩니다."
+    },
+    "errors": {
+      "requestFailed": "요청에 실패했습니다.",
+      "pollFailed": "상태 조회에 실패했습니다.",
+      "timeout": "응답 시간이 초과되었습니다.",
+      "inProgress": "이미 동일한 모델 요청이 진행 중입니다."
+    },
+    "validation": {
+      "image": {
+        "promptRequired": "프롬프트를 입력해주세요.",
+        "range": "{label}는 {min}~{max} 범위여야 합니다.",
+        "step": "{label}는 {step} 단위로 입력해야 합니다.",
+        "initImageUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다.",
+        "maxInputImages": "이미지는 최대 {limit}장까지 업로드할 수 있습니다.",
+        "labels": {
+          "width": "너비",
+          "height": "높이",
+          "steps": "스텝",
+          "imageCount": "이미지 개수"
+        }
+      },
+      "video": {
+        "promptRequired": "프롬프트를 입력해주세요.",
+        "initImageInvalid": "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.",
+        "initImageRequired": "initImage는 필수입니다.",
+        "initImageNeeded": "선택한 모델은 이미지 입력이 필요합니다.",
+        "initImageUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다.",
+        "intOnly": "{label}는 정수만 허용됩니다.",
+        "range": "{label}는 {min}~{max} 범위여야 합니다.",
+        "step": "{label}는 {step} 단위로 입력해야 합니다.",
+        "unsupportedAspectRatio": "지원하지 않는 비율입니다.",
+        "unsupportedResolution": "지원하지 않는 해상도입니다.",
+        "labels": {
+          "durationSec": "재생시간",
+          "steps": "스텝",
+          "guidanceScale": "가이던스",
+          "fps": "FPS"
+        }
+      }
+    }
+  },
+  "history": {
+    "title": {
+      "leading": "생성",
+      "accent": "히스토리"
+    },
+    "subtitle": "생성 기록을 빠르게 찾아보세요",
+    "error": "히스토리를 불러오지 못했습니다.",
+    "previewAlt": "생성 결과 미리보기",
+    "empty": {
+      "title": "히스토리가 없습니다",
+      "default": "히스토리가 비어 있습니다.",
+      "search": "검색 결과가 없습니다."
+    },
+    "loading": "로딩 중...",
+    "statuses": {
+      "pending": "대기중",
+      "processing": "처리중",
+      "completed": "완료",
+      "failed": "실패"
+    },
+    "types": {
+      "image": "이미지",
+      "video": "비디오"
+    },
+    "actions": {
+      "reusePrompt": "프롬프트 재사용",
+      "copyPrompt": "프롬프트 복사"
+    },
+    "states": {
+      "failed": "실패",
+      "generating": "생성 중...",
+      "unknownDate": "알 수 없음"
+    }
+  },
+  "model": {
+    "title": {
+      "leading": "모델",
+      "accent": "관리"
+    },
+    "subtitle": "모델을 빠르게 찾아보세요",
+    "empty": {
+      "title": "모델이 없습니다",
+      "default": "모델 카탈로그가 비어 있습니다.",
+      "search": "검색 결과가 없습니다."
+    },
+    "card": {
+      "type": {
+        "image": "이미지",
+        "video": "비디오"
+      },
+      "default": "기본",
+      "meta": {
+        "provider": "제공자",
+        "pipeline": "파이프라인",
+        "size": "크기",
+        "input": "입력",
+        "mode": "모드",
+        "duration": "길이"
+      }
+    }
+  },
+  "apiKey": {
+    "title": {
+      "leading": "API 키",
+      "accent": "관리"
+    },
+    "subtitle": "API 접근을 안전하게 관리하세요",
+    "toolbar": {
+      "allKeys": "모든 키",
+      "active": "활성",
+      "revoked": "폐기됨",
+      "newKeyPlaceholder": "새 키 라벨...",
+      "generate": "새 키 발급",
+      "generating": "발급 중..."
+    },
+    "pending": {
+      "title": "새 API 키가 발급되었습니다",
+      "copy": "키 복사",
+      "copied": "복사됨",
+      "dismiss": "닫기",
+      "note": "API 키는 이번 화면에서만 전체 값을 확인할 수 있습니다."
+    },
+    "list": {
+      "emptyTitle": "키가 없습니다",
+      "default": "API 키가 없습니다.",
+      "loading": "API 키를 불러오는 중입니다.",
+      "search": "검색 결과가 없습니다.",
+      "error": "API 키를 불러오지 못했습니다."
+    },
+    "card": {
+      "status": {
+        "active": "활성",
+        "revoked": "폐기됨"
+      },
+      "usage": {
+        "never": "사용 기록 없음",
+        "lastUsed": "마지막 사용 {value}"
+      },
+      "lastUsedLabel": "마지막 사용",
+      "createdLabel": "생성일",
+      "edit": "편집",
+      "editDisabled": "준비 중"
+    },
+    "modal": {
+      "editTitle": "API 키 편집",
+      "keyLabel": "키 라벨",
+      "revoke": "키 폐기",
+      "revoked": "폐기됨",
+      "revoking": "폐기 중...",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중...",
+      "close": "닫기"
+    },
+    "errors": {
+      "labelRequired": "라벨을 입력해주세요.",
+      "labelUpdateFailed": "라벨 업데이트에 실패했습니다.",
+      "revokeFailed": "키 폐기에 실패했습니다."
+    }
+  },
+  "apiDocs": {
+    "title": {
+      "leading": "API",
+      "accent": "문서"
+    },
+    "subtitle": "REST API 레퍼런스",
+    "intro": {
+      "titleFallback": "leesfield API",
+      "descriptionFallback": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+      "highlights": {
+        "latency": {
+          "title": "낮은 지연",
+          "description": "최적화된 추론 파이프라인으로 빠르게 생성합니다."
+        },
+        "security": {
+          "title": "보안",
+          "description": "스코프된 API 키로 안전하게 보호합니다."
+        },
+        "restful": {
+          "title": "RESTful",
+          "description": "일관된 REST 구조로 쉽게 연동할 수 있습니다."
+        }
+      }
+    },
+    "sidebar": {
+      "label": "API 레퍼런스 {version}",
+      "general": "일반",
+      "endpoints": "엔드포인트",
+      "nav": {
+        "introduction": "소개",
+        "authentication": "인증",
+        "errors": "오류",
+        "images": "이미지",
+        "videos": "비디오",
+        "models": "모델"
+      }
+    },
+    "auth": {
+      "title": "인증",
+      "description": "모든 요청은 API 키 인증이 필요합니다. 키는 <link>API 키</link> 화면에서 확인할 수 있습니다.",
+      "headerAuth": "헤더 인증",
+      "viewKey": "API 키 보기",
+      "includeHeader": "모든 요청에 <header>X-API-Key</header> 헤더를 포함하세요.",
+      "warning": "API 키는 외부에 노출되지 않도록 안전하게 보관하세요."
+    },
+    "errors": {
+      "title": "오류",
+      "description": "모든 오류 응답은 동일한 구조를 사용합니다.",
+      "cards": {
+        "badRequest": {
+          "title": "잘못된 요청",
+          "description": "요청 본문이 유효하지 않습니다."
+        },
+        "unauthorized": {
+          "title": "인증 실패",
+          "description": "API 키가 없거나 올바르지 않습니다."
+        },
+        "forbidden": {
+          "title": "접근 거부",
+          "description": "키가 폐기되었거나 권한이 없습니다."
+        },
+        "serverError": {
+          "title": "서버 오류",
+          "description": "서버에서 예기치 않은 오류가 발생했습니다."
+        }
+      },
+      "exampleTitle": "오류 응답 예시",
+      "exampleMessage": "INVALID_REQUEST",
+      "exampleFieldMessage": "필수 입력입니다."
+    },
+    "openapi": {
+      "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+      "tags": {
+        "images": "이미지 생성",
+        "videos": "비디오 생성",
+        "models": "모델 목록"
+      },
+      "paths": {
+        "imageGeneration": "이미지 생성 요청을 생성합니다.",
+        "videoGeneration": "비디오 생성 요청을 생성합니다.",
+        "imageStatus": "이미지 생성 결과를 조회합니다.",
+        "videoStatus": "비디오 생성 결과를 조회합니다.",
+        "models": "사용 가능한 생성 모델 목록을 조회합니다."
+      }
+    },
+    "endpoints": {
+      "requestParams": "요청 본문 파라미터",
+      "required": "필수",
+      "optional": "선택",
+      "requestExample": "요청 예시",
+      "responseExample": "응답 예시",
+      "responseFallback": "응답 예시 없음",
+      "response": "응답"
+    },
+    "examples": {
+      "sample": "샘플",
+      "samplePrompt": "샘플 프롬프트",
+      "sampleLabel": "샘플",
+      "sampleName": "샘플",
+      "sampleMessage": "OK"
+    },
+    "states": {
+      "loadingSchema": "OpenAPI 스키마를 불러오는 중입니다.",
+      "schemaError": "OpenAPI 스키마를 불러오지 못했습니다.",
+      "missingEndpoints": "OpenAPI 스키마를 불러오지 못해 엔드포인트 정보를 표시할 수 없습니다."
+    }
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "description": "생성 페이지와 관리 기능을 준비 중입니다."
+  },
+  "profile": {
+    "title": {
+      "leading": "사용자",
+      "accent": "프로필"
+    },
+    "subtitle": "프로필 정보를 관리하세요",
+    "summary": {
+      "changeAvatar": "아바타 변경",
+      "badges": {
+        "creator": "크리에이터",
+        "proMember": "프로 멤버"
+      },
+      "stats": {
+        "generations": "생성",
+        "credits": "크레딧"
+      }
+    },
+    "form": {
+      "title": "개인 정보",
+      "firstName": "이름",
+      "lastName": "성",
+      "email": "이메일",
+      "username": "사용자명",
+      "bio": "소개",
+      "characters": "{count}/{max}자",
+      "placeholders": {
+        "notSet": "미설정",
+        "email": "admin@example.com",
+        "username": "admin",
+        "bio": "자신을 소개해주세요..."
+      }
+    },
+    "headerActions": {
+      "saveChanges": "변경사항 저장"
+    },
+    "subscription": {
+      "title": "구독",
+      "manage": "관리",
+      "plan": "무료 플랜",
+      "price": "₩0/월",
+      "badge": "무료",
+      "noRenewal": "자동 갱신 없음",
+      "upgrade": "플랜 업그레이드"
+    },
+    "notifications": {
+      "title": "알림",
+      "generationComplete": "생성 완료"
+    }
+  }
+}

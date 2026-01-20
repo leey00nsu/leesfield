@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import type {
   GenerationHistorySort,
   GenerationHistoryType,
@@ -16,6 +17,7 @@ export interface UseHistoryQueryParams {
 const HISTORY_QUERY_KEY = "history";
 
 export function useHistoryQuery(params: UseHistoryQueryParams) {
+  const t = useTranslations("history");
   const { type, query, sort, limit, offset } = params;
   const queryResult = useQuery({
     queryKey: [HISTORY_QUERY_KEY, type, query, sort, limit, offset],
@@ -31,11 +33,6 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
     data: queryResult.data ?? null,
     isLoading: queryResult.isLoading,
     refetch: queryResult.refetch,
-    error:
-      queryResult.error instanceof Error
-        ? queryResult.error.message
-        : queryResult.error
-        ? "히스토리 조회에 실패했습니다."
-        : null,
+    error: queryResult.error ? t("error") : null,
   };
 }

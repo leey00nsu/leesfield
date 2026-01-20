@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 
 interface GenerationCanvasProps {
@@ -20,6 +21,7 @@ export function GenerationCanvas({
   errorMessage,
   className,
 }: GenerationCanvasProps) {
+  const t = useTranslations("generation.canvas");
   const showError = status === "failed" && !isGenerating;
 
   return (
@@ -45,16 +47,16 @@ export function GenerationCanvas({
             </span>
           </div>
           <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
-            Generating...
+            {t("generating")}
           </p>
         </div>
       )}
 
       {showError && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/60 px-6 text-center">
-          <p className="text-sm font-bold text-red-300">생성에 실패했습니다</p>
+          <p className="text-sm font-bold text-red-300">{t("failedTitle")}</p>
           <p className="text-xs font-mono text-gray-400">
-            {errorMessage ?? "잠시 후 다시 시도해주세요."}
+            {errorMessage ?? t("failedDescription")}
           </p>
         </div>
       )}

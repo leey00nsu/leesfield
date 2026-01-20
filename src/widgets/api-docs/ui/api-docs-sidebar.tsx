@@ -1,4 +1,5 @@
 import type { ApiDocsNavItem } from "@/widgets/api-docs/lib/api-docs-metadata";
+import { useTranslations } from "next-intl";
 
 interface ApiDocsSidebarProps {
   apiVersion: string;
@@ -13,17 +14,19 @@ export function ApiDocsSidebar({
   endpointItems,
   activeSectionId,
 }: ApiDocsSidebarProps) {
+  const t = useTranslations("apiDocs.sidebar");
+
   return (
     <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/10 pr-6">
       <div className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex flex-col gap-6">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 font-mono">
           <span className="h-2 w-2 rounded-full bg-primary" />
-          API 레퍼런스 {apiVersion}
+          {t("label", { version: apiVersion })}
         </div>
         <nav className="flex flex-col gap-8">
           <div className="flex flex-col gap-2">
             <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
-              일반
+              {t("general")}
             </h3>
             <div className="flex flex-col gap-1">
               {generalItems.map((item) => {
@@ -49,7 +52,7 @@ export function ApiDocsSidebar({
 
           <div className="flex flex-col gap-2">
             <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
-              엔드포인트
+              {t("endpoints")}
             </h3>
             <div className="flex flex-col gap-1">
               {endpointItems.map((item) => {

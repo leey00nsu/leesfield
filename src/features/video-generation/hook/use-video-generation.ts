@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+import { useTranslations } from "next-intl";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type {
   VideoGenerationResponse,
@@ -31,21 +33,52 @@ export type VideoGenerationState = GenerationPollingState<
 >;
 
 export function useVideoGeneration() {
+  const tErrors = useTranslations("generation.errors");
+  const request = useCallback(
+    async (values: VideoGenerationFormValues) => {
+      try {
+        return await requestVideoGeneration(values);
+      } catch (error) {
+        const code =
+          error && typeof error === "object" ? (error as { code?: string }).code : undefined;
+        if (code === "IN_PROGRESS_ALREADY") {
+          const mapped = new Error(tErrors("inProgress"));
+          (mapped as Error & { requestId?: string }).requestId = (
+            error as Error & { requestId?: string }
+          ).requestId;
+          throw mapped;
+        }
+        throw new Error(tErrors("requestFailed"));
+      }
+    },
+    [tErrors],
+  );
+  const poll = useCallback(
+    async (requestId: string) => {
+      try {
+        return await fetchVideoGenerationStatus(requestId);
+      } catch {
+        throw new Error(tErrors("pollFailed"));
+      }
+    },
+    [tErrors],
+  );
+
   return useGenerationPolling<
     VideoGenerationFormValues,
     VideoGenerationStatus,
     VideoGenerationResponse["result"]
   >({
-    request: requestVideoGeneration,
-    poll: fetchVideoGenerationStatus,
+    request,
+    poll,
     pollIntervalMs: POLL_INTERVAL_MS,
     timeoutMs: pollTimeoutMs,
     startStatus: "pending",
     errorStatus: "failed",
     timeoutStatus: "failed",
     terminalStatuses,
-    requestErrorMessage: "요청에 실패했습니다.",
-    pollErrorMessage: "상태 조회에 실패했습니다.",
-    timeoutMessage: "응답 시간이 초과되었습니다.",
+    requestErrorMessage: tErrors("requestFailed"),
+    pollErrorMessage: tErrors("pollFailed"),
+    timeoutMessage: tErrors("timeout"),
   });
 }

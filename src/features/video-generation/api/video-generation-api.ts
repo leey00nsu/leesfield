@@ -7,13 +7,16 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
   const response = await fetch(input, init);
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    if (payload?.message === "IN_PROGRESS_ALREADY") {
-      const error = new Error("이미 동일한 모델 요청이 진행 중입니다.");
+    const code = payload?.message ?? "REQUEST_FAILED";
+    if (code === "IN_PROGRESS_ALREADY") {
+      const error = new Error(code);
+      (error as Error & { code?: string }).code = code;
       (error as Error & { requestId?: string }).requestId = payload?.requestId;
       throw error;
     }
-    const message = payload?.message ?? "요청에 실패했습니다.";
-    throw new Error(message);
+    const error = new Error(code);
+    (error as Error & { code?: string }).code = code;
+    throw error;
   }
   const result = await response.json().catch(() => {
     throw new Error("응답 파싱에 실패했습니다.");

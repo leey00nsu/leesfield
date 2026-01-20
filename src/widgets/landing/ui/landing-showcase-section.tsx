@@ -1,4 +1,5 @@
 import { Badge } from "@/shared/ui/badge";
+import { useTranslations } from "next-intl";
 
 const showcaseTiles = [
   "from-primary/20 via-transparent to-primary/40",
@@ -12,11 +13,13 @@ const showcaseTiles = [
 ];
 
 export function LandingShowcaseSection() {
+  const t = useTranslations("landing.showcase");
+
   return (
     <>
       <div className="flex items-center gap-4">
         <h2 className="text-xl font-bold uppercase tracking-widest text-white">
-          커뮤니티 쇼케이스
+          {t("title")}
         </h2>
         <div className="h-px flex-1 bg-white/10" />
       </div>
@@ -32,7 +35,7 @@ export function LandingShowcaseSection() {
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
               <Badge variant="overlay" size="md" className="px-4 py-2">
-                프롬프트 보기
+                {t("viewPrompt")}
               </Badge>
             </div>
           </div>

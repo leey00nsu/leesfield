@@ -11,6 +11,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { useTranslations } from "next-intl";
 
 type ApiKeyEditModalProps = {
   open: boolean;
@@ -37,6 +38,8 @@ export function ApiKeyEditModal({
   onSave,
   onRevoke,
 }: ApiKeyEditModalProps) {
+  const t = useTranslations("apiKey.modal");
+
   if (!apiKey) return null;
 
   return (
@@ -48,7 +51,7 @@ export function ApiKeyEditModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <DialogDescription className="text-xs font-mono uppercase tracking-widest text-gray-500">
-              Edit API Key
+              {t("editTitle")}
             </DialogDescription>
             <DialogTitle className="mt-2 text-xl font-bold text-white">
               {apiKey.label}
@@ -62,7 +65,7 @@ export function ApiKeyEditModal({
               type="button"
               variant="ghost"
               className="rounded-lg border border-white/10 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
-              aria-label="닫기"
+              aria-label={t("close")}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -70,7 +73,7 @@ export function ApiKeyEditModal({
         </div>
         <div className="mt-6 space-y-3">
           <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
-            Key Label
+            {t("keyLabel")}
           </Label>
           <Input
             type="text"
@@ -93,10 +96,10 @@ export function ApiKeyEditModal({
             )}
           >
             {apiKey.status === "revoked"
-              ? "Revoked"
+              ? t("revoked")
               : isRevoking
-                ? "Revoking..."
-                : "Revoke Key"}
+                ? t("revoking")
+                : t("revoke")}
           </Button>
           <div className="flex gap-2">
             <DialogClose asChild>
@@ -105,7 +108,7 @@ export function ApiKeyEditModal({
                 variant="ghost"
                 className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
               >
-                Cancel
+                {t("cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -118,7 +121,7 @@ export function ApiKeyEditModal({
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
-              {isSaving ? "Saving..." : "Save"}
+              {isSaving ? t("saving") : t("save")}
             </Button>
           </div>
         </div>

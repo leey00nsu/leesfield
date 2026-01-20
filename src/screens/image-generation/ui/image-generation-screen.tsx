@@ -1,33 +1,37 @@
 import { FolderOpen, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
 import { GenerationHeaderActions } from "@/shared/ui/generation-header-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 
 export function ImageGenerationScreen() {
+  const tImage = useTranslations("generation.image");
+  const tCommonActions = useTranslations("common.actions");
+
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
       <PageHeader
         title={
           <>
-            <span className="text-white">Image</span>{" "}
-            <span className="text-primary">Generation</span>
+            <span className="text-white">{tImage("title.leading")}</span>{" "}
+            <span className="text-primary">{tImage("title.accent")}</span>
           </>
         }
-        subtitle="MAKE IMAGES IN ONE CLICK"
+        subtitle={tImage("subtitle")}
         rightSlot={
           <GenerationHeaderActions
             actions={[
               {
-                label: "Load Preset",
+                label: tCommonActions("loadPreset"),
                 icon: <FolderOpen className="h-4 w-4" />,
                 disabled: true,
-                title: "준비 중",
+                title: tCommonActions("comingSoon"),
               },
               {
-                label: "Clear",
+                label: tCommonActions("clear"),
                 icon: <Trash2 className="h-4 w-4" />,
                 disabled: true,
-                title: "준비 중",
+                title: tCommonActions("comingSoon"),
               },
             ]}
           />

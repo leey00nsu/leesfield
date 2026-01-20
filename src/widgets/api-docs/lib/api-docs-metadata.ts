@@ -16,22 +16,27 @@ export interface ApiDocsNavItem {
   icon: LucideIcon;
 }
 
-export const generalNavItems: ApiDocsNavItem[] = [
-  { id: "introduction", label: "소개", icon: Info },
-  { id: "authentication", label: "인증", icon: Lock },
-  { id: "errors", label: "오류", icon: AlertTriangle },
+export interface ApiDocsNavDefinition {
+  id: string;
+  icon: LucideIcon;
+}
+
+export const generalNavItems: ApiDocsNavDefinition[] = [
+  { id: "introduction", icon: Info },
+  { id: "authentication", icon: Lock },
+  { id: "errors", icon: AlertTriangle },
 ];
 
-export const fallbackEndpointItems: ApiDocsNavItem[] = [
-  { id: "images", label: "이미지", icon: ImageIcon },
-  { id: "videos", label: "비디오", icon: Film },
-  { id: "models", label: "모델", icon: Boxes },
+export const fallbackEndpointItems: ApiDocsNavDefinition[] = [
+  { id: "images", icon: ImageIcon },
+  { id: "videos", icon: Film },
+  { id: "models", icon: Boxes },
 ];
 
-export const tagLabelMap: Record<string, string> = {
-  Images: "이미지",
-  Videos: "비디오",
-  Models: "모델",
+export const tagIdMap: Record<string, string> = {
+  Images: "images",
+  Videos: "videos",
+  Models: "models",
 };
 
 export function getEndpointIcon(section: ApiSection): LucideIcon {

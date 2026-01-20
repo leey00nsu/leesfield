@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
@@ -76,13 +77,18 @@ interface PageHeaderSearchInputProps {
 export function PageHeaderSearchInput({
   value,
   onChange,
-  placeholder = "SEARCH_DATABASE...",
+  placeholder,
   onFilterClick,
-  filterButtonLabel = "Filter options",
+  filterButtonLabel,
   showFilterButton = true,
   className,
   inputClassName,
 }: PageHeaderSearchInputProps) {
+  const tLabels = useTranslations("common.labels");
+  const resolvedPlaceholder = placeholder ?? tLabels("searchPlaceholder");
+  const resolvedFilterButtonLabel =
+    filterButtonLabel ?? tLabels("filterOptions");
+
   return (
     <div
       className={cn(
@@ -95,7 +101,7 @@ export function PageHeaderSearchInput({
       </div>
       <input
         type="text"
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
@@ -111,7 +117,7 @@ export function PageHeaderSearchInput({
             size="icon-sm"
             onClick={onFilterClick}
             className="text-gray-500 hover:bg-white/5 hover:text-primary"
-            aria-label={filterButtonLabel}
+            aria-label={resolvedFilterButtonLabel}
           >
             <SlidersHorizontal className="h-5 w-5" />
           </Button>

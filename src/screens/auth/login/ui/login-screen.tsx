@@ -1,7 +1,9 @@
 import { Header } from "@/widgets/header/ui/header";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
+import { getTranslations } from "next-intl/server";
 
-export function LoginScreen() {
+export async function LoginScreen() {
+  const tLogin = await getTranslations("auth.login");
   return (
     <div className="flex min-h-screen flex-col bg-background-dark font-display text-white">
       <Header variant="public" />
@@ -12,13 +14,13 @@ export function LoginScreen() {
             <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
               <div>
                 <h1 className="text-3xl font-black uppercase tracking-[-0.033em] sm:text-5xl">
-                  <span className="text-white">User</span>{" "}
-                  <span className="text-primary">Login</span>
+                  <span className="text-white">{tLogin("title.leading")}</span>{" "}
+                  <span className="text-primary">{tLogin("title.accent")}</span>
                 </h1>
                 <p className="mt-2 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                AUTHENTICATION REQUIRED
-              </p>
+                  {tLogin("subtitle")}
+                </p>
               </div>
             </div>
           </div>

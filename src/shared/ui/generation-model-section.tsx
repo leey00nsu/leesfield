@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
@@ -19,18 +20,21 @@ interface GenerationModelSectionProps<T extends string> {
 }
 
 export function GenerationModelSection<T extends string>({
-  title = "Select_Model",
+  title,
   action,
   items,
   activeId,
   onSelect,
   className,
 }: GenerationModelSectionProps<T>) {
+  const t = useTranslations("generation");
+  const resolvedTitle = title ?? t("modelSelect");
+
   return (
     <section className={cn("flex flex-col gap-4", className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 font-mono">
-          {title}
+          {resolvedTitle}
         </h3>
         {action}
       </div>

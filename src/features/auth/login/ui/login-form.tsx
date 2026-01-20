@@ -1,12 +1,12 @@
 "use client";
 
-import { startTransition, useActionState } from "react";
+import { startTransition, useActionState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Lock, User } from "lucide-react";
 import { loginAction } from "@/features/auth/login/api/login-action";
 import {
-  loginSchema,
+  createLoginSchema,
   type LoginFormValues,
 } from "@/features/auth/login/model/login-schema";
 import { Button } from "@/shared/ui/button";
@@ -20,25 +20,31 @@ import {
   FormMessage,
 } from "@/shared/ui/form";
 import { Input } from "@/shared/ui/input";
+import { useTranslations } from "next-intl";
 
 const initialState = {
   errorCode: undefined,
 };
-
-const errorMessages = {
-  INVALID_CREDENTIALS: "이메일 또는 비밀번호가 올바르지 않습니다.",
-  SERVER_CONFIG: "서버 설정이 필요합니다.",
-  UNKNOWN: "로그인에 실패했습니다.",
-} as const;
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialState,
   );
+  const tForm = useTranslations("auth.login.form");
+  const tValidation = useTranslations("auth.login.validation");
+  const schema = useMemo(() => createLoginSchema(tValidation), [tValidation]);
+  const errorMessages = useMemo(
+    () => ({
+      INVALID_CREDENTIALS: tForm("errors.invalidCredentials"),
+      SERVER_CONFIG: tForm("errors.serverConfig"),
+      UNKNOWN: tForm("errors.unknown"),
+    }),
+    [tForm],
+  );
 
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       email: "",
       password: "",
@@ -67,7 +73,7 @@ export function LoginForm() {
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="text-xs font-bold uppercase tracking-widest text-gray-500">
-                    Username or Email
+                    {tForm("emailLabel")}
                   </FormLabel>
                   <FormControl>
                     <div className="group/input relative">
@@ -76,7 +82,7 @@ export function LoginForm() {
                       </div>
                       <Input
                         className="w-full border-white/10 bg-surface-lighter py-3 pl-10 pr-4 font-mono text-sm text-white placeholder:text-gray-600 transition-all focus-visible:ring-primary"
-                        placeholder="ENTER_ID..."
+                        placeholder={tForm("emailPlaceholder")}
                         autoComplete="username"
                         {...field}
                       />
@@ -93,7 +99,7 @@ export function LoginForm() {
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="text-xs font-bold uppercase tracking-widest text-gray-500">
-                    Password
+                    {tForm("passwordLabel")}
                   </FormLabel>
                   <FormControl>
                     <div className="group/input relative">
@@ -125,7 +131,7 @@ export function LoginForm() {
               disabled={isPending}
               className="group/btn mt-4 h-12 w-full gap-2 rounded-lg bg-primary text-sm font-bold uppercase tracking-wider text-primary-content shadow-[0_4px_20px_rgba(212,240,50,0.15)] transition-all hover:bg-primary hover:text-primary-content"
             >
-              {isPending ? "Authenticating..." : "Authenticate"}
+              {isPending ? tForm("submitting") : tForm("submit")}
               <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
             </Button>
 

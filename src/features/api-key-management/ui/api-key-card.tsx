@@ -2,6 +2,7 @@ import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
+import { useTranslations } from "next-intl";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 
@@ -16,13 +17,11 @@ type ApiKeyCardProps = {
 
 const statusConfig = {
   active: {
-    label: "Active",
     icon: CheckCircle2,
     dot: "bg-green-500",
     text: "text-green-400",
   },
   revoked: {
-    label: "Revoked",
     icon: XCircle,
     dot: "bg-red-500",
     text: "text-red-400",
@@ -37,11 +36,15 @@ export function ApiKeyCard({
   createdAtLabel,
   onEdit,
 }: ApiKeyCardProps) {
+  const t = useTranslations("apiKey.card");
+  const tCommonActions = useTranslations("common.actions");
   const config = statusConfig[status];
   const StatusIcon = config.icon;
   const canEdit = Boolean(onEdit);
   const usageHint =
-    lastUsedLabel === "Never" ? "Never used" : `Last used ${lastUsedLabel}`;
+    lastUsedLabel === t("usage.never")
+      ? t("usage.never")
+      : t("usage.lastUsed", { value: lastUsedLabel });
 
   return (
     <article className="group relative flex flex-col gap-6 rounded-xl border border-white/5 bg-surface-dark p-6 shadow-lg transition-all hover:border-primary/50 md:flex-row md:items-center md:justify-between">
@@ -63,7 +66,7 @@ export function ApiKeyCard({
               className={cn("gap-1 bg-white/5", config.text)}
             >
               <StatusIcon className="h-3 w-3" />
-              {config.label}
+              {t(`status.${status}`)}
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -77,7 +80,7 @@ export function ApiKeyCard({
       <div className="flex w-full flex-col gap-6 border-t border-white/5 pt-4 md:w-auto md:flex-row md:items-center md:gap-10 md:border-t-0 md:pt-0">
         <div className="flex min-w-[100px] flex-col gap-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            Last Used
+            {t("lastUsedLabel")}
           </span>
           <span className="flex items-center gap-2 text-sm font-mono text-gray-200">
             <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />
@@ -86,7 +89,7 @@ export function ApiKeyCard({
         </div>
         <div className="flex min-w-[100px] flex-col gap-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            Created
+            {t("createdLabel")}
           </span>
           <span className="text-sm font-mono text-gray-400">
             {createdAtLabel}
@@ -98,7 +101,7 @@ export function ApiKeyCard({
             onClick={onEdit}
             disabled={!canEdit}
             aria-disabled={!canEdit}
-            title={canEdit ? "Edit" : "준비 중"}
+            title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
             variant="ghost"
             className={cn(
               "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white/10 hover:bg-white/5 hover:text-white",
@@ -106,7 +109,7 @@ export function ApiKeyCard({
                 "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent hover:text-gray-400",
             )}
           >
-            Edit
+            {tCommonActions("edit")}
           </Button>
         </div>
       </div>

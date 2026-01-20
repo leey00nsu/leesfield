@@ -7,6 +7,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { useTranslations } from "next-intl";
 
 type ApiKeyToolbarProps = {
   filter: ApiKeyStatusFilter;
@@ -25,6 +26,8 @@ export function ApiKeyToolbar({
   onGenerate,
   isIssuing,
 }: ApiKeyToolbarProps) {
+  const t = useTranslations("apiKey.toolbar");
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <DashboardFilterBar className="gap-2">
@@ -34,7 +37,7 @@ export function ApiKeyToolbar({
           active={filter === "all"}
           icon={<KeyRound className="h-4 w-4" />}
         >
-          All Keys
+          {t("allKeys")}
         </DashboardFilterToggle>
         <DashboardFilterToggle
           onClick={() => onFilterChange("active")}
@@ -42,7 +45,7 @@ export function ApiKeyToolbar({
           active={filter === "active"}
           icon={<ShieldCheck className="h-4 w-4" />}
         >
-          Active
+          {t("active")}
         </DashboardFilterToggle>
         <DashboardFilterToggle
           onClick={() => onFilterChange("revoked")}
@@ -50,7 +53,7 @@ export function ApiKeyToolbar({
           active={filter === "revoked"}
           icon={<Slash className="h-4 w-4" />}
         >
-          Revoked
+          {t("revoked")}
         </DashboardFilterToggle>
       </DashboardFilterBar>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -58,7 +61,7 @@ export function ApiKeyToolbar({
           type="text"
           value={newKeyLabel}
           onChange={(event) => onNewKeyLabelChange(event.target.value)}
-          placeholder="NEW_KEY_LABEL..."
+          placeholder={t("newKeyPlaceholder")}
           className="h-10 min-w-[220px] rounded-full border-white/10 bg-surface-dark px-4 text-xs font-mono uppercase tracking-wider text-white placeholder:text-gray-600 focus-visible:border-primary focus-visible:ring-0"
         />
         <Button
@@ -73,7 +76,7 @@ export function ApiKeyToolbar({
           )}
         >
           <Plus className="h-5 w-5" />
-          {isIssuing ? "Generating..." : "Generate New Key"}
+          {isIssuing ? t("generating") : t("generate")}
         </Button>
       </div>
     </div>

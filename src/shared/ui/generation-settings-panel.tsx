@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
@@ -11,11 +12,15 @@ interface GenerationSettingsPanelProps {
 }
 
 export function GenerationSettingsPanel({
-  title = "Settings",
+  title,
   onReset,
   children,
   className,
 }: GenerationSettingsPanelProps) {
+  const tGeneration = useTranslations("generation");
+  const tActions = useTranslations("common.actions");
+  const resolvedTitle = title ?? tGeneration("settings");
+
   return (
     <aside
       className={cn(
@@ -26,7 +31,7 @@ export function GenerationSettingsPanel({
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-white">
           <span className="h-6 w-1.5 rounded-full bg-primary" />
-          {title}
+          {resolvedTitle}
         </h3>
         <Button
           type="button"
@@ -34,6 +39,7 @@ export function GenerationSettingsPanel({
           size="icon-sm"
           onClick={onReset}
           className="text-gray-500 hover:bg-white/5 hover:text-white"
+          aria-label={tActions("reset")}
         >
           <RotateCcw className="h-5 w-5" />
         </Button>
