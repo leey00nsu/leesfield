@@ -3,10 +3,8 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/shared/ui/page-header";
-import { useOpenApiDocument } from "@/features/api-docs/hook/use-openapi-document";
-import {
-  buildApiSections,
-} from "@/features/api-docs/model/openapi-helpers";
+import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
+import { buildApiSections } from "@/features/api-docs/model/openapi-helpers";
 import {
   fallbackEndpointItems,
   generalNavItems,
@@ -20,13 +18,16 @@ import { ApiDocsAuthSection } from "@/widgets/api-docs/ui/api-docs-auth-section"
 import { ApiDocsErrorSection } from "@/widgets/api-docs/ui/api-docs-error-section";
 import { ApiDocsEndpointsSection } from "@/widgets/api-docs/ui/api-docs-endpoints-section";
 
-export function ApiDocsWidget() {
+interface ApiDocsWidgetProps {
+  openApiDocument: OpenApiDocument;
+}
+
+export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
   const t = useTranslations("apiDocs");
   const tNav = useTranslations("apiDocs.sidebar.nav");
   const tStates = useTranslations("apiDocs.states");
-  const { document: openApiDocument, isLoading, error } = useOpenApiDocument();
   const apiSections = useMemo(
-    () => (openApiDocument ? buildApiSections(openApiDocument) : []),
+    () => buildApiSections(openApiDocument),
     [openApiDocument],
   );
   const generalItems = useMemo(
@@ -54,11 +55,10 @@ export function ApiDocsWidget() {
   }, [apiSections, tNav]);
   const sectionIds = useMemo(
     () => [...generalItems, ...endpointNavItems].map((item) => item.id),
-    [endpointNavItems, generalItems],
+    [generalItems, endpointNavItems],
   );
   const { activeSectionId } = useApiDocsNavigation({ sectionIds });
-
-  const apiVersion = openApiDocument?.info.version ?? "v1";
+  const apiVersion = openApiDocument.info.version ?? "v1";
   const introTitle = t("intro.titleFallback");
   const introDescription = t("intro.descriptionFallback");
 
@@ -101,28 +101,17 @@ export function ApiDocsWidget() {
 
             <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
 
-            {isLoading ? (
-              <div className="rounded-2xl border border-white/10 bg-surface-dark/80 px-6 py-4 text-sm text-gray-300">
-                {tStates("loadingSchema")}
-              </div>
-            ) : null}
-            {error ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-6 py-4 text-sm text-red-200">
-                {tStates("schemaError")}
-              </div>
-            ) : null}
-
             {apiSections.length ? (
               <ApiDocsEndpointsSection
                 apiSections={apiSections}
                 apiVersion={apiVersion}
                 openApiDocument={openApiDocument}
               />
-            ) : !isLoading ? (
+            ) : (
               <div className="rounded-2xl border border-white/10 bg-surface-dark/80 px-6 py-6 text-sm text-gray-300">
                 {tStates("missingEndpoints")}
               </div>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
