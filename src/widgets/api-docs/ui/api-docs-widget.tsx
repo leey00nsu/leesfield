@@ -1,17 +1,7 @@
-"use client";
-
-import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/shared/ui/page-header";
 import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
 import { buildApiSections } from "@/features/api-docs/model/openapi-helpers";
-import {
-  fallbackEndpointItems,
-  generalNavItems,
-  getEndpointIcon,
-  tagIdMap,
-} from "@/widgets/api-docs/lib/api-docs-metadata";
-import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
 import { ApiDocsSidebar } from "@/widgets/api-docs/ui/api-docs-sidebar";
 import { ApiDocsIntroSection } from "@/widgets/api-docs/ui/api-docs-intro-section";
 import { ApiDocsAuthSection } from "@/widgets/api-docs/ui/api-docs-auth-section";
@@ -24,40 +14,8 @@ interface ApiDocsWidgetProps {
 
 export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
   const t = useTranslations("apiDocs");
-  const tNav = useTranslations("apiDocs.sidebar.nav");
   const tStates = useTranslations("apiDocs.states");
-  const apiSections = useMemo(
-    () => buildApiSections(openApiDocument),
-    [openApiDocument],
-  );
-  const generalItems = useMemo(
-    () =>
-      generalNavItems.map((item) => ({
-        ...item,
-        label: tNav(item.id),
-      })),
-    [tNav],
-  );
-  const endpointNavItems = useMemo(() => {
-    if (!apiSections.length) {
-      return fallbackEndpointItems.map((item) => ({
-        ...item,
-        label: tNav(item.id),
-      }));
-    }
-    return apiSections.map((section) => ({
-      id: section.id,
-      label: tagIdMap[section.title]
-        ? tNav(tagIdMap[section.title])
-        : section.title,
-      icon: getEndpointIcon(section),
-    }));
-  }, [apiSections, tNav]);
-  const sectionIds = useMemo(
-    () => [...generalItems, ...endpointNavItems].map((item) => item.id),
-    [generalItems, endpointNavItems],
-  );
-  const { activeSectionId } = useApiDocsNavigation({ sectionIds });
+  const apiSections = buildApiSections(openApiDocument);
   const apiVersion = openApiDocument.info.version ?? "v1";
   const introTitle = t("intro.titleFallback");
   const introDescription = t("intro.descriptionFallback");
@@ -76,12 +34,7 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
       />
 
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-6 sm:px-10 lg:flex-row">
-        <ApiDocsSidebar
-          apiVersion={apiVersion}
-          generalItems={generalItems}
-          endpointItems={endpointNavItems}
-          activeSectionId={activeSectionId}
-        />
+        <ApiDocsSidebar apiVersion={apiVersion} apiSections={apiSections} />
 
         <div className="flex-1 min-w-0">
           <div className="flex w-full flex-col gap-16 pb-24">
