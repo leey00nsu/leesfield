@@ -4,7 +4,13 @@ import { ImageGenerationForm } from "@/features/image-generation/ui/image-genera
 import { GenerationHeaderActions } from "@/shared/ui/generation-header-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 
-export function ImageGenerationScreen() {
+type ImageGenerationScreenProps = {
+  isAuthenticated: boolean;
+};
+
+export function ImageGenerationScreen({
+  isAuthenticated,
+}: ImageGenerationScreenProps) {
   const tImage = useTranslations("generation.image");
   const tCommonActions = useTranslations("common.actions");
 
@@ -40,7 +46,7 @@ export function ImageGenerationScreen() {
       />
 
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-8">
-        <ImageGenerationForm />
+        <ImageGenerationForm isAuthenticated={isAuthenticated} />
       </div>
     </div>
   );

@@ -135,6 +135,12 @@
         "email": "Please enter a valid email.",
         "password": "Please enter a password."
       }
+    },
+    "loginGate": {
+      "title": "Login required",
+      "description": "Log in to continue your generation.",
+      "action": "Log in",
+      "cancel": "Not now"
     }
   },
   "generation": {

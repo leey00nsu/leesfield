@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
+import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   imageGenerationDefaults,
   createImageGenerationSchema,
@@ -60,7 +61,11 @@ const modelOptions = imageModels.map((model, index) => ({
   active: boolean;
 }>;
 
-export function ImageGenerationForm() {
+type ImageGenerationFormProps = {
+  isAuthenticated: boolean;
+};
+
+export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
   const tGeneration = useTranslations("generation");
   const tImage = useTranslations("generation.image");
@@ -68,6 +73,7 @@ export function ImageGenerationForm() {
   const tLabels = useTranslations("common.labels");
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.image");
+  const tLoginGate = useTranslations("auth.loginGate");
   const schema = useMemo(
     () => createImageGenerationSchema(tValidation),
     [tValidation],
@@ -77,6 +83,7 @@ export function ImageGenerationForm() {
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
+  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
 
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   useEffect(() => {
@@ -178,11 +185,21 @@ export function ImageGenerationForm() {
       ? "grid-cols-2"
       : "grid-cols-2 lg:grid-cols-3";
 
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (!isAuthenticated) {
+      event.preventDefault();
+      setIsLoginGateOpen(true);
+      return;
+    }
+
+    void form.handleSubmit((values) => startGeneration(values))(event);
+  };
+
   return (
     <Form {...form}>
       <form
         className="flex flex-col gap-8"
-        onSubmit={form.handleSubmit((values) => startGeneration(values))}
+        onSubmit={handleFormSubmit}
       >
         <GenerationModelSection
           items={modelOptions}
@@ -392,11 +409,16 @@ export function ImageGenerationForm() {
                 />
 
                 <Button
-                  type="submit"
+                  type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
                   disabled={isGenerating}
                   className="flex-col"
+                  onClick={
+                    isAuthenticated
+                      ? undefined
+                      : () => setIsLoginGateOpen(true)
+                  }
                 >
                   <Sparkles className="h-7 w-7" />
                   {isGenerating ? tActions("generating") : tActions("generate")}
@@ -562,6 +584,14 @@ export function ImageGenerationForm() {
           </GenerationSettingsPanel>
         </div>
       </form>
+      <LoginGateDialog
+        open={isLoginGateOpen}
+        onOpenChange={setIsLoginGateOpen}
+        title={tLoginGate("title")}
+        description={tLoginGate("description")}
+        actionLabel={tLoginGate("action")}
+        cancelLabel={tLoginGate("cancel")}
+      />
     </Form>
   );
 }

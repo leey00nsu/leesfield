@@ -24,7 +24,7 @@ describe("ImageGenerationForm", () => {
 
     const user = userEvent.setup();
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -44,7 +44,7 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.getByText("42%")).toBeInTheDocument();
     expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
@@ -63,10 +63,30 @@ describe("ImageGenerationForm", () => {
       startGeneration: vi.fn(),
     });
 
-    renderWithIntl(<ImageGenerationForm />);
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.getByAltText("생성된 이미지 1")).toBeInTheDocument();
     expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
     expect(screen.queryByText("생성 중...")).not.toBeInTheDocument();
+  });
+
+  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+    const startGeneration = vi.fn();
+
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
+
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(
+      await screen.findByText("로그인이 필요합니다"),
+    ).toBeInTheDocument();
+    expect(startGeneration).not.toHaveBeenCalled();
   });
 });
