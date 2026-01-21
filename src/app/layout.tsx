@@ -59,11 +59,12 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const timeZone = "UTC";
 
   return (
     <html lang={locale} className="dark">
       <body className={`${pretendard.variable} antialiased`}>
-        <Providers locale={locale} messages={messages}>
+        <Providers locale={locale} messages={messages} timeZone={timeZone}>
           {children}
         </Providers>
       </body>

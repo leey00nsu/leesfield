@@ -8,9 +8,15 @@ interface ProvidersProps {
   children: ReactNode;
   locale: string;
   messages: AbstractIntlMessages;
+  timeZone: string;
 }
 
-export function Providers({ children, locale, messages }: ProvidersProps) {
+export function Providers({
+  children,
+  locale,
+  messages,
+  timeZone,
+}: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -28,7 +34,11 @@ export function Providers({ children, locale, messages }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NextIntlClientProvider locale={locale} messages={messages}>
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone={timeZone}
+      >
         {children}
       </NextIntlClientProvider>
     </QueryClientProvider>

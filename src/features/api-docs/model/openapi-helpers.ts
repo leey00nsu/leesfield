@@ -5,6 +5,7 @@ import type {
   OpenApiRequestBody,
   OpenApiResponse,
   OpenApiSchema,
+  ReferenceObject,
 } from "./openapi-types";
 
 type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
@@ -136,24 +137,32 @@ export function slugifyTag(tag: string) {
 }
 
 export function formatSchemaType(
-  schema: OpenApiSchema | null,
+  schema: OpenApiSchema | ReferenceObject | null,
   document?: OpenApiDocument,
 ): string {
   if (!schema) return "object";
-  if (schema.format === "binary") return "file";
-  if (schema.enum) return "enum";
-  if (schema.type === "array") {
+  const resolvedSchema = resolveSchema(schema, document ?? null);
+  if (!resolvedSchema) return "object";
+  if ("format" in resolvedSchema && resolvedSchema.format === "binary") {
+    return "file";
+  }
+  if ("enum" in resolvedSchema && resolvedSchema.enum) return "enum";
+  const resolvedType = getSchemaType(resolvedSchema);
+  if (resolvedType === "array") {
     const itemType: string = formatSchemaType(
-      resolveSchema(schema.items, document ?? null),
+      resolveSchema(
+        "items" in resolvedSchema ? resolvedSchema.items : null,
+        document ?? null,
+      ),
       document,
     );
     return `array<${itemType}>`;
   }
-  return schema.type ?? "object";
+  return resolvedType ?? "object";
 }
 
 export function buildExampleFromSchema(
-  schema: OpenApiSchema | null,
+  schema: OpenApiSchema | ReferenceObject | null,
   document?: OpenApiDocument | null,
   hintKey?: string,
   examples?: ExampleStrings,
@@ -262,19 +271,10 @@ function extractRequestInfo(
   if (!requestBody) return null;
 
   const resolvedBody = resolveRequestBody(requestBody, document);
-  if (resolvedBody?.schema) {
-    const schema = resolveSchema(resolvedBody.schema, document);
-    return {
-      schema,
-      properties: extractSchemaProperties(schema, document),
-      contentType: "application/json",
-    };
-  }
-
   const body = resolvedBody;
   if (!body || !body.content) {
     const schema = resolveSchema(
-      requestBody as OpenApiSchema,
+      requestBody as OpenApiSchema | ReferenceObject,
       document,
     );
     if (!schema) return null;
@@ -315,7 +315,11 @@ function resolveRequestBody(
   if (isReferenceObject(requestBody)) {
     const refName = requestBody.$ref.split("/").pop();
     if (!refName) return null;
-    return document.components?.requestBodies?.[refName] ?? null;
+    const resolved = document.components?.requestBodies?.[refName] ?? null;
+    if (resolved && isReferenceObject(resolved as OpenApiOperation["requestBody"])) {
+      return null;
+    }
+    return resolved as OpenApiRequestBody | null;
   }
   return requestBody as OpenApiRequestBody;
 }
@@ -365,11 +369,17 @@ function extractResponses(
 }
 
 function extractSchemaProperties(
-  schema: OpenApiSchema | null,
+  schema: OpenApiSchema | ReferenceObject | null,
   document: OpenApiDocument,
 ): ApiSchemaProperty[] | null {
   const resolved = resolveSchema(schema, document);
-  if (!resolved || resolved.type !== "object" || !resolved.properties) {
+  const resolvedType = resolved ? getSchemaType(resolved) : undefined;
+  if (
+    !resolved ||
+    resolvedType !== "object" ||
+    !("properties" in resolved) ||
+    !resolved.properties
+  ) {
     return null;
   }
 
@@ -386,19 +396,37 @@ function extractSchemaProperties(
 }
 
 function resolveSchema(
-  schema: OpenApiSchema | null | undefined,
+  schema: OpenApiSchema | ReferenceObject | null | undefined,
   document: OpenApiDocument | null,
 ): OpenApiSchema | null {
   if (!schema) return null;
-  if (schema.$ref) {
+  if (isSchemaReference(schema)) {
     const name = schema.$ref.split("/").pop();
-    if (!name) return schema;
-    return document?.components?.schemas?.[name] ?? schema;
+    if (!name) return null;
+    const resolved = document?.components?.schemas?.[name] ?? null;
+    return resolveSchema(resolved, document);
   }
-  if (schema.allOf && schema.allOf.length > 0) {
-    return resolveSchema(schema.allOf[0], document) ?? schema;
+  if ("allOf" in schema && schema.allOf && schema.allOf.length > 0) {
+    return resolveSchema(schema.allOf[0], document) ?? (schema as OpenApiSchema);
   }
   return schema;
+}
+
+function isSchemaReference(
+  value: OpenApiSchema | ReferenceObject,
+): value is ReferenceObject {
+  return Boolean(value && typeof value === "object" && "$ref" in value);
+}
+
+function getSchemaType(
+  schema: OpenApiSchema | ReferenceObject | null,
+): string | undefined {
+  if (!schema || !("type" in schema)) return undefined;
+  const type = schema.type;
+  if (Array.isArray(type)) {
+    return type.find((item) => item !== "null") ?? type[0];
+  }
+  return type;
 }
 
 function extractExample(
@@ -409,7 +437,9 @@ function extractExample(
   if (content.example !== undefined) return content.example;
   if (content.examples) {
     const firstExample = Object.values(content.examples)[0];
-    if (firstExample?.value !== undefined) return firstExample.value;
+    if (firstExample && "value" in firstExample && firstExample.value !== undefined) {
+      return firstExample.value;
+    }
   }
   return schema?.example;
 }

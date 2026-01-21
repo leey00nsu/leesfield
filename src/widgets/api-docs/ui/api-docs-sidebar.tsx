@@ -1,20 +1,56 @@
-import type { ApiDocsNavItem } from "@/widgets/api-docs/lib/api-docs-metadata";
+"use client";
+
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
+import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
+import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
+import {
+  fallbackEndpointItems,
+  generalNavItems,
+  getEndpointIcon,
+  tagIdMap,
+  type ApiDocsNavItem,
+} from "@/widgets/api-docs/lib/api-docs-metadata";
 
 interface ApiDocsSidebarProps {
   apiVersion: string;
-  generalItems: ApiDocsNavItem[];
-  endpointItems: ApiDocsNavItem[];
-  activeSectionId: string;
+  apiSections: ApiSection[];
 }
 
 export function ApiDocsSidebar({
   apiVersion,
-  generalItems,
-  endpointItems,
-  activeSectionId,
+  apiSections,
 }: ApiDocsSidebarProps) {
   const t = useTranslations("apiDocs.sidebar");
+  const tNav = useTranslations("apiDocs.sidebar.nav");
+  const generalItems: ApiDocsNavItem[] = useMemo(
+    () =>
+      generalNavItems.map((item) => ({
+        ...item,
+        label: tNav(item.id),
+      })),
+    [tNav],
+  );
+  const endpointItems: ApiDocsNavItem[] = useMemo(() => {
+    if (!apiSections.length) {
+      return fallbackEndpointItems.map((item) => ({
+        ...item,
+        label: tNav(item.id),
+      }));
+    }
+    return apiSections.map((section) => ({
+      id: section.id,
+      label: tagIdMap[section.title]
+        ? tNav(tagIdMap[section.title])
+        : section.title,
+      icon: getEndpointIcon(section),
+    }));
+  }, [apiSections, tNav]);
+  const sectionIds = useMemo(
+    () => [...generalItems, ...endpointItems].map((item) => item.id),
+    [generalItems, endpointItems],
+  );
+  const { activeSectionId } = useApiDocsNavigation({ sectionIds });
 
   return (
     <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/10 pr-6">
