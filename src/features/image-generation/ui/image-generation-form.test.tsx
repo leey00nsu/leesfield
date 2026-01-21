@@ -69,4 +69,24 @@ describe("ImageGenerationForm", () => {
     expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
     expect(screen.queryByText("생성 중...")).not.toBeInTheDocument();
   });
+
+  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+    const startGeneration = vi.fn();
+
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
+
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(
+      await screen.findByText("로그인이 필요합니다"),
+    ).toBeInTheDocument();
+    expect(startGeneration).not.toHaveBeenCalled();
+  });
 });

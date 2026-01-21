@@ -89,4 +89,16 @@ describe("VideoGenerationForm", () => {
 
     expect(uploadButton).toBeInTheDocument();
   });
+
+  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+    renderWithIntl(<VideoGenerationForm isAuthenticated={false} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(
+      await screen.findByText("로그인이 필요합니다"),
+    ).toBeInTheDocument();
+    expect(startGenerationMock).not.toHaveBeenCalled();
+  });
 });
