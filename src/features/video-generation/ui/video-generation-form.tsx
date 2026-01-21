@@ -38,7 +38,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
-import { LoginGateDialog } from "@/shared/ui/login-gate-dialog";
+import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   Form,
   FormControl,
