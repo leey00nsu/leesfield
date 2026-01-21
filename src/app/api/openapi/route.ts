@@ -5,20 +5,11 @@ import {
   type OpenApiTranslations,
 } from "@/features/api-docs/model/openapi";
 import { defaultLocale, isLocale, localeCookie } from "@/shared/i18n/config";
-import { getSession } from "@/server/auth/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
-  const session = await getSession();
-  if (!session.isLoggedIn) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 },
-    );
-  }
-
   const cookieStore = await cookies();
   const cookieLocale = cookieStore.get(localeCookie)?.value;
   const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
