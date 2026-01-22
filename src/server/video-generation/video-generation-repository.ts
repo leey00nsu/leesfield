@@ -30,6 +30,7 @@ export async function createVideoGenerationRecord(
       ownerEmail,
       prompt: payload.prompt,
       requestParams,
+      modelKey: payload.model,
       status: "pending",
       progress: 0,
     },

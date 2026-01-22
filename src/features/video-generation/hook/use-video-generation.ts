@@ -39,15 +39,6 @@ export function useVideoGeneration() {
       try {
         return await requestVideoGeneration(values);
       } catch (error) {
-        const code =
-          error && typeof error === "object" ? (error as { code?: string }).code : undefined;
-        if (code === "IN_PROGRESS_ALREADY") {
-          const mapped = new Error(tErrors("inProgress"));
-          (mapped as Error & { requestId?: string }).requestId = (
-            error as Error & { requestId?: string }
-          ).requestId;
-          throw mapped;
-        }
         throw new Error(tErrors("requestFailed"));
       }
     },

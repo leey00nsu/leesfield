@@ -39,6 +39,7 @@ model ImageGeneration {
   ownerEmail     String?
   prompt         String
   requestParams  Json?
+  modelKey       String?
   aspectRatio    String
   imageCount     Int
   steps          Int
@@ -51,6 +52,9 @@ model ImageGeneration {
   images         ImageGenerationImage[]
 
   @@index([ownerEmail])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
+  @@index([status, modelKey])
 }
 
 model ImageGenerationImage {
@@ -71,6 +75,7 @@ model VideoGeneration {
   ownerEmail    String?
   prompt        String
   requestParams Json?
+  modelKey      String?
   status        VideoGenerationStatus
   progress      Int
   errorMessage  String?
@@ -79,6 +84,9 @@ model VideoGeneration {
   videos        VideoGenerationVideo[]
 
   @@index([ownerEmail])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
+  @@index([status, modelKey])
 }
 
 model VideoGenerationVideo {

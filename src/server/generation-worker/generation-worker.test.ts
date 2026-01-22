@@ -66,9 +66,9 @@ describe("generation worker", () => {
       progress: 0,
     };
 
-    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      mockRecord,
-    ]);
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
     (prisma.imageGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
       count: 1,
     });
@@ -95,6 +95,7 @@ describe("generation worker", () => {
       id: "vid-db-id",
       requestId: "vid-request-id",
       prompt: "hello",
+      progress: 0,
       requestParams: {
         model: "wan2-2-hf",
         initImage: "data:image/png;base64,AAAA",
@@ -108,9 +109,9 @@ describe("generation worker", () => {
       },
     };
 
-    (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      mockRecord,
-    ]);
+    (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
     (prisma.videoGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
       count: 1,
     });
