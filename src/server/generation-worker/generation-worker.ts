@@ -29,6 +29,7 @@ import {
 const WORKER_INTERVAL_MS = 2000;
 const PENDING_SCAN_LIMIT = 60;
 const PROCESSING_PROGRESS = 92;
+const PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
 
 type WorkerGlobal = typeof globalThis & {
   __generationWorkerStarted?: boolean;
@@ -172,6 +173,30 @@ async function getVideoProcessingCounts() {
   return counts;
 }
 
+async function expireStaleImageProcessing() {
+  const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
+  await prisma.imageGeneration.updateMany({
+    where: { status: "processing", updatedAt: { lt: cutoff } },
+    data: {
+      status: "failed",
+      progress: 0,
+      errorMessage: "PROCESSING_TIMEOUT",
+    },
+  });
+}
+
+async function expireStaleVideoProcessing() {
+  const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
+  await prisma.videoGeneration.updateMany({
+    where: { status: "processing", updatedAt: { lt: cutoff } },
+    data: {
+      status: "failed",
+      progress: 0,
+      errorMessage: "PROCESSING_TIMEOUT",
+    },
+  });
+}
+
 async function handleImageRecord(record: {
   id: string;
   requestId: string;
@@ -278,6 +303,7 @@ async function handleVideoRecord(record: {
 }
 
 export async function processImageJobs() {
+  await expireStaleImageProcessing();
   const processingCounts = await getImageProcessingCounts();
   const { slots, totalSlots } = buildSlotsByModel(
     modelOptions,
@@ -314,6 +340,7 @@ export async function processImageJobs() {
 }
 
 export async function processVideoJobs() {
+  await expireStaleVideoProcessing();
   const processingCounts = await getVideoProcessingCounts();
   const { slots, totalSlots } = buildSlotsByModel(
     videoModelOptions,
