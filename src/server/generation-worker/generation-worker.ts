@@ -1,14 +1,18 @@
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import {
   defaultModelKey,
+  getImageModelConcurrentLimit,
   modelDefaults,
   modelOptions,
+  type ImageGenerationModel,
 } from "@/features/image-generation/model/image-models";
 import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
 import {
   defaultVideoModelKey,
+  getVideoModelConcurrentLimit,
   videoModelDefaults,
   videoModelOptions,
+  type VideoGenerationModel,
 } from "@/features/video-generation/model/video-models";
 import { prisma } from "@/server/db/prisma";
 import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
@@ -23,7 +27,7 @@ import {
 } from "@/server/video-generation/video-generation-repository";
 
 const WORKER_INTERVAL_MS = 2000;
-const BATCH_SIZE = 3;
+const PENDING_SCAN_LIMIT = 60;
 const PROCESSING_PROGRESS = 92;
 
 type WorkerGlobal = typeof globalThis & {
@@ -64,6 +68,18 @@ function buildImagePayload(record: {
   };
 }
 
+function resolveImageModelKey(
+  requestParams: unknown,
+): ImageGenerationModel {
+  if (requestParams && typeof requestParams === "object") {
+    const model = (requestParams as Record<string, unknown>).model;
+    if (typeof model === "string" && modelOptions.includes(model)) {
+      return model as ImageGenerationModel;
+    }
+  }
+  return defaultModelKey;
+}
+
 function buildVideoPayload(record: {
   prompt: string;
   requestParams: unknown;
@@ -95,122 +111,242 @@ function buildVideoPayload(record: {
   };
 }
 
+function resolveVideoModelKey(
+  requestParams: unknown,
+): VideoGenerationModel {
+  if (requestParams && typeof requestParams === "object") {
+    const model = (requestParams as Record<string, unknown>).model;
+    if (typeof model === "string" && videoModelOptions.includes(model)) {
+      return model as VideoGenerationModel;
+    }
+  }
+  return defaultVideoModelKey;
+}
+
+function buildSlotsByModel<TModel extends string>(
+  models: readonly TModel[],
+  processingCounts: Map<TModel, number>,
+  getLimit: (model: TModel) => number,
+) {
+  const slots = new Map<TModel, number>();
+  let totalSlots = 0;
+
+  for (const model of models) {
+    const limit = getLimit(model);
+    const used = processingCounts.get(model) ?? 0;
+    const available = Math.max(limit - used, 0);
+    slots.set(model, available);
+    totalSlots += available;
+  }
+
+  return { slots, totalSlots };
+}
+
+async function getImageProcessingCounts() {
+  const records = await prisma.imageGeneration.findMany({
+    where: { status: "processing" },
+    select: { requestParams: true },
+  });
+  const counts = new Map<ImageGenerationModel, number>();
+
+  for (const record of records) {
+    const model = resolveImageModelKey(record.requestParams);
+    counts.set(model, (counts.get(model) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+async function getVideoProcessingCounts() {
+  const records = await prisma.videoGeneration.findMany({
+    where: { status: "processing" },
+    select: { requestParams: true },
+  });
+  const counts = new Map<VideoGenerationModel, number>();
+
+  for (const record of records) {
+    const model = resolveVideoModelKey(record.requestParams);
+    counts.set(model, (counts.get(model) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+async function handleImageRecord(record: {
+  id: string;
+  requestId: string;
+  prompt: string;
+  requestParams: unknown;
+  imageCount: number;
+  steps: number;
+  seed: string | null;
+  progress: number;
+}) {
+  const payload = buildImagePayload(record);
+  const parsed = imageGenerationSchema.safeParse(payload);
+  if (!parsed.success) {
+    await updateImageGenerationStatus(
+      record.id,
+      "failed",
+      record.progress,
+      "INVALID_JOB_PAYLOAD",
+    );
+    return;
+  }
+
+  try {
+    const result = await resolveImageGenerationResult(
+      parsed.data,
+      record.requestId,
+    );
+
+    if (result.status === "completed" && !result.skipDbSave) {
+      await saveImageGenerationResult(
+        record.id,
+        result.status,
+        100,
+        result.result,
+        result.errorMessage,
+      );
+    } else {
+      await updateImageGenerationStatus(
+        record.id,
+        result.status,
+        result.status === "completed" ? 100 : 0,
+        result.errorMessage,
+      );
+    }
+  } catch (error) {
+    await updateImageGenerationStatus(
+      record.id,
+      "failed",
+      0,
+      error instanceof Error ? error.message : "이미지 생성에 실패했습니다.",
+    );
+  }
+}
+
+async function handleVideoRecord(record: {
+  id: string;
+  requestId: string;
+  prompt: string;
+  requestParams: unknown;
+  progress: number;
+}) {
+  const payload = buildVideoPayload(record);
+  const parsed = videoGenerationSchema.safeParse(payload);
+  if (!parsed.success) {
+    await updateVideoGenerationStatus(
+      record.id,
+      "failed",
+      record.progress,
+      "INVALID_JOB_PAYLOAD",
+    );
+    return;
+  }
+
+  try {
+    const result = await resolveVideoGenerationResult(
+      parsed.data,
+      record.requestId,
+    );
+
+    if (result.status === "completed" && !result.skipDbSave) {
+      await saveVideoGenerationResult(
+        record.id,
+        result.status,
+        100,
+        result.result,
+        result.errorMessage,
+      );
+    } else {
+      await updateVideoGenerationStatus(
+        record.id,
+        result.status,
+        result.status === "completed" ? 100 : 0,
+        result.errorMessage,
+      );
+    }
+  } catch (error) {
+    await updateVideoGenerationStatus(
+      record.id,
+      "failed",
+      0,
+      error instanceof Error ? error.message : "비디오 생성에 실패했습니다.",
+    );
+  }
+}
+
 export async function processImageJobs() {
+  const processingCounts = await getImageProcessingCounts();
+  const { slots, totalSlots } = buildSlotsByModel(
+    modelOptions,
+    processingCounts,
+    getImageModelConcurrentLimit,
+  );
+  if (totalSlots === 0) return;
+
   const pending = await prisma.imageGeneration.findMany({
     where: { status: "pending" },
     orderBy: { createdAt: "asc" },
-    take: BATCH_SIZE,
+    take: Math.max(totalSlots * 3, PENDING_SCAN_LIMIT),
   });
 
+  const claimedRecords: typeof pending = [];
+
   for (const record of pending) {
+    const model = resolveImageModelKey(record.requestParams);
+    const available = slots.get(model) ?? 0;
+    if (available <= 0) continue;
+
     const claimed = await prisma.imageGeneration.updateMany({
       where: { id: record.id, status: "pending" },
       data: { status: "processing", progress: PROCESSING_PROGRESS },
     });
     if (claimed.count === 0) continue;
 
-    const payload = buildImagePayload(record);
-    const parsed = imageGenerationSchema.safeParse(payload);
-    if (!parsed.success) {
-      await updateImageGenerationStatus(
-        record.id,
-        "failed",
-        record.progress,
-        "INVALID_JOB_PAYLOAD",
-      );
-      continue;
-    }
-
-    try {
-      const result = await resolveImageGenerationResult(
-        parsed.data,
-        record.requestId,
-      );
-
-      if (result.status === "completed" && !result.skipDbSave) {
-        await saveImageGenerationResult(
-          record.id,
-          result.status,
-          100,
-          result.result,
-          result.errorMessage,
-        );
-      } else {
-        await updateImageGenerationStatus(
-          record.id,
-          result.status,
-          result.status === "completed" ? 100 : 0,
-          result.errorMessage,
-        );
-      }
-    } catch (error) {
-      await updateImageGenerationStatus(
-        record.id,
-        "failed",
-        0,
-        error instanceof Error ? error.message : "이미지 생성에 실패했습니다.",
-      );
-    }
+    slots.set(model, available - 1);
+    claimedRecords.push(record);
+    if (claimedRecords.length >= totalSlots) break;
   }
+
+  await Promise.all(claimedRecords.map(handleImageRecord));
 }
 
 export async function processVideoJobs() {
+  const processingCounts = await getVideoProcessingCounts();
+  const { slots, totalSlots } = buildSlotsByModel(
+    videoModelOptions,
+    processingCounts,
+    getVideoModelConcurrentLimit,
+  );
+  if (totalSlots === 0) return;
+
   const pending = await prisma.videoGeneration.findMany({
     where: { status: "pending" },
     orderBy: { createdAt: "asc" },
-    take: BATCH_SIZE,
+    take: Math.max(totalSlots * 3, PENDING_SCAN_LIMIT),
   });
 
+  const claimedRecords: typeof pending = [];
+
   for (const record of pending) {
+    const model = resolveVideoModelKey(record.requestParams);
+    const available = slots.get(model) ?? 0;
+    if (available <= 0) continue;
+
     const claimed = await prisma.videoGeneration.updateMany({
       where: { id: record.id, status: "pending" },
       data: { status: "processing", progress: PROCESSING_PROGRESS },
     });
     if (claimed.count === 0) continue;
 
-    const payload = buildVideoPayload(record);
-    const parsed = videoGenerationSchema.safeParse(payload);
-    if (!parsed.success) {
-      await updateVideoGenerationStatus(
-        record.id,
-        "failed",
-        record.progress,
-        "INVALID_JOB_PAYLOAD",
-      );
-      continue;
-    }
-
-    try {
-      const result = await resolveVideoGenerationResult(
-        parsed.data,
-        record.requestId,
-      );
-
-      if (result.status === "completed" && !result.skipDbSave) {
-        await saveVideoGenerationResult(
-          record.id,
-          result.status,
-          100,
-          result.result,
-          result.errorMessage,
-        );
-      } else {
-        await updateVideoGenerationStatus(
-          record.id,
-          result.status,
-          result.status === "completed" ? 100 : 0,
-          result.errorMessage,
-        );
-      }
-    } catch (error) {
-      await updateVideoGenerationStatus(
-        record.id,
-        "failed",
-        0,
-        error instanceof Error ? error.message : "비디오 생성에 실패했습니다.",
-      );
-    }
+    slots.set(model, available - 1);
+    claimedRecords.push(record);
+    if (claimedRecords.length >= totalSlots) break;
   }
+
+  await Promise.all(claimedRecords.map(handleVideoRecord));
 }
 
 export function startGenerationWorker() {
