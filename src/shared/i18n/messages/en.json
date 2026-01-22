@@ -10,6 +10,7 @@
     "image": "Image",
     "video": "Video",
     "history": "History",
+    "monitoringQueue": "Monitoring",
     "model": "Model",
     "apiKey": "API keys",
     "apiDocs": "API docs"
@@ -189,8 +190,7 @@
     "errors": {
       "requestFailed": "Request failed.",
       "pollFailed": "Status check failed.",
-      "timeout": "The response timed out.",
-      "inProgress": "A request for this model is already in progress."
+      "timeout": "The response timed out."
     },
     "validation": {
       "image": {
@@ -258,6 +258,21 @@
       "failed": "FAILED",
       "generating": "Generating...",
       "unknownDate": "Unknown"
+    }
+  },
+  "monitoringQueue": {
+    "title": {
+      "leading": "Queue",
+      "accent": "Monitoring"
+    },
+    "subtitle": "Track model-level queue activity",
+    "lastUpdated": "Last updated",
+    "pending": "Pending",
+    "processing": "Processing",
+    "error": "Failed to load queue status.",
+    "empty": {
+      "title": "No queue activity",
+      "default": "There are no pending or processing jobs."
     }
   },
   "model": {

@@ -209,27 +209,6 @@ registry.registerPath({
         },
       },
     },
-    429: {
-      description: "Too many requests",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            withRequestId: {
-              value: {
-                message: "IN_PROGRESS_ALREADY",
-                requestId: "req_01j4s1x2z3a4b5c6d7e8f9g0h1",
-              },
-            },
-            withoutRequestId: {
-              value: {
-                message: "IN_PROGRESS_ALREADY",
-              },
-            },
-          },
-        },
-      },
-    },
     401: {
       description: "Unauthorized",
       content: {
@@ -333,27 +312,6 @@ registry.registerPath({
           schema: errorResponseSchema,
           example: {
             message: "FILE_TOO_LARGE",
-          },
-        },
-      },
-    },
-    429: {
-      description: "Too many requests",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            withRequestId: {
-              value: {
-                message: "IN_PROGRESS_ALREADY",
-                requestId: "req_01j4s1x2z3a4b5c6d7e8f9g0h1",
-              },
-            },
-            withoutRequestId: {
-              value: {
-                message: "IN_PROGRESS_ALREADY",
-              },
-            },
           },
         },
       },

@@ -93,34 +93,6 @@ describe("POST /api/image-generation", () => {
     expect(payload.progress).toBe(0);
   });
 
-  it("동일 모델 진행 중이면 429를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockCreateWithLimit.mockResolvedValue({
-      record: null,
-      latest: { id: "existing-request" },
-    });
-
-    const request = new Request("http://localhost/api/image-generation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...imageGenerationDefaults,
-        prompt: "hello",
-      }),
-    });
-
-    const response = await POST(request);
-    const payload = await response.json();
-
-    expect(response.status).toBe(429);
-    expect(payload.message).toBe("IN_PROGRESS_ALREADY");
-    expect(payload.requestId).toBe("existing-request");
-    expect(mockCreateWithLimit).toHaveBeenCalled();
-  });
-
   it("저장 실패 시 500을 반환한다", async () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,
