@@ -1,67 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-
-const POLL_INTERVAL_MS = 4000;
-
-type QueueStatusItem = {
-  type: "image" | "video";
-  model: string;
-  pending: number;
-  processing: number;
-};
-
-type QueueStatusResponse = {
-  updatedAt: string;
-  items: QueueStatusItem[];
-};
+import { useMonitoringQueue } from "@/features/monitoring-queue/hook/use-monitoring-queue";
 
 export function MonitoringQueueScreen() {
   const tMonitoring = useTranslations("monitoringQueue");
   const tCommonLabels = useTranslations("common.labels");
   const tCommonActions = useTranslations("common.actions");
-  const [items, setItems] = useState<QueueStatusItem[]>([]);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    const fetchStatus = async () => {
-      try {
-        const response = await fetch("/api/monitoring/queue", {
-          method: "GET",
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          throw new Error("REQUEST_FAILED");
-        }
-        const payload = (await response.json()) as QueueStatusResponse;
-        if (!active) return;
-        setItems(payload.items);
-        setUpdatedAt(payload.updatedAt ?? null);
-        setError(false);
-      } catch {
-        if (!active) return;
-        setError(true);
-      } finally {
-        if (!active) return;
-        setIsLoading(false);
-      }
-    };
-
-    void fetchStatus();
-    const intervalId = window.setInterval(fetchStatus, POLL_INTERVAL_MS);
-
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-    };
-  }, []);
+  const {
+    items,
+    updatedAt,
+    isLoading,
+    error,
+  } = useMonitoringQueue();
 
   const lastUpdatedLabel = useMemo(() => {
     if (!updatedAt) return tCommonLabels("unknown");
