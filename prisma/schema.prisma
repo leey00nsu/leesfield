@@ -51,6 +51,8 @@ model ImageGeneration {
   images         ImageGenerationImage[]
 
   @@index([ownerEmail])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
 }
 
 model ImageGenerationImage {
@@ -79,6 +81,8 @@ model VideoGeneration {
   videos        VideoGenerationVideo[]
 
   @@index([ownerEmail])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
 }
 
 model VideoGenerationVideo {
