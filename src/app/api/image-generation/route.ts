@@ -1,9 +1,7 @@
 import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
-import { getImageModelConcurrentLimit } from "@/features/image-generation/model/image-models";
 import { getSession } from "@/server/auth/session";
 import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
 import {
-  buildConcurrentLimitResponse,
   buildErrorResponse,
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
@@ -29,15 +27,10 @@ export async function POST(request: Request) {
 
   try {
     startGenerationWorker();
-    const limit = getImageModelConcurrentLimit(parsed.data.model);
-    const { record, latest } = await createMockGenerationWithLimit(
+    const { record } = await createMockGenerationWithLimit(
       parsed.data,
       session.adminEmail,
-      limit,
     );
-    if (!record) {
-      return buildConcurrentLimitResponse(latest?.id);
-    }
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {
