@@ -4,10 +4,10 @@ import { prisma } from "@/server/db/prisma";
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
     imageGeneration: {
-      findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
     videoGeneration: {
-      findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }));
@@ -18,13 +18,12 @@ describe("getQueueStatus", () => {
   });
 
   it("모델별 pending/processing 수를 반환한다", async () => {
-    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { status: "pending", requestParams: { model: "z-image-turbo" } },
-      { status: "processing", requestParams: { model: "z-image-turbo" } },
+    (prisma.imageGeneration.groupBy as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { modelKey: "z-image-turbo", status: "pending", _count: { _all: 1 } },
+      { modelKey: "z-image-turbo", status: "processing", _count: { _all: 1 } },
     ]);
-    (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { status: "pending", requestParams: { model: "wan2-2-hf" } },
-      { status: "pending", requestParams: { model: "wan2-2-hf" } },
+    (prisma.videoGeneration.groupBy as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { modelKey: "wan2-2-hf", status: "pending", _count: { _all: 2 } },
     ]);
 
     const result = await getQueueStatus();

@@ -28,6 +28,7 @@ export async function createImageGenerationRecord(
       ownerEmail,
       prompt: payload.prompt,
       requestParams,
+      modelKey: payload.model,
       aspectRatio: `${payload.width}x${payload.height}`,
       imageCount: payload.imageCount,
       steps: payload.steps,

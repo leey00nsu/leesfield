@@ -1,3 +1,4 @@
+import type { ImageGenerationStatus, VideoGenerationStatus } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
   defaultModelKey,
@@ -25,25 +26,14 @@ type QueueCounts = {
   processing: number;
 };
 
-function resolveImageModelKey(requestParams: unknown) {
-  if (requestParams && typeof requestParams === "object") {
-    const model = (requestParams as Record<string, unknown>).model;
-    if (typeof model === "string" && modelOptions.includes(model)) {
-      return model;
-    }
-  }
-  return defaultModelKey;
-}
-
-function resolveVideoModelKey(requestParams: unknown) {
-  if (requestParams && typeof requestParams === "object") {
-    const model = (requestParams as Record<string, unknown>).model;
-    if (typeof model === "string" && videoModelOptions.includes(model)) {
-      return model;
-    }
-  }
-  return defaultVideoModelKey;
-}
+const IMAGE_ACTIVE_STATUSES: ImageGenerationStatus[] = [
+  "pending",
+  "processing",
+];
+const VIDEO_ACTIVE_STATUSES: VideoGenerationStatus[] = [
+  "pending",
+  "processing",
+];
 
 function initCounts(keys: readonly string[]) {
   const map = new Map<string, QueueCounts>();
@@ -51,6 +41,17 @@ function initCounts(keys: readonly string[]) {
     map.set(key, { pending: 0, processing: 0 });
   }
   return map;
+}
+
+function normalizeModelKey(
+  model: string | null,
+  options: readonly string[],
+  fallback: string,
+) {
+  if (model && options.includes(model)) {
+    return model;
+  }
+  return fallback;
 }
 
 function toItems(type: QueueStatusItem["type"], map: Map<string, QueueCounts>) {
@@ -62,39 +63,55 @@ function toItems(type: QueueStatusItem["type"], map: Map<string, QueueCounts>) {
   }));
 }
 
+type ImageQueueGroup = {
+  modelKey: string | null;
+  status: ImageGenerationStatus;
+  _count: { _all: number };
+};
+
+type VideoQueueGroup = {
+  modelKey: string | null;
+  status: VideoGenerationStatus;
+  _count: { _all: number };
+};
+
 export async function getQueueStatus(): Promise<QueueStatusResponse> {
-  const [imageRecords, videoRecords] = await Promise.all([
-    prisma.imageGeneration.findMany({
-      where: { status: { in: ["pending", "processing"] } },
-      select: { status: true, requestParams: true },
+  const [imageRows, videoRows] = await Promise.all([
+    prisma.imageGeneration.groupBy({
+      by: ["modelKey", "status"],
+      where: { status: { in: IMAGE_ACTIVE_STATUSES } },
+      _count: { _all: true },
     }),
-    prisma.videoGeneration.findMany({
-      where: { status: { in: ["pending", "processing"] } },
-      select: { status: true, requestParams: true },
+    prisma.videoGeneration.groupBy({
+      by: ["modelKey", "status"],
+      where: { status: { in: VIDEO_ACTIVE_STATUSES } },
+      _count: { _all: true },
     }),
   ]);
 
   const imageCounts = initCounts(modelOptions);
   const videoCounts = initCounts(videoModelOptions);
 
-  for (const record of imageRecords) {
-    const key = resolveImageModelKey(record.requestParams);
+  for (const row of imageRows as ImageQueueGroup[]) {
+    const key = normalizeModelKey(row.modelKey, modelOptions, defaultModelKey);
     const counts = imageCounts.get(key) ?? { pending: 0, processing: 0 };
-    if (record.status === "pending") {
-      counts.pending += 1;
+    const count = row._count._all;
+    if (row.status === "pending") {
+      counts.pending += count;
     } else {
-      counts.processing += 1;
+      counts.processing += count;
     }
     imageCounts.set(key, counts);
   }
 
-  for (const record of videoRecords) {
-    const key = resolveVideoModelKey(record.requestParams);
+  for (const row of videoRows as VideoQueueGroup[]) {
+    const key = normalizeModelKey(row.modelKey, videoModelOptions, defaultVideoModelKey);
     const counts = videoCounts.get(key) ?? { pending: 0, processing: 0 };
-    if (record.status === "pending") {
-      counts.pending += 1;
+    const count = row._count._all;
+    if (row.status === "pending") {
+      counts.pending += count;
     } else {
-      counts.processing += 1;
+      counts.processing += count;
     }
     videoCounts.set(key, counts);
   }
