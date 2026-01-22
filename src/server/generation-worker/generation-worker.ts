@@ -30,6 +30,8 @@ const WORKER_INTERVAL_MS = 2000;
 const PENDING_SCAN_LIMIT = 60;
 const PROCESSING_PROGRESS = 92;
 const PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
+const ERROR_IMAGE_GENERATION_FAILED = "이미지 생성에 실패했습니다.";
+const ERROR_VIDEO_GENERATION_FAILED = "비디오 생성에 실패했습니다.";
 
 type WorkerGlobal = typeof globalThis & {
   __generationWorkerStarted?: boolean;
@@ -246,7 +248,7 @@ async function handleImageRecord(record: {
       record.id,
       "failed",
       0,
-      error instanceof Error ? error.message : "이미지 생성에 실패했습니다.",
+      error instanceof Error ? error.message : ERROR_IMAGE_GENERATION_FAILED,
     );
   }
 }
@@ -297,7 +299,7 @@ async function handleVideoRecord(record: {
       record.id,
       "failed",
       0,
-      error instanceof Error ? error.message : "비디오 생성에 실패했습니다.",
+      error instanceof Error ? error.message : ERROR_VIDEO_GENERATION_FAILED,
     );
   }
 }
