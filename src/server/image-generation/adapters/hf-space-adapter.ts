@@ -1,8 +1,9 @@
-import { Client } from "@gradio/client";
+import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import {
   getImageModelConfig,
+  getImageParamConfig,
   getImageParamRange,
   modelDefaults,
 } from "@/features/image-generation/model/image-models";
@@ -287,6 +288,9 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     if (lower === "hf_space_status_fetch_failed") {
       return "HF Space 상태 확인에 실패했습니다. 잠시 후 다시 시도해주세요.";
     }
+    if (lower === "hf_space_image_not_base64" || lower === "hf_space_image_invalid") {
+      return "업로드한 이미지 형식이 올바르지 않습니다. 다른 이미지를 사용해주세요.";
+    }
     let code: string | null = null;
     if (
       lower.includes("quota") ||
@@ -328,10 +332,6 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     }
   },
   async generate(payload: ImageGenerationFormValues) {
-    if (payload.initImages && payload.initImages.length > 0) {
-      throw new Error("HF_SPACE_ONLY_SUPPORTS_T2I");
-    }
-
     const config = getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
@@ -340,19 +340,65 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     const widthRange = getImageParamRange(payload.model, "width");
     const heightRange = getImageParamRange(payload.model, "height");
     const stepsRange = getImageParamRange(payload.model, "steps");
+    const guidanceConfig = getImageParamConfig(payload.model, "guidanceScale");
+    const modeConfig = getImageParamConfig(payload.model, "modeChoice");
+    const promptUpsamplingConfig = getImageParamConfig(
+      payload.model,
+      "promptUpsampling",
+    );
     const width = clampNumber(payload.width ?? defaults.width, widthRange);
     const height = clampNumber(payload.height ?? defaults.height, heightRange);
     const steps = clampNumber(payload.steps ?? defaults.steps, stepsRange);
     const apiName = normalizeApiName(config.apiName || "/generate_image");
 
-    const predictPromise = client.predict(apiName, {
+    const initImages = payload.initImages ?? [];
+    const inputImages = await Promise.all(
+      initImages.map(async (dataUrl) => {
+        const [header, encoded] = dataUrl.split(",", 2);
+        if (!header || !encoded) {
+          throw new Error("HF_SPACE_IMAGE_INVALID");
+        }
+        if (!header.includes(";base64")) {
+          throw new Error("HF_SPACE_IMAGE_NOT_BASE64");
+        }
+        const mimeMatch = header.match(/data:(.*?);base64/);
+        const mime = mimeMatch?.[1] ?? "image/png";
+        const buffer = Buffer.from(encoded, "base64");
+        return handle_file(new Blob([buffer], { type: mime }));
+      }),
+    );
+
+    const requestPayload: Record<string, unknown> = {
       prompt: payload.prompt,
       height,
       width,
       num_inference_steps: Math.round(steps),
       seed: seedValue,
       randomize_seed: randomize,
-    });
+    };
+
+    if (inputImages.length > 0) {
+      requestPayload.input_images = inputImages;
+    }
+
+    if (modeConfig) {
+      requestPayload.mode_choice = payload.modeChoice ?? defaults.modeChoice;
+    }
+
+    if (guidanceConfig) {
+      const guidanceRange = getImageParamRange(payload.model, "guidanceScale");
+      requestPayload.guidance_scale = clampNumber(
+        payload.guidanceScale ?? defaults.guidanceScale,
+        guidanceRange,
+      );
+    }
+
+    if (promptUpsamplingConfig) {
+      requestPayload.prompt_upsampling =
+        payload.promptUpsampling ?? defaults.promptUpsampling;
+    }
+
+    const predictPromise = client.predict(apiName, requestPayload);
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
