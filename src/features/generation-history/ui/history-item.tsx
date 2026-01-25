@@ -72,6 +72,8 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const StatusIcon = status.icon;
   const TypeIcon = type.icon;
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
+  const inputImages = item.inputImages ?? [];
+  const hasInputImages = inputImages.length > 0;
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
   const downloadUrl =
@@ -276,6 +278,23 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
         <p className="text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
           {item.prompt}
         </p>
+        {hasInputImages ? (
+          <div className="flex flex-wrap gap-2">
+            {inputImages.map((url, index) => (
+              <div
+                key={`${item.id}-input-${index}`}
+                className="h-12 w-12 overflow-hidden rounded-lg border border-white/10 bg-black/40"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={tHistory("inputImageAlt")}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
           <div className="flex items-center gap-3">
             {item.model ? (

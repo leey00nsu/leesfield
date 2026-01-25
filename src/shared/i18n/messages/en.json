@@ -241,6 +241,7 @@
     "subtitle": "Find your generations fast",
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
+    "inputImageAlt": "Input image",
     "empty": {
       "title": "History Empty",
       "default": "No history yet.",

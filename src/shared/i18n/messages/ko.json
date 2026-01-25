@@ -241,6 +241,7 @@
     "subtitle": "생성 기록을 빠르게 찾아보세요",
     "error": "히스토리를 불러오지 못했습니다.",
     "previewAlt": "생성 결과 미리보기",
+    "inputImageAlt": "입력 이미지",
     "empty": {
       "title": "히스토리가 없습니다",
       "default": "히스토리가 비어 있습니다.",
