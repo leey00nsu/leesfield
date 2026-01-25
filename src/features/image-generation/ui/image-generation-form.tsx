@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,6 +113,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const steps =
     useWatch({ control: form.control, name: "steps" }) ??
     imageGenerationDefaults.steps;
+  const guidanceScale =
+    useWatch({ control: form.control, name: "guidanceScale" }) ??
+    imageGenerationDefaults.guidanceScale;
+  const modeChoice =
+    useWatch({ control: form.control, name: "modeChoice" }) ??
+    imageGenerationDefaults.modeChoice;
+  const promptUpsampling =
+    useWatch({ control: form.control, name: "promptUpsampling" }) ??
+    imageGenerationDefaults.promptUpsampling;
   const activeModel =
     useWatch({ control: form.control, name: "model" }) ??
     imageGenerationDefaults.model;
@@ -113,15 +129,32 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const widthRange = getImageParamRange(activeModel, "width");
   const heightRange = getImageParamRange(activeModel, "height");
   const stepsRange = getImageParamRange(activeModel, "steps");
+  const guidanceRange = getImageParamRange(activeModel, "guidanceScale");
   const widthConfig = getImageParamConfig(activeModel, "width");
   const heightConfig = getImageParamConfig(activeModel, "height");
   const stepsConfig = getImageParamConfig(activeModel, "steps");
+  const modeConfig = getImageParamConfig(activeModel, "modeChoice");
+  const guidanceConfig = getImageParamConfig(activeModel, "guidanceScale");
+  const promptUpsamplingConfig = getImageParamConfig(
+    activeModel,
+    "promptUpsampling",
+  );
   const seedConfig = getImageParamConfig(activeModel, "seed");
+  const modeOptions = Array.isArray(modeConfig?.options)
+    ? modeConfig.options.filter(
+        (option): option is string =>
+          typeof option === "string" && option.trim().length > 0,
+      )
+    : [];
   const showSizeControls =
     widthConfig?.ui !== "hidden" || heightConfig?.ui !== "hidden";
   const showSteps = stepsConfig?.ui !== "hidden";
+  const showModeChoice = modeConfig?.ui !== "hidden" && modeOptions.length > 0;
+  const showGuidanceScale = guidanceConfig?.ui !== "hidden";
+  const showPromptUpsampling = promptUpsamplingConfig?.ui !== "hidden";
   const showSeed = seedConfig?.ui !== "hidden";
   const maxInputImages = modelImageLimits[activeModel]?.maxInputImages ?? 0;
+  const prevModeChoiceRef = useRef<string | null>(null);
   const handleInitImagesChange = useCallback(
     (dataUrls: string[]) => {
       form.setValue("initImages", dataUrls, { shouldValidate: true });
@@ -146,12 +179,47 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     form.setValue("steps", defaults.steps);
     form.setValue("width", defaults.width);
     form.setValue("height", defaults.height);
+    form.setValue("guidanceScale", defaults.guidanceScale);
+    form.setValue("modeChoice", defaults.modeChoice);
+    form.setValue("promptUpsampling", defaults.promptUpsampling);
+    prevModeChoiceRef.current = null;
 
     const seedCfg = getImageParamConfig(activeModel, "seed");
     if (seedCfg?.ui === "hidden") {
       form.setValue("seed", "");
     }
   }, [activeModel, form]);
+
+  useEffect(() => {
+    if (!showModeChoice) return;
+    const current = modeChoice?.trim();
+    if (!current) return;
+    if (prevModeChoiceRef.current === current) return;
+    prevModeChoiceRef.current = current;
+
+    const normalized = current.toLowerCase();
+    const targetSteps = normalized.includes("base") ? 50 : 4;
+    const clampedSteps = Math.min(
+      stepsRange.max,
+      Math.max(stepsRange.min, targetSteps),
+    );
+    form.setValue("steps", clampedSteps, { shouldValidate: true });
+
+    const targetGuidance = 1;
+    const clampedGuidance = Math.min(
+      guidanceRange.max,
+      Math.max(guidanceRange.min, targetGuidance),
+    );
+    form.setValue("guidanceScale", clampedGuidance, { shouldValidate: true });
+  }, [
+    form,
+    guidanceRange.max,
+    guidanceRange.min,
+    modeChoice,
+    showModeChoice,
+    stepsRange.max,
+    stepsRange.min,
+  ]);
 
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
@@ -510,8 +578,45 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
               <div className="h-px bg-white/5" />
 
-              {showSteps && (
-                <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-6">
+                {showModeChoice && (
+                  <FormField
+                    control={form.control}
+                    name="modeChoice"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-3">
+                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                          {tLabels("modeChoice")}
+                        </FormLabel>
+                        <FormControl>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {modeOptions.map((option) => {
+                              const isActive = field.value === option;
+                              return (
+                                <Button
+                                  key={option}
+                                  type="button"
+                                  variant={isActive ? "default" : "surface"}
+                                  size="sm"
+                                  aria-pressed={isActive}
+                                  onClick={() => field.onChange(option)}
+                                  className={cn(
+                                    "h-auto justify-start whitespace-normal text-xs font-semibold",
+                                    isActive ? "text-black" : "text-gray-300",
+                                  )}
+                                >
+                                  {option}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {showSteps && (
                   <FormField
                     control={form.control}
                     name="steps"
@@ -541,8 +646,74 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                       </FormItem>
                     )}
                   />
-                </div>
-              )}
+                )}
+
+                {showGuidanceScale && (
+                  <FormField
+                    control={form.control}
+                    name="guidanceScale"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                            {tLabels("guidanceScale")}
+                          </FormLabel>
+                          <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                            {guidanceScale}
+                          </span>
+                        </div>
+                        <FormControl>
+                          <input
+                            type="range"
+                            min={guidanceRange.min}
+                            max={guidanceRange.max}
+                            step={guidanceRange.step}
+                            value={field.value ?? guidanceScale}
+                            onChange={(event) =>
+                              field.onChange(Number(event.target.value))
+                            }
+                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {showPromptUpsampling && (
+                  <FormField
+                    control={form.control}
+                    name="promptUpsampling"
+                    render={({ field }) => {
+                      const isEnabled = Boolean(field.value);
+                      return (
+                        <FormItem className="flex items-center justify-between gap-4">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                            {tLabels("promptUpsampling")}
+                          </FormLabel>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant={isEnabled ? "default" : "surface"}
+                              size="sm"
+                              aria-pressed={isEnabled}
+                              onClick={() => field.onChange(!isEnabled)}
+                              className={cn(
+                                "h-8 px-3 text-xs font-bold uppercase tracking-wider",
+                                isEnabled ? "text-black" : "text-gray-300",
+                              )}
+                            >
+                              {isEnabled
+                                ? tLabels("enabled")
+                                : tLabels("disabled")}
+                            </Button>
+                          </FormControl>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+              </div>
 
               <div className="h-px bg-white/5" />
 

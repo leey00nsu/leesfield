@@ -60,6 +60,8 @@
       "durationSec": "재생시간",
       "range": "범위: {min} ~ {max}px",
       "required": "필수",
+      "enabled": "사용",
+      "disabled": "미사용",
     "optional": "선택",
     "beta": "Beta",
     "version": "버전 {version}",
