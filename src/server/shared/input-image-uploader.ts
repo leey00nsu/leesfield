@@ -88,7 +88,18 @@ function resolveExtension(contentType: string) {
   if (contentType === "image/png") return "png";
   if (contentType === "image/webp") return "webp";
   if (contentType === "image/jpeg") return "jpg";
+  if (contentType === "image/gif") return "gif";
+  if (contentType === "image/bmp") return "bmp";
   return "bin";
+}
+
+async function detectImageMime(buffer: Buffer): Promise<string | null> {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const result = await fileTypeFromBuffer(buffer);
+  if (!result || !result.mime.startsWith("image/")) {
+    return null;
+  }
+  return result.mime;
 }
 
 function buildUploadFile(
@@ -137,12 +148,16 @@ async function fetchImageBuffer(url: string): Promise<ImageBuffer> {
     if (!response.ok) {
       throw new Error("INPUT_IMAGE_FETCH_FAILED");
     }
+    const buffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") ?? "image/png";
-    if (!contentType.startsWith("image/")) {
+    if (contentType.startsWith("image/")) {
+      return { buffer, contentType };
+    }
+    const detected = await detectImageMime(buffer);
+    if (!detected) {
       throw new InputImageStorageError(INPUT_IMAGE_INVALID);
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return { buffer, contentType };
+    return { buffer, contentType: detected };
   } finally {
     clearTimeout(timeoutId);
   }

@@ -3,6 +3,7 @@ import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
+import { uploadInputImages } from "@/server/shared/input-image-uploader";
 import {
   createImageGenerationRecord,
   getImageGenerationByRequestId,
@@ -45,7 +46,16 @@ export async function createMockGenerationWithLimit(
   ownerEmail: string,
 ) {
   const requestId = crypto.randomUUID();
-  const resolvedPayload = payload;
+  const initImages = (payload.initImages ?? [])
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  const resolvedPayload =
+    initImages.length > 0
+      ? {
+          ...payload,
+          initImages: await uploadInputImages(requestId, initImages),
+        }
+      : payload;
   const record = await createImageGenerationRecord(
     requestId,
     resolvedPayload,

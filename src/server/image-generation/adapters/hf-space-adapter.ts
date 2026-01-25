@@ -257,6 +257,15 @@ function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
 const FILE_FETCH_TIMEOUT_MS = 60_000;
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
 
+async function detectImageMime(buffer: Buffer): Promise<string | null> {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const result = await fileTypeFromBuffer(buffer);
+  if (!result || !result.mime.startsWith("image/")) {
+    return null;
+  }
+  return result.mime;
+}
+
 function decodeDataUrlToBuffer(dataUrl: string) {
   const [header, encoded] = dataUrl.split(",", 2);
   if (!header || !encoded) {
@@ -288,12 +297,16 @@ async function fetchInputImageBuffer(url: string) {
     if (!response.ok) {
       throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
     }
+    const buffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") ?? "image/png";
-    if (!contentType.startsWith("image/")) {
+    if (contentType.startsWith("image/")) {
+      return { buffer, mime: contentType };
+    }
+    const detected = await detectImageMime(buffer);
+    if (!detected) {
       throw new Error("HF_SPACE_IMAGE_INVALID");
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return { buffer, mime: contentType };
+    return { buffer, mime: detected };
   } finally {
     clearTimeout(timeoutId);
   }

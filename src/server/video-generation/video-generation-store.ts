@@ -3,6 +3,7 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
+import { uploadInputImages } from "@/server/shared/input-image-uploader";
 import {
   createVideoGenerationRecord,
   getVideoGenerationByRequestId,
@@ -46,7 +47,13 @@ export async function createMockVideoGenerationWithLimit(
   ownerEmail: string,
 ) {
   const requestId = crypto.randomUUID();
-  const resolvedPayload = payload;
+  const initImage = payload.initImage?.trim() ?? "";
+  const resolvedPayload = initImage
+    ? {
+        ...payload,
+        initImage: (await uploadInputImages(requestId, [initImage]))[0] ?? "",
+      }
+    : payload;
   const record = await createVideoGenerationRecord(
     requestId,
     resolvedPayload,

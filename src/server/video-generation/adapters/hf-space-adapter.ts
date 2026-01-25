@@ -186,6 +186,15 @@ function parseSeed(seed?: string) {
   return { seedValue: isValid ? parsed : 0, randomize: !isValid };
 }
 
+async function detectImageMime(buffer: Buffer): Promise<string | null> {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const result = await fileTypeFromBuffer(buffer);
+  if (!result || !result.mime.startsWith("image/")) {
+    return null;
+  }
+  return result.mime;
+}
+
 async function resolveInitImageBuffer(source: string) {
   if (source.startsWith("data:")) {
     const [header, payload] = source.split(",", 2);
@@ -220,12 +229,16 @@ async function resolveInitImageBuffer(source: string) {
     if (!response.ok) {
       throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
     }
+    const buffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") ?? "image/png";
-    if (!contentType.startsWith("image/")) {
+    if (contentType.startsWith("image/")) {
+      return { buffer, mime: contentType };
+    }
+    const detected = await detectImageMime(buffer);
+    if (!detected) {
       throw new Error("HF_SPACE_IMAGE_INVALID");
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return { buffer, mime: contentType };
+    return { buffer, mime: detected };
   } finally {
     clearTimeout(timeoutId);
   }
