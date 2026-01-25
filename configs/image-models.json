@@ -95,6 +95,22 @@
           "step": 1,
           "default": 4
         },
+        "modeChoice": {
+          "ui": "select",
+          "options": ["Distilled (4 steps)", "Base (50 steps)"],
+          "default": "Distilled (4 steps)"
+        },
+        "guidanceScale": {
+          "ui": "range",
+          "min": 0,
+          "max": 10,
+          "step": 0.5,
+          "default": 1
+        },
+        "promptUpsampling": {
+          "ui": "toggle",
+          "default": false
+        },
         "seed": {
           "ui": "input",
           "default": ""

@@ -53,6 +53,9 @@
       "width": "너비",
       "height": "높이",
       "steps": "스텝",
+      "guidanceScale": "가이던스",
+      "modeChoice": "모드",
+      "promptUpsampling": "프롬프트 업샘플링",
       "seed": "시드",
       "durationSec": "재생시간",
       "range": "범위: {min} ~ {max}px",
@@ -199,11 +202,13 @@
         "step": "{label}는 {step} 단위로 입력해야 합니다.",
         "initImageUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다.",
         "maxInputImages": "이미지는 최대 {limit}장까지 업로드할 수 있습니다.",
+        "unsupportedMode": "지원하지 않는 모드입니다.",
         "labels": {
           "width": "너비",
           "height": "높이",
           "steps": "스텝",
-          "imageCount": "이미지 개수"
+          "imageCount": "이미지 개수",
+          "guidanceScale": "가이던스"
         }
       },
       "video": {

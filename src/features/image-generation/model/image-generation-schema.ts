@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   defaultModelKey,
+  getImageParamConfig,
   getImageParamRange,
   modelDefaults,
   modelImageLimits,
@@ -23,6 +24,9 @@ const imageGenerationBaseSchema = z.object({
   model: z.enum(modelOptions),
   imageCount: z.number().int(),
   steps: z.number().int(),
+  modeChoice: z.string().optional(),
+  guidanceScale: z.number().optional(),
+  promptUpsampling: z.boolean().optional(),
   seed: z.string().optional().or(z.literal("")),
 });
 
@@ -37,6 +41,7 @@ export const createImageGenerationSchema = (t?: TranslationFn) => {
     height: t ? t("labels.height") : "높이",
     steps: t ? t("labels.steps") : "스텝",
     imageCount: t ? t("labels.imageCount") : "이미지 개수",
+    guidanceScale: t ? t("labels.guidanceScale") : "가이던스",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
     t
@@ -53,6 +58,9 @@ export const createImageGenerationSchema = (t?: TranslationFn) => {
     t
       ? t("maxInputImages", { limit })
       : `이미지는 최대 ${limit}장까지 업로드할 수 있습니다.`;
+  const unsupportedMode = t
+    ? t("unsupportedMode")
+    : "지원하지 않는 모드입니다.";
 
   return imageGenerationBaseSchema
     .extend({ prompt: z.string().min(1, promptRequired) })
@@ -99,6 +107,31 @@ export const createImageGenerationSchema = (t?: TranslationFn) => {
         labelMap.imageCount,
       );
 
+      if (typeof data.guidanceScale === "number") {
+        const guidanceRange = getImageParamRange(data.model, "guidanceScale");
+        validateRange(
+          data.guidanceScale,
+          guidanceRange,
+          ["guidanceScale"],
+          labelMap.guidanceScale,
+        );
+      }
+
+      const modeConfig = getImageParamConfig(data.model, "modeChoice");
+      if (
+        typeof data.modeChoice === "string" &&
+        data.modeChoice.trim() &&
+        Array.isArray(modeConfig?.options) &&
+        modeConfig.options.length > 0 &&
+        !modeConfig.options.includes(data.modeChoice)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["modeChoice"],
+          message: unsupportedMode,
+        });
+      }
+
       const limit = modelImageLimits[data.model]?.maxInputImages ?? 0;
       const count = data.initImages?.length ?? 0;
       if (count > 0 && limit === 0) {
@@ -134,5 +167,8 @@ export const imageGenerationDefaults: ImageGenerationFormValues = {
   model: defaultModel,
   imageCount: 1,
   steps: defaultModelSettings.steps,
+  modeChoice: defaultModelSettings.modeChoice,
+  guidanceScale: defaultModelSettings.guidanceScale,
+  promptUpsampling: defaultModelSettings.promptUpsampling,
   seed: "",
 };
