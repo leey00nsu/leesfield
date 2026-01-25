@@ -31,6 +31,10 @@ type SpaceConfig = {
   spaceUrl: string;
 };
 
+type InputImagesFormat = "file_array" | "gallery";
+
+const DEFAULT_INPUT_IMAGES_FORMAT: InputImagesFormat = "file_array";
+
 const clientCache = new Map<string, Promise<Client>>();
 const statusCache = new Map<
   string,
@@ -179,6 +183,15 @@ function normalizeApiName(value: string) {
   if (!trimmed) return "/generate_image";
   if (trimmed.startsWith("/")) return trimmed;
   return `/${trimmed}`;
+}
+
+function resolveInputImagesFormat(model: ImageGenerationFormValues["model"]) {
+  const providerConfig = getImageModelConfig(model).provider_config ?? {};
+  const format = providerConfig.input_images_format;
+  if (format === "gallery" || format === "file_array") {
+    return format as InputImagesFormat;
+  }
+  return DEFAULT_INPUT_IMAGES_FORMAT;
 }
 
 function parseSeed(seed?: string) {
@@ -402,13 +415,20 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     const apiName = normalizeApiName(config.apiName || "/generate_image");
 
     const initImages = payload.initImages ?? [];
+    const inputImagesFormat = resolveInputImagesFormat(payload.model);
     const inputImages = await Promise.all(
       initImages.map(async (source) => {
         const { buffer, mime } = await resolveInputImageBuffer(source);
-        return handle_file(new Blob([buffer], { type: mime }));
+        const file = await handle_file(new Blob([buffer], { type: mime }));
+        if (inputImagesFormat === "gallery") {
+          return {
+            image: file,
+            caption: null,
+          };
+        }
+        return file;
       }),
     );
-
     const requestPayload: Record<string, unknown> = {
       prompt: payload.prompt,
       height,

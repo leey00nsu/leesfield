@@ -67,7 +67,8 @@
       "provider_config": {
         "space_id": "black-forest-labs/FLUX.2-klein-9B",
         "api_name": "/generate",
-        "timeout_ms": 300000
+        "timeout_ms": 300000,
+        "input_images_format": "gallery"
       },
       "parameters": {
         "prompt": {
