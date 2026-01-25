@@ -98,6 +98,9 @@ const imageGenerationFormDataSchema = z.object({
   model: z.enum(modelOptions),
   imageCount: z.number().int(),
   steps: z.number().int(),
+  modeChoice: z.string().optional(),
+  guidanceScale: z.number().optional(),
+  promptUpsampling: z.boolean().optional(),
   seed: z.string().optional(),
 });
 

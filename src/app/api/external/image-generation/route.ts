@@ -13,6 +13,11 @@ import {
   getNumber,
   getString,
 } from "@/server/http/form-data-utils";
+import {
+  INPUT_IMAGE_INVALID,
+  INPUT_IMAGE_STORAGE_REQUIRED,
+  resolveInputImageErrorCode,
+} from "@/server/shared/input-image-uploader";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,6 +76,10 @@ export async function POST(request: Request) {
     return buildGenerationSuccessResponse(record);
   } catch (error) {
     console.error("[image-generation] create failed", error);
+    const code = resolveInputImageErrorCode(error);
+    if (code === INPUT_IMAGE_STORAGE_REQUIRED || code === INPUT_IMAGE_INVALID) {
+      return buildErrorResponse(code, 400);
+    }
     return buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }

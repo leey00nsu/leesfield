@@ -186,18 +186,62 @@ function parseSeed(seed?: string) {
   return { seedValue: isValid ? parsed : 0, randomize: !isValid };
 }
 
-function decodeImageToBuffer(dataUrl: string) {
-  const [header, payload] = dataUrl.split(",", 2);
-  if (!payload) {
+async function detectImageMime(buffer: Buffer): Promise<string | null> {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const result = await fileTypeFromBuffer(buffer);
+  if (!result || !result.mime.startsWith("image/")) {
+    return null;
+  }
+  return result.mime;
+}
+
+async function resolveInitImageBuffer(source: string) {
+  if (source.startsWith("data:")) {
+    const [header, payload] = source.split(",", 2);
+    if (!payload) {
+      throw new Error("HF_SPACE_IMAGE_INVALID");
+    }
+    if (!header?.includes(";base64")) {
+      throw new Error("HF_SPACE_IMAGE_NOT_BASE64");
+    }
+    const mimeMatch = header?.match(/data:(.*?);base64/);
+    const mime = mimeMatch?.[1] ?? "image/png";
+    const buffer = Buffer.from(payload, "base64");
+    return { buffer, mime };
+  }
+
+  let resolved: URL;
+  try {
+    resolved = new URL(source);
+  } catch {
     throw new Error("HF_SPACE_IMAGE_INVALID");
   }
-  if (!header?.includes(";base64")) {
-    throw new Error("HF_SPACE_IMAGE_NOT_BASE64");
+  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
+    throw new Error("HF_SPACE_IMAGE_INVALID");
   }
-  const mimeMatch = header?.match(/data:(.*?);base64/);
-  const mime = mimeMatch?.[1] ?? "image/png";
-  const buffer = Buffer.from(payload, "base64");
-  return { buffer, mime };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FILE_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(resolved.toString(), {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") ?? "image/png";
+    if (contentType.startsWith("image/")) {
+      return { buffer, mime: contentType };
+    }
+    const detected = await detectImageMime(buffer);
+    if (!detected) {
+      throw new Error("HF_SPACE_IMAGE_INVALID");
+    }
+    return { buffer, mime: detected };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function extractFileUrl(file: unknown) {
@@ -343,7 +387,7 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
     await ensureSpaceRunning(config);
     const client = await getClient(config);
 
-    const { buffer, mime } = decodeImageToBuffer(initImage);
+    const { buffer, mime } = await resolveInitImageBuffer(initImage);
     const imageFile = await handle_file(new Blob([buffer], { type: mime }));
     const defaults = videoModelDefaults[payload.model];
     const durationRange = getVideoParamRange(payload.model, "durationSec");

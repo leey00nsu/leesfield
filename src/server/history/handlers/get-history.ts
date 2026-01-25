@@ -2,6 +2,7 @@ import { prisma } from "@/server/db/prisma";
 import {
   buildImageWhere,
   buildVideoWhere,
+  extractInputImages,
   extractModel,
   parseHistoryQuery,
   type HistoryResponse,
@@ -39,6 +40,7 @@ export async function getHistory(
 
     const items = records.map((record) => {
       const model = extractModel(record.requestParams);
+      const inputImages = extractInputImages(record.requestParams);
       const previewUrl = record.images[0]?.url ?? null;
       const isCompleted = record.status === "completed";
 
@@ -51,6 +53,7 @@ export async function getHistory(
         createdAt: record.createdAt.toISOString(),
         resultUrl: isCompleted ? previewUrl : null,
         thumbnailUrl: isCompleted ? previewUrl : null,
+        inputImages,
         errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
       };
     });
@@ -83,6 +86,7 @@ export async function getHistory(
 
     const items = records.map((record) => {
       const model = extractModel(record.requestParams);
+      const inputImages = extractInputImages(record.requestParams);
       const previewUrl = record.videos[0]?.url ?? null;
       const isCompleted = record.status === "completed";
 
@@ -95,6 +99,7 @@ export async function getHistory(
         createdAt: record.createdAt.toISOString(),
         resultUrl: isCompleted ? previewUrl : null,
         thumbnailUrl: null,
+        inputImages,
         errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
       };
     });
@@ -145,6 +150,7 @@ export async function getHistory(
 
   const imageItems = imageRecords.map((record) => {
     const model = extractModel(record.requestParams);
+    const inputImages = extractInputImages(record.requestParams);
     const previewUrl = record.images[0]?.url ?? null;
     const isCompleted = record.status === "completed";
 
@@ -157,12 +163,14 @@ export async function getHistory(
       createdAt: record.createdAt.toISOString(),
       resultUrl: isCompleted ? previewUrl : null,
       thumbnailUrl: isCompleted ? previewUrl : null,
+      inputImages,
       errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
     };
   });
 
   const videoItems = videoRecords.map((record) => {
     const model = extractModel(record.requestParams);
+    const inputImages = extractInputImages(record.requestParams);
     const previewUrl = record.videos[0]?.url ?? null;
     const isCompleted = record.status === "completed";
 
@@ -175,6 +183,7 @@ export async function getHistory(
       createdAt: record.createdAt.toISOString(),
       resultUrl: isCompleted ? previewUrl : null,
       thumbnailUrl: null,
+      inputImages,
       errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
     };
   });

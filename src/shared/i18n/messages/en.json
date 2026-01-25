@@ -53,10 +53,15 @@
       "width": "Width",
       "height": "Height",
       "steps": "Steps",
+      "guidanceScale": "Guidance_Scale",
+      "modeChoice": "Mode",
+      "promptUpsampling": "Prompt_Upsampling",
       "seed": "Seed",
       "durationSec": "Duration_Sec",
       "range": "Range: {min} ~ {max}px",
       "required": "Required",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
       "optional": "Optional",
       "beta": "Beta",
       "version": "Version {version}",
@@ -199,11 +204,13 @@
         "step": "{label} must be in increments of {step}.",
         "initImageUnsupported": "Selected model does not support image input.",
         "maxInputImages": "You can upload up to {limit} images.",
+        "unsupportedMode": "Unsupported mode.",
         "labels": {
           "width": "Width",
           "height": "Height",
           "steps": "Steps",
-          "imageCount": "Image count"
+          "imageCount": "Image count",
+          "guidanceScale": "Guidance scale"
         }
       },
       "video": {
@@ -234,6 +241,7 @@
     "subtitle": "Find your generations fast",
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
+    "inputImageAlt": "Input image",
     "empty": {
       "title": "History Empty",
       "default": "No history yet.",

@@ -58,16 +58,28 @@ function buildImagePayload(record: {
       ? (params.model as (typeof modelOptions)[number])
       : defaultModelKey;
   const defaults = modelDefaults[model];
+  const initImages = Array.isArray(params.initImages)
+    ? params.initImages.filter((value) => typeof value === "string")
+    : [];
 
   return {
     prompt: record.prompt,
     width: normalizeNumber(params.width, defaults.width),
     height: normalizeNumber(params.height, defaults.height),
-    initImages: [],
+    initImages,
     model,
     imageCount: normalizeNumber(params.imageCount, record.imageCount),
     steps: normalizeNumber(params.steps, record.steps),
     seed: typeof params.seed === "string" ? params.seed : record.seed ?? "",
+    modeChoice: typeof params.modeChoice === "string" ? params.modeChoice : undefined,
+    guidanceScale:
+      typeof params.guidanceScale === "number"
+        ? params.guidanceScale
+        : undefined,
+    promptUpsampling:
+      typeof params.promptUpsampling === "boolean"
+        ? params.promptUpsampling
+        : undefined,
   };
 }
 
@@ -96,10 +108,16 @@ function buildVideoPayload(record: {
       ? (params.model as (typeof videoModelOptions)[number])
       : defaultVideoModelKey;
   const defaults = videoModelDefaults[model];
+  const initImage =
+    typeof params.initImage === "string"
+      ? params.initImage
+      : Array.isArray(params.initImages)
+        ? params.initImages.find((value) => typeof value === "string") ?? ""
+        : "";
 
   return {
     prompt: record.prompt,
-    initImage: typeof params.initImage === "string" ? params.initImage : "",
+    initImage,
     model,
     aspectRatio:
       typeof params.aspectRatio === "string"

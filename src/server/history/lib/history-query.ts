@@ -112,3 +112,20 @@ export function extractModel(params: unknown): string | null {
   const record = params as Record<string, unknown>;
   return typeof record.model === "string" ? record.model : null;
 }
+
+export function extractInputImages(params: unknown): string[] {
+  if (!params || typeof params !== "object") return [];
+  const record = params as Record<string, unknown>;
+  const images: string[] = [];
+  if (Array.isArray(record.initImages)) {
+    record.initImages.forEach((value) => {
+      if (typeof value === "string" && value.trim()) {
+        images.push(value.trim());
+      }
+    });
+  }
+  if (typeof record.initImage === "string" && record.initImage.trim()) {
+    images.push(record.initImage.trim());
+  }
+  return images;
+}

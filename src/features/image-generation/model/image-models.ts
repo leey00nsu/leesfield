@@ -32,6 +32,9 @@ const imageParametersSchema = z
     width: parameterSchema,
     height: parameterSchema,
     steps: parameterSchema,
+    modeChoice: parameterSchema.optional(),
+    guidanceScale: parameterSchema.optional(),
+    promptUpsampling: parameterSchema.optional(),
     seed: parameterSchema.optional(),
     imageCount: parameterSchema,
   });
@@ -87,11 +90,19 @@ interface NumericRange {
   step: number;
 }
 
-const fallbackRanges: Record<"size" | "steps" | "count", NumericRange> = {
+const fallbackRanges: Record<
+  "size" | "steps" | "count" | "guidance",
+  NumericRange
+> = {
   size: { min: 1, max: 4096, step: 1 },
   steps: { min: 1, max: 50, step: 1 },
   count: { min: 1, max: 1, step: 1 },
+  guidance: { min: 0, max: 10, step: 0.5 },
 };
+
+const DEFAULT_MODE_CHOICE = "Distilled (4 steps)";
+const DEFAULT_GUIDANCE_SCALE = 1;
+const DEFAULT_PROMPT_UPSAMPLING = false;
 
 function resolveNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -139,6 +150,8 @@ export function getImageParamRange(
       ? fallbackRanges.steps
       : key === "imageCount"
         ? fallbackRanges.count
+        : key === "guidanceScale"
+          ? fallbackRanges.guidance
         : fallbackRanges.size;
   return resolveRange(getImageParamConfig(model, key), fallback);
 }
@@ -153,14 +166,45 @@ function getNumericDefault(
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function getStringDefault(
+  model: ImageGenerationModel,
+  key: ImageParameterKey,
+  fallback: string,
+) {
+  const param = getImageParamConfig(model, key);
+  const value = param?.default;
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function getBooleanDefault(
+  model: ImageGenerationModel,
+  key: ImageParameterKey,
+  fallback: boolean,
+) {
+  const param = getImageParamConfig(model, key);
+  const value = param?.default;
+  return typeof value === "boolean" ? value : fallback;
+}
+
 export const modelDefaults: Record<
   ImageGenerationModel,
-  { steps: number; width: number; height: number }
+  {
+    steps: number;
+    width: number;
+    height: number;
+    guidanceScale: number;
+    modeChoice: string;
+    promptUpsampling: boolean;
+  }
 > = Object.fromEntries(
   imageModels.map((model) => [
     model.key,
     {
-      steps: getNumericDefault(model.key as ImageGenerationModel, "steps", model.default_steps),
+      steps: getNumericDefault(
+        model.key as ImageGenerationModel,
+        "steps",
+        model.default_steps,
+      ),
       width: getNumericDefault(
         model.key as ImageGenerationModel,
         "width",
@@ -171,11 +215,33 @@ export const modelDefaults: Record<
         "height",
         model.default_height,
       ),
+      guidanceScale: getNumericDefault(
+        model.key as ImageGenerationModel,
+        "guidanceScale",
+        DEFAULT_GUIDANCE_SCALE,
+      ),
+      modeChoice: getStringDefault(
+        model.key as ImageGenerationModel,
+        "modeChoice",
+        DEFAULT_MODE_CHOICE,
+      ),
+      promptUpsampling: getBooleanDefault(
+        model.key as ImageGenerationModel,
+        "promptUpsampling",
+        DEFAULT_PROMPT_UPSAMPLING,
+      ),
     },
   ])
 ) as Record<
   ImageGenerationModel,
-  { steps: number; width: number; height: number }
+  {
+    steps: number;
+    width: number;
+    height: number;
+    guidanceScale: number;
+    modeChoice: string;
+    promptUpsampling: boolean;
+  }
 >;
 
 export const modelImageLimits: Record<
