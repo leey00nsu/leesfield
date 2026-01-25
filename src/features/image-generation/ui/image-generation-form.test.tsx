@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
 import { renderWithIntl } from "@/test-utils/intl";
+import { imageModels } from "@/features/image-generation/model/image-models";
 
 const mockUseImageGeneration = vi.hoisted(() => vi.fn());
 
@@ -88,5 +89,28 @@ describe("ImageGenerationForm", () => {
       await screen.findByText("로그인이 필요합니다"),
     ).toBeInTheDocument();
     expect(startGeneration).not.toHaveBeenCalled();
+  });
+
+  it("FLUX 모델에서 모드/가이던스/업샘플링 옵션을 노출한다", async () => {
+    const fluxModel = imageModels.find((model) => model.key === "flux2-klein-9b");
+    expect(fluxModel).toBeDefined();
+    if (!fluxModel) return;
+
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+
+    const fluxButton = screen.getByRole("button", {
+      name: /FLUX\.2 Klein 9B/i,
+    });
+    await user.click(fluxButton);
+
+    expect(await screen.findByText("모드")).toBeInTheDocument();
+    expect(await screen.findByText("가이던스")).toBeInTheDocument();
+    expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
   });
 });
