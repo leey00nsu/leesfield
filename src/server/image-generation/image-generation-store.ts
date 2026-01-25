@@ -49,13 +49,14 @@ export async function createMockGenerationWithLimit(
   const initImages = (payload.initImages ?? [])
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
-  const resolvedPayload =
+  const resolvedInitImages =
     initImages.length > 0
-      ? {
-          ...payload,
-          initImages: await uploadInputImages(requestId, initImages),
-        }
-      : payload;
+      ? await uploadInputImages(requestId, initImages)
+      : [];
+  const resolvedPayload = {
+    ...payload,
+    initImages: resolvedInitImages,
+  };
   const record = await createImageGenerationRecord(
     requestId,
     resolvedPayload,
