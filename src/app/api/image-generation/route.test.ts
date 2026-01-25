@@ -93,6 +93,33 @@ describe("POST /api/image-generation", () => {
     expect(payload.progress).toBe(0);
   });
 
+  it("입력 이미지 저장소가 없으면 400을 반환한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockCreateWithLimit.mockRejectedValue(
+      new Error("IMAGE_INPUT_STORAGE_REQUIRED"),
+    );
+
+    const request = new Request("http://localhost/api/image-generation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...imageGenerationDefaults,
+        prompt: "hello",
+        model: "flux2-klein-9b",
+        initImages: ["data:image/png;base64,AAAA"],
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.message).toBe("IMAGE_INPUT_STORAGE_REQUIRED");
+  });
+
   it("저장 실패 시 500을 반환한다", async () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,

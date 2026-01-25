@@ -17,9 +17,13 @@ export async function createImageGenerationRecord(
     width: payload.width,
     height: payload.height,
     steps: payload.steps,
+    modeChoice: payload.modeChoice ?? null,
+    guidanceScale: payload.guidanceScale ?? null,
+    promptUpsampling: payload.promptUpsampling ?? null,
     seed: payload.seed || null,
     imageCount: payload.imageCount,
     initImagesCount: payload.initImages?.length ?? 0,
+    initImages: payload.initImages ?? [],
   };
 
   return prisma.imageGeneration.create({
