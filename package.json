@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:prepare": "pnpm db:generate && pnpm db:migrate:deploy",
+    "db:seed:model-catalog": "node scripts/seed-model-catalog.mjs",
     "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs",
     "prepare": "husky"
   },
