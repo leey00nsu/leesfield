@@ -200,6 +200,7 @@
     "validation": {
       "image": {
         "promptRequired": "Please enter a prompt.",
+        "invalidModel": "Unsupported model.",
         "range": "{label} must be between {min} and {max}.",
         "step": "{label} must be in increments of {step}.",
         "initImageUnsupported": "Selected model does not support image input.",
@@ -215,6 +216,7 @@
       },
       "video": {
         "promptRequired": "Please enter a prompt.",
+        "invalidModel": "Unsupported model.",
         "initImageInvalid": "initImage must be a data URL (base64) or an http(s) URL.",
         "initImageRequired": "initImage is required.",
         "initImageNeeded": "Selected model requires an image input.",

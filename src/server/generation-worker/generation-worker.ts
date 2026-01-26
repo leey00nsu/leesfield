@@ -1,4 +1,3 @@
-import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import {
   defaultModelKey,
   getImageModelConcurrentLimit,
@@ -6,7 +5,6 @@ import {
   modelOptions,
   type ImageGenerationModel,
 } from "@/features/image-generation/model/image-models";
-import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
 import {
   defaultVideoModelKey,
   getVideoModelConcurrentLimit,
@@ -25,6 +23,10 @@ import {
   saveVideoGenerationResult,
   updateVideoGenerationStatus,
 } from "@/server/video-generation/video-generation-repository";
+import {
+  validateImageGenerationPayload,
+  validateVideoGenerationPayload,
+} from "@/server/model-catalog/generation-validation";
 
 const WORKER_INTERVAL_MS = 2000;
 const PENDING_SCAN_LIMIT = 60;
@@ -228,7 +230,7 @@ async function handleImageRecord(record: {
   progress: number;
 }) {
   const payload = buildImagePayload(record);
-  const parsed = imageGenerationSchema.safeParse(payload);
+  const parsed = await validateImageGenerationPayload(payload);
   if (!parsed.success) {
     await updateImageGenerationStatus(
       record.id,
@@ -279,7 +281,7 @@ async function handleVideoRecord(record: {
   progress: number;
 }) {
   const payload = buildVideoPayload(record);
-  const parsed = videoGenerationSchema.safeParse(payload);
+  const parsed = await validateVideoGenerationPayload(payload);
   if (!parsed.success) {
     await updateVideoGenerationStatus(
       record.id,

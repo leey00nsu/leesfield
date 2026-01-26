@@ -402,10 +402,6 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       "Fetches available generation models.",
   };
 
-  registry.registerTag({ name: "Images", description: tags.images });
-  registry.registerTag({ name: "Videos", description: tags.videos });
-  registry.registerTag({ name: "Models", description: tags.models });
-
   const result = generator.generateDocument({
     openapi: "3.0.0",
     info: {
@@ -420,7 +416,6 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       { name: "Videos", description: tags.videos },
       { name: "Models", description: tags.models },
     ],
-    paths: generator.generatePaths(),
   });
 
   const updateDescription = (

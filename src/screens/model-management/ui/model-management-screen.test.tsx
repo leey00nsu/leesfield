@@ -99,7 +99,8 @@ describe("ModelManagementScreen", () => {
 
     renderWithIntl(<ModelManagementScreen />);
 
-    await screen.findByText(imageModel!.label);
+    const imageLabels = await screen.findAllByText(imageModel!.label);
+    expect(imageLabels.length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "이미지" }));
 
@@ -119,7 +120,8 @@ describe("ModelManagementScreen", () => {
 
     renderWithIntl(<ModelManagementScreen />);
 
-    await screen.findByText(videoModel!.label);
+    const videoLabels = await screen.findAllByText(videoModel!.label);
+    expect(videoLabels.length).toBeGreaterThan(0);
 
     const input = screen.getByPlaceholderText("검색...");
 

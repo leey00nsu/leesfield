@@ -11,6 +11,9 @@ import {
   updateVideoGenerationStatus,
 } from "@/server/video-generation/video-generation-repository";
 
+const mockValidateImagePayload = vi.hoisted(() => vi.fn());
+const mockValidateVideoPayload = vi.hoisted(() => vi.fn());
+
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
     imageGeneration: {
@@ -42,9 +45,16 @@ vi.mock("@/server/video-generation/video-generation-repository", () => ({
   updateVideoGenerationStatus: vi.fn(),
 }));
 
+vi.mock("@/server/model-catalog/generation-validation", () => ({
+  validateImageGenerationPayload: mockValidateImagePayload,
+  validateVideoGenerationPayload: mockValidateVideoPayload,
+}));
+
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockValidateImagePayload.mockResolvedValue({ success: true, data: {} });
+    mockValidateVideoPayload.mockResolvedValue({ success: true, data: {} });
   });
 
   it("processImageJobs updates status when completed with skipDbSave", async () => {
