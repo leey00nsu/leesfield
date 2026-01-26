@@ -113,14 +113,45 @@ const videoModelSchema = baseModelSchema.extend({
   meta: videoMetaSchema,
 });
 
+const baseModelInputSchema = z.object({
+  type: z.enum(["image", "video"]),
+  key: z.string().min(1),
+  label: z.string().min(1),
+  vendor: z.string().min(1),
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
+  parameters: z.unknown(),
+  meta: z.unknown(),
+  isActive: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+const imageModelInputSchema = baseModelInputSchema.extend({
+  type: z.literal("image"),
+  parameters: imageParametersSchema,
+  meta: imageMetaSchema,
+});
+
+const videoModelInputSchema = baseModelInputSchema.extend({
+  type: z.literal("video"),
+  parameters: videoParametersSchema,
+  meta: videoMetaSchema,
+});
+
 export const modelCatalogSchema = z.array(
   z.union([imageModelSchema, videoModelSchema]),
 );
+
+export const modelCatalogInputSchema = z.union([
+  imageModelInputSchema,
+  videoModelInputSchema,
+]);
 
 export type ModelCatalogItem = z.infer<typeof modelCatalogSchema>[number];
 export type ImageModelCatalogItem = z.infer<typeof imageModelSchema>;
 export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];
+export type ModelCatalogInput = z.infer<typeof modelCatalogInputSchema>;
 
 export type ModelCatalogParams = {
   includeInactive?: boolean;
