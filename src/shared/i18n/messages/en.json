@@ -300,6 +300,8 @@
         "video": "VIDEO"
       },
       "default": "DEFAULT",
+      "inactive": "INACTIVE",
+      "edit": "EDIT",
       "meta": {
         "provider": "PROVIDER",
         "pipeline": "PIPELINE",
@@ -307,6 +309,45 @@
         "input": "INPUT",
         "mode": "MODE",
         "duration": "DURATION"
+      }
+    },
+    "admin": {
+      "toolbar": {
+        "reload": "Reload",
+        "reloading": "Reloading...",
+        "create": "Add Model"
+      },
+      "dialog": {
+        "createTitle": "Create Model",
+        "editTitle": "Edit Model",
+        "untitled": "Untitled",
+        "helper": "Fill in model details",
+        "save": "Save",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "close": "Close"
+      },
+      "fields": {
+        "type": "TYPE",
+        "key": "KEY",
+        "label": "LABEL",
+        "vendor": "VENDOR",
+        "provider": "PROVIDER",
+        "isActive": "ACTIVE",
+        "isDefault": "DEFAULT",
+        "providerConfig": "PROVIDER CONFIG (JSON)",
+        "parameters": "PARAMETERS (JSON)",
+        "meta": "META (JSON)"
+      },
+      "status": {
+        "loading": "Loading models..."
+      },
+      "errors": {
+        "load": "Failed to load models.",
+        "save": "Failed to save model.",
+        "json": "Invalid JSON format.",
+        "required": "Please fill in required fields.",
+        "conflict": "Model key already exists."
       }
     }
   },

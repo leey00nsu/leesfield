@@ -27,6 +27,7 @@ describe("model-catalog", () => {
       expect(mapped.label).toBe(model.label);
       expect(mapped.vendor).toBe(model.vendor);
       expect(mapped.provider).toBe(model.provider);
+      expect(mapped.isActive).toBe(true);
       expect(mapped.isDefault).toBe(model.key === defaultImageModelKey);
       expect(mapped.meta).toEqual({
         pipeline: model.pipeline,
@@ -52,6 +53,7 @@ describe("model-catalog", () => {
       expect(mapped.label).toBe(model.label);
       expect(mapped.vendor).toBe(model.vendor);
       expect(mapped.provider).toBe(model.provider);
+      expect(mapped.isActive).toBe(true);
       expect(mapped.isDefault).toBe(model.key === defaultVideoModelKey);
       expect(mapped.meta).toEqual({
         supportsInitImage: model.supports_init_image,

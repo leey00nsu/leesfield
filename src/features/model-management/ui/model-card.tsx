@@ -3,9 +3,11 @@ import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 
 interface ModelCardProps {
   item: ModelCatalogItem;
+  onEdit?: (key: string) => void;
 }
 
 const typeConfig = {
@@ -63,7 +65,7 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
   ];
 }
 
-export function ModelCard({ item }: ModelCardProps) {
+export function ModelCard({ item, onEdit }: ModelCardProps) {
   const tCard = useTranslations("model.card");
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
@@ -103,12 +105,19 @@ export function ModelCard({ item }: ModelCardProps) {
           <TypeIcon className="h-3.5 w-3.5" />
           {tCard(`type.${item.type}`)}
         </div>
-        {item.isDefault ? (
-          <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/90 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-black">
-            <Sparkles className="h-3.5 w-3.5" />
-            {tCard("default")}
-          </div>
-        ) : null}
+        <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
+          {item.isDefault ? (
+            <div className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/90 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-black">
+              <Sparkles className="h-3.5 w-3.5" />
+              {tCard("default")}
+            </div>
+          ) : null}
+          {!item.isActive ? (
+            <div className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-300">
+              {tCard("inactive")}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
         <div className="flex items-start justify-between gap-3">
@@ -133,6 +142,17 @@ export function ModelCard({ item }: ModelCardProps) {
             </Badge>
           ))}
         </div>
+        {onEdit ? (
+          <Button
+            type="button"
+            variant="surface"
+            size="sm"
+            className="mt-2 w-full"
+            onClick={() => onEdit(item.key)}
+          >
+            {tCard("edit")}
+          </Button>
+        ) : null}
       </div>
     </article>
   );

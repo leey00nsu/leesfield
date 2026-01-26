@@ -300,6 +300,8 @@
         "video": "비디오"
       },
       "default": "기본",
+      "inactive": "비활성",
+      "edit": "수정",
       "meta": {
         "provider": "제공자",
         "pipeline": "파이프라인",
@@ -307,6 +309,45 @@
         "input": "입력",
         "mode": "모드",
         "duration": "길이"
+      }
+    },
+    "admin": {
+      "toolbar": {
+        "reload": "새로고침",
+        "reloading": "불러오는 중...",
+        "create": "모델 추가"
+      },
+      "dialog": {
+        "createTitle": "모델 추가",
+        "editTitle": "모델 수정",
+        "untitled": "제목 없음",
+        "helper": "모델 정보를 입력하세요",
+        "save": "저장",
+        "saving": "저장 중...",
+        "cancel": "취소",
+        "close": "닫기"
+      },
+      "fields": {
+        "type": "유형",
+        "key": "키",
+        "label": "라벨",
+        "vendor": "벤더",
+        "provider": "프로바이더",
+        "isActive": "활성",
+        "isDefault": "기본",
+        "providerConfig": "프로바이더 설정(JSON)",
+        "parameters": "파라미터(JSON)",
+        "meta": "메타(JSON)"
+      },
+      "status": {
+        "loading": "모델을 불러오는 중..."
+      },
+      "errors": {
+        "load": "모델을 불러오지 못했습니다.",
+        "save": "모델 저장에 실패했습니다.",
+        "json": "JSON 형식이 올바르지 않습니다.",
+        "required": "필수 값을 입력해주세요.",
+        "conflict": "이미 존재하는 모델 키입니다."
       }
     }
   },

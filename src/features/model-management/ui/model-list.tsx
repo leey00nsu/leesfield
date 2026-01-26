@@ -6,11 +6,13 @@ import { ModelCard } from "@/features/model-management/ui/model-card";
 interface ModelListProps {
   items: ModelCatalogItem[];
   emptyMessage?: string;
+  onEdit?: (key: string) => void;
 }
 
 export function ModelList({
   items,
   emptyMessage,
+  onEdit,
 }: ModelListProps) {
   const tEmpty = useTranslations("model.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
@@ -34,7 +36,7 @@ export function ModelList({
   return (
     <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
       {items.map((item) => (
-        <ModelCard key={`${item.type}-${item.key}`} item={item} />
+        <ModelCard key={`${item.type}-${item.key}`} item={item} onEdit={onEdit} />
       ))}
     </div>
   );
