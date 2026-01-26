@@ -1,17 +1,3 @@
-import {
-  defaultModelKey,
-  getImageModelConcurrentLimit,
-  modelDefaults,
-  modelOptions,
-  type ImageGenerationModel,
-} from "@/features/image-generation/model/image-models";
-import {
-  defaultVideoModelKey,
-  getVideoModelConcurrentLimit,
-  videoModelDefaults,
-  videoModelOptions,
-  type VideoGenerationModel,
-} from "@/features/video-generation/model/video-models";
 import { prisma } from "@/server/db/prisma";
 import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
 import {
@@ -27,6 +13,12 @@ import {
   validateImageGenerationPayload,
   validateVideoGenerationPayload,
 } from "@/server/model-catalog/generation-validation";
+import {
+  getRuntimeCatalog,
+  resolveDefaultModelKey,
+  type RuntimeImageModel,
+  type RuntimeVideoModel,
+} from "@/server/model-catalog/runtime-models";
 
 const WORKER_INTERVAL_MS = 2000;
 const PENDING_SCAN_LIMIT = 60;
@@ -40,26 +32,88 @@ type WorkerGlobal = typeof globalThis & {
   __generationWorkerRunning?: boolean;
 };
 
+type ImageRuntimeState = {
+  modelMap: Map<string, RuntimeImageModel>;
+  modelKeys: string[];
+  defaultKey: string;
+  fallbackDefaults: RuntimeImageModel["defaults"];
+};
+
+type VideoRuntimeState = {
+  modelMap: Map<string, RuntimeVideoModel>;
+  modelKeys: string[];
+  defaultKey: string;
+  fallbackDefaults: RuntimeVideoModel["defaults"];
+};
+
 function normalizeNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function buildImagePayload(record: {
-  prompt: string;
-  requestParams: unknown;
-  imageCount: number;
-  steps: number;
-  seed: string | null;
-}) {
+function resolveModelKey(
+  requestParams: unknown,
+  modelKeys: string[],
+  fallbackKey: string,
+) {
+  if (requestParams && typeof requestParams === "object") {
+    const model = (requestParams as Record<string, unknown>).model;
+    if (typeof model === "string" && modelKeys.includes(model)) {
+      return model;
+    }
+  }
+  return fallbackKey;
+}
+
+async function getImageRuntimeState(): Promise<ImageRuntimeState | null> {
+  const { imageModels } = await getRuntimeCatalog({ includeInactive: true });
+  if (imageModels.length === 0) return null;
+  const modelMap = new Map(imageModels.map((model) => [model.key, model]));
+  const defaultKey = resolveDefaultModelKey(imageModels) ?? imageModels[0].key;
+  const fallbackDefaults =
+    modelMap.get(defaultKey)?.defaults ?? imageModels[0].defaults;
+  return {
+    modelMap,
+    modelKeys: imageModels.map((model) => model.key),
+    defaultKey,
+    fallbackDefaults,
+  };
+}
+
+async function getVideoRuntimeState(): Promise<VideoRuntimeState | null> {
+  const { videoModels } = await getRuntimeCatalog({ includeInactive: true });
+  if (videoModels.length === 0) return null;
+  const modelMap = new Map(videoModels.map((model) => [model.key, model]));
+  const defaultKey = resolveDefaultModelKey(videoModels) ?? videoModels[0].key;
+  const fallbackDefaults =
+    modelMap.get(defaultKey)?.defaults ?? videoModels[0].defaults;
+  return {
+    modelMap,
+    modelKeys: videoModels.map((model) => model.key),
+    defaultKey,
+    fallbackDefaults,
+  };
+}
+
+function buildImagePayload(
+  record: {
+    prompt: string;
+    requestParams: unknown;
+    imageCount: number;
+    steps: number;
+    seed: string | null;
+  },
+  runtime: ImageRuntimeState,
+) {
   const params =
     record.requestParams && typeof record.requestParams === "object"
       ? (record.requestParams as Record<string, unknown>)
       : {};
   const model =
-    typeof params.model === "string" && modelOptions.includes(params.model)
-      ? (params.model as (typeof modelOptions)[number])
-      : defaultModelKey;
-  const defaults = modelDefaults[model];
+    typeof params.model === "string" && runtime.modelMap.has(params.model)
+      ? params.model
+      : runtime.defaultKey;
+  const defaults =
+    runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
   const initImages = Array.isArray(params.initImages)
     ? params.initImages.filter((value) => typeof value === "string")
     : [];
@@ -85,31 +139,23 @@ function buildImagePayload(record: {
   };
 }
 
-function resolveImageModelKey(
-  requestParams: unknown,
-): ImageGenerationModel {
-  if (requestParams && typeof requestParams === "object") {
-    const model = (requestParams as Record<string, unknown>).model;
-    if (typeof model === "string" && modelOptions.includes(model)) {
-      return model as ImageGenerationModel;
-    }
-  }
-  return defaultModelKey;
-}
-
-function buildVideoPayload(record: {
-  prompt: string;
-  requestParams: unknown;
-}) {
+function buildVideoPayload(
+  record: {
+    prompt: string;
+    requestParams: unknown;
+  },
+  runtime: VideoRuntimeState,
+) {
   const params =
     record.requestParams && typeof record.requestParams === "object"
       ? (record.requestParams as Record<string, unknown>)
       : {};
   const model =
-    typeof params.model === "string" && videoModelOptions.includes(params.model)
-      ? (params.model as (typeof videoModelOptions)[number])
-      : defaultVideoModelKey;
-  const defaults = videoModelDefaults[model];
+    typeof params.model === "string" && runtime.modelMap.has(params.model)
+      ? params.model
+      : runtime.defaultKey;
+  const defaults =
+    runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
   const initImage =
     typeof params.initImage === "string"
       ? params.initImage
@@ -134,18 +180,6 @@ function buildVideoPayload(record: {
   };
 }
 
-function resolveVideoModelKey(
-  requestParams: unknown,
-): VideoGenerationModel {
-  if (requestParams && typeof requestParams === "object") {
-    const model = (requestParams as Record<string, unknown>).model;
-    if (typeof model === "string" && videoModelOptions.includes(model)) {
-      return model as VideoGenerationModel;
-    }
-  }
-  return defaultVideoModelKey;
-}
-
 function buildSlotsByModel<TModel extends string>(
   models: readonly TModel[],
   processingCounts: Map<TModel, number>,
@@ -165,30 +199,36 @@ function buildSlotsByModel<TModel extends string>(
   return { slots, totalSlots };
 }
 
-async function getImageProcessingCounts() {
+async function getImageProcessingCounts(
+  modelKeys: string[],
+  defaultKey: string,
+) {
   const records = await prisma.imageGeneration.findMany({
     where: { status: "processing" },
     select: { requestParams: true },
   });
-  const counts = new Map<ImageGenerationModel, number>();
+  const counts = new Map<string, number>();
 
   for (const record of records) {
-    const model = resolveImageModelKey(record.requestParams);
+    const model = resolveModelKey(record.requestParams, modelKeys, defaultKey);
     counts.set(model, (counts.get(model) ?? 0) + 1);
   }
 
   return counts;
 }
 
-async function getVideoProcessingCounts() {
+async function getVideoProcessingCounts(
+  modelKeys: string[],
+  defaultKey: string,
+) {
   const records = await prisma.videoGeneration.findMany({
     where: { status: "processing" },
     select: { requestParams: true },
   });
-  const counts = new Map<VideoGenerationModel, number>();
+  const counts = new Map<string, number>();
 
   for (const record of records) {
-    const model = resolveVideoModelKey(record.requestParams);
+    const model = resolveModelKey(record.requestParams, modelKeys, defaultKey);
     counts.set(model, (counts.get(model) ?? 0) + 1);
   }
 
@@ -228,8 +268,8 @@ async function handleImageRecord(record: {
   steps: number;
   seed: string | null;
   progress: number;
-}) {
-  const payload = buildImagePayload(record);
+}, runtime: ImageRuntimeState) {
+  const payload = buildImagePayload(record, runtime);
   const parsed = await validateImageGenerationPayload(payload);
   if (!parsed.success) {
     await updateImageGenerationStatus(
@@ -279,8 +319,8 @@ async function handleVideoRecord(record: {
   prompt: string;
   requestParams: unknown;
   progress: number;
-}) {
-  const payload = buildVideoPayload(record);
+}, runtime: VideoRuntimeState) {
+  const payload = buildVideoPayload(record, runtime);
   const parsed = await validateVideoGenerationPayload(payload);
   if (!parsed.success) {
     await updateVideoGenerationStatus(
@@ -325,12 +365,17 @@ async function handleVideoRecord(record: {
 }
 
 export async function processImageJobs() {
+  const runtime = await getImageRuntimeState();
+  if (!runtime) return;
   await expireStaleImageProcessing();
-  const processingCounts = await getImageProcessingCounts();
+  const processingCounts = await getImageProcessingCounts(
+    runtime.modelKeys,
+    runtime.defaultKey,
+  );
   const { slots, totalSlots } = buildSlotsByModel(
-    modelOptions,
+    runtime.modelKeys,
     processingCounts,
-    getImageModelConcurrentLimit,
+    (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
   );
   if (totalSlots === 0) return;
 
@@ -343,7 +388,11 @@ export async function processImageJobs() {
   const claimedRecords: typeof pending = [];
 
   for (const record of pending) {
-    const model = resolveImageModelKey(record.requestParams);
+    const model = resolveModelKey(
+      record.requestParams,
+      runtime.modelKeys,
+      runtime.defaultKey,
+    );
     const available = slots.get(model) ?? 0;
     if (available <= 0) continue;
 
@@ -358,16 +407,21 @@ export async function processImageJobs() {
     if (claimedRecords.length >= totalSlots) break;
   }
 
-  await Promise.all(claimedRecords.map(handleImageRecord));
+  await Promise.all(claimedRecords.map((record) => handleImageRecord(record, runtime)));
 }
 
 export async function processVideoJobs() {
+  const runtime = await getVideoRuntimeState();
+  if (!runtime) return;
   await expireStaleVideoProcessing();
-  const processingCounts = await getVideoProcessingCounts();
+  const processingCounts = await getVideoProcessingCounts(
+    runtime.modelKeys,
+    runtime.defaultKey,
+  );
   const { slots, totalSlots } = buildSlotsByModel(
-    videoModelOptions,
+    runtime.modelKeys,
     processingCounts,
-    getVideoModelConcurrentLimit,
+    (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
   );
   if (totalSlots === 0) return;
 
@@ -380,7 +434,11 @@ export async function processVideoJobs() {
   const claimedRecords: typeof pending = [];
 
   for (const record of pending) {
-    const model = resolveVideoModelKey(record.requestParams);
+    const model = resolveModelKey(
+      record.requestParams,
+      runtime.modelKeys,
+      runtime.defaultKey,
+    );
     const available = slots.get(model) ?? 0;
     if (available <= 0) continue;
 
@@ -395,7 +453,7 @@ export async function processVideoJobs() {
     if (claimedRecords.length >= totalSlots) break;
   }
 
-  await Promise.all(claimedRecords.map(handleVideoRecord));
+  await Promise.all(claimedRecords.map((record) => handleVideoRecord(record, runtime)));
 }
 
 export function startGenerationWorker() {

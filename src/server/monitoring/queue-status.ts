@@ -1,13 +1,9 @@
 import type { ImageGenerationStatus, VideoGenerationStatus } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
-  defaultModelKey,
-  modelOptions,
-} from "@/features/image-generation/model/image-models";
-import {
-  defaultVideoModelKey,
-  videoModelOptions,
-} from "@/features/video-generation/model/video-models";
+  getRuntimeCatalog,
+  resolveDefaultModelKey,
+} from "@/server/model-catalog/runtime-models";
 
 export type QueueStatusItem = {
   type: "image" | "video";
@@ -43,15 +39,18 @@ function initCounts(keys: readonly string[]) {
   return map;
 }
 
-function normalizeModelKey(
+function normalizeQueueModelKey(
   model: string | null,
   options: readonly string[],
-  fallback: string,
+  fallback?: string,
 ) {
   if (model && options.includes(model)) {
     return model;
   }
-  return fallback;
+  if (model) {
+    return model;
+  }
+  return fallback ?? "unknown";
 }
 
 function toItems(type: QueueStatusItem["type"], map: Map<string, QueueCounts>) {
@@ -76,7 +75,7 @@ type VideoQueueGroup = {
 };
 
 export async function getQueueStatus(): Promise<QueueStatusResponse> {
-  const [imageRows, videoRows] = await Promise.all([
+  const [imageRows, videoRows, runtime] = await Promise.all([
     prisma.imageGeneration.groupBy({
       by: ["modelKey", "status"],
       where: { status: { in: IMAGE_ACTIVE_STATUSES } },
@@ -87,13 +86,29 @@ export async function getQueueStatus(): Promise<QueueStatusResponse> {
       where: { status: { in: VIDEO_ACTIVE_STATUSES } },
       _count: { _all: true },
     }),
+    getRuntimeCatalog({ includeInactive: true }),
   ]);
 
-  const imageCounts = initCounts(modelOptions);
-  const videoCounts = initCounts(videoModelOptions);
+  const imageKeys = runtime.imageModels.map((model) => model.key);
+  const videoKeys = runtime.videoModels.map((model) => model.key);
+  const imageDefaultKey =
+    resolveDefaultModelKey(runtime.imageModels) ?? imageKeys[0];
+  const videoDefaultKey =
+    resolveDefaultModelKey(runtime.videoModels) ?? videoKeys[0];
+
+  const imageCounts = initCounts(
+    runtime.imageModels.filter((model) => model.isActive).map((model) => model.key),
+  );
+  const videoCounts = initCounts(
+    runtime.videoModels.filter((model) => model.isActive).map((model) => model.key),
+  );
 
   for (const row of imageRows as ImageQueueGroup[]) {
-    const key = normalizeModelKey(row.modelKey, modelOptions, defaultModelKey);
+    const key = normalizeQueueModelKey(
+      row.modelKey,
+      imageKeys,
+      imageDefaultKey,
+    );
     const counts = imageCounts.get(key) ?? { pending: 0, processing: 0 };
     const count = row._count._all;
     if (row.status === "pending") {
@@ -105,7 +120,11 @@ export async function getQueueStatus(): Promise<QueueStatusResponse> {
   }
 
   for (const row of videoRows as VideoQueueGroup[]) {
-    const key = normalizeModelKey(row.modelKey, videoModelOptions, defaultVideoModelKey);
+    const key = normalizeQueueModelKey(
+      row.modelKey,
+      videoKeys,
+      videoDefaultKey,
+    );
     const counts = videoCounts.get(key) ?? { pending: 0, processing: 0 };
     const count = row._count._all;
     if (row.status === "pending") {

@@ -1,5 +1,11 @@
 import { getQueueStatus } from "@/server/monitoring/queue-status";
 import { prisma } from "@/server/db/prisma";
+import type {
+  RuntimeImageModel,
+  RuntimeVideoModel,
+} from "@/server/model-catalog/runtime-models";
+
+const mockGetRuntimeCatalog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
@@ -12,9 +18,54 @@ vi.mock("@/server/db/prisma", () => ({
   },
 }));
 
+vi.mock("@/server/model-catalog/runtime-models", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/server/model-catalog/runtime-models")
+  >("@/server/model-catalog/runtime-models");
+  return {
+    ...actual,
+    getRuntimeCatalog: mockGetRuntimeCatalog,
+  };
+});
+
 describe("getQueueStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const imageModels: RuntimeImageModel[] = [
+      {
+        key: "z-image-turbo",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          steps: 5,
+          width: 512,
+          height: 512,
+          guidanceScale: 1,
+          modeChoice: "Distilled (4 steps)",
+          promptUpsampling: false,
+        },
+        concurrentLimit: 1,
+        maxInputImages: 0,
+      },
+    ];
+    const videoModels: RuntimeVideoModel[] = [
+      {
+        key: "wan2-2-hf",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          steps: 6,
+          guidanceScale: 1,
+          durationSec: 3.5,
+          fps: 16,
+          aspectRatio: "16:9",
+          resolution: 720,
+        },
+        concurrentLimit: 1,
+        supportsInitImage: true,
+      },
+    ];
+    mockGetRuntimeCatalog.mockResolvedValue({ imageModels, videoModels });
   });
 
   it("모델별 pending/processing 수를 반환한다", async () => {
