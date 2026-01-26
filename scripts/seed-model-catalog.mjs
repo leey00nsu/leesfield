@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 const ROOT = process.cwd();
 
@@ -154,7 +156,9 @@ async function main() {
   const videoCatalog = loadJson("configs/video-models.json");
   const items = [...mapImageCatalog(imageCatalog), ...mapVideoCatalog(videoCatalog)];
 
-  const prisma = new PrismaClient();
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter });
 
   try {
     const result = await upsertModels(prisma, items);
@@ -163,6 +167,7 @@ async function main() {
     );
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
