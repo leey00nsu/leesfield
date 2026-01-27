@@ -12,6 +12,10 @@ type TranslationFn = (
   values?: Record<string, string | number | Date>,
 ) => string;
 
+type SafeParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: z.ZodError<T> };
+
 type NumericRange = {
   min: number;
   max: number;
@@ -402,16 +406,18 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
 }
 
 function buildNoModelsResult<TOutput>(message: string) {
-  return {
+  const error = new z.ZodError([
+    {
+      code: z.ZodIssueCode.custom,
+      path: ["model"],
+      message,
+    },
+  ]) as z.ZodError<TOutput>;
+  const result: SafeParseResult<TOutput> = {
     success: false,
-    error: new z.ZodError([
-      {
-        code: z.ZodIssueCode.custom,
-        path: ["model"],
-        message,
-      },
-    ]),
-  } as z.SafeParseReturnType<unknown, TOutput>;
+    error,
+  };
+  return result;
 }
 
 export async function validateImageGenerationPayload(
@@ -428,7 +434,7 @@ export async function validateImageGenerationPayload(
   }
   const schema = buildImageSchema(imageModels, t);
   const parsed = schema.safeParse(payload);
-  return parsed as z.SafeParseReturnType<unknown, ImageGenerationFormValues>;
+  return parsed as SafeParseResult<ImageGenerationFormValues>;
 }
 
 export async function validateVideoGenerationPayload(
@@ -445,5 +451,5 @@ export async function validateVideoGenerationPayload(
   }
   const schema = buildVideoSchema(videoModels, t);
   const parsed = schema.safeParse(payload);
-  return parsed as z.SafeParseReturnType<unknown, VideoGenerationFormValues>;
+  return parsed as SafeParseResult<VideoGenerationFormValues>;
 }

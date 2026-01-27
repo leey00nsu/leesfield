@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
   modelCatalogInputSchema,
@@ -40,7 +41,14 @@ export async function createModelCatalogHandler(payload: unknown) {
       });
     }
 
-    return tx.modelCatalog.create({ data });
+    return tx.modelCatalog.create({
+      data: {
+        ...data,
+        providerConfig: data.providerConfig as Prisma.InputJsonValue,
+        parameters: data.parameters as Prisma.InputJsonValue,
+        meta: data.meta as Prisma.InputJsonValue,
+      },
+    });
   });
 
   invalidateModelCatalogCache();

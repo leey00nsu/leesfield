@@ -36,7 +36,15 @@ async function fetchRuntimeModelCatalog(
     throw new Error(message ?? "MODEL_CATALOG_FETCH_FAILED");
   }
 
-  return Array.isArray(payload?.items) ? payload.items : [];
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "items" in payload &&
+    Array.isArray(payload.items)
+  ) {
+    return payload.items;
+  }
+  return [];
 }
 
 export function useRuntimeModelCatalog() {

@@ -167,6 +167,12 @@ const stringifyJson = (value: unknown) => JSON.stringify(value ?? {}, null, 2);
 const normalizeVendor = (vendor: string) => vendor.trim().toUpperCase();
 const isHuggingFaceVendorValue = (vendor: string) =>
   normalizeVendor(vendor) === DEFAULT_VENDOR;
+const pipelineOptions = ["diffusion", "sd", "sdxl"] as const;
+type PipelineOption = (typeof pipelineOptions)[number];
+const resolvePipeline = (value: unknown): PipelineOption =>
+  typeof value === "string" && pipelineOptions.includes(value as PipelineOption)
+    ? (value as PipelineOption)
+    : "diffusion";
 
 function buildDraft(type: ModelType): ModelDraft {
   return {
@@ -219,7 +225,7 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
       ...base,
       type: "image",
       meta: {
-        pipeline: safeString(meta.pipeline, "diffusion"),
+        pipeline: resolvePipeline(meta.pipeline),
         modelId: safeString(meta.model_id, record.key),
         defaultWidth: safeNumber(meta.default_width, 1024),
         defaultHeight: safeNumber(meta.default_height, 1024),

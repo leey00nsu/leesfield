@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -40,12 +41,12 @@ function toInput(record: {
     label: record.label,
     vendor: record.vendor,
     provider: record.provider as ModelCatalogInput["provider"],
-    providerConfig: record.providerConfig,
-    parameters: record.parameters,
-    meta: record.meta,
+    providerConfig: record.providerConfig as ModelCatalogInput["providerConfig"],
+    parameters: record.parameters as ModelCatalogInput["parameters"],
+    meta: record.meta as ModelCatalogInput["meta"],
     isActive: record.isActive,
     isDefault: record.isDefault,
-  };
+  } as ModelCatalogInput;
 }
 
 export async function updateModelCatalogHandler(params: {
@@ -73,12 +74,12 @@ export async function updateModelCatalogHandler(params: {
   }
 
   const base = toInput(existing);
-  const merged: ModelCatalogInput = {
+  const merged = {
     ...base,
     ...parsed.data,
     type: base.type,
     key: base.key,
-  };
+  } as ModelCatalogInput;
 
   const validated = modelCatalogInputSchema.safeParse(merged);
   if (!validated.success) {
@@ -102,9 +103,9 @@ export async function updateModelCatalogHandler(params: {
         label: merged.label,
         vendor: merged.vendor,
         provider: merged.provider,
-        providerConfig: merged.providerConfig,
-        parameters: merged.parameters,
-        meta: merged.meta,
+        providerConfig: merged.providerConfig as Prisma.InputJsonValue,
+        parameters: merged.parameters as Prisma.InputJsonValue,
+        meta: merged.meta as Prisma.InputJsonValue,
         isActive: merged.isActive ?? true,
         isDefault: merged.isDefault ?? false,
       },

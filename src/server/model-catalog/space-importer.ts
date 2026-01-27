@@ -273,9 +273,12 @@ export async function importModelDraftFromSpace(
     undefined;
 
   const spaceRef = normalizeSpaceReference(spaceUrl) ?? spaceUrl;
+  const clientOptions = tokenValue
+    ? { token: tokenValue as `hf_${string}` }
+    : undefined;
   const client = await Client.connect(
     spaceRef,
-    tokenValue ? { token: tokenValue } : {},
+    clientOptions,
   );
   const apiInfo = await client.view_api();
   const config = client.config;

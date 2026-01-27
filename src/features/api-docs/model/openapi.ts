@@ -424,10 +424,15 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     description?: string,
   ) => {
     if (!description) return;
-    result.paths[path] = result.paths[path] ?? {};
-    result.paths[path][method] = {
-      ...result.paths[path][method],
-      description,
+    const existingPath = result.paths[path];
+    const existingOperation = existingPath?.[method];
+    if (!existingOperation) return;
+    result.paths[path] = {
+      ...existingPath,
+      [method]: {
+        ...existingOperation,
+        description,
+      },
     };
   };
 
