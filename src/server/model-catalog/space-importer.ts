@@ -339,7 +339,7 @@ export async function importModelDraftFromSpace(
 
   // 3) 엔드포인트 연결 컴포넌트 매핑
   const dependency = config.dependencies.find(
-    (dep) => normalizeApiName(`/${dep.api_name ?? ""}`) === resolvedApiName,
+    (dep) => normalizeApiName(dep.api_name ?? "") === resolvedApiName,
   );
 
   const componentsById = new Map(config.components.map((component) => [component.id, component]));
