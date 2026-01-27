@@ -143,10 +143,6 @@ function parseSpaceIdFromUrl(spaceUrl: string) {
       }
     }
     if (url.hostname.endsWith(".hf.space")) {
-      const pathParts = url.pathname.split("/").filter(Boolean);
-      if (pathParts[0] && pathParts[1]) {
-        return `${pathParts[0]}/${pathParts[1]}`;
-      }
       const slug = url.hostname.replace(".hf.space", "");
       const lastDashIndex = slug.lastIndexOf("-");
       if (lastDashIndex > 0 && lastDashIndex < slug.length - 1) {
