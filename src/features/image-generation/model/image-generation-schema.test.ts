@@ -51,4 +51,25 @@ describe("image-generation-schema", () => {
     if (result.success) return;
     expect(result.error.flatten().fieldErrors.modeChoice?.length).toBeGreaterThan(0);
   });
+
+  it("알 수 없는 모델 키는 유효성 오류로 처리한다", () => {
+    const schema = createImageGenerationSchema(t);
+    const result = schema.safeParse({
+      prompt: "test",
+      width: 1024,
+      height: 1024,
+      initImages: [],
+      model: "unknown-model",
+      imageCount: 1,
+      steps: 4,
+      modeChoice: "Distilled (4 steps)",
+      guidanceScale: 1,
+      promptUpsampling: false,
+      seed: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.flatten().fieldErrors.model?.length).toBeGreaterThan(0);
+  });
 });

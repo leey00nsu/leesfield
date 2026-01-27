@@ -268,9 +268,33 @@ function getDefaultFromParam(param?: ParameterConfig) {
   return param?.default;
 }
 
+async function connectWithTimeout(
+  spaceRef: string,
+  clientOptions?: Parameters<typeof Client.connect>[1],
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const connectPromise = Client.connect(spaceRef, clientOptions);
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("SPACE_CONNECT_TIMEOUT"));
+    }, CONNECT_TIMEOUT_MS);
+  });
+
+  try {
+    return (await Promise.race([connectPromise, timeoutPromise])) as Awaited<
+      ReturnType<typeof Client.connect>
+    >;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 export async function importModelDraftFromSpace(
   payload: ImportRequest,
 ): Promise<ImportResult> {
+  // 1) 입력 검증 및 HF Space ref 정규화
   const spaceUrl = payload.spaceUrl?.trim();
   if (!spaceUrl) {
     throw new Error("INVALID_SPACE_URL");
@@ -285,23 +309,12 @@ export async function importModelDraftFromSpace(
   if (!spaceRef) {
     throw new Error("INVALID_SPACE_URL");
   }
+
+  // 2) HF Space 연결 + API/config 로딩
   const clientOptions = tokenValue
     ? { token: tokenValue as `hf_${string}` }
     : undefined;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const connectPromise = Client.connect(spaceRef, clientOptions);
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error("SPACE_CONNECT_TIMEOUT"));
-    }, CONNECT_TIMEOUT_MS);
-  });
-  const client = await Promise.race([connectPromise, timeoutPromise]).finally(
-    () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    },
-  );
+  const client = await connectWithTimeout(spaceRef, clientOptions);
   const apiInfo = await client.view_api();
   const config = client.config;
   if (!config) {
@@ -324,6 +337,7 @@ export async function importModelDraftFromSpace(
     throw new Error("SPACE_API_NOT_FOUND");
   }
 
+  // 3) 엔드포인트 연결 컴포넌트 매핑
   const dependency = config.dependencies.find(
     (dep) => normalizeApiName(`/${dep.api_name ?? ""}`) === resolvedApiName,
   );
@@ -382,6 +396,7 @@ export async function importModelDraftFromSpace(
     }
   });
 
+  // 4) 모델 타입/파라미터/메타 구성
   const modelType = detectModelType(outputTypes, hasVideoParam);
   const spaceId = config.space_id || spaceRef;
   const key = normalizeKey(spaceId.replace("/", "-")) || normalizeKey(spaceUrl);

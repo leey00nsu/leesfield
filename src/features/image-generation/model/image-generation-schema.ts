@@ -61,10 +61,20 @@ export const createImageGenerationSchema = (t?: TranslationFn) => {
   const unsupportedMode = t
     ? t("unsupportedMode")
     : "지원하지 않는 모드입니다.";
+  const invalidModel = t ? t("invalidModel") : "지원하지 않는 모델입니다.";
 
   return imageGenerationBaseSchema
     .extend({ prompt: z.string().min(1, promptRequired) })
     .superRefine((data, ctx) => {
+      if (!modelOptions.includes(data.model)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["model"],
+          message: invalidModel,
+        });
+        return;
+      }
+
       const widthRange = getImageParamRange(data.model, "width");
       const heightRange = getImageParamRange(data.model, "height");
       const stepsRange = getImageParamRange(data.model, "steps");

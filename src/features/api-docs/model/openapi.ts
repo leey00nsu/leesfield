@@ -257,13 +257,25 @@ registry.registerPath({
         },
       },
     },
-    400: {
-      description: "Invalid request",
+    401: {
+      description: "API key required",
       content: {
         "application/json": {
           schema: errorResponseSchema,
           example: {
-            message: "INVALID_REQUEST",
+            message: "API_KEY_REQUIRED",
+          },
+        },
+      },
+    },
+    403: {
+      description: "Invalid or revoked API key",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            invalid: { value: { message: "INVALID_API_KEY" } },
+            revoked: { value: { message: "API_KEY_REVOKED" } },
           },
         },
       },
@@ -302,13 +314,25 @@ registry.registerPath({
         },
       },
     },
-    400: {
-      description: "Invalid request",
+    401: {
+      description: "API key required",
       content: {
         "application/json": {
           schema: errorResponseSchema,
           example: {
-            message: "INVALID_REQUEST",
+            message: "API_KEY_REQUIRED",
+          },
+        },
+      },
+    },
+    403: {
+      description: "Invalid or revoked API key",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            invalid: { value: { message: "INVALID_API_KEY" } },
+            revoked: { value: { message: "API_KEY_REVOKED" } },
           },
         },
       },
