@@ -281,7 +281,10 @@ export async function importModelDraftFromSpace(
     process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
     undefined;
 
-  const spaceRef = normalizeSpaceReference(spaceUrl) ?? spaceUrl;
+  const spaceRef = normalizeSpaceReference(spaceUrl);
+  if (!spaceRef) {
+    throw new Error("INVALID_SPACE_URL");
+  }
   const clientOptions = tokenValue
     ? { token: tokenValue as `hf_${string}` }
     : undefined;
@@ -326,12 +329,12 @@ export async function importModelDraftFromSpace(
   );
 
   const componentsById = new Map(config.components.map((component) => [component.id, component]));
-  const inputComponents = (dependency?.inputs ?? []).map((id) => componentsById.get(id)).filter(Boolean);
-  const outputComponents = (dependency?.outputs ?? []).map((id) => componentsById.get(id)).filter(Boolean);
+  const inputComponents = (dependency?.inputs ?? []).map((id) => componentsById.get(id));
+  const outputComponents = (dependency?.outputs ?? []).map((id) => componentsById.get(id));
 
   const outputTypes = outputComponents
-    .map((component) => resolveComponentType(component))
-    .filter(Boolean);
+    .map((component) => (component ? resolveComponentType(component) : null))
+    .filter((type): type is string => Boolean(type));
 
   const parameters: Record<string, ParameterConfig> = {};
   const warnings: string[] = [];
@@ -371,11 +374,16 @@ export async function importModelDraftFromSpace(
     );
   });
 
+  outputComponents.forEach((component) => {
+    if (!component) return;
+    const componentType = resolveComponentType(component);
+    if (componentType && componentType.includes("video")) {
+      hasVideoParam = true;
+    }
+  });
+
   const modelType = detectModelType(outputTypes, hasVideoParam);
-  const spaceId =
-    config.space_id ||
-    normalizeSpaceReference(spaceUrl) ||
-    resolveString(config.title, spaceRef);
+  const spaceId = config.space_id || spaceRef;
   const key = normalizeKey(spaceId.replace("/", "-")) || normalizeKey(spaceUrl);
   const label = resolveString(config.title, spaceId);
 
