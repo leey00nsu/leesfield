@@ -10,6 +10,14 @@ import {
   saveVideoGenerationResult,
   updateVideoGenerationStatus,
 } from "@/server/video-generation/video-generation-repository";
+import type {
+  RuntimeImageModel,
+  RuntimeVideoModel,
+} from "@/server/model-catalog/runtime-models";
+
+const mockValidateImagePayload = vi.hoisted(() => vi.fn());
+const mockValidateVideoPayload = vi.hoisted(() => vi.fn());
+const mockGetRuntimeCatalog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
@@ -42,9 +50,61 @@ vi.mock("@/server/video-generation/video-generation-repository", () => ({
   updateVideoGenerationStatus: vi.fn(),
 }));
 
+vi.mock("@/server/model-catalog/runtime-models", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/server/model-catalog/runtime-models")
+  >("@/server/model-catalog/runtime-models");
+  return {
+    ...actual,
+    getRuntimeCatalog: mockGetRuntimeCatalog,
+  };
+});
+
+vi.mock("@/server/model-catalog/generation-validation", () => ({
+  validateImageGenerationPayload: mockValidateImagePayload,
+  validateVideoGenerationPayload: mockValidateVideoPayload,
+}));
+
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const imageModels: RuntimeImageModel[] = [
+      {
+        key: "z-image-turbo",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          steps: 5,
+          width: 512,
+          height: 512,
+          guidanceScale: 1,
+          modeChoice: "Distilled (4 steps)",
+          promptUpsampling: false,
+        },
+        concurrentLimit: 1,
+        maxInputImages: 0,
+      },
+    ];
+    const videoModels: RuntimeVideoModel[] = [
+      {
+        key: "wan2-2-hf",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          steps: 6,
+          guidanceScale: 1,
+          durationSec: 3.5,
+          fps: 16,
+          aspectRatio: "16:9",
+          resolution: 720,
+        },
+        concurrentLimit: 1,
+        supportsInitImage: true,
+      },
+    ];
+    mockGetRuntimeCatalog.mockResolvedValue({ imageModels, videoModels });
+    mockValidateImagePayload.mockResolvedValue({ success: true, data: {} });
+    mockValidateVideoPayload.mockResolvedValue({ success: true, data: {} });
   });
 
   it("processImageJobs updates status when completed with skipDbSave", async () => {

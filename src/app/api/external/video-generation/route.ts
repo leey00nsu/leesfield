@@ -1,4 +1,3 @@
-import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
 import { createMockVideoGenerationWithLimit } from "@/server/video-generation/video-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
@@ -7,6 +6,7 @@ import {
   buildInvalidRequestResponse,
 } from "@/server/http/response";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
+import { validateVideoGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
   FILE_TOO_LARGE_ERROR,
   getNumber,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     seed: getString(formData, "seed"),
   };
 
-  const parsed = videoGenerationSchema.safeParse(body);
+  const parsed = await validateVideoGenerationPayload(body);
 
   if (!parsed.success) {
     return buildInvalidRequestResponse(parsed.error.flatten());

@@ -39,10 +39,11 @@ const buildInitImageSchema = (t?: TranslationFn) =>
 
 const buildVideoGenerationBaseSchema = (t?: TranslationFn) => {
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
-  const initImageRequiredMessage = t ? t("initImageRequired") : "initImage는 필수입니다.";
   const initImageSchema = buildInitImageSchema(t);
-  const videoGenerationSharedSchema = z.object({
+  return z.object({
     prompt: z.string().min(1, promptRequired),
+    initImage: initImageSchema.optional().or(z.literal("")),
+    model: z.string().min(1),
     aspectRatio: z.string().min(1),
     resolution: z.number().int(),
     durationSec: z.number(),
@@ -51,35 +52,6 @@ const buildVideoGenerationBaseSchema = (t?: TranslationFn) => {
     guidanceScale: z.number(),
     seed: z.string().optional().or(z.literal("")),
   });
-
-  const initImageRequiredSchema = initImageSchema.min(1, initImageRequiredMessage);
-
-  const initImageRequiredModels = videoModelOptions.filter(
-    (model) => videoModelMeta[model]?.supportsInitImage,
-  );
-  const initImageOptionalModels = videoModelOptions.filter(
-    (model) => !videoModelMeta[model]?.supportsInitImage,
-  );
-
-  const videoVariants = [
-    ...initImageRequiredModels.map((model) =>
-      videoGenerationSharedSchema.extend({
-        model: z.literal(model),
-        initImage: initImageRequiredSchema,
-      }),
-    ),
-    ...initImageOptionalModels.map((model) =>
-      videoGenerationSharedSchema.extend({
-        model: z.literal(model),
-        initImage: initImageSchema.optional().or(z.literal("")),
-      }),
-    ),
-  ];
-
-  return z.discriminatedUnion(
-    "model",
-    videoVariants as [typeof videoVariants[number], ...typeof videoVariants],
-  );
 };
 
 export const videoGenerationOpenApiSchema = buildVideoGenerationBaseSchema();

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { Toaster } from "sonner";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -40,6 +41,7 @@ export function Providers({
         timeZone={timeZone}
       >
         {children}
+        <Toaster richColors closeButton position="top-right" />
       </NextIntlClientProvider>
     </QueryClientProvider>
   );

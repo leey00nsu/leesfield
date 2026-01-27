@@ -80,7 +80,7 @@ function ensureNonEmpty<T>(items: T[]): [T, ...T[]] {
 
 export const videoModelOptions = ensureNonEmpty(modelKeys);
 
-export type VideoGenerationModel = (typeof videoModelOptions)[number];
+export type VideoGenerationModel = string;
 
 export type VideoModelParameters = VideoModel["parameters"];
 export type VideoParameterKey = keyof VideoModelParameters;
@@ -174,7 +174,7 @@ function getStringDefault(
 }
 
 export const videoModelMeta: Record<
-  VideoGenerationModel,
+  string,
   { label: string; supportsInitImage: boolean }
 > = Object.fromEntries(
   videoModels.map((model) => [
@@ -184,10 +184,10 @@ export const videoModelMeta: Record<
       supportsInitImage: model.supports_init_image,
     },
   ])
-) as Record<VideoGenerationModel, { label: string; supportsInitImage: boolean }>;
+);
 
 export const videoModelDefaults: Record<
-  VideoGenerationModel,
+  string,
   {
     steps: number;
     guidanceScale: number;
@@ -232,17 +232,7 @@ export const videoModelDefaults: Record<
       ),
     },
   ])
-) as Record<
-  VideoGenerationModel,
-  {
-    steps: number;
-    guidanceScale: number;
-    durationSec: number;
-    fps: number;
-    aspectRatio: string;
-    resolution: number;
-  }
->;
+);
 
 export const defaultVideoModelKey: VideoGenerationModel =
   (catalog.default_model &&

@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:prepare": "pnpm db:generate && pnpm db:migrate:deploy",
+    "db:seed:model-catalog": "node scripts/seed-model-catalog.mjs",
     "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs",
     "prepare": "husky"
   },
@@ -24,6 +25,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^6.0.0",
     "@prisma/client": "^6.0.0",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -43,6 +45,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.69.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.4"
   },

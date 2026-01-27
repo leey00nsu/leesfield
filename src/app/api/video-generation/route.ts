@@ -1,4 +1,3 @@
-import { videoGenerationSchema } from "@/features/video-generation/model/video-generation-schema";
 import { getSession } from "@/server/auth/session";
 import { createMockVideoGenerationWithLimit } from "@/server/video-generation/video-generation-store";
 import {
@@ -7,6 +6,7 @@ import {
   buildInvalidRequestResponse,
 } from "@/server/http/response";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
+import { validateVideoGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
   INPUT_IMAGE_INVALID,
   INPUT_IMAGE_STORAGE_REQUIRED,
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = videoGenerationSchema.safeParse(body);
+  const parsed = await validateVideoGenerationPayload(body);
 
   if (!parsed.success) {
     return buildInvalidRequestResponse(parsed.error.flatten());

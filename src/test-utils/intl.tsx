@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import type { AbstractIntlMessages } from "next-intl";
 import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import koMessages from "@/shared/i18n/messages/ko.json";
 
 export const defaultLocale = "ko";
@@ -30,11 +31,19 @@ export function renderWithIntl(
   },
 ) {
   const { locale, messages, ...rest } = options ?? {};
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
   return render(ui, {
     wrapper: ({ children }) => (
-      <IntlProvider locale={locale} messages={messages}>
-        {children}
-      </IntlProvider>
+      <QueryClientProvider client={queryClient}>
+        <IntlProvider locale={locale} messages={messages}>
+          {children}
+        </IntlProvider>
+      </QueryClientProvider>
     ),
     ...rest,
   });
@@ -44,11 +53,19 @@ export function createIntlWrapper(
   locale: string = defaultLocale,
   messages: AbstractIntlMessages = defaultMessages,
 ) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
   return function Wrapper({ children }: PropsWithChildren) {
     return (
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        {children}
-      </NextIntlClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
+      </QueryClientProvider>
     );
   };
 }

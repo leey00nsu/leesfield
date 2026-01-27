@@ -4,8 +4,7 @@ import {
   DashboardFilterBar,
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
-import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
 import { Input } from "@/shared/ui/input";
 import { useTranslations } from "next-intl";
 
@@ -64,20 +63,14 @@ export function ApiKeyToolbar({
           placeholder={t("newKeyPlaceholder")}
           className="h-10 min-w-[220px] rounded-full border-white/10 bg-surface-dark px-4 text-xs font-mono uppercase tracking-wider text-white placeholder:text-gray-600 focus-visible:border-primary focus-visible:ring-0"
         />
-        <Button
+        <DashboardCtaButton
           type="button"
           onClick={onGenerate}
           disabled={isIssuing}
-          variant="default"
-          className={cn(
-            "flex h-10 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold uppercase tracking-wider text-black",
-            "transition-colors shadow-[0_0_20px_rgba(212,240,50,0.2)]",
-            "whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary",
-          )}
         >
           <Plus className="h-5 w-5" />
           {isIssuing ? t("generating") : t("generate")}
-        </Button>
+        </DashboardCtaButton>
       </div>
     </div>
   );

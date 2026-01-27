@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dice5,
@@ -42,31 +42,20 @@ import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   imageGenerationDefaults,
   createImageGenerationSchema,
-  type ImageGenerationModel,
-  modelDefaults,
-  modelImageLimits,
   type ImageGenerationFormValues,
 } from "@/features/image-generation/model/image-generation-schema";
-import {
-  getImageParamConfig,
-  getImageParamRange,
-  imageModels,
-} from "@/features/image-generation/model/image-models";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 import { useImageInitPreviews } from "@/features/image-generation/hook/use-image-init-previews";
 import { useTranslations } from "next-intl";
-
-const modelOptions = imageModels.map((model, index) => ({
-  id: model.key as ImageGenerationModel,
-  name: model.label,
-  vendor: model.vendor,
-  active: index === 0,
-})) as ReadonlyArray<{
-  id: ImageGenerationModel;
-  name: string;
-  vendor: string;
-  active: boolean;
-}>;
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
+import {
+  getRuntimeImageParamConfig,
+  getRuntimeImageParamRange,
+  resolveRuntimeDefaultModelKey,
+  resolveRuntimeImageDefaults,
+  resolveRuntimeImageMaxInputImages,
+} from "@/shared/model-catalog/runtime-utils";
+import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
 
 type ImageGenerationFormProps = {
   isAuthenticated: boolean;
@@ -81,12 +70,45 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.image");
   const tLoginGate = useTranslations("auth.loginGate");
-  const schema = useMemo(
+  const { imageModels: runtimeImageModels, isLoading: isModelLoading } =
+    useRuntimeModelCatalog();
+  const resolvedImageModels = runtimeImageModels;
+  const hasModels = resolvedImageModels.length > 0;
+  const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedImageModels) ?? "";
+  const runtimeModelMap = useMemo(
+    () => new Map(resolvedImageModels.map((model) => [model.key, model])),
+    [resolvedImageModels],
+  );
+  const modelOptions = useMemo(
+    () =>
+      resolvedImageModels.map((model) => ({
+        id: model.key,
+        name: model.label,
+        vendor: model.vendor,
+      })),
+    [resolvedImageModels],
+  );
+  const staticSchema = useMemo(
     () => createImageGenerationSchema(tValidation),
     [tValidation],
   );
+  const runtimeSchema = useMemo(
+    () => createRuntimeImageSchema(resolvedImageModels, tValidation),
+    [resolvedImageModels, tValidation],
+  );
+  const resolverRef = useRef<Resolver<ImageGenerationFormValues>>(
+    zodResolver(staticSchema) as Resolver<ImageGenerationFormValues>,
+  );
+  useEffect(() => {
+    resolverRef.current = zodResolver(runtimeSchema) as Resolver<ImageGenerationFormValues>;
+  }, [runtimeSchema]);
+  const resolver = useCallback<Resolver<ImageGenerationFormValues>>(
+    (values, context, options) =>
+      resolverRef.current(values, context, options),
+    [],
+  );
   const form = useForm<ImageGenerationFormValues>({
-    resolver: zodResolver(schema),
+    resolver,
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
@@ -119,27 +141,36 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const modeChoice =
     useWatch({ control: form.control, name: "modeChoice" }) ??
     imageGenerationDefaults.modeChoice;
-  const promptUpsampling =
-    useWatch({ control: form.control, name: "promptUpsampling" }) ??
-    imageGenerationDefaults.promptUpsampling;
-  const activeModel =
+  const watchedModel =
     useWatch({ control: form.control, name: "model" }) ??
     imageGenerationDefaults.model;
+  const activeModel = hasModels
+    ? runtimeModelMap.has(watchedModel)
+      ? watchedModel
+      : defaultModelKey
+    : "";
 
-  const widthRange = getImageParamRange(activeModel, "width");
-  const heightRange = getImageParamRange(activeModel, "height");
-  const stepsRange = getImageParamRange(activeModel, "steps");
-  const guidanceRange = getImageParamRange(activeModel, "guidanceScale");
-  const widthConfig = getImageParamConfig(activeModel, "width");
-  const heightConfig = getImageParamConfig(activeModel, "height");
-  const stepsConfig = getImageParamConfig(activeModel, "steps");
-  const modeConfig = getImageParamConfig(activeModel, "modeChoice");
-  const guidanceConfig = getImageParamConfig(activeModel, "guidanceScale");
-  const promptUpsamplingConfig = getImageParamConfig(
-    activeModel,
+  const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const widthRange = getRuntimeImageParamRange(activeRuntimeModel, "width");
+  const heightRange = getRuntimeImageParamRange(activeRuntimeModel, "height");
+  const stepsRange = getRuntimeImageParamRange(activeRuntimeModel, "steps");
+  const guidanceRange = getRuntimeImageParamRange(
+    activeRuntimeModel,
+    "guidanceScale",
+  );
+  const widthConfig = getRuntimeImageParamConfig(activeRuntimeModel, "width");
+  const heightConfig = getRuntimeImageParamConfig(activeRuntimeModel, "height");
+  const stepsConfig = getRuntimeImageParamConfig(activeRuntimeModel, "steps");
+  const modeConfig = getRuntimeImageParamConfig(activeRuntimeModel, "modeChoice");
+  const guidanceConfig = getRuntimeImageParamConfig(
+    activeRuntimeModel,
+    "guidanceScale",
+  );
+  const promptUpsamplingConfig = getRuntimeImageParamConfig(
+    activeRuntimeModel,
     "promptUpsampling",
   );
-  const seedConfig = getImageParamConfig(activeModel, "seed");
+  const seedConfig = getRuntimeImageParamConfig(activeRuntimeModel, "seed");
   const modeOptions = Array.isArray(modeConfig?.options)
     ? modeConfig.options.filter(
         (option): option is string =>
@@ -153,7 +184,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const showGuidanceScale = guidanceConfig?.ui !== "hidden";
   const showPromptUpsampling = promptUpsamplingConfig?.ui !== "hidden";
   const showSeed = seedConfig?.ui !== "hidden";
-  const maxInputImages = modelImageLimits[activeModel]?.maxInputImages ?? 0;
+  const maxInputImages = resolveRuntimeImageMaxInputImages(activeRuntimeModel);
   const prevModeChoiceRef = useRef<string | null>(null);
   const handleInitImagesChange = useCallback(
     (dataUrls: string[]) => {
@@ -175,7 +206,16 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   });
 
   useEffect(() => {
-    const defaults = modelDefaults[activeModel];
+    if (!hasModels || !defaultModelKey) return;
+    const currentModel = form.getValues("model");
+    if (runtimeModelMap.has(currentModel)) return;
+    form.setValue("model", defaultModelKey, { shouldValidate: true });
+  }, [defaultModelKey, form, hasModels, runtimeModelMap]);
+
+  useEffect(() => {
+    const model = runtimeModelMap.get(activeModel);
+    if (!model) return;
+    const defaults = resolveRuntimeImageDefaults(model);
     form.setValue("steps", defaults.steps);
     form.setValue("width", defaults.width);
     form.setValue("height", defaults.height);
@@ -184,11 +224,11 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     form.setValue("promptUpsampling", defaults.promptUpsampling);
     prevModeChoiceRef.current = null;
 
-    const seedCfg = getImageParamConfig(activeModel, "seed");
+    const seedCfg = getRuntimeImageParamConfig(model, "seed");
     if (seedCfg?.ui === "hidden") {
       form.setValue("seed", "");
     }
-  }, [activeModel, form]);
+  }, [activeModel, form, runtimeModelMap]);
 
   useEffect(() => {
     if (!showModeChoice) return;
@@ -228,7 +268,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
 
-  const handleSelectModel = (modelId: ImageGenerationModel) => {
+  const handleSelectModel = (modelId: string) => {
     form.setValue("model", modelId);
   };
 
@@ -253,10 +293,30 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       ? "grid-cols-2"
       : "grid-cols-2 lg:grid-cols-3";
 
+  const resetDefaults = useMemo<ImageGenerationFormValues>(() => {
+    const model = runtimeModelMap.get(defaultModelKey);
+    if (!model) return imageGenerationDefaults;
+    const defaults = resolveRuntimeImageDefaults(model);
+    return {
+      ...imageGenerationDefaults,
+      model: defaultModelKey,
+      width: defaults.width,
+      height: defaults.height,
+      steps: defaults.steps,
+      guidanceScale: defaults.guidanceScale,
+      modeChoice: defaults.modeChoice,
+      promptUpsampling: defaults.promptUpsampling,
+    };
+  }, [defaultModelKey, runtimeModelMap]);
+
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
       setIsLoginGateOpen(true);
+      return;
+    }
+    if (isModelLoading || !hasModels) {
+      event.preventDefault();
       return;
     }
 
@@ -286,6 +346,16 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
             </Button>
           }
         />
+        {isModelLoading && (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+            {tGeneration("modelLoading")}
+          </div>
+        )}
+        {!isModelLoading && !hasModels && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+            {tGeneration("noModels")}
+          </div>
+        )}
 
         <div className="flex flex-col gap-8 xl:flex-row">
           <div className="flex flex-1 flex-col gap-6">
@@ -480,7 +550,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                   type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
-                  disabled={isGenerating}
+                  disabled={isGenerating || isModelLoading || !hasModels}
                   className="flex-col"
                   onClick={
                     isAuthenticated
@@ -497,7 +567,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
           <GenerationSettingsPanel
             onReset={() => {
-              form.reset(imageGenerationDefaults);
+              form.reset(resetDefaults);
               resetInitImagePreviews();
               reset();
             }}

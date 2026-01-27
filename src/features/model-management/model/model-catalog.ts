@@ -18,6 +18,7 @@ interface BaseModelCatalogItem {
   label: string;
   vendor: string;
   provider: string;
+  isActive: boolean;
   isDefault: boolean;
 }
 
@@ -61,6 +62,7 @@ export const imageModelCatalog: ImageModelCatalogItem[] = imageModels.map(
     label: model.label,
     vendor: model.vendor,
     provider: model.provider,
+    isActive: true,
     isDefault: model.key === defaultImageModelKey,
     meta: {
       pipeline: model.pipeline,
@@ -80,6 +82,7 @@ export const videoModelCatalog: VideoModelCatalogItem[] = videoModels.map(
     label: model.label,
     vendor: model.vendor,
     provider: model.provider,
+    isActive: true,
     isDefault: model.key === defaultVideoModelKey,
     meta: {
       supportsInitImage: model.supports_init_image,

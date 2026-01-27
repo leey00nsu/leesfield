@@ -1,4 +1,3 @@
-import { imageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
 import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
@@ -7,6 +6,7 @@ import {
   buildInvalidRequestResponse,
 } from "@/server/http/response";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
+import { validateImageGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
   FILE_TOO_LARGE_ERROR,
   getDataUrlList,
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     seed: getString(formData, "seed"),
   };
 
-  const parsed = imageGenerationSchema.safeParse(body);
+  const parsed = await validateImageGenerationPayload(body);
 
   if (!parsed.success) {
     return buildInvalidRequestResponse(parsed.error.flatten());

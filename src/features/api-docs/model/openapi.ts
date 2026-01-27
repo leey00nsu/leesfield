@@ -4,9 +4,6 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import { modelOptions } from "@/features/image-generation/model/image-generation-schema";
-import { videoModelOptions } from "@/features/video-generation/model/video-generation-schema";
-import { videoModelMeta } from "@/features/video-generation/model/video-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 extendZodWithOpenApi(z);
@@ -95,7 +92,11 @@ const imageGenerationFormDataSchema = z.object({
   initImages: z
     .array(z.string().openapi({ type: "string", format: "binary" }))
     .optional(),
-  model: z.enum(modelOptions),
+  model: z
+    .string()
+    .openapi({
+      description: "Use /api/external/models to fetch available model keys.",
+    }),
   imageCount: z.number().int(),
   steps: z.number().int(),
   modeChoice: z.string().optional(),
@@ -104,8 +105,17 @@ const imageGenerationFormDataSchema = z.object({
   seed: z.string().optional(),
 });
 
-const videoGenerationFormDataBaseSchema = z.object({
+const videoGenerationFormDataSchema = z.object({
   prompt: z.string(),
+  initImage: z
+    .string()
+    .optional()
+    .openapi({ type: "string", format: "binary" }),
+  model: z
+    .string()
+    .openapi({
+      description: "Use /api/external/models to fetch available model keys.",
+    }),
   aspectRatio: z.string(),
   resolution: z.number().int(),
   durationSec: z.number(),
@@ -114,37 +124,6 @@ const videoGenerationFormDataBaseSchema = z.object({
   guidanceScale: z.number(),
   seed: z.string().optional(),
 });
-
-const videoInitImageSchema = z
-  .string()
-  .openapi({ type: "string", format: "binary" });
-
-const videoInitImageRequiredModels = videoModelOptions.filter(
-  (model) => videoModelMeta[model]?.supportsInitImage,
-);
-const videoInitImageOptionalModels = videoModelOptions.filter(
-  (model) => !videoModelMeta[model]?.supportsInitImage,
-);
-
-const videoFormVariants = [
-  ...videoInitImageRequiredModels.map((model) =>
-    videoGenerationFormDataBaseSchema.extend({
-      model: z.literal(model),
-      initImage: videoInitImageSchema,
-    }),
-  ),
-  ...videoInitImageOptionalModels.map((model) =>
-    videoGenerationFormDataBaseSchema.extend({
-      model: z.literal(model),
-      initImage: videoInitImageSchema.optional(),
-    }),
-  ),
-];
-
-const videoGenerationFormDataSchema = z.discriminatedUnion(
-  "model",
-  videoFormVariants as [typeof videoFormVariants[number], ...typeof videoFormVariants],
-);
 
 registry.register("ErrorResponse", errorResponseSchema);
 registry.register("GenerationResponse", generationResponseSchema);
@@ -197,59 +176,6 @@ registry.registerPath({
                 message: "INVALID_FORM_DATA",
               },
             },
-          },
-        },
-      },
-    },
-    413: {
-      description: "Payload too large",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "FILE_TOO_LARGE",
-          },
-        },
-      },
-    },
-    401: {
-      description: "Unauthorized",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Forbidden",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidApiKey: {
-              value: {
-                message: "INVALID_API_KEY",
-              },
-            },
-            revokedApiKey: {
-              value: {
-                message: "API_KEY_REVOKED",
-              },
-            },
-          },
-        },
-      },
-    },
-    500: {
-      description: "Server error",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "DB_SAVE_FAILED",
           },
         },
       },
@@ -308,59 +234,6 @@ registry.registerPath({
         },
       },
     },
-    413: {
-      description: "Payload too large",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "FILE_TOO_LARGE",
-          },
-        },
-      },
-    },
-    401: {
-      description: "Unauthorized",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Forbidden",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidApiKey: {
-              value: {
-                message: "INVALID_API_KEY",
-              },
-            },
-            revokedApiKey: {
-              value: {
-                message: "API_KEY_REVOKED",
-              },
-            },
-          },
-        },
-      },
-    },
-    500: {
-      description: "Server error",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "INTERNAL_SERVER_ERROR",
-          },
-        },
-      },
-    },
   },
 });
 
@@ -368,7 +241,7 @@ registry.registerPath({
   method: "get",
   path: "/api/external/image-generation/{requestId}",
   tags: ["Images"],
-  description: "Fetches the image generation result.",
+  description: "Fetches image generation status.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     params: z.object({
@@ -385,7 +258,7 @@ registry.registerPath({
       },
     },
     401: {
-      description: "Unauthorized",
+      description: "API key required",
       content: {
         "application/json": {
           schema: errorResponseSchema,
@@ -396,21 +269,13 @@ registry.registerPath({
       },
     },
     403: {
-      description: "Forbidden",
+      description: "Invalid or revoked API key",
       content: {
         "application/json": {
           schema: errorResponseSchema,
           examples: {
-            invalidApiKey: {
-              value: {
-                message: "INVALID_API_KEY",
-              },
-            },
-            revokedApiKey: {
-              value: {
-                message: "API_KEY_REVOKED",
-              },
-            },
+            invalid: { value: { message: "INVALID_API_KEY" } },
+            revoked: { value: { message: "API_KEY_REVOKED" } },
           },
         },
       },
@@ -433,7 +298,7 @@ registry.registerPath({
   method: "get",
   path: "/api/external/video-generation/{requestId}",
   tags: ["Videos"],
-  description: "Fetches the video generation result.",
+  description: "Fetches video generation status.",
   security: [{ ApiKeyAuth: [] }],
   request: {
     params: z.object({
@@ -450,7 +315,7 @@ registry.registerPath({
       },
     },
     401: {
-      description: "Unauthorized",
+      description: "API key required",
       content: {
         "application/json": {
           schema: errorResponseSchema,
@@ -461,21 +326,13 @@ registry.registerPath({
       },
     },
     403: {
-      description: "Forbidden",
+      description: "Invalid or revoked API key",
       content: {
         "application/json": {
           schema: errorResponseSchema,
           examples: {
-            invalidApiKey: {
-              value: {
-                message: "INVALID_API_KEY",
-              },
-            },
-            revokedApiKey: {
-              value: {
-                message: "API_KEY_REVOKED",
-              },
-            },
+            invalid: { value: { message: "INVALID_API_KEY" } },
+            revoked: { value: { message: "API_KEY_REVOKED" } },
           },
         },
       },
@@ -554,29 +411,29 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   const paths = {
     imageGeneration:
       translations?.paths?.imageGeneration ??
-      "Creates an image generation request.",
+      "Creates an image generation request. Model keys are available via /api/external/models.",
     videoGeneration:
       translations?.paths?.videoGeneration ??
-      "Creates a video generation request.",
+      "Creates a video generation request. Model keys are available via /api/external/models.",
     imageStatus:
       translations?.paths?.imageStatus ??
-      "Fetches the image generation result.",
+      "Fetches image generation status.",
     videoStatus:
       translations?.paths?.videoStatus ??
-      "Fetches the video generation result.",
+      "Fetches video generation status.",
     models:
       translations?.paths?.models ??
       "Fetches available generation models.",
   };
 
-  const document = generator.generateDocument({
+  const result = generator.generateDocument({
     openapi: "3.0.0",
     info: {
-      title: "leesfield API",
-      version: "v1",
+      title: "LeesField API",
+      version: "1.0.0",
       description:
         translations?.infoDescription ??
-        "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+        "This document describes the LeesField API.",
     },
     tags: [
       { name: "Images", description: tags.images },
@@ -588,14 +445,19 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   const updateDescription = (
     path: string,
     method: "get" | "post",
-    description: string,
+    description?: string,
   ) => {
-    const pathItem = document.paths?.[path];
-    if (!pathItem) return;
-    const operation = pathItem[method];
-    if (operation) {
-      operation.description = description;
-    }
+    if (!description) return;
+    const existingPath = result.paths[path];
+    const existingOperation = existingPath?.[method];
+    if (!existingOperation) return;
+    result.paths[path] = {
+      ...existingPath,
+      [method]: {
+        ...existingOperation,
+        description,
+      },
+    };
   };
 
   updateDescription(
@@ -620,5 +482,5 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   );
   updateDescription("/api/external/models", "get", paths.models);
 
-  return document;
+  return result;
 }

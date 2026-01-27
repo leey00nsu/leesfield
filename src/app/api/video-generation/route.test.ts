@@ -4,6 +4,7 @@ import { POST } from "@/app/api/video-generation/route";
 const mockGetSession = vi.hoisted(() => vi.fn());
 const mockCreateWithLimit = vi.hoisted(() => vi.fn());
 const mockStartWorker = vi.hoisted(() => vi.fn());
+const mockValidatePayload = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@/server/auth/session", () => ({
@@ -18,12 +19,17 @@ vi.mock("@/server/generation-worker/generation-worker", () => ({
   startGenerationWorker: mockStartWorker,
 }));
 
+vi.mock("@/server/model-catalog/generation-validation", () => ({
+  validateVideoGenerationPayload: mockValidatePayload,
+}));
+
 describe("POST /api/video-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
     mockCreateWithLimit.mockReset();
     mockStartWorker.mockReset();
+    mockValidatePayload.mockReset();
   });
 
   afterEach(() => {
@@ -51,6 +57,10 @@ describe("POST /api/video-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
+    mockValidatePayload.mockResolvedValue({
+      success: false,
+      error: { flatten: () => ({}) },
+    });
 
     const request = new Request("http://localhost/api/video-generation", {
       method: "POST",
@@ -69,6 +79,14 @@ describe("POST /api/video-generation", () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,
       adminEmail: "admin@example.com",
+    });
+    mockValidatePayload.mockResolvedValue({
+      success: true,
+      data: {
+        ...videoGenerationDefaults,
+        prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
+      },
     });
     mockCreateWithLimit.mockResolvedValue({
       record: { id: "request-id", status: "pending", progress: 0 },
@@ -99,6 +117,14 @@ describe("POST /api/video-generation", () => {
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
+    mockValidatePayload.mockResolvedValue({
+      success: true,
+      data: {
+        ...videoGenerationDefaults,
+        prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
+      },
+    });
     mockCreateWithLimit.mockRejectedValue(
       new Error("IMAGE_INPUT_STORAGE_REQUIRED"),
     );
@@ -124,6 +150,14 @@ describe("POST /api/video-generation", () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,
       adminEmail: "admin@example.com",
+    });
+    mockValidatePayload.mockResolvedValue({
+      success: true,
+      data: {
+        ...videoGenerationDefaults,
+        prompt: "hello",
+        initImage: "data:image/png;base64,AAAA",
+      },
     });
     mockCreateWithLimit.mockRejectedValue(new Error("db fail"));
 
