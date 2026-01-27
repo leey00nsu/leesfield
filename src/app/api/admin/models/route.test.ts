@@ -151,7 +151,7 @@ describe("/api/admin/models", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(payload.error).toBe("Invalid JSON");
+    expect(payload.message).toBe("Invalid JSON");
   });
 
   it("유효하지 않은 payload면 400을 반환한다", async () => {

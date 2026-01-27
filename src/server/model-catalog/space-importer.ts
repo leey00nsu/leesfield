@@ -41,6 +41,7 @@ type ImportResult = {
 
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
+const CONNECT_TIMEOUT_MS = 15_000;
 const DEFAULT_TIMEOUT_MS = 300000;
 
 const DEFAULT_IMAGE_META = {
@@ -142,10 +143,18 @@ function parseSpaceIdFromUrl(spaceUrl: string) {
       }
     }
     if (url.hostname.endsWith(".hf.space")) {
+      const pathParts = url.pathname.split("/").filter(Boolean);
+      if (pathParts[0] && pathParts[1]) {
+        return `${pathParts[0]}/${pathParts[1]}`;
+      }
       const slug = url.hostname.replace(".hf.space", "");
-      const [owner, ...rest] = slug.split("-");
-      if (owner && rest.length > 0) {
-        return `${owner}/${rest.join("-")}`;
+      const lastDashIndex = slug.lastIndexOf("-");
+      if (lastDashIndex > 0 && lastDashIndex < slug.length - 1) {
+        const owner = slug.slice(0, lastDashIndex);
+        const repo = slug.slice(lastDashIndex + 1);
+        if (owner && repo) {
+          return `${owner}/${repo}`;
+        }
       }
     }
   } catch {
@@ -276,9 +285,19 @@ export async function importModelDraftFromSpace(
   const clientOptions = tokenValue
     ? { token: tokenValue as `hf_${string}` }
     : undefined;
-  const client = await Client.connect(
-    spaceRef,
-    clientOptions,
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const connectPromise = Client.connect(spaceRef, clientOptions);
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("SPACE_CONNECT_TIMEOUT"));
+    }, CONNECT_TIMEOUT_MS);
+  });
+  const client = await Promise.race([connectPromise, timeoutPromise]).finally(
+    () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    },
   );
   const apiInfo = await client.view_api();
   const config = client.config;

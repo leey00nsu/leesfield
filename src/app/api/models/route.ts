@@ -12,7 +12,7 @@ function getSearchParam(searchParams: URLSearchParams, key: string) {
 
 export async function GET(request: Request) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.adminEmail) {
+  if (!session.isLoggedIn) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   }
 
@@ -45,4 +45,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

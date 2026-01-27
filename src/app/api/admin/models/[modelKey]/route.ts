@@ -23,7 +23,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
   }
 
   try {
