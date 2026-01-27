@@ -1,6 +1,5 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
-import { getImageModelConfig } from "@/features/image-generation/model/image-models";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import { leemageStorageAdapter } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
@@ -10,9 +9,8 @@ import { resolveImageStorageProvider } from "@/server/image-generation/storage/s
 type ImageProvider = "hf_space";
 
 function resolveImageProvider(modelKey: ImageGenerationFormValues["model"]): ImageProvider {
-  const provider = getImageModelConfig(modelKey).provider;
-  if (provider === "hf_space") return "hf_space";
-  throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
+  void modelKey;
+  return "hf_space";
 }
 
 function getAdapter(modelKey: ImageGenerationFormValues["model"]): ImageGenerationAdapter {

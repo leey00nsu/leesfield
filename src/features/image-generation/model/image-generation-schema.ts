@@ -21,7 +21,7 @@ const imageGenerationBaseSchema = z.object({
   width: z.number().int(),
   height: z.number().int(),
   initImages: z.array(z.string()).optional(),
-  model: z.enum(modelOptions),
+  model: z.string().min(1),
   imageCount: z.number().int(),
   steps: z.number().int(),
   modeChoice: z.string().optional(),

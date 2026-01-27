@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
+import { deleteModelCatalogHandler } from "@/server/model-catalog/handlers/delete-model-catalog";
 import { updateModelCatalogHandler } from "@/server/model-catalog/handlers/update-model-catalog";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,29 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ message: "IMMUTABLE_FIELD" }, { status: 400 });
     }
     console.error("[admin-models] update failed", error);
+    return NextResponse.json(
+      { message: "INTERNAL_SERVER_ERROR" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const session = await getSession();
+
+  if (!session.isLoggedIn || !session.adminEmail) {
+    return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  try {
+    const { modelKey } = await context.params;
+    const result = await deleteModelCatalogHandler(modelKey);
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "MODEL_NOT_FOUND") {
+      return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
+    }
+    console.error("[admin-models] delete failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },

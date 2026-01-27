@@ -78,7 +78,7 @@ function ensureNonEmpty<T>(items: T[]): [T, ...T[]] {
 
 export const modelOptions = ensureNonEmpty(modelKeys);
 
-export type ImageGenerationModel = (typeof modelOptions)[number];
+export type ImageGenerationModel = string;
 
 export type ImageModelParameters = ImageModel["parameters"];
 export type ImageParameterKey = keyof ImageModelParameters;
@@ -187,7 +187,7 @@ function getBooleanDefault(
 }
 
 export const modelDefaults: Record<
-  ImageGenerationModel,
+  string,
   {
     steps: number;
     width: number;
@@ -232,27 +232,17 @@ export const modelDefaults: Record<
       ),
     },
   ])
-) as Record<
-  ImageGenerationModel,
-  {
-    steps: number;
-    width: number;
-    height: number;
-    guidanceScale: number;
-    modeChoice: string;
-    promptUpsampling: boolean;
-  }
->;
+);
 
 export const modelImageLimits: Record<
-  ImageGenerationModel,
+  string,
   { maxInputImages: number }
 > = Object.fromEntries(
   imageModels.map((model) => [
     model.key,
     { maxInputImages: model.max_input_images },
   ])
-) as Record<ImageGenerationModel, { maxInputImages: number }>;
+);
 
 export const defaultModelKey: ImageGenerationModel =
   (catalog.default_model &&

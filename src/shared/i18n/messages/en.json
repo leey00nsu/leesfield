@@ -151,6 +151,8 @@
   },
   "generation": {
     "modelSelect": "Select_Model",
+    "modelLoading": "Loading models...",
+    "noModels": "No models are registered. Add a model in the admin page.",
     "settings": "Settings",
     "canvas": {
       "emptyTitle": "Canvas Empty",
@@ -201,6 +203,7 @@
       "image": {
         "promptRequired": "Please enter a prompt.",
         "invalidModel": "Unsupported model.",
+        "noModels": "No image models are registered.",
         "range": "{label} must be between {min} and {max}.",
         "step": "{label} must be in increments of {step}.",
         "initImageUnsupported": "Selected model does not support image input.",
@@ -217,6 +220,7 @@
       "video": {
         "promptRequired": "Please enter a prompt.",
         "invalidModel": "Unsupported model.",
+        "noModels": "No video models are registered.",
         "initImageInvalid": "initImage must be a data URL (base64) or an http(s) URL.",
         "initImageRequired": "initImage is required.",
         "initImageNeeded": "Selected model requires an image input.",
@@ -319,6 +323,26 @@
         "reloading": "Reloading...",
         "create": "Add Model"
       },
+      "vendor": {
+        "title": "Vendor",
+        "description": "Choose where this model is managed.",
+        "huggingface": "Hugging Face",
+        "api": "API",
+        "apiDisabled": "API vendor is not available yet."
+      },
+      "import": {
+        "title": "SPACE IMPORT",
+        "description": "Paste a Hugging Face Space URL to auto-fill a draft.",
+        "spaceUrl": "SPACE URL",
+        "apiName": "API NAME",
+        "action": "Import",
+        "loading": "Importing...",
+        "warnings": "{count} fields need review.",
+        "errors": {
+          "required": "Space URL is required.",
+          "failed": "Import failed."
+        }
+      },
       "dialog": {
         "createTitle": "Create Model",
         "editTitle": "Edit Model",
@@ -326,6 +350,12 @@
         "helper": "Fill in model details",
         "save": "Save",
         "saving": "Saving...",
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "deleteSuccess": "Model deleted.",
+        "deleteTitle": "Delete model?",
+        "deleteDescription": "The model is removed from the catalog. Existing history stays but new requests will fail.",
+        "deleteConfirm": "Delete model \"{key}\"? This cannot be undone.",
         "cancel": "Cancel",
         "close": "Close"
       },
@@ -349,7 +379,9 @@
         "save": "Failed to save model.",
         "json": "Invalid JSON format.",
         "required": "Please fill in required fields.",
-        "conflict": "Model key already exists."
+        "conflict": "Model key already exists.",
+        "notFound": "Model not found.",
+        "delete": "Failed to delete model."
       }
     }
   },

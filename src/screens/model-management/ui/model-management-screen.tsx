@@ -10,6 +10,7 @@ import {
   Video,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   filterModelCatalog,
   type ModelCatalogFilterType,
@@ -17,6 +18,17 @@ import {
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
 import { Button } from "@/shared/ui/button";
+import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/ui/alert-dialog";
 import {
   Dialog,
   DialogClose,
@@ -43,6 +55,12 @@ const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
 type ModelType = "image" | "video";
+type VendorOption = "HUGGINGFACE" | "API";
+
+const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
+  { value: "HUGGINGFACE" },
+  { value: "API", disabled: true },
+];
 
 type AdminModelRecord = {
   id: string;
@@ -146,6 +164,9 @@ const safeBoolean = (value: unknown, fallback: boolean) =>
   typeof value === "boolean" ? value : fallback;
 
 const stringifyJson = (value: unknown) => JSON.stringify(value ?? {}, null, 2);
+const normalizeVendor = (vendor: string) => vendor.trim().toUpperCase();
+const isHuggingFaceVendorValue = (vendor: string) =>
+  normalizeVendor(vendor) === DEFAULT_VENDOR;
 
 function buildDraft(type: ModelType): ModelDraft {
   return {
@@ -243,6 +264,15 @@ export function ModelManagementScreen() {
   const [jsonErrors, setJsonErrors] = useState<JsonErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importApiName, setImportApiName] = useState("");
+  const [importOptions, setImportOptions] = useState<string[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
 
   const debouncedQuery = useDebouncedValue(searchInput, 300);
   const query = debouncedQuery.trim();
@@ -291,12 +321,21 @@ export function ModelManagementScreen() {
     setJsonErrors({});
     setSaveError(null);
     setIsSaving(false);
+    setDeleteError(null);
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setImportError(null);
+    setImportWarnings([]);
+    setIsImporting(false);
   }, []);
 
   const openCreateDialog = () => {
     resetDialogState();
     setDialogMode("create");
     setDraft(buildDraft("image"));
+    setImportUrl("");
+    setImportApiName("");
+    setImportOptions([]);
     setDialogOpen(true);
   };
 
@@ -316,6 +355,46 @@ export function ModelManagementScreen() {
 
   const updateDraft = (partial: Partial<ModelDraft>) => {
     setDraft((prev) => ({ ...prev, ...partial }));
+  };
+
+  const isHuggingFaceVendor = isHuggingFaceVendorValue(draft.vendor);
+
+  const handleVendorSelect = (vendor: VendorOption) => {
+    if (dialogMode === "edit") return;
+    const option = vendorOptions.find((item) => item.value === vendor);
+    if (!option || option.disabled) return;
+    updateDraft({ vendor: DEFAULT_VENDOR, provider: DEFAULT_PROVIDER });
+    setImportError(null);
+    setImportWarnings([]);
+  };
+
+  const applyImportDraft = (payload: {
+    type: ModelType;
+    key: string;
+    label: string;
+    vendor: string;
+    provider: string;
+    isActive: boolean;
+    isDefault: boolean;
+    providerConfig: Record<string, unknown>;
+    parameters: Record<string, unknown>;
+    meta: Record<string, unknown>;
+  }) => {
+    const vendorIsHuggingFace = isHuggingFaceVendorValue(payload.vendor);
+    setDraft({
+      type: payload.type,
+      key: payload.key,
+      label: payload.label,
+      vendor: vendorIsHuggingFace ? DEFAULT_VENDOR : payload.vendor,
+      provider: vendorIsHuggingFace ? DEFAULT_PROVIDER : payload.provider,
+      isActive: payload.isActive,
+      isDefault: payload.isDefault,
+      providerConfigText: stringifyJson(payload.providerConfig),
+      parametersText: stringifyJson(payload.parameters),
+      metaText: stringifyJson(payload.meta),
+    });
+    setJsonErrors({});
+    setSaveError(null);
   };
 
   const updateType = (nextType: ModelType) => {
@@ -349,6 +428,7 @@ export function ModelManagementScreen() {
       return;
     }
 
+    setDeleteError(null);
     const providerConfigResult = parseJson(
       draft.providerConfigText,
       "providerConfig",
@@ -433,6 +513,114 @@ export function ModelManagementScreen() {
       setSaveError(tAdmin("errors.save"));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const performDelete = async () => {
+    if (dialogMode !== "edit" || isDeleting) return;
+
+    setIsDeleting(true);
+
+    const deletePromise = (async () => {
+      const response = await fetch(
+        `/api/admin/models/${encodeURIComponent(draft.key)}`,
+        { method: "DELETE" },
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(tAdmin("errors.notFound"));
+        }
+        throw new Error(tAdmin("errors.delete"));
+      }
+
+      await loadModels();
+      setDialogOpen(false);
+      return draft.key;
+    })();
+
+    toast.promise(deletePromise, {
+      loading: tAdmin("dialog.deleting"),
+      success: tAdmin("dialog.deleteSuccess"),
+      error: (error) =>
+        error instanceof Error ? error.message : tAdmin("errors.delete"),
+    });
+
+    try {
+      await deletePromise;
+    } catch (error) {
+      console.error("[model-management] delete failed", error);
+      setDeleteError(
+        error instanceof Error ? error.message : tAdmin("errors.delete"),
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (dialogMode !== "edit" || isDeleting) return;
+
+    setSaveError(null);
+    setDeleteError(null);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleImport = async () => {
+    if (!importUrl.trim()) {
+      setImportError(tAdmin("import.errors.required"));
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+    setImportWarnings([]);
+
+    try {
+      const response = await fetch("/api/admin/models/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spaceUrl: importUrl.trim(),
+          apiName: importApiName.trim() ? importApiName.trim() : undefined,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        draft?: {
+          type: ModelType;
+          key: string;
+          label: string;
+          vendor: string;
+          provider: string;
+          isActive: boolean;
+          isDefault: boolean;
+          providerConfig: Record<string, unknown>;
+          parameters: Record<string, unknown>;
+          meta: Record<string, unknown>;
+        };
+        apiNames?: string[];
+        resolvedApiName?: string;
+        warnings?: string[];
+        message?: string;
+      };
+
+      if (!response.ok || !data.draft) {
+        setImportError(tAdmin("import.errors.failed"));
+        return;
+      }
+
+      applyImportDraft(data.draft);
+      setImportOptions(Array.isArray(data.apiNames) ? data.apiNames : []);
+      if (data.resolvedApiName) {
+        setImportApiName(data.resolvedApiName);
+      }
+      setImportWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+    } catch (error) {
+      console.error("[model-management] import failed", error);
+      setImportError(tAdmin("import.errors.failed"));
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -527,15 +715,13 @@ export function ModelManagementScreen() {
               <RefreshCw className="h-4 w-4" />
               {tAdmin("toolbar.reload")}
             </Button>
-            <Button
+            <DashboardCtaButton
               type="button"
-              variant="default"
-              size="sm"
               onClick={openCreateDialog}
             >
               <Plus className="h-4 w-4" />
               {tAdmin("toolbar.create")}
-            </Button>
+            </DashboardCtaButton>
           </div>
         </DashboardFilterBar>
       </PageHeader>
@@ -571,6 +757,102 @@ export function ModelManagementScreen() {
           </div>
 
           <div className="mt-6 space-y-6">
+            {dialogMode === "create" ? (
+              <div className="rounded-2xl border border-white/10 bg-background-dark/60 p-4">
+                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  {tAdmin("vendor.title")}
+                </div>
+                <DashboardFilterBar className="mt-3 gap-2">
+                  {vendorOptions.map((option) => {
+                    const labelKey =
+                      option.value === "HUGGINGFACE"
+                        ? "vendor.huggingface"
+                        : "vendor.api";
+                    const isActive = isHuggingFaceVendor && option.value === "HUGGINGFACE";
+                    return (
+                      <DashboardFilterToggle
+                        key={option.value}
+                        onClick={() => handleVendorSelect(option.value)}
+                        aria-pressed={isActive}
+                        active={isActive}
+                        disabled={option.disabled}
+                        className="disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {tAdmin(labelKey)}
+                      </DashboardFilterToggle>
+                    );
+                  })}
+                </DashboardFilterBar>
+                <p className="mt-2 text-xs text-gray-500">
+                  {tAdmin("vendor.description")}
+                </p>
+
+                {isHuggingFaceVendor ? (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                      {tAdmin("import.title")}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {tAdmin("import.description")}
+                    </p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                          {tAdmin("import.spaceUrl")}
+                        </Label>
+                        <Input
+                          value={importUrl}
+                          onChange={(event) => setImportUrl(event.target.value)}
+                          placeholder="https://huggingface.co/spaces/owner/space"
+                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                          {tAdmin("import.apiName")}
+                        </Label>
+                        <Input
+                          value={importApiName}
+                          onChange={(event) => setImportApiName(event.target.value)}
+                          placeholder="/predict"
+                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
+                          list="model-import-api-names"
+                        />
+                        {importOptions.length > 0 ? (
+                          <datalist id="model-import-api-names">
+                            {importOptions.map((option) => (
+                              <option key={option} value={option} />
+                            ))}
+                          </datalist>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="surface"
+                        size="sm"
+                        isLoading={isImporting}
+                        loadingText={tAdmin("import.loading")}
+                        onClick={handleImport}
+                      >
+                        {tAdmin("import.action")}
+                      </Button>
+                      {importError ? (
+                        <span className="text-xs text-red-300">{importError}</span>
+                      ) : null}
+                    </div>
+                    {importWarnings.length > 0 ? (
+                      <p className="mt-3 text-xs text-amber-200">
+                        {tAdmin("import.warnings", { count: importWarnings.length })}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-xs text-gray-500">{tAdmin("vendor.apiDisabled")}</p>
+                )}
+              </div>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
@@ -613,8 +895,8 @@ export function ModelManagementScreen() {
                 </Label>
                 <Input
                   value={draft.vendor}
-                  onChange={(event) => updateDraft({ vendor: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
+                  disabled
+                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
               <div className="space-y-2">
@@ -623,8 +905,8 @@ export function ModelManagementScreen() {
                 </Label>
                 <Input
                   value={draft.provider}
-                  onChange={(event) => updateDraft({ provider: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
+                  disabled
+                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
@@ -705,12 +987,24 @@ export function ModelManagementScreen() {
                 <p className="text-xs text-red-300">{jsonErrors.meta}</p>
               ) : null}
             </div>
-            {saveError ? (
-              <p className="text-xs text-red-300">{saveError}</p>
+            {deleteError || saveError ? (
+              <p className="text-xs text-red-300">{deleteError ?? saveError}</p>
             ) : null}
           </div>
 
           <DialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            {dialogMode === "edit" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                isLoading={isDeleting}
+                loadingText={tAdmin("dialog.deleting")}
+                className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider sm:mr-auto"
+              >
+                {tAdmin("dialog.delete")}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -719,18 +1013,54 @@ export function ModelManagementScreen() {
             >
               {tAdmin("dialog.cancel")}
             </Button>
-            <Button
+            <DashboardCtaButton
               type="button"
               onClick={handleSave}
               isLoading={isSaving}
               loadingText={tAdmin("dialog.saving")}
-              className="rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              size="sm"
+              className="px-5 text-xs"
             >
               {tAdmin("dialog.save")}
-            </Button>
+            </DashboardCtaButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) setDeleteDialogOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-white">
+              {tAdmin("dialog.deleteTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-300">
+              {tAdmin("dialog.deleteConfirm", { key: draft.key })}
+            </AlertDialogDescription>
+            <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              {tAdmin("dialog.deleteDescription")}
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10">
+              {tAdmin("dialog.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                void performDelete();
+              }}
+              className="rounded-full bg-destructive px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-destructive/90"
+            >
+              {tAdmin("dialog.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

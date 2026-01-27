@@ -151,6 +151,8 @@
   },
   "generation": {
     "modelSelect": "모델 선택",
+    "modelLoading": "모델을 불러오는 중입니다...",
+    "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
     "settings": "설정",
     "canvas": {
       "emptyTitle": "캔버스 비어 있음",
@@ -201,6 +203,7 @@
       "image": {
         "promptRequired": "프롬프트를 입력해주세요.",
         "invalidModel": "지원하지 않는 모델입니다.",
+        "noModels": "등록된 이미지 모델이 없습니다.",
         "range": "{label}는 {min}~{max} 범위여야 합니다.",
         "step": "{label}는 {step} 단위로 입력해야 합니다.",
         "initImageUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다.",
@@ -217,6 +220,7 @@
       "video": {
         "promptRequired": "프롬프트를 입력해주세요.",
         "invalidModel": "지원하지 않는 모델입니다.",
+        "noModels": "등록된 비디오 모델이 없습니다.",
         "initImageInvalid": "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.",
         "initImageRequired": "initImage는 필수입니다.",
         "initImageNeeded": "선택한 모델은 이미지 입력이 필요합니다.",
@@ -319,6 +323,26 @@
         "reloading": "불러오는 중...",
         "create": "모델 추가"
       },
+      "vendor": {
+        "title": "벤더",
+        "description": "모델을 가져올 벤더를 선택하세요.",
+        "huggingface": "Hugging Face",
+        "api": "API",
+        "apiDisabled": "API 벤더는 아직 사용할 수 없습니다."
+      },
+      "import": {
+        "title": "SPACE 가져오기",
+        "description": "Hugging Face Space 링크를 붙여 넣으면 초안을 자동으로 채웁니다.",
+        "spaceUrl": "SPACE URL",
+        "apiName": "API NAME",
+        "action": "가져오기",
+        "loading": "가져오는 중...",
+        "warnings": "{count}개 항목을 확인하세요.",
+        "errors": {
+          "required": "Space URL을 입력해주세요.",
+          "failed": "가져오기에 실패했습니다."
+        }
+      },
       "dialog": {
         "createTitle": "모델 추가",
         "editTitle": "모델 수정",
@@ -326,6 +350,12 @@
         "helper": "모델 정보를 입력하세요",
         "save": "저장",
         "saving": "저장 중...",
+        "delete": "삭제",
+        "deleting": "삭제 중...",
+        "deleteSuccess": "모델을 삭제했습니다.",
+        "deleteTitle": "모델을 삭제할까요?",
+        "deleteDescription": "카탈로그에서 모델이 제거됩니다. 기존 기록은 유지되지만 새 요청은 실패할 수 있습니다.",
+        "deleteConfirm": "\"{key}\" 모델을 삭제할까요? 되돌릴 수 없습니다.",
         "cancel": "취소",
         "close": "닫기"
       },
@@ -349,7 +379,9 @@
         "save": "모델 저장에 실패했습니다.",
         "json": "JSON 형식이 올바르지 않습니다.",
         "required": "필수 값을 입력해주세요.",
-        "conflict": "이미 존재하는 모델 키입니다."
+        "conflict": "이미 존재하는 모델 키입니다.",
+        "notFound": "모델을 찾을 수 없습니다.",
+        "delete": "모델 삭제에 실패했습니다."
       }
     }
   },

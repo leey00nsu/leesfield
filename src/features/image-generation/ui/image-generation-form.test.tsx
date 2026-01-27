@@ -1,8 +1,13 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach } from "vitest";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
 import { renderWithIntl } from "@/test-utils/intl";
 import { imageModels } from "@/features/image-generation/model/image-models";
+import {
+  runtimeImageModelsFixture,
+  runtimeVideoModelsFixture,
+} from "@/test-utils/fixtures/runtime-model-catalog";
 
 const mockUseImageGeneration = vi.hoisted(() => vi.fn());
 
@@ -10,9 +15,31 @@ vi.mock("@/features/image-generation/hook/use-image-generation", () => ({
   useImageGeneration: mockUseImageGeneration,
 }));
 
+async function waitForModels() {
+  await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i });
+}
+
 describe("ImageGenerationForm", () => {
   beforeEach(() => {
     mockUseImageGeneration.mockReset();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            items: [...runtimeImageModelsFixture, ...runtimeVideoModelsFixture],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
@@ -26,6 +53,7 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -82,6 +110,7 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
 
     renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
+    await waitForModels();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -104,7 +133,7 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    const fluxButton = screen.getByRole("button", {
+    const fluxButton = await screen.findByRole("button", {
       name: /FLUX\.2 Klein 9B/i,
     });
     await user.click(fluxButton);

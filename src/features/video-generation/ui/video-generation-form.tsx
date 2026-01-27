@@ -19,19 +19,12 @@ import {
   type FormEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import {
   createVideoGenerationSchema,
   videoGenerationDefaults,
-  videoModelMeta,
   type VideoGenerationFormValues,
-  type VideoGenerationModel,
 } from "@/features/video-generation/model/video-generation-schema";
-import {
-  getVideoParamConfig,
-  getVideoParamRange,
-  videoModels,
-} from "@/features/video-generation/model/video-models";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
@@ -49,18 +42,15 @@ import {
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import { useTranslations } from "next-intl";
-
-const modelCards = videoModels.map((model, index) => ({
-  id: model.key as VideoGenerationModel,
-  name: model.label,
-  vendor: model.vendor,
-  active: index === 0,
-})) as ReadonlyArray<{
-  id: VideoGenerationModel;
-  name: string;
-  vendor: string;
-  active: boolean;
-}>;
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
+import {
+  getRuntimeVideoParamConfig,
+  getRuntimeVideoParamRange,
+  resolveRuntimeDefaultModelKey,
+  resolveRuntimeVideoDefaults,
+  resolveRuntimeVideoSupportsInitImage,
+} from "@/shared/model-catalog/runtime-utils";
+import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
 
 type VideoGenerationFormProps = {
   isAuthenticated: boolean;
@@ -75,12 +65,45 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.video");
   const tLoginGate = useTranslations("auth.loginGate");
-  const schema = useMemo(
+  const { videoModels: runtimeVideoModels, isLoading: isModelLoading } =
+    useRuntimeModelCatalog();
+  const resolvedVideoModels = runtimeVideoModels;
+  const hasModels = resolvedVideoModels.length > 0;
+  const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedVideoModels) ?? "";
+  const runtimeModelMap = useMemo(
+    () => new Map(resolvedVideoModels.map((model) => [model.key, model])),
+    [resolvedVideoModels],
+  );
+  const modelCards = useMemo(
+    () =>
+      resolvedVideoModels.map((model) => ({
+        id: model.key,
+        name: model.label,
+        vendor: model.vendor,
+      })),
+    [resolvedVideoModels],
+  );
+  const staticSchema = useMemo(
     () => createVideoGenerationSchema(tValidation),
     [tValidation],
   );
+  const runtimeSchema = useMemo(
+    () => createRuntimeVideoSchema(resolvedVideoModels, tValidation),
+    [resolvedVideoModels, tValidation],
+  );
+  const resolverRef = useRef<Resolver<VideoGenerationFormValues>>(
+    zodResolver(staticSchema) as Resolver<VideoGenerationFormValues>,
+  );
+  useEffect(() => {
+    resolverRef.current = zodResolver(runtimeSchema) as Resolver<VideoGenerationFormValues>;
+  }, [runtimeSchema]);
+  const resolver = useMemo<Resolver<VideoGenerationFormValues>>(
+    () => (values, context, options) =>
+      resolverRef.current(values, context, options),
+    [],
+  );
   const form = useForm<VideoGenerationFormValues>({
-    resolver: zodResolver(schema),
+    resolver,
     defaultValues: videoGenerationDefaults,
     mode: "onChange",
   });
@@ -101,24 +124,78 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const durationSec =
     useWatch({ control: form.control, name: "durationSec" }) ??
     videoGenerationDefaults.durationSec;
-  const activeModel =
+  const watchedModel =
     useWatch({ control: form.control, name: "model" }) ??
     videoGenerationDefaults.model;
-  const durationRange = getVideoParamRange(activeModel, "durationSec");
-  const durationConfig = getVideoParamConfig(activeModel, "durationSec");
-  const aspectRatioConfig = getVideoParamConfig(activeModel, "aspectRatio");
-  const resolutionConfig = getVideoParamConfig(activeModel, "resolution");
+  const activeModel = hasModels
+    ? runtimeModelMap.has(watchedModel)
+      ? watchedModel
+      : defaultModelKey
+    : "";
+  const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const durationRange = getRuntimeVideoParamRange(activeRuntimeModel, "durationSec");
+  const durationConfig = getRuntimeVideoParamConfig(
+    activeRuntimeModel,
+    "durationSec",
+  );
+  const aspectRatioConfig = getRuntimeVideoParamConfig(
+    activeRuntimeModel,
+    "aspectRatio",
+  );
+  const resolutionConfig = getRuntimeVideoParamConfig(
+    activeRuntimeModel,
+    "resolution",
+  );
   const showDuration = durationConfig?.ui !== "hidden";
   const showSizeNotice =
     aspectRatioConfig?.ui === "hidden" && resolutionConfig?.ui === "hidden";
   const initImageValue =
     useWatch({ control: form.control, name: "initImage" }) ?? "";
 
-  const supportsInitImage =
-    videoModelMeta[activeModel]?.supportsInitImage ?? false;
+  const supportsInitImage = resolveRuntimeVideoSupportsInitImage(
+    activeRuntimeModel,
+  );
   const hasInitImage = Boolean(initImageValue);
   const canSubmit =
-    promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
+    hasModels && promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
+  const resetModelKey = defaultModelKey || videoGenerationDefaults.model;
+  const resetDefaults = useMemo<VideoGenerationFormValues>(() => {
+    const model = runtimeModelMap.get(resetModelKey);
+    if (!model) return { ...videoGenerationDefaults, model: resetModelKey };
+    const defaults = resolveRuntimeVideoDefaults(model);
+    return {
+      ...videoGenerationDefaults,
+      model: resetModelKey,
+      aspectRatio: defaults.aspectRatio,
+      resolution: defaults.resolution,
+      durationSec: defaults.durationSec,
+      fps: defaults.fps,
+      steps: defaults.steps,
+      guidanceScale: defaults.guidanceScale,
+    };
+  }, [resetModelKey, runtimeModelMap]);
+
+  useEffect(() => {
+    if (!hasModels || !defaultModelKey) return;
+    const currentModel = form.getValues("model");
+    if (runtimeModelMap.has(currentModel)) return;
+    form.setValue("model", defaultModelKey, { shouldValidate: true });
+  }, [defaultModelKey, form, hasModels, runtimeModelMap]);
+
+  useEffect(() => {
+    const model = runtimeModelMap.get(activeModel);
+    if (!model) return;
+    const defaults = resolveRuntimeVideoDefaults(model);
+    form.setValue("aspectRatio", defaults.aspectRatio);
+    form.setValue("resolution", defaults.resolution);
+    form.setValue("durationSec", defaults.durationSec);
+    form.setValue("fps", defaults.fps);
+    form.setValue("steps", defaults.steps);
+    form.setValue("guidanceScale", defaults.guidanceScale);
+    if (!resolveRuntimeVideoSupportsInitImage(model)) {
+      form.setValue("initImage", "", { shouldValidate: true });
+    }
+  }, [activeModel, form, runtimeModelMap]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration();
@@ -159,7 +236,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   };
 
   const handleReset = () => {
-    form.reset(videoGenerationDefaults);
+    form.reset(resetDefaults);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -170,6 +247,10 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     if (!isAuthenticated) {
       event.preventDefault();
       setIsLoginGateOpen(true);
+      return;
+    }
+    if (isModelLoading || !hasModels) {
+      event.preventDefault();
       return;
     }
 
@@ -199,6 +280,16 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
             </Button>
           }
         />
+        {isModelLoading && (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+            {tGeneration("modelLoading")}
+          </div>
+        )}
+        {!isModelLoading && !hasModels && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+            {tGeneration("noModels")}
+          </div>
+        )}
 
         <div className="flex flex-col gap-8 xl:flex-row">
           <div className="flex flex-1 flex-col gap-6">
@@ -380,7 +471,12 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
-                  disabled={isGenerating || (isAuthenticated && !canSubmit)}
+                  disabled={
+                    isGenerating ||
+                    isModelLoading ||
+                    !hasModels ||
+                    (isAuthenticated && !canSubmit)
+                  }
                   className="flex-col"
                   onClick={
                     isAuthenticated

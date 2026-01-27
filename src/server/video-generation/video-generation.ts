@@ -3,7 +3,6 @@ import {
   type VideoGenerationFormValues,
 } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
-import { getVideoModelConfig } from "@/features/video-generation/model/video-models";
 import { hfSpaceVideoAdapter } from "@/server/video-generation/adapters/hf-space-adapter";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
 import { leemageVideoStorageAdapter } from "@/server/video-generation/storage/adapters/leemage-storage-adapter";
@@ -18,9 +17,8 @@ const DEFAULT_VIDEO_META = {
 };
 
 function resolveVideoProvider(modelKey: VideoGenerationFormValues["model"]): VideoProvider {
-  const provider = getVideoModelConfig(modelKey).provider;
-  if (provider === "hf_space") return "hf_space";
-  throw new Error(`VIDEO_PROVIDER_NOT_SUPPORTED:${provider}`);
+  void modelKey;
+  return "hf_space";
 }
 
 function getAdapter(modelKey: VideoGenerationFormValues["model"]): VideoGenerationAdapter {

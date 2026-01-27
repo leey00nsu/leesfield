@@ -1,13 +1,15 @@
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
-import {
-  getVideoModelConfig,
-  getVideoParamRange,
-  videoModelDefaults,
-  videoModelMeta,
-} from "@/features/video-generation/model/video-models";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import type { VideoModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import {
+  getRuntimeVideoParamRange,
+  resolveRuntimeVideoDefaults,
+  resolveRuntimeVideoSupportsInitImage,
+  type RuntimeVideoModel,
+} from "@/shared/model-catalog/runtime-utils";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
@@ -43,12 +45,28 @@ function resolveSpaceUrl(spaceId: string, explicit?: string) {
   return `https://${slug}.hf.space`;
 }
 
-function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConfig {
-  const model = getVideoModelConfig(modelKey);
+function toRuntimeVideoModel(model: VideoModelCatalogItem): RuntimeVideoModel {
+  return model as RuntimeVideoModel;
+}
+
+async function getCatalogVideoModel(modelKey: string) {
+  const catalog = await getModelCatalog({ includeInactive: true });
+  const model = catalog.find(
+    (item): item is VideoModelCatalogItem =>
+      item.type === "video" && item.key === modelKey,
+  );
+  if (!model) {
+    throw new Error(`VIDEO_MODEL_NOT_FOUND:${modelKey}`);
+  }
+  return toRuntimeVideoModel(model);
+}
+
+async function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]) {
+  const model = await getCatalogVideoModel(modelKey);
   if (model.provider !== "hf_space") {
     throw new Error("VIDEO_PROVIDER_NOT_SUPPORTED");
   }
-  const parsedConfig = hfSpaceConfigSchema.safeParse(model.provider_config);
+  const parsedConfig = hfSpaceConfigSchema.safeParse(model.providerConfig);
   if (!parsedConfig.success) {
     throw new Error("HF_SPACE_CONFIG_INVALID");
   }
@@ -62,13 +80,15 @@ function getSpaceConfig(modelKey: VideoGenerationFormValues["model"]): SpaceConf
     throw new Error("INVALID_HF_TOKEN_FORMAT");
   }
 
-  return {
+  const config: SpaceConfig = {
     spaceId: providerConfig.space_id,
     apiName: providerConfig.api_name,
     token: tokenValue as `hf_${string}` | undefined,
     timeoutMs: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_TIMEOUT_MS,
     spaceUrl: resolveSpaceUrl(providerConfig.space_id, providerConfig.space_url),
   };
+
+  return { config, model };
 }
 
 async function getClient(config: SpaceConfig) {
@@ -372,27 +392,24 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
     }
   },
   async generate(payload: VideoGenerationFormValues) {
-    const supportsInitImage =
-      videoModelMeta[payload.model]?.supportsInitImage ?? false;
+    const { config, model } = await getSpaceConfig(payload.model);
+    const supportsInitImage = resolveRuntimeVideoSupportsInitImage(model);
     const initImage = payload.initImage?.trim() ? payload.initImage : null;
 
-    if (!supportsInitImage) {
-      throw new Error("HF_SPACE_INIT_IMAGE_UNSUPPORTED");
-    }
-    if (!initImage) {
+    if (supportsInitImage && !initImage) {
       throw new Error("INIT_IMAGE_REQUIRED");
     }
+    if (!supportsInitImage && initImage) {
+      throw new Error("HF_SPACE_INIT_IMAGE_UNSUPPORTED");
+    }
 
-    const config = getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
 
-    const { buffer, mime } = await resolveInitImageBuffer(initImage);
-    const imageFile = await handle_file(new Blob([buffer], { type: mime }));
-    const defaults = videoModelDefaults[payload.model];
-    const durationRange = getVideoParamRange(payload.model, "durationSec");
-    const stepsRange = getVideoParamRange(payload.model, "steps");
-    const guidanceRange = getVideoParamRange(payload.model, "guidanceScale");
+    const defaults = resolveRuntimeVideoDefaults(model);
+    const durationRange = getRuntimeVideoParamRange(model, "durationSec");
+    const stepsRange = getRuntimeVideoParamRange(model, "steps");
+    const guidanceRange = getRuntimeVideoParamRange(model, "guidanceScale");
     const durationSeconds = clampNumber(
       payload.durationSec ?? defaults.durationSec,
       durationRange,
@@ -407,9 +424,7 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
     );
     const { seedValue, randomize } = parseSeed(payload.seed);
     const apiName = normalizeApiName(config.apiName || "/generate_video");
-
-    const predictPromise = client.predict(apiName, {
-      input_image: imageFile,
+    const requestPayload: Record<string, unknown> = {
       prompt: payload.prompt,
       steps: Math.round(steps),
       duration_seconds: durationSeconds,
@@ -417,7 +432,15 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       guidance_scale_2: guidanceScale,
       seed: seedValue,
       randomize_seed: randomize,
-    });
+    };
+
+    if (initImage) {
+      const { buffer, mime } = await resolveInitImageBuffer(initImage);
+      const imageFile = await handle_file(new Blob([buffer], { type: mime }));
+      requestPayload.input_image = imageFile;
+    }
+
+    const predictPromise = client.predict(apiName, requestPayload);
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {

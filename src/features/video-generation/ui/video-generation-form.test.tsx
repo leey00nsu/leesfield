@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
 import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
 import { renderWithIntl } from "@/test-utils/intl";
+import {
+  runtimeImageModelsFixture,
+  runtimeVideoModelsFixture,
+} from "@/test-utils/fixtures/runtime-model-catalog";
 
 const startGenerationMock = vi.fn();
 const resetMock = vi.fn();
@@ -22,10 +26,28 @@ vi.mock("@/features/video-generation/hook/use-video-generation", () => ({
   }),
 }));
 
+async function waitForModels() {
+  await screen.findByText("Wan 2.2 (HF Space)");
+}
+
 describe("VideoGenerationForm", () => {
   beforeEach(() => {
     startGenerationMock.mockClear();
     resetMock.mockClear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            items: [...runtimeImageModelsFixture, ...runtimeVideoModelsFixture],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
     class MockFileReader {
       result: string | null = null;
       onload: null | (() => void) = null;
@@ -42,15 +64,16 @@ describe("VideoGenerationForm", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders model selection cards", () => {
+  it("renders model selection cards", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
 
-    expect(screen.getByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
+    expect(await screen.findByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {
     const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();
+    await waitForModels();
 
     const prompt = screen.getByPlaceholderText(
       "생성할 비디오를 자세히 설명하세요...",
@@ -82,8 +105,9 @@ describe("VideoGenerationForm", () => {
     });
   });
 
-  it("exposes upload trigger", () => {
+  it("exposes upload trigger", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
 
     const uploadButton = screen.getByLabelText("레퍼런스 이미지 업로드");
 
@@ -92,6 +116,7 @@ describe("VideoGenerationForm", () => {
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated={false} />);
+    await waitForModels();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "생성" }));

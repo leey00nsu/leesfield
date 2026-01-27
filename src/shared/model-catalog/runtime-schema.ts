@@ -1,95 +1,57 @@
 import { z } from "zod";
-import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
-import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
-import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type {
-  ImageModelCatalogItem,
-  VideoModelCatalogItem,
-} from "@/server/model-catalog/catalog-schema";
+  RuntimeImageModel,
+  RuntimeVideoModel,
+} from "@/shared/model-catalog/runtime-utils";
+import {
+  getRuntimeImageParamConfig,
+  getRuntimeImageParamRange,
+  getRuntimeVideoParamConfig,
+  getRuntimeVideoParamRange,
+  resolveRuntimeImageMaxInputImages,
+  resolveRuntimeVideoSupportsInitImage,
+} from "@/shared/model-catalog/runtime-utils";
 
 type TranslationFn = (
   key: string,
   values?: Record<string, string | number | Date>,
 ) => string;
 
-type NumericRange = {
-  min: number;
-  max: number;
-  step: number;
-};
-
-const imageFallbackRanges: Record<
-  "size" | "steps" | "count" | "guidance",
-  NumericRange
-> = {
-  size: { min: 1, max: 4096, step: 1 },
-  steps: { min: 1, max: 50, step: 1 },
-  count: { min: 1, max: 1, step: 1 },
-  guidance: { min: 0, max: 10, step: 0.5 },
-};
-
-const videoFallbackRanges: Record<
-  "duration" | "steps" | "guidance" | "fps",
-  NumericRange
-> = {
-  duration: { min: 0.5, max: 10, step: 0.5 },
-  steps: { min: 1, max: 50, step: 1 },
-  guidance: { min: 0, max: 20, step: 0.5 },
-  fps: { min: 1, max: 60, step: 1 },
-};
-
 const buildInitImageSchema = (t?: TranslationFn) =>
   z
     .string()
-    .refine((value) => {
-      const trimmed = value.trim();
-      if (!trimmed) return true;
-      if (trimmed.startsWith("data:")) {
-        return /^data:[^;]+;base64,/.test(trimmed);
-      }
-      if (/^https?:\/\//.test(trimmed)) {
-        try {
-          const url = new URL(trimmed);
-          return url.protocol === "http:" || url.protocol === "https:";
-        } catch {
-          return false;
+    .refine(
+      (value) => {
+        const trimmed = value.trim();
+        if (!trimmed) return true;
+        if (trimmed.startsWith("data:")) {
+          return /^data:[^;]+;base64,/.test(trimmed);
         }
-      }
-      return false;
-    }, t ? t("initImageInvalid") : "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.")
+        if (/^https?:\/\//.test(trimmed)) {
+          try {
+            const url = new URL(trimmed);
+            return url.protocol === "http:" || url.protocol === "https:";
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      },
+      t
+        ? t("initImageInvalid")
+        : "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.",
+    )
     .describe("data URL(base64) 또는 http(s) 이미지 URL");
 
-function resolveNumber(value: unknown, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function resolveRange(
-  param: Record<string, unknown> | undefined,
-  fallback: NumericRange,
-): NumericRange {
-  return {
-    min: resolveNumber(param?.min, fallback.min),
-    max: resolveNumber(param?.max, fallback.max),
-    step: resolveNumber(param?.step, fallback.step),
-  };
-}
-
-function getParamConfig(
-  parameters: Record<string, unknown>,
-  key: string,
-): Record<string, unknown> | undefined {
-  const param = parameters[key];
-  return param && typeof param === "object" ? (param as Record<string, unknown>) : undefined;
-}
-
-function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
+export function createRuntimeImageSchema(
+  models: RuntimeImageModel[],
+  t?: TranslationFn,
+) {
   const modelMap = new Map(models.map((model) => [model.key, model]));
   const invalidModelMessage = t
     ? t("invalidModel")
     : "지원하지 않는 모델입니다.";
-  const promptRequired = t
-    ? t("promptRequired")
-    : "프롬프트를 입력해주세요.";
+  const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const labelMap = {
     width: t ? t("labels.width") : "너비",
     height: t ? t("labels.height") : "높이",
@@ -98,14 +60,20 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
     guidanceScale: t ? t("labels.guidanceScale") : "가이던스",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
-    t ? t("range", { label, min, max }) : `${label}는 ${min}~${max} 범위여야 합니다.`;
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
   const stepMessage = (label: string, step: number) =>
-    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
+    t
+      ? t("step", { label, step })
+      : `${label}는 ${step} 단위로 입력해야 합니다.`;
   const initImageUnsupported = t
     ? t("initImageUnsupported")
     : "선택한 모델은 이미지 입력을 지원하지 않습니다.";
   const maxInputImagesMessage = (limit: number) =>
-    t ? t("maxInputImages", { limit }) : `이미지는 최대 ${limit}장까지 업로드할 수 있습니다.`;
+    t
+      ? t("maxInputImages", { limit })
+      : `이미지는 최대 ${limit}장까지 업로드할 수 있습니다.`;
   const unsupportedMode = t ? t("unsupportedMode") : "지원하지 않는 모드입니다.";
 
   const schema = z.object({
@@ -133,23 +101,10 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
       return;
     }
 
-    const parameters = (model.parameters ?? {}) as Record<string, unknown>;
-    const widthRange = resolveRange(
-      getParamConfig(parameters, "width"),
-      imageFallbackRanges.size,
-    );
-    const heightRange = resolveRange(
-      getParamConfig(parameters, "height"),
-      imageFallbackRanges.size,
-    );
-    const stepsRange = resolveRange(
-      getParamConfig(parameters, "steps"),
-      imageFallbackRanges.steps,
-    );
-    const countRange = resolveRange(
-      getParamConfig(parameters, "imageCount"),
-      imageFallbackRanges.count,
-    );
+    const widthRange = getRuntimeImageParamRange(model, "width");
+    const heightRange = getRuntimeImageParamRange(model, "height");
+    const stepsRange = getRuntimeImageParamRange(model, "steps");
+    const countRange = getRuntimeImageParamRange(model, "imageCount");
 
     const validateRange = (
       value: number,
@@ -189,10 +144,7 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
     );
 
     if (typeof data.guidanceScale === "number") {
-      const guidanceRange = resolveRange(
-        getParamConfig(parameters, "guidanceScale"),
-        imageFallbackRanges.guidance,
-      );
+      const guidanceRange = getRuntimeImageParamRange(model, "guidanceScale");
       validateRange(
         data.guidanceScale,
         guidanceRange,
@@ -201,7 +153,7 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
       );
     }
 
-    const modeConfig = getParamConfig(parameters, "modeChoice");
+    const modeConfig = getRuntimeImageParamConfig(model, "modeChoice");
     if (
       typeof data.modeChoice === "string" &&
       data.modeChoice.trim() &&
@@ -216,7 +168,7 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
       });
     }
 
-    const maxInputImages = resolveNumber(model.meta?.max_input_images, 0);
+    const maxInputImages = resolveRuntimeImageMaxInputImages(model);
     const count = data.initImages?.length ?? 0;
     if (count > 0 && maxInputImages === 0) {
       ctx.addIssue({
@@ -236,16 +188,16 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
   });
 }
 
-function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
+export function createRuntimeVideoSchema(
+  models: RuntimeVideoModel[],
+  t?: TranslationFn,
+) {
   const modelMap = new Map(models.map((model) => [model.key, model]));
   const invalidModelMessage = t
     ? t("invalidModel")
     : "지원하지 않는 모델입니다.";
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const initImageSchema = buildInitImageSchema(t);
-  const initImageRequiredMessage = t
-    ? t("initImageRequired")
-    : "initImage는 필수입니다.";
   const labels = {
     durationSec: t ? t("labels.durationSec") : "재생시간",
     steps: t ? t("labels.steps") : "스텝",
@@ -255,7 +207,9 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
   const intOnlyMessage = (label: string) =>
     t ? t("intOnly", { label }) : `${label}는 정수만 허용됩니다.`;
   const rangeMessage = (label: string, min: number, max: number) =>
-    t ? t("range", { label, min, max }) : `${label}는 ${min}~${max} 범위여야 합니다.`;
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
   const stepMessage = (label: string, step: number) =>
     t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
   const initImageNeeded = t
@@ -295,7 +249,7 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
       return;
     }
 
-    const supportsInitImage = Boolean(model.meta?.supports_init_image);
+    const supportsInitImage = resolveRuntimeVideoSupportsInitImage(model);
     const hasInitImage = Boolean(data.initImage?.trim());
     if (supportsInitImage && !hasInitImage) {
       ctx.addIssue({
@@ -312,23 +266,10 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
       });
     }
 
-    const parameters = (model.parameters ?? {}) as Record<string, unknown>;
-    const durationRange = resolveRange(
-      getParamConfig(parameters, "durationSec"),
-      videoFallbackRanges.duration,
-    );
-    const stepsRange = resolveRange(
-      getParamConfig(parameters, "steps"),
-      videoFallbackRanges.steps,
-    );
-    const guidanceRange = resolveRange(
-      getParamConfig(parameters, "guidanceScale"),
-      videoFallbackRanges.guidance,
-    );
-    const fpsRange = resolveRange(
-      getParamConfig(parameters, "fps"),
-      videoFallbackRanges.fps,
-    );
+    const durationRange = getRuntimeVideoParamRange(model, "durationSec");
+    const stepsRange = getRuntimeVideoParamRange(model, "steps");
+    const guidanceRange = getRuntimeVideoParamRange(model, "guidanceScale");
+    const fpsRange = getRuntimeVideoParamRange(model, "fps");
 
     const validateRange = (
       value: number,
@@ -366,7 +307,13 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
       }
     };
 
-    validateRange(data.durationSec, durationRange, ["durationSec"], labels.durationSec, true);
+    validateRange(
+      data.durationSec,
+      durationRange,
+      ["durationSec"],
+      labels.durationSec,
+      true,
+    );
     validateRange(data.steps, stepsRange, ["steps"], labels.steps);
     validateRange(
       data.guidanceScale,
@@ -377,7 +324,7 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
     );
     validateRange(data.fps, fpsRange, ["fps"], labels.fps);
 
-    const aspectOptions = getParamConfig(parameters, "aspectRatio")?.options;
+    const aspectOptions = getRuntimeVideoParamConfig(model, "aspectRatio")?.options;
     if (Array.isArray(aspectOptions) && aspectOptions.length > 0) {
       if (!aspectOptions.includes(data.aspectRatio)) {
         ctx.addIssue({
@@ -388,7 +335,7 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
       }
     }
 
-    const resolutionOptions = getParamConfig(parameters, "resolution")?.options;
+    const resolutionOptions = getRuntimeVideoParamConfig(model, "resolution")?.options;
     if (Array.isArray(resolutionOptions) && resolutionOptions.length > 0) {
       if (!resolutionOptions.includes(data.resolution)) {
         ctx.addIssue({
@@ -401,49 +348,3 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
   });
 }
 
-function buildNoModelsResult<TOutput>(message: string) {
-  return {
-    success: false,
-    error: new z.ZodError([
-      {
-        code: z.ZodIssueCode.custom,
-        path: ["model"],
-        message,
-      },
-    ]),
-  } as z.SafeParseReturnType<unknown, TOutput>;
-}
-
-export async function validateImageGenerationPayload(
-  payload: unknown,
-  t?: TranslationFn,
-) {
-  const catalog = await getModelCatalog();
-  const imageModels = catalog.filter(
-    (item): item is ImageModelCatalogItem => item.type === "image",
-  );
-  if (imageModels.length === 0) {
-    const message = t ? t("noModels") : "등록된 이미지 모델이 없습니다.";
-    return buildNoModelsResult<ImageGenerationFormValues>(message);
-  }
-  const schema = buildImageSchema(imageModels, t);
-  const parsed = schema.safeParse(payload);
-  return parsed as z.SafeParseReturnType<unknown, ImageGenerationFormValues>;
-}
-
-export async function validateVideoGenerationPayload(
-  payload: unknown,
-  t?: TranslationFn,
-) {
-  const catalog = await getModelCatalog();
-  const videoModels = catalog.filter(
-    (item): item is VideoModelCatalogItem => item.type === "video",
-  );
-  if (videoModels.length === 0) {
-    const message = t ? t("noModels") : "등록된 비디오 모델이 없습니다.";
-    return buildNoModelsResult<VideoGenerationFormValues>(message);
-  }
-  const schema = buildVideoSchema(videoModels, t);
-  const parsed = schema.safeParse(payload);
-  return parsed as z.SafeParseReturnType<unknown, VideoGenerationFormValues>;
-}

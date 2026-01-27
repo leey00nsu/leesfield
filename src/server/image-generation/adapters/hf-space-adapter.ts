@@ -1,13 +1,15 @@
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
-import {
-  getImageModelConfig,
-  getImageParamConfig,
-  getImageParamRange,
-  modelDefaults,
-} from "@/features/image-generation/model/image-models";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import {
+  getRuntimeImageParamConfig,
+  getRuntimeImageParamRange,
+  resolveRuntimeImageDefaults,
+  type RuntimeImageModel,
+} from "@/shared/model-catalog/runtime-utils";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
@@ -20,6 +22,7 @@ const hfSpaceConfigSchema = z
     api_name: z.string().min(1),
     timeout_ms: z.number().int().positive().optional(),
     space_url: z.string().min(1).optional(),
+    input_images_format: z.enum(["file_array", "gallery"]).optional(),
   })
   .passthrough();
 
@@ -32,6 +35,7 @@ type SpaceConfig = {
 };
 
 type InputImagesFormat = "file_array" | "gallery";
+type ParsedSpaceConfig = z.infer<typeof hfSpaceConfigSchema>;
 
 const DEFAULT_INPUT_IMAGES_FORMAT: InputImagesFormat = "file_array";
 
@@ -62,12 +66,28 @@ function resolveSpaceUrl(spaceId: string, explicit?: string) {
   return `https://${slug}.hf.space`;
 }
 
-function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConfig {
-  const model = getImageModelConfig(modelKey);
+function toRuntimeImageModel(model: ImageModelCatalogItem): RuntimeImageModel {
+  return model as RuntimeImageModel;
+}
+
+async function getCatalogImageModel(modelKey: string) {
+  const catalog = await getModelCatalog({ includeInactive: true });
+  const model = catalog.find(
+    (item): item is ImageModelCatalogItem =>
+      item.type === "image" && item.key === modelKey,
+  );
+  if (!model) {
+    throw new Error(`IMAGE_MODEL_NOT_FOUND:${modelKey}`);
+  }
+  return toRuntimeImageModel(model);
+}
+
+async function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]) {
+  const model = await getCatalogImageModel(modelKey);
   if (model.provider !== "hf_space") {
     throw new Error("IMAGE_PROVIDER_NOT_SUPPORTED");
   }
-  const parsedConfig = hfSpaceConfigSchema.safeParse(model.provider_config);
+  const parsedConfig = hfSpaceConfigSchema.safeParse(model.providerConfig);
   if (!parsedConfig.success) {
     throw new Error("HF_SPACE_CONFIG_INVALID");
   }
@@ -81,7 +101,7 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
     throw new Error("INVALID_HF_TOKEN_FORMAT");
   }
 
-  return {
+  const config: SpaceConfig = {
     spaceId: providerConfig.space_id,
     apiName: providerConfig.api_name,
     token: tokenValue as `hf_${string}` | undefined,
@@ -91,6 +111,8 @@ function getSpaceConfig(modelKey: ImageGenerationFormValues["model"]): SpaceConf
         : DEFAULT_TIMEOUT_MS,
     spaceUrl: resolveSpaceUrl(providerConfig.space_id, providerConfig.space_url),
   };
+
+  return { config, model, providerConfig };
 }
 
 async function getClient(config: SpaceConfig) {
@@ -185,11 +207,10 @@ function normalizeApiName(value: string) {
   return `/${trimmed}`;
 }
 
-function resolveInputImagesFormat(model: ImageGenerationFormValues["model"]) {
-  const providerConfig = getImageModelConfig(model).provider_config ?? {};
+function resolveInputImagesFormat(providerConfig: ParsedSpaceConfig) {
   const format = providerConfig.input_images_format;
   if (format === "gallery" || format === "file_array") {
-    return format as InputImagesFormat;
+    return format;
   }
   return DEFAULT_INPUT_IMAGES_FORMAT;
 }
@@ -408,18 +429,18 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     }
   },
   async generate(payload: ImageGenerationFormValues) {
-    const config = getSpaceConfig(payload.model);
+    const { config, model, providerConfig } = await getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
     const { seedValue, randomize } = parseSeed(payload.seed);
-    const defaults = modelDefaults[payload.model];
-    const widthRange = getImageParamRange(payload.model, "width");
-    const heightRange = getImageParamRange(payload.model, "height");
-    const stepsRange = getImageParamRange(payload.model, "steps");
-    const guidanceConfig = getImageParamConfig(payload.model, "guidanceScale");
-    const modeConfig = getImageParamConfig(payload.model, "modeChoice");
-    const promptUpsamplingConfig = getImageParamConfig(
-      payload.model,
+    const defaults = resolveRuntimeImageDefaults(model);
+    const widthRange = getRuntimeImageParamRange(model, "width");
+    const heightRange = getRuntimeImageParamRange(model, "height");
+    const stepsRange = getRuntimeImageParamRange(model, "steps");
+    const guidanceConfig = getRuntimeImageParamConfig(model, "guidanceScale");
+    const modeConfig = getRuntimeImageParamConfig(model, "modeChoice");
+    const promptUpsamplingConfig = getRuntimeImageParamConfig(
+      model,
       "promptUpsampling",
     );
     const width = clampNumber(payload.width ?? defaults.width, widthRange);
@@ -428,7 +449,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     const apiName = normalizeApiName(config.apiName || "/generate_image");
 
     const initImages = payload.initImages ?? [];
-    const inputImagesFormat = resolveInputImagesFormat(payload.model);
+    const inputImagesFormat = resolveInputImagesFormat(providerConfig);
     const inputImages = await Promise.all(
       initImages.map(async (source) => {
         const { buffer, mime } = await resolveInputImageBuffer(source);
@@ -460,7 +481,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     }
 
     if (guidanceConfig) {
-      const guidanceRange = getImageParamRange(payload.model, "guidanceScale");
+      const guidanceRange = getRuntimeImageParamRange(model, "guidanceScale");
       requestPayload.guidance_scale = clampNumber(
         payload.guidanceScale ?? defaults.guidanceScale,
         guidanceRange,
