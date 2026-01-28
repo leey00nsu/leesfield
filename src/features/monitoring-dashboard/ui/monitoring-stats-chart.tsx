@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
   AreaChart,
@@ -11,11 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { MonitoringStatsRow } from "@/features/monitoring-dashboard/model/types";
-import {
-  formatCompactNumber,
-  formatPercent,
-  formatShortDate,
-} from "@/features/monitoring-dashboard/lib/format";
+import { formatCompactNumber, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 
 interface MonitoringStatsChartProps {
   data: MonitoringStatsRow[];
@@ -36,18 +32,20 @@ function ChartTooltip({
   payload,
   label,
   labels,
+  formatDayLabel,
 }: {
   active?: boolean;
   payload?: Array<{ payload: ChartDatum }>;
   label?: string;
   labels: { requests: string; errorRate: string };
+  formatDayLabel: (value: string) => string;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0].payload;
   return (
     <div className="rounded-xl border border-white/10 bg-background-dark/95 px-3 py-2 text-xs text-white shadow-lg">
       <div className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
-        {label ? formatShortDate(label) : "-"}
+        {label ? formatDayLabel(label) : "-"}
       </div>
       <div className="mt-1 flex items-center justify-between gap-4">
         <span className="text-gray-400">{labels.requests}</span>
@@ -66,6 +64,7 @@ export function MonitoringStatsChart({
   isLoading,
 }: MonitoringStatsChartProps) {
   const t = useTranslations("monitoringDashboard");
+  const locale = useLocale();
   const tooltipLabels = useMemo(
     () => ({
       requests: t("stats.totalLabel"),
@@ -73,6 +72,17 @@ export function MonitoringStatsChart({
     }),
     [t],
   );
+  const formatDayLabel = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+    });
+    return (value: string) => {
+      const parsed = new Date(`${value}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) return value;
+      return formatter.format(parsed);
+    };
+  }, [locale]);
 
   const chartData = useMemo<ChartDatum[]>(() => {
     return data.map((item) => ({
@@ -123,7 +133,7 @@ export function MonitoringStatsChart({
                 <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
                 <XAxis
                   dataKey="day"
-                  tickFormatter={formatShortDate}
+                  tickFormatter={formatDayLabel}
                   tick={{ fill: "#9CA3AF", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -145,7 +155,7 @@ export function MonitoringStatsChart({
                   width={48}
                 />
                 <Tooltip
-                  content={<ChartTooltip labels={tooltipLabels} />}
+                  content={<ChartTooltip labels={tooltipLabels} formatDayLabel={formatDayLabel} />}
                   cursor={{ stroke: "rgba(212,240,50,0.3)" }}
                 />
                 <Area

@@ -163,6 +163,7 @@ export function MonitoringDashboardScreen() {
           isLoading={requestsQuery.isLoading}
           error={requestsError}
           updatedAt={updatedAt}
+          timeZone={filters.tz}
         />
       </div>
     </div>

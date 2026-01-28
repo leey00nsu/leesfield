@@ -1,7 +1,8 @@
+import { useMemo } from "react";
 import { CheckCircle2, Clock3, ShieldAlert, Timer } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
-import { formatDateTime, formatDuration } from "@/features/monitoring-dashboard/lib/format";
+import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
 
 interface MonitoringRequestTableProps {
@@ -9,6 +10,7 @@ interface MonitoringRequestTableProps {
   isLoading: boolean;
   error: string | null;
   updatedAt: string | null;
+  timeZone: string;
 }
 
 const statusStyles: Record<
@@ -60,8 +62,22 @@ export function MonitoringRequestTable({
   isLoading,
   error,
   updatedAt,
+  timeZone,
 }: MonitoringRequestTableProps) {
   const t = useTranslations("monitoringDashboard");
+  const locale = useLocale();
+  const formatDateTime = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone,
+    });
+    return (value: string) => {
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return "-";
+      return formatter.format(parsed);
+    };
+  }, [locale, timeZone]);
   const statusLabels: Record<string, string> = {
     pending: t("statuses.pending"),
     processing: t("statuses.processing"),

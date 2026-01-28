@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarRange, Filter, KeyRound, Layers3 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale as DateFnsLocale } from "date-fns";
+import enUS from "date-fns/locale/en-US";
+import ko from "date-fns/locale/ko";
 import type { DateRange } from "react-day-picker";
 import type { MonitoringFilters, MonitoringStatusFilter, MonitoringType } from "@/features/monitoring-dashboard/model/types";
 import { endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
@@ -57,10 +60,31 @@ export function MonitoringFilters({
 }: MonitoringFiltersProps) {
   const t = useTranslations("monitoringDashboard");
   const tCommon = useTranslations("common.labels");
+  const locale = useLocale();
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>({
     from: filters.from,
     to: filters.to,
   });
+
+  const calendarLocale = useMemo<DateFnsLocale>(() => {
+    if (locale.startsWith("ko")) return ko;
+    return enUS;
+  }, [locale]);
+
+  const timeZoneLabel = useMemo(() => {
+    try {
+      const formatter = new Intl.DateTimeFormat(locale, {
+        timeZone: filters.tz,
+        timeZoneName: "short",
+      });
+      const parts = formatter.formatToParts(new Date());
+      return (
+        parts.find((part) => part.type === "timeZoneName")?.value ?? filters.tz
+      );
+    } catch {
+      return filters.tz;
+    }
+  }, [filters.tz, locale]);
 
   useEffect(() => {
     setSelectedRange({ from: filters.from, to: filters.to });
@@ -192,7 +216,7 @@ export function MonitoringFilters({
             </Button>
             <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
               <CalendarRange className="h-4 w-4" />
-              {filters.tz}
+              <span title={filters.tz}>{timeZoneLabel}</span>
             </div>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
@@ -216,6 +240,7 @@ export function MonitoringFilters({
                     selected={selectedRange}
                     onSelect={handleRangeSelect}
                     numberOfMonths={2}
+                    locale={calendarLocale}
                   />
                 </PopoverContent>
               </Popover>
