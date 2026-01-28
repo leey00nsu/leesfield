@@ -69,6 +69,7 @@ export function MonitoringFilters({
     from: filters.from,
     to: filters.to,
   });
+  const [isRangeDirty, setIsRangeDirty] = useState(false);
 
   const calendarLocale = useMemo<DateFnsLocale>(() => {
     if (locale.startsWith("ko")) return ko;
@@ -90,15 +91,30 @@ export function MonitoringFilters({
     }
   }, [filters.tz, locale]);
 
+  const syncedRange = useMemo<DateRange>(
+    () => ({ from: filters.from, to: filters.to }),
+    [filters.from, filters.to],
+  );
+  const displayRange = isRangeDirty && selectedRange ? selectedRange : syncedRange;
+
   const handleRangeSelect = (range: DateRange | undefined) => {
     setSelectedRange(range);
-    if (!range?.from || !range?.to) return;
+    if (!range?.from) {
+      setIsRangeDirty(false);
+      return;
+    }
+    if (!range.to) {
+      setIsRangeDirty(true);
+      return;
+    }
+    setIsRangeDirty(false);
     onRangeChange({ from: startOfDay(range.from), to: endOfDay(range.to) });
   };
 
   const handleQuickRange = (days: number) => {
     const range = createRangeFromDays(days);
     setSelectedRange(range);
+    setIsRangeDirty(false);
     onQuickRange(days);
   };
 
@@ -242,8 +258,8 @@ export function MonitoringFilters({
                   <Calendar
                     initialFocus
                     mode="range"
-                    defaultMonth={selectedRange?.from}
-                    selected={selectedRange}
+                    defaultMonth={displayRange?.from}
+                    selected={displayRange}
                     onSelect={handleRangeSelect}
                     numberOfMonths={2}
                     locale={calendarLocale}
