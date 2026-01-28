@@ -58,13 +58,13 @@ export function buildRawWhere(
     return Prisma.sql``;
   }
 
-  return Prisma.sql`WHERE ${Prisma.join(conditions, Prisma.sql` AND `)}`;
+  return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 }
 
 export function buildBaseSelect(table: "ImageGeneration" | "VideoGeneration", where: Prisma.Sql) {
   const tableName = Prisma.raw(`"${table}"`);
   return Prisma.sql`
-    SELECT "createdAt", "updatedAt", "status", "modelKey", "apiKeyId"
+    SELECT "createdAt", "updatedAt", "status"::text as "status", "modelKey", "apiKeyId"
     FROM ${tableName}
     ${where}
   `;
