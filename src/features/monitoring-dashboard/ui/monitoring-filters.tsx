@@ -1,13 +1,17 @@
+import { useEffect, useState } from "react";
 import { CalendarRange, Filter, KeyRound, Layers3 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { DateRange } from "react-day-picker";
 import type { MonitoringFilters, MonitoringStatusFilter, MonitoringType } from "@/features/monitoring-dashboard/model/types";
-import { createRangeFromMonth, endOfDay, formatDateInputValue, parseDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
+import { endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
 import { Button } from "@/shared/ui/button";
+import { Calendar } from "@/shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 
 export type MonitoringFilterModel = {
   key: string;
@@ -46,20 +50,22 @@ export function MonitoringFilters({
 }: MonitoringFiltersProps) {
   const t = useTranslations("monitoringDashboard");
   const tCommon = useTranslations("common.labels");
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>({
+    from: filters.from,
+    to: filters.to,
+  });
 
-  const handleDateChange = (key: "from" | "to", value: string) => {
-    const parsed = parseDateInputValue(value);
-    if (!parsed) return;
-    const normalized = key === "from" ? startOfDay(parsed) : endOfDay(parsed);
-    const next = { ...filters, [key]: normalized } as MonitoringFilters;
-    onRangeChange({ from: next.from, to: next.to });
+  useEffect(() => {
+    setSelectedRange({ from: filters.from, to: filters.to });
+  }, [filters.from, filters.to]);
+
+  const handleRangeSelect = (range: DateRange | undefined) => {
+    setSelectedRange(range);
+    if (!range?.from || !range?.to) return;
+    onRangeChange({ from: startOfDay(range.from), to: endOfDay(range.to) });
   };
 
-  const handleMonthChange = (value: string) => {
-    const range = createRangeFromMonth(value);
-    if (!range) return;
-    onRangeChange(range);
-  };
+  const rangeLabel = `${formatDateInputValue(filters.from)} ~ ${formatDateInputValue(filters.to)}`;
 
   return (
     <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-4">
@@ -177,28 +183,30 @@ export function MonitoringFilters({
             </div>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
-            <input
-              type="date"
-              className="h-9 w-full rounded-lg border border-white/10 bg-black/40 px-3 text-xs text-white"
-              value={formatDateInputValue(filters.from)}
-              onChange={(event) => handleDateChange("from", event.target.value)}
-            />
-            <input
-              type="date"
-              className="h-9 w-full rounded-lg border border-white/10 bg-black/40 px-3 text-xs text-white"
-              value={formatDateInputValue(filters.to)}
-              onChange={(event) => handleDateChange("to", event.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
-              {t("filters.month")}
-            </span>
-            <input
-              type="month"
-              className="h-9 rounded-lg border border-white/10 bg-black/40 px-3 text-xs text-white"
-              onChange={(event) => handleMonthChange(event.target.value)}
-            />
+            <div className="md:col-span-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="surface"
+                    className="h-9 w-full justify-start gap-2 text-xs text-white"
+                  >
+                    <CalendarRange className="h-4 w-4 text-primary" />
+                    {rangeLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-auto p-0">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={selectedRange?.from}
+                    selected={selectedRange}
+                    onSelect={handleRangeSelect}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
       </div>
