@@ -44,6 +44,7 @@ function mapRecord(
 export async function createMockGenerationWithLimit(
   payload: ImageGenerationFormValues,
   ownerEmail: string,
+  apiKeyId: string | null = null,
 ) {
   const requestId = crypto.randomUUID();
   const initImages = (payload.initImages ?? [])
@@ -61,6 +62,7 @@ export async function createMockGenerationWithLimit(
     requestId,
     resolvedPayload,
     ownerEmail,
+    apiKeyId,
   );
   return {
     record: {

@@ -74,6 +74,7 @@ export async function POST(request: Request) {
     const { record } = await createMockVideoGenerationWithLimit(
       parsed.data,
       auth.ownerEmail,
+      auth.apiKeyId,
     );
 
     return buildGenerationSuccessResponse(record);
