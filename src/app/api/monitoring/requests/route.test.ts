@@ -1,0 +1,50 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GET } from "@/app/api/monitoring/requests/route";
+
+const mockGetSession = vi.hoisted(() => vi.fn());
+const mockGetMonitoringRequests = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/auth/session", () => ({
+  getSession: mockGetSession,
+}));
+
+vi.mock("@/server/monitoring/requests", () => ({
+  getMonitoringRequests: mockGetMonitoringRequests,
+}));
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("/api/monitoring/requests", () => {
+  it("인증되지 않으면 401을 반환한다", async () => {
+    mockGetSession.mockResolvedValue({ isLoggedIn: false });
+
+    const request = new Request("http://localhost/api/monitoring/requests");
+    const response = await GET(request);
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload.message).toBe("UNAUTHORIZED");
+  });
+
+  it("정상 요청이면 requests를 반환한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockGetMonitoringRequests.mockResolvedValue({
+      updatedAt: "2026-01-02T00:00:00Z",
+      items: [],
+    });
+
+    const request = new Request(
+      "http://localhost/api/monitoring/requests?limit=10&from=2026-01-01&to=2026-01-02",
+    );
+    const response = await GET(request);
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.updatedAt).toBe("2026-01-02T00:00:00Z");
+  });
+});
