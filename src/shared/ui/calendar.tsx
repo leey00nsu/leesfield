@@ -25,16 +25,17 @@ function Calendar({
         root: "bg-transparent",
         months: "flex flex-col gap-4 sm:flex-row sm:gap-6",
         month: "relative space-y-4",
-        month_caption: "relative flex items-center justify-center pt-1",
+        month_caption:
+          "relative flex items-center justify-center pt-1 pointer-events-none",
         caption_label: "text-sm font-semibold text-white",
         nav: "flex items-center gap-1 text-white",
         button_previous: cn(
           buttonVariants({ variant: "outline", size: "icon-sm" }),
-          "absolute left-1 top-1 h-7 w-7 bg-transparent p-0 text-white opacity-70 hover:opacity-100 hover:text-white"
+          "absolute left-1 top-1 z-10 h-7 w-7 bg-transparent p-0 text-white opacity-70 hover:opacity-100 hover:text-white"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline", size: "icon-sm" }),
-          "absolute right-1 top-1 h-7 w-7 bg-transparent p-0 text-white opacity-70 hover:opacity-100 hover:text-white"
+          "absolute right-1 top-1 z-10 h-7 w-7 bg-transparent p-0 text-white opacity-70 hover:opacity-100 hover:text-white"
         ),
         chevron: "text-white stroke-white",
         month_grid: "w-full border-collapse space-y-1",
