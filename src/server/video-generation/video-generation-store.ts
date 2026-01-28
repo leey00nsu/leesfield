@@ -45,6 +45,7 @@ function mapRecord(
 export async function createMockVideoGenerationWithLimit(
   payload: VideoGenerationFormValues,
   ownerEmail: string,
+  apiKeyId: string | null = null,
 ) {
   const requestId = crypto.randomUUID();
   const initImage = payload.initImage?.trim() ?? "";
@@ -58,6 +59,7 @@ export async function createMockVideoGenerationWithLimit(
     requestId,
     resolvedPayload,
     ownerEmail,
+    apiKeyId,
   );
   return {
     record: {

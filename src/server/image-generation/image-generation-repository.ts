@@ -9,7 +9,8 @@ import type {
 export async function createImageGenerationRecord(
   requestId: string,
   payload: ImageGenerationFormValues,
-  ownerEmail: string
+  ownerEmail: string,
+  apiKeyId: string | null = null,
 ) {
   const requestParams: Prisma.InputJsonValue = {
     model: payload.model,
@@ -30,6 +31,7 @@ export async function createImageGenerationRecord(
     data: {
       requestId,
       ownerEmail,
+      apiKeyId,
       prompt: payload.prompt,
       requestParams,
       modelKey: payload.model,

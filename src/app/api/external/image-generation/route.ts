@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     const { record } = await createMockGenerationWithLimit(
       parsed.data,
       auth.ownerEmail,
+      auth.apiKeyId,
     );
 
     return buildGenerationSuccessResponse(record);

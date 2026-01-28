@@ -10,6 +10,7 @@
     "image": "이미지",
     "video": "비디오",
     "history": "히스토리",
+    "monitoring": "모니터링",
     "monitoringQueue": "모니터링",
     "model": "모델",
     "apiKey": "API 키",
@@ -287,6 +288,94 @@
     "empty": {
       "title": "큐 활동 없음",
       "default": "대기 또는 처리 중인 작업이 없습니다."
+    }
+  },
+  "monitoringDashboard": {
+    "title": {
+      "leading": "모델",
+      "accent": "모니터링"
+    },
+    "subtitle": "API/UI 요청 라이브 피드",
+    "lastUpdated": "마지막 갱신",
+    "updating": "스트리밍",
+    "kpi": {
+      "active": "활성 작업",
+      "avgLatency": "평균 지연",
+      "total": "요청 수",
+      "errorRate": "오류율",
+      "live": "실시간",
+      "avgLabel": "평균",
+      "range": "기간",
+      "errorLabel": "안정"
+    },
+    "filters": {
+      "statusAll": "전체",
+      "statusActive": "진행 중",
+      "modelAll": "전체 모델",
+      "apiKeyAll": "전체 키",
+      "apiKeyUi": "UI 요청",
+      "range": "기간",
+      "month": "월 선택"
+    },
+    "statuses": {
+      "pending": "대기",
+      "processing": "처리 중",
+      "completed": "완료",
+      "failed": "실패"
+    },
+    "stats": {
+      "title": "트래픽 & 오류",
+      "subtitle": "일별 요청 추이",
+      "empty": "선택한 기간의 데이터가 없습니다.",
+      "aria": "요청 추이 차트",
+      "totalLabel": "요청 수",
+      "errorLabel": "오류율"
+    },
+    "top": {
+      "title": "Top N 지표",
+      "subtitle": "활성 모델/키 순위",
+      "metric": {
+        "requests": "요청 수",
+        "errors": "오류 수",
+        "latency": "지연"
+      },
+      "models": "모델 Top",
+      "apiKeys": "API Key Top",
+      "caption": "선택한 지표 기준",
+      "empty": "표시할 랭킹이 없습니다."
+    },
+    "requests": {
+      "title": "실시간 요청 로그",
+      "subtitle": "실시간 추론 로그",
+      "updating": "업데이트 중",
+      "updated": "{time} 업데이트",
+      "error": "요청 로그를 불러오지 못했습니다.",
+      "empty": "최근 요청이 없습니다.",
+      "detailTitle": "요청 상세",
+      "detailSubtitle": "프롬프트 및 결과",
+      "detailPrompt": "프롬프트",
+      "detailInputs": "입력 이미지",
+      "detailInputsEmpty": "입력 이미지가 없습니다.",
+      "detailResults": "결과",
+      "detailEmpty": "결과가 없습니다.",
+      "detailRequestId": "요청 ID",
+      "detailModel": "모델",
+      "detailType": "유형",
+      "detailStatus": "상태",
+      "detailStarted": "요청 시간",
+      "detailFinished": "완료 시간",
+      "detailDuration": "소요 시간",
+      "detailProgress": "진행률",
+      "detailError": "오류",
+      "detailFetchError": "요청 상세를 불러오지 못했습니다.",
+      "detailClose": "닫기",
+      "columns": {
+        "apiKey": "API 키",
+        "model": "모델",
+        "timestamp": "시간",
+        "duration": "소요 시간",
+        "status": "상태"
+      }
     }
   },
   "model": {

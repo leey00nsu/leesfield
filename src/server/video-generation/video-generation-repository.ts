@@ -10,6 +10,7 @@ export async function createVideoGenerationRecord(
   requestId: string,
   payload: VideoGenerationFormValues,
   ownerEmail: string,
+  apiKeyId: string | null = null,
 ) {
   const requestParams: Prisma.InputJsonValue = {
     model: payload.model,
@@ -28,6 +29,7 @@ export async function createVideoGenerationRecord(
     data: {
       requestId,
       ownerEmail,
+      apiKeyId,
       prompt: payload.prompt,
       requestParams,
       modelKey: payload.model,
