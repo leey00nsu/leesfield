@@ -5,7 +5,11 @@ import type { Locale as DateFnsLocale } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
 import { ko } from "date-fns/locale/ko";
 import type { DateRange } from "react-day-picker";
-import type { MonitoringFilters, MonitoringStatusFilter, MonitoringType } from "@/features/monitoring-dashboard/model/types";
+import type {
+  MonitoringFilters as MonitoringFiltersType,
+  MonitoringStatusFilter,
+  MonitoringType,
+} from "@/features/monitoring-dashboard/model/types";
 import { createRangeFromDays, endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
 import {
   DashboardFilterBar,
@@ -36,7 +40,7 @@ export type MonitoringFilterApiKey = {
 };
 
 interface MonitoringFiltersProps {
-  filters: MonitoringFilters;
+  filters: MonitoringFiltersType;
   onTypeChange: (value: MonitoringType) => void;
   onStatusChange: (value: MonitoringStatusFilter) => void;
   onModelChange: (value: string | null) => void;
