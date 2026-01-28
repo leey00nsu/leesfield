@@ -42,6 +42,28 @@ export type MonitoringRequestItem = {
   apiKeyLabel: string;
 };
 
+export type MonitoringRequestAsset = {
+  url: string;
+  width: number | null;
+  height: number | null;
+  durationSec: number | null;
+};
+
+export type MonitoringRequestDetail = {
+  id: string;
+  type: "image" | "video";
+  status: string;
+  model: string | null;
+  prompt: string;
+  createdAt: string;
+  updatedAt: string;
+  durationMs: number | null;
+  progress: number | null;
+  errorMessage: string | null;
+  inputImages: string[];
+  assets: MonitoringRequestAsset[];
+};
+
 export type MonitoringRequestResponse = {
   updatedAt: string;
   items: MonitoringRequestItem[];

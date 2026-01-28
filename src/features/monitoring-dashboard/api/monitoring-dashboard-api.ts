@@ -3,6 +3,7 @@ import type {
   MonitoringMetric,
   MonitoringOverview,
   MonitoringRequestResponse,
+  MonitoringRequestDetail,
   MonitoringStatsResponse,
   MonitoringTopResponse,
 } from "@/features/monitoring-dashboard/model/types";
@@ -94,6 +95,24 @@ export async function fetchMonitoringRequests(
     },
   );
   return handleResponse<MonitoringRequestResponse>(response);
+}
+
+export async function fetchMonitoringRequestDetail(
+  type: "image" | "video",
+  requestId: string,
+): Promise<MonitoringRequestDetail> {
+  const params = new URLSearchParams({
+    type,
+    requestId,
+  });
+  const response = await fetch(
+    `/api/monitoring/requests/detail?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+  );
+  return handleResponse<MonitoringRequestDetail>(response);
 }
 
 export async function fetchMonitoringTop(

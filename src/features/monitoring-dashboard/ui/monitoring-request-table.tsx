@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { CheckCircle2, Clock3, ShieldAlert, Timer } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
+import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
+import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
 
 interface MonitoringRequestTableProps {
   items: MonitoringRequestItem[];
@@ -11,50 +12,6 @@ interface MonitoringRequestTableProps {
   error: string | null;
   updatedAt: string | null;
   timeZone: string;
-}
-
-const statusStyles: Record<
-  string,
-  { label: string; className: string; icon: typeof Clock3 }
-> = {
-  pending: {
-    label: "Pending",
-    className: "text-yellow-400",
-    icon: Clock3,
-  },
-  processing: {
-    label: "Processing",
-    className: "text-primary",
-    icon: Timer,
-  },
-  completed: {
-    label: "Completed",
-    className: "text-green-400",
-    icon: CheckCircle2,
-  },
-  failed: {
-    label: "Failed",
-    className: "text-destructive",
-    icon: ShieldAlert,
-  },
-};
-
-function resolveStatus(status: string, labels: Record<string, string>) {
-  const lower = status.toLowerCase();
-  const style = statusStyles[lower];
-  if (!style) {
-    return {
-      label: status,
-      className: "text-gray-400",
-      icon: Clock3,
-    };
-  }
-
-  const label = labels[lower] ?? style.label;
-  return {
-    ...style,
-    label,
-  };
 }
 
 export function MonitoringRequestTable({
@@ -66,6 +23,8 @@ export function MonitoringRequestTable({
 }: MonitoringRequestTableProps) {
   const t = useTranslations("monitoringDashboard");
   const locale = useLocale();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<MonitoringRequestItem | null>(null);
   const formatDateTime = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -83,6 +42,16 @@ export function MonitoringRequestTable({
     processing: t("statuses.processing"),
     completed: t("statuses.completed"),
     failed: t("statuses.failed"),
+  };
+
+  const handleOpenDetail = (item: MonitoringRequestItem) => {
+    setSelected(item);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDetail = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setSelected(null);
   };
 
   return (
@@ -126,12 +95,21 @@ export function MonitoringRequestTable({
             </thead>
             <tbody className="divide-y divide-white/5">
               {items.map((item) => {
-                const status = resolveStatus(item.status, statusLabels);
+                const status = resolveMonitoringStatus(item.status, statusLabels);
                 const Icon = status.icon;
                 return (
                   <tr
                     key={item.id}
-                    className="group transition-colors hover:bg-white/5"
+                    className="group cursor-pointer transition-colors hover:bg-white/5 focus-within:bg-white/5"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenDetail(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleOpenDetail(item);
+                      }
+                    }}
                   >
                     <td className="px-4 py-3 text-gray-400">
                       {item.apiKeyLabel}
@@ -168,6 +146,12 @@ export function MonitoringRequestTable({
           </table>
         )}
       </div>
+      <MonitoringRequestDetailDialog
+        open={dialogOpen}
+        onOpenChange={handleCloseDetail}
+        request={selected}
+        timeZone={timeZone}
+      />
     </div>
   );
 }

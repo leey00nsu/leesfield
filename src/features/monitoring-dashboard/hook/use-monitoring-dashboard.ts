@@ -8,6 +8,7 @@ import {
   fetchMonitoringApiKeys,
   fetchMonitoringOverview,
   fetchMonitoringRequests,
+  fetchMonitoringRequestDetail,
   fetchMonitoringStats,
   fetchMonitoringTop,
 } from "@/features/monitoring-dashboard/api/monitoring-dashboard-api";
@@ -59,6 +60,21 @@ export function useMonitoringRequests(filters: MonitoringFilters, limit: number)
     gcTime: 5 * 60_000,
     retry: 1,
     refetchInterval: POLL_INTERVAL_MS,
+  });
+}
+
+export function useMonitoringRequestDetail(
+  type: "image" | "video" | null,
+  requestId: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["monitoring", "request-detail", type, requestId],
+    queryFn: () => fetchMonitoringRequestDetail(type!, requestId!),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    enabled,
   });
 }
 
