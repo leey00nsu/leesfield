@@ -12,6 +12,13 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 
 export type MonitoringFilterModel = {
   key: string;
@@ -118,39 +125,45 @@ export function MonitoringFilters({
       <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
           <Layers3 className="h-4 w-4 text-primary" />
-          <select
-            className="w-full bg-transparent text-sm text-white focus:outline-none"
-            value={filters.model ?? ""}
-            onChange={(event) =>
-              onModelChange(event.target.value ? event.target.value : null)
-            }
+          <Select
+            value={filters.model ?? "all"}
+            onValueChange={(value) => onModelChange(value === "all" ? null : value)}
           >
-            <option value="">{t("filters.modelAll")}</option>
-            {models.map((model) => (
-              <option key={model.key} value={model.key}>
-                {model.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
+              <SelectValue placeholder={t("filters.modelAll")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filters.modelAll")}</SelectItem>
+              {models.map((model) => (
+                <SelectItem key={model.key} value={model.key}>
+                  {model.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
           <KeyRound className="h-4 w-4 text-primary" />
-          <select
-            className="w-full bg-transparent text-sm text-white focus:outline-none"
-            value={filters.apiKeyId ?? ""}
-            onChange={(event) =>
-              onApiKeyChange(event.target.value ? event.target.value : null)
+          <Select
+            value={filters.apiKeyId ?? "all"}
+            onValueChange={(value) =>
+              onApiKeyChange(value === "all" ? null : value)
             }
           >
-            <option value="">{t("filters.apiKeyAll")}</option>
-            <option value="ui">{t("filters.apiKeyUi")}</option>
-            {apiKeys.map((key) => (
-              <option key={key.id} value={key.id}>
-                {key.maskedKey}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
+              <SelectValue placeholder={t("filters.apiKeyAll")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filters.apiKeyAll")}</SelectItem>
+              <SelectItem value="ui">{t("filters.apiKeyUi")}</SelectItem>
+              {apiKeys.map((key) => (
+                <SelectItem key={key.id} value={key.id}>
+                  {key.maskedKey}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
