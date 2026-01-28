@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarRange, Filter, KeyRound, Layers3 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { Locale as DateFnsLocale } from "date-fns";
-import enUS from "date-fns/locale/en-US";
-import ko from "date-fns/locale/ko";
+import { enUS } from "date-fns/locale/en-US";
+import { ko } from "date-fns/locale/ko";
 import type { DateRange } from "react-day-picker";
 import type { MonitoringFilters, MonitoringStatusFilter, MonitoringType } from "@/features/monitoring-dashboard/model/types";
-import { endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
+import { createRangeFromDays, endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
 import {
   DashboardFilterBar,
   DashboardFilterDivider,
@@ -86,14 +86,16 @@ export function MonitoringFilters({
     }
   }, [filters.tz, locale]);
 
-  useEffect(() => {
-    setSelectedRange({ from: filters.from, to: filters.to });
-  }, [filters.from, filters.to]);
-
   const handleRangeSelect = (range: DateRange | undefined) => {
     setSelectedRange(range);
     if (!range?.from || !range?.to) return;
     onRangeChange({ from: startOfDay(range.from), to: endOfDay(range.to) });
+  };
+
+  const handleQuickRange = (days: number) => {
+    const range = createRangeFromDays(days);
+    setSelectedRange(range);
+    onQuickRange(days);
   };
 
   const rangeLabel = `${formatDateInputValue(filters.from)} ~ ${formatDateInputValue(filters.to)}`;
@@ -201,7 +203,7 @@ export function MonitoringFilters({
               size="sm"
               variant="surface"
               className="text-xs font-bold uppercase tracking-widest"
-              onClick={() => onQuickRange(7)}
+              onClick={() => handleQuickRange(7)}
             >
               7D
             </Button>
@@ -210,7 +212,7 @@ export function MonitoringFilters({
               size="sm"
               variant="surface"
               className="text-xs font-bold uppercase tracking-widest"
-              onClick={() => onQuickRange(30)}
+              onClick={() => handleQuickRange(30)}
             >
               30D
             </Button>
