@@ -10,6 +10,7 @@
     "image": "Image",
     "video": "Video",
     "history": "History",
+    "monitoring": "Monitoring",
     "monitoringQueue": "Monitoring",
     "model": "Model",
     "apiKey": "API keys",
@@ -287,6 +288,76 @@
     "empty": {
       "title": "No queue activity",
       "default": "There are no pending or processing jobs."
+    }
+  },
+  "monitoringDashboard": {
+    "title": {
+      "leading": "Model",
+      "accent": "Monitoring"
+    },
+    "subtitle": "Live feed for API & UI requests",
+    "lastUpdated": "Last updated",
+    "updating": "Streaming",
+    "kpi": {
+      "active": "Active Tasks",
+      "avgLatency": "Avg. Latency",
+      "total": "Requests",
+      "errorRate": "Error Rate",
+      "live": "Live",
+      "avgLabel": "AVG",
+      "range": "Range",
+      "errorLabel": "Stable"
+    },
+    "filters": {
+      "statusAll": "All",
+      "statusActive": "Active",
+      "modelAll": "All models",
+      "apiKeyAll": "All keys",
+      "apiKeyUi": "UI requests",
+      "range": "Range",
+      "month": "Month"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "stats": {
+      "title": "Traffic & Errors",
+      "subtitle": "Daily request trend",
+      "empty": "No stats for the selected range.",
+      "aria": "Request trend chart",
+      "totalLabel": "Requests",
+      "errorLabel": "Error rate"
+    },
+    "top": {
+      "title": "Top N Signals",
+      "subtitle": "Most active models and keys",
+      "metric": {
+        "requests": "Requests",
+        "errors": "Errors",
+        "latency": "Latency"
+      },
+      "models": "Top Models",
+      "apiKeys": "Top API Keys",
+      "caption": "Ranked by selected metric",
+      "empty": "No ranking data."
+    },
+    "requests": {
+      "title": "Live Request Feed",
+      "subtitle": "Realtime inference logs",
+      "updating": "Updating",
+      "updated": "Updated {time}",
+      "error": "Failed to load requests.",
+      "empty": "No recent requests.",
+      "columns": {
+        "apiKey": "API Key",
+        "model": "Model",
+        "timestamp": "Timestamp",
+        "duration": "Duration",
+        "status": "Status"
+      }
     }
   },
   "model": {

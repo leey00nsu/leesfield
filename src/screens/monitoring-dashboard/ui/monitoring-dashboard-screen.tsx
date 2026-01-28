@@ -1,0 +1,170 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { PageHeader, PageHeaderSearchInput } from "@/shared/ui/page-header";
+import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
+import {
+  MonitoringFilters,
+  type MonitoringFilterApiKey,
+  type MonitoringFilterModel,
+} from "@/features/monitoring-dashboard/ui/monitoring-filters";
+import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitoring-kpi-cards";
+import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
+import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
+import { MonitoringTopList } from "@/features/monitoring-dashboard/ui/monitoring-top-list";
+import { createRangeFromDays } from "@/features/monitoring-dashboard/lib/format";
+import type {
+  MonitoringFilters as MonitoringFiltersState,
+  MonitoringMetric,
+  MonitoringStatusFilter,
+  MonitoringType,
+} from "@/features/monitoring-dashboard/model/types";
+import {
+  useMonitoringApiKeys,
+  useMonitoringOverview,
+  useMonitoringRequests,
+  useMonitoringStats,
+  useMonitoringTop,
+} from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
+
+const REQUEST_LIMIT = 50;
+const TOP_LIMIT = 5;
+
+export function MonitoringDashboardScreen() {
+  const t = useTranslations("monitoringDashboard");
+  const tCommonLabels = useTranslations("common.labels");
+
+  const [type, setType] = useState<MonitoringType>("all");
+  const [status, setStatus] = useState<MonitoringStatusFilter>("all");
+  const [model, setModel] = useState<string | null>(null);
+  const [apiKeyId, setApiKeyId] = useState<string | null>(null);
+  const [range, setRange] = useState(() => createRangeFromDays(7));
+  const [metric, setMetric] = useState<MonitoringMetric>("requests");
+  const [searchInput, setSearchInput] = useState("");
+
+  const debouncedQuery = useDebouncedValue(searchInput, 350).trim();
+  const tz = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC",
+    [],
+  );
+
+  const filters: MonitoringFiltersState = useMemo(
+    () => ({
+      type,
+      status,
+      model,
+      apiKeyId,
+      query: debouncedQuery.length ? debouncedQuery : null,
+      from: range.from,
+      to: range.to,
+      tz,
+    }),
+    [apiKeyId, debouncedQuery, model, range.from, range.to, status, type, tz],
+  );
+
+  const overviewQuery = useMonitoringOverview(filters);
+  const statsQuery = useMonitoringStats(filters);
+  const requestsQuery = useMonitoringRequests(filters, REQUEST_LIMIT);
+  const topQuery = useMonitoringTop(filters, metric, TOP_LIMIT);
+  const apiKeysQuery = useMonitoringApiKeys();
+  const modelCatalog = useRuntimeModelCatalog();
+
+  const models = useMemo<MonitoringFilterModel[]>(
+    () =>
+      modelCatalog.items
+        .filter((item) => (type === "all" ? true : item.type === type))
+        .map((item) => ({
+          key: item.key,
+          label: item.label,
+          type: item.type,
+        })),
+    [modelCatalog.items, type],
+  );
+
+  const apiKeys = useMemo<MonitoringFilterApiKey[]>(
+    () =>
+      (apiKeysQuery.data?.items ?? []).map((item) => ({
+        id: item.id,
+        maskedKey: item.maskedKey,
+        status: item.status,
+      })),
+    [apiKeysQuery.data?.items],
+  );
+
+  const updatedAt = requestsQuery.data?.updatedAt ?? null;
+  const requestsError = requestsQuery.error ? t("requests.error") : null;
+
+  return (
+    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
+      <PageHeader
+        title={
+          <>
+            <span className="text-white">{t("title.leading")}</span>{" "}
+            <span className="text-primary">{t("title.accent")}</span>
+          </>
+        }
+        subtitle={t("subtitle")}
+        rightSlot={
+          <div className="flex flex-col gap-3">
+            <PageHeaderSearchInput
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder={tCommonLabels("searchPlaceholder")}
+              showFilterButton={false}
+            />
+            <div className="rounded-2xl border border-white/10 bg-surface-dark px-4 py-3 text-xs font-mono text-gray-400">
+              <div className="uppercase tracking-widest text-gray-500">
+                {t("lastUpdated")}
+              </div>
+              <div className="text-sm font-semibold text-white">
+                {updatedAt ? new Date(updatedAt).toLocaleString() : t("updating")}
+              </div>
+            </div>
+          </div>
+        }
+        rightSlotClassName="md:w-[340px]"
+      >
+        <MonitoringFilters
+          filters={filters}
+          onTypeChange={setType}
+          onStatusChange={setStatus}
+          onModelChange={setModel}
+          onApiKeyChange={setApiKeyId}
+          onRangeChange={setRange}
+          onQuickRange={(days) => setRange(createRangeFromDays(days))}
+          models={models}
+          apiKeys={apiKeys}
+        />
+      </PageHeader>
+
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+        <MonitoringKpiCards
+          data={overviewQuery.data ?? null}
+          isLoading={overviewQuery.isLoading}
+        />
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <MonitoringStatsChart
+            data={statsQuery.data?.items ?? []}
+            isLoading={statsQuery.isLoading}
+          />
+          <MonitoringTopList
+            data={topQuery.data ?? null}
+            isLoading={topQuery.isLoading}
+            metric={metric}
+            onMetricChange={setMetric}
+          />
+        </div>
+
+        <MonitoringRequestTable
+          items={requestsQuery.data?.items ?? []}
+          isLoading={requestsQuery.isLoading}
+          error={requestsError}
+          updatedAt={updatedAt}
+        />
+      </div>
+    </div>
+  );
+}

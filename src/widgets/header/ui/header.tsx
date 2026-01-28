@@ -41,7 +41,7 @@ const headerIcons: Record<string, typeof ImageIcon> = {
   "/image": ImageIcon,
   "/video": Clapperboard,
   "/history": History,
-  "/monitoring/queue": Activity,
+  "/monitoring": Activity,
   "/model": Boxes,
   "/api-key": KeyRound,
   "/api-docs": BookOpen,
