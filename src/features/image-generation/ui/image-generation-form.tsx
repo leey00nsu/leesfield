@@ -268,7 +268,11 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const hasResults = state.status === "completed" && resultImages.length > 0;
 
   const handleSelectModel = (modelId: string) => {
-    form.setValue("model", modelId);
+    if (modelId === activeModel) return;
+    if (isGenerating) {
+      reset();
+    }
+    form.setValue("model", modelId, { shouldValidate: true });
   };
 
   const handleRandomizeSeed = () => {

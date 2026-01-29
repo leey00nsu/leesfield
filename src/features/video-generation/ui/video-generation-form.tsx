@@ -205,6 +205,14 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const hasResults = state.status === "completed" && resultVideos.length > 0;
   const primaryVideo = resultVideos[0];
 
+  const handleSelectModel = (modelId: string) => {
+    if (modelId === activeModel) return;
+    if (isGenerating) {
+      reset();
+    }
+    form.setValue("model", modelId, { shouldValidate: true });
+  };
+
   const handleOpenImagePicker = () => {
     fileInputRef.current?.click();
   };
@@ -265,7 +273,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
         <GenerationModelSection
           items={modelCards}
           activeId={activeModel}
-          onSelect={(modelId) => form.setValue("model", modelId)}
+          onSelect={handleSelectModel}
           action={
             <Button
               type="button"
