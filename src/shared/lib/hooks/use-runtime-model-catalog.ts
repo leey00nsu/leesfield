@@ -47,13 +47,21 @@ async function fetchRuntimeModelCatalog(
   return [];
 }
 
-export function useRuntimeModelCatalog() {
+type UseRuntimeModelCatalogOptions = {
+  enabled?: boolean;
+};
+
+export function useRuntimeModelCatalog(
+  options: UseRuntimeModelCatalogOptions = {},
+) {
+  const enabled = options.enabled ?? true;
   const queryResult = useQuery({
     queryKey: RUNTIME_MODELS_QUERY_KEY,
     queryFn: ({ signal }) => fetchRuntimeModelCatalog(signal),
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     retry: 1,
+    enabled,
   });
 
   const items = useMemo(() => queryResult.data ?? [], [queryResult.data]);
@@ -70,9 +78,10 @@ export function useRuntimeModelCatalog() {
     items,
     imageModels,
     videoModels,
-    isLoading: queryResult.isLoading,
-    error:
-      queryResult.error instanceof Error
+    isLoading: enabled ? queryResult.isLoading : false,
+    error: !enabled
+      ? null
+      : queryResult.error instanceof Error
         ? queryResult.error.message
         : queryResult.error
           ? "MODEL_CATALOG_FETCH_FAILED"

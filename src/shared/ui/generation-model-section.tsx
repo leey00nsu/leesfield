@@ -8,6 +8,7 @@ interface GenerationModelOption<T extends string> {
   id: T;
   name: string;
   vendor: string;
+  modalities?: string[];
 }
 
 interface GenerationModelSectionProps<T extends string> {
@@ -28,6 +29,7 @@ export function GenerationModelSection<T extends string>({
   className,
 }: GenerationModelSectionProps<T>) {
   const t = useTranslations("generation");
+  const tModel = useTranslations("model");
   const resolvedTitle = title ?? t("modelSelect");
 
   return (
@@ -49,7 +51,7 @@ export function GenerationModelSection<T extends string>({
               "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
               activeId === model.id
                 ? "border-2 border-primary"
-                : "border border-white/5 hover:border-white/20"
+                : "border border-white/5 hover:border-white/20",
             )}
           >
             <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
@@ -57,9 +59,26 @@ export function GenerationModelSection<T extends string>({
               <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
               <div className="absolute bottom-2 left-3">
                 <div className="text-sm font-bold text-white">{model.name}</div>
-                <div className="text-[10px] font-mono text-primary">
-                  {model.vendor}
-                </div>
+                {model.vendor ? (
+                  <div className="text-[10px] font-mono text-primary">
+                    {model.vendor}
+                  </div>
+                ) : null}
+                {model.modalities && model.modalities.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {model.modalities.map((modality) => (
+                      <span
+                        key={`${model.id}-${modality}`}
+                        className="rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-widest text-gray-200"
+                        title={tModel(
+                          `modality.${modality.toLowerCase()}` as const,
+                        )}
+                      >
+                        {modality}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             {activeId === model.id && (

@@ -6,7 +6,6 @@ interface GenerationCanvasProps {
   children: ReactNode;
   actions?: ReactNode;
   isGenerating: boolean;
-  progressValue?: number;
   status: string;
   errorMessage?: string;
   className?: string;
@@ -16,7 +15,6 @@ export function GenerationCanvas({
   children,
   actions,
   isGenerating,
-  progressValue = 0,
   status,
   errorMessage,
   className,
@@ -42,9 +40,6 @@ export function GenerationCanvas({
           <div className="relative flex h-20 w-20 items-center justify-center">
             <div className="absolute inset-0 rounded-full border-4 border-white/10" />
             <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <span className="text-sm font-bold text-white">
-              {progressValue}%
-            </span>
           </div>
           <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
             {t("generating")}

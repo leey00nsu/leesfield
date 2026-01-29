@@ -44,10 +44,12 @@ describe("ImageGenerationForm", () => {
 
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
     const startGeneration = vi.fn();
+    const reset = vi.fn();
 
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration,
+      reset,
     });
 
     const user = userEvent.setup();
@@ -63,7 +65,7 @@ describe("ImageGenerationForm", () => {
     expect(startGeneration).not.toHaveBeenCalled();
   });
 
-  it("생성 중 상태와 진행률을 표시한다", () => {
+  it("생성 중 상태를 표시한다", () => {
     mockUseImageGeneration.mockReturnValue({
       state: {
         status: "processing",
@@ -71,11 +73,12 @@ describe("ImageGenerationForm", () => {
         requestId: "request-id",
       },
       startGeneration: vi.fn(),
+      reset: vi.fn(),
     });
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    expect(screen.getByText("42%")).toBeInTheDocument();
+    expect(screen.queryByText("42%")).not.toBeInTheDocument();
     expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
   });
 
@@ -90,6 +93,7 @@ describe("ImageGenerationForm", () => {
         },
       },
       startGeneration: vi.fn(),
+      reset: vi.fn(),
     });
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
@@ -101,16 +105,21 @@ describe("ImageGenerationForm", () => {
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
     const startGeneration = vi.fn();
+    const reset = vi.fn();
 
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration,
+      reset,
     });
 
     const user = userEvent.setup();
 
     renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
-    await waitForModels();
+
+    expect(
+      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -128,6 +137,7 @@ describe("ImageGenerationForm", () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
+      reset: vi.fn(),
     });
 
     const user = userEvent.setup();
@@ -141,5 +151,42 @@ describe("ImageGenerationForm", () => {
     expect(await screen.findByText("모드")).toBeInTheDocument();
     expect(await screen.findByText("가이던스")).toBeInTheDocument();
     expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
+  });
+
+  it("모델 카드에 모달리티 배지를 표시한다", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getAllByText("T2I").length).toBeGreaterThan(0);
+    expect(screen.getByText("I2I")).toBeInTheDocument();
+  });
+
+  it("모델 전환 시 생성 폴링을 리셋한다", async () => {
+    const reset = vi.fn();
+    mockUseImageGeneration.mockReturnValue({
+      state: {
+        status: "processing",
+        progress: 0,
+        requestId: "request-id",
+      },
+      startGeneration: vi.fn(),
+      reset,
+    });
+
+    const user = userEvent.setup();
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    await user.click(
+      screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }),
+    );
+
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 });

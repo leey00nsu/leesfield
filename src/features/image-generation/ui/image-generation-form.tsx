@@ -56,6 +56,7 @@ import {
   resolveRuntimeImageMaxInputImages,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
+import { resolveImageModalities } from "@/shared/model-catalog/modality";
 
 type ImageGenerationFormProps = {
   isAuthenticated: boolean;
@@ -70,8 +71,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.image");
   const tLoginGate = useTranslations("auth.loginGate");
+  const isGuest = !isAuthenticated;
   const { imageModels: runtimeImageModels, isLoading: isModelLoading } =
-    useRuntimeModelCatalog();
+    useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedImageModels = runtimeImageModels;
   const hasModels = resolvedImageModels.length > 0;
   const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedImageModels) ?? "";
@@ -85,6 +87,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         id: model.key,
         name: model.label,
         vendor: model.vendor,
+        modalities: resolveImageModalities(model.meta),
       })),
     [resolvedImageModels],
   );
@@ -264,12 +267,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
-  const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
 
   const handleSelectModel = (modelId: string) => {
-    form.setValue("model", modelId);
+    if (modelId === activeModel) return;
+    if (isGenerating) {
+      reset();
+    }
+    form.setValue("model", modelId, { shouldValidate: true });
   };
 
   const handleRandomizeSeed = () => {
@@ -329,29 +335,36 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         className="flex flex-col gap-8"
         onSubmit={handleFormSubmit}
       >
-        <GenerationModelSection
-          items={modelOptions}
-          activeId={activeModel}
-          onSelect={handleSelectModel}
-          action={
-            <Button
-              type="button"
-              variant="link"
-              disabled
-              aria-disabled="true"
-              className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-              title={tActions("comingSoon")}
-            >
-              {tActions("viewAllModels")}
-            </Button>
-          }
-        />
-        {isModelLoading && (
+        {!isGuest && (
+          <GenerationModelSection
+            items={modelOptions}
+            activeId={activeModel}
+            onSelect={handleSelectModel}
+            action={
+              <Button
+                type="button"
+                variant="link"
+                disabled
+                aria-disabled="true"
+                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+                title={tActions("comingSoon")}
+              >
+                {tActions("viewAllModels")}
+              </Button>
+            }
+          />
+        )}
+        {isGuest && (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+            {tGeneration("modelLoginRequired")}
+          </div>
+        )}
+        {!isGuest && isModelLoading && (
           <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
             {tGeneration("modelLoading")}
           </div>
         )}
-        {!isModelLoading && !hasModels && (
+        {!isGuest && !isModelLoading && !hasModels && (
           <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
             {tGeneration("noModels")}
           </div>
@@ -387,7 +400,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                 </>
               }
               isGenerating={isGenerating}
-              progressValue={progressValue}
               status={state.status}
               errorMessage={state.errorMessage}
             >
@@ -550,7 +562,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                   type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
-                  disabled={isGenerating || isModelLoading || !hasModels}
+                  disabled={
+                    isGenerating ||
+                    (isAuthenticated && (isModelLoading || !hasModels))
+                  }
                   className="flex-col"
                   onClick={
                     isAuthenticated

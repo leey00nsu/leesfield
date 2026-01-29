@@ -66,9 +66,12 @@ export function useGenerationPolling<
     progress: 0,
   });
   const startedAtRef = useRef<number | null>(null);
+  const requestTokenRef = useRef(0);
 
   const startGeneration = useCallback(
     async (values: TValues) => {
+      const token = requestTokenRef.current + 1;
+      requestTokenRef.current = token;
       setState({
         status: startStatus,
         progress: 0,
@@ -80,6 +83,7 @@ export function useGenerationPolling<
 
       try {
         const response = await request(values);
+        if (requestTokenRef.current !== token) return;
         setState({
           status: response.status,
           progress: response.progress,
@@ -88,6 +92,7 @@ export function useGenerationPolling<
           result: response.result,
         });
       } catch (error) {
+        if (requestTokenRef.current !== token) return;
         setState({
           status: errorStatus,
           progress: 0,
@@ -110,8 +115,12 @@ export function useGenerationPolling<
     }
 
     let isActive = true;
+    const token = requestTokenRef.current;
 
     const pollOnce = async () => {
+      if (requestTokenRef.current !== token) {
+        return;
+      }
       const startedAt = startedAtRef.current ?? Date.now();
       // 무한 폴링 방지를 위해 시작 시점 기준으로 타임아웃을 강제한다.
       if (Date.now() - startedAt > timeoutMs) {
@@ -127,7 +136,7 @@ export function useGenerationPolling<
 
       try {
         const response = await poll(requestId);
-        if (!isActive) return;
+        if (!isActive || requestTokenRef.current !== token) return;
         setState((prev) => ({
           ...prev,
           status: response.status,
@@ -136,7 +145,7 @@ export function useGenerationPolling<
           result: response.result,
         }));
       } catch (error) {
-        if (!isActive) return;
+        if (!isActive || requestTokenRef.current !== token) return;
         setState((prev) => ({
           ...prev,
           status: errorStatus,
@@ -167,6 +176,7 @@ export function useGenerationPolling<
   ]);
 
   const reset = useCallback(() => {
+    requestTokenRef.current += 1;
     startedAtRef.current = null;
     setState({ status: "idle", progress: 0 });
   }, []);

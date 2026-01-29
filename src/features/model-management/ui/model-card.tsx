@@ -4,6 +4,10 @@ import type { ModelCatalogItem } from "@/features/model-management/model/model-c
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import {
+  resolveImageModalities,
+  resolveVideoModalities,
+} from "@/shared/model-catalog/modality";
 
 interface ModelCardProps {
   item: ModelCatalogItem;
@@ -26,10 +30,23 @@ const typeConfig = {
 };
 
 function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
+  const modalities =
+    item.type === "image"
+      ? resolveImageModalities({ maxInputImages: item.meta.maxInputImages })
+      : resolveVideoModalities({
+          supportsInitImage: item.meta.supportsInitImage,
+          t2vModelId: item.meta.t2vModelId,
+          i2vModelId: item.meta.i2vModelId,
+        });
+
   const base = [
     {
       label: t("meta.provider"),
       value: item.provider,
+    },
+    {
+      label: t("meta.modality"),
+      value: modalities.join(" · "),
     },
   ];
 
@@ -52,7 +69,7 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
     ...base,
     {
       label: t("meta.mode"),
-      value: item.meta.supportsInitImage ? "I2V" : "T2V",
+      value: modalities.includes("I2V") ? "I2V" : "T2V",
     },
     {
       label: t("meta.size"),

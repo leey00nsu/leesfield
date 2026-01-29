@@ -154,6 +154,7 @@
     "modelSelect": "Select_Model",
     "modelLoading": "Loading models...",
     "noModels": "No models are registered. Add a model in the admin page.",
+    "modelLoginRequired": "Log in to view the model list.",
     "settings": "Settings",
     "canvas": {
       "emptyTitle": "Canvas Empty",
@@ -403,8 +404,15 @@
         "size": "SIZE",
         "input": "INPUT",
         "mode": "MODE",
+        "modality": "MODALITY",
         "duration": "DURATION"
       }
+    },
+    "modality": {
+      "t2i": "Text to Image",
+      "i2i": "Image to Image",
+      "t2v": "Text to Video",
+      "i2v": "Image to Video"
     },
     "admin": {
       "toolbar": {
