@@ -154,6 +154,7 @@
     "modelSelect": "모델 선택",
     "modelLoading": "모델을 불러오는 중입니다...",
     "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
+    "modelLoginRequired": "로그인하여 모델 목록을 확인하세요.",
     "settings": "설정",
     "canvas": {
       "emptyTitle": "캔버스 비어 있음",

@@ -71,8 +71,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.image");
   const tLoginGate = useTranslations("auth.loginGate");
+  const isGuest = !isAuthenticated;
   const { imageModels: runtimeImageModels, isLoading: isModelLoading } =
-    useRuntimeModelCatalog();
+    useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedImageModels = runtimeImageModels;
   const hasModels = resolvedImageModels.length > 0;
   const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedImageModels) ?? "";
@@ -334,29 +335,36 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         className="flex flex-col gap-8"
         onSubmit={handleFormSubmit}
       >
-        <GenerationModelSection
-          items={modelOptions}
-          activeId={activeModel}
-          onSelect={handleSelectModel}
-          action={
-            <Button
-              type="button"
-              variant="link"
-              disabled
-              aria-disabled="true"
-              className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-              title={tActions("comingSoon")}
-            >
-              {tActions("viewAllModels")}
-            </Button>
-          }
-        />
-        {isModelLoading && (
+        {!isGuest && (
+          <GenerationModelSection
+            items={modelOptions}
+            activeId={activeModel}
+            onSelect={handleSelectModel}
+            action={
+              <Button
+                type="button"
+                variant="link"
+                disabled
+                aria-disabled="true"
+                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+                title={tActions("comingSoon")}
+              >
+                {tActions("viewAllModels")}
+              </Button>
+            }
+          />
+        )}
+        {isGuest && (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+            {tGeneration("modelLoginRequired")}
+          </div>
+        )}
+        {!isGuest && isModelLoading && (
           <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
             {tGeneration("modelLoading")}
           </div>
         )}
-        {!isModelLoading && !hasModels && (
+        {!isGuest && !isModelLoading && !hasModels && (
           <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
             {tGeneration("noModels")}
           </div>
@@ -554,7 +562,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                   type={isAuthenticated ? "submit" : "button"}
                   variant="hero"
                   size="hero"
-                  disabled={isGenerating || isModelLoading || !hasModels}
+                  disabled={
+                    isGenerating ||
+                    (isAuthenticated && (isModelLoading || !hasModels))
+                  }
                   className="flex-col"
                   onClick={
                     isAuthenticated

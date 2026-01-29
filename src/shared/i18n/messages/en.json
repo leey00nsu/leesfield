@@ -154,6 +154,7 @@
     "modelSelect": "Select_Model",
     "modelLoading": "Loading models...",
     "noModels": "No models are registered. Add a model in the admin page.",
+    "modelLoginRequired": "Log in to view the model list.",
     "settings": "Settings",
     "canvas": {
       "emptyTitle": "Canvas Empty",

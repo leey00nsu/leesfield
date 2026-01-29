@@ -66,8 +66,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.video");
   const tLoginGate = useTranslations("auth.loginGate");
+  const isGuest = !isAuthenticated;
   const { videoModels: runtimeVideoModels, isLoading: isModelLoading } =
-    useRuntimeModelCatalog();
+    useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedVideoModels = runtimeVideoModels;
   const hasModels = resolvedVideoModels.length > 0;
   const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedVideoModels) ?? "";
@@ -272,29 +273,36 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
         className="flex flex-col gap-8"
         onSubmit={handleFormSubmit}
       >
-        <GenerationModelSection
-          items={modelCards}
-          activeId={activeModel}
-          onSelect={handleSelectModel}
-          action={
-            <Button
-              type="button"
-              variant="link"
-              disabled
-              aria-disabled="true"
-              className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-              title={tActions("comingSoon")}
-            >
-              {tActions("viewAllModels")}
-            </Button>
-          }
-        />
-        {isModelLoading && (
+        {!isGuest && (
+          <GenerationModelSection
+            items={modelCards}
+            activeId={activeModel}
+            onSelect={handleSelectModel}
+            action={
+              <Button
+                type="button"
+                variant="link"
+                disabled
+                aria-disabled="true"
+                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
+                title={tActions("comingSoon")}
+              >
+                {tActions("viewAllModels")}
+              </Button>
+            }
+          />
+        )}
+        {isGuest && (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+            {tGeneration("modelLoginRequired")}
+          </div>
+        )}
+        {!isGuest && isModelLoading && (
           <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
             {tGeneration("modelLoading")}
           </div>
         )}
-        {!isModelLoading && !hasModels && (
+        {!isGuest && !isModelLoading && !hasModels && (
           <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
             {tGeneration("noModels")}
           </div>
@@ -481,9 +489,8 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   size="hero"
                   disabled={
                     isGenerating ||
-                    isModelLoading ||
-                    !hasModels ||
-                    (isAuthenticated && !canSubmit)
+                    (isAuthenticated &&
+                      (isModelLoading || !hasModels || !canSubmit))
                   }
                   className="flex-col"
                   onClick={

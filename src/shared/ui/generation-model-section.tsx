@@ -51,7 +51,7 @@ export function GenerationModelSection<T extends string>({
               "group relative h-auto w-full flex-col rounded-xl bg-surface-dark p-1 text-left transition-all hover:bg-surface-dark",
               activeId === model.id
                 ? "border-2 border-primary"
-                : "border border-white/5 hover:border-white/20"
+                : "border border-white/5 hover:border-white/20",
             )}
           >
             <div className="relative h-24 w-full overflow-hidden rounded-lg bg-black">
@@ -59,9 +59,11 @@ export function GenerationModelSection<T extends string>({
               <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
               <div className="absolute bottom-2 left-3">
                 <div className="text-sm font-bold text-white">{model.name}</div>
-                <div className="text-[10px] font-mono text-primary">
-                  {model.vendor}
-                </div>
+                {model.vendor ? (
+                  <div className="text-[10px] font-mono text-primary">
+                    {model.vendor}
+                  </div>
+                ) : null}
                 {model.modalities && model.modalities.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {model.modalities.map((modality) => (

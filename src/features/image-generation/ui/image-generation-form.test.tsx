@@ -116,7 +116,10 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
 
     renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
-    await waitForModels();
+
+    expect(
+      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 

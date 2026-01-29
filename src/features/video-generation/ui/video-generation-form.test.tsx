@@ -124,7 +124,10 @@ describe("VideoGenerationForm", () => {
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated={false} />);
-    await waitForModels();
+
+    expect(
+      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+    ).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "생성" }));
