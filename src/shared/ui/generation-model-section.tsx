@@ -8,6 +8,7 @@ interface GenerationModelOption<T extends string> {
   id: T;
   name: string;
   vendor: string;
+  modalities?: string[];
 }
 
 interface GenerationModelSectionProps<T extends string> {
@@ -28,6 +29,7 @@ export function GenerationModelSection<T extends string>({
   className,
 }: GenerationModelSectionProps<T>) {
   const t = useTranslations("generation");
+  const tModel = useTranslations("model");
   const resolvedTitle = title ?? t("modelSelect");
 
   return (
@@ -60,6 +62,21 @@ export function GenerationModelSection<T extends string>({
                 <div className="text-[10px] font-mono text-primary">
                   {model.vendor}
                 </div>
+                {model.modalities && model.modalities.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {model.modalities.map((modality) => (
+                      <span
+                        key={`${model.id}-${modality}`}
+                        className="rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-widest text-gray-200"
+                        title={tModel(
+                          `modality.${modality.toLowerCase()}` as const,
+                        )}
+                      >
+                        {modality}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             {activeId === model.id && (

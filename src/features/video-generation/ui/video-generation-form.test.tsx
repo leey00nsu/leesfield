@@ -70,6 +70,14 @@ describe("VideoGenerationForm", () => {
     expect(await screen.findByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
+  it("모달리티 배지를 표시한다", async () => {
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(await screen.findByText("T2V")).toBeInTheDocument();
+    expect(await screen.findByText("I2V")).toBeInTheDocument();
+  });
+
   it("submits prompt and default settings", async () => {
     const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();

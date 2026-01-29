@@ -51,6 +51,7 @@ import {
   resolveRuntimeVideoSupportsInitImage,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
+import { resolveVideoModalities } from "@/shared/model-catalog/modality";
 
 type VideoGenerationFormProps = {
   isAuthenticated: boolean;
@@ -80,6 +81,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
         id: model.key,
         name: model.label,
         vendor: model.vendor,
+        modalities: resolveVideoModalities(model.meta),
       })),
     [resolvedVideoModels],
   );

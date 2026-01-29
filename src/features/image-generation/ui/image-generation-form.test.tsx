@@ -150,6 +150,20 @@ describe("ImageGenerationForm", () => {
     expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
   });
 
+  it("모델 카드에 모달리티 배지를 표시한다", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getAllByText("T2I").length).toBeGreaterThan(0);
+    expect(screen.getByText("I2I")).toBeInTheDocument();
+  });
+
   it("모델 전환 시 생성 폴링을 리셋한다", async () => {
     const reset = vi.fn();
     mockUseImageGeneration.mockReturnValue({

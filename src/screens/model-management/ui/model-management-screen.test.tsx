@@ -133,4 +133,19 @@ describe("ModelManagementScreen", () => {
       expect(screen.queryAllByText(videoModel!.label).length).toBeGreaterThan(0);
     });
   });
+
+  it("모달리티 배지를 표시한다", async () => {
+    mockFetch();
+
+    renderWithIntl(<ModelManagementScreen />);
+
+    expect(
+      (await screen.findAllByText(imageModel!.label)).length,
+    ).toBeGreaterThan(0);
+
+    expect(screen.getAllByText(/T2I/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/I2I/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/T2V/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/I2V/).length).toBeGreaterThan(0);
+  });
 });

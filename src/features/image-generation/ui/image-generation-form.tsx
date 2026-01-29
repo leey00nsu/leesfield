@@ -56,6 +56,7 @@ import {
   resolveRuntimeImageMaxInputImages,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
+import { resolveImageModalities } from "@/shared/model-catalog/modality";
 
 type ImageGenerationFormProps = {
   isAuthenticated: boolean;
@@ -85,6 +86,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         id: model.key,
         name: model.label,
         vendor: model.vendor,
+        modalities: resolveImageModalities(model.meta),
       })),
     [resolvedImageModels],
   );
