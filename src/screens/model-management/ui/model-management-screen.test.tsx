@@ -135,12 +135,16 @@ describe("ModelManagementScreen", () => {
   });
 
   it("모달리티 배지를 표시한다", async () => {
+    expect(imageModel).toBeDefined();
+    const imageModelLabel = imageModel?.label;
+    expect(imageModelLabel).toBeDefined();
+
     mockFetch();
 
     renderWithIntl(<ModelManagementScreen />);
 
     expect(
-      (await screen.findAllByText(imageModel!.label)).length,
+      (await screen.findAllByText(imageModelLabel ?? "")).length,
     ).toBeGreaterThan(0);
 
     expect(screen.getAllByText(/T2I/).length).toBeGreaterThan(0);

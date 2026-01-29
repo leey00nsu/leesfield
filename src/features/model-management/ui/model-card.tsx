@@ -69,7 +69,7 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
     ...base,
     {
       label: t("meta.mode"),
-      value: item.meta.supportsInitImage ? "I2V" : "T2V",
+      value: modalities.includes("I2V") ? "I2V" : "T2V",
     },
     {
       label: t("meta.size"),
