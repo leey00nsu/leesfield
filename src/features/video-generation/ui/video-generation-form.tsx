@@ -201,7 +201,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const { state, startGeneration, reset } = useVideoGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
-  const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultVideos = state.result?.videos ?? [];
   const hasResults = state.status === "completed" && resultVideos.length > 0;
   const primaryVideo = resultVideos[0];
@@ -321,7 +320,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                 </>
               }
               isGenerating={isGenerating}
-              progressValue={progressValue}
               status={state.status}
               errorMessage={state.errorMessage}
             >

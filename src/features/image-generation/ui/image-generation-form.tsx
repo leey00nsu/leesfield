@@ -264,7 +264,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
-  const progressValue = Math.min(100, Math.max(0, Math.round(state.progress)));
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
 
@@ -387,7 +386,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                 </>
               }
               isGenerating={isGenerating}
-              progressValue={progressValue}
               status={state.status}
               errorMessage={state.errorMessage}
             >

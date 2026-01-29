@@ -63,7 +63,7 @@ describe("ImageGenerationForm", () => {
     expect(startGeneration).not.toHaveBeenCalled();
   });
 
-  it("생성 중 상태와 진행률을 표시한다", () => {
+  it("생성 중 상태를 표시한다", () => {
     mockUseImageGeneration.mockReturnValue({
       state: {
         status: "processing",
@@ -75,7 +75,7 @@ describe("ImageGenerationForm", () => {
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    expect(screen.getByText("42%")).toBeInTheDocument();
+    expect(screen.queryByText("42%")).not.toBeInTheDocument();
     expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
   });
 
