@@ -1,14 +1,15 @@
 ![leesfield logo](public/logo.webp)
 
 <h1 align="center">
-  <strong>leesfield-fe</strong>
+  <strong>leesfield</strong>
 </h1>
 
 <p align="center">
-  <strong>AI 이미지/비디오 생성 서비스 대시보드</strong>
+  <strong>AI 생성 플랫폼</strong>
 </p>
 
 <p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.9.0-brightgreen" alt="Node.js">
   <img src="https://img.shields.io/badge/next-16.1.1-black" alt="Next.js">
 </p>
@@ -16,13 +17,8 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
   <a href="#주요-기능">주요 기능</a> •
-  <a href="#기술-스택">기술 스택</a> •
-  <a href="#설치-및-설정">설치 및 설정</a> •
-  <a href="#api-문서">API 문서</a>
-</p>
-
-<p align="center">
-  <img src="public/sample-image.png" alt="Leesfield Screenshot" width="800" />
+  <a href="#api-문서">API 문서</a> •
+  <a href="https://leesfield.leey00nsu.com">데모</a>
 </p>
 
 ---
@@ -57,32 +53,41 @@ pnpm db:prepare
 pnpm dev
 ```
 
-→ [http://localhost:3000](http://localhost:3000)
-
 ## 주요 기능
 
+### 🎨 AI 생성
+
 - 이미지/비디오 생성 대시보드
-- 생성 히스토리 조회
-- 모델 카탈로그/관리
-- API 키 관리 및 외부 API 제공
+- 생성 히스토리 조회 및 관리
+
+### 📊 모델 관리
+
+- 모델 카탈로그 등록/수정
 - 모니터링 대시보드
-- OpenAPI 문서 제공
-- 다국어(i18n) 지원
+
+### 🔗 API 통합
+
+- RESTful API 및 자동 생성 OpenAPI 문서
+- API 키 기반 인증
+
+### 🌐 국제화 (i18n)
+
+- next-intl 기반 다국어 지원 (한국어, 영어)
 
 ## 기술 스택
 
-| 영역           | 기술                       |
-| -------------- | -------------------------- |
-| **Framework**  | Next.js 16 (App Router)    |
-| **Language**   | TypeScript                 |
-| **Styling**    | Tailwind CSS, shadcn/ui    |
-| **State**      | TanStack Query             |
-| **Form**       | React Hook Form            |
-| **Validation** | Zod                        |
-| **Database**   | PostgreSQL, Prisma         |
-| **Auth**       | iron-session               |
-| **Test**       | Vitest                     |
-| **DevOps**     | Docker, Husky, pnpm        |
+| 영역           | 기술                    |
+| -------------- | ----------------------- |
+| **Framework**  | Next.js 16 (App Router) |
+| **Language**   | TypeScript              |
+| **Styling**    | Tailwind CSS, shadcn/ui |
+| **State**      | TanStack Query          |
+| **Form**       | React Hook Form         |
+| **Validation** | Zod                     |
+| **Database**   | PostgreSQL, Prisma      |
+| **Auth**       | iron-session            |
+| **Test**       | Vitest                  |
+| **DevOps**     | Docker, Husky, pnpm     |
 
 ## 설치 및 설정
 
@@ -184,59 +189,10 @@ pnpm dev
 
 ### 6) 모델 카탈로그 관리
 
-모델 정의/파라미터는 DB의 모델 카탈로그에서 **JSON 구조로 저장**됩니다.  
+모델 정의/파라미터는 DB의 모델 카탈로그에서 JSON 구조로 저장됩니다.
 관리 화면에서 등록/수정한 설정이 생성 요청과 검증에 사용됩니다.
 
-#### JSON 스키마 요약
-
-- **type**: `image` | `video`
-- **key / label / vendor / provider**
-- **providerConfig**: `hf_space` 설정 (예: `space_id`, `api_name`, `timeout_ms`)
-- **parameters**: UI 및 검증 파라미터 정의
-- **meta**: 기본값/제약/모달리티 정보
-
-#### parameters (UI/검증)
-
-`parameters`는 각 입력 필드의 UI와 검증 규칙을 정의합니다.
-
-- **ui**: `range | input | textarea | select | toggle | hidden | card | upload`
-- **required**: 필수 여부
-- **min / max / step**: 범위/스텝
-- **default**: 기본값
-- **options**: `select`/`card` 옵션 목록
-
-이미지 모델 키 예시:
-`prompt`, `width`, `height`, `steps`, `modeChoice`, `guidanceScale`, `promptUpsampling`, `seed`, `imageCount`
-
-비디오 모델 키 예시:
-`prompt`, `initImage`, `durationSec`, `steps`, `guidanceScale`, `seed`, `aspectRatio`, `resolution`, `fps`
-
-#### meta (기본값/제약)
-
-`meta`는 모델별 기본값/제약 정보를 제공합니다.
-
-- 이미지: `default_width`, `default_height`, `default_steps`, `concurrent_limit`, `max_input_images`
-- 비디오: `default_width`, `default_height`, `default_duration_sec`, `default_fps`, `default_steps`, `default_guidance_scale`, `concurrent_limit`, `supports_init_image`
-
-#### UI 구분 규칙
-
-- `parameters.{field}.ui === "hidden"`이면 해당 입력 UI를 숨깁니다.
-- `options`가 있는 경우 `select`/`card` 선택 UI로 렌더링됩니다.
-- 기본값은 `parameters.{field}.default` → 없으면 `meta.default_*` → 공통 fallback 순으로 결정됩니다.
-
-#### 모달리티 배지 기준
-
-- **이미지**: `max_input_images > 0` 이면 `I2I` 추가, 기본은 `T2I`
-- **비디오**: `supports_init_image` 또는 `i2v_model_id`가 있으면 `I2V`, `t2v_model_id`가 있으면 `T2V`
-
-#### 스키마 확장 가이드
-
-JSON 구조를 확장할 때는 아래를 함께 갱신하세요.
-
-- 스키마 검증: `src/server/model-catalog/catalog-schema.ts`
-- 런타임 기본값/제약: `src/server/model-catalog/runtime-models.ts`
-- UI/검증 규칙: `src/shared/model-catalog/runtime-utils.ts`, `src/shared/model-catalog/runtime-schema.ts`
-- 모달리티 규칙: `src/shared/model-catalog/modality.ts`
+자세한 스키마 정보: [모델 카탈로그 가이드](MODEL_CATALOG.md)
 
 ### 7) 이미지 생성 저장 구조
 
@@ -292,15 +248,51 @@ pnpm build
 pnpm start
 pnpm lint
 pnpm typecheck
+```
+
+## 테스트
+
+```bash
+# 테스트 실행
 pnpm test
+
+# 워치 모드
+pnpm test:watch
 ```
 
 ## 문제 해결
 
-- DB 연결이 실패하면 `docker compose up -d` 상태를 확인하세요.
-- 로그인/세션/저장소 관련 오류는 `.env.example` 설정을 확인하세요.
+<details>
+<summary><strong>데이터베이스 연결 오류</strong></summary>
+
+```bash
+docker compose ps      # 상태 확인
+docker compose restart postgres  # 재시작
+```
+
+</details>
+
+<details>
+<summary><strong>세션/인증 오류</strong></summary>
+
+- `SESSION_PASSWORD`가 32자 이상인지 확인
+- `.env.example` 설정 참조
+
+</details>
+
+<details>
+<summary><strong>저장소 연결 실패</strong></summary>
+
+- `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID` 설정 확인
+- Leemage 서비스 상태 확인
+
+</details>
 
 ## 문서
 
 - 스펙/계획/태스크: `../docs/features/`
 - 디자인 레퍼런스: `../docs/designs/`
+
+## 라이선스
+
+[MIT License](LICENSE)
