@@ -172,6 +172,9 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
                   <img
                     src={previewUrl}
                     alt={tHistory("previewAlt")}
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     onLoad={() => {
                       setLoadedPreviewUrl(previewUrl);
                       setFailedPreviewUrl(null);
