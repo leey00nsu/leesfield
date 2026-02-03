@@ -143,7 +143,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
           isVideo ? (
             <video
               src={previewUrl}
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="h-full w-full object-contain"
               muted
               loop
               playsInline
@@ -155,7 +155,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               <img
                 src={previewUrl}
                 alt={tHistory("previewAlt")}
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                className="h-full w-full object-contain"
               />
             </>
           )
