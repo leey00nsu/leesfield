@@ -22,6 +22,7 @@ import type {
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
+import { Skeleton } from "@/shared/ui/skeleton";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -317,13 +318,14 @@ export function HistoryItemSkeleton() {
   return (
     <div className="break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
+        <Skeleton className="absolute inset-0 rounded-none bg-white/10" />
         <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
       </div>
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4">
-        <div className="h-4 w-3/4 rounded-full bg-white/10" />
+        <Skeleton className="h-4 w-3/4 rounded-full bg-white/10" />
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
-          <div className="h-4 w-20 rounded-full bg-primary/20" />
-          <div className="h-3 w-10 rounded-full bg-white/10" />
+          <Skeleton className="h-4 w-20 rounded-full bg-primary/20" />
+          <Skeleton className="h-3 w-10 rounded-full bg-white/10" />
         </div>
       </div>
     </div>
