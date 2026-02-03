@@ -89,7 +89,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
   const metaItems = buildMeta(item, tCard);
 
   return (
-    <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
+    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1c1c1c_0,#0a0a0a_70%)]" />
         <div
