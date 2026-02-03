@@ -68,6 +68,8 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const tCommonActions = useTranslations("common.actions");
   const tHistory = useTranslations("history");
   const [isCopied, setIsCopied] = useState(false);
+  const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string | null>(null);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -77,6 +79,10 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const hasInputImages = inputImages.length > 0;
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
+  const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
+  const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
+  const shouldShowPreviewSkeleton =
+    !!previewUrl && !isVideo && !isPreviewLoaded && !isPreviewFailed;
   const downloadUrl =
     item.type === "image" && item.resultUrl
       ? `/api/image-generation/${item.id}/download?index=0`
@@ -151,12 +157,33 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
             />
           ) : (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt={tHistory("previewAlt")}
-                className="h-full w-full object-contain"
-              />
+              {shouldShowPreviewSkeleton ? (
+                <Skeleton className="absolute inset-0 rounded-none bg-white/10" />
+              ) : null}
+
+              {isPreviewFailed ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <ImageIcon className="h-9 w-9 text-gray-600" aria-hidden="true" />
+                  <span className="sr-only">{tHistory("previewAlt")}</span>
+                </div>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt={tHistory("previewAlt")}
+                    onLoad={() => {
+                      setLoadedPreviewUrl(previewUrl);
+                      setFailedPreviewUrl(null);
+                    }}
+                    onError={() => setFailedPreviewUrl(previewUrl)}
+                    className={cn(
+                      "h-full w-full object-contain transition-opacity duration-200",
+                      isPreviewLoaded ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                </>
+              )}
             </>
           )
         ) : (
