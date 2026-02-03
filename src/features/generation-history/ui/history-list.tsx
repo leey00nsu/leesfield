@@ -19,7 +19,7 @@ export function HistoryList({
 
   if (isLoading) {
     return (
-      <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 9 }).map((_, index) => (
           <HistoryItemSkeleton key={`history-skeleton-${index}`} />
         ))}
@@ -44,7 +44,7 @@ export function HistoryList({
   }
 
   return (
-    <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
         <HistoryItem key={`${item.type}-${item.id}`} item={item} />
       ))}

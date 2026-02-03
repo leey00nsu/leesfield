@@ -136,7 +136,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   }, [isCopied]);
 
   return (
-    <article className="group relative mb-6 break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
+    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         {previewUrl ? (
           isVideo ? (
@@ -315,7 +315,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
 
 export function HistoryItemSkeleton() {
   return (
-    <div className="mb-6 break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
+    <div className="break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
       </div>
