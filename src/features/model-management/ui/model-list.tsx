@@ -34,7 +34,7 @@ export function ModelList({
   }
 
   return (
-    <div className="columns-1 gap-6 sm:columns-2 xl:columns-3">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
         <ModelCard key={`${item.type}-${item.key}`} item={item} onEdit={onEdit} />
       ))}
