@@ -109,6 +109,14 @@
         }
       }
     },
+    "techStack": {
+      "title": "기술 스택",
+      "description": "이 프로젝트는 Next.js(App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest 등으로 구성되어 있습니다."
+    },
+    "why": {
+      "title": "왜 leesfield인가",
+      "description": "대시보드 UX, OpenAPI 문서, 모델 카탈로그/관리, 어댑터 기반 확장 구조 등 실제 구현된 기능을 중심으로 설계된 오픈소스 프로젝트입니다."
+    },
     "showcase": {
       "title": "커뮤니티 쇼케이스",
       "viewPrompt": "프롬프트 보기"

@@ -109,6 +109,14 @@
         }
       }
     },
+    "techStack": {
+      "title": "Tech stack",
+      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more."
+    },
+    "why": {
+      "title": "Why leesfield",
+      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture."
+    },
     "showcase": {
       "title": "Community showcase",
       "viewPrompt": "View prompt"
