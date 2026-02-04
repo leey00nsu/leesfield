@@ -91,9 +91,9 @@
     "features": {
       "title": "Core features",
       "cards": {
-        "canvas": {
-          "title": "Canvas-based creation",
-          "description": "Arrange, compare, and iterate fast across an infinite canvas."
+        "generation": {
+          "title": "Image & video generation",
+          "description": "Generate images and videos from the dashboard and review results quickly."
         },
         "history": {
           "title": "Generation history",
