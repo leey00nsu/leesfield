@@ -1,7 +1,8 @@
 import { Header } from "@/widgets/header/ui/header";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { LandingFeaturesSection } from "@/widgets/landing/ui/landing-features-section";
-import { LandingShowcaseSection } from "@/widgets/landing/ui/landing-showcase-section";
+import { LandingTechStackSection } from "@/widgets/landing/ui/landing-tech-stack-section";
+import { LandingWhySection } from "@/widgets/landing/ui/landing-why-section";
 import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
 
 interface LandingWidgetProps {
@@ -26,7 +27,8 @@ export function LandingWidget({
         <section className="px-6 pb-20 pt-12 sm:px-10">
           <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-16">
             <LandingFeaturesSection />
-            <LandingShowcaseSection />
+            <LandingTechStackSection />
+            <LandingWhySection />
             <LandingCtaSection />
           </div>
         </section>

@@ -1,8 +1,8 @@
-import { Boxes, History, Palette, Terminal } from "lucide-react";
+import { Boxes, History, Images, Terminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const featureCards = [
-  { key: "canvas", icon: Palette },
+  { key: "generation", icon: Images },
   { key: "history", icon: History },
   { key: "model", icon: Boxes },
   { key: "api", icon: Terminal },

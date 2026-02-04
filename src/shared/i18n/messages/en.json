@@ -85,15 +85,15 @@
     "hero": {
       "status": "AI generation platform",
       "primaryCta": "Start generating",
-      "secondaryCta": "View demo",
+      "secondaryCta": "API Docs",
       "description": "leesfield is an AI generation platform for creators, helping you deliver results quickly with a streamlined workflow and model selection."
     },
     "features": {
       "title": "Core features",
       "cards": {
-        "canvas": {
-          "title": "Canvas-based creation",
-          "description": "Arrange, compare, and iterate fast across an infinite canvas."
+        "generation": {
+          "title": "Image & video generation",
+          "description": "Generate images and videos from the dashboard and review results quickly."
         },
         "history": {
           "title": "Generation history",
@@ -109,9 +109,45 @@
         }
       }
     },
-    "showcase": {
-      "title": "Community showcase",
-      "viewPrompt": "View prompt"
+    "techStack": {
+      "title": "Tech stack",
+      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more.",
+      "items": {
+        "nextjs": {
+          "label": "NEXT.JS",
+          "description": "Frontend Framework"
+        },
+        "typescript": {
+          "label": "TYPESCRIPT",
+          "description": "Language"
+        },
+        "prisma": {
+          "label": "PRISMA",
+          "description": "ORM"
+        },
+        "tailwind": {
+          "label": "TAILWIND",
+          "description": "Styling (+ shadcn/ui)"
+        }
+      }
+    },
+    "why": {
+      "title": "Why leesfield",
+      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture.",
+      "cards": {
+        "openapi": {
+          "title": "OpenAPI-first docs",
+          "description": "Docs are available via /api-docs (UI) and /api/openapi (JSON), making integration and validation straightforward."
+        },
+        "adapters": {
+          "title": "Extensible adapter design",
+          "description": "Generation calls and storage uploads are decoupled, so providers and storage backends can be swapped or extended."
+        },
+        "dashboard": {
+          "title": "Dashboard-centric workflow",
+          "description": "Manage image/video generation, history, and model catalog/monitoring in one place."
+        }
+      }
     },
     "cta": {
       "title": "Start with leesfield today",
