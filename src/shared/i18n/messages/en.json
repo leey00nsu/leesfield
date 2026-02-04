@@ -133,7 +133,21 @@
     },
     "why": {
       "title": "Why leesfield",
-      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture."
+      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture.",
+      "cards": {
+        "openapi": {
+          "title": "OpenAPI-first docs",
+          "description": "Docs are available via /api-docs (UI) and /api/openapi (JSON), making integration and validation straightforward."
+        },
+        "adapters": {
+          "title": "Extensible adapter design",
+          "description": "Generation calls and storage uploads are decoupled, so providers and storage backends can be swapped or extended."
+        },
+        "dashboard": {
+          "title": "Dashboard-centric workflow",
+          "description": "Manage image/video generation, history, and model catalog/monitoring in one place."
+        }
+      }
     },
     "showcase": {
       "title": "Community showcase",

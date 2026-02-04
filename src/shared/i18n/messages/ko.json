@@ -133,7 +133,21 @@
     },
     "why": {
       "title": "왜 leesfield인가",
-      "description": "대시보드 UX, OpenAPI 문서, 모델 카탈로그/관리, 어댑터 기반 확장 구조 등 실제 구현된 기능을 중심으로 설계된 오픈소스 프로젝트입니다."
+      "description": "대시보드 UX, OpenAPI 문서, 모델 카탈로그/관리, 어댑터 기반 확장 구조 등 실제 구현된 기능을 중심으로 설계된 오픈소스 프로젝트입니다.",
+      "cards": {
+        "openapi": {
+          "title": "OpenAPI 기반 API 문서",
+          "description": "/api-docs(UI)와 /api/openapi(JSON)로 문서가 제공되어 통합/검증이 쉽습니다."
+        },
+        "adapters": {
+          "title": "어댑터 기반 확장 구조",
+          "description": "생성 호출과 저장소 업로드를 분리해, 제공자/저장소 교체 및 확장이 용이합니다."
+        },
+        "dashboard": {
+          "title": "대시보드 중심 워크플로우",
+          "description": "이미지/비디오 생성, 히스토리, 모델 관리/모니터링을 한 곳에서 다룹니다."
+        }
+      }
     },
     "showcase": {
       "title": "커뮤니티 쇼케이스",
