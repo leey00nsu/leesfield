@@ -7,12 +7,14 @@ type HistoryListProps = {
   items: GenerationHistoryItem[];
   isLoading?: boolean;
   emptyMessage?: string;
+  onDeleteItem?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
 };
 
 export function HistoryList({
   items,
   isLoading = false,
   emptyMessage,
+  onDeleteItem,
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
@@ -46,7 +48,11 @@ export function HistoryList({
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
-        <HistoryItem key={`${item.type}-${item.id}`} item={item} />
+        <HistoryItem
+          key={`${item.type}-${item.id}`}
+          item={item}
+          onDeleted={onDeleteItem}
+        />
       ))}
     </div>
   );

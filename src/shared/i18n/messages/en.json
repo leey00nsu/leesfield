@@ -306,6 +306,15 @@
       "reusePrompt": "Reuse Prompt",
       "copyPrompt": "Copy Prompt"
     },
+    "deleteDialog": {
+      "title": "Delete history item",
+      "description": "This action cannot be undone. Storage files will be deleted as well.",
+      "confirm": "Delete"
+    },
+    "toasts": {
+      "deleteSuccess": "Deleted.",
+      "deleteError": "Failed to delete."
+    },
     "states": {
       "failed": "FAILED",
       "generating": "Generating...",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Maximize2,
   RotateCcw,
+  Trash2,
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -19,10 +21,23 @@ import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
+import { deleteHistoryItem } from "@/features/generation-history/api/history-delete-api";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/shared/ui/alert-dialog";
+import { toast } from "sonner";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -58,7 +73,13 @@ const typeConfig = {
   },
 };
 
-export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
+export function HistoryItem({
+  item,
+  onDeleted,
+}: {
+  item: GenerationHistoryItem;
+  onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
+}) {
   const router = useRouter();
   const locale = useLocale();
   const tStatuses = useTranslations("history.statuses");
@@ -67,9 +88,12 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const tActions = useTranslations("history.actions");
   const tCommonActions = useTranslations("common.actions");
   const tHistory = useTranslations("history");
+  const tDeleteDialog = useTranslations("history.deleteDialog");
+  const tToasts = useTranslations("history.toasts");
   const [isCopied, setIsCopied] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string | null>(null);
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -79,6 +103,7 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const hasInputImages = inputImages.length > 0;
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
+  const canDelete = item.status === "completed" || item.status === "failed";
   const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
   const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
   const shouldShowPreviewSkeleton =
@@ -101,6 +126,18 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
     if (Number.isNaN(date.getTime())) return tStates("unknownDate");
     return dateFormatter.format(date);
   };
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteHistoryItem({ id: item.id, type: item.type }),
+    onSuccess: () => {
+      toast.success(tToasts("deleteSuccess"));
+      onDeleted?.({ id: item.id, type: item.type });
+      setIsDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast.error(tToasts("deleteError"));
+    },
+  });
 
   const handleReusePrompt = () => {
     if (!item.prompt.trim()) return;
@@ -337,7 +374,61 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               {formatDate(item.createdAt)}
             </span>
           </div>
-          <TypeIcon className="h-4 w-4 text-gray-600" />
+          <div className="flex items-center gap-2">
+            <TypeIcon className="h-4 w-4 text-gray-600" />
+            <AlertDialog
+              open={isDeleteDialogOpen}
+              onOpenChange={(next) => {
+                if (deleteMutation.isPending) return;
+                setIsDeleteDialogOpen(next);
+              }}
+            >
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={!canDelete || deleteMutation.isPending}
+                  className={cn(
+                    "h-8 w-8 rounded-lg text-gray-500 hover:bg-white/5 hover:text-white",
+                    canDelete && "hover:text-red-300"
+                  )}
+                  aria-label={tCommonActions("remove")}
+                  title={
+                    canDelete
+                      ? tCommonActions("remove")
+                      : tStates("generating")
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{tDeleteDialog("title")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {tDeleteDialog("description")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteMutation.isPending}>
+                    {tCommonActions("cancel")}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleteMutation.isPending}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      if (!canDelete) return;
+                      deleteMutation.mutate();
+                    }}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    {tDeleteDialog("confirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </article>
