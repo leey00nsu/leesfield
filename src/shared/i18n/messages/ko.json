@@ -149,10 +149,6 @@
         }
       }
     },
-    "showcase": {
-      "title": "커뮤니티 쇼케이스",
-      "viewPrompt": "프롬프트 보기"
-    },
     "cta": {
       "title": "지금 바로 leesfield로 시작하세요",
       "description": "강력한 생성 모델과 직관적인 워크플로우를 한 번에 경험할 수 있습니다.",

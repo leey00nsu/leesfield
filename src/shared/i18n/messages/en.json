@@ -149,10 +149,6 @@
         }
       }
     },
-    "showcase": {
-      "title": "Community showcase",
-      "viewPrompt": "View prompt"
-    },
     "cta": {
       "title": "Start with leesfield today",
       "description": "Experience powerful generation models and an intuitive workflow in one place.",
