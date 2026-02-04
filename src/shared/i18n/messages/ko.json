@@ -111,7 +111,25 @@
     },
     "techStack": {
       "title": "기술 스택",
-      "description": "이 프로젝트는 Next.js(App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest 등으로 구성되어 있습니다."
+      "description": "이 프로젝트는 Next.js(App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest 등으로 구성되어 있습니다.",
+      "items": {
+        "nextjs": {
+          "label": "NEXT.JS",
+          "description": "Frontend Framework"
+        },
+        "typescript": {
+          "label": "TYPESCRIPT",
+          "description": "Language"
+        },
+        "prisma": {
+          "label": "PRISMA",
+          "description": "ORM"
+        },
+        "tailwind": {
+          "label": "TAILWIND",
+          "description": "Styling (+ shadcn/ui)"
+        }
+      }
     },
     "why": {
       "title": "왜 leesfield인가",

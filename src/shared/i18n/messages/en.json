@@ -111,7 +111,25 @@
     },
     "techStack": {
       "title": "Tech stack",
-      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more."
+      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more.",
+      "items": {
+        "nextjs": {
+          "label": "NEXT.JS",
+          "description": "Frontend Framework"
+        },
+        "typescript": {
+          "label": "TYPESCRIPT",
+          "description": "Language"
+        },
+        "prisma": {
+          "label": "PRISMA",
+          "description": "ORM"
+        },
+        "tailwind": {
+          "label": "TAILWIND",
+          "description": "Styling (+ shadcn/ui)"
+        }
+      }
     },
     "why": {
       "title": "Why leesfield",
