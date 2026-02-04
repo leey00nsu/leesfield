@@ -140,10 +140,31 @@ export function HistoryItem({
   });
 
   const handleReusePrompt = () => {
-    if (!item.prompt.trim()) return;
     const target = item.type === "video" ? "/video" : "/image";
-    const query = new URLSearchParams({ prompt: item.prompt }).toString();
-    router.push(`${target}?${query}`);
+    const trimmedPrompt = item.prompt.trim();
+    if (!trimmedPrompt) return;
+
+    const params = new URLSearchParams();
+    params.set("prompt", trimmedPrompt);
+
+    const model = item.model?.trim();
+    if (model) {
+      params.set("model", model);
+    }
+
+    if (item.type === "video") {
+      const initImage = item.inputImages?.[0]?.trim();
+      if (initImage) {
+        params.set("initImage", initImage);
+      }
+    } else {
+      const initImages = (item.inputImages ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      initImages.forEach((value) => params.append("initImage", value));
+    }
+
+    router.push(`${target}?${params.toString()}`);
   };
 
   const handleCopyPrompt = async () => {

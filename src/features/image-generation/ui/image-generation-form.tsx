@@ -118,6 +118,14 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
 
   const promptFromQuery = searchParams?.get("prompt") ?? "";
+  const modelFromQuery = searchParams?.get("model") ?? "";
+  const initImagesFromQuery = useMemo(
+    () =>
+      (searchParams?.getAll("initImage") ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    [searchParams],
+  );
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -127,6 +135,18 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       shouldValidate: true,
     });
   }, [promptFromQuery, form]);
+
+  useEffect(() => {
+    const trimmed = modelFromQuery.trim();
+    if (!trimmed) return;
+    if (!hasModels) return;
+    if (!runtimeModelMap.has(trimmed)) return;
+    if (form.getValues("model") === trimmed) return;
+    form.setValue("model", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
   const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const width =
@@ -189,6 +209,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const showSeed = seedConfig?.ui !== "hidden";
   const maxInputImages = resolveRuntimeImageMaxInputImages(activeRuntimeModel);
   const prevModeChoiceRef = useRef<string | null>(null);
+  const hasInjectedInitImagesRef = useRef(false);
   const handleInitImagesChange = useCallback(
     (dataUrls: string[]) => {
       form.setValue("initImages", dataUrls, { shouldValidate: true });
@@ -201,12 +222,41 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     inputRef: fileInputRef,
     openPicker: handleOpenImagePicker,
     handleFileChange: handleImageSelection,
+    replaceImages: replaceInitImages,
     removeImage: handleRemoveInitImage,
     reset: resetInitImagePreviews,
   } = useImageInitPreviews({
     maxInputImages,
     onChange: handleInitImagesChange,
   });
+
+  useEffect(() => {
+    if (hasInjectedInitImagesRef.current) return;
+    if (initImagesFromQuery.length === 0) return;
+
+    const trimmedModel = modelFromQuery.trim();
+    if (
+      trimmedModel &&
+      hasModels &&
+      runtimeModelMap.has(trimmedModel) &&
+      activeModel !== trimmedModel
+    ) {
+      return;
+    }
+
+    if (maxInputImages <= 0) return;
+
+    replaceInitImages(initImagesFromQuery.slice(0, maxInputImages));
+    hasInjectedInitImagesRef.current = true;
+  }, [
+    activeModel,
+    hasModels,
+    initImagesFromQuery,
+    maxInputImages,
+    modelFromQuery,
+    replaceInitImages,
+    runtimeModelMap,
+  ]);
 
   useEffect(() => {
     if (!hasModels || !defaultModelKey) return;

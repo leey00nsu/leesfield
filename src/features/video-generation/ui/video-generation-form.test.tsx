@@ -9,6 +9,14 @@ import {
   runtimeVideoModelsFixture,
 } from "@/test-utils/fixtures/runtime-model-catalog";
 
+const navigationMocks = vi.hoisted(() => ({
+  searchParams: new URLSearchParams(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => navigationMocks.searchParams,
+}));
+
 const startGenerationMock = vi.fn();
 const resetMock = vi.fn();
 
@@ -32,6 +40,7 @@ async function waitForModels() {
 
 describe("VideoGenerationForm", () => {
   beforeEach(() => {
+    navigationMocks.searchParams = new URLSearchParams();
     startGenerationMock.mockClear();
     resetMock.mockClear();
     vi.stubGlobal(
@@ -62,6 +71,26 @@ describe("VideoGenerationForm", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("쿼리 파라미터로 prompt/model/initImage를 초기화한다", async () => {
+    navigationMocks.searchParams = new URLSearchParams();
+    navigationMocks.searchParams.set("prompt", "query prompt");
+    navigationMocks.searchParams.set("model", "wan2-2-hf");
+    navigationMocks.searchParams.set("initImage", "https://example.com/init.png");
+
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getByDisplayValue("query prompt")).toBeInTheDocument();
+    expect(
+      await screen.findByAltText("입력 이미지 미리보기"),
+    ).toBeInTheDocument();
+
+    const modelButton = screen.getByRole("button", {
+      name: /Wan 2\.2/i,
+    });
+    expect(modelButton).toHaveClass("border-primary");
   });
 
   it("renders model selection cards", async () => {

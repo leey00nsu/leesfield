@@ -24,6 +24,7 @@ export interface UseImageInitPreviewsResult {
   inputRef: RefObject<HTMLInputElement | null>;
   openPicker: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
+  replaceImages: (sources: string[]) => void;
   removeImage: (id: string) => void;
   reset: () => void;
 }
@@ -124,6 +125,37 @@ export function useImageInitPreviews({
     [syncFormValue],
   );
 
+  const replaceImages = useCallback(
+    (sources: string[]) => {
+      if (!canUpload) {
+        setPreviews([]);
+        syncFormValue([]);
+        if (inputRef.current) {
+          inputRef.current.value = "";
+        }
+        return;
+      }
+
+      const resolved = sources
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+        .slice(0, maxInputImages);
+
+      const next = resolved.map((value) => ({
+        id: crypto.randomUUID(),
+        url: value,
+        dataUrl: value,
+      }));
+
+      setPreviews(next);
+      syncFormValue(next);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    },
+    [canUpload, maxInputImages, syncFormValue],
+  );
+
   const reset = useCallback(() => {
     setPreviews([]);
     syncFormValue([]);
@@ -138,6 +170,7 @@ export function useImageInitPreviews({
     inputRef,
     openPicker,
     handleFileChange,
+    replaceImages,
     removeImage,
     reset,
   };
