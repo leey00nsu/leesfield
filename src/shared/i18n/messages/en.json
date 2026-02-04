@@ -85,7 +85,7 @@
     "hero": {
       "status": "AI generation platform",
       "primaryCta": "Start generating",
-      "secondaryCta": "View demo",
+      "secondaryCta": "API Docs",
       "description": "leesfield is an AI generation platform for creators, helping you deliver results quickly with a streamlined workflow and model selection."
     },
     "features": {

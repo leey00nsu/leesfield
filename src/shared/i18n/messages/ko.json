@@ -85,7 +85,7 @@
     "hero": {
       "status": "AI 생성 플랫폼",
       "primaryCta": "생성 시작",
-      "secondaryCta": "데모 보기",
+      "secondaryCta": "API 문서",
       "description": "leesfield는 창작을 위한 AI 생성 플랫폼으로, 간결한 워크플로우와 모델 선택을 통해 결과를 빠르게 완성합니다."
     },
     "features": {
@@ -141,7 +141,7 @@
         },
         "adapters": {
           "title": "어댑터 기반 확장 구조",
-          "description": "생성 호출과 저장소 업로드를 분리해, 제공자/저장소 교체 및 확장이 용이합니다."
+          "description": "생성 호출과 스토리지 업로드를 분리해, API 프로바이더 / 스토리지 교체 및 확장이 용이합니다."
         },
         "dashboard": {
           "title": "대시보드 중심 워크플로우",
