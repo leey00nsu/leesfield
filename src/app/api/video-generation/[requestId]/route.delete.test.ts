@@ -132,4 +132,30 @@ describe("DELETE /api/video-generation/[requestId]", () => {
     expect(mockDeleteLeemageFilesByPrefix).toHaveBeenCalledWith("request-id-");
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "db-id" } });
   });
+
+  it("스토리지 삭제 성공 후 DB 삭제가 실패하면 500을 반환한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockFindFirst.mockResolvedValue({
+      id: "db-id",
+      status: "completed",
+      requestId: "request-id",
+    });
+    mockDeleteLeemageFilesByPrefix.mockResolvedValue({
+      matchedCount: 1,
+      deletedCount: 1,
+    });
+    mockDelete.mockRejectedValue(new Error("db error"));
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ requestId: "request-id" }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.message).toBe("DB_DELETE_FAILED");
+    expect(mockDeleteLeemageFilesByPrefix).toHaveBeenCalledWith("request-id-");
+  });
 });

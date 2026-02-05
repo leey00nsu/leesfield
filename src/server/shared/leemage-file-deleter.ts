@@ -61,6 +61,10 @@ export type DeleteLeemageFilesByPrefixResult = {
 export async function deleteLeemageFilesByPrefix(
   prefix: string,
 ): Promise<DeleteLeemageFilesByPrefixResult> {
+  if (prefix.trim().length === 0) {
+    throw new Error("prefix는 비어 있을 수 없습니다.");
+  }
+
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
 
@@ -73,4 +77,3 @@ export async function deleteLeemageFilesByPrefix(
 
   return { matchedCount: targets.length, deletedCount: targets.length };
 }
-

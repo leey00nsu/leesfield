@@ -248,7 +248,9 @@ export function HistoryItem({
       const initImages = (item.inputImages ?? [])
         .map((value) => value.trim())
         .filter((value) => value.length > 0);
-      initImages.forEach((value) => params.append("initImage", value));
+      initImages.forEach((value) => {
+        params.append("initImage", value);
+      });
     }
 
     router.push(`${target}?${params.toString()}`);
