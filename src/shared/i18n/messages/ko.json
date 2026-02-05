@@ -304,7 +304,8 @@
     },
     "actions": {
       "reusePrompt": "프롬프트 재사용",
-      "copyPrompt": "프롬프트 복사"
+      "copyPrompt": "프롬프트 복사",
+      "viewFullPrompt": "더보기"
     },
     "deleteDialog": {
       "title": "히스토리 삭제",

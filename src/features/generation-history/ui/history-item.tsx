@@ -37,6 +37,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/shared/ui/alert-dialog";
+import type {
+  MonitoringRequestDetail,
+  MonitoringRequestItem,
+} from "@/features/monitoring-dashboard/model/types";
+import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
 import { toast } from "sonner";
 
 const statusConfig: Record<
@@ -94,6 +99,7 @@ export function HistoryItem({
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string | null>(null);
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -104,6 +110,7 @@ export function HistoryItem({
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
   const canDelete = item.status === "completed" || item.status === "failed";
+  const canShowViewMore = item.prompt.trim().length > 120;
   const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
   const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
   const shouldShowPreviewSkeleton =
@@ -126,6 +133,86 @@ export function HistoryItem({
     if (Number.isNaN(date.getTime())) return tStates("unknownDate");
     return dateFormatter.format(date);
   };
+
+  const timeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [],
+  );
+  const monitoringRequest = useMemo<MonitoringRequestItem>(
+    () => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      model: item.model ?? null,
+      createdAt: item.createdAt,
+      durationMs: null,
+      apiKeyLabel: "-",
+    }),
+    [item.createdAt, item.id, item.model, item.status, item.type],
+  );
+  const monitoringDetailOverride = useMemo<MonitoringRequestDetail>(
+    () => {
+      const inputImages = item.inputImages ?? [];
+      const assets =
+        item.type === "video"
+          ? item.resultUrl
+            ? [
+                {
+                  url: item.resultUrl,
+                  width: null,
+                  height: null,
+                  durationSec: null,
+                },
+              ]
+            : []
+          : item.resultUrl
+            ? [
+                {
+                  url: item.resultUrl,
+                  width: null,
+                  height: null,
+                  durationSec: null,
+                },
+              ]
+            : item.thumbnailUrl
+              ? [
+                  {
+                    url: item.thumbnailUrl,
+                    width: null,
+                    height: null,
+                    durationSec: null,
+                  },
+                ]
+              : [];
+
+      return {
+        id: item.id,
+        type: item.type,
+        status: item.status,
+        model: item.model ?? null,
+        prompt: item.prompt,
+        createdAt: item.createdAt,
+        updatedAt: item.createdAt,
+        durationMs: null,
+        progress: null,
+        errorMessage: item.errorMessage ?? null,
+        inputImages,
+        assets,
+      };
+    },
+    [
+      item.createdAt,
+      item.errorMessage,
+      item.id,
+      item.inputImages,
+      item.model,
+      item.prompt,
+      item.resultUrl,
+      item.status,
+      item.thumbnailUrl,
+      item.type,
+    ],
+  );
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteHistoryItem({ id: item.id, type: item.type }),
@@ -364,9 +451,28 @@ export function HistoryItem({
       </div>
 
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
-        <p className="text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
+        <p className="min-h-[4.5rem] line-clamp-3 text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
           {item.prompt}
         </p>
+        {canShowViewMore ? (
+          <>
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => setIsPromptDialogOpen(true)}
+              className="h-auto self-end p-0 text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-primary"
+            >
+              {tActions("viewFullPrompt")}
+            </Button>
+            <MonitoringRequestDetailDialog
+              open={isPromptDialogOpen}
+              onOpenChange={(openValue) => setIsPromptDialogOpen(openValue)}
+              request={monitoringRequest}
+              timeZone={timeZone}
+              detailOverride={monitoringDetailOverride}
+            />
+          </>
+        ) : null}
         {hasInputImages ? (
           <div className="flex flex-wrap gap-2">
             {inputImages.map((url, index) => (
