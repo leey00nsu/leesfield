@@ -110,7 +110,7 @@ export function HistoryItem({
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
   const canDelete = item.status === "completed" || item.status === "failed";
-  const canShowViewMore = item.prompt.trim().length > 120;
+  const canShowViewMore = item.prompt.trim().length > 0;
   const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
   const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
   const shouldShowPreviewSkeleton =

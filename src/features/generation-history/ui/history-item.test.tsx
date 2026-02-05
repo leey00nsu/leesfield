@@ -98,4 +98,30 @@ describe("HistoryItem", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(longPrompt)).toBeInTheDocument();
   });
+
+  it("프롬프트가 짧아도 더보기 버튼으로 모달을 열 수 있다", async () => {
+    const user = userEvent.setup();
+    const prompt = "short prompt";
+
+    renderWithIntl(
+      <HistoryItem
+        item={{
+          id: "item-4",
+          type: "image",
+          status: "completed",
+          prompt,
+          model: null,
+          createdAt: "2026-02-03T00:00:00.000Z",
+          resultUrl: null,
+          thumbnailUrl: null,
+          errorMessage: null,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "더보기" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(prompt)).toBeInTheDocument();
+  });
 });
