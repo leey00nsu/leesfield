@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useSyncExternalStore } from "react";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
+import { cn } from "@/shared/lib/utils";
 
 type HistoryListProps = {
   items: GenerationHistoryItem[];
@@ -51,14 +52,14 @@ export function HistoryList({
   const columnCount = isMdUp ? 4 : 2;
 
   const skeletonColumns = useMemo(() => {
-    const columns = Array.from({ length: columnCount }, () => [] as number[]);
+    const columns = Array.from({ length: 4 }, () => [] as number[]);
 
     Array.from({ length: 9 }).forEach((_, index) => {
-      columns[index % columnCount].push(index);
+      columns[index % 4].push(index);
     });
 
     return columns;
-  }, [columnCount]);
+  }, []);
 
   const itemColumns = useMemo(() => {
     const columns = Array.from({ length: columnCount }, () => [] as GenerationHistoryItem[]);
@@ -74,7 +75,10 @@ export function HistoryList({
     return (
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {skeletonColumns.map((column, columnIndex) => (
-          <div key={`history-skeleton-column-${columnIndex}`} className="grid gap-4">
+          <div
+            key={`history-skeleton-column-${columnIndex}`}
+            className={cn("grid gap-4", columnIndex >= 2 && "hidden md:grid")}
+          >
             {column.map((index) => (
               <HistoryItemSkeleton key={`history-skeleton-${index}`} />
             ))}

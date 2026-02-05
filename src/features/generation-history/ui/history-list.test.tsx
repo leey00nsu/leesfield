@@ -13,9 +13,14 @@ describe("HistoryList", () => {
     expect(wrapper).toHaveClass("md:grid-cols-4");
     expect(wrapper).not.toHaveClass("columns-1");
 
-    expect(wrapper?.children.length).toBe(2);
-    Array.from(wrapper?.children ?? []).forEach((column) => {
-      expect(column).toHaveClass("grid");
+    expect(wrapper?.children.length).toBe(4);
+    Array.from(wrapper?.children ?? []).forEach((column, index) => {
+      if (index < 2) {
+        expect(column).toHaveClass("grid");
+        return;
+      }
+      expect(column).toHaveClass("hidden");
+      expect(column).toHaveClass("md:grid");
     });
   });
 });
