@@ -49,7 +49,8 @@ export function HistoryList({
   const tEmpty = useTranslations("history.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
   const isMdUp = useMediaQuery("(min-width: 768px)");
-  const columnCount = isMdUp ? 4 : 2;
+  const isXlUp = useMediaQuery("(min-width: 1280px)");
+  const columnCount = isXlUp ? 4 : isMdUp ? 3 : 2;
 
   const skeletonColumns = useMemo(() => {
     const columns = Array.from({ length: 4 }, () => [] as number[]);
@@ -73,11 +74,15 @@ export function HistoryList({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {skeletonColumns.map((column, columnIndex) => (
           <div
             key={`history-skeleton-column-${columnIndex}`}
-            className={cn("grid gap-4", columnIndex >= 2 && "hidden md:grid")}
+            className={cn(
+              "grid gap-4",
+              columnIndex === 2 && "hidden md:grid xl:hidden",
+              columnIndex === 3 && "hidden xl:grid",
+            )}
           >
             {column.map((index) => (
               <HistoryItemSkeleton key={`history-skeleton-${index}`} />
@@ -105,9 +110,15 @@ export function HistoryList({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
       {itemColumns.map((column, columnIndex) => (
-        <div key={`history-column-${columnIndex}`} className="grid gap-4">
+        <div
+          key={`history-column-${columnIndex}`}
+          className={cn(
+            "grid gap-4",
+            columnIndex === 3 && "hidden xl:grid",
+          )}
+        >
           {column.map((item) => (
             <HistoryItem
               key={`${item.type}-${item.id}`}
