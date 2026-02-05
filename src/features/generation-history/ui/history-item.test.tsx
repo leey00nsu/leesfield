@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HistoryItem } from "@/features/generation-history/ui/history-item";
 import { renderWithIntl } from "@/test-utils/intl";
 
@@ -68,5 +69,59 @@ describe("HistoryItem", () => {
       ).toBeNull();
       expect(screen.getByText("생성 결과 미리보기")).toBeInTheDocument();
     });
+  });
+
+  it("프롬프트가 길면 더보기 버튼으로 모달을 열 수 있다", async () => {
+    const user = userEvent.setup();
+    const longPrompt = Array.from({ length: 200 })
+      .map(() => "a")
+      .join("");
+
+    renderWithIntl(
+      <HistoryItem
+        item={{
+          id: "item-3",
+          type: "image",
+          status: "completed",
+          prompt: longPrompt,
+          model: null,
+          createdAt: "2026-02-03T00:00:00.000Z",
+          resultUrl: null,
+          thumbnailUrl: null,
+          errorMessage: null,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "더보기" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(longPrompt)).toBeInTheDocument();
+  });
+
+  it("프롬프트가 짧아도 더보기 버튼으로 모달을 열 수 있다", async () => {
+    const user = userEvent.setup();
+    const prompt = "short prompt";
+
+    renderWithIntl(
+      <HistoryItem
+        item={{
+          id: "item-4",
+          type: "image",
+          status: "completed",
+          prompt,
+          model: null,
+          createdAt: "2026-02-03T00:00:00.000Z",
+          resultUrl: null,
+          thumbnailUrl: null,
+          errorMessage: null,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "더보기" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(prompt)).toBeInTheDocument();
   });
 });

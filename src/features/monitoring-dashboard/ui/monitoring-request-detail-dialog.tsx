@@ -15,6 +15,7 @@ interface MonitoringRequestDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   request: MonitoringRequestItem | null;
   timeZone: string;
+  detailOverride?: MonitoringRequestDetail | null;
 }
 
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
@@ -46,6 +47,7 @@ export function MonitoringRequestDetailDialog({
   onOpenChange,
   request,
   timeZone,
+  detailOverride = null,
 }: MonitoringRequestDetailDialogProps) {
   const t = useTranslations("monitoringDashboard");
   const locale = useLocale();
@@ -56,10 +58,11 @@ export function MonitoringRequestDetailDialog({
     failed: t("statuses.failed"),
   };
 
+  const shouldFetchDetail = !detailOverride;
   const detailQuery = useMonitoringRequestDetail(
     request?.type ?? null,
     request?.id ?? null,
-    open && Boolean(request),
+    open && Boolean(request) && shouldFetchDetail,
   );
 
   const formatter = useMemo(() => {
@@ -76,7 +79,7 @@ export function MonitoringRequestDetailDialog({
     return formatter.format(parsed);
   };
 
-  const detail = detailQuery.data ?? null;
+  const detail = detailOverride ?? detailQuery.data ?? null;
   const isFinished = detail ? FINISHED_STATUSES.has(detail.status) : false;
   const status = detail
     ? resolveMonitoringStatus(detail.status, statusLabels)
@@ -95,9 +98,9 @@ export function MonitoringRequestDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {detailQuery.isLoading ? (
+        {shouldFetchDetail && detailQuery.isLoading ? (
           <div className="mt-6 h-48 rounded-xl border border-white/10 bg-background-dark/50" />
-        ) : detailQuery.error ? (
+        ) : shouldFetchDetail && detailQuery.error ? (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {t("requests.detailFetchError")}
           </div>

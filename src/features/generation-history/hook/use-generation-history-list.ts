@@ -17,9 +17,10 @@ interface GenerationHistoryListState {
 
 type GenerationHistoryListAction =
   | { type: "reset" }
-  | { type: "advance"; amount: number }
+  | { type: "setOffset"; offset: number }
   | { type: "replace"; items: GenerationHistoryItem[]; total: number }
-  | { type: "append"; items: GenerationHistoryItem[]; total: number };
+  | { type: "append"; items: GenerationHistoryItem[]; total: number }
+  | { type: "remove"; key: string };
 
 const initialState: GenerationHistoryListState = {
   offset: 0,
@@ -34,8 +35,8 @@ function reducer(
   switch (action.type) {
     case "reset":
       return { offset: 0, items: [], total: 0 };
-    case "advance":
-      return { ...state, offset: state.offset + action.amount };
+    case "setOffset":
+      return { ...state, offset: Math.max(action.offset, 0) };
     case "replace":
       return { ...state, items: action.items, total: action.total };
     case "append": {
@@ -51,6 +52,17 @@ function reducer(
         merged.push(item);
       }
       return { ...state, items: merged, total: action.total };
+    }
+    case "remove": {
+      const nextItems = state.items.filter(
+        (item) => `${item.type}-${item.id}` !== action.key,
+      );
+      if (nextItems.length === state.items.length) return state;
+      return {
+        ...state,
+        items: nextItems,
+        total: Math.max(0, state.total - 1),
+      };
     }
     default:
       return state;
@@ -70,6 +82,7 @@ export interface UseGenerationHistoryListResult {
   isLoading: boolean;
   error: string | null;
   sentinelRef: RefObject<HTMLDivElement | null>;
+  removeItem: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
 }
 
 export function useGenerationHistoryList({
@@ -128,6 +141,10 @@ export function useGenerationHistoryList({
     lastStatusTokenRef.current = token;
   }, [statusData, refetch]);
 
+  const removeItem = (item: Pick<GenerationHistoryItem, "id" | "type">) => {
+    dispatch({ type: "remove", key: `${item.type}-${item.id}` });
+  };
+
   useEffect(() => {
     const target = sentinelRef.current;
     if (!target) return;
@@ -141,7 +158,7 @@ export function useGenerationHistoryList({
         if (state.total === 0 || state.items.length >= state.total) return;
         if (isFetchingNextRef.current) return;
         isFetchingNextRef.current = true;
-        dispatch({ type: "advance", amount: limit });
+        dispatch({ type: "setOffset", offset: Math.max(state.offset, state.items.length) });
       },
       { rootMargin: "200px" },
     );
@@ -156,5 +173,6 @@ export function useGenerationHistoryList({
     isLoading,
     error,
     sentinelRef,
+    removeItem,
   };
 }

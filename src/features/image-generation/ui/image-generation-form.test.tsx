@@ -9,6 +9,14 @@ import {
   runtimeVideoModelsFixture,
 } from "@/test-utils/fixtures/runtime-model-catalog";
 
+const navigationMocks = vi.hoisted(() => ({
+  searchParams: new URLSearchParams(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => navigationMocks.searchParams,
+}));
+
 const mockUseImageGeneration = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/image-generation/hook/use-image-generation", () => ({
@@ -21,6 +29,7 @@ async function waitForModels() {
 
 describe("ImageGenerationForm", () => {
   beforeEach(() => {
+    navigationMocks.searchParams = new URLSearchParams();
     mockUseImageGeneration.mockReset();
     vi.stubGlobal(
       "fetch",
@@ -40,6 +49,36 @@ describe("ImageGenerationForm", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("쿼리 파라미터로 prompt/model/initImage를 초기화한다", async () => {
+    const startGeneration = vi.fn();
+    const reset = vi.fn();
+
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset,
+    });
+
+    navigationMocks.searchParams = new URLSearchParams();
+    navigationMocks.searchParams.set("prompt", "a query prompt");
+    navigationMocks.searchParams.set("model", "flux2-klein-9b");
+    navigationMocks.searchParams.append("initImage", "https://example.com/one.png");
+    navigationMocks.searchParams.append("initImage", "https://example.com/two.png");
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(
+      screen.getByDisplayValue("a query prompt"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByAltText("입력 이미지 미리보기")).toHaveLength(2);
+
+    const modelButton = screen.getByRole("button", {
+      name: /FLUX\.2 Klein 9B/i,
+    });
+    expect(modelButton).toHaveClass("border-primary");
   });
 
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {

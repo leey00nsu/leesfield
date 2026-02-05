@@ -1,27 +1,93 @@
 import { Archive } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMemo, useSyncExternalStore } from "react";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
+import { cn } from "@/shared/lib/utils";
 
 type HistoryListProps = {
   items: GenerationHistoryItem[];
   isLoading?: boolean;
   emptyMessage?: string;
+  onDeleteItem?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
 };
+
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (listener) => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return () => undefined;
+      }
+
+      const mediaQueryList = window.matchMedia(query);
+      const handler = () => listener();
+
+      if (typeof mediaQueryList.addEventListener === "function") {
+        mediaQueryList.addEventListener("change", handler);
+        return () => mediaQueryList.removeEventListener("change", handler);
+      }
+
+      mediaQueryList.addListener(handler);
+      return () => mediaQueryList.removeListener(handler);
+    },
+    () => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return false;
+      }
+      return window.matchMedia(query).matches;
+    },
+    () => false,
+  );
+}
 
 export function HistoryList({
   items,
   isLoading = false,
   emptyMessage,
+  onDeleteItem,
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
+  const isMdUp = useMediaQuery("(min-width: 768px)");
+  const isXlUp = useMediaQuery("(min-width: 1280px)");
+  const columnCount = isXlUp ? 4 : isMdUp ? 3 : 2;
+
+  const skeletonColumns = useMemo(() => {
+    const columns = Array.from({ length: 4 }, () => [] as number[]);
+
+    Array.from({ length: 9 }).forEach((_, index) => {
+      columns[index % 4].push(index);
+    });
+
+    return columns;
+  }, []);
+
+  const itemColumns = useMemo(() => {
+    const columns = Array.from({ length: columnCount }, () => [] as GenerationHistoryItem[]);
+
+    items.forEach((item, index) => {
+      columns[index % columnCount].push(item);
+    });
+
+    return columns;
+  }, [columnCount, items]);
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 9 }).map((_, index) => (
-          <HistoryItemSkeleton key={`history-skeleton-${index}`} />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+        {skeletonColumns.map((column, columnIndex) => (
+          <div
+            key={`history-skeleton-column-${columnIndex}`}
+            className={cn(
+              "grid gap-4",
+              columnIndex === 2 && "hidden md:grid xl:hidden",
+              columnIndex === 3 && "hidden xl:grid",
+            )}
+          >
+            {column.map((index) => (
+              <HistoryItemSkeleton key={`history-skeleton-${index}`} />
+            ))}
+          </div>
         ))}
       </div>
     );
@@ -44,9 +110,23 @@ export function HistoryList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map((item) => (
-        <HistoryItem key={`${item.type}-${item.id}`} item={item} />
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+      {itemColumns.map((column, columnIndex) => (
+        <div
+          key={`history-column-${columnIndex}`}
+          className={cn(
+            "grid gap-4",
+            columnIndex === 3 && "hidden xl:grid",
+          )}
+        >
+          {column.map((item) => (
+            <HistoryItem
+              key={`${item.type}-${item.id}`}
+              item={item}
+              onDeleted={onDeleteItem}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

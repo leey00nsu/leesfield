@@ -30,7 +30,7 @@ export function GenerationHistoryScreen() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedQuery = useDebouncedValue(searchInput, 350);
   const query = debouncedQuery.trim();
-  const { items, total, isLoading, error, sentinelRef } =
+  const { items, total, isLoading, error, sentinelRef, removeItem } =
     useGenerationHistoryList({
       type,
       sort,
@@ -115,6 +115,7 @@ export function GenerationHistoryScreen() {
           <HistoryList
             items={items}
             isLoading={isLoading && items.length === 0}
+            onDeleteItem={removeItem}
             emptyMessage={
               query ? tHistory("empty.search") : tHistory("empty.default")
             }

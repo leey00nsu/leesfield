@@ -113,6 +113,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
 
   const promptFromQuery = searchParams?.get("prompt") ?? "";
+  const modelFromQuery = searchParams?.get("model") ?? "";
+  const initImageFromQuery = searchParams?.get("initImage") ?? "";
+  const hasInjectedInitImageRef = useRef(false);
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -122,6 +125,18 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
       shouldValidate: true,
     });
   }, [promptFromQuery, form]);
+
+  useEffect(() => {
+    const trimmed = modelFromQuery.trim();
+    if (!trimmed) return;
+    if (!hasModels) return;
+    if (!runtimeModelMap.has(trimmed)) return;
+    if (form.getValues("model") === trimmed) return;
+    form.setValue("model", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
   const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const durationSec =
@@ -161,6 +176,39 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const hasInitImage = Boolean(initImageValue);
   const canSubmit =
     hasModels && promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
+
+  useEffect(() => {
+    if (hasInjectedInitImageRef.current) return;
+    const trimmed = initImageFromQuery.trim();
+    if (!trimmed) return;
+
+    const trimmedModel = modelFromQuery.trim();
+    if (
+      trimmedModel &&
+      hasModels &&
+      runtimeModelMap.has(trimmedModel) &&
+      activeModel !== trimmedModel
+    ) {
+      return;
+    }
+
+    if (!supportsInitImage) return;
+    if (form.getValues("initImage") === trimmed) return;
+
+    form.setValue("initImage", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    hasInjectedInitImageRef.current = true;
+  }, [
+    activeModel,
+    form,
+    hasModels,
+    initImageFromQuery,
+    modelFromQuery,
+    runtimeModelMap,
+    supportsInitImage,
+  ]);
   const resetModelKey = defaultModelKey || videoGenerationDefaults.model;
   const resetDefaults = useMemo<VideoGenerationFormValues>(() => {
     const model = runtimeModelMap.get(resetModelKey);

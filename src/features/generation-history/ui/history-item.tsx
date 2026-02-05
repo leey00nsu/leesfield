@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Maximize2,
   RotateCcw,
+  Trash2,
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -19,10 +21,28 @@ import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
+import { deleteHistoryItem } from "@/features/generation-history/api/history-delete-api";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/shared/ui/alert-dialog";
+import type {
+  MonitoringRequestDetail,
+  MonitoringRequestItem,
+} from "@/features/monitoring-dashboard/model/types";
+import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
+import { toast } from "sonner";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -58,7 +78,13 @@ const typeConfig = {
   },
 };
 
-export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
+export function HistoryItem({
+  item,
+  onDeleted,
+}: {
+  item: GenerationHistoryItem;
+  onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
+}) {
   const router = useRouter();
   const locale = useLocale();
   const tStatuses = useTranslations("history.statuses");
@@ -67,9 +93,13 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const tActions = useTranslations("history.actions");
   const tCommonActions = useTranslations("common.actions");
   const tHistory = useTranslations("history");
+  const tDeleteDialog = useTranslations("history.deleteDialog");
+  const tToasts = useTranslations("history.toasts");
   const [isCopied, setIsCopied] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string | null>(null);
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
@@ -79,6 +109,8 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
   const hasInputImages = inputImages.length > 0;
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
+  const canDelete = item.status === "completed" || item.status === "failed";
+  const canShowViewMore = item.prompt.trim().length > 0;
   const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
   const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
   const shouldShowPreviewSkeleton =
@@ -102,11 +134,126 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
     return dateFormatter.format(date);
   };
 
+  const timeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [],
+  );
+  const monitoringRequest = useMemo<MonitoringRequestItem>(
+    () => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      model: item.model ?? null,
+      createdAt: item.createdAt,
+      durationMs: null,
+      apiKeyLabel: "-",
+    }),
+    [item.createdAt, item.id, item.model, item.status, item.type],
+  );
+  const monitoringDetailOverride = useMemo<MonitoringRequestDetail>(
+    () => {
+      const inputImages = item.inputImages ?? [];
+      const assets =
+        item.type === "video"
+          ? item.resultUrl
+            ? [
+                {
+                  url: item.resultUrl,
+                  width: null,
+                  height: null,
+                  durationSec: null,
+                },
+              ]
+            : []
+          : item.resultUrl
+            ? [
+                {
+                  url: item.resultUrl,
+                  width: null,
+                  height: null,
+                  durationSec: null,
+                },
+              ]
+            : item.thumbnailUrl
+              ? [
+                  {
+                    url: item.thumbnailUrl,
+                    width: null,
+                    height: null,
+                    durationSec: null,
+                  },
+                ]
+              : [];
+
+      return {
+        id: item.id,
+        type: item.type,
+        status: item.status,
+        model: item.model ?? null,
+        prompt: item.prompt,
+        createdAt: item.createdAt,
+        updatedAt: item.createdAt,
+        durationMs: null,
+        progress: null,
+        errorMessage: item.errorMessage ?? null,
+        inputImages,
+        assets,
+      };
+    },
+    [
+      item.createdAt,
+      item.errorMessage,
+      item.id,
+      item.inputImages,
+      item.model,
+      item.prompt,
+      item.resultUrl,
+      item.status,
+      item.thumbnailUrl,
+      item.type,
+    ],
+  );
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteHistoryItem({ id: item.id, type: item.type }),
+    onSuccess: () => {
+      toast.success(tToasts("deleteSuccess"));
+      onDeleted?.({ id: item.id, type: item.type });
+      setIsDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast.error(tToasts("deleteError"));
+    },
+  });
+
   const handleReusePrompt = () => {
-    if (!item.prompt.trim()) return;
     const target = item.type === "video" ? "/video" : "/image";
-    const query = new URLSearchParams({ prompt: item.prompt }).toString();
-    router.push(`${target}?${query}`);
+    const trimmedPrompt = item.prompt.trim();
+    if (!trimmedPrompt) return;
+
+    const params = new URLSearchParams();
+    params.set("prompt", trimmedPrompt);
+
+    const model = item.model?.trim();
+    if (model) {
+      params.set("model", model);
+    }
+
+    if (item.type === "video") {
+      const initImage = item.inputImages?.[0]?.trim();
+      if (initImage) {
+        params.set("initImage", initImage);
+      }
+    } else {
+      const initImages = (item.inputImages ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      initImages.forEach((value) => {
+        params.append("initImage", value);
+      });
+    }
+
+    router.push(`${target}?${params.toString()}`);
   };
 
   const handleCopyPrompt = async () => {
@@ -306,9 +453,28 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
       </div>
 
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
-        <p className="text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
+        <p className="min-h-[4.5rem] line-clamp-3 text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
           {item.prompt}
         </p>
+        {canShowViewMore ? (
+          <>
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => setIsPromptDialogOpen(true)}
+              className="h-auto self-end p-0 text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-primary"
+            >
+              {tActions("viewFullPrompt")}
+            </Button>
+            <MonitoringRequestDetailDialog
+              open={isPromptDialogOpen}
+              onOpenChange={(openValue) => setIsPromptDialogOpen(openValue)}
+              request={monitoringRequest}
+              timeZone={timeZone}
+              detailOverride={monitoringDetailOverride}
+            />
+          </>
+        ) : null}
         {hasInputImages ? (
           <div className="flex flex-wrap gap-2">
             {inputImages.map((url, index) => (
@@ -337,7 +503,61 @@ export function HistoryItem({ item }: { item: GenerationHistoryItem }) {
               {formatDate(item.createdAt)}
             </span>
           </div>
-          <TypeIcon className="h-4 w-4 text-gray-600" />
+          <div className="flex items-center gap-2">
+            <TypeIcon className="h-4 w-4 text-gray-600" />
+            <AlertDialog
+              open={isDeleteDialogOpen}
+              onOpenChange={(next) => {
+                if (deleteMutation.isPending) return;
+                setIsDeleteDialogOpen(next);
+              }}
+            >
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={!canDelete || deleteMutation.isPending}
+                  className={cn(
+                    "h-8 w-8 rounded-lg text-gray-500 hover:bg-white/5 hover:text-white",
+                    canDelete && "hover:text-red-300"
+                  )}
+                  aria-label={tCommonActions("remove")}
+                  title={
+                    canDelete
+                      ? tCommonActions("remove")
+                      : tStates("generating")
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{tDeleteDialog("title")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {tDeleteDialog("description")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteMutation.isPending}>
+                    {tCommonActions("cancel")}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleteMutation.isPending}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      if (!canDelete) return;
+                      deleteMutation.mutate();
+                    }}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    {tDeleteDialog("confirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </article>
