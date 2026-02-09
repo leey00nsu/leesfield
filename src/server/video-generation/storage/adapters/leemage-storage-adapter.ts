@@ -1,4 +1,4 @@
-import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
+import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import {
   resolveVideoAspectRatioSize,
   type VideoGenerationFormValues,
@@ -74,7 +74,7 @@ function getLeemageClient() {
   ) {
     cachedClient = new LeemageClient({
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
+      baseUrl: config.baseUrl ?? "https://leemage.leey00nsu.com",
       timeout: 20_000,
     });
     cachedConfig = config;

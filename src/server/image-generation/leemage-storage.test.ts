@@ -10,7 +10,7 @@ describe("resolveGenerationResult", () => {
   afterEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.unmock("@/shared/lib/leemage-sdk");
+    vi.unmock("leemage-sdk");
     Object.assign(process.env, baseEnv);
   });
 
@@ -38,7 +38,7 @@ describe("resolveGenerationResult", () => {
     const mockUpload = vi.fn().mockRejectedValue(new Error("upload failed"));
 
     vi.resetModules();
-    vi.doMock("@/shared/lib/leemage-sdk", () => ({
+    vi.doMock("leemage-sdk", () => ({
       LeemageClient: class {
         files = { upload: mockUpload };
       },
