@@ -1,4 +1,4 @@
-import { LeemageClient } from "@/shared/lib/leemage-sdk";
+import { LeemageClient } from "leemage-sdk";
 
 type LeemageConfig = {
   apiKey: string;
@@ -44,7 +44,7 @@ function getLeemageClient() {
   ) {
     cachedClient = new LeemageClient({
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
+      baseUrl: config.baseUrl ?? "https://leemage.leey00nsu.com",
       timeout: 20_000,
     });
     cachedConfig = config;

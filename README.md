@@ -176,6 +176,8 @@ pnpm dev
 - 이미지: `IMAGE_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
 - 비디오: `VIDEO_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
 - `leemage` 사용 시 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`가 필수입니다.
+- Leemage 업로드/삭제 클라이언트는 공식 npm 패키지 `leemage-sdk`를 사용합니다.
+- 과거 내부 경로(`src/shared/lib/leemage-sdk`)는 제거되었으며, 현재 런타임에서는 사용하지 않습니다.
 - 설정이 없거나 지원되지 않으면 **결과는 응답되지만 히스토리(DB) 저장은 생략**됩니다.
 
 추가 방법:

@@ -1,4 +1,4 @@
-import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
+import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 
 export const INPUT_IMAGE_STORAGE_REQUIRED = "IMAGE_INPUT_STORAGE_REQUIRED";
@@ -64,7 +64,7 @@ function getLeemageClient() {
   ) {
     cachedClient = new LeemageClient({
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
+      baseUrl: config.baseUrl ?? "https://leemage.leey00nsu.com",
       timeout: 20_000,
     });
     cachedConfig = config;

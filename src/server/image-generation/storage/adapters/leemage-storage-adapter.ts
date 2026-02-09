@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import path from "path";
-import { LeemageClient, type UploadableFile } from "@/shared/lib/leemage-sdk";
+import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 import type {
@@ -69,7 +69,7 @@ function getLeemageClient() {
   ) {
     cachedClient = new LeemageClient({
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
+      baseUrl: config.baseUrl ?? "https://leemage.leey00nsu.com",
       timeout: 20_000,
     });
     cachedConfig = config;
