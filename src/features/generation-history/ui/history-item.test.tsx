@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HistoryItem } from "@/features/generation-history/ui/history-item";
+import {
+  HistoryItem,
+  HistoryItemSkeleton,
+} from "@/features/generation-history/ui/history-item";
 import { renderWithIntl } from "@/test-utils/intl";
 
 vi.mock("next/navigation", () => ({
@@ -123,5 +126,35 @@ describe("HistoryItem", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(prompt)).toBeInTheDocument();
+  });
+
+  it("HistoryItemSkeleton 핵심 placeholder 구조를 렌더링한다", () => {
+    const { container } = renderWithIntl(<HistoryItemSkeleton />);
+
+    const root = screen.getByTestId("history-item-skeleton");
+    const media = screen.getByTestId("history-item-skeleton-media");
+    const prompt = screen.getByTestId("history-item-skeleton-prompt");
+    const inputImages = screen.getByTestId("history-item-skeleton-input-images");
+    const meta = screen.getByTestId("history-item-skeleton-meta");
+    const actions = screen.getByTestId("history-item-skeleton-actions");
+
+    expect(root.tagName).toBe("ARTICLE");
+    expect(within(media).getByTestId("history-item-skeleton-media-fill")).toBeInTheDocument();
+    expect(within(media).getByTestId("history-item-skeleton-badge-type")).toBeInTheDocument();
+    expect(within(media).getByTestId("history-item-skeleton-badge-status")).toBeInTheDocument();
+
+    expect(within(prompt).getByTestId("history-item-skeleton-prompt-line-1")).toBeInTheDocument();
+    expect(within(prompt).getByTestId("history-item-skeleton-prompt-line-2")).toBeInTheDocument();
+    expect(within(prompt).getByTestId("history-item-skeleton-prompt-line-3")).toBeInTheDocument();
+    expect(screen.getByTestId("history-item-skeleton-view-more")).toBeInTheDocument();
+
+    expect(within(inputImages).getByTestId("history-item-skeleton-input-image-1")).toBeInTheDocument();
+    expect(within(inputImages).getByTestId("history-item-skeleton-input-image-2")).toBeInTheDocument();
+    expect(within(meta).getByTestId("history-item-skeleton-meta-model")).toBeInTheDocument();
+    expect(within(meta).getByTestId("history-item-skeleton-meta-date")).toBeInTheDocument();
+    expect(within(actions).getByTestId("history-item-skeleton-action-1")).toBeInTheDocument();
+    expect(within(actions).getByTestId("history-item-skeleton-action-2")).toBeInTheDocument();
+
+    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(13);
   });
 });
