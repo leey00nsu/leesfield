@@ -566,18 +566,35 @@ export function HistoryItem({
 
 export function HistoryItemSkeleton() {
   return (
-    <div className="break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
+    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg">
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         <Skeleton className="absolute inset-0 rounded-none bg-white/10" />
         <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
+        <Skeleton className="absolute left-3 top-3 h-6 w-16 rounded-md bg-white/15" />
+        <Skeleton className="absolute right-3 top-3 h-6 w-20 rounded-md bg-white/15" />
       </div>
-      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4">
-        <Skeleton className="h-4 w-3/4 rounded-full bg-white/10" />
+      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
+        <div className="flex min-h-[4.5rem] flex-col gap-2">
+          <Skeleton className="h-4 w-full rounded-full bg-white/10" />
+          <Skeleton className="h-4 w-11/12 rounded-full bg-white/10" />
+          <Skeleton className="h-4 w-3/4 rounded-full bg-white/10" />
+        </div>
+        <Skeleton className="ml-auto h-4 w-16 rounded-full bg-white/10" />
+        <div className="flex gap-2">
+          <Skeleton className="h-12 w-12 rounded-lg bg-white/10" />
+          <Skeleton className="h-12 w-12 rounded-lg bg-white/10" />
+        </div>
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
-          <Skeleton className="h-4 w-20 rounded-full bg-primary/20" />
-          <Skeleton className="h-3 w-10 rounded-full bg-white/10" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-5 w-24 rounded-full bg-primary/20" />
+            <Skeleton className="h-3 w-16 rounded-full bg-white/10" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-8 rounded-lg bg-white/10" />
+            <Skeleton className="h-8 w-8 rounded-lg bg-white/10" />
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

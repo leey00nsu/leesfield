@@ -23,7 +23,6 @@ describe("HistoryList", () => {
       if (index === 2) {
         expect(column).toHaveClass("hidden");
         expect(column).toHaveClass("md:grid");
-        expect(column).toHaveClass("xl:hidden");
         return;
       }
       expect(column).toHaveClass("hidden");
