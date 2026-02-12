@@ -566,18 +566,86 @@ export function HistoryItem({
 
 export function HistoryItemSkeleton() {
   return (
-    <div className="break-inside-avoid rounded-xl border border-white/5 bg-surface-dark shadow-lg">
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
-        <Skeleton className="absolute inset-0 rounded-none bg-white/10" />
+    <article
+      data-testid="history-item-skeleton"
+      className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg"
+    >
+      <div
+        data-testid="history-item-skeleton-media"
+        className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black"
+      >
+        <Skeleton
+          data-testid="history-item-skeleton-media-fill"
+          className="absolute inset-0 rounded-none bg-white/10"
+        />
         <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
+        <Skeleton
+          data-testid="history-item-skeleton-badge-type"
+          className="absolute left-3 top-3 h-6 w-16 rounded-md bg-white/15"
+        />
+        <Skeleton
+          data-testid="history-item-skeleton-badge-status"
+          className="absolute right-3 top-3 h-6 w-20 rounded-md bg-white/15"
+        />
       </div>
-      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4">
-        <Skeleton className="h-4 w-3/4 rounded-full bg-white/10" />
-        <div className="flex items-center justify-between border-t border-white/5 pt-3">
-          <Skeleton className="h-4 w-20 rounded-full bg-primary/20" />
-          <Skeleton className="h-3 w-10 rounded-full bg-white/10" />
+      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
+        <div
+          data-testid="history-item-skeleton-prompt"
+          className="flex min-h-[4.5rem] flex-col gap-2"
+        >
+          <Skeleton
+            data-testid="history-item-skeleton-prompt-line-1"
+            className="h-4 w-full rounded-full bg-white/10"
+          />
+          <Skeleton
+            data-testid="history-item-skeleton-prompt-line-2"
+            className="h-4 w-11/12 rounded-full bg-white/10"
+          />
+          <Skeleton
+            data-testid="history-item-skeleton-prompt-line-3"
+            className="h-4 w-3/4 rounded-full bg-white/10"
+          />
+        </div>
+        <Skeleton
+          data-testid="history-item-skeleton-view-more"
+          className="ml-auto h-4 w-16 rounded-full bg-white/10"
+        />
+        <div data-testid="history-item-skeleton-input-images" className="flex gap-2">
+          <Skeleton
+            data-testid="history-item-skeleton-input-image-1"
+            className="h-12 w-12 rounded-lg bg-white/10"
+          />
+          <Skeleton
+            data-testid="history-item-skeleton-input-image-2"
+            className="h-12 w-12 rounded-lg bg-white/10"
+          />
+        </div>
+        <div
+          data-testid="history-item-skeleton-footer"
+          className="flex items-center justify-between border-t border-white/5 pt-3"
+        >
+          <div data-testid="history-item-skeleton-meta" className="flex items-center gap-3">
+            <Skeleton
+              data-testid="history-item-skeleton-meta-model"
+              className="h-5 w-24 rounded-full bg-primary/20"
+            />
+            <Skeleton
+              data-testid="history-item-skeleton-meta-date"
+              className="h-3 w-16 rounded-full bg-white/10"
+            />
+          </div>
+          <div data-testid="history-item-skeleton-actions" className="flex items-center gap-2">
+            <Skeleton
+              data-testid="history-item-skeleton-action-1"
+              className="h-8 w-8 rounded-lg bg-white/10"
+            />
+            <Skeleton
+              data-testid="history-item-skeleton-action-2"
+              className="h-8 w-8 rounded-lg bg-white/10"
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

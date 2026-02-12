@@ -80,7 +80,7 @@ export function HistoryList({
             key={`history-skeleton-column-${columnIndex}`}
             className={cn(
               "grid gap-4",
-              columnIndex === 2 && "hidden md:grid xl:hidden",
+              columnIndex === 2 && "hidden md:grid",
               columnIndex === 3 && "hidden xl:grid",
             )}
           >

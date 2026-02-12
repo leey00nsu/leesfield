@@ -18,16 +18,19 @@ describe("HistoryList", () => {
     Array.from(wrapper?.children ?? []).forEach((column, index) => {
       if (index < 2) {
         expect(column).toHaveClass("grid");
+        expect(column.children.length).toBe(index === 0 ? 3 : 2);
         return;
       }
       if (index === 2) {
         expect(column).toHaveClass("hidden");
         expect(column).toHaveClass("md:grid");
-        expect(column).toHaveClass("xl:hidden");
+        expect(column).not.toHaveClass("xl:hidden");
+        expect(column.children.length).toBe(2);
         return;
       }
       expect(column).toHaveClass("hidden");
       expect(column).toHaveClass("xl:grid");
+      expect(column.children.length).toBe(2);
     });
   });
 });
