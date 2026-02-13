@@ -58,4 +58,35 @@ describe("/api/monitoring/requests", () => {
       }),
     );
   });
+
+  it("limit/offset이 없으면 기본 페이지네이션 값을 사용한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockGetMonitoringRequests.mockResolvedValue({
+      updatedAt: "2026-01-03T00:00:00Z",
+      items: [],
+      total: 3,
+      limit: 50,
+      offset: 0,
+    });
+
+    const request = new Request(
+      "http://localhost/api/monitoring/requests?from=2026-01-01&to=2026-01-02",
+    );
+    const response = await GET(request);
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.total).toBe(3);
+    expect(payload.limit).toBe(50);
+    expect(payload.offset).toBe(0);
+    expect(mockGetMonitoringRequests).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 50,
+        offset: 0,
+      }),
+    );
+  });
 });

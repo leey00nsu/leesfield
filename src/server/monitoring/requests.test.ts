@@ -184,4 +184,32 @@ describe("getMonitoringRequests", () => {
     expect(result.items[1].apiKeyLabel).toBe("UI");
     expect(result.items[1].durationMs).toBeNull();
   });
+
+  it("offset이 total 이상이면 빈 items를 반환하고 total은 유지한다", async () => {
+    const query: MonitoringQuery = {
+      ...baseQuery,
+      type: "all",
+      limit: 5,
+      offset: 10,
+    };
+    const createdAt = new Date("2026-01-05T10:00:00Z");
+    (prisma.imageGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    (prisma.videoGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({ requestId: "img-1", createdAt }),
+    ]);
+    (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({
+        requestId: "vid-1",
+        createdAt: new Date("2026-01-05T09:00:00Z"),
+      }),
+    ]);
+
+    const result = await getMonitoringRequests(query);
+
+    expect(result.total).toBe(2);
+    expect(result.limit).toBe(5);
+    expect(result.offset).toBe(10);
+    expect(result.items).toEqual([]);
+  });
 });
