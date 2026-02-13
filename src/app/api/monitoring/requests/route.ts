@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   const query = parseMonitoringQuery(searchParams, {
     defaultDays: 7,
     defaultLimit: 50,
+    defaultOffset: 0,
   });
 
   try {

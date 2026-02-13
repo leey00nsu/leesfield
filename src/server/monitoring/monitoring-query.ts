@@ -17,11 +17,13 @@ export type MonitoringQuery = {
   to: Date;
   tz: string;
   limit: number;
+  offset: number;
   metric: MonitoringMetric;
 };
 
 const DEFAULT_DAYS = 7;
 const DEFAULT_LIMIT = 50;
+const DEFAULT_OFFSET = 0;
 const MAX_LIMIT = 200;
 const DEFAULT_TOP_LIMIT = 5;
 
@@ -138,6 +140,13 @@ function resolveLimit(value: string | null, fallback: number) {
   return clamp(parsed, 1, MAX_LIMIT);
 }
 
+function resolveOffset(value: string | null, fallback: number) {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(parsed, 0);
+}
+
 function resolveMetric(value: string | null) {
   if (!value) return "requests";
   const normalized = value.toLowerCase();
@@ -150,6 +159,7 @@ export function parseMonitoringQuery(
   searchParams: URLSearchParams,
   options?: {
     defaultLimit?: number;
+    defaultOffset?: number;
     defaultDays?: number;
     defaultMetric?: MonitoringMetric;
   },
@@ -172,6 +182,10 @@ export function parseMonitoringQuery(
     searchParams.get("limit"),
     options?.defaultLimit ?? DEFAULT_LIMIT,
   );
+  const offset = resolveOffset(
+    searchParams.get("offset"),
+    options?.defaultOffset ?? DEFAULT_OFFSET,
+  );
 
   const rawMetric = searchParams.get("metric");
   const metric = rawMetric
@@ -188,6 +202,7 @@ export function parseMonitoringQuery(
     to,
     tz,
     limit,
+    offset,
     metric,
   };
 }

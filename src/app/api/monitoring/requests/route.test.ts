@@ -36,15 +36,26 @@ describe("/api/monitoring/requests", () => {
     mockGetMonitoringRequests.mockResolvedValue({
       updatedAt: "2026-01-02T00:00:00Z",
       items: [],
+      total: 0,
+      limit: 10,
+      offset: 20,
     });
 
     const request = new Request(
-      "http://localhost/api/monitoring/requests?limit=10&from=2026-01-01&to=2026-01-02",
+      "http://localhost/api/monitoring/requests?limit=10&offset=20&from=2026-01-01&to=2026-01-02",
     );
     const response = await GET(request);
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload.updatedAt).toBe("2026-01-02T00:00:00Z");
+    expect(payload.limit).toBe(10);
+    expect(payload.offset).toBe(20);
+    expect(mockGetMonitoringRequests).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 10,
+        offset: 20,
+      }),
+    );
   });
 });

@@ -15,6 +15,9 @@ export type MonitoringRequestItem = {
 export type MonitoringRequestResponse = {
   updatedAt: string;
   items: MonitoringRequestItem[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
@@ -42,6 +45,7 @@ export async function getMonitoringRequests(
   };
 
   const limit = query.limit;
+  const offset = query.offset;
 
   const select = {
     requestId: true,
@@ -60,16 +64,21 @@ export async function getMonitoringRequests(
   const orderBy = { createdAt: "desc" } as const;
 
   if (query.type === "image") {
-    const records = await prisma.imageGeneration.findMany({
-      where: buildImageWhere(filters, {
-        includeDate: true,
-        includeStatus: true,
-        includeQuery: true,
-      }),
-      orderBy,
-      take: limit,
-      select,
+    const where = buildImageWhere(filters, {
+      includeDate: true,
+      includeStatus: true,
+      includeQuery: true,
     });
+    const [total, records] = await Promise.all([
+      prisma.imageGeneration.count({ where }),
+      prisma.imageGeneration.findMany({
+        where,
+        orderBy,
+        skip: offset,
+        take: limit,
+        select,
+      }),
+    ]);
 
     const items = records.map((record) => ({
       id: record.requestId,
@@ -84,20 +93,31 @@ export async function getMonitoringRequests(
       ),
     }));
 
-    return { updatedAt: new Date().toISOString(), items };
+    return {
+      updatedAt: new Date().toISOString(),
+      items,
+      total,
+      limit,
+      offset,
+    };
   }
 
   if (query.type === "video") {
-    const records = await prisma.videoGeneration.findMany({
-      where: buildVideoWhere(filters, {
-        includeDate: true,
-        includeStatus: true,
-        includeQuery: true,
-      }),
-      orderBy,
-      take: limit,
-      select,
+    const where = buildVideoWhere(filters, {
+      includeDate: true,
+      includeStatus: true,
+      includeQuery: true,
     });
+    const [total, records] = await Promise.all([
+      prisma.videoGeneration.count({ where }),
+      prisma.videoGeneration.findMany({
+        where,
+        orderBy,
+        skip: offset,
+        take: limit,
+        select,
+      }),
+    ]);
 
     const items = records.map((record) => ({
       id: record.requestId,
@@ -112,28 +132,40 @@ export async function getMonitoringRequests(
       ),
     }));
 
-    return { updatedAt: new Date().toISOString(), items };
+    return {
+      updatedAt: new Date().toISOString(),
+      items,
+      total,
+      limit,
+      offset,
+    };
   }
 
-  const [imageRecords, videoRecords] = await Promise.all([
+  const imageWhere = buildImageWhere(filters, {
+    includeDate: true,
+    includeStatus: true,
+    includeQuery: true,
+  });
+  const videoWhere = buildVideoWhere(filters, {
+    includeDate: true,
+    includeStatus: true,
+    includeQuery: true,
+  });
+  const take = limit + offset;
+
+  const [imageTotal, videoTotal, imageRecords, videoRecords] = await Promise.all([
+    prisma.imageGeneration.count({ where: imageWhere }),
+    prisma.videoGeneration.count({ where: videoWhere }),
     prisma.imageGeneration.findMany({
-      where: buildImageWhere(filters, {
-        includeDate: true,
-        includeStatus: true,
-        includeQuery: true,
-      }),
+      where: imageWhere,
       orderBy,
-      take: limit,
+      take,
       select,
     }),
     prisma.videoGeneration.findMany({
-      where: buildVideoWhere(filters, {
-        includeDate: true,
-        includeStatus: true,
-        includeQuery: true,
-      }),
+      where: videoWhere,
       orderBy,
-      take: limit,
+      take,
       select,
     }),
   ]);
@@ -167,6 +199,9 @@ export async function getMonitoringRequests(
 
   return {
     updatedAt: new Date().toISOString(),
-    items: items.slice(0, limit),
+    items: items.slice(offset, offset + limit),
+    total: imageTotal + videoTotal,
+    limit,
+    offset,
   };
 }

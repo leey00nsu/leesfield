@@ -22,6 +22,7 @@ const baseQuery: MonitoringQuery = {
   to: new Date("2026-01-08T00:00:00Z"),
   tz: "UTC",
   limit: 50,
+  offset: 0,
   metric: "requests",
 };
 
