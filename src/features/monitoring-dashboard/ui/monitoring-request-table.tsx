@@ -1,13 +1,33 @@
 import { useMemo, useState } from "react";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+} from "@tanstack/react-table";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
+import { Button } from "@/shared/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 
 interface MonitoringRequestTableProps {
   items: MonitoringRequestItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  onLimitChange: (limit: number) => void;
+  onOffsetChange: (offset: number) => void;
   isLoading: boolean;
   error: string | null;
   updatedAt: string | null;
@@ -16,6 +36,11 @@ interface MonitoringRequestTableProps {
 
 export function MonitoringRequestTable({
   items,
+  total,
+  limit,
+  offset,
+  onLimitChange,
+  onOffsetChange,
   isLoading,
   error,
   updatedAt,
@@ -43,6 +68,17 @@ export function MonitoringRequestTable({
     completed: t("statuses.completed"),
     failed: t("statuses.failed"),
   };
+  const pageSizeOptions = useMemo(
+    () =>
+      Array.from(new Set([20, 50, 100, limit]))
+        .filter((value) => value > 0)
+        .sort((a, b) => a - b),
+    [limit],
+  );
+  const pageIndex = limit > 0 ? Math.floor(offset / limit) : 0;
+  const pageCount = limit > 0 ? Math.ceil(total / limit) : 0;
+  const canPreviousPage = offset > 0;
+  const canNextPage = offset + items.length < total;
 
   const handleOpenDetail = (item: MonitoringRequestItem) => {
     setSelected(item);
@@ -53,6 +89,92 @@ export function MonitoringRequestTable({
     setDialogOpen(open);
     if (!open) setSelected(null);
   };
+
+  const handleLimitChange = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    onLimitChange(parsed);
+  };
+
+  const columns = useMemo<ColumnDef<MonitoringRequestItem>[]>(
+    () => [
+      {
+        id: "apiKey",
+        header: t("requests.columns.apiKey"),
+        cell: ({ row }) => (
+          <span className="text-gray-400">{row.original.apiKeyLabel}</span>
+        ),
+      },
+      {
+        id: "model",
+        header: t("requests.columns.model"),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2 font-semibold text-white">
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-400">
+              {row.original.type}
+            </span>
+            <span>{row.original.model ?? "-"}</span>
+          </div>
+        ),
+      },
+      {
+        id: "timestamp",
+        header: t("requests.columns.timestamp"),
+        cell: ({ row }) => (
+          <span className="text-gray-500">
+            {formatDateTime(row.original.createdAt)}
+          </span>
+        ),
+      },
+      {
+        id: "duration",
+        header: t("requests.columns.duration"),
+        cell: ({ row }) => (
+          <span className="text-primary">
+            {formatDuration(row.original.durationMs)}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: () => (
+          <div className="text-right">{t("requests.columns.status")}</div>
+        ),
+        cell: ({ row }) => {
+          const status = resolveMonitoringStatus(row.original.status, statusLabels);
+          const Icon = status.icon;
+          return (
+            <div className="text-right">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold",
+                  status.className,
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {status.label}
+              </span>
+            </div>
+          );
+        },
+      },
+    ],
+    [formatDateTime, statusLabels, t],
+  );
+
+  const table = useReactTable({
+    data: items,
+    columns,
+    manualPagination: true,
+    pageCount,
+    getCoreRowModel: getCoreRowModel(),
+    state: {
+      pagination: {
+        pageIndex,
+        pageSize: limit,
+      },
+    },
+  });
 
   return (
     <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-6 shadow-2xl">
@@ -83,67 +205,97 @@ export function MonitoringRequestTable({
             {t("requests.empty")}
           </div>
         ) : (
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-xs font-mono uppercase tracking-widest text-gray-500">
-                <th className="px-4 py-3">{t("requests.columns.apiKey")}</th>
-                <th className="px-4 py-3">{t("requests.columns.model")}</th>
-                <th className="px-4 py-3">{t("requests.columns.timestamp")}</th>
-                <th className="px-4 py-3">{t("requests.columns.duration")}</th>
-                <th className="px-4 py-3 text-right">{t("requests.columns.status")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {items.map((item) => {
-                const status = resolveMonitoringStatus(item.status, statusLabels);
-                const Icon = status.icon;
-                return (
+          <>
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                {table.getHeaderGroups().map((headerGroup) => (
                   <tr
-                    key={item.id}
+                    key={headerGroup.id}
+                    className="border-b border-white/10 text-xs font-mono uppercase tracking-widest text-gray-500"
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className={cn("px-4 py-3", header.id === "status" && "text-right")}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {table.getRowModel().rows.map((row) => (
+                  <tr
+                    key={row.id}
                     className="group cursor-pointer transition-colors hover:bg-white/5 focus-within:bg-white/5"
                     role="button"
                     tabIndex={0}
-                    onClick={() => handleOpenDetail(item)}
+                    onClick={() => handleOpenDetail(row.original)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        handleOpenDetail(item);
+                        handleOpenDetail(row.original);
                       }
                     }}
                   >
-                    <td className="px-4 py-3 text-gray-400">
-                      {item.apiKeyLabel}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-white">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-400">
-                          {item.type}
-                        </span>
-                        <span>{item.model ?? "-"}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {formatDateTime(item.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 text-primary">
-                      {formatDuration(item.durationMs)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold",
-                          status.className,
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {status.label}
-                      </span>
-                    </td>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="font-mono uppercase tracking-widest">Limit</span>
+                <Select value={String(limit)} onValueChange={handleLimitChange}>
+                  <SelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pageSizeOptions.map((option) => (
+                      <SelectItem key={option} value={String(option)}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="surface"
+                  onClick={() => onOffsetChange(Math.max(0, offset - limit))}
+                  disabled={!canPreviousPage}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-[84px] text-center text-xs font-mono text-gray-400">
+                  {total === 0 ? "0/0" : `${pageIndex + 1}/${Math.max(1, pageCount)}`}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="surface"
+                  onClick={() => onOffsetChange(offset + limit)}
+                  disabled={!canNextPage}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </div>
       <MonitoringRequestDetailDialog

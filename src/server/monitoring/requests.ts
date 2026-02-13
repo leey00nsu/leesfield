@@ -21,18 +21,21 @@ export type MonitoringRequestResponse = {
 };
 
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
-const ORDER_BY = [{ createdAt: "desc" }, { requestId: "desc" }] as const;
+const ORDER_BY = [
+  { createdAt: "desc" as const },
+  { requestId: "desc" as const },
+];
 
 type RequestType = "image" | "video";
 
-type RequestRecord = {
+type RequestRecordBase = {
   requestId: string;
   status: string;
   modelKey: string | null;
   createdAt: Date;
   updatedAt: Date;
   apiKeyId: string | null;
-  apiKey: {
+  apiKey?: {
     maskedKey: string | null;
   } | null;
 };
@@ -47,7 +50,10 @@ function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
   return Math.max(0, updatedAt.getTime() - createdAt.getTime());
 }
 
-function compareRecords(a: RequestRecord & { type: RequestType }, b: RequestRecord & { type: RequestType }) {
+function compareRecords(
+  a: RequestRecordBase & { type: RequestType },
+  b: RequestRecordBase & { type: RequestType },
+) {
   const createdAtDiff = b.createdAt.getTime() - a.createdAt.getTime();
   if (createdAtDiff !== 0) return createdAtDiff;
 
@@ -57,7 +63,9 @@ function compareRecords(a: RequestRecord & { type: RequestType }, b: RequestReco
   return b.type.localeCompare(a.type);
 }
 
-function toMonitoringRequestItem(record: RequestRecord & { type: RequestType }): MonitoringRequestItem {
+function toMonitoringRequestItem(
+  record: RequestRecordBase & { type: RequestType },
+): MonitoringRequestItem {
   return {
     id: record.requestId,
     type: record.type,
@@ -115,7 +123,7 @@ export async function getMonitoringRequests(
       }),
     ]);
 
-    const items = (records as RequestRecord[]).map((record) =>
+    const items = records.map((record) =>
       toMonitoringRequestItem({ ...record, type: "image" }),
     );
 
@@ -145,7 +153,7 @@ export async function getMonitoringRequests(
       }),
     ]);
 
-    const items = (records as RequestRecord[]).map((record) =>
+    const items = records.map((record) =>
       toMonitoringRequestItem({ ...record, type: "video" }),
     );
 
@@ -188,11 +196,11 @@ export async function getMonitoringRequests(
   ]);
 
   const mergedRecords = [
-    ...(imageRecords as RequestRecord[]).map((record) => ({
+    ...imageRecords.map((record) => ({
       ...record,
       type: "image" as const,
     })),
-    ...(videoRecords as RequestRecord[]).map((record) => ({
+    ...videoRecords.map((record) => ({
       ...record,
       type: "video" as const,
     })),
