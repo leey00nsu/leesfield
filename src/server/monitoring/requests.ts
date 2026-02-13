@@ -21,6 +21,21 @@ export type MonitoringRequestResponse = {
 };
 
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
+const ORDER_BY = [{ createdAt: "desc" }, { requestId: "desc" }] as const;
+
+type RequestType = "image" | "video";
+
+type RequestRecord = {
+  requestId: string;
+  status: string;
+  modelKey: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  apiKeyId: string | null;
+  apiKey: {
+    maskedKey: string | null;
+  } | null;
+};
 
 function resolveApiKeyLabel(maskedKey: string | null, apiKeyId: string | null) {
   if (!apiKeyId) return "UI";
@@ -30,6 +45,28 @@ function resolveApiKeyLabel(maskedKey: string | null, apiKeyId: string | null) {
 function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
   if (!FINISHED_STATUSES.has(status)) return null;
   return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+}
+
+function compareRecords(a: RequestRecord & { type: RequestType }, b: RequestRecord & { type: RequestType }) {
+  const createdAtDiff = b.createdAt.getTime() - a.createdAt.getTime();
+  if (createdAtDiff !== 0) return createdAtDiff;
+
+  const requestIdDiff = b.requestId.localeCompare(a.requestId);
+  if (requestIdDiff !== 0) return requestIdDiff;
+
+  return b.type.localeCompare(a.type);
+}
+
+function toMonitoringRequestItem(record: RequestRecord & { type: RequestType }): MonitoringRequestItem {
+  return {
+    id: record.requestId,
+    type: record.type,
+    status: record.status,
+    model: record.modelKey ?? null,
+    createdAt: record.createdAt.toISOString(),
+    durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+    apiKeyLabel: resolveApiKeyLabel(record.apiKey?.maskedKey ?? null, record.apiKeyId),
+  };
 }
 
 export async function getMonitoringRequests(
@@ -61,8 +98,6 @@ export async function getMonitoringRequests(
     },
   } as const;
 
-  const orderBy = { createdAt: "desc" } as const;
-
   if (query.type === "image") {
     const where = buildImageWhere(filters, {
       includeDate: true,
@@ -73,25 +108,16 @@ export async function getMonitoringRequests(
       prisma.imageGeneration.count({ where }),
       prisma.imageGeneration.findMany({
         where,
-        orderBy,
+        orderBy: ORDER_BY,
         skip: offset,
         take: limit,
         select,
       }),
     ]);
 
-    const items = records.map((record) => ({
-      id: record.requestId,
-      type: "image" as const,
-      status: record.status,
-      model: record.modelKey ?? null,
-      createdAt: record.createdAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
-      apiKeyLabel: resolveApiKeyLabel(
-        record.apiKey?.maskedKey ?? null,
-        record.apiKeyId,
-      ),
-    }));
+    const items = (records as RequestRecord[]).map((record) =>
+      toMonitoringRequestItem({ ...record, type: "image" }),
+    );
 
     return {
       updatedAt: new Date().toISOString(),
@@ -112,25 +138,16 @@ export async function getMonitoringRequests(
       prisma.videoGeneration.count({ where }),
       prisma.videoGeneration.findMany({
         where,
-        orderBy,
+        orderBy: ORDER_BY,
         skip: offset,
         take: limit,
         select,
       }),
     ]);
 
-    const items = records.map((record) => ({
-      id: record.requestId,
-      type: "video" as const,
-      status: record.status,
-      model: record.modelKey ?? null,
-      createdAt: record.createdAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
-      apiKeyLabel: resolveApiKeyLabel(
-        record.apiKey?.maskedKey ?? null,
-        record.apiKeyId,
-      ),
-    }));
+    const items = (records as RequestRecord[]).map((record) =>
+      toMonitoringRequestItem({ ...record, type: "video" }),
+    );
 
     return {
       updatedAt: new Date().toISOString(),
@@ -158,48 +175,36 @@ export async function getMonitoringRequests(
     prisma.videoGeneration.count({ where: videoWhere }),
     prisma.imageGeneration.findMany({
       where: imageWhere,
-      orderBy,
+      orderBy: ORDER_BY,
       take,
       select,
     }),
     prisma.videoGeneration.findMany({
       where: videoWhere,
-      orderBy,
+      orderBy: ORDER_BY,
       take,
       select,
     }),
   ]);
 
-  const items = [
-    ...imageRecords.map((record) => ({
-      id: record.requestId,
+  const mergedRecords = [
+    ...(imageRecords as RequestRecord[]).map((record) => ({
+      ...record,
       type: "image" as const,
-      status: record.status,
-      model: record.modelKey ?? null,
-      createdAt: record.createdAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
-      apiKeyLabel: resolveApiKeyLabel(
-        record.apiKey?.maskedKey ?? null,
-        record.apiKeyId,
-      ),
     })),
-    ...videoRecords.map((record) => ({
-      id: record.requestId,
+    ...(videoRecords as RequestRecord[]).map((record) => ({
+      ...record,
       type: "video" as const,
-      status: record.status,
-      model: record.modelKey ?? null,
-      createdAt: record.createdAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
-      apiKeyLabel: resolveApiKeyLabel(
-        record.apiKey?.maskedKey ?? null,
-        record.apiKeyId,
-      ),
     })),
-  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  ].sort(compareRecords);
+
+  const items = mergedRecords
+    .slice(offset, offset + limit)
+    .map(toMonitoringRequestItem);
 
   return {
     updatedAt: new Date().toISOString(),
-    items: items.slice(offset, offset + limit),
+    items,
     total: imageTotal + videoTotal,
     limit,
     offset,
