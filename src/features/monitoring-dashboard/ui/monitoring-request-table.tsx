@@ -50,6 +50,7 @@ export function MonitoringRequestTable({
   const locale = useLocale();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState<MonitoringRequestItem | null>(null);
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const formatDateTime = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -79,6 +80,12 @@ export function MonitoringRequestTable({
   const pageCount = limit > 0 ? Math.ceil(total / limit) : 0;
   const canPreviousPage = offset > 0;
   const canNextPage = offset + items.length < total;
+  const rangeStart = total === 0 ? 0 : Math.min(offset + 1, total);
+  const fallbackVisibleCount = total === 0 ? 0 : Math.min(limit, total - offset);
+  const visibleCount = items.length > 0 ? items.length : fallbackVisibleCount;
+  const rangeEnd = total === 0 ? 0 : Math.min(offset + visibleCount, total);
+  const safeCurrentPage = total === 0 ? 0 : pageIndex + 1;
+  const safePageCount = total === 0 ? 0 : Math.max(1, pageCount);
 
   const handleOpenDetail = (item: MonitoringRequestItem) => {
     setSelected(item);
@@ -183,8 +190,15 @@ export function MonitoringRequestTable({
           <div className="text-lg font-semibold text-white">
             {t("requests.title")}
           </div>
-          <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-            {t("requests.subtitle")}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono uppercase tracking-widest text-gray-500">
+            <span>{t("requests.subtitle")}</span>
+            <span>
+              {t("requests.pagination.range", {
+                start: numberFormatter.format(rangeStart),
+                end: numberFormatter.format(rangeEnd),
+                total: numberFormatter.format(total),
+              })}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-primary">
@@ -255,7 +269,9 @@ export function MonitoringRequestTable({
             </table>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="font-mono uppercase tracking-widest">Limit</span>
+                <span className="font-mono uppercase tracking-widest">
+                  {t("requests.pagination.rowsPerPage")}
+                </span>
                 <Select value={String(limit)} onValueChange={handleLimitChange}>
                   <SelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
                     <SelectValue />
@@ -276,12 +292,15 @@ export function MonitoringRequestTable({
                   variant="surface"
                   onClick={() => onOffsetChange(Math.max(0, offset - limit))}
                   disabled={!canPreviousPage}
-                  aria-label="Previous page"
+                  aria-label={t("requests.pagination.previous")}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div className="min-w-[84px] text-center text-xs font-mono text-gray-400">
-                  {total === 0 ? "0/0" : `${pageIndex + 1}/${Math.max(1, pageCount)}`}
+                  {t("requests.pagination.page", {
+                    current: safeCurrentPage,
+                    total: safePageCount,
+                  })}
                 </div>
                 <Button
                   type="button"
@@ -289,7 +308,7 @@ export function MonitoringRequestTable({
                   variant="surface"
                   onClick={() => onOffsetChange(offset + limit)}
                   disabled={!canNextPage}
-                  aria-label="Next page"
+                  aria-label={t("requests.pagination.next")}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>

@@ -69,7 +69,8 @@ export function useMonitoringRequests(
     staleTime: 3_000,
     gcTime: 5 * 60_000,
     retry: 1,
-    refetchInterval: POLL_INTERVAL_MS,
+    // Pause polling while browsing older pages to avoid unexpected table jumps.
+    refetchInterval: pagination.offset === 0 ? POLL_INTERVAL_MS : false,
   });
 }
 
