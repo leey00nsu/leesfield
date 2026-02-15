@@ -25,6 +25,7 @@ const DEFAULT_DAYS = 7;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
 const MAX_LIMIT = 200;
+const MAX_OFFSET = 10_000;
 const DEFAULT_TOP_LIMIT = 5;
 
 const TYPES = new Set<MonitoringType>(["image", "video", "all"]);
@@ -144,7 +145,7 @@ function resolveOffset(value: string | null, fallback: number) {
   if (!value) return fallback;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(parsed, 0);
+  return clamp(parsed, 0, MAX_OFFSET);
 }
 
 function resolveMetric(value: string | null) {
