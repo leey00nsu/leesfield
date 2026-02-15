@@ -67,6 +67,9 @@ export type MonitoringRequestDetail = {
 export type MonitoringRequestResponse = {
   updatedAt: string;
   items: MonitoringRequestItem[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type MonitoringTopItem = {

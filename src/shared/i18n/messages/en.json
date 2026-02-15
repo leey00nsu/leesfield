@@ -422,6 +422,13 @@
         "timestamp": "Timestamp",
         "duration": "Duration",
         "status": "Status"
+      },
+      "pagination": {
+        "rowsPerPage": "Rows",
+        "previous": "Previous page",
+        "next": "Next page",
+        "page": "{current}/{total}",
+        "range": "{start}-{end} / {total}"
       }
     }
   },

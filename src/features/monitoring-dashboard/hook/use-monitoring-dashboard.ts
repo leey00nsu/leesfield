@@ -51,15 +51,26 @@ export function useMonitoringStats(filters: MonitoringFilters) {
   });
 }
 
-export function useMonitoringRequests(filters: MonitoringFilters, limit: number) {
+export function useMonitoringRequests(
+  filters: MonitoringFilters,
+  pagination: { limit: number; offset: number },
+) {
   const key = useMemo(() => buildFilterKey(filters), [filters]);
   return useQuery({
-    queryKey: ["monitoring", "requests", limit, ...key],
-    queryFn: () => fetchMonitoringRequests(filters, limit),
+    queryKey: [
+      "monitoring",
+      "requests",
+      pagination.limit,
+      pagination.offset,
+      ...key,
+    ],
+    queryFn: () =>
+      fetchMonitoringRequests(filters, pagination.limit, pagination.offset),
     staleTime: 3_000,
     gcTime: 5 * 60_000,
     retry: 1,
-    refetchInterval: POLL_INTERVAL_MS,
+    // Pause polling while browsing older pages to avoid unexpected table jumps.
+    refetchInterval: pagination.offset === 0 ? POLL_INTERVAL_MS : false,
   });
 }
 

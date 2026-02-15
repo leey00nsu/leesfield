@@ -422,6 +422,13 @@
         "timestamp": "시간",
         "duration": "소요 시간",
         "status": "상태"
+      },
+      "pagination": {
+        "rowsPerPage": "행 수",
+        "previous": "이전 페이지",
+        "next": "다음 페이지",
+        "page": "{current}/{total}",
+        "range": "{start}-{end} / {total}"
       }
     }
   },

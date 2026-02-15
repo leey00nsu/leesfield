@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader, PageHeaderSearchInput } from "@/shared/ui/page-header";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
@@ -29,7 +29,7 @@ import {
   useMonitoringTop,
 } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
 
-const REQUEST_LIMIT = 50;
+const DEFAULT_REQUEST_LIMIT = 50;
 const TOP_LIMIT = 5;
 
 export function MonitoringDashboardScreen() {
@@ -43,6 +43,8 @@ export function MonitoringDashboardScreen() {
   const [range, setRange] = useState(() => createRangeFromDays(7));
   const [metric, setMetric] = useState<MonitoringMetric>("requests");
   const [searchInput, setSearchInput] = useState("");
+  const [requestLimit, setRequestLimit] = useState(DEFAULT_REQUEST_LIMIT);
+  const [requestOffset, setRequestOffset] = useState(0);
 
   const debouncedQuery = useDebouncedValue(searchInput, 350).trim();
   const tz = useMemo(
@@ -66,7 +68,22 @@ export function MonitoringDashboardScreen() {
 
   const overviewQuery = useMonitoringOverview(filters);
   const statsQuery = useMonitoringStats(filters);
-  const requestsQuery = useMonitoringRequests(filters, REQUEST_LIMIT);
+  useEffect(() => {
+    setRequestOffset(0);
+  }, [
+    type,
+    status,
+    model,
+    apiKeyId,
+    range.from.getTime(),
+    range.to.getTime(),
+    debouncedQuery,
+  ]);
+
+  const requestsQuery = useMonitoringRequests(filters, {
+    limit: requestLimit,
+    offset: requestOffset,
+  });
   const topQuery = useMonitoringTop(filters, metric, TOP_LIMIT);
   const apiKeysQuery = useMonitoringApiKeys();
   const modelCatalog = useRuntimeModelCatalog();
@@ -160,6 +177,14 @@ export function MonitoringDashboardScreen() {
 
         <MonitoringRequestTable
           items={requestsQuery.data?.items ?? []}
+          total={requestsQuery.data?.total ?? 0}
+          limit={requestsQuery.data?.limit ?? requestLimit}
+          offset={requestsQuery.data?.offset ?? requestOffset}
+          onLimitChange={(nextLimit) => {
+            setRequestLimit(nextLimit);
+            setRequestOffset(0);
+          }}
+          onOffsetChange={setRequestOffset}
           isLoading={requestsQuery.isLoading}
           error={requestsError}
           updatedAt={updatedAt}
