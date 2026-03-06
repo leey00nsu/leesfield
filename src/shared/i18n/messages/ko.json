@@ -446,6 +446,7 @@
       "detailDuration": "소요 시간",
       "detailProgress": "진행률",
       "detailError": "오류",
+      "detailWarning": "경고",
       "detailFetchError": "요청 상세를 불러오지 못했습니다.",
       "detailClose": "닫기",
       "columns": {

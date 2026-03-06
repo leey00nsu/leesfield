@@ -273,6 +273,17 @@ export function MonitoringRequestDetailDialog({
                 </div>
               </div>
             ) : null}
+
+            {detail.warningMessage ? (
+              <div>
+                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  {t("requests.detailWarning")}
+                </div>
+                <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                  {detail.warningMessage}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

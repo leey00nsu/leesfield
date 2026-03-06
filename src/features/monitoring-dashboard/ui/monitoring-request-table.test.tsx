@@ -134,6 +134,7 @@ describe("MonitoringRequestTable", () => {
       durationMs: 1_000,
       progress: 100,
       errorMessage: null,
+      warningMessage: null,
       inputImages: [],
       inputAudios: [],
       referenceText: null,

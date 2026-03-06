@@ -215,7 +215,9 @@ export function HistoryItem({
         updatedAt: item.createdAt,
         durationMs: null,
         progress: null,
-        errorMessage: item.errorMessage ?? null,
+        errorMessage: item.status === "completed" ? null : (item.errorMessage ?? null),
+        warningMessage:
+          item.status === "completed" ? (item.errorMessage ?? null) : null,
         inputImages,
         inputAudios: item.inputAudios ?? [],
         referenceText: item.referenceText ?? null,

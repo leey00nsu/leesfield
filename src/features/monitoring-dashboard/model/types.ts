@@ -60,6 +60,7 @@ export type MonitoringRequestDetail = {
   durationMs: number | null;
   progress: number | null;
   errorMessage: string | null;
+  warningMessage: string | null;
   inputImages: string[];
   inputAudios: string[];
   referenceText: string | null;

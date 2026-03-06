@@ -23,6 +23,7 @@ export type MonitoringRequestDetail = {
   durationMs: number | null;
   progress: number | null;
   errorMessage: string | null;
+  warningMessage: string | null;
   inputImages: string[];
   inputAudios: string[];
   referenceText: string | null;
@@ -34,6 +35,27 @@ const FINISHED_STATUSES = new Set(["completed", "failed"]);
 function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
   if (!FINISHED_STATUSES.has(status)) return null;
   return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+}
+
+function splitDetailMessage(status: string, message: string | null) {
+  if (!message) {
+    return {
+      errorMessage: null,
+      warningMessage: null,
+    };
+  }
+
+  if (status === "completed") {
+    return {
+      errorMessage: null,
+      warningMessage: message,
+    };
+  }
+
+  return {
+    errorMessage: message,
+    warningMessage: null,
+  };
 }
 
 export async function getMonitoringRequestDetail(
@@ -65,6 +87,8 @@ export async function getMonitoringRequestDetail(
 
     if (!record) return null;
 
+    const messages = splitDetailMessage(record.status, record.errorMessage);
+
     return {
       id: record.requestId,
       type: "image",
@@ -75,7 +99,8 @@ export async function getMonitoringRequestDetail(
       updatedAt: record.updatedAt.toISOString(),
       durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
       progress: record.progress,
-      errorMessage: record.errorMessage ?? null,
+      errorMessage: messages.errorMessage,
+      warningMessage: messages.warningMessage,
       inputImages: extractInputImages(record.requestParams),
       inputAudios: [],
       referenceText: null,
@@ -112,6 +137,8 @@ export async function getMonitoringRequestDetail(
 
     if (!record) return null;
 
+    const messages = splitDetailMessage(record.status, record.errorMessage);
+
     return {
       id: record.requestId,
       type: "audio",
@@ -122,7 +149,8 @@ export async function getMonitoringRequestDetail(
       updatedAt: record.updatedAt.toISOString(),
       durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
       progress: record.progress,
-      errorMessage: record.errorMessage ?? null,
+      errorMessage: messages.errorMessage,
+      warningMessage: messages.warningMessage,
       inputImages: extractInputImages(record.requestParams),
       inputAudios: extractInputAudios(record.requestParams),
       referenceText: extractReferenceText(record.requestParams),
@@ -160,6 +188,8 @@ export async function getMonitoringRequestDetail(
 
   if (!record) return null;
 
+  const messages = splitDetailMessage(record.status, record.errorMessage);
+
   return {
     id: record.requestId,
     type: "video",
@@ -170,7 +200,8 @@ export async function getMonitoringRequestDetail(
     updatedAt: record.updatedAt.toISOString(),
     durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
     progress: record.progress,
-    errorMessage: record.errorMessage ?? null,
+    errorMessage: messages.errorMessage,
+    warningMessage: messages.warningMessage,
     inputImages: extractInputImages(record.requestParams),
     inputAudios: [],
     referenceText: null,

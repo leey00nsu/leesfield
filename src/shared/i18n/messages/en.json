@@ -446,6 +446,7 @@
       "detailDuration": "Duration",
       "detailProgress": "Progress",
       "detailError": "Error",
+      "detailWarning": "Warning",
       "detailFetchError": "Failed to load request detail.",
       "detailClose": "Close",
       "columns": {
