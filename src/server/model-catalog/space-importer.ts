@@ -1,4 +1,8 @@
 import { Client } from "@gradio/client";
+import {
+  normalizeRuntimeParameterOptions,
+  type RuntimeParameterOptionInput,
+} from "@/shared/model-catalog/parameter-options";
 
 type ModelType = "image" | "video" | "audio";
 
@@ -15,7 +19,7 @@ type ParameterConfig = {
   max?: number;
   step?: number;
   default?: string | number | boolean;
-  options?: Array<string | number>;
+  options?: RuntimeParameterOptionInput[];
 };
 
 type DraftPayload = {
@@ -102,7 +106,6 @@ const FALLBACK_VIDEO_PARAMETERS: Record<string, ParameterConfig> = {
 
 const FALLBACK_AUDIO_PARAMETERS: Record<string, ParameterConfig> = {
   prompt: { ui: "textarea", required: true },
-  voice: { ui: "input", default: "default" },
   speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
   seed: { ui: "input", default: "" },
   inputAudio: { ui: "upload" },
@@ -127,13 +130,32 @@ function resolveParamKey(label?: string, paramName?: string, type?: string) {
   ) {
     return "referenceText";
   }
+  if (target.includes("reference preset") || target.includes("ref_preset")) {
+    return "referencePreset";
+  }
+  if (target.includes("custom instruction") || target.includes("custom_instruct")) {
+    return "customInstruction";
+  }
+  if (target.includes("voice instruction") || target.includes("voice_instruct")) {
+    return "voiceInstruction";
+  }
   if (target.includes("prompt")) return "prompt";
   if (target.includes("text") || target.includes("script") || target.includes("message")) return "prompt";
+  if (target.includes("language")) return "language";
+  if (target.includes("stream mode") || target.includes("stream_mode")) return "streamMode";
+  if (target.includes("xvec")) return "xvecOnly";
+  if (target.includes("chunk size") || target.includes("chunk_size")) return "chunkSize";
+  if (target.includes("temperature")) return "temperature";
+  if (target.includes("top k") || target.includes("top_k")) return "topK";
+  if (target.includes("repetition penalty") || target.includes("repetition_penalty")) {
+    return "repetitionPenalty";
+  }
   if (target.includes("width")) return "width";
   if (target.includes("height")) return "height";
   if (target.includes("guidance") || target.includes("cfg")) return "guidanceScale";
   if (target.includes("seed")) return "seed";
-  if (target.includes("voice") || target.includes("speaker") || target.includes("spk")) return "voice";
+  if (target.includes("speaker") || target.includes("spk")) return "speaker";
+  if (target.includes("voice")) return "voice";
   if (target.includes("speed") || target.includes("rate")) return "speed";
   if (target.includes("mode")) return "modeChoice";
   if (target.includes("upsample")) return "promptUpsampling";
@@ -227,10 +249,10 @@ function buildParamConfig(
   );
   const step = resolveNumber(componentProps.step, undefined);
   const optionsRaw =
-    (componentProps.choices as Array<string | number>) ??
-    (componentProps.options as Array<string | number>);
+    (componentProps.choices as RuntimeParameterOptionInput[]) ??
+    (componentProps.options as RuntimeParameterOptionInput[]);
 
-  const options = Array.isArray(optionsRaw) ? optionsRaw : undefined;
+  const options = normalizeRuntimeParameterOptions(optionsRaw);
   const value =
     componentProps.value ?? componentProps.default ?? defaultValue;
 

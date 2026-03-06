@@ -135,6 +135,8 @@ describe("MonitoringRequestTable", () => {
       progress: 100,
       errorMessage: null,
       inputImages: [],
+      inputAudios: [],
+      referenceText: null,
       assets: [],
     };
     mockUseMonitoringRequestDetail.mockImplementation(

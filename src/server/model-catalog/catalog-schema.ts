@@ -11,6 +11,25 @@ const parameterUiOptions = [
   "upload",
 ] as const;
 
+const parameterOptionValueSchema = z.union([z.string(), z.number()]);
+const parameterOptionSchema = z.object({
+  label: z.string().min(1),
+  value: parameterOptionValueSchema,
+});
+const parameterOptionInputSchema = z.union([
+  parameterOptionValueSchema.transform((value) => ({
+    label: String(value),
+    value,
+  })),
+  z
+    .tuple([z.string().min(1), parameterOptionValueSchema])
+    .transform(([label, value]) => ({
+      label,
+      value,
+    })),
+  parameterOptionSchema,
+]);
+
 const parameterSchema = z
   .object({
     ui: z.enum(parameterUiOptions),
@@ -20,7 +39,7 @@ const parameterSchema = z
     max: z.number().optional(),
     step: z.number().optional(),
     default: z.union([z.string(), z.number(), z.boolean()]).optional(),
-    options: z.array(z.union([z.string(), z.number()])).optional(),
+    options: z.array(parameterOptionInputSchema).optional(),
   })
   .passthrough();
 
@@ -56,10 +75,22 @@ const audioParametersSchema = z
   .object({
     prompt: parameterSchema,
     voice: parameterSchema.optional(),
+    speaker: parameterSchema.optional(),
     speed: parameterSchema.optional(),
     seed: parameterSchema.optional(),
     inputAudio: parameterSchema.optional(),
     referenceText: parameterSchema.optional(),
+    modeChoice: parameterSchema.optional(),
+    language: parameterSchema.optional(),
+    streamMode: parameterSchema.optional(),
+    referencePreset: parameterSchema.optional(),
+    customInstruction: parameterSchema.optional(),
+    voiceInstruction: parameterSchema.optional(),
+    xvecOnly: parameterSchema.optional(),
+    chunkSize: parameterSchema.optional(),
+    temperature: parameterSchema.optional(),
+    topK: parameterSchema.optional(),
+    repetitionPenalty: parameterSchema.optional(),
   })
   .passthrough();
 

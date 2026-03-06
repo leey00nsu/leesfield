@@ -56,6 +56,7 @@ export type RuntimeAudioModel = {
   key: string;
   isActive: boolean;
   isDefault: boolean;
+  parameters?: Record<string, unknown>;
   defaults: Required<Pick<ModelDefaults, "voice" | "speed">>;
   concurrentLimit: number;
   supportsInputAudio: boolean;
@@ -177,6 +178,7 @@ function toAudioRuntimeModel(model: AudioModelCatalogItem): RuntimeAudioModel {
     key: model.key,
     isActive: model.isActive,
     isDefault: model.isDefault,
+    parameters,
     defaults: {
       voice: getStringDefault(
         getParamConfig(parameters, "voice"),

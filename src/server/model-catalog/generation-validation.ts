@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasRuntimeParameterOption } from "@/shared/model-catalog/parameter-options";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
@@ -24,6 +25,15 @@ type NumericRange = {
   step: number;
 };
 
+type ParameterConfig = {
+  min?: unknown;
+  max?: unknown;
+  step?: unknown;
+  default?: unknown;
+  required?: unknown;
+  options?: unknown[];
+};
+
 const imageFallbackRanges: Record<
   "size" | "steps" | "count" | "guidance",
   NumericRange
@@ -44,8 +54,15 @@ const videoFallbackRanges: Record<
   fps: { min: 1, max: 60, step: 1 },
 };
 
-const audioFallbackRanges: Record<"speed", NumericRange> = {
+const audioFallbackRanges: Record<
+  "speed" | "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
+  NumericRange
+> = {
   speed: { min: 0.25, max: 4, step: 0.05 },
+  chunkSize: { min: 40, max: 200, step: 10 },
+  temperature: { min: 0.1, max: 1.2, step: 0.1 },
+  topK: { min: 1, max: 100, step: 1 },
+  repetitionPenalty: { min: 1, max: 2, step: 0.1 },
 };
 
 const buildInitImageSchema = (t?: TranslationFn) =>
@@ -87,9 +104,9 @@ function resolveRange(
 function getParamConfig(
   parameters: Record<string, unknown>,
   key: string,
-): Record<string, unknown> | undefined {
+): ParameterConfig | undefined {
   const param = parameters[key];
-  return param && typeof param === "object" ? (param as Record<string, unknown>) : undefined;
+  return param && typeof param === "object" ? (param as ParameterConfig) : undefined;
 }
 
 function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
@@ -215,9 +232,8 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
     if (
       typeof data.modeChoice === "string" &&
       data.modeChoice.trim() &&
-      Array.isArray(modeConfig?.options) &&
-      modeConfig.options.length > 0 &&
-      !modeConfig.options.includes(data.modeChoice)
+      modeConfig?.options?.length &&
+      !hasRuntimeParameterOption(modeConfig.options, data.modeChoice)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -419,6 +435,10 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const labels = {
     speed: t ? t("labels.speed") : "속도",
+    chunkSize: "Chunk Size",
+    temperature: "Temperature",
+    topK: "Top K",
+    repetitionPenalty: "Repetition Penalty",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
     t
@@ -433,6 +453,7 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
   const referenceTextRequired = t
     ? t("referenceTextRequired")
     : "레퍼런스 텍스트를 입력해주세요.";
+  const unsupportedSelection = "지원하지 않는 선택값입니다.";
 
   const schema = z.object({
     prompt: z.string().min(1, promptRequired),
@@ -442,6 +463,18 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     seed: z.string().optional().or(z.literal("")),
     inputAudio: z.string().optional().or(z.literal("")),
     referenceText: z.string().optional().or(z.literal("")),
+    modeChoice: z.string().optional().or(z.literal("")),
+    language: z.string().optional().or(z.literal("")),
+    speaker: z.string().optional().or(z.literal("")),
+    streamMode: z.boolean().optional(),
+    referencePreset: z.string().optional().or(z.literal("")),
+    customInstruction: z.string().optional().or(z.literal("")),
+    voiceInstruction: z.string().optional().or(z.literal("")),
+    xvecOnly: z.boolean().optional(),
+    chunkSize: z.number().optional(),
+    temperature: z.number().optional(),
+    topK: z.number().optional(),
+    repetitionPenalty: z.number().optional(),
   });
 
   return schema.superRefine((data, ctx) => {
@@ -481,20 +514,30 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
       }
     }
 
-    const voiceConfig = getParamConfig(parameters, "voice");
-    if (
-      typeof data.voice === "string" &&
-      data.voice.trim() &&
-      Array.isArray(voiceConfig?.options) &&
-      voiceConfig.options.length > 0 &&
-      !voiceConfig.options.includes(data.voice)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["voice"],
-        message: unsupportedVoice,
-      });
-    }
+    const validateOption = (
+      key: "voice" | "speaker" | "modeChoice" | "language" | "referencePreset",
+      value: string | undefined,
+      message = unsupportedSelection,
+    ) => {
+      if (!value?.trim()) return;
+      const config = getParamConfig(parameters, key);
+      if (
+        config?.options?.length &&
+        !hasRuntimeParameterOption(config.options, value)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message,
+        });
+      }
+    };
+
+    validateOption("voice", data.voice, unsupportedVoice);
+    validateOption("speaker", data.speaker);
+    validateOption("modeChoice", data.modeChoice);
+    validateOption("language", data.language);
+    validateOption("referencePreset", data.referencePreset);
 
     const inputAudio = data.inputAudio?.trim() ?? "";
     if (inputAudio && !Boolean(model.meta.supports_input_audio)) {
@@ -513,6 +556,52 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
         message: referenceTextRequired,
       });
     }
+
+    const validateNumeric = (
+      key: "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
+      value: number | undefined,
+      label: string,
+    ) => {
+      if (typeof value !== "number") return;
+      const range = resolveRange(
+        getParamConfig(parameters, key),
+        key === "chunkSize"
+          ? audioFallbackRanges.chunkSize
+          : key === "temperature"
+            ? audioFallbackRanges.temperature
+            : key === "topK"
+              ? audioFallbackRanges.topK
+              : audioFallbackRanges.repetitionPenalty,
+      );
+      if (value < range.min || value > range.max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: rangeMessage(label, range.min, range.max),
+        });
+        return;
+      }
+      if (range.step > 0) {
+        const offset = value - range.min;
+        const quotient = offset / range.step;
+        if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: stepMessage(label, range.step),
+          });
+        }
+      }
+    };
+
+    validateNumeric("chunkSize", data.chunkSize, labels.chunkSize);
+    validateNumeric("temperature", data.temperature, labels.temperature);
+    validateNumeric("topK", data.topK, labels.topK);
+    validateNumeric(
+      "repetitionPenalty",
+      data.repetitionPenalty,
+      labels.repetitionPenalty,
+    );
   });
 }
 

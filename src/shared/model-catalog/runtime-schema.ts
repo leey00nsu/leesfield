@@ -15,6 +15,7 @@ import {
   resolveRuntimeImageMaxInputImages,
   resolveRuntimeVideoSupportsInitImage,
 } from "@/shared/model-catalog/runtime-utils";
+import { hasRuntimeParameterOption } from "@/shared/model-catalog/parameter-options";
 
 type TranslationFn = (
   key: string,
@@ -161,9 +162,8 @@ export function createRuntimeImageSchema(
     if (
       typeof data.modeChoice === "string" &&
       data.modeChoice.trim() &&
-      Array.isArray(modeConfig?.options) &&
-      modeConfig.options.length > 0 &&
-      !modeConfig.options.includes(data.modeChoice)
+      modeConfig?.options?.length &&
+      !hasRuntimeParameterOption(modeConfig.options, data.modeChoice)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -329,8 +329,8 @@ export function createRuntimeVideoSchema(
     validateRange(data.fps, fpsRange, ["fps"], labels.fps);
 
     const aspectOptions = getRuntimeVideoParamConfig(model, "aspectRatio")?.options;
-    if (Array.isArray(aspectOptions) && aspectOptions.length > 0) {
-      if (!aspectOptions.includes(data.aspectRatio)) {
+    if (aspectOptions?.length) {
+      if (!hasRuntimeParameterOption(aspectOptions, data.aspectRatio)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["aspectRatio"],
@@ -340,8 +340,8 @@ export function createRuntimeVideoSchema(
     }
 
     const resolutionOptions = getRuntimeVideoParamConfig(model, "resolution")?.options;
-    if (Array.isArray(resolutionOptions) && resolutionOptions.length > 0) {
-      if (!resolutionOptions.includes(data.resolution)) {
+    if (resolutionOptions?.length) {
+      if (!hasRuntimeParameterOption(resolutionOptions, data.resolution)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["resolution"],
@@ -363,6 +363,10 @@ export function createRuntimeAudioSchema(
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const labels = {
     speed: t ? t("labels.speed") : "속도",
+    chunkSize: "Chunk Size",
+    temperature: "Temperature",
+    topK: "Top K",
+    repetitionPenalty: "Repetition Penalty",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
     t
@@ -381,6 +385,7 @@ export function createRuntimeAudioSchema(
   const referenceTextRequired = t
     ? t("referenceTextRequired")
     : "레퍼런스 텍스트를 입력해주세요.";
+  const unsupportedSelection = "지원하지 않는 선택값입니다.";
 
   const schema = z.object({
     prompt: z.string().min(1, promptRequired),
@@ -390,6 +395,18 @@ export function createRuntimeAudioSchema(
     seed: z.string().optional().or(z.literal("")),
     inputAudio: z.string().optional().or(z.literal("")),
     referenceText: z.string().optional().or(z.literal("")),
+    modeChoice: z.string().optional().or(z.literal("")),
+    language: z.string().optional().or(z.literal("")),
+    speaker: z.string().optional().or(z.literal("")),
+    streamMode: z.boolean().optional(),
+    referencePreset: z.string().optional().or(z.literal("")),
+    customInstruction: z.string().optional().or(z.literal("")),
+    voiceInstruction: z.string().optional().or(z.literal("")),
+    xvecOnly: z.boolean().optional(),
+    chunkSize: z.number().optional(),
+    temperature: z.number().optional(),
+    topK: z.number().optional(),
+    repetitionPenalty: z.number().optional(),
   });
 
   return schema.superRefine((data, ctx) => {
@@ -424,20 +441,30 @@ export function createRuntimeAudioSchema(
       }
     }
 
-    const voiceConfig = getRuntimeAudioParamConfig(model, "voice");
-    if (
-      typeof data.voice === "string" &&
-      data.voice.trim() &&
-      Array.isArray(voiceConfig?.options) &&
-      voiceConfig.options.length > 0 &&
-      !voiceConfig.options.includes(data.voice)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["voice"],
-        message: unsupportedVoice,
-      });
-    }
+    const validateOption = (
+      key: "voice" | "speaker" | "modeChoice" | "language" | "referencePreset",
+      value: string | undefined,
+      message = unsupportedSelection,
+    ) => {
+      if (!value?.trim()) return;
+      const config = getRuntimeAudioParamConfig(model, key);
+      if (
+        config?.options?.length &&
+        !hasRuntimeParameterOption(config.options, value)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message,
+        });
+      }
+    };
+
+    validateOption("voice", data.voice, unsupportedVoice);
+    validateOption("speaker", data.speaker);
+    validateOption("modeChoice", data.modeChoice);
+    validateOption("language", data.language);
+    validateOption("referencePreset", data.referencePreset);
 
     if (data.inputAudio?.trim() && !resolveRuntimeAudioSupportsInputAudio(model)) {
       ctx.addIssue({
@@ -459,5 +486,42 @@ export function createRuntimeAudioSchema(
         message: referenceTextRequired,
       });
     }
+
+    const validateNumeric = (
+      key: "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
+      value: number | undefined,
+      label: string,
+    ) => {
+      if (typeof value !== "number") return;
+      const range = getRuntimeAudioParamRange(model, key);
+      if (value < range.min || value > range.max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: rangeMessage(label, range.min, range.max),
+        });
+        return;
+      }
+      if (range.step > 0) {
+        const offset = value - range.min;
+        const quotient = offset / range.step;
+        if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: stepMessage(label, range.step),
+          });
+        }
+      }
+    };
+
+    validateNumeric("chunkSize", data.chunkSize, labels.chunkSize);
+    validateNumeric("temperature", data.temperature, labels.temperature);
+    validateNumeric("topK", data.topK, labels.topK);
+    validateNumeric(
+      "repetitionPenalty",
+      data.repetitionPenalty,
+      labels.repetitionPenalty,
+    );
   });
 }

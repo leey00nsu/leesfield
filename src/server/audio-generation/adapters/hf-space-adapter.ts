@@ -185,10 +185,38 @@ async function ensureSpaceRunning(config: SpaceConfig) {
     }
   } catch (error) {
     statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
-    throw error;
+    if (controller.signal.aborted) {
+      throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
+    }
+    if (error instanceof Error && error.message === "HF_SPACE_STATUS_FETCH_FAILED") {
+      throw error;
+    }
+    throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function extractErrorText(error: unknown) {
+  if (error instanceof Error) {
+    return error.message || "";
+  }
+  if (!error || typeof error !== "object") {
+    return "";
+  }
+
+  const record = error as Record<string, unknown>;
+  const candidates = [
+    record.message,
+    record.title,
+    record.original_msg,
+    record.stage,
+  ];
+
+  return candidates
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .trim();
 }
 
 function normalizeApiName(value: string) {
@@ -241,7 +269,7 @@ function normalizeLookupKey(parameter: EndpointParameter) {
 function resolveParamValue(
   parameter: EndpointParameter,
   payload: AudioGenerationFormValues,
-  defaults: { voice: string; speed: number },
+  defaults: ReturnType<typeof resolveRuntimeAudioDefaults>,
   speed: number,
   seed: { seedValue: number; randomize: boolean },
 ) {
@@ -264,6 +292,10 @@ function resolveParamValue(
     return payload.inputAudio ? toGradioInputAudio(payload.inputAudio) : parameter.parameter_default;
   }
 
+  if (lookup.includes("reference preset") || lookup.includes("ref preset") || lookup.includes("ref_preset")) {
+    return payload.referencePreset?.trim() || defaults.referencePreset || parameter.parameter_default;
+  }
+
   if (
     lookup.includes("prompt") ||
     lookup.includes("text") ||
@@ -273,12 +305,63 @@ function resolveParamValue(
     return payload.prompt;
   }
 
+  if (lookup.includes("language")) {
+    return payload.language?.trim() || defaults.language || parameter.parameter_default;
+  }
+
+  if (lookup.includes("stream mode") || lookup.includes("stream_mode")) {
+    return payload.streamMode ?? defaults.streamMode ?? parameter.parameter_default;
+  }
+
+  if (lookup.includes("custom instruction") || lookup.includes("custom_instruct")) {
+    return payload.customInstruction?.trim() || parameter.parameter_default;
+  }
+
+  if (lookup.includes("voice instruction") || lookup.includes("voice_instruct")) {
+    return payload.voiceInstruction?.trim() || parameter.parameter_default;
+  }
+
+  if (lookup.includes("xvec")) {
+    return payload.xvecOnly ?? defaults.xvecOnly ?? parameter.parameter_default;
+  }
+
+  if (lookup.includes("chunk size") || lookup.includes("chunk_size")) {
+    return payload.chunkSize ?? defaults.chunkSize ?? parameter.parameter_default;
+  }
+
+  if (lookup.includes("temperature")) {
+    return payload.temperature ?? defaults.temperature ?? parameter.parameter_default;
+  }
+
+  if (lookup.includes("top k") || lookup.includes("top_k")) {
+    return payload.topK ?? defaults.topK ?? parameter.parameter_default;
+  }
+
+  if (lookup.includes("repetition penalty") || lookup.includes("repetition_penalty")) {
+    return payload.repetitionPenalty ?? defaults.repetitionPenalty ?? parameter.parameter_default;
+  }
+
+  if (lookup === "mode" || lookup.includes("generation mode")) {
+    return (
+      payload.modeChoice?.trim() ||
+      (payload.inputAudio ? "voice_clone" : "") ||
+      defaults.modeChoice ||
+      parameter.parameter_default
+    );
+  }
+
   if (
     lookup.includes("voice") ||
     lookup.includes("speaker") ||
     lookup.includes("spk")
   ) {
-    return payload.voice?.trim() || defaults.voice;
+    return (
+      payload.speaker?.trim() ||
+      payload.voice?.trim() ||
+      defaults.speaker ||
+      defaults.voice ||
+      parameter.parameter_default
+    );
   }
 
   if (lookup.includes("speed") || lookup.includes("rate")) {
@@ -300,7 +383,7 @@ async function buildRequestPayload(
   client: Client,
   apiName: string,
   payload: AudioGenerationFormValues,
-  defaults: { voice: string; speed: number },
+  defaults: ReturnType<typeof resolveRuntimeAudioDefaults>,
   speed: number,
   seed: { seedValue: number; randomize: boolean },
 ) {
@@ -315,8 +398,52 @@ async function buildRequestPayload(
     if (payload.voice?.trim()) {
       fallbackPayload.voice = payload.voice.trim();
     }
+    if (payload.speaker?.trim()) {
+      fallbackPayload.speaker = payload.speaker.trim();
+    }
     if (typeof payload.speed === "number") {
       fallbackPayload.speed = speed;
+    }
+    if (payload.modeChoice?.trim()) {
+      fallbackPayload.mode = payload.modeChoice.trim();
+    } else if (payload.inputAudio) {
+      fallbackPayload.mode = "voice_clone";
+    }
+    if (payload.language?.trim()) {
+      fallbackPayload.language = payload.language.trim();
+    }
+    if (typeof payload.streamMode === "boolean") {
+      fallbackPayload.stream_mode = payload.streamMode;
+    }
+    if (payload.referencePreset?.trim()) {
+      fallbackPayload.ref_preset = payload.referencePreset.trim();
+    }
+    if (payload.inputAudio) {
+      fallbackPayload.ref_audio_path = toGradioInputAudio(payload.inputAudio);
+    }
+    if (payload.referenceText?.trim()) {
+      fallbackPayload.ref_text = payload.referenceText.trim();
+    }
+    if (payload.customInstruction?.trim()) {
+      fallbackPayload.custom_instruct = payload.customInstruction.trim();
+    }
+    if (payload.voiceInstruction?.trim()) {
+      fallbackPayload.voice_instruct = payload.voiceInstruction.trim();
+    }
+    if (typeof payload.xvecOnly === "boolean") {
+      fallbackPayload.xvec_only = payload.xvecOnly;
+    }
+    if (typeof payload.chunkSize === "number") {
+      fallbackPayload.chunk_size = payload.chunkSize;
+    }
+    if (typeof payload.temperature === "number") {
+      fallbackPayload.temperature = payload.temperature;
+    }
+    if (typeof payload.topK === "number") {
+      fallbackPayload.top_k = payload.topK;
+    }
+    if (typeof payload.repetitionPenalty === "number") {
+      fallbackPayload.repetition_penalty = payload.repetitionPenalty;
     }
     if (!seed.randomize) {
       fallbackPayload.seed = seed.seedValue;
@@ -405,13 +532,16 @@ function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
   if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
     return fileUrl;
   }
-  if (fileUrl.startsWith("/")) {
+  if (fileUrl.startsWith("/gradio_api/file=")) {
     return `${spaceUrl}${fileUrl}`;
   }
-  if (fileUrl.startsWith("file=")) {
-    return `${spaceUrl}/${fileUrl}`;
+  if (fileUrl.startsWith("/file=")) {
+    return `${spaceUrl}/gradio_api${fileUrl}`;
   }
-  return `${spaceUrl}/file=${fileUrl}`;
+  if (fileUrl.startsWith("file=")) {
+    return `${spaceUrl}/gradio_api/${fileUrl}`;
+  }
+  return `${spaceUrl}/gradio_api/file=${fileUrl}`;
 }
 
 function dataUrlToBlob(dataUrl: string) {
@@ -455,7 +585,7 @@ async function fetchAudioDataUrl(
     if (controller.signal.aborted) {
       throw new Error("HF_SPACE_AUDIO_FETCH_TIMEOUT");
     }
-    throw error;
+    throw new Error("HF_SPACE_AUDIO_FETCH_FAILED");
   } finally {
     clearTimeout(timeoutId);
   }
@@ -503,11 +633,10 @@ function extractDurationSec(value: unknown, depth = 0): number | undefined {
 
 export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
   mapError(error: unknown) {
-    if (!(error instanceof Error)) {
+    const message = extractErrorText(error);
+    if (!message) {
       return "오디오 생성에 실패했습니다.";
     }
-
-    const message = error.message || "";
     const lower = message.toLowerCase();
 
     if (lower.startsWith("hf_space_not_ready")) {
@@ -530,6 +659,9 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
     }
     if (lower === "hf_space_config_invalid") {
       return "오디오 모델 설정이 올바르지 않습니다.";
+    }
+    if (lower === "fetch failed") {
+      return "HF Space 통신 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }
     if (lower === "invalid_hf_token_format") {
       return "HF 토큰 형식이 올바르지 않습니다.";

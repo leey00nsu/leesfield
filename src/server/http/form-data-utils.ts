@@ -39,6 +39,14 @@ export function getNumber(formData: FormData, key: string) {
   return Number(value);
 }
 
+export function getBoolean(formData: FormData, key: string) {
+  const value = getString(formData, key);
+  if (value === undefined || value === "") return undefined;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
 export async function getDataUrlList(
   formData: FormData,
   keys: string[],

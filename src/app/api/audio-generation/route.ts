@@ -6,6 +6,7 @@ import {
   buildInvalidRequestResponse,
 } from "@/server/http/response";
 import {
+  getBoolean,
   getNumber,
   getOptionalDataUrl,
   getString,
@@ -35,6 +36,20 @@ export async function POST(request: Request) {
           seed: getString(formData, "seed") || undefined,
           inputAudio: await getOptionalDataUrl(formData, "inputAudio"),
           referenceText: getString(formData, "referenceText") || undefined,
+          modeChoice: getString(formData, "modeChoice") || undefined,
+          language: getString(formData, "language") || undefined,
+          speaker: getString(formData, "speaker") || undefined,
+          streamMode: getBoolean(formData, "streamMode"),
+          referencePreset: getString(formData, "referencePreset") || undefined,
+          customInstruction:
+            getString(formData, "customInstruction") || undefined,
+          voiceInstruction:
+            getString(formData, "voiceInstruction") || undefined,
+          xvecOnly: getBoolean(formData, "xvecOnly"),
+          chunkSize: getNumber(formData, "chunkSize"),
+          temperature: getNumber(formData, "temperature"),
+          topK: getNumber(formData, "topK"),
+          repetitionPenalty: getNumber(formData, "repetitionPenalty"),
         }))
         .catch(() => null)
     : await request.json().catch(() => null);

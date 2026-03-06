@@ -34,10 +34,13 @@ const PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
 const ERROR_AUDIO_GENERATION_FAILED = "오디오 생성에 실패했습니다.";
 const ERROR_IMAGE_GENERATION_FAILED = "이미지 생성에 실패했습니다.";
 const ERROR_VIDEO_GENERATION_FAILED = "비디오 생성에 실패했습니다.";
+const WORKER_INSTANCE_TOKEN = Symbol("generation-worker-instance");
 
 type WorkerGlobal = typeof globalThis & {
   __generationWorkerStarted?: boolean;
   __generationWorkerRunning?: boolean;
+  __generationWorkerInterval?: ReturnType<typeof setInterval>;
+  __generationWorkerInstanceToken?: symbol;
 };
 
 type ImageRuntimeState = {
@@ -240,18 +243,100 @@ function buildAudioPayload(
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
       : runtime.defaultKey;
-  const defaults =
-    runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
+  const runtimeModel = runtime.modelMap.get(model);
+  const defaults = runtimeModel?.defaults ?? runtime.fallbackDefaults;
+  const parameters =
+    runtimeModel?.parameters && typeof runtimeModel.parameters === "object"
+      ? runtimeModel.parameters
+      : {};
+  const hasVoiceParameter = "voice" in parameters;
+  const hasSpeakerParameter = "speaker" in parameters;
+  const hasModeChoiceParameter = "modeChoice" in parameters;
+  const hasLanguageParameter = "language" in parameters;
+  const hasStreamModeParameter = "streamMode" in parameters;
+  const hasReferencePresetParameter = "referencePreset" in parameters;
+  const hasCustomInstructionParameter = "customInstruction" in parameters;
+  const hasVoiceInstructionParameter = "voiceInstruction" in parameters;
+  const hasXvecOnlyParameter = "xvecOnly" in parameters;
+  const hasChunkSizeParameter = "chunkSize" in parameters;
+  const hasTemperatureParameter = "temperature" in parameters;
+  const hasTopKParameter = "topK" in parameters;
+  const hasRepetitionPenaltyParameter = "repetitionPenalty" in parameters;
+  const submittedVoice =
+    typeof params.voice === "string" ? params.voice : undefined;
+  const shouldSuppressLegacyVoice =
+    hasSpeakerParameter &&
+    typeof params.speaker === "string" &&
+    Boolean(params.speaker.trim()) &&
+    submittedVoice === defaults.voice;
 
   return {
     prompt: record.prompt,
     model,
-    voice: typeof params.voice === "string" ? params.voice : defaults.voice,
+    voice:
+      shouldSuppressLegacyVoice
+        ? ""
+        : typeof submittedVoice === "string"
+          ? submittedVoice
+        : hasVoiceParameter
+          ? defaults.voice
+          : "",
     speed: normalizeNumber(params.speed, defaults.speed),
     seed: typeof params.seed === "string" ? params.seed : "",
     inputAudio: typeof params.inputAudio === "string" ? params.inputAudio : "",
     referenceText:
       typeof params.referenceText === "string" ? params.referenceText : "",
+    speaker:
+      hasSpeakerParameter && typeof params.speaker === "string"
+        ? params.speaker
+        : "",
+    modeChoice:
+      hasModeChoiceParameter && typeof params.modeChoice === "string"
+        ? params.modeChoice
+        : "",
+    language:
+      hasLanguageParameter && typeof params.language === "string"
+        ? params.language
+        : "",
+    streamMode:
+      hasStreamModeParameter && typeof params.streamMode === "boolean"
+        ? params.streamMode
+        : undefined,
+    referencePreset:
+      hasReferencePresetParameter && typeof params.referencePreset === "string"
+        ? params.referencePreset
+        : "",
+    customInstruction:
+      hasCustomInstructionParameter &&
+      typeof params.customInstruction === "string"
+        ? params.customInstruction
+        : "",
+    voiceInstruction:
+      hasVoiceInstructionParameter &&
+      typeof params.voiceInstruction === "string"
+        ? params.voiceInstruction
+        : "",
+    xvecOnly:
+      hasXvecOnlyParameter && typeof params.xvecOnly === "boolean"
+        ? params.xvecOnly
+        : undefined,
+    chunkSize:
+      hasChunkSizeParameter && typeof params.chunkSize === "number"
+        ? params.chunkSize
+        : undefined,
+    temperature:
+      hasTemperatureParameter && typeof params.temperature === "number"
+        ? params.temperature
+        : undefined,
+    topK:
+      hasTopKParameter && typeof params.topK === "number"
+        ? params.topK
+        : undefined,
+    repetitionPenalty:
+      hasRepetitionPenaltyParameter &&
+      typeof params.repetitionPenalty === "number"
+        ? params.repetitionPenalty
+        : undefined,
   };
 }
 
@@ -652,7 +737,19 @@ export function startGenerationWorker() {
   }
 
   const globalForWorker = globalThis as WorkerGlobal;
-  if (globalForWorker.__generationWorkerStarted) return;
+  const isSameWorkerInstance =
+    globalForWorker.__generationWorkerInstanceToken === WORKER_INSTANCE_TOKEN;
+
+  if (globalForWorker.__generationWorkerStarted && isSameWorkerInstance) {
+    return;
+  }
+
+  if (!isSameWorkerInstance && globalForWorker.__generationWorkerInterval) {
+    clearInterval(globalForWorker.__generationWorkerInterval);
+    globalForWorker.__generationWorkerInterval = undefined;
+  }
+
+  globalForWorker.__generationWorkerInstanceToken = WORKER_INSTANCE_TOKEN;
   globalForWorker.__generationWorkerStarted = true;
 
   const tick = async () => {
@@ -666,5 +763,8 @@ export function startGenerationWorker() {
   };
 
   void tick();
-  setInterval(() => void tick(), WORKER_INTERVAL_MS);
+  globalForWorker.__generationWorkerInterval = setInterval(
+    () => void tick(),
+    WORKER_INTERVAL_MS,
+  );
 }

@@ -113,8 +113,42 @@ describe("generation worker", () => {
           voice: "alloy",
           speed: 1,
         },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+          inputAudio: { ui: "upload" },
+          referenceText: { ui: "textarea" },
+          modeChoice: {
+            ui: "select",
+            options: ["voice_clone", "custom", "voice_design"],
+          },
+          language: {
+            ui: "select",
+            options: ["English", "Korean"],
+          },
+          speaker: {
+            ui: "select",
+            options: ["Vivian", "Serena"],
+          },
+          streamMode: { ui: "toggle" },
+          referencePreset: {
+            ui: "select",
+            options: ["ref_audio_3"],
+          },
+          xvecOnly: { ui: "toggle" },
+          chunkSize: { ui: "range", min: 1, max: 24, step: 1 },
+          temperature: { ui: "range", min: 0.1, max: 2, step: 0.05 },
+          topK: { ui: "range", min: 1, max: 100, step: 1 },
+          repetitionPenalty: {
+            ui: "range",
+            min: 1,
+            max: 1.5,
+            step: 0.01,
+          },
+          customInstruction: { ui: "textarea" },
+          voiceInstruction: { ui: "textarea" },
+        },
         concurrentLimit: 1,
-        supportsInputAudio: false,
+        supportsInputAudio: true,
       },
     ];
     const imageModels: RuntimeImageModel[] = [
@@ -248,6 +282,65 @@ describe("generation worker", () => {
       undefined,
     );
     expect(saveAudioGenerationResult).not.toHaveBeenCalled();
+  });
+
+  it("processAudioJobs preserves mode-based audio params and does not re-inject legacy voice defaults", async () => {
+    const mockRecord = {
+      id: "aud-mode-db-id",
+      requestId: "aud-mode-request-id",
+      prompt: "hello qwen",
+      progress: 0,
+      requestParams: {
+        model: "qwen-tts",
+        speed: 1,
+        seed: "",
+        inputAudio: "data:audio/wav;base64,UklGRg==",
+        referenceText: "reference transcript",
+        modeChoice: "voice_clone",
+        language: "English",
+        speaker: "Vivian",
+        streamMode: false,
+        referencePreset: "ref_audio_3",
+        xvecOnly: true,
+        chunkSize: 8,
+        temperature: 0.9,
+        topK: 50,
+        repetitionPenalty: 1.05,
+      },
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(resolveAudioGenerationResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "qwen-tts",
+        voice: "",
+        modeChoice: "voice_clone",
+        language: "English",
+        speaker: "Vivian",
+        streamMode: false,
+        referencePreset: "ref_audio_3",
+        xvecOnly: true,
+        chunkSize: 8,
+        temperature: 0.9,
+        topK: 50,
+        repetitionPenalty: 1.05,
+      }),
+      "aud-mode-request-id",
+    );
   });
 
   it("processImageJobs updates status when completed with skipDbSave", async () => {

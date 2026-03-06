@@ -12,15 +12,16 @@ export async function createAudioGenerationRecord(
   ownerEmail: string,
   apiKeyId: string | null = null,
 ) {
-  const requestParams: Prisma.InputJsonValue = {
-    model: payload.model,
-    prompt: payload.prompt,
-    voice: payload.voice ?? null,
-    speed: payload.speed ?? null,
-    seed: payload.seed || null,
-    inputAudio: payload.inputAudio || null,
-    referenceText: payload.referenceText || null,
-  };
+  const requestParams: Record<string, Prisma.InputJsonValue | null> = {};
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined) {
+      return;
+    }
+    requestParams[key] =
+      typeof value === "string"
+        ? value.trim() || null
+        : value;
+  });
 
   return prisma.audioGeneration.create({
     data: {

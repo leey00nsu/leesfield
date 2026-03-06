@@ -13,6 +13,18 @@ const audioGenerationBaseSchema = z.object({
   seed: z.string().optional().or(z.literal("")),
   inputAudio: z.string().optional().or(z.literal("")),
   referenceText: z.string().optional().or(z.literal("")),
+  modeChoice: z.string().optional().or(z.literal("")),
+  language: z.string().optional().or(z.literal("")),
+  speaker: z.string().optional().or(z.literal("")),
+  streamMode: z.boolean().optional(),
+  referencePreset: z.string().optional().or(z.literal("")),
+  customInstruction: z.string().optional().or(z.literal("")),
+  voiceInstruction: z.string().optional().or(z.literal("")),
+  xvecOnly: z.boolean().optional(),
+  chunkSize: z.number().optional(),
+  temperature: z.number().optional(),
+  topK: z.number().optional(),
+  repetitionPenalty: z.number().optional(),
 });
 
 export const audioGenerationOpenApiSchema = audioGenerationBaseSchema;
@@ -54,4 +66,12 @@ export const audioGenerationDefaults: AudioGenerationFormValues = {
   seed: "",
   inputAudio: "",
   referenceText: "",
+  modeChoice: "",
+  language: "",
+  speaker: "",
+  streamMode: false,
+  referencePreset: "",
+  customInstruction: "",
+  voiceInstruction: "",
+  xvecOnly: false,
 };
