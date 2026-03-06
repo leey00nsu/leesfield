@@ -4,6 +4,7 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
+import { audioGenerationOpenApiSchema } from "@/features/audio-generation/model/audio-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 extendZodWithOpenApi(z);
@@ -65,6 +66,23 @@ const videoStatusResponseSchema = z.object({
   errorMessage: z.string().optional(),
 });
 
+const audioResultSchema = z.object({
+  audios: z.array(
+    z.object({
+      url: z.string(),
+      durationSec: z.number().optional(),
+    }),
+  ),
+});
+
+const audioStatusResponseSchema = z.object({
+  requestId: z.string(),
+  status: z.enum(["pending", "processing", "completed", "failed"]),
+  progress: z.number(),
+  result: audioResultSchema.optional(),
+  errorMessage: z.string().optional(),
+});
+
 const modelResponseSchema = z.object({
   items: z.array(z.unknown()),
 });
@@ -74,13 +92,16 @@ export type OpenApiTranslations = {
   tags?: {
     images?: string;
     videos?: string;
+    audio?: string;
     models?: string;
   };
   paths?: {
     imageGeneration?: string;
     videoGeneration?: string;
+    audioGeneration?: string;
     imageStatus?: string;
     videoStatus?: string;
+    audioStatus?: string;
     models?: string;
   };
 };
@@ -195,6 +216,60 @@ registry.registerPath({
       content: {
         "multipart/form-data": {
           schema: videoGenerationFormDataSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: generationResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid request",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            invalidRequest: {
+              value: {
+                message: "INVALID_REQUEST",
+                errors: {
+                  formErrors: [],
+                  fieldErrors: {
+                    prompt: ["프롬프트를 입력해주세요."],
+                  },
+                },
+              },
+            },
+            invalidFormData: {
+              value: {
+                message: "INVALID_FORM_DATA",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/external/audio-generation",
+  tags: ["Audio"],
+  description: "Creates an audio generation request.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: audioGenerationOpenApiSchema,
         },
       },
     },
@@ -353,6 +428,76 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
+  path: "/api/external/audio-generation/{requestId}",
+  tags: ["Audio"],
+  description: "Fetches audio generation status.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: z.object({
+      requestId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: audioStatusResponseSchema,
+          example: {
+            requestId: "audio_request_01",
+            status: "completed",
+            progress: 100,
+            result: {
+              audios: [
+                {
+                  url: "https://cdn.leesfield.ai/sample.mp3",
+                  durationSec: 4,
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: "API key required",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          example: {
+            message: "API_KEY_REQUIRED",
+          },
+        },
+      },
+    },
+    403: {
+      description: "Invalid or revoked API key",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          examples: {
+            invalid: { value: { message: "INVALID_API_KEY" } },
+            revoked: { value: { message: "API_KEY_REVOKED" } },
+          },
+        },
+      },
+    },
+    404: {
+      description: "Not found",
+      content: {
+        "application/json": {
+          schema: errorResponseSchema,
+          example: {
+            message: "NOT_FOUND",
+          },
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
   path: "/api/external/models",
   tags: ["Models"],
   description: "Fetches available generation models.",
@@ -406,6 +551,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   const tags = {
     images: translations?.tags?.images ?? "Image generation",
     videos: translations?.tags?.videos ?? "Video generation",
+    audio: translations?.tags?.audio ?? "Audio generation",
     models: translations?.tags?.models ?? "Model catalog",
   };
   const paths = {
@@ -415,12 +561,18 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     videoGeneration:
       translations?.paths?.videoGeneration ??
       "Creates a video generation request. Model keys are available via /api/external/models.",
+    audioGeneration:
+      translations?.paths?.audioGeneration ??
+      "Creates an audio generation request. Model keys are available via /api/external/models.",
     imageStatus:
       translations?.paths?.imageStatus ??
       "Fetches image generation status.",
     videoStatus:
       translations?.paths?.videoStatus ??
       "Fetches video generation status.",
+    audioStatus:
+      translations?.paths?.audioStatus ??
+      "Fetches audio generation status.",
     models:
       translations?.paths?.models ??
       "Fetches available generation models.",
@@ -438,6 +590,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     tags: [
       { name: "Images", description: tags.images },
       { name: "Videos", description: tags.videos },
+      { name: "Audio", description: tags.audio },
       { name: "Models", description: tags.models },
     ],
   });
@@ -471,6 +624,11 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     paths.videoGeneration,
   );
   updateDescription(
+    "/api/external/audio-generation",
+    "post",
+    paths.audioGeneration,
+  );
+  updateDescription(
     "/api/external/image-generation/{requestId}",
     "get",
     paths.imageStatus,
@@ -479,6 +637,11 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     "/api/external/video-generation/{requestId}",
     "get",
     paths.videoStatus,
+  );
+  updateDescription(
+    "/api/external/audio-generation/{requestId}",
+    "get",
+    paths.audioStatus,
   );
   updateDescription("/api/external/models", "get", paths.models);
 

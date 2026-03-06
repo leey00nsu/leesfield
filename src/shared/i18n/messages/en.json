@@ -660,6 +660,7 @@
         "errors": "Errors",
         "images": "Images",
         "videos": "Videos",
+        "audio": "Audio",
         "models": "Models"
       }
     },
@@ -697,17 +698,20 @@
       "exampleFieldMessage": "Required field."
     },
     "openapi": {
-      "infoDescription": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+      "infoDescription": "External REST API documentation for leesfield. Provides image/video/audio generation and model listing.",
       "tags": {
         "images": "Image generation",
         "videos": "Video generation",
+        "audio": "Audio generation",
         "models": "Model catalog"
       },
       "paths": {
         "imageGeneration": "Creates an image generation request.",
         "videoGeneration": "Creates a video generation request.",
+        "audioGeneration": "Creates an audio generation request.",
         "imageStatus": "Fetches the image generation result.",
         "videoStatus": "Fetches the video generation result.",
+        "audioStatus": "Fetches the audio generation result.",
         "models": "Fetches available generation models."
       }
     },

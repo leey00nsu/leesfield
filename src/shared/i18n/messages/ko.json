@@ -660,6 +660,7 @@
         "errors": "오류",
         "images": "이미지",
         "videos": "비디오",
+        "audio": "오디오",
         "models": "모델"
       }
     },
@@ -697,17 +698,20 @@
       "exampleFieldMessage": "필수 입력입니다."
     },
     "openapi": {
-      "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+      "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오/오디오 생성과 모델 조회를 제공합니다.",
       "tags": {
         "images": "이미지 생성",
         "videos": "비디오 생성",
+        "audio": "오디오 생성",
         "models": "모델 목록"
       },
       "paths": {
         "imageGeneration": "이미지 생성 요청을 생성합니다.",
         "videoGeneration": "비디오 생성 요청을 생성합니다.",
+        "audioGeneration": "오디오 생성 요청을 생성합니다.",
         "imageStatus": "이미지 생성 결과를 조회합니다.",
         "videoStatus": "비디오 생성 결과를 조회합니다.",
+        "audioStatus": "오디오 생성 결과를 조회합니다.",
         "models": "사용 가능한 생성 모델 목록을 조회합니다."
       }
     },

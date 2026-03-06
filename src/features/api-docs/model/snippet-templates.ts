@@ -20,6 +20,10 @@ const snippetOrder: SnippetLanguage[] = ["curl", "javascript", "python"];
 
 export const snippetLanguages = snippetOrder;
 
+function isMultipartContentType(contentType?: string) {
+  return contentType?.toLowerCase().includes("multipart/form-data") ?? false;
+}
+
 function serializeBody(body: unknown) {
   return body ?? {};
 }
@@ -37,7 +41,7 @@ function getHeaders(headers?: Record<string, string>, contentType?: string) {
     ...defaultHeaders,
     ...headers,
   };
-  if (contentType?.includes("multipart/form-data")) {
+  if (isMultipartContentType(contentType)) {
     delete merged["Content-Type"];
     return merged;
   }
@@ -92,7 +96,7 @@ function buildFormEntries(
 export function buildCurlSnippet(context: SnippetContext) {
   const { baseUrl, path, method, body, headers, contentType, fileFields } =
     context;
-  if (contentType?.includes("multipart/form-data")) {
+  if (isMultipartContentType(contentType)) {
     const headerLines = Object.entries(getHeaders(headers, contentType))
       .map(([key, value]) => `-H "${key}: ${value}"`)
       .join(" \\\n  ");
@@ -128,7 +132,7 @@ export function buildCurlSnippet(context: SnippetContext) {
 export function buildJavascriptSnippet(context: SnippetContext) {
   const { baseUrl, path, method, body, headers, contentType, fileFields } =
     context;
-  if (contentType?.includes("multipart/form-data")) {
+  if (isMultipartContentType(contentType)) {
     const formEntries = buildFormEntries(body, fileFields);
     const fileEntries = formEntries.filter((entry) => entry.isFile);
     const fileDeclarations = fileEntries
@@ -189,7 +193,7 @@ export function buildPythonSnippet(context: SnippetContext) {
     context;
   const combinedHeaders = getHeaders(headers, contentType);
   const methodName = method.toLowerCase();
-  if (contentType?.includes("multipart/form-data")) {
+  if (isMultipartContentType(contentType)) {
     const formEntries = buildFormEntries(body, fileFields);
     const dataEntries = formEntries.filter((entry) => !entry.isFile);
     const fileEntries = formEntries.filter((entry) => entry.isFile);

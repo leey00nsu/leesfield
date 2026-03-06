@@ -173,6 +173,7 @@ export function buildExampleFromSchema(
   if (resolved.format === "binary") {
     const key = hintKey?.toLowerCase() ?? "";
     if (key.includes("video")) return "sample.mp4";
+    if (key.includes("audio")) return "sample.mp3";
     if (key.includes("image") || key.includes("init")) return "sample.png";
     return "sample.bin";
   }
@@ -237,10 +238,15 @@ function buildStringExample(hintKey?: string, examples?: ExampleStrings) {
   if (key.includes("email")) return "admin@leesfield.ai";
   if (key.includes("model")) return "image-core";
   if (key.includes("prompt")) return examples?.samplePrompt ?? "Sample prompt";
-  if (key.includes("url")) return "https://cdn.leesfield.ai/sample.png";
+  if (key.includes("audio")) return "sample.mp3";
+  if (key.includes("url")) {
+    return key.includes("audio")
+      ? "https://cdn.leesfield.ai/sample.mp3"
+      : "https://cdn.leesfield.ai/sample.png";
+  }
   if (key.includes("label")) return examples?.sampleLabel ?? "Sample";
   if (key.includes("name")) return examples?.sampleName ?? "Sample";
-  if (key.includes("type")) return "image";
+  if (key.includes("type")) return key.includes("audio") ? "audio" : "image";
   if (key.includes("version")) return "v1";
   if (key.includes("message")) return examples?.sampleMessage ?? "OK";
   if (key.includes("token") || key.includes("key")) return "lf_live_****";
