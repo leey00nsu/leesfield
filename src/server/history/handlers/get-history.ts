@@ -3,8 +3,10 @@ import {
   buildAudioWhere,
   buildImageWhere,
   buildVideoWhere,
+  extractInputAudios,
   extractInputImages,
   extractModel,
+  extractReferenceText,
   parseHistoryQuery,
   type HistoryResponse,
 } from "@/server/history/lib/history-query";
@@ -135,6 +137,8 @@ export async function getHistory(
       const model = extractModel(record.requestParams);
       const previewUrl = record.audios[0]?.url ?? null;
       const isCompleted = record.status === "completed";
+      const inputAudios = extractInputAudios(record.requestParams);
+      const referenceText = extractReferenceText(record.requestParams);
 
       return {
         id: record.requestId,
@@ -146,6 +150,8 @@ export async function getHistory(
         resultUrl: isCompleted ? previewUrl : null,
         thumbnailUrl: null,
         inputImages: [],
+        inputAudios,
+        referenceText,
         errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
       };
     });
@@ -253,6 +259,8 @@ export async function getHistory(
     const model = extractModel(record.requestParams);
     const previewUrl = record.audios[0]?.url ?? null;
     const isCompleted = record.status === "completed";
+    const inputAudios = extractInputAudios(record.requestParams);
+    const referenceText = extractReferenceText(record.requestParams);
 
     return {
       id: record.requestId,
@@ -264,6 +272,8 @@ export async function getHistory(
       resultUrl: isCompleted ? previewUrl : null,
       thumbnailUrl: null,
       inputImages: [],
+      inputAudios,
+      referenceText,
       errorMessage: record.status === "failed" ? record.errorMessage ?? null : null,
     };
   });

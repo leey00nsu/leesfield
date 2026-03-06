@@ -427,6 +427,12 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
   const stepMessage = (label: string, step: number) =>
     t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
   const unsupportedVoice = t ? t("unsupportedVoice") : "지원하지 않는 음성입니다.";
+  const inputAudioUnsupported = t
+    ? t("inputAudioUnsupported")
+    : "선택한 모델은 오디오 입력을 지원하지 않습니다.";
+  const referenceTextRequired = t
+    ? t("referenceTextRequired")
+    : "레퍼런스 텍스트를 입력해주세요.";
 
   const schema = z.object({
     prompt: z.string().min(1, promptRequired),
@@ -434,6 +440,8 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     voice: z.string().optional().or(z.literal("")),
     speed: z.number().optional(),
     seed: z.string().optional().or(z.literal("")),
+    inputAudio: z.string().optional().or(z.literal("")),
+    referenceText: z.string().optional().or(z.literal("")),
   });
 
   return schema.superRefine((data, ctx) => {
@@ -485,6 +493,24 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
         code: z.ZodIssueCode.custom,
         path: ["voice"],
         message: unsupportedVoice,
+      });
+    }
+
+    const inputAudio = data.inputAudio?.trim() ?? "";
+    if (inputAudio && !Boolean(model.meta.supports_input_audio)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["inputAudio"],
+        message: inputAudioUnsupported,
+      });
+    }
+
+    const referenceTextConfig = getParamConfig(parameters, "referenceText");
+    if (referenceTextConfig?.required && inputAudio && !(data.referenceText?.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["referenceText"],
+        message: referenceTextRequired,
       });
     }
   });

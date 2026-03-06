@@ -249,6 +249,9 @@ function buildAudioPayload(
     voice: typeof params.voice === "string" ? params.voice : defaults.voice,
     speed: normalizeNumber(params.speed, defaults.speed),
     seed: typeof params.seed === "string" ? params.seed : "",
+    inputAudio: typeof params.inputAudio === "string" ? params.inputAudio : "",
+    referenceText:
+      typeof params.referenceText === "string" ? params.referenceText : "",
   };
 }
 

@@ -5,6 +5,11 @@ import {
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
 } from "@/server/http/response";
+import {
+  getNumber,
+  getOptionalDataUrl,
+  getString,
+} from "@/server/http/form-data-utils";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { validateAudioGenerationPayload } from "@/server/model-catalog/generation-validation";
 
@@ -18,7 +23,21 @@ export async function POST(request: Request) {
     return buildErrorResponse("UNAUTHORIZED", 401);
   }
 
-  const body = await request.json().catch(() => null);
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  const body = contentType.includes("multipart/form-data")
+    ? await request
+        .formData()
+        .then(async (formData) => ({
+          prompt: getString(formData, "prompt"),
+          model: getString(formData, "model"),
+          voice: getString(formData, "voice") || undefined,
+          speed: getNumber(formData, "speed"),
+          seed: getString(formData, "seed") || undefined,
+          inputAudio: await getOptionalDataUrl(formData, "inputAudio"),
+          referenceText: getString(formData, "referenceText") || undefined,
+        }))
+        .catch(() => null)
+    : await request.json().catch(() => null);
   const parsed = await validateAudioGenerationPayload(body);
 
   if (!parsed.success) {

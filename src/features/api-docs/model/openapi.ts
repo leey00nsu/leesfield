@@ -4,7 +4,6 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import { audioGenerationOpenApiSchema } from "@/features/audio-generation/model/audio-generation-schema";
 import { modelCatalog } from "@/features/model-management/model/model-catalog";
 
 extendZodWithOpenApi(z);
@@ -146,6 +145,23 @@ const videoGenerationFormDataSchema = z.object({
   seed: z.string().optional(),
 });
 
+const audioGenerationFormDataSchema = z.object({
+  prompt: z.string(),
+  model: z
+    .string()
+    .openapi({
+      description: "Use /api/external/models to fetch available model keys.",
+    }),
+  voice: z.string().optional(),
+  speed: z.number().optional(),
+  seed: z.string().optional(),
+  inputAudio: z
+    .string()
+    .optional()
+    .openapi({ type: "string", format: "binary" }),
+  referenceText: z.string().optional(),
+});
+
 registry.register("ErrorResponse", errorResponseSchema);
 registry.register("GenerationResponse", generationResponseSchema);
 registry.register("ModelResponse", modelResponseSchema);
@@ -269,7 +285,7 @@ registry.registerPath({
       required: true,
       content: {
         "multipart/form-data": {
-          schema: audioGenerationOpenApiSchema,
+          schema: audioGenerationFormDataSchema,
         },
       },
     },

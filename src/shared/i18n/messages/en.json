@@ -244,6 +244,8 @@
       "voiceLabel": "Voice",
       "voiceUnset": "Default voice",
       "voicePlaceholder": "e.g. alloy",
+      "referenceTextLabel": "Reference Text",
+      "referenceTextPlaceholder": "Enter the transcript for the reference audio...",
       "speedLabel": "Speed",
       "seedPlaceholder": "Optional"
     },
@@ -297,6 +299,7 @@
         "range": "{label} must be between {min} and {max}.",
         "unsupportedVoice": "Unsupported voice.",
         "inputAudioUnsupported": "The selected model does not support audio input.",
+        "referenceTextRequired": "Please enter the reference text.",
         "labels": {
           "speed": "Speed"
         }

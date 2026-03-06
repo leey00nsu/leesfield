@@ -217,6 +217,8 @@ export function HistoryItem({
         progress: null,
         errorMessage: item.errorMessage ?? null,
         inputImages,
+        inputAudios: item.inputAudios ?? [],
+        referenceText: item.referenceText ?? null,
         assets,
       };
     },
@@ -224,9 +226,11 @@ export function HistoryItem({
       item.createdAt,
       item.errorMessage,
       item.id,
+      item.inputAudios,
       item.inputImages,
       item.model,
       item.prompt,
+      item.referenceText,
       item.resultUrl,
       item.status,
       item.thumbnailUrl,
@@ -276,6 +280,11 @@ export function HistoryItem({
       initImages.forEach((value) => {
         params.append("initImage", value);
       });
+    } else if (item.type === "audio") {
+      const referenceText = item.referenceText?.trim();
+      if (referenceText) {
+        params.set("referenceText", referenceText);
+      }
     }
 
     router.push(`${target}?${params.toString()}`);

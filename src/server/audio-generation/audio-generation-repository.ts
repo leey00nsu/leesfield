@@ -18,6 +18,8 @@ export async function createAudioGenerationRecord(
     voice: payload.voice ?? null,
     speed: payload.speed ?? null,
     seed: payload.seed || null,
+    inputAudio: payload.inputAudio || null,
+    referenceText: payload.referenceText || null,
   };
 
   return prisma.audioGeneration.create({

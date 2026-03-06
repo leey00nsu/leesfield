@@ -11,4 +11,19 @@ describe("getOpenApiDocument", () => {
       document.paths["/api/external/audio-generation/{requestId}"]?.get,
     ).toBeTruthy();
   });
+
+  it("audio generation 요청 스키마에 reference audio/reference text를 노출한다", () => {
+    const document = getOpenApiDocument();
+    const schema =
+      document.paths["/api/external/audio-generation"]?.post?.requestBody
+        ?.content?.["multipart/form-data"]?.schema;
+
+    expect(schema?.properties?.inputAudio).toMatchObject({
+      type: "string",
+      format: "binary",
+    });
+    expect(schema?.properties?.referenceText).toMatchObject({
+      type: "string",
+    });
+  });
 });

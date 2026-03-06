@@ -39,6 +39,16 @@ type ImportResult = {
   warnings: string[];
 };
 
+type EndpointParameter = {
+  parameter_name?: string;
+  label?: string;
+  parameter_default?: unknown;
+};
+
+type EndpointInfo = {
+  parameters?: EndpointParameter[];
+};
+
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 const CONNECT_TIMEOUT_MS = 15_000;
@@ -95,6 +105,8 @@ const FALLBACK_AUDIO_PARAMETERS: Record<string, ParameterConfig> = {
   voice: { ui: "input", default: "default" },
   speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
   seed: { ui: "input", default: "" },
+  inputAudio: { ui: "upload" },
+  referenceText: { ui: "textarea" },
 };
 
 function normalizeApiName(name: string) {
@@ -107,6 +119,14 @@ function normalizeKey(value: string) {
 
 function resolveParamKey(label?: string, paramName?: string, type?: string) {
   const target = `${label ?? ""} ${paramName ?? ""}`.toLowerCase();
+  if (
+    target.includes("reference transcript") ||
+    target.includes("reference text") ||
+    target.includes("ref_text") ||
+    target.includes("ref text")
+  ) {
+    return "referenceText";
+  }
   if (target.includes("prompt")) return "prompt";
   if (target.includes("text") || target.includes("script") || target.includes("message")) return "prompt";
   if (target.includes("width")) return "width";
@@ -291,6 +311,47 @@ function getDefaultFromParam(param?: ParameterConfig) {
   return param?.default;
 }
 
+function scoreEndpoint(
+  apiName: string,
+  endpoint: EndpointInfo | undefined,
+  outputTypes: string[],
+) {
+  const normalizedName = apiName.toLowerCase();
+  const parameters = endpoint?.parameters ?? [];
+  let score = 0;
+
+  if (outputTypes.some((type) => type.includes("audio"))) score += 10;
+  if (
+    normalizedName.includes("run") ||
+    normalizedName.includes("generate") ||
+    normalizedName.includes("predict") ||
+    normalizedName.includes("synth")
+  ) {
+    score += 10;
+  }
+  if (
+    normalizedName.includes("toggle") ||
+    normalizedName.includes("refresh") ||
+    normalizedName.includes("load")
+  ) {
+    score -= 10;
+  }
+
+  for (const parameter of parameters) {
+    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
+    if (target.includes("prompt") || target.includes("text")) score += 2;
+    if (
+      target.includes("reference audio") ||
+      target.includes("ref audio") ||
+      target.includes("ref_audio")
+    ) {
+      score += 4;
+    }
+  }
+
+  return score;
+}
+
 async function connectWithTimeout(
   spaceRef: string,
   clientOptions?: Parameters<typeof Client.connect>[1],
@@ -350,10 +411,40 @@ export async function importModelDraftFromSpace(
     throw new Error("SPACE_API_NOT_FOUND");
   }
 
+  const componentsById = new Map(config.components.map((component) => [component.id, component]));
+  const dependencyByApiName = new Map(
+    config.dependencies.map((dependency) => [
+      normalizeApiName(dependency.api_name ?? ""),
+      dependency,
+    ]),
+  );
+  const outputTypesByApiName = new Map<string, string[]>();
+  for (const apiName of apiNames) {
+    const dependency = dependencyByApiName.get(apiName);
+    const outputTypes = (dependency?.outputs ?? [])
+      .map((id) => componentsById.get(id))
+      .map((component) => (component ? resolveComponentType(component) : null))
+      .filter((type): type is string => Boolean(type));
+    outputTypesByApiName.set(apiName, outputTypes);
+  }
+
   const requested = payload.apiName ? normalizeApiName(payload.apiName) : "";
-  const resolvedApiName = requested && apiNames.includes(requested)
-    ? requested
-    : apiNames[0];
+  const resolvedApiName =
+    requested && apiNames.includes(requested)
+      ? requested
+      : [...apiNames].sort((left, right) => {
+          const leftScore = scoreEndpoint(
+            left,
+            named[left] ?? named[left.replace(/^\//, "")],
+            outputTypesByApiName.get(left) ?? [],
+          );
+          const rightScore = scoreEndpoint(
+            right,
+            named[right] ?? named[right.replace(/^\//, "")],
+            outputTypesByApiName.get(right) ?? [],
+          );
+          return rightScore - leftScore;
+        })[0];
 
   const endpoint = named[resolvedApiName] ?? named[resolvedApiName.replace(/^\//, "")];
   if (!endpoint) {
@@ -361,17 +452,12 @@ export async function importModelDraftFromSpace(
   }
 
   // 3) 엔드포인트 연결 컴포넌트 매핑
-  const dependency = config.dependencies.find(
-    (dep) => normalizeApiName(dep.api_name ?? "") === resolvedApiName,
-  );
-
-  const componentsById = new Map(config.components.map((component) => [component.id, component]));
+  const dependency = dependencyByApiName.get(resolvedApiName);
   const inputComponents = (dependency?.inputs ?? []).map((id) => componentsById.get(id));
-  const outputComponents = (dependency?.outputs ?? []).map((id) => componentsById.get(id));
-
-  const outputTypes = outputComponents
-    .map((component) => (component ? resolveComponentType(component) : null))
-    .filter((type): type is string => Boolean(type));
+  const outputComponents = (dependency?.outputs ?? []).map((id) =>
+    componentsById.get(id),
+  );
+  const outputTypes = outputTypesByApiName.get(resolvedApiName) ?? [];
 
   const parameters: Record<string, ParameterConfig> = {};
   const warnings: string[] = [];

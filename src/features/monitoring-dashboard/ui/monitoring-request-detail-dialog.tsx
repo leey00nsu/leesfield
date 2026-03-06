@@ -154,7 +154,9 @@ export function MonitoringRequestDetailDialog({
               <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
                 {t("requests.detailInputs")}
               </div>
-              {detail.inputImages.length === 0 ? (
+              {detail.inputImages.length === 0 &&
+              detail.inputAudios.length === 0 &&
+              !detail.referenceText ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-gray-400">
                   {t("requests.detailInputsEmpty")}
                 </div>
@@ -174,6 +176,22 @@ export function MonitoringRequestDetailDialog({
                       <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
                     </div>
                   ))}
+                  {detail.inputAudios.map((url, index) => (
+                    <div
+                      key={`${url}-audio-${index}`}
+                      className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                    >
+                      <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
+                        <audio controls className="w-full" src={url} />
+                      </div>
+                      <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
+                    </div>
+                  ))}
+                  {detail.referenceText ? (
+                    <div className="rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-white sm:col-span-2">
+                      {detail.referenceText}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

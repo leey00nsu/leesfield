@@ -1,5 +1,9 @@
 import { prisma } from "@/server/db/prisma";
-import { extractInputImages } from "@/server/history/lib/history-query";
+import {
+  extractInputAudios,
+  extractInputImages,
+  extractReferenceText,
+} from "@/server/history/lib/history-query";
 
 export type MonitoringRequestAsset = {
   url: string;
@@ -20,6 +24,8 @@ export type MonitoringRequestDetail = {
   progress: number | null;
   errorMessage: string | null;
   inputImages: string[];
+  inputAudios: string[];
+  referenceText: string | null;
   assets: MonitoringRequestAsset[];
 };
 
@@ -71,6 +77,8 @@ export async function getMonitoringRequestDetail(
       progress: record.progress,
       errorMessage: record.errorMessage ?? null,
       inputImages: extractInputImages(record.requestParams),
+      inputAudios: [],
+      referenceText: null,
       assets: record.images.map((image) => ({
         url: image.url,
         width: image.width ?? null,
@@ -116,6 +124,8 @@ export async function getMonitoringRequestDetail(
       progress: record.progress,
       errorMessage: record.errorMessage ?? null,
       inputImages: extractInputImages(record.requestParams),
+      inputAudios: extractInputAudios(record.requestParams),
+      referenceText: extractReferenceText(record.requestParams),
       assets: record.audios.map((audio) => ({
         url: audio.url,
         width: null,
@@ -162,6 +172,8 @@ export async function getMonitoringRequestDetail(
     progress: record.progress,
     errorMessage: record.errorMessage ?? null,
     inputImages: extractInputImages(record.requestParams),
+    inputAudios: [],
+    referenceText: null,
     assets: record.videos.map((video) => ({
       url: video.url,
       width: video.width ?? null,

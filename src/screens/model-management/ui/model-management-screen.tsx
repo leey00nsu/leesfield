@@ -143,6 +143,8 @@ const defaultAudioParameters = {
   voice: { ui: "input", default: "default" },
   speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
   seed: { ui: "input", default: "" },
+  inputAudio: { ui: "upload" },
+  referenceText: { ui: "textarea" },
 };
 
 const defaultImageMeta = {

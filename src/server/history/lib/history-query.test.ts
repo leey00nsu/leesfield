@@ -1,6 +1,8 @@
 import {
   buildImageWhere,
   buildVideoWhere,
+  extractInputAudios,
+  extractReferenceText,
   extractModel,
   parseHistoryQuery,
 } from "@/server/history/lib/history-query";
@@ -136,6 +138,22 @@ describe("history-query", () => {
       expect(extractModel({ model: 123 })).toBeNull();
       expect(extractModel({})).toBeNull();
       expect(extractModel(null)).toBeNull();
+    });
+  });
+
+  describe("audio reference extractors", () => {
+    it("inputAudio와 referenceText를 추출한다", () => {
+      expect(
+        extractInputAudios({
+          inputAudio: "data:audio/wav;base64,UklGRg==",
+          referenceText: "reference words",
+        }),
+      ).toEqual(["data:audio/wav;base64,UklGRg=="]);
+      expect(
+        extractReferenceText({
+          referenceText: "reference words",
+        }),
+      ).toBe("reference words");
     });
   });
 });

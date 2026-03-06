@@ -40,6 +40,8 @@ describe("MonitoringRequestDetailDialog", () => {
           progress: 100,
           errorMessage: null,
           inputImages: [],
+          inputAudios: ["data:audio/wav;base64,UklGRg=="],
+          referenceText: "reference words",
           assets: [
             {
               url: "https://example.com/audio.mp3",
@@ -52,7 +54,8 @@ describe("MonitoringRequestDetailDialog", () => {
       />,
     );
 
-    expect(document.querySelector("audio")).not.toBeNull();
+    expect(document.querySelectorAll("audio")).toHaveLength(2);
     expect(screen.getByText("3s")).toBeTruthy();
+    expect(screen.getByText("reference words")).toBeTruthy();
   });
 });

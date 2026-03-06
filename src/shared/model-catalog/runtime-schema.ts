@@ -378,6 +378,9 @@ export function createRuntimeAudioSchema(
   const inputAudioUnsupported = t
     ? t("inputAudioUnsupported")
     : "선택한 모델은 오디오 입력을 지원하지 않습니다.";
+  const referenceTextRequired = t
+    ? t("referenceTextRequired")
+    : "레퍼런스 텍스트를 입력해주세요.";
 
   const schema = z.object({
     prompt: z.string().min(1, promptRequired),
@@ -386,6 +389,7 @@ export function createRuntimeAudioSchema(
     speed: z.number().optional(),
     seed: z.string().optional().or(z.literal("")),
     inputAudio: z.string().optional().or(z.literal("")),
+    referenceText: z.string().optional().or(z.literal("")),
   });
 
   return schema.superRefine((data, ctx) => {
@@ -440,6 +444,19 @@ export function createRuntimeAudioSchema(
         code: z.ZodIssueCode.custom,
         path: ["inputAudio"],
         message: inputAudioUnsupported,
+      });
+    }
+
+    const referenceTextConfig = getRuntimeAudioParamConfig(model, "referenceText");
+    if (
+      referenceTextConfig?.required &&
+      data.inputAudio?.trim() &&
+      !(data.referenceText?.trim())
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["referenceText"],
+        message: referenceTextRequired,
       });
     }
   });

@@ -143,4 +143,42 @@ describe("POST /api/audio-generation", () => {
     expect(response.status).toBe(500);
     expect(payload.message).toBe("DB_SAVE_FAILED");
   });
+
+  it("multipart reference audio와 reference text를 파싱한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockValidatePayload.mockResolvedValue({
+      success: false,
+      error: { flatten: () => ({}) },
+    });
+
+    const formData = new FormData();
+    formData.set("prompt", "hello");
+    formData.set("model", "qwen-tts");
+    formData.set("referenceText", "reference words");
+    formData.set(
+      "inputAudio",
+      new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
+        type: "audio/wav",
+      }),
+    );
+
+    await POST(
+      new Request("http://localhost/api/audio-generation", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(mockValidatePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "hello",
+        model: "qwen-tts",
+        referenceText: "reference words",
+        inputAudio: expect.stringMatching(/^data:audio\/wav;base64,/),
+      }),
+    );
+  });
 });

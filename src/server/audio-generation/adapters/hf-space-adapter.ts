@@ -1,4 +1,4 @@
-import { Client } from "@gradio/client";
+import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationAdapter } from "@/server/audio-generation/adapters/types";
@@ -248,6 +248,23 @@ function resolveParamValue(
   const lookup = normalizeLookupKey(parameter);
 
   if (
+    lookup.includes("reference transcript") ||
+    lookup.includes("reference text") ||
+    lookup.includes("ref text") ||
+    lookup.includes("ref_text")
+  ) {
+    return payload.referenceText?.trim() || parameter.parameter_default;
+  }
+
+  if (
+    lookup.includes("reference audio") ||
+    lookup.includes("ref audio") ||
+    lookup.includes("ref_audio")
+  ) {
+    return payload.inputAudio ? toGradioInputAudio(payload.inputAudio) : parameter.parameter_default;
+  }
+
+  if (
     lookup.includes("prompt") ||
     lookup.includes("text") ||
     lookup.includes("script") ||
@@ -395,6 +412,23 @@ function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
     return `${spaceUrl}/${fileUrl}`;
   }
   return `${spaceUrl}/file=${fileUrl}`;
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error("HF_SPACE_INPUT_AUDIO_INVALID");
+  }
+  return new Blob([Buffer.from(match[2], "base64")], {
+    type: match[1],
+  });
+}
+
+function toGradioInputAudio(inputAudio: string) {
+  if (inputAudio.startsWith("data:")) {
+    return handle_file(dataUrlToBlob(inputAudio));
+  }
+  return handle_file(inputAudio);
 }
 
 async function fetchAudioDataUrl(

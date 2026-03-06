@@ -29,7 +29,10 @@ describe("getMonitoringRequestDetail", () => {
       status: "completed",
       modelKey: "qwen-tts",
       prompt: "hello",
-      requestParams: {},
+      requestParams: {
+        inputAudio: "data:audio/wav;base64,UklGRg==",
+        referenceText: "reference words",
+      },
       createdAt,
       updatedAt,
       progress: 100,
@@ -48,6 +51,8 @@ describe("getMonitoringRequestDetail", () => {
       id: "aud-1",
       type: "audio",
       durationMs: 2000,
+      inputAudios: ["data:audio/wav;base64,UklGRg=="],
+      referenceText: "reference words",
       assets: [
         {
           url: "https://cdn.example.com/audio.mp3",

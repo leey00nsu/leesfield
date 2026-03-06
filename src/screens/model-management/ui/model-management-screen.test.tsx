@@ -209,6 +209,70 @@ describe("ModelManagementScreen", () => {
       expect((typeSelect as HTMLSelectElement).value).toBe("audio");
       expect(screen.getByDisplayValue(/generate_audio/)).toBeTruthy();
       expect(screen.getByDisplayValue(/default_speed/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();
+    });
+  });
+
+  it("HF Space import로 qwen clone draft를 반영한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: records }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          apiNames: ["/toggle_mode", "/run_generation"],
+          resolvedApiName: "/run_generation",
+          warnings: [],
+          draft: {
+            type: "audio",
+            key: "leey00nsu-qwen-3-5-tts-faster-gradio",
+            label: "Faster Qwen3 TTS",
+            vendor: "HUGGINGFACE",
+            provider: "hf_space",
+            isActive: true,
+            isDefault: false,
+            providerConfig: {
+              space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+              api_name: "/run_generation",
+              timeout_ms: 300000,
+            },
+            parameters: {
+              prompt: { ui: "textarea", required: true },
+              inputAudio: { ui: "upload", required: true },
+              referenceText: { ui: "textarea", required: true },
+            },
+            meta: {
+              model_id: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+              default_speed: 1,
+              concurrent_limit: 1,
+              supports_input_audio: true,
+            },
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    renderWithIntl(<ModelManagementScreen />);
+
+    await screen.findAllByText(audioModel!.label);
+
+    await user.click(screen.getByRole("button", { name: "모델 추가" }));
+    await user.type(
+      screen.getByPlaceholderText("https://huggingface.co/spaces/owner/space"),
+      "https://huggingface.co/spaces/leey00nsu/qwen-3.5-tts-faster-gradio",
+    );
+    await user.click(screen.getByRole("button", { name: "가져오기" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue(/run_generation/).length).toBeGreaterThan(0);
+      expect(screen.getByDisplayValue(/supports_input_audio/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();
     });
   });
 });

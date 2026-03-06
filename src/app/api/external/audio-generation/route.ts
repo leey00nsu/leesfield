@@ -8,6 +8,7 @@ import {
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { validateAudioGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
+  getOptionalDataUrl,
   getNumber,
   getString,
 } from "@/server/http/form-data-utils";
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
     voice: getString(formData, "voice") || undefined,
     speed: getNumber(formData, "speed"),
     seed: getString(formData, "seed") || undefined,
+    inputAudio: await getOptionalDataUrl(formData, "inputAudio"),
+    referenceText: getString(formData, "referenceText") || undefined,
   };
 
   const parsed = await validateAudioGenerationPayload(body);

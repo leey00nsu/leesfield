@@ -14,6 +14,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -46,6 +47,7 @@ import {
   getRuntimeAudioParamConfig,
   getRuntimeAudioParamRange,
   resolveRuntimeAudioDefaults,
+  resolveRuntimeAudioSupportsInputAudio,
   resolveRuntimeDefaultModelKey,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema";
@@ -115,6 +117,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   const modelFromQuery = searchParams?.get("model") ?? "";
+  const referenceTextFromQuery = searchParams?.get("referenceText") ?? "";
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -137,11 +140,27 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     });
   }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
+  useEffect(() => {
+    const trimmed = referenceTextFromQuery.trim();
+    if (!trimmed) return;
+    if (form.getValues("referenceText") === trimmed) return;
+    form.setValue("referenceText", trimmed, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [form, referenceTextFromQuery]);
+
   const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const speed =
     useWatch({ control: form.control, name: "speed" }) ??
     audioGenerationDefaults.speed;
   const voice = useWatch({ control: form.control, name: "voice" }) ?? "";
+  const inputAudio =
+    useWatch({ control: form.control, name: "inputAudio" }) ??
+    audioGenerationDefaults.inputAudio;
+  const referenceText =
+    useWatch({ control: form.control, name: "referenceText" }) ??
+    audioGenerationDefaults.referenceText;
   const watchedModel =
     useWatch({ control: form.control, name: "model" }) ??
     audioGenerationDefaults.model;
@@ -157,11 +176,30 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   const speedConfig = getRuntimeAudioParamConfig(activeRuntimeModel, "speed");
   const voiceConfig = getRuntimeAudioParamConfig(activeRuntimeModel, "voice");
   const seedConfig = getRuntimeAudioParamConfig(activeRuntimeModel, "seed");
+  const inputAudioConfig = getRuntimeAudioParamConfig(
+    activeRuntimeModel,
+    "inputAudio",
+  );
+  const referenceTextConfig = getRuntimeAudioParamConfig(
+    activeRuntimeModel,
+    "referenceText",
+  );
   const showSpeed = speedConfig?.ui !== "hidden";
   const showVoice = voiceConfig?.ui !== "hidden";
   const showSeed = seedConfig?.ui !== "hidden";
+  const showInputAudio =
+    inputAudioConfig?.ui !== "hidden" &&
+    resolveRuntimeAudioSupportsInputAudio(activeRuntimeModel);
+  const showReferenceText = referenceTextConfig?.ui !== "hidden";
 
-  const canSubmit = hasModels && promptValue.trim().length > 0;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const requiresInputAudio = Boolean(inputAudioConfig?.required);
+  const requiresReferenceText = Boolean(referenceTextConfig?.required);
+  const canSubmit =
+    hasModels &&
+    promptValue.trim().length > 0 &&
+    (!requiresInputAudio || Boolean((inputAudio ?? "").trim())) &&
+    (!requiresReferenceText || Boolean((referenceText ?? "").trim()));
 
   useEffect(() => {
     if (!hasModels || !defaultModelKey) return;
@@ -176,6 +214,13 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     const defaults = resolveRuntimeAudioDefaults(model);
     form.setValue("voice", defaults.voice);
     form.setValue("speed", defaults.speed);
+    if (!resolveRuntimeAudioSupportsInputAudio(model)) {
+      form.setValue("inputAudio", "", { shouldValidate: true });
+      form.setValue("referenceText", "", { shouldValidate: true });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
 
     if (!showSeed) {
       form.setValue("seed", "");
@@ -192,6 +237,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       model: resetModelKey,
       voice: defaults.voice,
       speed: defaults.speed,
+      inputAudio: "",
+      referenceText: "",
     };
   }, [resetModelKey, runtimeModelMap]);
 
@@ -212,7 +259,35 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const handleReset = () => {
     form.reset(resetDefaults);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     reset();
+  };
+
+  const handleInputAudioSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        return;
+      }
+      form.setValue("inputAudio", result, { shouldValidate: true });
+      event.target.value = "";
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveInputAudio = () => {
+    form.setValue("inputAudio", "", { shouldValidate: true });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -471,6 +546,72 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                           value={field.value ?? ""}
                           placeholder={tAudio("voicePlaceholder")}
                           className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
+
+              {showInputAudio ? (
+                <FormField
+                  control={form.control}
+                  name="inputAudio"
+                  render={() => (
+                    <FormItem className="flex flex-col gap-3">
+                      <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                        {inputAudioConfig?.label ?? "Reference Audio"}
+                      </FormLabel>
+                      <FormControl>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="audio/*"
+                          aria-label={inputAudioConfig?.label ?? "Reference Audio"}
+                          onChange={handleInputAudioSelection}
+                          className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                        />
+                      </FormControl>
+                      {inputAudio ? (
+                        <div className="flex flex-col gap-2">
+                          <audio
+                            src={inputAudio}
+                            controls
+                            className="w-full rounded-lg border border-white/10 bg-black/60"
+                          />
+                          <Button
+                            type="button"
+                            variant="surface"
+                            size="sm"
+                            onClick={handleRemoveInputAudio}
+                            className="self-start"
+                          >
+                            {tActions("remove")}
+                          </Button>
+                        </div>
+                      ) : null}
+                      <FormMessage className="text-xs text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
+
+              {showReferenceText ? (
+                <FormField
+                  control={form.control}
+                  name="referenceText"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col gap-2">
+                      <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                        {referenceTextConfig?.label ?? tAudio("referenceTextLabel")}
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          value={field.value ?? ""}
+                          placeholder={tAudio("referenceTextPlaceholder")}
+                          className="min-h-[96px] rounded-xl border-white/10 bg-black/40 px-4 py-3 text-sm text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs text-red-400" />

@@ -244,6 +244,8 @@
       "voiceLabel": "보이스",
       "voiceUnset": "기본 보이스",
       "voicePlaceholder": "예: alloy",
+      "referenceTextLabel": "레퍼런스 텍스트",
+      "referenceTextPlaceholder": "레퍼런스 오디오의 텍스트를 입력하세요...",
       "speedLabel": "속도",
       "seedPlaceholder": "선택 사항"
     },
@@ -297,6 +299,7 @@
         "range": "{label}는 {min}~{max} 범위여야 합니다.",
         "unsupportedVoice": "지원하지 않는 음성입니다.",
         "inputAudioUnsupported": "선택한 모델은 오디오 입력을 지원하지 않습니다.",
+        "referenceTextRequired": "레퍼런스 텍스트를 입력해주세요.",
         "labels": {
           "speed": "속도"
         }

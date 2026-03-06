@@ -42,7 +42,8 @@ export type RuntimeAudioParameterKey =
   | "voice"
   | "speed"
   | "seed"
-  | "inputAudio";
+  | "inputAudio"
+  | "referenceText";
 
 export type RuntimeImageParameters = Partial<
   Record<RuntimeImageParameterKey, RuntimeParameterConfig>

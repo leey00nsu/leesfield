@@ -16,15 +16,33 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
   return result;
 }
 
+function appendIfPresent(formData: FormData, key: string, value: unknown) {
+  if (value === undefined || value === null) return;
+  if (typeof value === "string") {
+    if (!value.length) return;
+    formData.append(key, value);
+    return;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    formData.append(key, String(value));
+  }
+}
+
 export async function requestAudioGeneration(
   payload: AudioGenerationFormValues,
 ): Promise<AudioGenerationResponse> {
+  const formData = new FormData();
+  appendIfPresent(formData, "prompt", payload.prompt);
+  appendIfPresent(formData, "model", payload.model);
+  appendIfPresent(formData, "voice", payload.voice);
+  appendIfPresent(formData, "speed", payload.speed);
+  appendIfPresent(formData, "seed", payload.seed);
+  appendIfPresent(formData, "inputAudio", payload.inputAudio);
+  appendIfPresent(formData, "referenceText", payload.referenceText);
+
   return requestJson("/api/audio-generation", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    body: formData,
   });
 }
 

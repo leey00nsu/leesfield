@@ -11,6 +11,8 @@ const audioGenerationBaseSchema = z.object({
   voice: z.string().optional().or(z.literal("")),
   speed: z.number().optional(),
   seed: z.string().optional().or(z.literal("")),
+  inputAudio: z.string().optional().or(z.literal("")),
+  referenceText: z.string().optional().or(z.literal("")),
 });
 
 export const audioGenerationOpenApiSchema = audioGenerationBaseSchema;
@@ -50,4 +52,6 @@ export const audioGenerationDefaults: AudioGenerationFormValues = {
   voice: "",
   speed: 1,
   seed: "",
+  inputAudio: "",
+  referenceText: "",
 };

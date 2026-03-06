@@ -152,3 +152,20 @@ export function extractInputImages(params: unknown): string[] {
   }
   return images;
 }
+
+export function extractInputAudios(params: unknown): string[] {
+  if (!params || typeof params !== "object") return [];
+  const record = params as Record<string, unknown>;
+  if (typeof record.inputAudio === "string" && record.inputAudio.trim()) {
+    return [record.inputAudio.trim()];
+  }
+  return [];
+}
+
+export function extractReferenceText(params: unknown): string | null {
+  if (!params || typeof params !== "object") return null;
+  const record = params as Record<string, unknown>;
+  return typeof record.referenceText === "string" && record.referenceText.trim()
+    ? record.referenceText.trim()
+    : null;
+}

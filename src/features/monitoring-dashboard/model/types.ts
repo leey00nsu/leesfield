@@ -61,6 +61,8 @@ export type MonitoringRequestDetail = {
   progress: number | null;
   errorMessage: string | null;
   inputImages: string[];
+  inputAudios: string[];
+  referenceText: string | null;
   assets: MonitoringRequestAsset[];
 };
 

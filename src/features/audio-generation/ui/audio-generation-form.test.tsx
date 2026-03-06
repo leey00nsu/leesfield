@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
@@ -210,5 +210,82 @@ describe("AudioGenerationForm", () => {
     await user.click(screen.getByRole("button", { name: /Bark TTS/i }));
 
     expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("reference 입력을 지원하는 모델이면 오디오 업로드와 reference text를 함께 제출한다", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    const cloneModel: RuntimeAudioModel = {
+      ...runtimeAudioModelsFixture[0],
+      key: "qwen-tts-clone",
+      label: "Qwen TTS Clone",
+      parameters: {
+        ...runtimeAudioModelsFixture[0].parameters,
+        inputAudio: { ui: "upload", required: true },
+        referenceText: { ui: "textarea", required: true },
+      },
+      meta: {
+        supports_input_audio: true,
+      },
+      isDefault: true,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ items: [cloneModel] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const fileReaderResult = "data:audio/wav;base64,UklGRg==";
+    class MockFileReader {
+      result: string | ArrayBuffer | null = null;
+      onload: null | (() => void) = null;
+      readAsDataURL() {
+        this.result = fileReaderResult;
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+
+    const user = userEvent.setup();
+    const { container } = renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await screen.findByRole("button", { name: /Qwen TTS Clone/i });
+
+    await user.type(
+      screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
+      "hello clone",
+    );
+    await user.upload(
+      screen.getByLabelText("Reference Audio"),
+      new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
+        type: "audio/wav",
+      }),
+    );
+    await user.type(
+      screen.getByPlaceholderText("레퍼런스 오디오의 텍스트를 입력하세요..."),
+      "reference words",
+    );
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    await waitFor(() => {
+      expect(startGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: "hello clone",
+          inputAudio: fileReaderResult,
+          referenceText: "reference words",
+        }),
+      );
+    });
+
+    expect(container.querySelector("audio")).not.toBeNull();
   });
 });

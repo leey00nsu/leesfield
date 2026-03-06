@@ -26,6 +26,8 @@ describe("HistoryItem audio", () => {
           createdAt: "2026-02-03T00:00:00.000Z",
           resultUrl: "https://example.com/result.mp3",
           thumbnailUrl: null,
+          inputAudios: ["data:audio/wav;base64,UklGRg=="],
+          referenceText: "reference words",
           errorMessage: null,
         }}
       />,
@@ -35,6 +37,8 @@ describe("HistoryItem audio", () => {
 
     await user.click(screen.getByRole("button", { name: "프롬프트 재사용" }));
 
-    expect(mockPush).toHaveBeenCalledWith("/audio?prompt=hello+audio&model=qwen-tts");
+    expect(mockPush).toHaveBeenCalledWith(
+      "/audio?prompt=hello+audio&model=qwen-tts&referenceText=reference+words",
+    );
   });
 });

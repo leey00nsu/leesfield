@@ -12,6 +12,19 @@ export async function fileToDataUrl(
   return `data:${mime};base64,${buffer.toString("base64")}`;
 }
 
+function isFileLike(
+  value: FormDataEntryValue | null,
+): value is File {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "arrayBuffer" in value &&
+      typeof value.arrayBuffer === "function" &&
+      "size" in value &&
+      typeof value.size === "number",
+  );
+}
+
 export function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   if (typeof value !== "string") return undefined;
@@ -41,7 +54,7 @@ export async function getDataUrlList(
       }
       continue;
     }
-    if (entry instanceof File) {
+    if (isFileLike(entry)) {
       if (entry.size === 0) continue;
       results.push(await fileToDataUrl(entry, maxBytes));
     }
@@ -60,7 +73,7 @@ export async function getOptionalDataUrl(
   if (typeof entry === "string") {
     return entry.trim() ? entry.trim() : "";
   }
-  if (entry instanceof File) {
+  if (isFileLike(entry)) {
     if (entry.size === 0) return undefined;
     return fileToDataUrl(entry, maxBytes);
   }

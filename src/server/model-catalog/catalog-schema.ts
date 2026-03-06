@@ -58,6 +58,8 @@ const audioParametersSchema = z
     voice: parameterSchema.optional(),
     speed: parameterSchema.optional(),
     seed: parameterSchema.optional(),
+    inputAudio: parameterSchema.optional(),
+    referenceText: parameterSchema.optional(),
   })
   .passthrough();
 
