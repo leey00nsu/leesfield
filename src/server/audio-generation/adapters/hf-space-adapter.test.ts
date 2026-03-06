@@ -406,4 +406,90 @@ describe("hfSpaceAudioAdapter", () => {
       }),
     );
   });
+
+  it("동일 asset의 여러 file reference 중 하나만 성공해도 생성 성공으로 처리한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-mixed-refs",
+        label: "Qwen TTS Mixed Refs",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/run_generation",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+          speaker: {
+            ui: "select",
+            default: "Vivian",
+            options: ["Vivian"],
+          },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          concurrent_limit: 1,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/run_generation": {
+            parameters: [{ parameter_name: "text", label: "Text" }],
+          },
+        },
+      }),
+      predict: vi.fn().mockResolvedValue({
+        data: [
+          {
+            audio: {
+              url: "https://leey00nsu-qwen-3-5-tts-faster-gradio.hf.space/gradio_api/file=/tmp/gradio/job-1/audio.wav",
+              path: "/tmp/gradio/job-1/audio.wav",
+              name: "audio.wav",
+            },
+          },
+        ],
+      }),
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ stage: "RUNNING" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "application/octet-stream" }),
+        arrayBuffer: async () => Uint8Array.from([82, 73, 70, 70]).buffer,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    const result = await hfSpaceAudioAdapter.generate({
+      prompt: "hello",
+      model: "qwen-tts-mixed-refs",
+      speed: 1,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://leey00nsu-qwen-3-5-tts-faster-gradio.hf.space/gradio_api/file=/tmp/gradio/job-1/audio.wav",
+      expect.objectContaining({}),
+    );
+    expect(result).toEqual({
+      audios: ["data:application/octet-stream;base64,UklGRg=="],
+      meta: { duration_sec: undefined },
+    });
+  });
 });

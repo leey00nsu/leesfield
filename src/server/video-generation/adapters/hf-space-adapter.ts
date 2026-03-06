@@ -2,6 +2,10 @@ import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
+import {
+  resolveHfSpaceFileReference,
+  selectPreferredHfSpaceFileReference,
+} from "@/server/hf-space/file-reference-resolver";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { VideoModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import {
@@ -264,45 +268,16 @@ async function resolveInitImageBuffer(source: string) {
   }
 }
 
-function extractFileUrl(file: unknown) {
-  if (!file) return null;
-  if (typeof file === "string") return file;
-  if (typeof file !== "object") return null;
-  const candidate = file as {
-    url?: unknown;
-    path?: unknown;
-    name?: unknown;
-    data?: unknown;
-  };
-  if (typeof candidate.data === "string" && candidate.data.startsWith("data:")) {
-    return candidate.data;
-  }
-  if (typeof candidate.url === "string") return candidate.url;
-  if (typeof candidate.path === "string") return candidate.path;
-  if (typeof candidate.name === "string") return candidate.name;
-  return null;
-}
-
-function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
-  if (fileUrl.startsWith("data:")) return fileUrl;
-  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-    return fileUrl;
-  }
-  if (fileUrl.startsWith("/")) {
-    return `${spaceUrl}${fileUrl}`;
-  }
-  if (fileUrl.startsWith("file=")) {
-    return `${spaceUrl}/${fileUrl}`;
-  }
-  return `${spaceUrl}/file=${fileUrl}`;
-}
-
 async function fetchVideoDataUrl(
-  fileUrl: string,
+  fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
   timeoutMs: number = FILE_FETCH_TIMEOUT_MS
 ) {
-  const normalized = normalizeFileUrl(fileUrl, spaceUrl);
+  const resolved =
+    typeof fileRef === "string"
+      ? resolveHfSpaceFileReference(fileRef, spaceUrl)
+      : fileRef;
+  const normalized = resolved.normalizedUrl;
   if (normalized.startsWith("data:")) {
     return normalized;
   }
@@ -460,13 +435,16 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
     }
     const data = Array.isArray(result?.data) ? result.data : result;
     const videoFile = Array.isArray(data) ? data[0] : data;
-    const fileUrl = extractFileUrl(videoFile);
-    if (!fileUrl) {
+    const fileRef = selectPreferredHfSpaceFileReference(videoFile, {
+      spaceUrl: config.spaceUrl,
+      maxDepth: 4,
+    });
+    if (!fileRef) {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
     const dataUrl = await fetchVideoDataUrl(
-      fileUrl,
+      fileRef,
       config.spaceUrl,
       Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS)
     );

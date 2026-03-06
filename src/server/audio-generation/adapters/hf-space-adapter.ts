@@ -2,6 +2,10 @@ import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationAdapter } from "@/server/audio-generation/adapters/types";
+import {
+  resolveHfSpaceFileReferenceCandidates,
+  resolveHfSpaceFileReference,
+} from "@/server/hf-space/file-reference-resolver";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { AudioModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import {
@@ -472,25 +476,6 @@ async function buildRequestPayload(
   return requestPayload;
 }
 
-function extractFileUrl(file: unknown) {
-  if (!file) return null;
-  if (typeof file === "string") return file;
-  if (typeof file !== "object") return null;
-  const candidate = file as {
-    url?: unknown;
-    path?: unknown;
-    name?: unknown;
-    data?: unknown;
-  };
-  if (typeof candidate.data === "string" && candidate.data.startsWith("data:")) {
-    return candidate.data;
-  }
-  if (typeof candidate.url === "string") return candidate.url;
-  if (typeof candidate.path === "string") return candidate.path;
-  if (typeof candidate.name === "string") return candidate.name;
-  return null;
-}
-
 function looksLikeAudioPath(value: string) {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return false;
@@ -498,50 +483,6 @@ function looksLikeAudioPath(value: string) {
   if (trimmed.includes("file=") || trimmed.includes("/file/")) return true;
   if (/\.(mp3|wav|flac|ogg|m4a|aac|webm)(\?|$)/.test(trimmed)) return true;
   return false;
-}
-
-function collectAudioFileUrls(value: unknown, urls: Set<string>, depth = 0) {
-  if (depth > 4 || value === null || value === undefined) return;
-
-  if (typeof value === "string") {
-    if (looksLikeAudioPath(value)) {
-      urls.add(value);
-    }
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectAudioFileUrls(item, urls, depth + 1));
-    return;
-  }
-
-  if (typeof value !== "object") return;
-
-  const direct = extractFileUrl(value);
-  if (direct && looksLikeAudioPath(direct)) {
-    urls.add(direct);
-  }
-
-  Object.values(value as Record<string, unknown>).forEach((item) =>
-    collectAudioFileUrls(item, urls, depth + 1),
-  );
-}
-
-function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
-  if (fileUrl.startsWith("data:")) return fileUrl;
-  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-    return fileUrl;
-  }
-  if (fileUrl.startsWith("/gradio_api/file=")) {
-    return `${spaceUrl}${fileUrl}`;
-  }
-  if (fileUrl.startsWith("/file=")) {
-    return `${spaceUrl}/gradio_api${fileUrl}`;
-  }
-  if (fileUrl.startsWith("file=")) {
-    return `${spaceUrl}/gradio_api/${fileUrl}`;
-  }
-  return `${spaceUrl}/gradio_api/file=${fileUrl}`;
 }
 
 function dataUrlToBlob(dataUrl: string) {
@@ -562,11 +503,15 @@ function toGradioInputAudio(inputAudio: string) {
 }
 
 async function fetchAudioDataUrl(
-  fileUrl: string,
+  fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
   timeoutMs: number = FILE_FETCH_TIMEOUT_MS,
 ) {
-  const normalized = normalizeFileUrl(fileUrl, spaceUrl);
+  const resolvedFile =
+    typeof fileRef === "string"
+      ? resolveHfSpaceFileReference(fileRef, spaceUrl)
+      : fileRef;
+  const normalized = resolvedFile.normalizedUrl;
   if (normalized.startsWith("data:")) {
     return normalized;
   }
@@ -751,22 +696,40 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
     }
 
     const rawData = Array.isArray(result?.data) ? result.data : result;
-    const audioUrls = new Set<string>();
-    collectAudioFileUrls(rawData, audioUrls);
+    const audioGroups = resolveHfSpaceFileReferenceCandidates(rawData, {
+      spaceUrl: config.spaceUrl,
+      matcher: looksLikeAudioPath,
+      maxDepth: 4,
+    });
 
-    if (audioUrls.size === 0) {
+    if (audioGroups.length === 0) {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
-    const dataUrls = await Promise.all(
-      Array.from(audioUrls).map((url) =>
-        fetchAudioDataUrl(
-          url,
-          config.spaceUrl,
-          Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS),
-        ),
-      ),
-    );
+    const dataUrls: string[] = [];
+    for (const group of audioGroups) {
+      let lastError: Error | null = null;
+      let resolvedDataUrl: string | null = null;
+
+      for (const candidate of group.candidates) {
+        try {
+          resolvedDataUrl = await fetchAudioDataUrl(
+            candidate,
+            config.spaceUrl,
+            Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS),
+          );
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+        }
+      }
+
+      if (!resolvedDataUrl) {
+        throw lastError ?? new Error("HF_SPACE_AUDIO_FETCH_FAILED");
+      }
+
+      dataUrls.push(resolvedDataUrl);
+    }
 
     return {
       audios: dataUrls,
