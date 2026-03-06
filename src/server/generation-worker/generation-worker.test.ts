@@ -1,7 +1,16 @@
-import { processImageJobs, processVideoJobs } from "@/server/generation-worker/generation-worker";
+import {
+  processAudioJobs,
+  processImageJobs,
+  processVideoJobs,
+} from "@/server/generation-worker/generation-worker";
 import { prisma } from "@/server/db/prisma";
+import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";
 import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
 import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
+import {
+  saveAudioGenerationResult,
+  updateAudioGenerationStatus,
+} from "@/server/audio-generation/audio-generation-repository";
 import {
   saveImageGenerationResult,
   updateImageGenerationStatus,
@@ -11,16 +20,22 @@ import {
   updateVideoGenerationStatus,
 } from "@/server/video-generation/video-generation-repository";
 import type {
+  RuntimeAudioModel,
   RuntimeImageModel,
   RuntimeVideoModel,
 } from "@/server/model-catalog/runtime-models";
 
+const mockValidateAudioPayload = vi.hoisted(() => vi.fn());
 const mockValidateImagePayload = vi.hoisted(() => vi.fn());
 const mockValidateVideoPayload = vi.hoisted(() => vi.fn());
 const mockGetRuntimeCatalog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
+    audioGeneration: {
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
     imageGeneration: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
@@ -32,12 +47,21 @@ vi.mock("@/server/db/prisma", () => ({
   },
 }));
 
+vi.mock("@/server/audio-generation/audio-generation", () => ({
+  resolveAudioGenerationResult: vi.fn(),
+}));
+
 vi.mock("@/server/image-generation/image-generation", () => ({
   resolveImageGenerationResult: vi.fn(),
 }));
 
 vi.mock("@/server/video-generation/video-generation", () => ({
   resolveVideoGenerationResult: vi.fn(),
+}));
+
+vi.mock("@/server/audio-generation/audio-generation-repository", () => ({
+  saveAudioGenerationResult: vi.fn(),
+  updateAudioGenerationStatus: vi.fn(),
 }));
 
 vi.mock("@/server/image-generation/image-generation-repository", () => ({
@@ -61,6 +85,7 @@ vi.mock("@/server/model-catalog/runtime-models", async () => {
 });
 
 vi.mock("@/server/model-catalog/generation-validation", () => ({
+  validateAudioGenerationPayload: mockValidateAudioPayload,
   validateImageGenerationPayload: mockValidateImagePayload,
   validateVideoGenerationPayload: mockValidateVideoPayload,
 }));
@@ -68,6 +93,30 @@ vi.mock("@/server/model-catalog/generation-validation", () => ({
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const audioModels: RuntimeAudioModel[] = [
+      {
+        key: "alloy-tts",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          voice: "alloy",
+          speed: 1,
+        },
+        concurrentLimit: 1,
+        supportsInputAudio: false,
+      },
+      {
+        key: "qwen-tts",
+        isActive: true,
+        isDefault: false,
+        defaults: {
+          voice: "alloy",
+          speed: 1,
+        },
+        concurrentLimit: 1,
+        supportsInputAudio: false,
+      },
+    ];
     const imageModels: RuntimeImageModel[] = [
       {
         key: "z-image-turbo",
@@ -102,9 +151,103 @@ describe("generation worker", () => {
         supportsInitImage: true,
       },
     ];
-    mockGetRuntimeCatalog.mockResolvedValue({ imageModels, videoModels });
-    mockValidateImagePayload.mockResolvedValue({ success: true, data: {} });
-    mockValidateVideoPayload.mockResolvedValue({ success: true, data: {} });
+    mockGetRuntimeCatalog.mockResolvedValue({
+      audioModels,
+      imageModels,
+      videoModels,
+    });
+    mockValidateAudioPayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+    mockValidateImagePayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+    mockValidateVideoPayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+  });
+
+  it("processAudioJobs uses modelKey for concurrent-limit accounting", async () => {
+    const processingRecord = {
+      requestParams: {},
+      modelKey: "qwen-tts",
+    };
+    const pendingRecord = {
+      id: "aud-pending-id",
+      requestId: "aud-request-id",
+      prompt: "hello",
+      progress: 0,
+      requestParams: {},
+      modelKey: "alloy-tts",
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([processingRecord])
+      .mockResolvedValueOnce([pendingRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(prisma.audioGeneration.updateMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: "aud-pending-id", status: "pending" },
+        data: { status: "processing", progress: 92 },
+      }),
+    );
+    expect(resolveAudioGenerationResult).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "alloy-tts" }),
+      "aud-request-id",
+    );
+  });
+
+  it("processAudioJobs updates status when completed with skipDbSave", async () => {
+    const mockRecord = {
+      id: "aud-db-id",
+      requestId: "aud-request-id",
+      prompt: "hello",
+      progress: 0,
+      requestParams: {
+        model: "qwen-tts",
+        voice: "alloy",
+        speed: 1,
+        seed: "",
+      },
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(updateAudioGenerationStatus).toHaveBeenCalledWith(
+      "aud-db-id",
+      "completed",
+      100,
+      undefined,
+    );
+    expect(saveAudioGenerationResult).not.toHaveBeenCalled();
   });
 
   it("processImageJobs updates status when completed with skipDbSave", async () => {

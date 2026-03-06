@@ -1,4 +1,8 @@
-import type { ImageGenerationStatus, VideoGenerationStatus } from "@prisma/client";
+import type {
+  AudioGenerationStatus,
+  ImageGenerationStatus,
+  VideoGenerationStatus,
+} from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
   getRuntimeCatalog,
@@ -6,7 +10,7 @@ import {
 } from "@/server/model-catalog/runtime-models";
 
 export type QueueStatusItem = {
-  type: "image" | "video";
+  type: "audio" | "image" | "video";
   model: string;
   pending: number;
   processing: number;
@@ -27,6 +31,10 @@ const IMAGE_ACTIVE_STATUSES: ImageGenerationStatus[] = [
   "processing",
 ];
 const VIDEO_ACTIVE_STATUSES: VideoGenerationStatus[] = [
+  "pending",
+  "processing",
+];
+const AUDIO_ACTIVE_STATUSES: AudioGenerationStatus[] = [
   "pending",
   "processing",
 ];
@@ -74,8 +82,19 @@ type VideoQueueGroup = {
   _count: { _all: number };
 };
 
+type AudioQueueGroup = {
+  modelKey: string | null;
+  status: AudioGenerationStatus;
+  _count: { _all: number };
+};
+
 export async function getQueueStatus(): Promise<QueueStatusResponse> {
-  const [imageRows, videoRows, runtime] = await Promise.all([
+  const [audioRows, imageRows, videoRows, runtime] = await Promise.all([
+    prisma.audioGeneration.groupBy({
+      by: ["modelKey", "status"],
+      where: { status: { in: AUDIO_ACTIVE_STATUSES } },
+      _count: { _all: true },
+    }),
     prisma.imageGeneration.groupBy({
       by: ["modelKey", "status"],
       where: { status: { in: IMAGE_ACTIVE_STATUSES } },
@@ -89,19 +108,41 @@ export async function getQueueStatus(): Promise<QueueStatusResponse> {
     getRuntimeCatalog({ includeInactive: true }),
   ]);
 
+  const audioKeys = runtime.audioModels.map((model) => model.key);
   const imageKeys = runtime.imageModels.map((model) => model.key);
   const videoKeys = runtime.videoModels.map((model) => model.key);
+  const audioDefaultKey =
+    resolveDefaultModelKey(runtime.audioModels) ?? audioKeys[0];
   const imageDefaultKey =
     resolveDefaultModelKey(runtime.imageModels) ?? imageKeys[0];
   const videoDefaultKey =
     resolveDefaultModelKey(runtime.videoModels) ?? videoKeys[0];
 
+  const audioCounts = initCounts(
+    runtime.audioModels.filter((model) => model.isActive).map((model) => model.key),
+  );
   const imageCounts = initCounts(
     runtime.imageModels.filter((model) => model.isActive).map((model) => model.key),
   );
   const videoCounts = initCounts(
     runtime.videoModels.filter((model) => model.isActive).map((model) => model.key),
   );
+
+  for (const row of audioRows as AudioQueueGroup[]) {
+    const key = normalizeQueueModelKey(
+      row.modelKey,
+      audioKeys,
+      audioDefaultKey,
+    );
+    const counts = audioCounts.get(key) ?? { pending: 0, processing: 0 };
+    const count = row._count._all;
+    if (row.status === "pending") {
+      counts.pending += count;
+    } else {
+      counts.processing += count;
+    }
+    audioCounts.set(key, counts);
+  }
 
   for (const row of imageRows as ImageQueueGroup[]) {
     const key = normalizeQueueModelKey(
@@ -137,6 +178,10 @@ export async function getQueueStatus(): Promise<QueueStatusResponse> {
 
   return {
     updatedAt: new Date().toISOString(),
-    items: [...toItems("image", imageCounts), ...toItems("video", videoCounts)],
+    items: [
+      ...toItems("audio", audioCounts),
+      ...toItems("image", imageCounts),
+      ...toItems("video", videoCounts),
+    ],
   };
 }
