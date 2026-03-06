@@ -1,5 +1,5 @@
 export type QueueStatusItem = {
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   model: string;
   pending: number;
   processing: number;

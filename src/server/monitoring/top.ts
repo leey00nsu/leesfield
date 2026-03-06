@@ -65,13 +65,16 @@ async function queryTopByModel(query: MonitoringQuery, limit: number) {
   const where = buildRawWhere(filters, { includeDate: true, includeStatus: true });
   const imageSelect = buildBaseSelect("ImageGeneration", where);
   const videoSelect = buildBaseSelect("VideoGeneration", where);
+  const audioSelect = buildBaseSelect("AudioGeneration", where);
 
   const baseQuery =
     query.type === "image"
       ? imageSelect
       : query.type === "video"
         ? videoSelect
-        : Prisma.sql`${imageSelect} UNION ALL ${videoSelect}`;
+        : query.type === "audio"
+          ? audioSelect
+          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
 
   const orderBy = resolveOrder(query.metric);
 
@@ -113,13 +116,16 @@ async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
   const where = buildRawWhere(filters, { includeDate: true, includeStatus: true });
   const imageSelect = buildBaseSelect("ImageGeneration", where);
   const videoSelect = buildBaseSelect("VideoGeneration", where);
+  const audioSelect = buildBaseSelect("AudioGeneration", where);
 
   const baseQuery =
     query.type === "image"
       ? imageSelect
       : query.type === "video"
         ? videoSelect
-        : Prisma.sql`${imageSelect} UNION ALL ${videoSelect}`;
+        : query.type === "audio"
+          ? audioSelect
+          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
 
   const orderBy = resolveOrder(query.metric);
 

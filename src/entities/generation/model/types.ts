@@ -1,10 +1,10 @@
-export type GenerationHistoryType = "image" | "video" | "all";
+export type GenerationHistoryType = "image" | "video" | "audio" | "all";
 export type GenerationHistorySort = "date_desc" | "date_asc";
 export type GenerationHistoryStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface GenerationHistoryItem {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   status: GenerationHistoryStatus;
   prompt: string;
   model: string | null;

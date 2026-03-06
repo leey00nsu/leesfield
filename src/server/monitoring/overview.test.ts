@@ -5,6 +5,9 @@ import { prisma } from "@/server/db/prisma";
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
+    audioGeneration: {
+      count: vi.fn(),
+    },
     imageGeneration: {
       count: vi.fn(),
     },
@@ -32,6 +35,7 @@ const baseQuery: MonitoringQuery = {
 describe("getMonitoringOverview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (prisma.audioGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
   });
 
   it("활성/요청/오류율 지표를 계산한다", async () => {

@@ -61,6 +61,16 @@ describe("history-query", () => {
       const result = parseHistoryQuery(params);
       expect(result.limit).toBe(1);
     });
+
+    it("audio 타입을 허용한다", () => {
+      const params = new URLSearchParams({
+        type: "AUDIO",
+      });
+
+      const result = parseHistoryQuery(params);
+
+      expect(result.type).toBe("audio");
+    });
   });
 
   describe("buildImageWhere", () => {

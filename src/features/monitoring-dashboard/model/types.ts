@@ -1,4 +1,4 @@
-export type MonitoringType = "all" | "image" | "video";
+export type MonitoringType = "all" | "image" | "video" | "audio";
 
 export type MonitoringStatusFilter =
   | "all"
@@ -34,7 +34,7 @@ export type MonitoringStatsResponse = {
 
 export type MonitoringRequestItem = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   status: string;
   model: string | null;
   createdAt: string;
@@ -51,7 +51,7 @@ export type MonitoringRequestAsset = {
 
 export type MonitoringRequestDetail = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   status: string;
   model: string | null;
   prompt: string;

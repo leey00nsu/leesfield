@@ -75,7 +75,7 @@ export function useMonitoringRequests(
 }
 
 export function useMonitoringRequestDetail(
-  type: "image" | "video" | null,
+  type: "image" | "video" | "audio" | null,
   requestId: string | null,
   enabled: boolean,
 ) {

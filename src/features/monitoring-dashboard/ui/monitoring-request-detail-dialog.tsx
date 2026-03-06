@@ -202,6 +202,10 @@ export function MonitoringRequestDetailDialog({
                             className="h-48 w-full object-contain bg-black/70"
                             loading="lazy"
                           />
+                        ) : detail.type === "audio" ? (
+                          <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
+                            <audio controls className="w-full" src={asset.url} />
+                          </div>
                         ) : (
                           <video
                             controls

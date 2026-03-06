@@ -5,7 +5,7 @@ import { getMonitoringRequestDetail } from "@/server/monitoring/request-detail";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const VALID_TYPES = new Set(["image", "video"]);
+const VALID_TYPES = new Set(["image", "video", "audio"]);
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     const detail = await getMonitoringRequestDetail(
-      type as "image" | "video",
+      type as "image" | "video" | "audio",
       requestId,
     );
 

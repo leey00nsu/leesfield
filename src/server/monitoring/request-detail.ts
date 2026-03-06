@@ -10,7 +10,7 @@ export type MonitoringRequestAsset = {
 
 export type MonitoringRequestDetail = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   status: string;
   model: string | null;
   prompt: string;
@@ -31,7 +31,7 @@ function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
 }
 
 export async function getMonitoringRequestDetail(
-  type: "image" | "video",
+  type: "image" | "video" | "audio",
   requestId: string,
 ): Promise<MonitoringRequestDetail | null> {
   if (type === "image") {
@@ -76,6 +76,51 @@ export async function getMonitoringRequestDetail(
         width: image.width ?? null,
         height: image.height ?? null,
         durationSec: null,
+      })),
+    };
+  }
+
+  if (type === "audio") {
+    const record = await prisma.audioGeneration.findUnique({
+      where: { requestId },
+      select: {
+        requestId: true,
+        status: true,
+        modelKey: true,
+        prompt: true,
+        requestParams: true,
+        createdAt: true,
+        updatedAt: true,
+        progress: true,
+        errorMessage: true,
+        audios: {
+          select: {
+            url: true,
+            durationSec: true,
+          },
+        },
+      },
+    });
+
+    if (!record) return null;
+
+    return {
+      id: record.requestId,
+      type: "audio",
+      status: record.status,
+      model: record.modelKey ?? null,
+      prompt: record.prompt,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+      progress: record.progress,
+      errorMessage: record.errorMessage ?? null,
+      inputImages: extractInputImages(record.requestParams),
+      assets: record.audios.map((audio) => ({
+        url: audio.url,
+        width: null,
+        height: null,
+        durationSec: audio.durationSec ?? null,
       })),
     };
   }

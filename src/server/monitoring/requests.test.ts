@@ -9,6 +9,10 @@ vi.mock("@/server/db/prisma", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
     },
+    audioGeneration: {
+      findMany: vi.fn(),
+      count: vi.fn(),
+    },
     videoGeneration: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -60,6 +64,8 @@ function createRecord(params: {
 describe("getMonitoringRequests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (prisma.audioGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
   it("API Key 표시와 duration을 계산한다", async () => {
@@ -183,6 +189,43 @@ describe("getMonitoringRequests", () => {
     expect(result.items[1].id).toBe("vid-1");
     expect(result.items[1].apiKeyLabel).toBe("UI");
     expect(result.items[1].durationMs).toBeNull();
+  });
+
+  it("type=all에서 audio 요청도 병합한다", async () => {
+    const query: MonitoringQuery = {
+      ...baseQuery,
+      type: "all",
+      limit: 10,
+      offset: 0,
+    };
+    (prisma.imageGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    (prisma.videoGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    (prisma.audioGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({
+        requestId: "img-1",
+        createdAt: new Date("2026-01-04T10:00:00Z"),
+      }),
+    ]);
+    (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({
+        requestId: "vid-1",
+        createdAt: new Date("2026-01-04T09:59:00Z"),
+      }),
+    ]);
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({
+        requestId: "aud-1",
+        createdAt: new Date("2026-01-04T09:58:00Z"),
+        apiKeyId: null,
+      }),
+    ]);
+
+    const result = await getMonitoringRequests(query);
+
+    expect(result.total).toBe(3);
+    expect(result.items.map((item) => item.type)).toEqual(["image", "video", "audio"]);
+    expect(result.items[2]?.apiKeyLabel).toBe("UI");
   });
 
   it("offset이 total 이상이면 빈 items를 반환하고 total은 유지한다", async () => {

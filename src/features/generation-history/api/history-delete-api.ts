@@ -6,6 +6,8 @@ export async function deleteHistoryItem(
   const endpoint =
     item.type === "video"
       ? `/api/video-generation/${item.id}`
+      : item.type === "audio"
+        ? `/api/audio-generation/${item.id}`
       : `/api/image-generation/${item.id}`;
 
   const response = await fetch(endpoint, {
@@ -18,4 +20,3 @@ export async function deleteHistoryItem(
     throw new Error(message);
   }
 }
-

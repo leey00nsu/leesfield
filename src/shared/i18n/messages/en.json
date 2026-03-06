@@ -326,7 +326,8 @@
     },
     "types": {
       "image": "IMAGE",
-      "video": "VIDEO"
+      "video": "VIDEO",
+      "audio": "AUDIO"
     },
     "actions": {
       "reusePrompt": "Reuse Prompt",

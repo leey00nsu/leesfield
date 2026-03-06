@@ -100,7 +100,7 @@ export async function fetchMonitoringRequests(
 }
 
 export async function fetchMonitoringRequestDetail(
-  type: "image" | "video",
+  type: "image" | "video" | "audio",
   requestId: string,
 ): Promise<MonitoringRequestDetail> {
   const params = new URLSearchParams({
