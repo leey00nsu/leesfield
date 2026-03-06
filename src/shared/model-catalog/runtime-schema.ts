@@ -1,13 +1,17 @@
 import { z } from "zod";
 import type {
+  RuntimeAudioModel,
   RuntimeImageModel,
   RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
 import {
+  getRuntimeAudioParamConfig,
+  getRuntimeAudioParamRange,
   getRuntimeImageParamConfig,
   getRuntimeImageParamRange,
   getRuntimeVideoParamConfig,
   getRuntimeVideoParamRange,
+  resolveRuntimeAudioSupportsInputAudio,
   resolveRuntimeImageMaxInputImages,
   resolveRuntimeVideoSupportsInitImage,
 } from "@/shared/model-catalog/runtime-utils";
@@ -348,3 +352,95 @@ export function createRuntimeVideoSchema(
   });
 }
 
+export function createRuntimeAudioSchema(
+  models: RuntimeAudioModel[],
+  t?: TranslationFn,
+) {
+  const modelMap = new Map(models.map((model) => [model.key, model]));
+  const invalidModelMessage = t
+    ? t("invalidModel")
+    : "지원하지 않는 모델입니다.";
+  const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
+  const labels = {
+    speed: t ? t("labels.speed") : "속도",
+  };
+  const rangeMessage = (label: string, min: number, max: number) =>
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
+  const stepMessage = (label: string, step: number) =>
+    t
+      ? t("step", { label, step })
+      : `${label}는 ${step} 단위로 입력해야 합니다.`;
+  const unsupportedVoice = t
+    ? t("unsupportedVoice")
+    : "지원하지 않는 음성입니다.";
+  const inputAudioUnsupported = t
+    ? t("inputAudioUnsupported")
+    : "선택한 모델은 오디오 입력을 지원하지 않습니다.";
+
+  const schema = z.object({
+    prompt: z.string().min(1, promptRequired),
+    model: z.string().min(1),
+    voice: z.string().optional().or(z.literal("")),
+    speed: z.number().optional(),
+    seed: z.string().optional().or(z.literal("")),
+    inputAudio: z.string().optional().or(z.literal("")),
+  });
+
+  return schema.superRefine((data, ctx) => {
+    const model = modelMap.get(data.model);
+    if (!model) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["model"],
+        message: invalidModelMessage,
+      });
+      return;
+    }
+
+    if (typeof data.speed === "number") {
+      const speedRange = getRuntimeAudioParamRange(model, "speed");
+      if (data.speed < speedRange.min || data.speed > speedRange.max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["speed"],
+          message: rangeMessage(labels.speed, speedRange.min, speedRange.max),
+        });
+      } else if (speedRange.step > 0) {
+        const offset = data.speed - speedRange.min;
+        const quotient = offset / speedRange.step;
+        if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["speed"],
+            message: stepMessage(labels.speed, speedRange.step),
+          });
+        }
+      }
+    }
+
+    const voiceConfig = getRuntimeAudioParamConfig(model, "voice");
+    if (
+      typeof data.voice === "string" &&
+      data.voice.trim() &&
+      Array.isArray(voiceConfig?.options) &&
+      voiceConfig.options.length > 0 &&
+      !voiceConfig.options.includes(data.voice)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["voice"],
+        message: unsupportedVoice,
+      });
+    }
+
+    if (data.inputAudio?.trim() && !resolveRuntimeAudioSupportsInputAudio(model)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["inputAudio"],
+        message: inputAudioUnsupported,
+      });
+    }
+  });
+}

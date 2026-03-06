@@ -1,8 +1,10 @@
 import { z } from "zod";
+import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type {
+  AudioModelCatalogItem,
   ImageModelCatalogItem,
   VideoModelCatalogItem,
 } from "@/server/model-catalog/catalog-schema";
@@ -40,6 +42,10 @@ const videoFallbackRanges: Record<
   steps: { min: 1, max: 50, step: 1 },
   guidance: { min: 0, max: 20, step: 0.5 },
   fps: { min: 1, max: 60, step: 1 },
+};
+
+const audioFallbackRanges: Record<"speed", NumericRange> = {
+  speed: { min: 0.25, max: 4, step: 0.05 },
 };
 
 const buildInitImageSchema = (t?: TranslationFn) =>
@@ -405,6 +411,85 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
   });
 }
 
+function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
+  const modelMap = new Map(models.map((model) => [model.key, model]));
+  const invalidModelMessage = t
+    ? t("invalidModel")
+    : "지원하지 않는 모델입니다.";
+  const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
+  const labels = {
+    speed: t ? t("labels.speed") : "속도",
+  };
+  const rangeMessage = (label: string, min: number, max: number) =>
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
+  const stepMessage = (label: string, step: number) =>
+    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
+  const unsupportedVoice = t ? t("unsupportedVoice") : "지원하지 않는 음성입니다.";
+
+  const schema = z.object({
+    prompt: z.string().min(1, promptRequired),
+    model: z.string().min(1),
+    voice: z.string().optional().or(z.literal("")),
+    speed: z.number().optional(),
+    seed: z.string().optional().or(z.literal("")),
+  });
+
+  return schema.superRefine((data, ctx) => {
+    const model = modelMap.get(data.model);
+    if (!model) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["model"],
+        message: invalidModelMessage,
+      });
+      return;
+    }
+
+    const parameters = (model.parameters ?? {}) as Record<string, unknown>;
+    const speedRange = resolveRange(
+      getParamConfig(parameters, "speed"),
+      audioFallbackRanges.speed,
+    );
+
+    if (typeof data.speed === "number") {
+      if (data.speed < speedRange.min || data.speed > speedRange.max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["speed"],
+          message: rangeMessage(labels.speed, speedRange.min, speedRange.max),
+        });
+      } else if (speedRange.step > 0) {
+        const offset = data.speed - speedRange.min;
+        const quotient = offset / speedRange.step;
+        if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["speed"],
+            message: stepMessage(labels.speed, speedRange.step),
+          });
+        }
+      }
+    }
+
+    const voiceConfig = getParamConfig(parameters, "voice");
+    if (
+      typeof data.voice === "string" &&
+      data.voice.trim() &&
+      Array.isArray(voiceConfig?.options) &&
+      voiceConfig.options.length > 0 &&
+      !voiceConfig.options.includes(data.voice)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["voice"],
+        message: unsupportedVoice,
+      });
+    }
+  });
+}
+
 function buildNoModelsResult<TOutput>(message: string) {
   const error = new z.ZodError([
     {
@@ -452,4 +537,21 @@ export async function validateVideoGenerationPayload(
   const schema = buildVideoSchema(videoModels, t);
   const parsed = schema.safeParse(payload);
   return parsed as SafeParseResult<VideoGenerationFormValues>;
+}
+
+export async function validateAudioGenerationPayload(
+  payload: unknown,
+  t?: TranslationFn,
+) {
+  const catalog = await getModelCatalog();
+  const audioModels = catalog.filter(
+    (item): item is AudioModelCatalogItem => item.type === "audio",
+  );
+  if (audioModels.length === 0) {
+    const message = t ? t("noModels") : "등록된 오디오 모델이 없습니다.";
+    return buildNoModelsResult<AudioGenerationFormValues>(message);
+  }
+  const schema = buildAudioSchema(audioModels, t);
+  const parsed = schema.safeParse(payload);
+  return parsed as SafeParseResult<AudioGenerationFormValues>;
 }

@@ -52,6 +52,15 @@ const videoParametersSchema = z
   })
   .passthrough();
 
+const audioParametersSchema = z
+  .object({
+    prompt: parameterSchema,
+    voice: parameterSchema.optional(),
+    speed: parameterSchema.optional(),
+    seed: parameterSchema.optional(),
+  })
+  .passthrough();
+
 const hfSpaceConfigSchema = z
   .object({
     space_id: z.string().min(1),
@@ -59,6 +68,7 @@ const hfSpaceConfigSchema = z
     timeout_ms: z.number().int().positive().optional(),
     space_url: z.string().min(1).optional(),
     input_images_format: z.enum(["file_array", "gallery"]).optional(),
+    input_audio_format: z.enum(["file", "file_array"]).optional(),
   })
   .passthrough();
 
@@ -85,9 +95,16 @@ const videoMetaSchema = z.object({
   concurrent_limit: z.number().int().positive().nullable().optional(),
 });
 
+const audioMetaSchema = z.object({
+  model_id: z.string().min(1),
+  default_speed: z.number().positive(),
+  concurrent_limit: z.number().int().positive().nullable().optional(),
+  supports_input_audio: z.boolean().optional(),
+});
+
 const baseModelSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(["image", "video"]),
+  type: z.enum(["image", "video", "audio"]),
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
@@ -113,8 +130,14 @@ const videoModelSchema = baseModelSchema.extend({
   meta: videoMetaSchema,
 });
 
+const audioModelSchema = baseModelSchema.extend({
+  type: z.literal("audio"),
+  parameters: audioParametersSchema,
+  meta: audioMetaSchema,
+});
+
 const baseModelInputSchema = z.object({
-  type: z.enum(["image", "video"]),
+  type: z.enum(["image", "video", "audio"]),
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
@@ -138,18 +161,26 @@ const videoModelInputSchema = baseModelInputSchema.extend({
   meta: videoMetaSchema,
 });
 
+const audioModelInputSchema = baseModelInputSchema.extend({
+  type: z.literal("audio"),
+  parameters: audioParametersSchema,
+  meta: audioMetaSchema,
+});
+
 export const modelCatalogSchema = z.array(
-  z.union([imageModelSchema, videoModelSchema]),
+  z.union([imageModelSchema, videoModelSchema, audioModelSchema]),
 );
 
 export const modelCatalogInputSchema = z.union([
   imageModelInputSchema,
   videoModelInputSchema,
+  audioModelInputSchema,
 ]);
 
 export type ModelCatalogItem = z.infer<typeof modelCatalogSchema>[number];
 export type ImageModelCatalogItem = z.infer<typeof imageModelSchema>;
 export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
+export type AudioModelCatalogItem = z.infer<typeof audioModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];
 export type ModelCatalogInput = z.infer<typeof modelCatalogInputSchema>;
 

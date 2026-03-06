@@ -10,7 +10,7 @@ import { renderWithIntl } from "@/test-utils/intl";
 
 type AdminModelRecord = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   key: string;
   label: string;
   vendor: string;
@@ -54,25 +54,52 @@ function toRecord(item: ModelCatalogItem): AdminModelRecord {
     };
   }
 
+  if (item.type === "video") {
+    return {
+      ...base,
+      meta: {
+        supports_init_image: item.meta.supportsInitImage,
+        t2v_model_id: item.meta.t2vModelId,
+        i2v_model_id: item.meta.i2vModelId,
+        default_width: item.meta.defaultWidth,
+        default_height: item.meta.defaultHeight,
+        default_duration_sec: item.meta.defaultDurationSec,
+        default_fps: item.meta.defaultFps,
+        default_steps: item.meta.defaultSteps,
+        default_guidance_scale: item.meta.defaultGuidanceScale,
+      },
+    };
+  }
+
   return {
     ...base,
     meta: {
-      supports_init_image: item.meta.supportsInitImage,
-      t2v_model_id: item.meta.t2vModelId,
-      i2v_model_id: item.meta.i2vModelId,
-      default_width: item.meta.defaultWidth,
-      default_height: item.meta.defaultHeight,
-      default_duration_sec: item.meta.defaultDurationSec,
-      default_fps: item.meta.defaultFps,
-      default_steps: item.meta.defaultSteps,
-      default_guidance_scale: item.meta.defaultGuidanceScale,
+      model_id: item.meta.modelId,
+      default_speed: item.meta.defaultSpeed,
+      supports_input_audio: item.meta.supportsInputAudio,
     },
   };
 }
 
-const records = modelCatalog.map((item) => toRecord(item));
+const audioModelFixture: ModelCatalogItem = {
+  type: "audio",
+  key: "qwen-tts-faster",
+  label: "Qwen TTS Faster",
+  vendor: "HUGGINGFACE",
+  provider: "hf_space",
+  isActive: true,
+  isDefault: false,
+  meta: {
+    modelId: "leey00nsu/qwen-3.5-tts-faster-gradio",
+    defaultSpeed: 1,
+    supportsInputAudio: false,
+  },
+};
+
+const records = [...modelCatalog.map((item) => toRecord(item)), toRecord(audioModelFixture)];
 const imageModel = records.find((item) => item.type === "image");
 const videoModel = records.find((item) => item.type === "video");
+const audioModel = records.find((item) => item.type === "audio");
 
 function mockFetch() {
   vi.stubGlobal(
@@ -136,6 +163,7 @@ describe("ModelManagementScreen", () => {
 
   it("모달리티 배지를 표시한다", async () => {
     expect(imageModel).toBeDefined();
+    expect(audioModel).toBeDefined();
     const imageModelLabel = imageModel?.label;
     expect(imageModelLabel).toBeDefined();
 
@@ -151,5 +179,36 @@ describe("ModelManagementScreen", () => {
     expect(screen.getAllByText(/I2I/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/T2V/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/I2V/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/T2A/).length).toBeGreaterThan(0);
+  });
+
+  it("오디오 타입 필터와 생성 폼 기본값을 지원한다", async () => {
+    expect(audioModel).toBeDefined();
+
+    mockFetch();
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<ModelManagementScreen />);
+
+    await screen.findAllByText(audioModel!.label);
+
+    await user.click(screen.getByRole("button", { name: "오디오" }));
+
+    await waitFor(() => {
+      expect(screen.queryAllByText(audioModel!.label).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(imageModel!.label)).toHaveLength(0);
+      expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
+    });
+
+    await user.click(screen.getByRole("button", { name: "모델 추가" }));
+    const typeSelect = screen.getByLabelText("유형");
+    await user.selectOptions(typeSelect, "audio");
+
+    await waitFor(() => {
+      expect(typeSelect).toHaveValue("audio");
+      expect(screen.getByDisplayValue(/generate_audio/)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/default_speed/)).toBeInTheDocument();
+    });
   });
 });

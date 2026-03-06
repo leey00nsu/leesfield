@@ -44,6 +44,7 @@
       "all": "All",
       "images": "Images",
       "videos": "Videos",
+      "audios": "Audio",
       "total": "TOTAL: {total}",
       "sort": "SORT: {order}",
       "dateDesc": "Newest",
@@ -446,7 +447,8 @@
     "card": {
       "type": {
         "image": "IMAGE",
-        "video": "VIDEO"
+        "video": "VIDEO",
+        "audio": "AUDIO"
       },
       "default": "DEFAULT",
       "inactive": "INACTIVE",
@@ -454,7 +456,9 @@
       "meta": {
         "provider": "PROVIDER",
         "pipeline": "PIPELINE",
+        "model": "MODEL",
         "size": "SIZE",
+        "speed": "SPEED",
         "input": "INPUT",
         "mode": "MODE",
         "modality": "MODALITY",
@@ -465,7 +469,9 @@
       "t2i": "Text to Image",
       "i2i": "Image to Image",
       "t2v": "Text to Video",
-      "i2v": "Image to Video"
+      "i2v": "Image to Video",
+      "t2a": "Text to Audio",
+      "a2a": "Audio to Audio"
     },
     "admin": {
       "toolbar": {

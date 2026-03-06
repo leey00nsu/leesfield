@@ -11,7 +11,7 @@ import {
 import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-service";
 
 const updatePayloadSchema = z.object({
-  type: z.enum(["image", "video"]).optional(),
+  type: z.enum(["image", "video", "audio"]).optional(),
   key: z.string().min(1).optional(),
   label: z.string().min(1).optional(),
   vendor: z.string().min(1).optional(),

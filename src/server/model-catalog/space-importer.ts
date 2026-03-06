@@ -1,6 +1,6 @@
 import { Client } from "@gradio/client";
 
-type ModelType = "image" | "video";
+type ModelType = "image" | "video" | "audio";
 
 type ImportRequest = {
   spaceUrl: string;
@@ -63,6 +63,13 @@ const DEFAULT_VIDEO_META = {
   concurrent_limit: 1,
 };
 
+const DEFAULT_AUDIO_META = {
+  model_id: "owner/model",
+  default_speed: 1,
+  concurrent_limit: 1,
+  supports_input_audio: false,
+};
+
 const FALLBACK_IMAGE_PARAMETERS: Record<string, ParameterConfig> = {
   prompt: { ui: "textarea", required: true },
   width: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
@@ -83,6 +90,13 @@ const FALLBACK_VIDEO_PARAMETERS: Record<string, ParameterConfig> = {
   fps: { ui: "hidden", min: 16, max: 16, step: 1, default: 16 },
 };
 
+const FALLBACK_AUDIO_PARAMETERS: Record<string, ParameterConfig> = {
+  prompt: { ui: "textarea", required: true },
+  voice: { ui: "input", default: "default" },
+  speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
+  seed: { ui: "input", default: "" },
+};
+
 function normalizeApiName(name: string) {
   return name.startsWith("/") ? name : `/${name}`;
 }
@@ -94,10 +108,13 @@ function normalizeKey(value: string) {
 function resolveParamKey(label?: string, paramName?: string, type?: string) {
   const target = `${label ?? ""} ${paramName ?? ""}`.toLowerCase();
   if (target.includes("prompt")) return "prompt";
+  if (target.includes("text") || target.includes("script") || target.includes("message")) return "prompt";
   if (target.includes("width")) return "width";
   if (target.includes("height")) return "height";
   if (target.includes("guidance") || target.includes("cfg")) return "guidanceScale";
   if (target.includes("seed")) return "seed";
+  if (target.includes("voice") || target.includes("speaker") || target.includes("spk")) return "voice";
+  if (target.includes("speed") || target.includes("rate")) return "speed";
   if (target.includes("mode")) return "modeChoice";
   if (target.includes("upsample")) return "promptUpsampling";
   if (target.includes("image") && target.includes("count")) return "imageCount";
@@ -106,6 +123,10 @@ function resolveParamKey(label?: string, paramName?: string, type?: string) {
   if (target.includes("resolution")) return "resolution";
   if (target.includes("aspect")) return "aspectRatio";
   if (target.includes("init") && target.includes("image")) return "initImage";
+  if (target.includes("input") && target.includes("audio")) return "inputAudio";
+  if (target.includes("audio") && (type?.includes("audio") || type?.includes("file"))) {
+    return "inputAudio";
+  }
   if (target.includes("image") && (type?.includes("image") || type?.includes("gallery"))) {
     return "initImage";
   }
@@ -254,7 +275,13 @@ function buildParamConfig(
   };
 }
 
-function detectModelType(outputTypes: string[], hasVideoParam: boolean) {
+function detectModelType(
+  outputTypes: string[],
+  hasVideoParam: boolean,
+  hasAudioParam: boolean,
+) {
+  if (hasAudioParam) return "audio";
+  if (outputTypes.some((type) => type.includes("audio"))) return "audio";
   if (hasVideoParam) return "video";
   if (outputTypes.some((type) => type.includes("video"))) return "video";
   return "image";
@@ -349,7 +376,9 @@ export async function importModelDraftFromSpace(
   const parameters: Record<string, ParameterConfig> = {};
   const warnings: string[] = [];
   let hasVideoParam = false;
+  let hasAudioParam = false;
   let hasImageInput = false;
+  let hasAudioInput = false;
   let inputImagesFormat: "file_array" | "gallery" = "file_array";
 
   inputComponents.forEach((component, index) => {
@@ -368,12 +397,18 @@ export async function importModelDraftFromSpace(
     if (paramKey === "durationSec" || paramKey === "fps" || paramKey === "resolution" || paramKey === "aspectRatio") {
       hasVideoParam = true;
     }
+    if (paramKey === "voice" || paramKey === "speed" || paramKey === "inputAudio") {
+      hasAudioParam = true;
+    }
 
     if (componentType.includes("image") || componentType.includes("gallery")) {
       hasImageInput = true;
       if (componentType.includes("gallery")) {
         inputImagesFormat = "gallery";
       }
+    }
+    if (componentType.includes("audio")) {
+      hasAudioInput = true;
     }
 
     parameters[paramKey] = buildParamConfig(
@@ -390,10 +425,13 @@ export async function importModelDraftFromSpace(
     if (componentType && componentType.includes("video")) {
       hasVideoParam = true;
     }
+    if (componentType && componentType.includes("audio")) {
+      hasAudioParam = true;
+    }
   });
 
   // 4) 모델 타입/파라미터/메타 구성
-  const modelType = detectModelType(outputTypes, hasVideoParam);
+  const modelType = detectModelType(outputTypes, hasVideoParam, hasAudioParam);
   const spaceId = config.space_id || spaceRef;
   const key = normalizeKey(spaceId.replace("/", "-")) || normalizeKey(spaceUrl);
   const label = resolveString(config.title, spaceId);
@@ -409,11 +447,16 @@ export async function importModelDraftFromSpace(
   if (modelType === "video" && parameters.initImage) {
     parameters.initImage.ui = "upload";
   }
+  if (modelType === "audio" && parameters.inputAudio) {
+    parameters.inputAudio.ui = "upload";
+  }
 
   const normalizedParameters =
     modelType === "image"
       ? { ...FALLBACK_IMAGE_PARAMETERS, ...parameters }
-      : { ...FALLBACK_VIDEO_PARAMETERS, ...parameters };
+      : modelType === "video"
+        ? { ...FALLBACK_VIDEO_PARAMETERS, ...parameters }
+        : { ...FALLBACK_AUDIO_PARAMETERS, ...parameters };
 
   const width = resolveNumber(
     getDefaultFromParam(normalizedParameters.width),
@@ -439,6 +482,10 @@ export async function importModelDraftFromSpace(
     getDefaultFromParam(normalizedParameters.fps),
     DEFAULT_VIDEO_META.default_fps,
   );
+  const speed = resolveNumber(
+    getDefaultFromParam(normalizedParameters.speed),
+    DEFAULT_AUDIO_META.default_speed,
+  );
 
   const meta =
     modelType === "image"
@@ -450,18 +497,25 @@ export async function importModelDraftFromSpace(
           default_steps: steps,
           max_input_images: hasImageInput ? 1 : 0,
         }
-      : {
-          ...DEFAULT_VIDEO_META,
-          supports_init_image: hasImageInput,
-          t2v_model_id: spaceId,
-          i2v_model_id: null,
-          default_width: DEFAULT_VIDEO_META.default_width,
-          default_height: DEFAULT_VIDEO_META.default_height,
-          default_duration_sec: durationSec,
-          default_fps: fps,
-          default_steps: steps,
-          default_guidance_scale: guidanceScale,
-        };
+      : modelType === "video"
+        ? {
+            ...DEFAULT_VIDEO_META,
+            supports_init_image: hasImageInput,
+            t2v_model_id: spaceId,
+            i2v_model_id: null,
+            default_width: DEFAULT_VIDEO_META.default_width,
+            default_height: DEFAULT_VIDEO_META.default_height,
+            default_duration_sec: durationSec,
+            default_fps: fps,
+            default_steps: steps,
+            default_guidance_scale: guidanceScale,
+          }
+        : {
+            ...DEFAULT_AUDIO_META,
+            model_id: spaceId,
+            default_speed: speed,
+            supports_input_audio: hasAudioInput,
+          };
 
   const providerConfig: Record<string, unknown> = {
     space_id: spaceId,
@@ -471,6 +525,9 @@ export async function importModelDraftFromSpace(
 
   if (modelType === "image") {
     providerConfig.input_images_format = inputImagesFormat;
+  }
+  if (modelType === "audio" && hasAudioInput) {
+    providerConfig.input_audio_format = "file";
   }
 
   const draft: DraftPayload = {

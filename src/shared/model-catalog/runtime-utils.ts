@@ -1,4 +1,4 @@
-export type RuntimeModelType = "image" | "video";
+export type RuntimeModelType = "image" | "video" | "audio";
 
 export type RuntimeParameterValue = string | number | boolean;
 export type RuntimeParameterOption = string | number;
@@ -37,6 +37,13 @@ export type RuntimeVideoParameterKey =
   | "resolution"
   | "fps";
 
+export type RuntimeAudioParameterKey =
+  | "prompt"
+  | "voice"
+  | "speed"
+  | "seed"
+  | "inputAudio";
+
 export type RuntimeImageParameters = Partial<
   Record<RuntimeImageParameterKey, RuntimeParameterConfig>
 > &
@@ -44,6 +51,11 @@ export type RuntimeImageParameters = Partial<
 
 export type RuntimeVideoParameters = Partial<
   Record<RuntimeVideoParameterKey, RuntimeParameterConfig>
+> &
+  Record<string, unknown>;
+
+export type RuntimeAudioParameters = Partial<
+  Record<RuntimeAudioParameterKey, RuntimeParameterConfig>
 > &
   Record<string, unknown>;
 
@@ -69,6 +81,14 @@ export type RuntimeVideoMeta = {
   default_steps?: number;
   default_guidance_scale?: number;
   concurrent_limit?: number | null;
+  [key: string]: unknown;
+};
+
+export type RuntimeAudioMeta = {
+  model_id?: string;
+  default_speed?: number;
+  concurrent_limit?: number | null;
+  supports_input_audio?: boolean;
   [key: string]: unknown;
 };
 
@@ -98,6 +118,12 @@ export type RuntimeVideoModel = Omit<RuntimeModelBase, "type" | "parameters" | "
   meta: RuntimeVideoMeta;
 };
 
+export type RuntimeAudioModel = Omit<RuntimeModelBase, "type" | "parameters" | "meta"> & {
+  type: "audio";
+  parameters: RuntimeAudioParameters;
+  meta: RuntimeAudioMeta;
+};
+
 export type NumericRange = {
   min: number;
   max: number;
@@ -124,11 +150,17 @@ const videoFallbackRanges: Record<
   fps: { min: 1, max: 60, step: 1 },
 };
 
+const audioFallbackRanges: Record<"speed", NumericRange> = {
+  speed: { min: 0.25, max: 4, step: 0.05 },
+};
+
 const DEFAULT_IMAGE_MODE_CHOICE = "Distilled (4 steps)";
 const DEFAULT_IMAGE_GUIDANCE_SCALE = 1;
 const DEFAULT_IMAGE_PROMPT_UPSAMPLING = false;
 const DEFAULT_VIDEO_ASPECT_RATIO = "16:9";
 const DEFAULT_VIDEO_RESOLUTION = 720;
+const DEFAULT_AUDIO_VOICE = "default";
+const DEFAULT_AUDIO_SPEED = 1;
 
 function resolveNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -167,6 +199,10 @@ export function isRuntimeImageModel(item: RuntimeModelBase): item is RuntimeImag
 
 export function isRuntimeVideoModel(item: RuntimeModelBase): item is RuntimeVideoModel {
   return item.type === "video";
+}
+
+export function isRuntimeAudioModel(item: RuntimeModelBase): item is RuntimeAudioModel {
+  return item.type === "audio";
 }
 
 export function resolveRuntimeDefaultModelKey<T extends { key: string; isDefault: boolean; isActive: boolean }>(
@@ -225,6 +261,21 @@ export function getRuntimeVideoParamRange(
             ? videoFallbackRanges.fps
             : videoFallbackRanges.steps;
   return resolveRange(getRuntimeVideoParamConfig(model, key), fallback);
+}
+
+export function getRuntimeAudioParamConfig(
+  model: RuntimeAudioModel | undefined,
+  key: RuntimeAudioParameterKey,
+) {
+  return resolveParamConfig(model?.parameters, key);
+}
+
+export function getRuntimeAudioParamRange(
+  model: RuntimeAudioModel | undefined,
+  key: RuntimeAudioParameterKey,
+): NumericRange {
+  const fallback = key === "speed" ? audioFallbackRanges.speed : audioFallbackRanges.speed;
+  return resolveRange(getRuntimeAudioParamConfig(model, key), fallback);
 }
 
 export function resolveRuntimeImageDefaults(model: RuntimeImageModel) {
@@ -287,6 +338,20 @@ export function resolveRuntimeVideoDefaults(model: RuntimeVideoModel) {
   };
 }
 
+export function resolveRuntimeAudioDefaults(model: RuntimeAudioModel) {
+  const defaults = model.meta ?? {};
+  return {
+    voice: resolveString(
+      getRuntimeAudioParamConfig(model, "voice")?.default,
+      DEFAULT_AUDIO_VOICE,
+    ),
+    speed: resolveNumber(
+      getRuntimeAudioParamConfig(model, "speed")?.default,
+      resolveNumber(defaults.default_speed, DEFAULT_AUDIO_SPEED),
+    ),
+  };
+}
+
 export function resolveRuntimeImageMaxInputImages(
   model: RuntimeImageModel | undefined,
 ) {
@@ -297,4 +362,10 @@ export function resolveRuntimeVideoSupportsInitImage(
   model: RuntimeVideoModel | undefined,
 ) {
   return resolveBoolean(model?.meta?.supports_init_image, false);
+}
+
+export function resolveRuntimeAudioSupportsInputAudio(
+  model: RuntimeAudioModel | undefined,
+) {
+  return resolveBoolean(model?.meta?.supports_input_audio, false);
 }
