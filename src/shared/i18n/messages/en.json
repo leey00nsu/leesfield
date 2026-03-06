@@ -9,6 +9,7 @@
   "nav": {
     "image": "Image",
     "video": "Video",
+    "audio": "Audio",
     "history": "History",
     "monitoring": "Monitoring",
     "monitoringQueue": "Monitoring",
@@ -233,6 +234,19 @@
       },
       "sizeNotice": "This space does not support changing resolution or aspect ratio. If an image is provided, its aspect ratio is used; text-only uses the default resolution."
     },
+    "audio": {
+      "title": {
+        "leading": "Audio",
+        "accent": "Generation"
+      },
+      "subtitle": "Generate speech from text",
+      "promptPlaceholder": "Describe or paste the text you want spoken...",
+      "voiceLabel": "Voice",
+      "voiceUnset": "Default voice",
+      "voicePlaceholder": "e.g. alloy",
+      "speedLabel": "Speed",
+      "seedPlaceholder": "Optional"
+    },
     "errors": {
       "requestFailed": "Request failed.",
       "pollFailed": "Status check failed.",
@@ -274,6 +288,17 @@
           "steps": "Steps",
           "guidanceScale": "Guidance",
           "fps": "FPS"
+        }
+      },
+      "audio": {
+        "promptRequired": "Please enter a prompt.",
+        "invalidModel": "Unsupported model.",
+        "noModels": "No audio models are registered.",
+        "range": "{label} must be between {min} and {max}.",
+        "unsupportedVoice": "Unsupported voice.",
+        "inputAudioUnsupported": "The selected model does not support audio input.",
+        "labels": {
+          "speed": "Speed"
         }
       }
     }
