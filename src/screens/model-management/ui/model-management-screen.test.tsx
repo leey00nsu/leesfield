@@ -206,9 +206,9 @@ describe("ModelManagementScreen", () => {
     await user.selectOptions(typeSelect, "audio");
 
     await waitFor(() => {
-      expect(typeSelect).toHaveValue("audio");
-      expect(screen.getByDisplayValue(/generate_audio/)).toBeInTheDocument();
-      expect(screen.getByDisplayValue(/default_speed/)).toBeInTheDocument();
+      expect((typeSelect as HTMLSelectElement).value).toBe("audio");
+      expect(screen.getByDisplayValue(/generate_audio/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/default_speed/)).toBeTruthy();
     });
   });
 });

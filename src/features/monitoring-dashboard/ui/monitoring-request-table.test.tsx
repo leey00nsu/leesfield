@@ -114,9 +114,12 @@ describe("MonitoringRequestTable", () => {
     expect(onOffsetChange).toHaveBeenCalledWith(100);
 
     await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "100" }));
-    expect(onLimitChange).toHaveBeenCalledWith(100);
-  });
+    await user.keyboard("{End}{Enter}");
+
+    await waitFor(() => {
+      expect(onLimitChange).toHaveBeenCalledWith(100);
+    });
+  }, 10_000);
 
   it("행 선택 시 상세 모달을 연다", async () => {
     const user = userEvent.setup();

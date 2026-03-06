@@ -349,7 +349,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       ? "grid-cols-2"
       : "grid-cols-2 lg:grid-cols-3";
 
-  const resetDefaults = useMemo<ImageGenerationFormValues>(() => {
+  const resetDefaults: ImageGenerationFormValues = (() => {
     const model = runtimeModelMap.get(defaultModelKey);
     if (!model) return imageGenerationDefaults;
     const defaults = resolveRuntimeImageDefaults(model);
@@ -363,7 +363,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       modeChoice: defaults.modeChoice,
       promptUpsampling: defaults.promptUpsampling,
     };
-  }, [defaultModelKey, runtimeModelMap]);
+  })();
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {

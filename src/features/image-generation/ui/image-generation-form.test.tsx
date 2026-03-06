@@ -73,7 +73,7 @@ describe("ImageGenerationForm", () => {
     expect(
       screen.getByDisplayValue("a query prompt"),
     ).toBeInTheDocument();
-    expect(screen.getAllByAltText("입력 이미지 미리보기")).toHaveLength(2);
+    expect(await screen.findAllByAltText("입력 이미지 미리보기")).toHaveLength(2);
 
     const modelButton = screen.getByRole("button", {
       name: /FLUX\.2 Klein 9B/i,
