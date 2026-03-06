@@ -127,7 +127,7 @@ docker compose up -d
 pnpm dev
 ```
 
-### 4) 이미지/비디오 저장 어댑터
+### 4) 이미지/비디오/오디오 저장 어댑터
 
 현재 지원 어댑터:
 
@@ -136,8 +136,10 @@ pnpm dev
 설정:
 
 - `IMAGE_STORAGE_PROVIDER`로 저장 어댑터를 선택합니다.
+- `VIDEO_STORAGE_PROVIDER`, `AUDIO_STORAGE_PROVIDER`도 동일하게 저장 어댑터를 선택합니다.
 - `leemage`를 사용하는 경우 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`가 필수입니다.
-- 저장소 설정이 없거나 지원되지 않는 경우: 결과는 즉시 응답되지만 히스토리(DB) 저장은 생략됩니다.
+- 이미지/비디오에서 저장소 설정이 없거나 지원되지 않는 경우: 결과는 즉시 응답되지만 히스토리(DB) 저장은 생략됩니다.
+- 오디오에서 저장소 설정이 없거나 지원되지 않는 경우: 외부 저장소 업로드를 건너뛰고 inline 결과를 DB에 저장합니다.
 
 ### 5) 어댑터 구현 방식
 
@@ -165,7 +167,7 @@ pnpm dev
 4. 모델 카탈로그(DB) 갱신
 5. 필요 시 `.env.example`에 새 제공자 설정 추가
 
-#### 2) 저장소 어댑터 (이미지/비디오 업로드)
+#### 2) 저장소 어댑터 (이미지/비디오/오디오 업로드)
 
 기본 제공자:
 
@@ -175,16 +177,19 @@ pnpm dev
 
 - 이미지: `IMAGE_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
 - 비디오: `VIDEO_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
+- 오디오: `AUDIO_STORAGE_PROVIDER`로 선택합니다. (기본: `leemage`)
 - `leemage` 사용 시 `LEEMAGE_API_KEY`, `LEEMAGE_PROJECT_ID`가 필수입니다.
 - Leemage 업로드/삭제 클라이언트는 공식 npm 패키지 `leemage-sdk`를 사용합니다.
 - 과거 내부 경로(`src/shared/lib/leemage-sdk`)는 제거되었으며, 현재 런타임에서는 사용하지 않습니다.
-- 설정이 없거나 지원되지 않으면 **결과는 응답되지만 히스토리(DB) 저장은 생략**됩니다.
+- 이미지/비디오는 설정이 없거나 지원되지 않으면 **결과는 응답되지만 히스토리(DB) 저장은 생략**됩니다.
+- 오디오는 설정이 없거나 지원되지 않으면 **외부 저장소 업로드를 건너뛰고 inline 결과를 히스토리(DB)에 저장**합니다.
 
 추가 방법:
 
 1. 저장 어댑터 구현 추가
    - 이미지: `src/server/image-generation/storage/adapters/`
    - 비디오: `src/server/video-generation/storage/adapters/`
+   - 오디오: `src/server/audio-generation/storage/adapters/`
 2. `storage-adapter.ts` 인터페이스 구현
 3. `storage-selector.ts`에 선택 규칙 추가
 4. 필요 시 `.env.example`에 새 저장소 설정 추가

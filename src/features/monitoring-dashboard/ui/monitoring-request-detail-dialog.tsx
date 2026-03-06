@@ -42,6 +42,23 @@ function formatResolution(asset: MonitoringRequestDetail["assets"][number]) {
   return `${asset.width}x${asset.height}`;
 }
 
+function resolveInputLabels(
+  detail: MonitoringRequestDetail,
+  t: ReturnType<typeof useTranslations<"monitoringDashboard">>,
+) {
+  if (detail.type === "audio") {
+    return {
+      title: t("requests.detailAudioInputs"),
+      empty: t("requests.detailAudioInputsEmpty"),
+    };
+  }
+
+  return {
+    title: t("requests.detailInputs"),
+    empty: t("requests.detailInputsEmpty"),
+  };
+}
+
 export function MonitoringRequestDetailDialog({
   open,
   onOpenChange,
@@ -85,6 +102,7 @@ export function MonitoringRequestDetailDialog({
     ? resolveMonitoringStatus(detail.status, statusLabels)
     : null;
   const StatusIcon = status?.icon ?? null;
+  const inputLabels = detail ? resolveInputLabels(detail, t) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -152,13 +170,13 @@ export function MonitoringRequestDetailDialog({
 
             <div>
               <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-                {t("requests.detailInputs")}
+                {inputLabels?.title ?? t("requests.detailInputs")}
               </div>
               {detail.inputImages.length === 0 &&
               detail.inputAudios.length === 0 &&
               !detail.referenceText ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-gray-400">
-                  {t("requests.detailInputsEmpty")}
+                  {inputLabels?.empty ?? t("requests.detailInputsEmpty")}
                 </div>
               ) : (
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">

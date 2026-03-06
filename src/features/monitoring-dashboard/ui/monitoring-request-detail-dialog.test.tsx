@@ -55,6 +55,7 @@ describe("MonitoringRequestDetailDialog", () => {
     );
 
     expect(document.querySelectorAll("audio")).toHaveLength(2);
+    expect(screen.getByText("입력 오디오")).toBeTruthy();
     expect(screen.getByText("3s")).toBeTruthy();
     expect(screen.getByText("reference words")).toBeTruthy();
   });

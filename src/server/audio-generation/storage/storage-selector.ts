@@ -10,7 +10,7 @@ interface AudioStorageResolution {
 }
 
 const MISSING_PROVIDER_MESSAGE =
-  "오디오 저장소가 지정되지 않아 결과가 히스토리에 저장되지 않습니다.";
+  "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.";
 
 const storageAdapters: Record<AudioStorageProvider, AudioStorageAdapter> = {
   leemage: leemageAudioStorageAdapter,
@@ -38,6 +38,6 @@ export function resolveAudioStorageProvider(): AudioStorageResolution {
 
   return {
     provider: null,
-    warningMessage: `지원하지 않는 오디오 저장소(${raw})로 인해 결과가 히스토리에 저장되지 않습니다.`,
+    warningMessage: `지원하지 않는 오디오 저장소(${raw})로 인해 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.`,
   };
 }

@@ -433,6 +433,8 @@
       "detailPrompt": "Prompt",
       "detailInputs": "Input Images",
       "detailInputsEmpty": "No input images.",
+      "detailAudioInputs": "Input Audio",
+      "detailAudioInputsEmpty": "No input audio.",
       "detailResults": "Results",
       "detailEmpty": "No outputs available.",
       "detailRequestId": "Request ID",

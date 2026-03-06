@@ -579,7 +579,7 @@ async function handleAudioRecord(record: {
       record.requestId,
     );
 
-    if (result.status === "completed" && !result.skipDbSave) {
+    if (result.status === "completed" && result.result?.audios?.length) {
       await saveAudioGenerationResult(
         record.id,
         result.status,

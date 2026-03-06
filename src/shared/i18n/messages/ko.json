@@ -433,6 +433,8 @@
       "detailPrompt": "프롬프트",
       "detailInputs": "입력 이미지",
       "detailInputsEmpty": "입력 이미지가 없습니다.",
+      "detailAudioInputs": "입력 오디오",
+      "detailAudioInputsEmpty": "입력 오디오가 없습니다.",
       "detailResults": "결과",
       "detailEmpty": "결과가 없습니다.",
       "detailRequestId": "요청 ID",

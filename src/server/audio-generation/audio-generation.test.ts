@@ -30,7 +30,7 @@ describe("resolveAudioGenerationResult", () => {
     vi.clearAllMocks();
   });
 
-  it("storage provider가 없으면 inline 결과와 경고를 반환한다", async () => {
+  it("storage provider가 없으면 inline 결과와 안내 메시지를 반환한다", async () => {
     mockGenerate.mockResolvedValue({
       audios: ["data:audio/mpeg;base64,ZmFrZQ=="],
       meta: { duration_sec: 2.5 },
@@ -64,6 +64,31 @@ describe("resolveAudioGenerationResult", () => {
       skipDbSave: true,
     });
     expect(mockUploadAudios).not.toHaveBeenCalled();
+  });
+
+  it("storage provider 미설정 기본 메시지는 inline 저장 동작을 설명한다", async () => {
+    mockGenerate.mockResolvedValue({
+      audios: ["data:audio/mpeg;base64,ZmFrZQ=="],
+      meta: { duration_sec: 1.1 },
+    });
+    mockResolveAudioStorageProvider.mockReturnValue({
+      provider: null,
+      warningMessage: undefined,
+    });
+
+    const result = await resolveAudioGenerationResult(
+      {
+        ...audioGenerationDefaults,
+        prompt: "hello",
+        model: "qwen-tts",
+        speed: 1,
+      },
+      "request-id",
+    );
+
+    expect(result.errorMessage).toBe(
+      "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
+    );
   });
 
   it("storage provider가 있으면 업로드 결과를 반환한다", async () => {

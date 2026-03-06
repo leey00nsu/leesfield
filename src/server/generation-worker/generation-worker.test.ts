@@ -246,7 +246,7 @@ describe("generation worker", () => {
     );
   });
 
-  it("processAudioJobs updates status when completed with skipDbSave", async () => {
+  it("processAudioJobs persists inline audio result even when storage upload is skipped", async () => {
     const mockRecord = {
       id: "aud-db-id",
       requestId: "aud-request-id",
@@ -268,20 +268,35 @@ describe("generation worker", () => {
     });
     (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: "completed",
-      result: { audios: [] },
-      errorMessage: undefined,
+      result: {
+        audios: [
+          {
+            url: "data:audio/mpeg;base64,ZmFrZQ==",
+            durationSec: 2.5,
+          },
+        ],
+      },
+      errorMessage: "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
       skipDbSave: true,
     });
 
     await processAudioJobs();
 
-    expect(updateAudioGenerationStatus).toHaveBeenCalledWith(
+    expect(saveAudioGenerationResult).toHaveBeenCalledWith(
       "aud-db-id",
       "completed",
       100,
-      undefined,
+      {
+        audios: [
+          {
+            url: "data:audio/mpeg;base64,ZmFrZQ==",
+            durationSec: 2.5,
+          },
+        ],
+      },
+      "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
     );
-    expect(saveAudioGenerationResult).not.toHaveBeenCalled();
+    expect(updateAudioGenerationStatus).not.toHaveBeenCalled();
   });
 
   it("processAudioJobs preserves mode-based audio params and does not re-inject legacy voice defaults", async () => {

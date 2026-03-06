@@ -82,7 +82,7 @@ export async function resolveAudioGenerationResult(
     if (!provider) {
       const message =
         warningMessage ??
-        "오디오 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
+        "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.";
       console.warn("[audio-storage] storage skipped", { requestId, message });
       return {
         status: "completed",
