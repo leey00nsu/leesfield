@@ -127,6 +127,8 @@ export function HistoryItem({
   const downloadUrl =
     item.type === "image" && item.resultUrl
       ? `/api/image-generation/${item.id}/download?index=0`
+      : item.type === "audio" && item.resultUrl
+        ? `/api/audio-generation/${item.id}/download?index=0`
       : item.resultUrl;
   const dateFormatter = useMemo(
     () =>

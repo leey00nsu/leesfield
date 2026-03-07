@@ -34,6 +34,11 @@ describe("HistoryItem audio", () => {
     );
 
     expect(document.querySelector("audio")).not.toBeNull();
+    expect(
+      document.querySelector(
+        'a[href="/api/audio-generation/item-audio-1/download?index=0"]',
+      ),
+    ).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: "프롬프트 재사용" }));
 

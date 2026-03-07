@@ -216,6 +216,11 @@ describe("AudioGenerationForm", () => {
     expect(
       container.querySelector('a[href="https://example.com/generated.mp3"]'),
     ).not.toBeNull();
+    expect(
+      container.querySelector(
+        'a[href="/api/audio-generation/request-id/download?index=0"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
