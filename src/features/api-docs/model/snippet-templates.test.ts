@@ -35,4 +35,23 @@ describe("snippet-templates", () => {
     expect(snippet).toContain("JSON.stringify");
     expect(snippet).toContain("\"prompt\": \"hello\"");
   });
+
+  it("audio multipart 요청은 reference audio와 reference text를 함께 렌더링한다", () => {
+    const snippet = buildCurlSnippet({
+      baseUrl: "https://api.example.com",
+      path: "/api/external/audio-generation",
+      method: "POST",
+      contentType: "multipart/form-data",
+      fileFields: ["inputAudio"],
+      body: {
+        prompt: "hello",
+        model: "qwen-tts",
+        inputAudio: "sample.wav",
+        referenceText: "reference words",
+      },
+    });
+
+    expect(snippet).toContain("-F \"inputAudio=@sample.wav\"");
+    expect(snippet).toContain("-F \"referenceText=reference words\"");
+  });
 });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AudioLines,
   Grid2X2,
   Image as ImageIcon,
   Loader2,
@@ -54,7 +55,7 @@ import {
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
-type ModelType = "image" | "video";
+type ModelType = "image" | "video" | "audio";
 type VendorOption = "HUGGINGFACE" | "API";
 
 const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
@@ -110,6 +111,12 @@ const defaultVideoProviderConfig = {
   timeout_ms: 300000,
 };
 
+const defaultAudioProviderConfig = {
+  space_id: "owner/space",
+  api_name: "/generate_audio",
+  timeout_ms: 300000,
+};
+
 const defaultImageParameters = {
   prompt: { ui: "textarea", required: true },
   width: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
@@ -129,6 +136,15 @@ const defaultVideoParameters = {
   aspectRatio: { ui: "select", options: ["16:9", "9:16", "1:1"], default: "16:9" },
   resolution: { ui: "select", options: [480, 640, 720, 832], default: 720 },
   fps: { ui: "hidden", min: 16, max: 16, step: 1, default: 16 },
+};
+
+const defaultAudioParameters = {
+  prompt: { ui: "textarea", required: true },
+  voice: { ui: "input", default: "default" },
+  speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
+  seed: { ui: "input", default: "" },
+  inputAudio: { ui: "upload" },
+  referenceText: { ui: "textarea" },
 };
 
 const defaultImageMeta = {
@@ -154,6 +170,13 @@ const defaultVideoMeta = {
   concurrent_limit: 1,
 };
 
+const defaultAudioMeta = {
+  model_id: "owner/model",
+  default_speed: 1,
+  concurrent_limit: 1,
+  supports_input_audio: false,
+};
+
 const safeString = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim() ? value : fallback;
 
@@ -174,6 +197,24 @@ const resolvePipeline = (value: unknown): PipelineOption =>
     ? (value as PipelineOption)
     : "diffusion";
 
+function getDefaultProviderConfig(type: ModelType) {
+  if (type === "image") return defaultImageProviderConfig;
+  if (type === "video") return defaultVideoProviderConfig;
+  return defaultAudioProviderConfig;
+}
+
+function getDefaultParameters(type: ModelType) {
+  if (type === "image") return defaultImageParameters;
+  if (type === "video") return defaultVideoParameters;
+  return defaultAudioParameters;
+}
+
+function getDefaultMeta(type: ModelType) {
+  if (type === "image") return defaultImageMeta;
+  if (type === "video") return defaultVideoMeta;
+  return defaultAudioMeta;
+}
+
 function buildDraft(type: ModelType): ModelDraft {
   return {
     type,
@@ -183,13 +224,9 @@ function buildDraft(type: ModelType): ModelDraft {
     provider: DEFAULT_PROVIDER,
     isActive: true,
     isDefault: false,
-    providerConfigText: stringifyJson(
-      type === "image" ? defaultImageProviderConfig : defaultVideoProviderConfig,
-    ),
-    parametersText: stringifyJson(
-      type === "image" ? defaultImageParameters : defaultVideoParameters,
-    ),
-    metaText: stringifyJson(type === "image" ? defaultImageMeta : defaultVideoMeta),
+    providerConfigText: stringifyJson(getDefaultProviderConfig(type)),
+    parametersText: stringifyJson(getDefaultParameters(type)),
+    metaText: stringifyJson(getDefaultMeta(type)),
   };
 }
 
@@ -235,20 +272,32 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
     };
   }
 
+  if (record.type === "video") {
+    return {
+      ...base,
+      type: "video",
+      meta: {
+        supportsInitImage: safeBoolean(meta.supports_init_image, false),
+        t2vModelId: safeString(meta.t2v_model_id, record.key),
+        i2vModelId:
+          typeof meta.i2v_model_id === "string" ? meta.i2v_model_id : null,
+        defaultWidth: safeNumber(meta.default_width, 832),
+        defaultHeight: safeNumber(meta.default_height, 480),
+        defaultDurationSec: safeNumber(meta.default_duration_sec, 3),
+        defaultFps: safeNumber(meta.default_fps, 16),
+        defaultSteps: safeNumber(meta.default_steps, 6),
+        defaultGuidanceScale: safeNumber(meta.default_guidance_scale, 1),
+      },
+    };
+  }
+
   return {
     ...base,
-    type: "video",
+    type: "audio",
     meta: {
-      supportsInitImage: safeBoolean(meta.supports_init_image, false),
-      t2vModelId: safeString(meta.t2v_model_id, record.key),
-      i2vModelId:
-        typeof meta.i2v_model_id === "string" ? meta.i2v_model_id : null,
-      defaultWidth: safeNumber(meta.default_width, 832),
-      defaultHeight: safeNumber(meta.default_height, 480),
-      defaultDurationSec: safeNumber(meta.default_duration_sec, 3),
-      defaultFps: safeNumber(meta.default_fps, 16),
-      defaultSteps: safeNumber(meta.default_steps, 6),
-      defaultGuidanceScale: safeNumber(meta.default_guidance_scale, 1),
+      modelId: safeString(meta.model_id, record.key),
+      defaultSpeed: safeNumber(meta.default_speed, 1),
+      supportsInputAudio: safeBoolean(meta.supports_input_audio, false),
     },
   };
 }
@@ -705,6 +754,14 @@ export function ModelManagementScreen() {
           >
             {tCommonLabels("videos")}
           </DashboardFilterToggle>
+          <DashboardFilterToggle
+            onClick={() => setType("audio")}
+            aria-pressed={type === "audio"}
+            active={type === "audio"}
+            icon={<AudioLines className="h-4 w-4" />}
+          >
+            {tCommonLabels("audios")}
+          </DashboardFilterToggle>
           <DashboardFilterDivider />
           <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
             {tCommonLabels("total", { total: filteredModels.length })}
@@ -861,10 +918,14 @@ export function ModelManagementScreen() {
             ) : null}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                <Label
+                  htmlFor="model-type"
+                  className="text-xs font-mono uppercase tracking-widest text-gray-500"
+                >
                   {tAdmin("fields.type")}
                 </Label>
                 <select
+                  id="model-type"
                   value={draft.type}
                   onChange={(event) => updateType(event.target.value as ModelType)}
                   disabled={dialogMode === "edit"}
@@ -872,6 +933,7 @@ export function ModelManagementScreen() {
                 >
                   <option value="image">{tCommonLabels("images")}</option>
                   <option value="video">{tCommonLabels("videos")}</option>
+                  <option value="audio">{tCommonLabels("audios")}</option>
                 </select>
               </div>
               <div className="space-y-2">

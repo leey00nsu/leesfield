@@ -2,6 +2,10 @@ import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
+import {
+  resolveHfSpaceFileReference,
+  selectPreferredHfSpaceFileReference,
+} from "@/server/hf-space/file-reference-resolver";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import {
@@ -239,42 +243,6 @@ function clampNumber(value: number, range: { min: number; max: number; step: num
   return Math.min(range.max, Math.max(range.min, resolved));
 }
 
-function extractFileUrl(file: unknown) {
-  if (!file) return null;
-  if (typeof file === "string") return file;
-  if (typeof file !== "object") return null;
-  const candidate = file as {
-    url?: unknown;
-    path?: unknown;
-    name?: unknown;
-    data?: unknown;
-  };
-  if (
-    typeof candidate.data === "string" &&
-    candidate.data.startsWith("data:")
-  ) {
-    return candidate.data;
-  }
-  if (typeof candidate.url === "string") return candidate.url;
-  if (typeof candidate.path === "string") return candidate.path;
-  if (typeof candidate.name === "string") return candidate.name;
-  return null;
-}
-
-function normalizeFileUrl(fileUrl: string, spaceUrl: string) {
-  if (fileUrl.startsWith("data:")) return fileUrl;
-  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-    return fileUrl;
-  }
-  if (fileUrl.startsWith("/")) {
-    return `${spaceUrl}${fileUrl}`;
-  }
-  if (fileUrl.startsWith("file=")) {
-    return `${spaceUrl}/${fileUrl}`;
-  }
-  return `${spaceUrl}/file=${fileUrl}`;
-}
-
 const FILE_FETCH_TIMEOUT_MS = 60_000;
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
 
@@ -341,11 +309,15 @@ async function resolveInputImageBuffer(source: string) {
 }
 
 async function fetchImageDataUrl(
-  fileUrl: string,
+  fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
   timeoutMs: number = FILE_FETCH_TIMEOUT_MS
 ) {
-  const normalized = normalizeFileUrl(fileUrl, spaceUrl);
+  const resolved =
+    typeof fileRef === "string"
+      ? resolveHfSpaceFileReference(fileRef, spaceUrl)
+      : fileRef;
+  const normalized = resolved.normalizedUrl;
   if (normalized.startsWith("data:")) {
     return normalized;
   }
@@ -513,13 +485,16 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     }
     const data = Array.isArray(result?.data) ? result.data : result;
     const imageValue = Array.isArray(data) ? data[0] : data;
-    const imageUrl = extractFileUrl(imageValue);
-    if (!imageUrl) {
+    const imageRef = selectPreferredHfSpaceFileReference(imageValue, {
+      spaceUrl: config.spaceUrl,
+      maxDepth: 4,
+    });
+    if (!imageRef) {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
     const dataUrl = await fetchImageDataUrl(
-      imageUrl,
+      imageRef,
       config.spaceUrl,
       Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS)
     );

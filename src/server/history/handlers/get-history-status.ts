@@ -1,6 +1,11 @@
-import type { ImageGenerationStatus, VideoGenerationStatus } from "@prisma/client";
+import type {
+  AudioGenerationStatus,
+  ImageGenerationStatus,
+  VideoGenerationStatus,
+} from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
+  buildAudioWhere,
   buildImageWhere,
   buildVideoWhere,
   parseHistoryQuery,
@@ -8,6 +13,7 @@ import {
 
 const ACTIVE_IMAGE_STATUSES: ImageGenerationStatus[] = ["pending", "processing"];
 const ACTIVE_VIDEO_STATUSES: VideoGenerationStatus[] = ["pending", "processing"];
+const ACTIVE_AUDIO_STATUSES: AudioGenerationStatus[] = ["pending", "processing"];
 
 type ActiveStatus = {
   activeCount: number;
@@ -72,6 +78,32 @@ async function getActiveVideoStatus(
   };
 }
 
+async function getActiveAudioStatus(
+  where: Record<string, unknown>,
+): Promise<ActiveStatus> {
+  const [activeCount, latest] = await Promise.all([
+    prisma.audioGeneration.count({
+      where: {
+        ...where,
+        status: { in: ACTIVE_AUDIO_STATUSES },
+      },
+    }),
+    prisma.audioGeneration.findFirst({
+      where: {
+        ...where,
+        status: { in: ACTIVE_AUDIO_STATUSES },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    }),
+  ]);
+
+  return {
+    activeCount,
+    latestUpdatedAt: latest?.updatedAt ?? null,
+  };
+}
+
 export async function getHistoryStatus(
   searchParams: URLSearchParams,
   ownerEmail: string,
@@ -98,18 +130,31 @@ export async function getHistoryStatus(
     };
   }
 
+  if (query.type === "audio") {
+    const where = { ownerEmail, ...buildAudioWhere(query) };
+    const status = await getActiveAudioStatus(where);
+    return {
+      hasActive: status.activeCount > 0,
+      activeCount: status.activeCount,
+      latestUpdatedAt: status.latestUpdatedAt?.toISOString() ?? null,
+    };
+  }
+
   const imageWhere = { ownerEmail, ...buildImageWhere(query) };
   const videoWhere = { ownerEmail, ...buildVideoWhere(query) };
+  const audioWhere = { ownerEmail, ...buildAudioWhere(query) };
 
-  const [imageStatus, videoStatus] = await Promise.all([
+  const [imageStatus, videoStatus, audioStatus] = await Promise.all([
     getActiveImageStatus(imageWhere),
     getActiveVideoStatus(videoWhere),
+    getActiveAudioStatus(audioWhere),
   ]);
 
-  const activeCount = imageStatus.activeCount + videoStatus.activeCount;
+  const activeCount =
+    imageStatus.activeCount + videoStatus.activeCount + audioStatus.activeCount;
   const latestUpdatedAt = maxDate(
-    imageStatus.latestUpdatedAt,
-    videoStatus.latestUpdatedAt,
+    maxDate(imageStatus.latestUpdatedAt, videoStatus.latestUpdatedAt),
+    audioStatus.latestUpdatedAt,
   );
 
   return {

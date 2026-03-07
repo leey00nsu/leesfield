@@ -25,6 +25,9 @@ export function getOpenApiTranslations(
       videos:
         (getMessage(messages, "apiDocs.openapi.tags.videos") as string | null) ??
         undefined,
+      audio:
+        (getMessage(messages, "apiDocs.openapi.tags.audio") as string | null) ??
+        undefined,
       models:
         (getMessage(messages, "apiDocs.openapi.tags.models") as string | null) ??
         undefined,
@@ -40,6 +43,11 @@ export function getOpenApiTranslations(
           messages,
           "apiDocs.openapi.paths.videoGeneration",
         ) as string | null) ?? undefined,
+      audioGeneration:
+        (getMessage(
+          messages,
+          "apiDocs.openapi.paths.audioGeneration",
+        ) as string | null) ?? undefined,
       imageStatus:
         (getMessage(
           messages,
@@ -49,6 +57,11 @@ export function getOpenApiTranslations(
         (getMessage(
           messages,
           "apiDocs.openapi.paths.videoStatus",
+        ) as string | null) ?? undefined,
+      audioStatus:
+        (getMessage(
+          messages,
+          "apiDocs.openapi.paths.audioStatus",
         ) as string | null) ?? undefined,
       models:
         (getMessage(messages, "apiDocs.openapi.paths.models") as string | null) ??

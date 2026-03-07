@@ -65,8 +65,8 @@ const videoModel: ModelCatalogItem = {
     steps: { ui: "range", min: 1, max: 10, step: 1 },
     guidanceScale: { ui: "range", min: 0, max: 10, step: 0.5 },
     seed: { ui: "input" },
-    aspectRatio: { ui: "select", options: ["16:9"] },
-    resolution: { ui: "select", options: [720] },
+    aspectRatio: { ui: "select", options: [{ label: "16:9", value: "16:9" }] },
+    resolution: { ui: "select", options: [{ label: "720", value: 720 }] },
     fps: { ui: "range", min: 1, max: 60, step: 1 },
   },
   meta: {
@@ -126,4 +126,3 @@ describe("/api/models", () => {
     expect(payload.items[0]?.key).toBe("flux2-klein-9b");
   });
 });
-

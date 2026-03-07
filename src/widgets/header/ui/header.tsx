@@ -9,6 +9,7 @@ import {
   Clapperboard,
   History,
   Image as ImageIcon,
+  AudioLines,
   KeyRound,
   Activity,
   LogIn,
@@ -40,6 +41,7 @@ type HeaderProps = {
 const headerIcons: Record<string, typeof ImageIcon> = {
   "/image": ImageIcon,
   "/video": Clapperboard,
+  "/audio": AudioLines,
   "/history": History,
   "/monitoring": Activity,
   "/model": Boxes,

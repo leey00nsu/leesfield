@@ -1,6 +1,9 @@
 import {
+  buildAudioWhere,
   buildImageWhere,
   buildVideoWhere,
+  extractInputAudios,
+  extractReferenceText,
   extractModel,
   parseHistoryQuery,
 } from "@/server/history/lib/history-query";
@@ -61,6 +64,16 @@ describe("history-query", () => {
       const result = parseHistoryQuery(params);
       expect(result.limit).toBe(1);
     });
+
+    it("audio 타입을 허용한다", () => {
+      const params = new URLSearchParams({
+        type: "AUDIO",
+      });
+
+      const result = parseHistoryQuery(params);
+
+      expect(result.type).toBe("audio");
+    });
   });
 
   describe("buildImageWhere", () => {
@@ -117,6 +130,33 @@ describe("history-query", () => {
     });
   });
 
+  describe("buildAudioWhere", () => {
+    it("query가 없으면 빈 조건을 반환한다", () => {
+      const query = parseHistoryQuery(new URLSearchParams());
+      expect(buildAudioWhere(query)).toEqual({});
+    });
+
+    it("prompt/model 검색 조건을 생성한다", () => {
+      const query = parseHistoryQuery(new URLSearchParams({ query: "voice" }));
+      expect(buildAudioWhere(query)).toEqual({
+        OR: [
+          {
+            prompt: {
+              contains: "voice",
+              mode: "insensitive",
+            },
+          },
+          {
+            requestParams: {
+              path: ["model"],
+              string_contains: "voice",
+            },
+          },
+        ],
+      });
+    });
+  });
+
   describe("extractModel", () => {
     it("model 문자열을 추출한다", () => {
       expect(extractModel({ model: "Z-Image-Turbo" })).toBe("Z-Image-Turbo");
@@ -126,6 +166,36 @@ describe("history-query", () => {
       expect(extractModel({ model: 123 })).toBeNull();
       expect(extractModel({})).toBeNull();
       expect(extractModel(null)).toBeNull();
+    });
+  });
+
+  describe("audio reference extractors", () => {
+    it("inputAudio와 referenceText를 추출한다", () => {
+      expect(
+        extractInputAudios({
+          inputAudio: "data:audio/wav;base64,UklGRg==",
+          referenceText: "reference words",
+        }),
+      ).toEqual(["data:audio/wav;base64,UklGRg=="]);
+      expect(
+        extractReferenceText({
+          referenceText: "reference words",
+        }),
+      ).toBe("reference words");
+    });
+
+    it("inputAudio가 없거나 잘못된 타입이면 빈 배열을 반환한다", () => {
+      expect(extractInputAudios({})).toEqual([]);
+      expect(extractInputAudios(null)).toEqual([]);
+      expect(extractInputAudios({ inputAudio: 123 })).toEqual([]);
+      expect(extractInputAudios({ inputAudio: [] })).toEqual([]);
+    });
+
+    it("referenceText가 없거나 잘못된 타입이면 null을 반환한다", () => {
+      expect(extractReferenceText({})).toBeNull();
+      expect(extractReferenceText(null)).toBeNull();
+      expect(extractReferenceText({ referenceText: "" })).toBeNull();
+      expect(extractReferenceText({ referenceText: 123 })).toBeNull();
     });
   });
 });

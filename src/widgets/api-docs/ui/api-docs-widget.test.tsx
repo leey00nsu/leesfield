@@ -15,11 +15,12 @@ describe("ApiDocsWidget", () => {
 
     renderWithIntl(<ApiDocsWidget openApiDocument={openApiDocument} />);
 
-    expect(document.getElementById("introduction")).toBeInTheDocument();
-    expect(document.getElementById("authentication")).toBeInTheDocument();
-    expect(document.getElementById("errors")).toBeInTheDocument();
-    expect(document.getElementById("images")).toBeInTheDocument();
-    expect(document.getElementById("videos")).toBeInTheDocument();
-    expect(document.getElementById("models")).toBeInTheDocument();
+    expect(document.getElementById("introduction")).toBeTruthy();
+    expect(document.getElementById("authentication")).toBeTruthy();
+    expect(document.getElementById("errors")).toBeTruthy();
+    expect(document.getElementById("images")).toBeTruthy();
+    expect(document.getElementById("videos")).toBeTruthy();
+    expect(document.getElementById("audio")).toBeTruthy();
+    expect(document.getElementById("models")).toBeTruthy();
   });
 });

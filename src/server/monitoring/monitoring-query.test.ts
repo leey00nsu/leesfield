@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { parseMonitoringQuery } from "@/server/monitoring/monitoring-query";
 
 describe("parseMonitoringQuery", () => {
+  it("audio 타입을 허용한다", () => {
+    const params = new URLSearchParams(
+      "from=2026-01-01&to=2026-01-02&type=audio",
+    );
+
+    const query = parseMonitoringQuery(params);
+
+    expect(query.type).toBe("audio");
+  });
+
   it("offset이 음수면 0으로 보정한다", () => {
     const params = new URLSearchParams(
       "from=2026-01-01&to=2026-01-02&offset=-10",

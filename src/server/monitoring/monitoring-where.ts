@@ -16,7 +16,12 @@ type WhereOptions = {
   includeQuery?: boolean;
 };
 
-function applyCommonFilters<T extends Prisma.ImageGenerationWhereInput | Prisma.VideoGenerationWhereInput>(
+function applyCommonFilters<
+  T extends
+    | Prisma.ImageGenerationWhereInput
+    | Prisma.VideoGenerationWhereInput
+    | Prisma.AudioGenerationWhereInput,
+>(
   where: T,
   filters: MonitoringWhereFilters,
   options?: WhereOptions,
@@ -79,5 +84,13 @@ export function buildVideoWhere(
   options?: WhereOptions,
 ): Prisma.VideoGenerationWhereInput {
   const where: Prisma.VideoGenerationWhereInput = {};
+  return applyCommonFilters(where, filters, options);
+}
+
+export function buildAudioWhere(
+  filters: MonitoringWhereFilters,
+  options?: WhereOptions,
+): Prisma.AudioGenerationWhereInput {
+  const where: Prisma.AudioGenerationWhereInput = {};
   return applyCommonFilters(where, filters, options);
 }

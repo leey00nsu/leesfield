@@ -3,11 +3,13 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
+  RuntimeAudioModel,
   RuntimeImageModel,
   RuntimeModelBase,
   RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
 import {
+  isRuntimeAudioModel,
   isRuntimeImageModel,
   isRuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
@@ -73,11 +75,16 @@ export function useRuntimeModelCatalog(
     () => items.filter(isRuntimeVideoModel),
     [items],
   );
+  const audioModels = useMemo<RuntimeAudioModel[]>(
+    () => items.filter(isRuntimeAudioModel),
+    [items],
+  );
 
   return {
     items,
     imageModels,
     videoModels,
+    audioModels,
     isLoading: enabled ? queryResult.isLoading : false,
     error: !enabled
       ? null

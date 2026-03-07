@@ -69,8 +69,6 @@ describe("ApiDocsEndpointsSection", () => {
     const copyButton = screen.getByRole("button", { name: "코드 복사" });
     await user.click(copyButton);
 
-    expect(
-      await screen.findByRole("button", { name: "복사됨" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "복사됨" })).toBeTruthy();
   });
 });

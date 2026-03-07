@@ -1,10 +1,11 @@
-import { Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { AudioLines, Image as ImageIcon, Sparkles, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
+  resolveAudioModalities,
   resolveImageModalities,
   resolveVideoModalities,
 } from "@/shared/model-catalog/modality";
@@ -27,32 +28,26 @@ const typeConfig = {
     accentText: "text-accent-purple",
     glowClass: "from-accent-purple/35 via-transparent to-transparent",
   },
+  audio: {
+    className: "border-white/10 bg-black/80 text-cyan-300",
+    icon: AudioLines,
+    accentText: "text-cyan-300",
+    glowClass: "from-cyan-400/35 via-transparent to-transparent",
+  },
 };
 
 function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
-  const modalities =
-    item.type === "image"
-      ? resolveImageModalities({ maxInputImages: item.meta.maxInputImages })
-      : resolveVideoModalities({
-          supportsInitImage: item.meta.supportsInitImage,
-          t2vModelId: item.meta.t2vModelId,
-          i2vModelId: item.meta.i2vModelId,
-        });
-
-  const base = [
-    {
-      label: t("meta.provider"),
-      value: item.provider,
-    },
-    {
-      label: t("meta.modality"),
-      value: modalities.join(" · "),
-    },
+  const base = (modalities: string[]) => [
+    { label: t("meta.provider"), value: item.provider },
+    { label: t("meta.modality"), value: modalities.join(" · ") },
   ];
 
   if (item.type === "image") {
+    const modalities = resolveImageModalities({
+      maxInputImages: item.meta.maxInputImages,
+    });
     return [
-      ...base,
+      ...base(modalities),
       { label: t("meta.pipeline"), value: item.meta.pipeline },
       {
         label: t("meta.size"),
@@ -65,19 +60,45 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
     ];
   }
 
+  if (item.type === "video") {
+    const modalities = resolveVideoModalities({
+      supportsInitImage: item.meta.supportsInitImage,
+      t2vModelId: item.meta.t2vModelId,
+      i2vModelId: item.meta.i2vModelId,
+    });
+    return [
+      ...base(modalities),
+      {
+        label: t("meta.mode"),
+        value: modalities.includes("I2V") ? "I2V" : "T2V",
+      },
+      {
+        label: t("meta.size"),
+        value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
+      },
+      {
+        label: t("meta.duration"),
+        value: `${item.meta.defaultDurationSec}s`,
+      },
+    ];
+  }
+
+  const modalities = resolveAudioModalities({
+    supportsInputAudio: item.meta.supportsInputAudio,
+  });
   return [
-    ...base,
+    ...base(modalities),
     {
-      label: t("meta.mode"),
-      value: modalities.includes("I2V") ? "I2V" : "T2V",
+      label: t("meta.model"),
+      value: item.meta.modelId,
     },
     {
-      label: t("meta.size"),
-      value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
+      label: t("meta.speed"),
+      value: `${item.meta.defaultSpeed}x`,
     },
     {
-      label: t("meta.duration"),
-      value: `${item.meta.defaultDurationSec}s`,
+      label: t("meta.input"),
+      value: item.meta.supportsInputAudio ? "A2A" : "T2A",
     },
   ];
 }

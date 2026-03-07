@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  AudioLines,
   BookOpen,
   Boxes,
   Film,
@@ -30,12 +31,14 @@ export const generalNavItems: ApiDocsNavDefinition[] = [
 export const fallbackEndpointItems: ApiDocsNavDefinition[] = [
   { id: "images", icon: ImageIcon },
   { id: "videos", icon: Film },
+  { id: "audio", icon: AudioLines },
   { id: "models", icon: Boxes },
 ];
 
 export const tagIdMap: Record<string, string> = {
   Images: "images",
   Videos: "videos",
+  Audio: "audio",
   Models: "models",
 };
 
@@ -43,6 +46,7 @@ export function getEndpointIcon(section: ApiSection): LucideIcon {
   const key = section.id.toLowerCase();
   if (key.includes("image")) return ImageIcon;
   if (key.includes("video")) return Film;
+  if (key.includes("audio")) return AudioLines;
   if (key.includes("model")) return Boxes;
   return BookOpen;
 }

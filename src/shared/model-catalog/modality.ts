@@ -1,4 +1,4 @@
-export type ModelModality = "T2I" | "I2I" | "T2V" | "I2V";
+export type ModelModality = "T2I" | "I2I" | "T2V" | "I2V" | "T2A" | "A2A";
 
 type ImageModalitySource =
   | { maxInputImages?: number | null }
@@ -14,6 +14,14 @@ type VideoModalitySource =
       supports_init_image?: boolean;
       t2v_model_id?: string | null;
       i2v_model_id?: string | null;
+    };
+
+type AudioModalitySource =
+  | {
+      supportsInputAudio?: boolean;
+    }
+  | {
+      supports_input_audio?: boolean;
     };
 
 function resolveNumber(value: unknown) {
@@ -80,6 +88,24 @@ export function resolveVideoModalities(source?: VideoModalitySource): ModelModal
 
   if (modalities.length === 0) {
     modalities.push("T2V");
+  }
+
+  return modalities;
+}
+
+export function resolveAudioModalities(source?: AudioModalitySource): ModelModality[] {
+  const modalities: ModelModality[] = ["T2A"];
+  if (!source || typeof source !== "object") return modalities;
+
+  const supportsInputAudio =
+    "supportsInputAudio" in source
+      ? resolveBoolean(source.supportsInputAudio)
+      : "supports_input_audio" in source
+        ? resolveBoolean(source.supports_input_audio)
+        : false;
+
+  if (supportsInputAudio) {
+    modalities.push("A2A");
   }
 
   return modalities;

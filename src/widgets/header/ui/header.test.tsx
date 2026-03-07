@@ -1,0 +1,44 @@
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, it, vi } from "vitest";
+import { Header } from "@/widgets/header/ui/header";
+import { renderWithIntl } from "@/test-utils/intl";
+
+vi.mock("next/image", () => ({
+  default: ({
+    priority: _priority,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) => (
+    <img {...props} alt={props.alt ?? ""} />
+  ),
+}));
+
+vi.mock("@/features/auth/logout/api/logout-action", () => ({
+  logoutAction: vi.fn(),
+}));
+
+vi.mock("@/shared/ui/language-switcher", () => ({
+  LanguageSwitcher: () => <div data-testid="language-switcher" />,
+}));
+
+describe("Header", () => {
+  it("대시보드 네비게이션에 Audio 링크를 노출한다", () => {
+    const { container } = renderWithIntl(
+      <Header isAuthenticated userEmail="admin@example.com" />,
+    );
+
+    expect(container.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(0);
+  });
+
+  it("모바일 메뉴를 열면 Audio 링크가 보인다", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithIntl(
+      <Header isAuthenticated userEmail="admin@example.com" />,
+    );
+
+    expect(container.querySelectorAll('a[href="/audio"]').length).toBe(1);
+    await user.click(screen.getByRole("button", { name: /메뉴/i }));
+
+    expect(container.ownerDocument.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(1);
+  });
+});

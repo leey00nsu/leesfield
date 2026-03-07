@@ -11,7 +11,7 @@ import {
 import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-service";
 
 const updatePayloadSchema = z.object({
-  type: z.enum(["image", "video"]).optional(),
+  type: z.enum(["image", "video", "audio"]).optional(),
   key: z.string().min(1).optional(),
   label: z.string().min(1).optional(),
   vendor: z.string().min(1).optional(),
@@ -88,10 +88,12 @@ export async function updateModelCatalogHandler(params: {
     throw error;
   }
 
+  const data = validated.data;
+
   const updated = await prisma.$transaction(async (tx) => {
-    if (merged.isDefault) {
+    if (data.isDefault) {
       await tx.modelCatalog.updateMany({
-        where: { type: merged.type, isDefault: true, key: { not: merged.key } },
+        where: { type: data.type, isDefault: true, key: { not: data.key } },
         data: { isDefault: false },
       });
     }
@@ -99,15 +101,15 @@ export async function updateModelCatalogHandler(params: {
     return tx.modelCatalog.update({
       where: { key: params.key },
       data: {
-        type: merged.type,
-        label: merged.label,
-        vendor: merged.vendor,
-        provider: merged.provider,
-        providerConfig: merged.providerConfig as Prisma.InputJsonValue,
-        parameters: merged.parameters as Prisma.InputJsonValue,
-        meta: merged.meta as Prisma.InputJsonValue,
-        isActive: merged.isActive ?? true,
-        isDefault: merged.isDefault ?? false,
+        type: data.type,
+        label: data.label,
+        vendor: data.vendor,
+        provider: data.provider,
+        providerConfig: data.providerConfig as Prisma.InputJsonValue,
+        parameters: data.parameters as Prisma.InputJsonValue,
+        meta: data.meta as Prisma.InputJsonValue,
+        isActive: data.isActive ?? true,
+        isDefault: data.isDefault ?? false,
       },
     });
   });

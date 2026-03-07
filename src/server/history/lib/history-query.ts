@@ -21,7 +21,7 @@ export type HistoryResponse = GenerationHistoryResponse;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
 
-const HISTORY_TYPES = new Set<HistoryType>(["image", "video", "all"]);
+const HISTORY_TYPES = new Set<HistoryType>(["image", "video", "audio", "all"]);
 const HISTORY_SORTS = new Set<HistorySort>(["date_desc", "date_asc"]);
 
 function toNumber(value: string | null) {
@@ -107,6 +107,29 @@ export function buildVideoWhere(
   };
 }
 
+export function buildAudioWhere(
+  query: HistoryQuery,
+): Prisma.AudioGenerationWhereInput {
+  if (!query.query) return {};
+
+  return {
+    OR: [
+      {
+        prompt: {
+          contains: query.query,
+          mode: "insensitive",
+        },
+      },
+      {
+        requestParams: {
+          path: ["model"],
+          string_contains: query.query,
+        },
+      },
+    ],
+  };
+}
+
 export function extractModel(params: unknown): string | null {
   if (!params || typeof params !== "object") return null;
   const record = params as Record<string, unknown>;
@@ -128,4 +151,21 @@ export function extractInputImages(params: unknown): string[] {
     images.push(record.initImage.trim());
   }
   return images;
+}
+
+export function extractInputAudios(params: unknown): string[] {
+  if (!params || typeof params !== "object") return [];
+  const record = params as Record<string, unknown>;
+  if (typeof record.inputAudio === "string" && record.inputAudio.trim()) {
+    return [record.inputAudio.trim()];
+  }
+  return [];
+}
+
+export function extractReferenceText(params: unknown): string | null {
+  if (!params || typeof params !== "object") return null;
+  const record = params as Record<string, unknown>;
+  return typeof record.referenceText === "string" && record.referenceText.trim()
+    ? record.referenceText.trim()
+    : null;
 }

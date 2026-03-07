@@ -1,7 +1,16 @@
-import { processImageJobs, processVideoJobs } from "@/server/generation-worker/generation-worker";
+import {
+  processAudioJobs,
+  processImageJobs,
+  processVideoJobs,
+} from "@/server/generation-worker/generation-worker";
 import { prisma } from "@/server/db/prisma";
+import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";
 import { resolveImageGenerationResult } from "@/server/image-generation/image-generation";
 import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
+import {
+  saveAudioGenerationResult,
+  updateAudioGenerationStatus,
+} from "@/server/audio-generation/audio-generation-repository";
 import {
   saveImageGenerationResult,
   updateImageGenerationStatus,
@@ -11,16 +20,22 @@ import {
   updateVideoGenerationStatus,
 } from "@/server/video-generation/video-generation-repository";
 import type {
+  RuntimeAudioModel,
   RuntimeImageModel,
   RuntimeVideoModel,
 } from "@/server/model-catalog/runtime-models";
 
+const mockValidateAudioPayload = vi.hoisted(() => vi.fn());
 const mockValidateImagePayload = vi.hoisted(() => vi.fn());
 const mockValidateVideoPayload = vi.hoisted(() => vi.fn());
 const mockGetRuntimeCatalog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
+    audioGeneration: {
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
     imageGeneration: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
@@ -32,12 +47,21 @@ vi.mock("@/server/db/prisma", () => ({
   },
 }));
 
+vi.mock("@/server/audio-generation/audio-generation", () => ({
+  resolveAudioGenerationResult: vi.fn(),
+}));
+
 vi.mock("@/server/image-generation/image-generation", () => ({
   resolveImageGenerationResult: vi.fn(),
 }));
 
 vi.mock("@/server/video-generation/video-generation", () => ({
   resolveVideoGenerationResult: vi.fn(),
+}));
+
+vi.mock("@/server/audio-generation/audio-generation-repository", () => ({
+  saveAudioGenerationResult: vi.fn(),
+  updateAudioGenerationStatus: vi.fn(),
 }));
 
 vi.mock("@/server/image-generation/image-generation-repository", () => ({
@@ -61,6 +85,7 @@ vi.mock("@/server/model-catalog/runtime-models", async () => {
 });
 
 vi.mock("@/server/model-catalog/generation-validation", () => ({
+  validateAudioGenerationPayload: mockValidateAudioPayload,
   validateImageGenerationPayload: mockValidateImagePayload,
   validateVideoGenerationPayload: mockValidateVideoPayload,
 }));
@@ -68,6 +93,64 @@ vi.mock("@/server/model-catalog/generation-validation", () => ({
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const audioModels: RuntimeAudioModel[] = [
+      {
+        key: "alloy-tts",
+        isActive: true,
+        isDefault: true,
+        defaults: {
+          voice: "alloy",
+          speed: 1,
+        },
+        concurrentLimit: 1,
+        supportsInputAudio: false,
+      },
+      {
+        key: "qwen-tts",
+        isActive: true,
+        isDefault: false,
+        defaults: {
+          voice: "alloy",
+          speed: 1,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+          inputAudio: { ui: "upload" },
+          referenceText: { ui: "textarea" },
+          modeChoice: {
+            ui: "select",
+            options: ["voice_clone", "custom", "voice_design"],
+          },
+          language: {
+            ui: "select",
+            options: ["English", "Korean"],
+          },
+          speaker: {
+            ui: "select",
+            options: ["Vivian", "Serena"],
+          },
+          streamMode: { ui: "toggle" },
+          referencePreset: {
+            ui: "select",
+            options: ["ref_audio_3"],
+          },
+          xvecOnly: { ui: "toggle" },
+          chunkSize: { ui: "range", min: 1, max: 24, step: 1 },
+          temperature: { ui: "range", min: 0.1, max: 2, step: 0.05 },
+          topK: { ui: "range", min: 1, max: 100, step: 1 },
+          repetitionPenalty: {
+            ui: "range",
+            min: 1,
+            max: 1.5,
+            step: 0.01,
+          },
+          customInstruction: { ui: "textarea" },
+          voiceInstruction: { ui: "textarea" },
+        },
+        concurrentLimit: 1,
+        supportsInputAudio: true,
+      },
+    ];
     const imageModels: RuntimeImageModel[] = [
       {
         key: "z-image-turbo",
@@ -102,9 +185,177 @@ describe("generation worker", () => {
         supportsInitImage: true,
       },
     ];
-    mockGetRuntimeCatalog.mockResolvedValue({ imageModels, videoModels });
-    mockValidateImagePayload.mockResolvedValue({ success: true, data: {} });
-    mockValidateVideoPayload.mockResolvedValue({ success: true, data: {} });
+    mockGetRuntimeCatalog.mockResolvedValue({
+      audioModels,
+      imageModels,
+      videoModels,
+    });
+    mockValidateAudioPayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+    mockValidateImagePayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+    mockValidateVideoPayload.mockImplementation(async (payload) => ({
+      success: true,
+      data: payload,
+    }));
+  });
+
+  it("processAudioJobs uses modelKey for concurrent-limit accounting", async () => {
+    const processingRecord = {
+      requestParams: {},
+      modelKey: "qwen-tts",
+    };
+    const pendingRecord = {
+      id: "aud-pending-id",
+      requestId: "aud-request-id",
+      prompt: "hello",
+      progress: 0,
+      requestParams: {},
+      modelKey: "alloy-tts",
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([processingRecord])
+      .mockResolvedValueOnce([pendingRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(prisma.audioGeneration.updateMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: "aud-pending-id", status: "pending" },
+        data: { status: "processing", progress: 92 },
+      }),
+    );
+    expect(resolveAudioGenerationResult).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "alloy-tts" }),
+      "aud-request-id",
+    );
+  });
+
+  it("processAudioJobs persists inline audio result even when storage upload is skipped", async () => {
+    const mockRecord = {
+      id: "aud-db-id",
+      requestId: "aud-request-id",
+      prompt: "hello",
+      progress: 0,
+      requestParams: {
+        model: "qwen-tts",
+        voice: "alloy",
+        speed: 1,
+        seed: "",
+      },
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: {
+        audios: [
+          {
+            url: "data:audio/mpeg;base64,ZmFrZQ==",
+            durationSec: 2.5,
+          },
+        ],
+      },
+      errorMessage: "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(saveAudioGenerationResult).toHaveBeenCalledWith(
+      "aud-db-id",
+      "completed",
+      100,
+      {
+        audios: [
+          {
+            url: "data:audio/mpeg;base64,ZmFrZQ==",
+            durationSec: 2.5,
+          },
+        ],
+      },
+      "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
+    );
+    expect(updateAudioGenerationStatus).not.toHaveBeenCalled();
+  });
+
+  it("processAudioJobs preserves mode-based audio params and does not re-inject legacy voice defaults", async () => {
+    const mockRecord = {
+      id: "aud-mode-db-id",
+      requestId: "aud-mode-request-id",
+      prompt: "hello qwen",
+      progress: 0,
+      requestParams: {
+        model: "qwen-tts",
+        speed: 1,
+        seed: "",
+        inputAudio: "data:audio/wav;base64,UklGRg==",
+        referenceText: "reference transcript",
+        modeChoice: "voice_clone",
+        language: "English",
+        speaker: "Vivian",
+        streamMode: false,
+        referencePreset: "ref_audio_3",
+        xvecOnly: true,
+        chunkSize: 8,
+        temperature: 0.9,
+        topK: 50,
+        repetitionPenalty: 1.05,
+      },
+    };
+
+    (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processAudioJobs();
+
+    expect(resolveAudioGenerationResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "qwen-tts",
+        voice: "",
+        modeChoice: "voice_clone",
+        language: "English",
+        speaker: "Vivian",
+        streamMode: false,
+        referencePreset: "ref_audio_3",
+        xvecOnly: true,
+        chunkSize: 8,
+        temperature: 0.9,
+        topK: 50,
+        repetitionPenalty: 1.05,
+      }),
+      "aud-mode-request-id",
+    );
   });
 
   it("processImageJobs updates status when completed with skipDbSave", async () => {

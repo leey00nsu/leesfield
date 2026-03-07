@@ -27,11 +27,11 @@ describe("ModelList", () => {
 
     const wrapper = container.firstElementChild;
     expect(wrapper).toBeTruthy();
-    expect(wrapper).toHaveClass("grid");
-    expect(wrapper).toHaveClass("grid-cols-1");
-    expect(wrapper).toHaveClass("sm:grid-cols-2");
-    expect(wrapper).toHaveClass("xl:grid-cols-3");
-    expect(wrapper).not.toHaveClass("columns-1");
+    const className = wrapper?.getAttribute("class") ?? "";
+    expect(className).toContain("grid");
+    expect(className).toContain("grid-cols-1");
+    expect(className).toContain("sm:grid-cols-2");
+    expect(className).toContain("xl:grid-cols-3");
+    expect(className).not.toContain("columns-1");
   });
 });
-

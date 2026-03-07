@@ -1,10 +1,14 @@
 import { prisma } from "@/server/db/prisma";
 import type { MonitoringQuery } from "@/server/monitoring/monitoring-query";
-import { buildImageWhere, buildVideoWhere } from "@/server/monitoring/monitoring-where";
+import {
+  buildAudioWhere,
+  buildImageWhere,
+  buildVideoWhere,
+} from "@/server/monitoring/monitoring-where";
 
 export type MonitoringRequestItem = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   status: string;
   model: string | null;
   createdAt: string;
@@ -26,7 +30,7 @@ const ORDER_BY = [
   { requestId: "desc" as const },
 ];
 
-type RequestType = "image" | "video";
+type RequestType = "image" | "video" | "audio";
 
 type RequestRecordBase = {
   requestId: string;
@@ -166,6 +170,36 @@ export async function getMonitoringRequests(
     };
   }
 
+  if (query.type === "audio") {
+    const where = buildAudioWhere(filters, {
+      includeDate: true,
+      includeStatus: true,
+      includeQuery: true,
+    });
+    const [total, records] = await Promise.all([
+      prisma.audioGeneration.count({ where }),
+      prisma.audioGeneration.findMany({
+        where,
+        orderBy: ORDER_BY,
+        skip: offset,
+        take: limit,
+        select,
+      }),
+    ]);
+
+    const items = records.map((record) =>
+      toMonitoringRequestItem({ ...record, type: "audio" }),
+    );
+
+    return {
+      updatedAt: new Date().toISOString(),
+      items,
+      total,
+      limit,
+      offset,
+    };
+  }
+
   const imageWhere = buildImageWhere(filters, {
     includeDate: true,
     includeStatus: true,
@@ -176,11 +210,24 @@ export async function getMonitoringRequests(
     includeStatus: true,
     includeQuery: true,
   });
+  const audioWhere = buildAudioWhere(filters, {
+    includeDate: true,
+    includeStatus: true,
+    includeQuery: true,
+  });
   const take = limit + offset;
 
-  const [imageTotal, videoTotal, imageRecords, videoRecords] = await Promise.all([
+  const [
+    imageTotal,
+    videoTotal,
+    audioTotal,
+    imageRecords,
+    videoRecords,
+    audioRecords,
+  ] = await Promise.all([
     prisma.imageGeneration.count({ where: imageWhere }),
     prisma.videoGeneration.count({ where: videoWhere }),
+    prisma.audioGeneration.count({ where: audioWhere }),
     prisma.imageGeneration.findMany({
       where: imageWhere,
       orderBy: ORDER_BY,
@@ -189,6 +236,12 @@ export async function getMonitoringRequests(
     }),
     prisma.videoGeneration.findMany({
       where: videoWhere,
+      orderBy: ORDER_BY,
+      take,
+      select,
+    }),
+    prisma.audioGeneration.findMany({
+      where: audioWhere,
       orderBy: ORDER_BY,
       take,
       select,
@@ -204,6 +257,10 @@ export async function getMonitoringRequests(
       ...record,
       type: "video" as const,
     })),
+    ...audioRecords.map((record) => ({
+      ...record,
+      type: "audio" as const,
+    })),
   ].sort(compareRecords);
 
   const items = mergedRecords
@@ -213,7 +270,7 @@ export async function getMonitoringRequests(
   return {
     updatedAt: new Date().toISOString(),
     items,
-    total: imageTotal + videoTotal,
+    total: imageTotal + videoTotal + audioTotal,
     limit,
     offset,
   };

@@ -1,5 +1,6 @@
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type {
+  AudioModelCatalogItem,
   ImageModelCatalogItem,
   VideoModelCatalogItem,
 } from "@/server/model-catalog/catalog-schema";
@@ -19,6 +20,8 @@ type ModelDefaults = {
   fps?: number;
   aspectRatio?: string;
   resolution?: number;
+  voice?: string;
+  speed?: number;
 };
 
 export type RuntimeImageModel = {
@@ -49,12 +52,24 @@ export type RuntimeVideoModel = {
   supportsInitImage: boolean;
 };
 
+export type RuntimeAudioModel = {
+  key: string;
+  isActive: boolean;
+  isDefault: boolean;
+  parameters?: Record<string, unknown>;
+  defaults: Required<Pick<ModelDefaults, "voice" | "speed">>;
+  concurrentLimit: number;
+  supportsInputAudio: boolean;
+};
+
 const DEFAULT_IMAGE_MODE_CHOICE = "Distilled (4 steps)";
 const DEFAULT_IMAGE_GUIDANCE_SCALE = 1;
 const DEFAULT_IMAGE_PROMPT_UPSAMPLING = false;
 
 const DEFAULT_VIDEO_ASPECT_RATIO = "16:9";
 const DEFAULT_VIDEO_RESOLUTION = 720;
+const DEFAULT_AUDIO_VOICE = "default";
+const DEFAULT_AUDIO_SPEED = 1;
 
 function getParamConfig(
   parameters: Record<string, unknown>,
@@ -157,6 +172,31 @@ function toVideoRuntimeModel(model: VideoModelCatalogItem): RuntimeVideoModel {
   };
 }
 
+function toAudioRuntimeModel(model: AudioModelCatalogItem): RuntimeAudioModel {
+  const parameters = model.parameters as Record<string, unknown>;
+  return {
+    key: model.key,
+    isActive: model.isActive,
+    isDefault: model.isDefault,
+    parameters,
+    defaults: {
+      voice: getStringDefault(
+        getParamConfig(parameters, "voice"),
+        DEFAULT_AUDIO_VOICE,
+      ),
+      speed: getNumberDefault(
+        getParamConfig(parameters, "speed"),
+        model.meta.default_speed,
+      ),
+    },
+    concurrentLimit: resolveConcurrentLimit(model.meta.concurrent_limit),
+    supportsInputAudio: getBooleanDefault(
+      getParamConfig(parameters, "inputAudio"),
+      Boolean(model.meta.supports_input_audio),
+    ),
+  };
+}
+
 export function resolveDefaultModelKey<T extends { key: string; isDefault: boolean; isActive: boolean }>(
   models: T[],
 ) {
@@ -179,6 +219,9 @@ export async function getRuntimeCatalog(params: { includeInactive?: boolean } = 
   const videoModels = catalog
     .filter((item): item is VideoModelCatalogItem => item.type === "video")
     .map((model) => toVideoRuntimeModel(model));
+  const audioModels = catalog
+    .filter((item): item is AudioModelCatalogItem => item.type === "audio")
+    .map((model) => toAudioRuntimeModel(model));
 
-  return { imageModels, videoModels };
+  return { imageModels, videoModels, audioModels };
 }

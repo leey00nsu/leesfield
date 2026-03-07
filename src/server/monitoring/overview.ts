@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import type { MonitoringQuery } from "@/server/monitoring/monitoring-query";
-import { buildImageWhere, buildVideoWhere } from "@/server/monitoring/monitoring-where";
+import {
+  buildAudioWhere,
+  buildImageWhere,
+  buildVideoWhere,
+} from "@/server/monitoring/monitoring-where";
 import {
   ACTIVE_STATUSES,
   FINISHED_STATUSES,
@@ -53,16 +57,25 @@ async function getActiveCount(query: MonitoringQuery) {
     });
   }
 
-  const [imageCount, videoCount] = await Promise.all([
+  if (query.type === "audio") {
+    return prisma.audioGeneration.count({
+      where: buildAudioWhere(baseFilters, { includeStatus: true }),
+    });
+  }
+
+  const [imageCount, videoCount, audioCount] = await Promise.all([
     prisma.imageGeneration.count({
       where: buildImageWhere(baseFilters, { includeStatus: true }),
     }),
     prisma.videoGeneration.count({
       where: buildVideoWhere(baseFilters, { includeStatus: true }),
     }),
+    prisma.audioGeneration.count({
+      where: buildAudioWhere(baseFilters, { includeStatus: true }),
+    }),
   ]);
 
-  return imageCount + videoCount;
+  return imageCount + videoCount + audioCount;
 }
 
 async function getMetrics(query: MonitoringQuery) {
@@ -79,13 +92,16 @@ async function getMetrics(query: MonitoringQuery) {
 
   const imageSelect = buildBaseSelect("ImageGeneration", where);
   const videoSelect = buildBaseSelect("VideoGeneration", where);
+  const audioSelect = buildBaseSelect("AudioGeneration", where);
 
   const baseQuery =
     query.type === "image"
       ? imageSelect
       : query.type === "video"
         ? videoSelect
-        : Prisma.sql`${imageSelect} UNION ALL ${videoSelect}`;
+        : query.type === "audio"
+          ? audioSelect
+          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
 
   const rows = await prisma.$queryRaw<MetricRow[]>`
     SELECT

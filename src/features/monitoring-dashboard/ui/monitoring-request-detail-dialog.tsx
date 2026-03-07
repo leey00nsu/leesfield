@@ -42,6 +42,23 @@ function formatResolution(asset: MonitoringRequestDetail["assets"][number]) {
   return `${asset.width}x${asset.height}`;
 }
 
+function resolveInputLabels(
+  detail: MonitoringRequestDetail,
+  t: ReturnType<typeof useTranslations<"monitoringDashboard">>,
+) {
+  if (detail.type === "audio") {
+    return {
+      title: t("requests.detailAudioInputs"),
+      empty: t("requests.detailAudioInputsEmpty"),
+    };
+  }
+
+  return {
+    title: t("requests.detailInputs"),
+    empty: t("requests.detailInputsEmpty"),
+  };
+}
+
 export function MonitoringRequestDetailDialog({
   open,
   onOpenChange,
@@ -85,6 +102,7 @@ export function MonitoringRequestDetailDialog({
     ? resolveMonitoringStatus(detail.status, statusLabels)
     : null;
   const StatusIcon = status?.icon ?? null;
+  const inputLabels = detail ? resolveInputLabels(detail, t) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -152,11 +170,13 @@ export function MonitoringRequestDetailDialog({
 
             <div>
               <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-                {t("requests.detailInputs")}
+                {inputLabels?.title ?? t("requests.detailInputs")}
               </div>
-              {detail.inputImages.length === 0 ? (
+              {detail.inputImages.length === 0 &&
+              detail.inputAudios.length === 0 &&
+              !detail.referenceText ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-gray-400">
-                  {t("requests.detailInputsEmpty")}
+                  {inputLabels?.empty ?? t("requests.detailInputsEmpty")}
                 </div>
               ) : (
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -174,6 +194,22 @@ export function MonitoringRequestDetailDialog({
                       <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
                     </div>
                   ))}
+                  {detail.inputAudios.map((url, index) => (
+                    <div
+                      key={`${url}-audio-${index}`}
+                      className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                    >
+                      <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
+                        <audio controls className="w-full" src={url} />
+                      </div>
+                      <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
+                    </div>
+                  ))}
+                  {detail.referenceText ? (
+                    <div className="rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-white sm:col-span-2">
+                      {detail.referenceText}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -202,6 +238,10 @@ export function MonitoringRequestDetailDialog({
                             className="h-48 w-full object-contain bg-black/70"
                             loading="lazy"
                           />
+                        ) : detail.type === "audio" ? (
+                          <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
+                            <audio controls className="w-full" src={asset.url} />
+                          </div>
                         ) : (
                           <video
                             controls
@@ -230,6 +270,17 @@ export function MonitoringRequestDetailDialog({
                 </div>
                 <div className="mt-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                   {detail.errorMessage}
+                </div>
+              </div>
+            ) : null}
+
+            {detail.warningMessage ? (
+              <div>
+                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  {t("requests.detailWarning")}
+                </div>
+                <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                  {detail.warningMessage}
                 </div>
               </div>
             ) : null}

@@ -30,7 +30,7 @@ import {
 export type MonitoringFilterModel = {
   key: string;
   label: string;
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
 };
 
 export type MonitoringFilterApiKey = {

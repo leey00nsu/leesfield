@@ -9,7 +9,7 @@ import {
   videoModels,
 } from "@/features/video-generation/model/video-models";
 
-export type ModelCatalogType = "image" | "video";
+export type ModelCatalogType = "image" | "video" | "audio";
 export type ModelCatalogFilterType = "all" | ModelCatalogType;
 
 interface BaseModelCatalogItem {
@@ -43,6 +43,12 @@ export interface VideoModelMeta {
   defaultGuidanceScale: VideoModel["default_guidance_scale"];
 }
 
+export interface AudioModelMeta {
+  modelId: string;
+  defaultSpeed: number;
+  supportsInputAudio: boolean;
+}
+
 export interface ImageModelCatalogItem extends BaseModelCatalogItem {
   type: "image";
   meta: ImageModelMeta;
@@ -53,7 +59,15 @@ export interface VideoModelCatalogItem extends BaseModelCatalogItem {
   meta: VideoModelMeta;
 }
 
-export type ModelCatalogItem = ImageModelCatalogItem | VideoModelCatalogItem;
+export interface AudioModelCatalogItem extends BaseModelCatalogItem {
+  type: "audio";
+  meta: AudioModelMeta;
+}
+
+export type ModelCatalogItem =
+  | ImageModelCatalogItem
+  | VideoModelCatalogItem
+  | AudioModelCatalogItem;
 
 export const imageModelCatalog: ImageModelCatalogItem[] = imageModels.map(
   (model) => ({
@@ -98,13 +112,18 @@ export const videoModelCatalog: VideoModelCatalogItem[] = videoModels.map(
   }),
 );
 
+export const audioModelCatalog: AudioModelCatalogItem[] = [];
+
 export const modelCatalog: ModelCatalogItem[] = [
   ...imageModelCatalog,
   ...videoModelCatalog,
+  ...audioModelCatalog,
 ];
 
 export function getModelCatalogByType(type: ModelCatalogType) {
-  return type === "image" ? imageModelCatalog : videoModelCatalog;
+  if (type === "image") return imageModelCatalog;
+  if (type === "video") return videoModelCatalog;
+  return audioModelCatalog;
 }
 
 export interface ModelCatalogFilterOptions {

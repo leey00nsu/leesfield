@@ -1,7 +1,13 @@
-export type RuntimeModelType = "image" | "video";
+import {
+  getRuntimeParameterOptionValue,
+  normalizeRuntimeParameterOptions,
+  type RuntimeParameterOption,
+  type RuntimeParameterOptionInput,
+} from "@/shared/model-catalog/parameter-options";
+
+export type RuntimeModelType = "image" | "video" | "audio";
 
 export type RuntimeParameterValue = string | number | boolean;
-export type RuntimeParameterOption = string | number;
 
 export type RuntimeParameterConfig = {
   ui?: string;
@@ -11,8 +17,15 @@ export type RuntimeParameterConfig = {
   max?: number;
   step?: number;
   default?: RuntimeParameterValue;
-  options?: RuntimeParameterOption[];
+  options?: RuntimeParameterOptionInput[];
   [key: string]: unknown;
+};
+
+export type NormalizedRuntimeParameterConfig = Omit<
+  RuntimeParameterConfig,
+  "options"
+> & {
+  options?: RuntimeParameterOption[];
 };
 
 export type RuntimeImageParameterKey =
@@ -37,6 +50,26 @@ export type RuntimeVideoParameterKey =
   | "resolution"
   | "fps";
 
+export type RuntimeAudioParameterKey =
+  | "prompt"
+  | "voice"
+  | "speaker"
+  | "speed"
+  | "seed"
+  | "inputAudio"
+  | "referenceText"
+  | "modeChoice"
+  | "language"
+  | "streamMode"
+  | "referencePreset"
+  | "customInstruction"
+  | "voiceInstruction"
+  | "xvecOnly"
+  | "chunkSize"
+  | "temperature"
+  | "topK"
+  | "repetitionPenalty";
+
 export type RuntimeImageParameters = Partial<
   Record<RuntimeImageParameterKey, RuntimeParameterConfig>
 > &
@@ -44,6 +77,11 @@ export type RuntimeImageParameters = Partial<
 
 export type RuntimeVideoParameters = Partial<
   Record<RuntimeVideoParameterKey, RuntimeParameterConfig>
+> &
+  Record<string, unknown>;
+
+export type RuntimeAudioParameters = Partial<
+  Record<RuntimeAudioParameterKey, RuntimeParameterConfig>
 > &
   Record<string, unknown>;
 
@@ -69,6 +107,14 @@ export type RuntimeVideoMeta = {
   default_steps?: number;
   default_guidance_scale?: number;
   concurrent_limit?: number | null;
+  [key: string]: unknown;
+};
+
+export type RuntimeAudioMeta = {
+  model_id?: string;
+  default_speed?: number;
+  concurrent_limit?: number | null;
+  supports_input_audio?: boolean;
   [key: string]: unknown;
 };
 
@@ -98,6 +144,12 @@ export type RuntimeVideoModel = Omit<RuntimeModelBase, "type" | "parameters" | "
   meta: RuntimeVideoMeta;
 };
 
+export type RuntimeAudioModel = Omit<RuntimeModelBase, "type" | "parameters" | "meta"> & {
+  type: "audio";
+  parameters: RuntimeAudioParameters;
+  meta: RuntimeAudioMeta;
+};
+
 export type NumericRange = {
   min: number;
   max: number;
@@ -124,11 +176,26 @@ const videoFallbackRanges: Record<
   fps: { min: 1, max: 60, step: 1 },
 };
 
+const audioFallbackRanges: Record<
+  "speed" | "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
+  NumericRange
+> = {
+  speed: { min: 0.25, max: 4, step: 0.05 },
+  chunkSize: { min: 40, max: 200, step: 10 },
+  temperature: { min: 0.1, max: 1.2, step: 0.1 },
+  topK: { min: 1, max: 100, step: 1 },
+  repetitionPenalty: { min: 1, max: 2, step: 0.1 },
+};
+
 const DEFAULT_IMAGE_MODE_CHOICE = "Distilled (4 steps)";
 const DEFAULT_IMAGE_GUIDANCE_SCALE = 1;
 const DEFAULT_IMAGE_PROMPT_UPSAMPLING = false;
 const DEFAULT_VIDEO_ASPECT_RATIO = "16:9";
 const DEFAULT_VIDEO_RESOLUTION = 720;
+const DEFAULT_AUDIO_VOICE = "default";
+const DEFAULT_AUDIO_SPEED = 1;
+const DEFAULT_AUDIO_STREAM_MODE = false;
+const DEFAULT_AUDIO_XVEC_ONLY = false;
 
 function resolveNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -142,12 +209,40 @@ function resolveBoolean(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function resolveOptionValue(
+  param: NormalizedRuntimeParameterConfig | undefined,
+  fallback = "",
+) {
+  const options = param?.options ?? [];
+  const defaultValue = param?.default;
+  if (
+    (typeof defaultValue === "string" || typeof defaultValue === "number") &&
+    (!options.length || options.some((option) => option.value === defaultValue))
+  ) {
+    return String(defaultValue);
+  }
+  const firstOption = options[0];
+  const firstValue = getRuntimeParameterOptionValue(firstOption);
+  if (typeof firstValue === "string" || typeof firstValue === "number") {
+    return String(firstValue);
+  }
+  return fallback;
+}
+
 function resolveParamConfig(
   parameters: Record<string, unknown> | undefined,
   key: string,
-) {
+): NormalizedRuntimeParameterConfig | undefined {
   const param = parameters?.[key];
-  return param && typeof param === "object" ? (param as RuntimeParameterConfig) : undefined;
+  if (!param || typeof param !== "object" || Array.isArray(param)) {
+    return undefined;
+  }
+
+  const config = param as RuntimeParameterConfig;
+  return {
+    ...config,
+    options: normalizeRuntimeParameterOptions(config.options),
+  };
 }
 
 function resolveRange(
@@ -167,6 +262,10 @@ export function isRuntimeImageModel(item: RuntimeModelBase): item is RuntimeImag
 
 export function isRuntimeVideoModel(item: RuntimeModelBase): item is RuntimeVideoModel {
   return item.type === "video";
+}
+
+export function isRuntimeAudioModel(item: RuntimeModelBase): item is RuntimeAudioModel {
+  return item.type === "audio";
 }
 
 export function resolveRuntimeDefaultModelKey<T extends { key: string; isDefault: boolean; isActive: boolean }>(
@@ -225,6 +324,30 @@ export function getRuntimeVideoParamRange(
             ? videoFallbackRanges.fps
             : videoFallbackRanges.steps;
   return resolveRange(getRuntimeVideoParamConfig(model, key), fallback);
+}
+
+export function getRuntimeAudioParamConfig(
+  model: RuntimeAudioModel | undefined,
+  key: RuntimeAudioParameterKey,
+) {
+  return resolveParamConfig(model?.parameters, key);
+}
+
+export function getRuntimeAudioParamRange(
+  model: RuntimeAudioModel | undefined,
+  key: RuntimeAudioParameterKey,
+): NumericRange {
+  const fallback =
+    key === "chunkSize"
+      ? audioFallbackRanges.chunkSize
+      : key === "temperature"
+        ? audioFallbackRanges.temperature
+        : key === "topK"
+          ? audioFallbackRanges.topK
+          : key === "repetitionPenalty"
+            ? audioFallbackRanges.repetitionPenalty
+            : audioFallbackRanges.speed;
+  return resolveRange(getRuntimeAudioParamConfig(model, key), fallback);
 }
 
 export function resolveRuntimeImageDefaults(model: RuntimeImageModel) {
@@ -287,6 +410,69 @@ export function resolveRuntimeVideoDefaults(model: RuntimeVideoModel) {
   };
 }
 
+export function resolveRuntimeAudioDefaults(model: RuntimeAudioModel) {
+  const defaults = model.meta ?? {};
+  const voiceConfig = getRuntimeAudioParamConfig(model, "voice");
+  const speakerConfig = getRuntimeAudioParamConfig(model, "speaker");
+  const modeConfig = getRuntimeAudioParamConfig(model, "modeChoice");
+  const languageConfig = getRuntimeAudioParamConfig(model, "language");
+  const referencePresetConfig = getRuntimeAudioParamConfig(model, "referencePreset");
+  const streamModeConfig = getRuntimeAudioParamConfig(model, "streamMode");
+  const xvecOnlyConfig = getRuntimeAudioParamConfig(model, "xvecOnly");
+  const chunkSizeConfig = getRuntimeAudioParamConfig(model, "chunkSize");
+  const temperatureConfig = getRuntimeAudioParamConfig(model, "temperature");
+  const topKConfig = getRuntimeAudioParamConfig(model, "topK");
+  const repetitionPenaltyConfig = getRuntimeAudioParamConfig(
+    model,
+    "repetitionPenalty",
+  );
+  return {
+    voice: voiceConfig
+      ? resolveString(voiceConfig.default, DEFAULT_AUDIO_VOICE)
+      : "",
+    speaker: resolveOptionValue(
+      speakerConfig,
+      resolveOptionValue(voiceConfig, DEFAULT_AUDIO_VOICE),
+    ),
+    speed: resolveNumber(
+      getRuntimeAudioParamConfig(model, "speed")?.default,
+      resolveNumber(defaults.default_speed, DEFAULT_AUDIO_SPEED),
+    ),
+    modeChoice: resolveOptionValue(modeConfig),
+    language: resolveOptionValue(languageConfig),
+    streamMode: resolveBoolean(
+      streamModeConfig?.default,
+      DEFAULT_AUDIO_STREAM_MODE,
+    ),
+    referencePreset: resolveOptionValue(referencePresetConfig),
+    customInstruction: resolveString(
+      getRuntimeAudioParamConfig(model, "customInstruction")?.default,
+      "",
+    ),
+    voiceInstruction: resolveString(
+      getRuntimeAudioParamConfig(model, "voiceInstruction")?.default,
+      "",
+    ),
+    xvecOnly: resolveBoolean(
+      xvecOnlyConfig?.default,
+      DEFAULT_AUDIO_XVEC_ONLY,
+    ),
+    chunkSize: resolveNumber(
+      chunkSizeConfig?.default,
+      audioFallbackRanges.chunkSize.min,
+    ),
+    temperature: resolveNumber(
+      temperatureConfig?.default,
+      audioFallbackRanges.temperature.min,
+    ),
+    topK: resolveNumber(topKConfig?.default, audioFallbackRanges.topK.min),
+    repetitionPenalty: resolveNumber(
+      repetitionPenaltyConfig?.default,
+      audioFallbackRanges.repetitionPenalty.min,
+    ),
+  };
+}
+
 export function resolveRuntimeImageMaxInputImages(
   model: RuntimeImageModel | undefined,
 ) {
@@ -297,4 +483,10 @@ export function resolveRuntimeVideoSupportsInitImage(
   model: RuntimeVideoModel | undefined,
 ) {
   return resolveBoolean(model?.meta?.supports_init_image, false);
+}
+
+export function resolveRuntimeAudioSupportsInputAudio(
+  model: RuntimeAudioModel | undefined,
+) {
+  return resolveBoolean(model?.meta?.supports_input_audio, false);
 }

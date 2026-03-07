@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  AudioLines,
   CheckCircle2,
   Clock,
   Copy,
@@ -76,6 +77,10 @@ const typeConfig = {
     className: "border-white/10 bg-black/80 text-accent-purple",
     icon: Video,
   },
+  audio: {
+    className: "border-white/10 bg-black/80 text-sky-300",
+    icon: AudioLines,
+  },
 };
 
 export function HistoryItem({
@@ -109,12 +114,16 @@ export function HistoryItem({
   const hasInputImages = inputImages.length > 0;
   const showActions = item.status === "completed";
   const isVideo = item.type === "video";
+  const isAudio = item.type === "audio";
   const canDelete = item.status === "completed" || item.status === "failed";
   const canShowViewMore = item.prompt.trim().length > 0;
-  const isPreviewLoaded = !!previewUrl && !isVideo && loadedPreviewUrl === previewUrl;
-  const isPreviewFailed = !!previewUrl && !isVideo && failedPreviewUrl === previewUrl;
+  const usesImagePreview = !isVideo && !isAudio;
+  const isPreviewLoaded =
+    !!previewUrl && usesImagePreview && loadedPreviewUrl === previewUrl;
+  const isPreviewFailed =
+    !!previewUrl && usesImagePreview && failedPreviewUrl === previewUrl;
   const shouldShowPreviewSkeleton =
-    !!previewUrl && !isVideo && !isPreviewLoaded && !isPreviewFailed;
+    !!previewUrl && usesImagePreview && !isPreviewLoaded && !isPreviewFailed;
   const downloadUrl =
     item.type === "image" && item.resultUrl
       ? `/api/image-generation/${item.id}/download?index=0`
@@ -165,6 +174,17 @@ export function HistoryItem({
                 },
               ]
             : []
+          : item.type === "audio"
+            ? item.resultUrl
+              ? [
+                  {
+                    url: item.resultUrl,
+                    width: null,
+                    height: null,
+                    durationSec: null,
+                  },
+                ]
+              : []
           : item.resultUrl
             ? [
                 {
@@ -195,8 +215,12 @@ export function HistoryItem({
         updatedAt: item.createdAt,
         durationMs: null,
         progress: null,
-        errorMessage: item.errorMessage ?? null,
+        errorMessage: item.status === "completed" ? null : (item.errorMessage ?? null),
+        warningMessage:
+          item.status === "completed" ? (item.errorMessage ?? null) : null,
         inputImages,
+        inputAudios: item.inputAudios ?? [],
+        referenceText: item.referenceText ?? null,
         assets,
       };
     },
@@ -204,9 +228,11 @@ export function HistoryItem({
       item.createdAt,
       item.errorMessage,
       item.id,
+      item.inputAudios,
       item.inputImages,
       item.model,
       item.prompt,
+      item.referenceText,
       item.resultUrl,
       item.status,
       item.thumbnailUrl,
@@ -227,7 +253,12 @@ export function HistoryItem({
   });
 
   const handleReusePrompt = () => {
-    const target = item.type === "video" ? "/video" : "/image";
+    const target =
+      item.type === "video"
+        ? "/video"
+        : item.type === "audio"
+          ? "/audio"
+          : "/image";
     const trimmedPrompt = item.prompt.trim();
     if (!trimmedPrompt) return;
 
@@ -244,13 +275,18 @@ export function HistoryItem({
       if (initImage) {
         params.set("initImage", initImage);
       }
-    } else {
+    } else if (item.type === "image") {
       const initImages = (item.inputImages ?? [])
         .map((value) => value.trim())
         .filter((value) => value.length > 0);
       initImages.forEach((value) => {
         params.append("initImage", value);
       });
+    } else if (item.type === "audio") {
+      const referenceText = item.referenceText?.trim();
+      if (referenceText) {
+        params.set("referenceText", referenceText);
+      }
     }
 
     router.push(`${target}?${params.toString()}`);
@@ -302,6 +338,10 @@ export function HistoryItem({
               playsInline
               preload="metadata"
             />
+          ) : isAudio ? (
+            <div className="flex h-full items-center justify-center bg-black p-4">
+              <audio controls className="w-full max-w-[18rem]" preload="metadata" src={previewUrl} />
+            </div>
           ) : (
             <>
               {shouldShowPreviewSkeleton ? (
@@ -407,7 +447,7 @@ export function HistoryItem({
               {downloadUrl ? (
                 <a
                   href={downloadUrl}
-                  download={item.type === "video" ? true : undefined}
+                  download={item.type === "image" ? undefined : true}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
                   aria-label={tCommonActions("download")}
                 >

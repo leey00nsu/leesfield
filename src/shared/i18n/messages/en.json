@@ -9,6 +9,7 @@
   "nav": {
     "image": "Image",
     "video": "Video",
+    "audio": "Audio",
     "history": "History",
     "monitoring": "Monitoring",
     "monitoringQueue": "Monitoring",
@@ -44,6 +45,7 @@
       "all": "All",
       "images": "Images",
       "videos": "Videos",
+      "audios": "Audio",
       "total": "TOTAL: {total}",
       "sort": "SORT: {order}",
       "dateDesc": "Newest",
@@ -232,6 +234,21 @@
       },
       "sizeNotice": "This space does not support changing resolution or aspect ratio. If an image is provided, its aspect ratio is used; text-only uses the default resolution."
     },
+    "audio": {
+      "title": {
+        "leading": "Audio",
+        "accent": "Generation"
+      },
+      "subtitle": "Generate speech from text",
+      "promptPlaceholder": "Describe or paste the text you want spoken...",
+      "voiceLabel": "Voice",
+      "voiceUnset": "Default voice",
+      "voicePlaceholder": "e.g. alloy",
+      "referenceTextLabel": "Reference Text",
+      "referenceTextPlaceholder": "Enter the transcript for the reference audio...",
+      "speedLabel": "Speed",
+      "seedPlaceholder": "Optional"
+    },
     "errors": {
       "requestFailed": "Request failed.",
       "pollFailed": "Status check failed.",
@@ -274,6 +291,18 @@
           "guidanceScale": "Guidance",
           "fps": "FPS"
         }
+      },
+      "audio": {
+        "promptRequired": "Please enter a prompt.",
+        "invalidModel": "Unsupported model.",
+        "noModels": "No audio models are registered.",
+        "range": "{label} must be between {min} and {max}.",
+        "unsupportedVoice": "Unsupported voice.",
+        "inputAudioUnsupported": "The selected model does not support audio input.",
+        "referenceTextRequired": "Please enter the reference text.",
+        "labels": {
+          "speed": "Speed"
+        }
       }
     }
   },
@@ -300,7 +329,8 @@
     },
     "types": {
       "image": "IMAGE",
-      "video": "VIDEO"
+      "video": "VIDEO",
+      "audio": "AUDIO"
     },
     "actions": {
       "reusePrompt": "Reuse Prompt",
@@ -403,6 +433,8 @@
       "detailPrompt": "Prompt",
       "detailInputs": "Input Images",
       "detailInputsEmpty": "No input images.",
+      "detailAudioInputs": "Input Audio",
+      "detailAudioInputsEmpty": "No input audio.",
       "detailResults": "Results",
       "detailEmpty": "No outputs available.",
       "detailRequestId": "Request ID",
@@ -414,6 +446,7 @@
       "detailDuration": "Duration",
       "detailProgress": "Progress",
       "detailError": "Error",
+      "detailWarning": "Warning",
       "detailFetchError": "Failed to load request detail.",
       "detailClose": "Close",
       "columns": {
@@ -446,7 +479,8 @@
     "card": {
       "type": {
         "image": "IMAGE",
-        "video": "VIDEO"
+        "video": "VIDEO",
+        "audio": "AUDIO"
       },
       "default": "DEFAULT",
       "inactive": "INACTIVE",
@@ -454,7 +488,9 @@
       "meta": {
         "provider": "PROVIDER",
         "pipeline": "PIPELINE",
+        "model": "MODEL",
         "size": "SIZE",
+        "speed": "SPEED",
         "input": "INPUT",
         "mode": "MODE",
         "modality": "MODALITY",
@@ -465,7 +501,9 @@
       "t2i": "Text to Image",
       "i2i": "Image to Image",
       "t2v": "Text to Video",
-      "i2v": "Image to Video"
+      "i2v": "Image to Video",
+      "t2a": "Text to Audio",
+      "a2a": "Audio to Audio"
     },
     "admin": {
       "toolbar": {
@@ -628,6 +666,7 @@
         "errors": "Errors",
         "images": "Images",
         "videos": "Videos",
+        "audio": "Audio",
         "models": "Models"
       }
     },
@@ -665,17 +704,20 @@
       "exampleFieldMessage": "Required field."
     },
     "openapi": {
-      "infoDescription": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+      "infoDescription": "External REST API documentation for leesfield. Provides image/video/audio generation and model listing.",
       "tags": {
         "images": "Image generation",
         "videos": "Video generation",
+        "audio": "Audio generation",
         "models": "Model catalog"
       },
       "paths": {
         "imageGeneration": "Creates an image generation request.",
         "videoGeneration": "Creates a video generation request.",
+        "audioGeneration": "Creates an audio generation request.",
         "imageStatus": "Fetches the image generation result.",
         "videoStatus": "Fetches the video generation result.",
+        "audioStatus": "Fetches the audio generation result.",
         "models": "Fetches available generation models."
       }
     },

@@ -49,6 +49,10 @@ import { useImageInitPreviews } from "@/features/image-generation/hook/use-image
 import { useTranslations } from "next-intl";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import {
+  getRuntimeParameterOptionLabel,
+  getRuntimeParameterOptionValue,
+} from "@/shared/model-catalog/parameter-options";
+import {
   getRuntimeImageParamConfig,
   getRuntimeImageParamRange,
   resolveRuntimeDefaultModelKey,
@@ -195,10 +199,13 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   );
   const seedConfig = getRuntimeImageParamConfig(activeRuntimeModel, "seed");
   const modeOptions = Array.isArray(modeConfig?.options)
-    ? modeConfig.options.filter(
-        (option): option is string =>
-          typeof option === "string" && option.trim().length > 0,
-      )
+    ? modeConfig.options.filter((option) => {
+        const value = getRuntimeParameterOptionValue(option);
+        return (
+          (typeof value === "string" && value.trim().length > 0) ||
+          typeof value === "number"
+        );
+      })
     : [];
   const showSizeControls =
     widthConfig?.ui !== "hidden" || heightConfig?.ui !== "hidden";
@@ -349,7 +356,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       ? "grid-cols-2"
       : "grid-cols-2 lg:grid-cols-3";
 
-  const resetDefaults = useMemo<ImageGenerationFormValues>(() => {
+  const resetDefaults: ImageGenerationFormValues = (() => {
     const model = runtimeModelMap.get(defaultModelKey);
     if (!model) return imageGenerationDefaults;
     const defaults = resolveRuntimeImageDefaults(model);
@@ -363,7 +370,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       modeChoice: defaults.modeChoice,
       promptUpsampling: defaults.promptUpsampling,
     };
-  }, [defaultModelKey, runtimeModelMap]);
+  })();
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
@@ -726,21 +733,24 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         <FormControl>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             {modeOptions.map((option) => {
-                              const isActive = field.value === option;
+                              const optionValue = String(
+                                getRuntimeParameterOptionValue(option),
+                              );
+                              const isActive = field.value === optionValue;
                               return (
                                 <Button
-                                  key={option}
+                                  key={optionValue}
                                   type="button"
                                   variant={isActive ? "default" : "surface"}
                                   size="sm"
                                   aria-pressed={isActive}
-                                  onClick={() => field.onChange(option)}
+                                  onClick={() => field.onChange(optionValue)}
                                   className={cn(
                                     "h-auto justify-start whitespace-normal text-xs font-semibold",
                                     isActive ? "text-black" : "text-gray-300",
                                   )}
                                 >
-                                  {option}
+                                  {getRuntimeParameterOptionLabel(option)}
                                 </Button>
                               );
                             })}

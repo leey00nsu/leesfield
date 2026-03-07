@@ -1,4 +1,4 @@
-export type MonitoringType = "image" | "video" | "all";
+export type MonitoringType = "image" | "video" | "audio" | "all";
 export type MonitoringStatus = "pending" | "processing" | "completed" | "failed";
 export type MonitoringMetric = "requests" | "errors" | "latency";
 
@@ -28,7 +28,7 @@ const MAX_LIMIT = 200;
 const MAX_OFFSET = 10_000;
 const DEFAULT_TOP_LIMIT = 5;
 
-const TYPES = new Set<MonitoringType>(["image", "video", "all"]);
+const TYPES = new Set<MonitoringType>(["image", "video", "audio", "all"]);
 const STATUS = new Set<MonitoringStatus>([
   "pending",
   "processing",

@@ -28,6 +28,13 @@ enum VideoGenerationStatus {
   failed
 }
 
+enum AudioGenerationStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
 enum ApiKeyStatus {
   active
   revoked
@@ -36,6 +43,7 @@ enum ApiKeyStatus {
 enum ModelCatalogType {
   image
   video
+  audio
 }
 
 model ImageGeneration {
@@ -113,6 +121,40 @@ model VideoGenerationVideo {
   @@index([generationId])
 }
 
+model AudioGeneration {
+  id            String                @id @default(cuid())
+  requestId     String                @unique
+  ownerEmail    String?
+  apiKeyId      String?
+  apiKey        ApiKey?               @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  prompt        String
+  requestParams Json?
+  modelKey      String?
+  status        AudioGenerationStatus
+  progress      Int
+  errorMessage  String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  audios        AudioGenerationAudio[]
+
+  @@index([ownerEmail])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
+  @@index([status, modelKey])
+  @@index([apiKeyId, createdAt])
+}
+
+model AudioGenerationAudio {
+  id           String          @id @default(cuid())
+  generationId String
+  url          String
+  durationSec  Int?
+  createdAt    DateTime        @default(now())
+  generation   AudioGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+}
+
 model ModelCatalog {
   id             String           @id @default(cuid())
   type           ModelCatalogType
@@ -145,6 +187,7 @@ model ApiKey {
   updatedAt  DateTime     @updatedAt
   imageGenerations ImageGeneration[]
   videoGenerations VideoGeneration[]
+  audioGenerations AudioGeneration[]
 
   @@index([ownerEmail])
   @@index([status])
