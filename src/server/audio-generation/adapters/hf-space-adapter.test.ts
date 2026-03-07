@@ -488,7 +488,7 @@ describe("hfSpaceAudioAdapter", () => {
       expect.objectContaining({}),
     );
     expect(result).toEqual({
-      audios: ["data:application/octet-stream;base64,UklGRg=="],
+      audios: ["data:audio/wav;base64,UklGRg=="],
       meta: { duration_sec: undefined },
     });
   });
