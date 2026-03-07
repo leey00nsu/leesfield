@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestAudioGeneration } from "@/features/audio-generation/api/audio-generation-api";
 
 describe("requestAudioGeneration", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("audio reference 입력을 multipart form-data로 전송한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -87,5 +91,30 @@ describe("requestAudioGeneration", () => {
     expect(body.get("temperature")).toBe("0.7");
     expect(body.get("topK")).toBe("20");
     expect(body.get("repetitionPenalty")).toBe("1.1");
+  });
+
+  it("실패 응답이면 에러를 그대로 노출한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        message: "REQUEST_FAILED",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      requestAudioGeneration({
+        prompt: "hello",
+        model: "qwen-tts",
+        voice: "",
+        speed: 1,
+        seed: "",
+        inputAudio: "",
+        referenceText: "",
+      }),
+    ).rejects.toMatchObject({
+      message: "REQUEST_FAILED",
+      code: "REQUEST_FAILED",
+    });
   });
 });

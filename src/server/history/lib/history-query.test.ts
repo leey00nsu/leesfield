@@ -155,5 +155,19 @@ describe("history-query", () => {
         }),
       ).toBe("reference words");
     });
+
+    it("inputAudio가 없거나 잘못된 타입이면 빈 배열을 반환한다", () => {
+      expect(extractInputAudios({})).toEqual([]);
+      expect(extractInputAudios(null)).toEqual([]);
+      expect(extractInputAudios({ inputAudio: 123 })).toEqual([]);
+      expect(extractInputAudios({ inputAudio: [] })).toEqual([]);
+    });
+
+    it("referenceText가 없거나 잘못된 타입이면 null을 반환한다", () => {
+      expect(extractReferenceText({})).toBeNull();
+      expect(extractReferenceText(null)).toBeNull();
+      expect(extractReferenceText({ referenceText: "" })).toBeNull();
+      expect(extractReferenceText({ referenceText: 123 })).toBeNull();
+    });
   });
 });

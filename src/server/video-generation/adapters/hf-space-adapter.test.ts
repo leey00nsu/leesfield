@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockConnect = vi.hoisted(() => vi.fn());
 const mockGetModelCatalog = vi.hoisted(() => vi.fn());
@@ -18,6 +18,10 @@ describe("hfSpaceVideoAdapter", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("path 기반 HF Space 결과 비디오를 gradio_api/file 경로로 다운로드한다", async () => {

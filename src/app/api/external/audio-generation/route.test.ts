@@ -6,7 +6,6 @@ const mockRequireApiKey = vi.hoisted(() => vi.fn());
 const mockCreateWithLimit = vi.hoisted(() => vi.fn());
 const mockStartWorker = vi.hoisted(() => vi.fn());
 const mockValidatePayload = vi.hoisted(() => vi.fn());
-let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@/server/auth/api-key-guard", () => ({
   requireApiKey: mockRequireApiKey,
@@ -26,15 +25,10 @@ vi.mock("@/server/model-catalog/generation-validation", () => ({
 
 describe("POST /api/external/audio-generation", () => {
   beforeEach(() => {
-    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockRequireApiKey.mockReset();
     mockCreateWithLimit.mockReset();
     mockStartWorker.mockReset();
     mockValidatePayload.mockReset();
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
   });
 
   it("API 키가 없으면 인증 응답을 그대로 반환한다", async () => {

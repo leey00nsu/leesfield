@@ -84,6 +84,26 @@ describe("DELETE /api/audio-generation/[requestId]", () => {
     expect(payload.message).toBe("IN_PROGRESS");
   });
 
+  it("대기 중인 요청이면 400을 반환한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockFindFirst.mockResolvedValue({
+      id: "db-id",
+      status: "pending",
+      requestId: "request-id",
+    });
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ requestId: "request-id" }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.message).toBe("IN_PROGRESS");
+  });
+
   it("스토리지 삭제 후 DB 레코드를 삭제한다", async () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,

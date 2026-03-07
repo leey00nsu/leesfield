@@ -110,6 +110,7 @@ describe("POST /api/audio-generation", () => {
     expect(payload.requestId).toBe("request-id");
     expect(payload.status).toBe("pending");
     expect(payload.progress).toBe(0);
+    expect(mockStartWorker).toHaveBeenCalled();
   });
 
   it("저장 실패 시 500을 반환한다", async () => {

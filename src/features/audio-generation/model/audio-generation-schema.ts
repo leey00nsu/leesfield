@@ -74,4 +74,8 @@ export const audioGenerationDefaults: AudioGenerationFormValues = {
   customInstruction: "",
   voiceInstruction: "",
   xvecOnly: false,
+  chunkSize: undefined,
+  temperature: undefined,
+  topK: undefined,
+  repetitionPenalty: undefined,
 };
