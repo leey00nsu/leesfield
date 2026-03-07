@@ -1,4 +1,5 @@
 import {
+  buildAudioWhere,
   buildImageWhere,
   buildVideoWhere,
   extractInputAudios,
@@ -122,6 +123,33 @@ describe("history-query", () => {
             requestParams: {
               path: ["model"],
               string_contains: "clip",
+            },
+          },
+        ],
+      });
+    });
+  });
+
+  describe("buildAudioWhere", () => {
+    it("query가 없으면 빈 조건을 반환한다", () => {
+      const query = parseHistoryQuery(new URLSearchParams());
+      expect(buildAudioWhere(query)).toEqual({});
+    });
+
+    it("prompt/model 검색 조건을 생성한다", () => {
+      const query = parseHistoryQuery(new URLSearchParams({ query: "voice" }));
+      expect(buildAudioWhere(query)).toEqual({
+        OR: [
+          {
+            prompt: {
+              contains: "voice",
+              mode: "insensitive",
+            },
+          },
+          {
+            requestParams: {
+              path: ["model"],
+              string_contains: "voice",
             },
           },
         ],

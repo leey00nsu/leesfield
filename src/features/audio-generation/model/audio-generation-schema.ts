@@ -6,7 +6,7 @@ type TranslationFn = (
 ) => string;
 
 const audioGenerationBaseSchema = z.object({
-  prompt: z.string().min(1, "프롬프트를 입력해주세요."),
+  prompt: z.string().trim().min(1, "프롬프트를 입력해주세요."),
   model: z.string().min(1),
   voice: z.string().optional().or(z.literal("")),
   speed: z.number().optional(),
@@ -29,7 +29,17 @@ const audioGenerationBaseSchema = z.object({
 
 export const audioGenerationOpenApiSchema = audioGenerationBaseSchema;
 
-export const createAudioGenerationSchema = (t?: TranslationFn) => {
+type AudioGenerationSchemaOptions = {
+  speedRange?: {
+    min: number;
+    max: number;
+  };
+};
+
+export const createAudioGenerationSchema = (
+  t?: TranslationFn,
+  options?: AudioGenerationSchemaOptions,
+) => {
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const speedLabel = t ? t("labels.speed") : "속도";
   const rangeMessage = (label: string, min: number, max: number) =>
@@ -39,15 +49,23 @@ export const createAudioGenerationSchema = (t?: TranslationFn) => {
 
   return audioGenerationBaseSchema
     .extend({
-      prompt: z.string().min(1, promptRequired),
+      prompt: z.string().trim().min(1, promptRequired),
     })
     .superRefine((data, ctx) => {
-      if (typeof data.speed === "number") {
-        if (!Number.isFinite(data.speed) || data.speed < 0.25 || data.speed > 4) {
+      if (typeof data.speed === "number" && options?.speedRange) {
+        if (
+          !Number.isFinite(data.speed) ||
+          data.speed < options.speedRange.min ||
+          data.speed > options.speedRange.max
+        ) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["speed"],
-            message: rangeMessage(speedLabel, 0.25, 4),
+            message: rangeMessage(
+              speedLabel,
+              options.speedRange.min,
+              options.speedRange.max,
+            ),
           });
         }
       }
