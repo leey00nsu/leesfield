@@ -7,6 +7,10 @@ import type {
   AudioStorageMeta,
   AudioStorageResult,
 } from "@/server/audio-generation/storage/storage-adapter";
+import {
+  resolveAudioExtension,
+  resolveAudioMime,
+} from "@/shared/lib/audio-file";
 
 const MISSING_LEEMAGE_MESSAGE =
   "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
@@ -98,17 +102,6 @@ function parseDataUrl(dataUrl: string) {
   return { contentType, buffer };
 }
 
-function resolveAudioExtension(contentType: string) {
-  if (contentType === "audio/mpeg") return "mp3";
-  if (contentType === "audio/wav" || contentType === "audio/x-wav") return "wav";
-  if (contentType === "audio/flac") return "flac";
-  if (contentType === "audio/ogg") return "ogg";
-  if (contentType === "audio/aac") return "aac";
-  if (contentType === "audio/mp4") return "m4a";
-  if (contentType === "audio/webm") return "webm";
-  return "bin";
-}
-
 function resolveDurationSec(
   payload: AudioGenerationFormValues,
   meta?: AudioStorageMeta,
@@ -155,9 +148,10 @@ async function uploadGeneratedAudios(
     const uploads = await Promise.all(
       dataUrls.map((dataUrl, index) => {
         const { contentType, buffer } = parseDataUrl(dataUrl);
-        const extension = resolveAudioExtension(contentType);
+        const resolvedContentType = resolveAudioMime({ contentType, buffer });
+        const extension = resolveAudioExtension(resolvedContentType);
         const name = `${requestId}-${index + 1}.${extension}`;
-        const file = buildUploadFile(buffer, name, contentType);
+        const file = buildUploadFile(buffer, name, resolvedContentType);
         return client.files.upload(projectId, file);
       }),
     );

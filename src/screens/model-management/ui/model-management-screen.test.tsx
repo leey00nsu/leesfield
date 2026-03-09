@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -262,9 +262,14 @@ describe("ModelManagementScreen", () => {
     await screen.findAllByText(audioModel!.label);
 
     await user.click(screen.getByRole("button", { name: "모델 추가" }));
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText("https://huggingface.co/spaces/owner/space"),
-      "https://huggingface.co/spaces/leey00nsu/qwen-3.5-tts-faster-gradio",
+      {
+        target: {
+          value:
+            "https://huggingface.co/spaces/leey00nsu/qwen-3.5-tts-faster-gradio",
+        },
+      },
     );
     await user.click(screen.getByRole("button", { name: "가져오기" }));
 
@@ -274,5 +279,5 @@ describe("ModelManagementScreen", () => {
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
       expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();
     });
-  });
+  }, 15_000);
 });

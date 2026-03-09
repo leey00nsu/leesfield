@@ -13,6 +13,7 @@ import {
   resolveRuntimeAudioDefaults,
   type RuntimeAudioModel,
 } from "@/shared/model-catalog/runtime-utils";
+import { resolveAudioMime } from "@/shared/lib/audio-file";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
@@ -524,7 +525,11 @@ async function fetchAudioDataUrl(
       throw new Error("HF_SPACE_AUDIO_FETCH_FAILED");
     }
     const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get("content-type") ?? "audio/mpeg";
+    const contentType = resolveAudioMime({
+      contentType: response.headers.get("content-type"),
+      sourceUrl: normalized,
+      buffer,
+    });
     return `data:${contentType};base64,${buffer.toString("base64")}`;
   } catch (error) {
     if (controller.signal.aborted) {

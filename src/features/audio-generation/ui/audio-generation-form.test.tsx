@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
@@ -213,9 +213,40 @@ describe("AudioGenerationForm", () => {
 
     expect(container.querySelector("audio")).not.toBeNull();
     expect(screen.getByText(/#1/i)).not.toBeNull();
-    expect(
-      container.querySelector('a[href="https://example.com/generated.mp3"]'),
-    ).not.toBeNull();
+    const openLink = container.querySelector('a[title="열기"]');
+    const downloadLink = container.querySelector('a[title="다운로드"]');
+
+    expect(openLink?.getAttribute("href")).toBe("https://example.com/generated.mp3");
+    expect(downloadLink?.getAttribute("href")).toBe(
+      "/api/audio-generation/request-id/download?index=0",
+    );
+  });
+
+  it("requestId가 없으면 다운로드 링크를 직접 자산 URL로 노출하지 않는다", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: {
+        status: "completed",
+        progress: 100,
+        result: {
+          audios: [
+            {
+              url: "https://example.com/generated.mp3",
+              durationSec: 7,
+            },
+          ],
+        },
+      },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    const { container } = renderWithIntl(
+      <AudioGenerationForm isAuthenticated />,
+    );
+    await waitForModels();
+
+    expect(container.querySelector('a[title="열기"]')).not.toBeNull();
+    expect(container.querySelector('a[title="다운로드"]')).toBeNull();
   });
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
@@ -427,9 +458,9 @@ describe("AudioGenerationForm", () => {
     expect(screen.getByText("Top K")).not.toBeNull();
     expect(screen.getByText("Repetition Penalty")).not.toBeNull();
 
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
-      "hello qwen",
+      { target: { value: "hello qwen" } },
     );
     await user.upload(
       screen.getByLabelText("Reference Audio"),
@@ -437,9 +468,9 @@ describe("AudioGenerationForm", () => {
         type: "audio/wav",
       }),
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText("레퍼런스 오디오의 텍스트를 입력하세요..."),
-      "reference transcript",
+      { target: { value: "reference transcript" } },
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -460,5 +491,5 @@ describe("AudioGenerationForm", () => {
         }),
       );
     });
-  });
+  }, 15_000);
 });

@@ -883,7 +883,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
             {hasResults && resultAudios.length > 0 ? (
               <div className="flex flex-col gap-2">
-                {resultAudios.map((audio, index) => (
+                {resultAudios.map((audio, index) => {
+                  const downloadUrl = state.requestId
+                    ? `/api/audio-generation/${state.requestId}/download?index=${index}`
+                    : null;
+
+                  return (
                   <div
                     key={`${audio.url}-${index}`}
                     className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-surface-dark/60 px-3 py-2"
@@ -904,17 +909,20 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      <a
-                        href={audio.url}
-                        download
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                        title={tActions("download")}
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
+                      {downloadUrl ? (
+                        <a
+                          href={downloadUrl}
+                          download
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                          title={tActions("download")}
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      ) : null}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
 
