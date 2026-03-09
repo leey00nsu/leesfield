@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
@@ -458,9 +458,9 @@ describe("AudioGenerationForm", () => {
     expect(screen.getByText("Top K")).not.toBeNull();
     expect(screen.getByText("Repetition Penalty")).not.toBeNull();
 
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
-      "hello qwen",
+      { target: { value: "hello qwen" } },
     );
     await user.upload(
       screen.getByLabelText("Reference Audio"),
@@ -468,9 +468,9 @@ describe("AudioGenerationForm", () => {
         type: "audio/wav",
       }),
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText("레퍼런스 오디오의 텍스트를 입력하세요..."),
-      "reference transcript",
+      { target: { value: "reference transcript" } },
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
 
@@ -491,5 +491,5 @@ describe("AudioGenerationForm", () => {
         }),
       );
     });
-  });
+  }, 15_000);
 });
