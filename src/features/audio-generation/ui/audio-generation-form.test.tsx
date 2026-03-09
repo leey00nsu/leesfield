@@ -213,14 +213,13 @@ describe("AudioGenerationForm", () => {
 
     expect(container.querySelector("audio")).not.toBeNull();
     expect(screen.getByText(/#1/i)).not.toBeNull();
-    expect(
-      container.querySelector('a[href="https://example.com/generated.mp3"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector(
-        'a[href="/api/audio-generation/request-id/download?index=0"]',
-      ),
-    ).not.toBeNull();
+    const openLink = container.querySelector('a[title="열기"]');
+    const downloadLink = container.querySelector('a[title="다운로드"]');
+
+    expect(openLink?.getAttribute("href")).toBe("https://example.com/generated.mp3");
+    expect(downloadLink?.getAttribute("href")).toBe(
+      "/api/audio-generation/request-id/download?index=0",
+    );
   });
 
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {

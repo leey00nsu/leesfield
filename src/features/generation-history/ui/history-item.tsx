@@ -321,11 +321,18 @@ export function HistoryItem({
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setIsCopied(true);
-      toast.success(successMessage);
+      try {
+        textarea.select();
+        const copied = document.execCommand("copy");
+        if (!copied) {
+          setIsCopied(false);
+          return;
+        }
+        setIsCopied(true);
+        toast.success(successMessage);
+      } finally {
+        document.body.removeChild(textarea);
+      }
     } catch {
       setIsCopied(false);
     }
