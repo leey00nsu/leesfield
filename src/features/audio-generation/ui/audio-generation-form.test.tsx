@@ -222,6 +222,33 @@ describe("AudioGenerationForm", () => {
     );
   });
 
+  it("requestId가 없으면 다운로드 링크를 직접 자산 URL로 노출하지 않는다", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: {
+        status: "completed",
+        progress: 100,
+        result: {
+          audios: [
+            {
+              url: "https://example.com/generated.mp3",
+              durationSec: 7,
+            },
+          ],
+        },
+      },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    const { container } = renderWithIntl(
+      <AudioGenerationForm isAuthenticated />,
+    );
+    await waitForModels();
+
+    expect(container.querySelector('a[title="열기"]')).not.toBeNull();
+    expect(container.querySelector('a[title="다운로드"]')).toBeNull();
+  });
+
   it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },

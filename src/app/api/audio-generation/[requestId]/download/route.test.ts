@@ -72,4 +72,60 @@ describe("GET /api/audio-generation/[requestId]/download", () => {
     );
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
+
+  it("upstream body 읽기가 timeout을 넘기면 502를 반환한다", async () => {
+    vi.useFakeTimers();
+    const wavHeader = Uint8Array.from([
+      0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
+      0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20,
+    ]);
+
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockGetAudioGenerationByRequestId.mockResolvedValue({
+      audios: [
+        {
+          url: "https://cdn.example.com/generated/request-id-1.wav",
+          durationSec: 1.2,
+        },
+      ],
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (_input, init?: RequestInit) => {
+        const signal = init?.signal;
+        return {
+          ok: true,
+          headers: new Headers({
+            "content-type": "application/octet-stream",
+          }),
+          arrayBuffer: () =>
+            new Promise<ArrayBuffer>((resolve, reject) => {
+              const abortError = Object.assign(new Error("aborted"), {
+                name: "AbortError",
+              });
+              signal?.addEventListener("abort", () => reject(abortError), {
+                once: true,
+              });
+              setTimeout(() => resolve(wavHeader.buffer), 20_000);
+            }),
+        } as Response;
+      },
+    );
+
+    const responsePromise = GET(
+      new Request(
+        "http://localhost/api/audio-generation/request-id/download?index=0",
+      ),
+      { params: Promise.resolve({ requestId: "request-id" }) },
+    );
+
+    await vi.advanceTimersByTimeAsync(10_001);
+    const response = await responsePromise;
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload.message).toBe("AUDIO_FETCH_TIMEOUT");
+  });
 });

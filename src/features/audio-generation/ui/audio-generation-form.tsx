@@ -886,7 +886,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 {resultAudios.map((audio, index) => {
                   const downloadUrl = state.requestId
                     ? `/api/audio-generation/${state.requestId}/download?index=${index}`
-                    : audio.url;
+                    : null;
 
                   return (
                   <div
@@ -909,14 +909,16 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      <a
-                        href={downloadUrl}
-                        download
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                        title={tActions("download")}
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
+                      {downloadUrl ? (
+                        <a
+                          href={downloadUrl}
+                          download
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                          title={tActions("download")}
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                   );

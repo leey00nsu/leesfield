@@ -7,6 +7,7 @@ import { renderWithIntl } from "@/test-utils/intl";
 const mockPush = vi.hoisted(() => vi.fn());
 const mockToastSuccess = vi.hoisted(() => vi.fn());
 const originalClipboard = window.navigator.clipboard;
+const originalExecCommand = document.execCommand;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -25,6 +26,15 @@ describe("HistoryItem audio", () => {
   afterEach(() => {
     mockToastSuccess.mockReset();
     vi.restoreAllMocks();
+    if (originalExecCommand) {
+      Object.defineProperty(document, "execCommand", {
+        value: originalExecCommand,
+        configurable: true,
+      });
+    } else {
+      // @ts-expect-error - cleanup optional test stub
+      delete document.execCommand;
+    }
     if (originalClipboard) {
       Object.defineProperty(window.navigator, "clipboard", {
         value: originalClipboard,
@@ -146,5 +156,9 @@ describe("HistoryItem audio", () => {
     expect(execCommandSpy).toHaveBeenCalledWith("copy");
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "프롬프트 복사" })).toBeTruthy();
+  });
+
+  it("clipboard fallback 테스트가 document.execCommand 오염을 남기지 않는다", () => {
+    expect(document.execCommand).toBe(originalExecCommand);
   });
 });

@@ -45,16 +45,41 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
-  let upstreamResponse: Response;
 
   try {
-    upstreamResponse = await fetch(audio.url, {
+    const upstreamResponse = await fetch(audio.url, {
       cache: "no-store",
       signal: controller.signal,
     });
+    if (!upstreamResponse.ok) {
+      return NextResponse.json(
+        { message: "AUDIO_FETCH_FAILED" },
+        { status: 502 },
+      );
+    }
+
+    const buffer = Buffer.from(await upstreamResponse.arrayBuffer());
+    const contentType = resolveAudioMime({
+      contentType: upstreamResponse.headers.get("content-type"),
+      sourceUrl: audio.url,
+      buffer,
+    });
+    const extension = resolveAudioExtension(contentType);
+    const filename = `${requestId}-${index + 1}.${extension}`;
+
+    return new Response(buffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename=\"${filename}\"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === "AbortError") {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || controller.signal.aborted)
+    ) {
       return NextResponse.json(
         { message: "AUDIO_FETCH_TIMEOUT" },
         { status: 502 },
@@ -67,29 +92,4 @@ export async function GET(request: Request, { params }: RouteContext) {
   } finally {
     clearTimeout(timeoutId);
   }
-
-  if (!upstreamResponse.ok) {
-    return NextResponse.json(
-      { message: "AUDIO_FETCH_FAILED" },
-      { status: 502 },
-    );
-  }
-
-  const buffer = Buffer.from(await upstreamResponse.arrayBuffer());
-  const contentType = resolveAudioMime({
-    contentType: upstreamResponse.headers.get("content-type"),
-    sourceUrl: audio.url,
-    buffer,
-  });
-  const extension = resolveAudioExtension(contentType);
-  const filename = `${requestId}-${index + 1}.${extension}`;
-
-  return new Response(buffer, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename=\"${filename}\"`,
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
