@@ -28,6 +28,12 @@ import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/ui/tooltip";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -130,6 +136,7 @@ export function HistoryItem({
       : item.type === "audio" && item.resultUrl
         ? `/api/audio-generation/${item.id}/download?index=0`
       : item.resultUrl;
+  const copyLabel = isCopied ? tCommonActions("copied") : tActions("copyPrompt");
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
@@ -297,10 +304,12 @@ export function HistoryItem({
   const handleCopyPrompt = async () => {
     const text = item.prompt.trim();
     if (!text) return;
+    const successMessage = tCommonActions("copied");
 
     try {
       await navigator.clipboard.writeText(text);
       setIsCopied(true);
+      toast.success(successMessage);
       return;
     } catch {
       // fallback below
@@ -316,6 +325,7 @@ export function HistoryItem({
       document.execCommand("copy");
       document.body.removeChild(textarea);
       setIsCopied(true);
+      toast.success(successMessage);
     } catch {
       setIsCopied(false);
     }
@@ -426,72 +436,6 @@ export function HistoryItem({
           </div>
         )}
 
-        {showActions && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <Button
-              type="button"
-              className="h-auto rounded-full bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgba(212,240,50,0.3)] transition-all hover:bg-primary-dark hover:shadow-[0_0_28px_rgba(212,240,50,0.45)]"
-              onClick={handleReusePrompt}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {tActions("reusePrompt")}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCopyPrompt}
-              variant="outline"
-              className="h-auto rounded-full border-white/20 bg-black/40 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-white hover:border-primary/60 hover:text-primary"
-            >
-              <Copy className="h-4 w-4" />
-              {isCopied ? tCommonActions("copied") : tActions("copyPrompt")}
-            </Button>
-            <div className="flex gap-2">
-              {downloadUrl ? (
-                <a
-                  href={downloadUrl}
-                  download={item.type === "image" ? undefined : true}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
-                  aria-label={tCommonActions("download")}
-                >
-                  <Download className="h-4 w-4" />
-                </a>
-              ) : (
-                <Button
-                  type="button"
-                  disabled
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
-                  aria-label={tCommonActions("download")}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              )}
-              {item.resultUrl ? (
-                <a
-                  href={item.resultUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-colors hover:border-white hover:bg-black"
-                  aria-label={tCommonActions("open")}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </a>
-              ) : (
-                <Button
-                  type="button"
-                  disabled
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full border border-white/20 bg-black/50 text-white opacity-50"
-                  aria-label={tCommonActions("open")}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
@@ -534,7 +478,96 @@ export function HistoryItem({
             ))}
           </div>
         ) : null}
-        <div className="flex items-center justify-between border-t border-white/5 pt-3">
+        {showActions ? (
+          <TooltipProvider>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              {downloadUrl ? (
+                <Button
+                  asChild
+                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black shadow-[0_10px_24px_rgba(212,240,50,0.18)] transition-all hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(212,240,50,0.28)]"
+                >
+                  <a
+                    href={downloadUrl}
+                    download={item.type === "image" ? undefined : true}
+                    aria-label={tCommonActions("download")}
+                  >
+                    <Download className="h-4 w-4" />
+                    {tCommonActions("download")}
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled
+                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black"
+                >
+                  <Download className="h-4 w-4" />
+                  {tCommonActions("download")}
+                </Button>
+              )}
+              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/35 p-1.5 backdrop-blur-md">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={handleReusePrompt}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full text-gray-300 hover:bg-white/10 hover:text-white"
+                      aria-label={tActions("reusePrompt")}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{tActions("reusePrompt")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={handleCopyPrompt}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full text-gray-300 hover:bg-white/10 hover:text-white"
+                      aria-label={copyLabel}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{copyLabel}</TooltipContent>
+                </Tooltip>
+                {item.resultUrl ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <a
+                        href={item.resultUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+                        aria-label={tCommonActions("open")}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent>{tCommonActions("open")}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-gray-300 opacity-40"
+                    aria-label={tCommonActions("open")}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </TooltipProvider>
+        ) : null}
+        <div className="flex items-center justify-between border-t border-white/5 pt-4">
           <div className="flex items-center gap-3">
             {item.model ? (
               <Badge variant="primary" className="px-2 py-0.5">
@@ -561,7 +594,7 @@ export function HistoryItem({
                   size="icon-sm"
                   disabled={!canDelete || deleteMutation.isPending}
                   className={cn(
-                    "h-8 w-8 rounded-lg text-gray-500 hover:bg-white/5 hover:text-white",
+                    "h-8 w-8 rounded-full border border-transparent text-gray-500 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white",
                     canDelete && "hover:text-red-300"
                   )}
                   aria-label={tCommonActions("remove")}
