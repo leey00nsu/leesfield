@@ -2,6 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { renderWithIntl } from "@/test-utils/intl";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
+vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => ({
+  useMonitoringRequestDetail: () => ({
+    data: null,
+    isLoading: false,
+    error: null,
+  }),
+}));
+
 const originalMatchMedia = window.matchMedia;
 
 function mockMatchMedia({
@@ -38,6 +52,30 @@ afterEach(() => {
 });
 
 describe("HistoryList", () => {
+  it("keeps history columns top-aligned so video cards do not leave empty gaps", () => {
+    mockMatchMedia({ isMdUp: true, isXlUp: false });
+
+    const items = Array.from({ length: 3 }, (_, index) => ({
+      id: `item-${index + 1}`,
+      type: "video" as const,
+      status: "completed" as const,
+      prompt: `prompt-${index + 1}`,
+      model: null,
+      createdAt: "2026-02-03T00:00:00.000Z",
+      resultUrl: "https://example.com/video.mp4",
+      thumbnailUrl: null,
+      errorMessage: null,
+    }));
+
+    const { container } = renderWithIntl(<HistoryList items={items} />);
+    const wrapper = container.firstElementChild;
+
+    Array.from(wrapper?.children ?? []).forEach((column) => {
+      expect(column).toHaveClass("self-start");
+      expect(column).toHaveClass("content-start");
+    });
+  });
+
   it.each([
     {
       name: "small viewport",

@@ -77,7 +77,7 @@ export function HistoryList({
         {skeletonColumns.map((column, columnIndex) => (
           <div
             key={`history-skeleton-column-${columnIndex}`}
-            className="grid gap-4"
+            className="grid self-start content-start gap-4"
           >
             {column.map((index) => (
               <HistoryItemSkeleton key={`history-skeleton-${index}`} />
@@ -109,7 +109,7 @@ export function HistoryList({
       {itemColumns.map((column, columnIndex) => (
         <div
           key={`history-column-${columnIndex}`}
-          className="grid gap-4"
+          className="grid self-start content-start gap-4"
         >
           {column.map((item) => (
             <HistoryItem

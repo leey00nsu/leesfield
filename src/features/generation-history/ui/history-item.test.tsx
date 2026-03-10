@@ -20,6 +20,34 @@ vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => (
 }));
 
 describe("HistoryItem", () => {
+  it("비디오 히스토리 카드는 바로 재생 가능한 컨트롤을 노출한다", () => {
+    mockUseMonitoringRequestDetail.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+
+    renderWithIntl(
+      <HistoryItem
+        item={{
+          id: "video-preview-1",
+          type: "video",
+          status: "completed",
+          prompt: "video prompt",
+          model: null,
+          createdAt: "2026-02-03T00:00:00.000Z",
+          resultUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          errorMessage: null,
+        }}
+      />,
+    );
+
+    const video = document.querySelector("video");
+    expect(video).toBeTruthy();
+    expect(video).toHaveAttribute("controls");
+  });
+
   it("이미지 로딩 전에는 스켈레톤을 표시하고, 로딩 완료 후에는 이미지를 표시한다", async () => {
     mockUseMonitoringRequestDetail.mockReturnValue({
       data: null,
