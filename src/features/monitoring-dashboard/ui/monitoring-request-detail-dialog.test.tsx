@@ -15,6 +15,62 @@ describe("MonitoringRequestDetailDialog", () => {
     mockUseMonitoringRequestDetail.mockReset();
   });
 
+  it("seed와 fetched가 모두 없으면 loading 상태를 그대로 노출한다", () => {
+    mockUseMonitoringRequestDetail.mockReturnValue({
+      data: null,
+      isLoading: true,
+      error: null,
+    });
+
+    renderWithIntl(
+      <MonitoringRequestDetailDialog
+        open
+        onOpenChange={vi.fn()}
+        request={{
+          id: "req-1",
+          type: "video" as never,
+          status: "processing",
+          model: "wan-2.2",
+          createdAt: "2026-01-10T10:00:00.000Z",
+          durationMs: null,
+          apiKeyLabel: "UI",
+        }}
+        timeZone="UTC"
+      />,
+    );
+
+    expect(screen.getByTestId("monitoring-detail-loading")).toBeInTheDocument();
+    expect(screen.queryByText("요청 상세를 불러오지 못했습니다.")).not.toBeInTheDocument();
+  });
+
+  it("seed와 fetched가 모두 없으면 fetch error를 그대로 노출한다", () => {
+    mockUseMonitoringRequestDetail.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: new Error("boom"),
+    });
+
+    renderWithIntl(
+      <MonitoringRequestDetailDialog
+        open
+        onOpenChange={vi.fn()}
+        request={{
+          id: "req-2",
+          type: "video" as never,
+          status: "failed",
+          model: "wan-2.2",
+          createdAt: "2026-01-10T10:00:00.000Z",
+          durationMs: null,
+          apiKeyLabel: "UI",
+        }}
+        timeZone="UTC"
+      />,
+    );
+
+    expect(screen.getByText("요청 상세를 불러오지 못했습니다.")).toBeInTheDocument();
+    expect(screen.queryByTestId("monitoring-detail-loading")).not.toBeInTheDocument();
+  });
+
   it("partial seed가 있어도 상세 조회로 duration/progress/asset duration을 보강한다", () => {
     mockUseMonitoringRequestDetail.mockReturnValue({
       data: {

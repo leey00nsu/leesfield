@@ -1,6 +1,5 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { within } from "@testing-library/react";
 import { describe, it, vi } from "vitest";
 import { Header } from "@/widgets/header/ui/header";
 import { renderWithIntl } from "@/test-utils/intl";

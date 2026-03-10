@@ -92,6 +92,10 @@ function mergeMonitoringDetail({
   seed: MonitoringRequestDetail | null;
   fetched: MonitoringRequestDetail | null;
 }): MonitoringRequestDetail | null {
+  if (!seed && !fetched) {
+    return null;
+  }
+
   const type = fetched?.type ?? seed?.type ?? request?.type ?? null;
   const id = fetched?.id ?? seed?.id ?? request?.id ?? null;
   const status = fetched?.status ?? seed?.status ?? request?.status ?? null;
@@ -110,7 +114,7 @@ function mergeMonitoringDetail({
     id,
     type,
     status,
-    model: fetched?.model ?? seed?.model ?? request?.model ?? null,
+    model: fetched?.model ?? seed?.model ?? null,
     prompt: fetched?.prompt ?? seed?.prompt ?? "",
     createdAt,
     updatedAt: fetched?.updatedAt ?? seed?.updatedAt ?? createdAt,
@@ -191,7 +195,10 @@ export function MonitoringRequestDetailDialog({
         </DialogHeader>
 
         {shouldFetchDetail && detailQuery.isLoading && !detail ? (
-          <div className="mt-6 h-48 rounded-xl border border-white/10 bg-background-dark/50" />
+          <div
+            data-testid="monitoring-detail-loading"
+            className="mt-6 h-48 rounded-xl border border-white/10 bg-background-dark/50"
+          />
         ) : shouldFetchDetail && detailQuery.error && !detail ? (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {t("requests.detailFetchError")}
