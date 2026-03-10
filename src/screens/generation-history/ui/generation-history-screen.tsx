@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Grid2X2, Image as ImageIcon, SlidersHorizontal, Video } from "lucide-react";
+import {
+  AudioLines,
+  Grid2X2,
+  Image as ImageIcon,
+  SlidersHorizontal,
+  Video,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import type {
   GenerationHistorySort,
@@ -9,10 +15,7 @@ import type {
 } from "@/entities/generation/model/types";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
-import {
-  PageHeader,
-  PageHeaderSearchInput,
-} from "@/shared/ui/page-header";
+import { PageHeader, PageHeaderSearchInput } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
@@ -38,9 +41,7 @@ export function GenerationHistoryScreen() {
     });
 
   const renderSortLabel =
-    sort === "date_desc"
-      ? tCommonLabels("dateDesc")
-      : tCommonLabels("dateAsc");
+    sort === "date_desc" ? tCommonLabels("dateDesc") : tCommonLabels("dateAsc");
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
@@ -86,6 +87,14 @@ export function GenerationHistoryScreen() {
           >
             {tCommonLabels("videos")}
           </DashboardFilterToggle>
+          <DashboardFilterToggle
+            onClick={() => setType("audio")}
+            aria-pressed={type === "audio"}
+            active={type === "audio"}
+            icon={<AudioLines className="h-4 w-4" />}
+          >
+            {tCommonLabels("audios")}
+          </DashboardFilterToggle>
           <DashboardFilterDivider />
           <Button
             type="button"
@@ -125,7 +134,9 @@ export function GenerationHistoryScreen() {
           <div className="mt-6 flex flex-col items-center gap-3">
             <div
               ref={sentinelRef}
-              className="h-8 w-full max-w-xs rounded-full border border-white/10 bg-surface-dark/60"
+              data-testid="history-infinite-sentinel"
+              aria-hidden="true"
+              className="h-8 w-full max-w-xs"
             />
             {isLoading && (
               <span className="text-xs font-mono uppercase tracking-widest text-gray-500">

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, vi } from "vitest";
 import { Header } from "@/widgets/header/ui/header";
@@ -30,6 +30,19 @@ describe("Header", () => {
     expect(container.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(0);
   });
 
+  it("desktop nav 링크는 xl 미만 숨김용 라벨 wrapper와 접근성 이름을 가진다", () => {
+    renderWithIntl(<Header isAuthenticated userEmail="admin@example.com" />);
+
+    const desktopNav = screen.getByRole("navigation");
+    const audioLink = within(desktopNav).getByRole("link", { name: "오디오" });
+    const label = within(audioLink).getByText("오디오");
+
+    expect(audioLink).toHaveAttribute("aria-label", "오디오");
+    expect(label.tagName).toBe("SPAN");
+    expect(label).toHaveClass("hidden");
+    expect(label).toHaveClass("xl:inline");
+  });
+
   it("모바일 메뉴를 열면 Audio 링크가 보인다", async () => {
     const user = userEvent.setup();
     const { container } = renderWithIntl(
@@ -39,6 +52,11 @@ describe("Header", () => {
     expect(container.querySelectorAll('a[href="/audio"]').length).toBe(1);
     await user.click(screen.getByRole("button", { name: /메뉴/i }));
 
-    expect(container.ownerDocument.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(1);
+    const audioLinks = container.ownerDocument.querySelectorAll('a[href="/audio"]');
+    expect(audioLinks.length).toBeGreaterThan(1);
+
+    const dropdownAudioLink = audioLinks[audioLinks.length - 1];
+    expect(dropdownAudioLink).toHaveTextContent("오디오");
+    expect(dropdownAudioLink.querySelector("span")).toBeNull();
   });
 });

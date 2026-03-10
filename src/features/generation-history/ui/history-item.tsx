@@ -352,6 +352,7 @@ export function HistoryItem({
             <video
               src={previewUrl}
               className="h-full w-full object-contain"
+              controls
               muted
               loop
               playsInline

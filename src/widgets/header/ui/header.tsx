@@ -95,10 +95,11 @@ export function Header({
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white"
+              aria-label={tNav(item.key)}
+              className="flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white xl:px-4"
             >
               <Icon className="h-4 w-4" />
-              {tNav(item.key)}
+              <span className="hidden xl:inline">{tNav(item.key)}</span>
             </Link>
           );
         })}
