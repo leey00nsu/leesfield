@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AudioLines,
   Grid2X2,
   Image as ImageIcon,
   SlidersHorizontal,
@@ -85,6 +86,14 @@ export function GenerationHistoryScreen() {
             icon={<Video className="h-4 w-4" />}
           >
             {tCommonLabels("videos")}
+          </DashboardFilterToggle>
+          <DashboardFilterToggle
+            onClick={() => setType("audio")}
+            aria-pressed={type === "audio"}
+            active={type === "audio"}
+            icon={<AudioLines className="h-4 w-4" />}
+          >
+            {tCommonLabels("audios")}
           </DashboardFilterToggle>
           <DashboardFilterDivider />
           <Button

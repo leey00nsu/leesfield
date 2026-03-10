@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -14,6 +14,39 @@ vi.mock("@/features/generation-history/ui/history-list", () => ({
 }));
 
 describe("GenerationHistoryScreen", () => {
+  it("shows an audio filter and requests audio history when selected", () => {
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [],
+      total: 0,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    const audioFilter = screen.getByRole("button", { name: "오디오" });
+    expect(audioFilter).toBeInTheDocument();
+    expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "all",
+        sort: "date_desc",
+        query: "",
+      }),
+    );
+
+    fireEvent.click(audioFilter);
+
+    expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "audio",
+        sort: "date_desc",
+        query: "",
+      }),
+    );
+  });
+
   it("renders the infinite loading sentinel without decorative pill styles", () => {
     useGenerationHistoryListMock.mockReturnValue({
       items: [
