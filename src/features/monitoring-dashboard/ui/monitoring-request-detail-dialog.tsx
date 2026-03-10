@@ -59,6 +59,72 @@ function resolveInputLabels(
   };
 }
 
+function mergeAssets(
+  fetchedAssets: MonitoringRequestDetail["assets"] | undefined,
+  seedAssets: MonitoringRequestDetail["assets"] | undefined,
+) {
+  const resolvedFetchedAssets = fetchedAssets ?? [];
+  const resolvedSeedAssets = seedAssets ?? [];
+  const assetCount = Math.max(resolvedFetchedAssets.length, resolvedSeedAssets.length);
+
+  return Array.from({ length: assetCount }, (_, index) => {
+    const fetchedAsset = resolvedFetchedAssets[index];
+    const seedAsset = resolvedSeedAssets[index];
+    const url = fetchedAsset?.url ?? seedAsset?.url;
+
+    if (!url) return null;
+
+    return {
+      url,
+      width: fetchedAsset?.width ?? seedAsset?.width ?? null,
+      height: fetchedAsset?.height ?? seedAsset?.height ?? null,
+      durationSec: fetchedAsset?.durationSec ?? seedAsset?.durationSec ?? null,
+    };
+  }).filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+}
+
+function mergeMonitoringDetail({
+  request,
+  seed,
+  fetched,
+}: {
+  request: MonitoringRequestItem | null;
+  seed: MonitoringRequestDetail | null;
+  fetched: MonitoringRequestDetail | null;
+}): MonitoringRequestDetail | null {
+  const type = fetched?.type ?? seed?.type ?? request?.type ?? null;
+  const id = fetched?.id ?? seed?.id ?? request?.id ?? null;
+  const status = fetched?.status ?? seed?.status ?? request?.status ?? null;
+  const createdAt = fetched?.createdAt ?? seed?.createdAt ?? request?.createdAt ?? null;
+
+  if (!type || !id || !status || !createdAt) {
+    return null;
+  }
+
+  const fetchedInputImages = fetched?.inputImages ?? [];
+  const seedInputImages = seed?.inputImages ?? [];
+  const fetchedInputAudios = fetched?.inputAudios ?? [];
+  const seedInputAudios = seed?.inputAudios ?? [];
+
+  return {
+    id,
+    type,
+    status,
+    model: fetched?.model ?? seed?.model ?? request?.model ?? null,
+    prompt: fetched?.prompt ?? seed?.prompt ?? "",
+    createdAt,
+    updatedAt: fetched?.updatedAt ?? seed?.updatedAt ?? createdAt,
+    durationMs: fetched?.durationMs ?? seed?.durationMs ?? request?.durationMs ?? null,
+    progress: fetched?.progress ?? seed?.progress ?? null,
+    errorMessage: fetched?.errorMessage ?? seed?.errorMessage ?? null,
+    warningMessage: fetched?.warningMessage ?? seed?.warningMessage ?? null,
+    inputImages: fetchedInputImages.length > 0 ? fetchedInputImages : seedInputImages,
+    inputAudios: fetchedInputAudios.length > 0 ? fetchedInputAudios : seedInputAudios,
+    referenceText: fetched?.referenceText ?? seed?.referenceText ?? null,
+    assets: mergeAssets(fetched?.assets, seed?.assets),
+  };
+}
+
 export function MonitoringRequestDetailDialog({
   open,
   onOpenChange,
@@ -75,7 +141,7 @@ export function MonitoringRequestDetailDialog({
     failed: t("statuses.failed"),
   };
 
-  const shouldFetchDetail = !detailOverride;
+  const shouldFetchDetail = Boolean(request);
   const detailQuery = useMonitoringRequestDetail(
     request?.type ?? null,
     request?.id ?? null,
@@ -96,7 +162,15 @@ export function MonitoringRequestDetailDialog({
     return formatter.format(parsed);
   };
 
-  const detail = detailOverride ?? detailQuery.data ?? null;
+  const detail = useMemo(
+    () =>
+      mergeMonitoringDetail({
+        request,
+        seed: detailOverride,
+        fetched: detailQuery.data ?? null,
+      }),
+    [detailOverride, detailQuery.data, request],
+  );
   const isFinished = detail ? FINISHED_STATUSES.has(detail.status) : false;
   const status = detail
     ? resolveMonitoringStatus(detail.status, statusLabels)
@@ -116,9 +190,9 @@ export function MonitoringRequestDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {shouldFetchDetail && detailQuery.isLoading ? (
+        {shouldFetchDetail && detailQuery.isLoading && !detail ? (
           <div className="mt-6 h-48 rounded-xl border border-white/10 bg-background-dark/50" />
-        ) : shouldFetchDetail && detailQuery.error ? (
+        ) : shouldFetchDetail && detailQuery.error && !detail ? (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {t("requests.detailFetchError")}
           </div>
