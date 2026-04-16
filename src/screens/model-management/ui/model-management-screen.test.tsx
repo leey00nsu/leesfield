@@ -207,7 +207,7 @@ describe("ModelManagementScreen", () => {
 
     await waitFor(() => {
       expect((typeSelect as HTMLSelectElement).value).toBe("audio");
-      expect(screen.getByDisplayValue(/generate_audio/)).toBeTruthy();
+      expect(screen.getByDisplayValue(/run_generation/)).toBeTruthy();
       expect(screen.getByDisplayValue(/default_speed/)).toBeTruthy();
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
       expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();

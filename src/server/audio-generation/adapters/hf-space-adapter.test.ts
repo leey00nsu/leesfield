@@ -51,29 +51,51 @@ describe("hfSpaceAudioAdapter", () => {
       },
     ]);
 
-    mockConnect.mockResolvedValue({
-      view_api: vi.fn().mockResolvedValue({
-        named_endpoints: {
-          "/generate_audio": {
-            parameters: [
-              { parameter_name: "prompt", label: "Prompt" },
-              { parameter_name: "voice", label: "Voice" },
-              { parameter_name: "speed", label: "Speed" },
-              { parameter_name: "seed", label: "Seed" },
-            ],
+    const predict = vi.fn().mockResolvedValue({
+      data: [
+        {
+          audio: {
+            path: "/file=/tmp/generated.wav",
+            duration_sec: 3.2,
           },
         },
-      }),
-      predict: vi.fn().mockResolvedValue({
-        data: [
-          {
-            audio: {
-              path: "/file=/tmp/generated.wav",
-              duration_sec: 3.2,
+      ],
+    });
+
+    const viewApi = vi.fn().mockResolvedValue({
+      named_endpoints: {
+        "/generate_audio": {
+          parameters: [
+            { parameter_name: "prompt", label: "Prompt" },
+            { parameter_name: "voice", label: "Voice" },
+            { parameter_name: "speed", label: "Speed" },
+            { parameter_name: "seed", label: "Seed" },
+            { parameter_name: "", label: "State" },
+            {
+              parameter_name: "internal_state",
+              label: "Internal State",
+              hidden: true,
+              component: "state",
             },
-          },
+          ],
+        },
+      },
+    });
+
+    mockConnect.mockResolvedValue({
+      view_api: viewApi,
+      predict,
+      config: {
+        components: [
+          { id: 1, type: "textbox" },
+          { id: 2, type: "audio" },
         ],
-      }),
+        dependencies: [
+          { api_name: "/toggle_mode", outputs: [] },
+          { api_name: "/voice_clone", outputs: [2] },
+          { api_name: "/predict", outputs: [] },
+        ],
+      },
     });
 
     const fetchMock = vi
@@ -116,6 +138,13 @@ describe("hfSpaceAudioAdapter", () => {
       "https://leey00nsu-qwen-3.5-tts-faster-gradio.hf.space/gradio_api/file=/tmp/generated.wav",
       expect.objectContaining({})
     );
+    expect(predict).toHaveBeenCalledWith("/generate_audio", {
+      prompt: "hello",
+      voice: "alloy",
+      speed: 1.25,
+      seed: 42,
+    });
+    expect(viewApi).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       audios: ["data:audio/wav;base64,UklGRg=="],
       meta: { duration_sec: 3.2 },
@@ -491,5 +520,258 @@ describe("hfSpaceAudioAdapter", () => {
       audios: ["data:audio/wav;base64,UklGRg=="],
       meta: { duration_sec: undefined },
     });
+  });
+
+  it("stale api_name을 retryable endpoint/parameter 오류를 거쳐 실제 생성 endpoint로 fallback한다", async () => {
+    const predict = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("api_name /toggle_mode not found"))
+      .mockRejectedValueOnce(
+        new Error("unexpected keyword argument 'ref_audio_path'"),
+      )
+      .mockResolvedValueOnce({
+        data: [
+          {
+            audio: {
+              path: "/file=/tmp/generated.wav",
+              duration_sec: 4.1,
+            },
+          },
+        ],
+      });
+
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-stale",
+        label: "Qwen TTS Stale",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/toggle_mode",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: false,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    const viewApi = vi.fn().mockResolvedValue({
+      named_endpoints: {
+        "/toggle_mode": {
+          parameters: [{ parameter_name: "mode", label: "Mode" }],
+        },
+        "/voice_clone": {
+          parameters: [
+            { parameter_name: "text", label: "Text" },
+            { parameter_name: "ref_audio_path", label: "Reference Audio" },
+          ],
+        },
+        "/predict": {
+          parameters: [{ parameter_name: "prompt", label: "Prompt" }],
+        },
+      },
+    });
+
+    mockConnect.mockResolvedValue({
+      view_api: viewApi,
+      predict,
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ stage: "RUNNING" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "audio/wav" }),
+        arrayBuffer: async () => Uint8Array.from([82, 73, 70, 70]).buffer,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    const result = await hfSpaceAudioAdapter.generate({
+      prompt: "hello",
+      model: "qwen-tts-stale",
+      speed: 1,
+    });
+
+    expect(predict).toHaveBeenNthCalledWith(1, "/toggle_mode", expect.any(Object));
+    expect(predict).toHaveBeenNthCalledWith(2, "/voice_clone", expect.any(Object));
+    expect(predict).toHaveBeenNthCalledWith(3, "/predict", expect.any(Object));
+    expect(viewApi).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      audios: ["data:audio/wav;base64,UklGRg=="],
+      meta: { duration_sec: 4.1 },
+    });
+  });
+
+  it("view_api 조회가 실패해도 저장된 api_name으로 기존 payload fallback을 유지한다", async () => {
+    const predict = vi.fn().mockResolvedValue({
+      data: [
+        {
+          audio: {
+            path: "/file=/tmp/generated.wav",
+            duration_sec: 2.4,
+          },
+        },
+      ],
+    });
+
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-view-api-down",
+        label: "Qwen TTS View API Down",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/generate_audio",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: false,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    const viewApi = vi.fn().mockRejectedValue(new Error("view_api unavailable"));
+
+    mockConnect.mockResolvedValue({
+      view_api: viewApi,
+      predict,
+      config: {
+        components: [],
+        dependencies: [],
+      },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ stage: "RUNNING" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "audio/wav" }),
+        arrayBuffer: async () => Uint8Array.from([82, 73, 70, 70]).buffer,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    const result = await hfSpaceAudioAdapter.generate({
+      prompt: "hello",
+      model: "qwen-tts-view-api-down",
+      voice: "alloy",
+      speed: 1.25,
+      seed: "42",
+    });
+
+    expect(viewApi).toHaveBeenCalledTimes(1);
+    expect(predict).toHaveBeenCalledTimes(1);
+    expect(predict).toHaveBeenCalledWith("/generate_audio", {
+      prompt: "hello",
+      voice: "alloy",
+      speed: 1.25,
+      seed: 42,
+    });
+    expect(result).toEqual({
+      audios: ["data:audio/wav;base64,UklGRg=="],
+      meta: { duration_sec: 2.4 },
+    });
+  });
+
+  it("생성 응답에서 오디오를 찾지 못하면 HF_SPACE_RESPONSE_INVALID를 반환한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-response-mismatch",
+        label: "Qwen TTS Response Mismatch",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/run_generation",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: false,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/run_generation": {
+            parameters: [{ parameter_name: "text", label: "Text" }],
+          },
+        },
+      }),
+      predict: vi.fn().mockResolvedValue({
+        data: [
+          {
+            message: "ok",
+          },
+        ],
+      }),
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ stage: "RUNNING" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    await expect(
+      hfSpaceAudioAdapter.generate({
+        prompt: "hello",
+        model: "qwen-tts-response-mismatch",
+        speed: 1,
+      }),
+    ).rejects.toThrow("HF_SPACE_RESPONSE_INVALID");
   });
 });

@@ -120,6 +120,25 @@ function normalizeKey(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "");
 }
 
+function hasAudioEndpointSignal(endpoint: EndpointInfo | undefined) {
+  const parameters = endpoint?.parameters ?? [];
+  return parameters.some((parameter) => {
+    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
+    return (
+      target.includes("reference audio") ||
+      target.includes("ref audio") ||
+      target.includes("ref_audio") ||
+      target.includes("input audio") ||
+      target.includes("input_audio") ||
+      target.includes("voice") ||
+      target.includes("speaker") ||
+      target.includes("spk") ||
+      target.includes("speed") ||
+      target.includes("rate")
+    );
+  });
+}
+
 function resolveParamKey(label?: string, paramName?: string, type?: string) {
   const target = `${label ?? ""} ${paramName ?? ""}`.toLowerCase();
   if (
@@ -343,6 +362,7 @@ function scoreEndpoint(
   let score = 0;
 
   if (outputTypes.some((type) => type.includes("audio"))) score += 10;
+  if (hasAudioEndpointSignal(endpoint)) score += 10;
   if (
     normalizedName.includes("run") ||
     normalizedName.includes("generate") ||

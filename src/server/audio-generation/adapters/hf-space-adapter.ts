@@ -41,6 +41,8 @@ type EndpointParameter = {
   parameter_name?: string;
   label?: string;
   parameter_default?: unknown;
+  hidden?: boolean;
+  component?: string;
 };
 
 type EndpointInfo = {
@@ -49,6 +51,21 @@ type EndpointInfo = {
 
 type ViewApiResponse = {
   named_endpoints?: Record<string, EndpointInfo>;
+};
+
+type ClientConfigComponent = {
+  id?: number;
+  type?: string;
+};
+
+type ClientConfigDependency = {
+  api_name?: string;
+  outputs?: number[];
+};
+
+type ClientConfigSnapshot = {
+  components?: ClientConfigComponent[];
+  dependencies?: ClientConfigDependency[];
 };
 
 const clientCache = new Map<string, Promise<Client>>();
@@ -253,16 +270,173 @@ function parseSeed(seed?: string) {
   return { seedValue: isValid ? parsed : 0, randomize: !isValid };
 }
 
-async function getEndpointInfo(client: Client, apiName: string) {
-  const apiInfo = (await client
-    .view_api()
-    .catch(() => null)) as ViewApiResponse | null;
+function getEndpointInfoFromSnapshot(
+  apiInfo: ViewApiResponse | null,
+  apiName: string,
+) {
   if (!apiInfo?.named_endpoints) return null;
   return (
     apiInfo.named_endpoints[apiName] ??
     apiInfo.named_endpoints[apiName.replace(/^\//, "")] ??
     null
   );
+}
+
+function resolveComponentType(component?: ClientConfigComponent | null) {
+  const raw = component?.type ?? "";
+  return typeof raw === "string" ? raw.toLowerCase() : "";
+}
+
+function normalizeApiKey(apiName: string) {
+  return normalizeApiName(apiName);
+}
+
+function hasAudioEndpointSignal(endpoint: EndpointInfo | undefined) {
+  const parameters = endpoint?.parameters ?? [];
+  return parameters.some((parameter) => {
+    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
+    return (
+      target.includes("reference audio") ||
+      target.includes("ref audio") ||
+      target.includes("ref_audio") ||
+      target.includes("input audio") ||
+      target.includes("input_audio") ||
+      target.includes("voice") ||
+      target.includes("speaker") ||
+      target.includes("spk") ||
+      target.includes("speed") ||
+      target.includes("rate")
+    );
+  });
+}
+
+function buildOutputTypesByApiName(config: ClientConfigSnapshot | null | undefined) {
+  const componentsById = new Map(
+    (config?.components ?? []).map((component) => [component.id, component]),
+  );
+  const outputTypesByApiName = new Map<string, string[]>();
+
+  for (const dependency of config?.dependencies ?? []) {
+    const apiName = normalizeApiKey(dependency.api_name ?? "");
+    const outputTypes = (dependency.outputs ?? [])
+      .map((id) => componentsById.get(id))
+      .map((component) => resolveComponentType(component))
+      .filter(Boolean);
+    outputTypesByApiName.set(apiName, outputTypes);
+  }
+
+  return outputTypesByApiName;
+}
+
+function scoreEndpointCandidate(
+  apiName: string,
+  endpoint: EndpointInfo | undefined,
+  outputTypes: string[],
+) {
+  const normalizedName = apiName.toLowerCase();
+  const parameters = endpoint?.parameters ?? [];
+  let score = 0;
+
+  if (outputTypes.some((type) => type.includes("audio"))) {
+    score += 10;
+  }
+  if (hasAudioEndpointSignal(endpoint)) {
+    score += 10;
+  }
+  if (
+    normalizedName.includes("run") ||
+    normalizedName.includes("generate") ||
+    normalizedName.includes("predict") ||
+    normalizedName.includes("synth")
+  ) {
+    score += 10;
+  }
+  if (
+    normalizedName.includes("toggle") ||
+    normalizedName.includes("refresh") ||
+    normalizedName.includes("load")
+  ) {
+    score -= 10;
+  }
+
+  for (const parameter of parameters) {
+    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
+    if (target.includes("prompt") || target.includes("text")) score += 2;
+    if (
+      target.includes("reference audio") ||
+      target.includes("ref audio") ||
+      target.includes("ref_audio")
+    ) {
+      score += 4;
+    }
+  }
+
+  return score;
+}
+
+function resolveApiCandidates(
+  apiInfo: ViewApiResponse | null,
+  requestedApiName: string,
+  outputTypesByApiName?: Map<string, string[]>,
+) {
+  const namedEndpoints = apiInfo?.named_endpoints ?? {};
+  const entries = Object.entries(namedEndpoints);
+  if (!entries.length) {
+    return [normalizeApiName(requestedApiName)];
+  }
+
+  const normalizedRequested = normalizeApiName(requestedApiName);
+  const scoredCandidates = entries
+    .map(([name, endpoint]) => ({
+      name,
+      score: scoreEndpointCandidate(
+        name,
+        endpoint,
+        outputTypesByApiName?.get(normalizeApiKey(name)) ?? [],
+      ),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const ordered: string[] = [];
+  const requestedCandidate = scoredCandidates.find(
+    ({ name }) => normalizeApiName(name) === normalizedRequested,
+  );
+  if (requestedCandidate) {
+    ordered.push(requestedCandidate.name);
+  }
+
+  for (const candidate of scoredCandidates) {
+    if (!ordered.includes(candidate.name)) {
+      ordered.push(candidate.name);
+    }
+  }
+
+  return ordered;
+}
+
+function classifyPredictError(error: unknown) {
+  const message = extractErrorText(error).toLowerCase();
+  if (!message) return null;
+
+  const parameterIndicators = [
+    "unexpected keyword",
+    "unknown argument",
+    "missing required positional argument",
+    "missing 1 required positional argument",
+    "got multiple values",
+    "invalid parameter",
+    "required argument",
+  ];
+  if (parameterIndicators.some((indicator) => message.includes(indicator))) {
+    return "HF_SPACE_PARAMETER_INVALID";
+  }
+
+  const endpointIndicators = ["api_name", "endpoint", "function", "not found", "404"];
+  if (endpointIndicators.some((indicator) => message.includes(indicator))) {
+    return "HF_SPACE_ENDPOINT_INVALID";
+  }
+
+  return null;
 }
 
 function normalizeLookupKey(parameter: EndpointParameter) {
@@ -384,16 +558,34 @@ function resolveParamValue(
   return parameter.parameter_default;
 }
 
-async function buildRequestPayload(
-  client: Client,
+function buildRequestPayload(
+  apiInfo: ViewApiResponse | null,
   apiName: string,
   payload: AudioGenerationFormValues,
   defaults: ReturnType<typeof resolveRuntimeAudioDefaults>,
   speed: number,
   seed: { seedValue: number; randomize: boolean },
 ) {
-  const endpoint = await getEndpointInfo(client, apiName);
-  const parameters = endpoint?.parameters;
+  const endpoint = getEndpointInfoFromSnapshot(apiInfo, apiName);
+  const parameters =
+    endpoint?.parameters?.filter(
+      (parameter) => {
+        const parameterName =
+          typeof parameter.parameter_name === "string"
+            ? parameter.parameter_name.trim()
+            : "";
+        const component =
+          typeof parameter.component === "string"
+            ? parameter.component.trim().toLowerCase()
+            : "";
+
+        return (
+          parameterName.length > 0 &&
+          parameter.hidden !== true &&
+          component !== "state"
+        );
+      },
+    ) ?? [];
 
   if (!parameters?.length) {
     const fallbackPayload: Record<string, unknown> = {
@@ -459,11 +651,8 @@ async function buildRequestPayload(
 
   const requestPayload: Record<string, unknown> = {};
 
-  parameters.forEach((parameter, index) => {
-    const key =
-      typeof parameter.parameter_name === "string" && parameter.parameter_name.trim()
-        ? parameter.parameter_name
-        : `param_${index}`;
+  parameters.forEach((parameter) => {
+    const key = parameter.parameter_name!.trim();
 
     requestPayload[key] = resolveParamValue(
       parameter,
@@ -607,6 +796,12 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
     if (lower === "hf_space_response_invalid") {
       return "HF Space 응답에서 오디오 결과를 찾지 못했습니다.";
     }
+    if (lower === "hf_space_endpoint_invalid") {
+      return "HF Space 생성 엔드포인트를 찾지 못했습니다. 모델 구성을 다시 가져오세요.";
+    }
+    if (lower === "hf_space_parameter_invalid") {
+      return "HF Space 입력 파라미터가 현재 엔드포인트와 맞지 않습니다. 모델 구성을 다시 가져오세요.";
+    }
     if (lower === "hf_space_config_invalid") {
       return "오디오 모델 설정이 올바르지 않습니다.";
     }
@@ -665,82 +860,104 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
     const { config, model } = await getSpaceConfig(payload.model);
     await ensureSpaceRunning(config);
     const client = await getClient(config);
+    const apiInfo = (await client.view_api().catch(() => null)) as ViewApiResponse | null;
+    const outputTypesByApiName = buildOutputTypesByApiName(
+      (client as Client & { config?: ClientConfigSnapshot }).config,
+    );
 
     const defaults = resolveRuntimeAudioDefaults(model);
     const speedRange = getRuntimeAudioParamRange(model, "speed");
     const speed = clampNumber(payload.speed ?? defaults.speed, speedRange);
     const seed = parseSeed(payload.seed);
-    const apiName = normalizeApiName(config.apiName || "/generate_audio");
-
-    const requestPayload = await buildRequestPayload(
-      client,
-      apiName,
-      payload,
-      defaults,
-      speed,
-      seed,
+    const apiCandidates = resolveApiCandidates(
+      apiInfo,
+      config.apiName || "/generate_audio",
+      outputTypesByApiName,
     );
 
-    const predictPromise = client.predict(apiName, requestPayload);
+    let lastRetryableError: Error | null = null;
 
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error("HF_SPACE_REQUEST_TIMEOUT")),
-        config.timeoutMs,
+    for (const apiName of apiCandidates) {
+      const requestPayload = buildRequestPayload(
+        apiInfo,
+        apiName,
+        payload,
+        defaults,
+        speed,
+        seed,
       );
-    });
 
-    let result: Awaited<typeof predictPromise>;
-    try {
-      result = await Promise.race([predictPromise, timeoutPromise]);
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    }
+      const predictPromise = client.predict(apiName, requestPayload);
 
-    const rawData = Array.isArray(result?.data) ? result.data : result;
-    const audioGroups = resolveHfSpaceFileReferenceCandidates(rawData, {
-      spaceUrl: config.spaceUrl,
-      matcher: looksLikeAudioPath,
-      maxDepth: 4,
-    });
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("HF_SPACE_REQUEST_TIMEOUT")),
+          config.timeoutMs,
+        );
+      });
 
-    if (audioGroups.length === 0) {
-      throw new Error("HF_SPACE_RESPONSE_INVALID");
-    }
-
-    const dataUrls: string[] = [];
-    for (const group of audioGroups) {
-      let lastError: Error | null = null;
-      let resolvedDataUrl: string | null = null;
-
-      for (const candidate of group.candidates) {
-        try {
-          resolvedDataUrl = await fetchAudioDataUrl(
-            candidate,
-            config.spaceUrl,
-            Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS),
-          );
-          break;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
+      let result: Awaited<typeof predictPromise>;
+      try {
+        result = await Promise.race([predictPromise, timeoutPromise]);
+      } catch (error) {
+        const classified = classifyPredictError(error);
+        if (classified) {
+          lastRetryableError = new Error(classified);
+          continue;
+        }
+        throw error;
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
         }
       }
 
-      if (!resolvedDataUrl) {
-        throw lastError ?? new Error("HF_SPACE_AUDIO_FETCH_FAILED");
+      const rawData = Array.isArray(result?.data) ? result.data : result;
+      const audioGroups = resolveHfSpaceFileReferenceCandidates(rawData, {
+        spaceUrl: config.spaceUrl,
+        matcher: looksLikeAudioPath,
+        maxDepth: 4,
+      });
+
+      if (audioGroups.length === 0) {
+        lastRetryableError = new Error("HF_SPACE_RESPONSE_INVALID");
+        continue;
       }
 
-      dataUrls.push(resolvedDataUrl);
+      const dataUrls: string[] = [];
+      for (const group of audioGroups) {
+        let lastError: Error | null = null;
+        let resolvedDataUrl: string | null = null;
+
+        for (const candidate of group.candidates) {
+          try {
+            resolvedDataUrl = await fetchAudioDataUrl(
+              candidate,
+              config.spaceUrl,
+              Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS),
+            );
+            break;
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+          }
+        }
+
+        if (!resolvedDataUrl) {
+          throw lastError ?? new Error("HF_SPACE_AUDIO_FETCH_FAILED");
+        }
+
+        dataUrls.push(resolvedDataUrl);
+      }
+
+      return {
+        audios: dataUrls,
+        meta: {
+          duration_sec: extractDurationSec(rawData),
+        },
+      };
     }
 
-    return {
-      audios: dataUrls,
-      meta: {
-        duration_sec: extractDurationSec(rawData),
-      },
-    };
+    throw lastRetryableError ?? new Error("HF_SPACE_API_NOT_FOUND");
   },
 };
