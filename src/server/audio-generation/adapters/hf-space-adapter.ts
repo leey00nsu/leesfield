@@ -6,6 +6,7 @@ import {
   resolveHfSpaceFileReferenceCandidates,
   resolveHfSpaceFileReference,
 } from "@/server/hf-space/file-reference-resolver";
+import { scoreEndpointCandidate } from "@/server/hf-space/endpoint-scoring";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { AudioModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import {
@@ -291,25 +292,6 @@ function normalizeApiKey(apiName: string) {
   return normalizeApiName(apiName);
 }
 
-function hasAudioEndpointSignal(endpoint: EndpointInfo | undefined) {
-  const parameters = endpoint?.parameters ?? [];
-  return parameters.some((parameter) => {
-    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
-    return (
-      target.includes("reference audio") ||
-      target.includes("ref audio") ||
-      target.includes("ref_audio") ||
-      target.includes("input audio") ||
-      target.includes("input_audio") ||
-      target.includes("voice") ||
-      target.includes("speaker") ||
-      target.includes("spk") ||
-      target.includes("speed") ||
-      target.includes("rate")
-    );
-  });
-}
-
 function buildOutputTypesByApiName(config: ClientConfigSnapshot | null | undefined) {
   const componentsById = new Map(
     (config?.components ?? []).map((component) => [component.id, component]),
@@ -326,52 +308,6 @@ function buildOutputTypesByApiName(config: ClientConfigSnapshot | null | undefin
   }
 
   return outputTypesByApiName;
-}
-
-function scoreEndpointCandidate(
-  apiName: string,
-  endpoint: EndpointInfo | undefined,
-  outputTypes: string[],
-) {
-  const normalizedName = apiName.toLowerCase();
-  const parameters = endpoint?.parameters ?? [];
-  let score = 0;
-
-  if (outputTypes.some((type) => type.includes("audio"))) {
-    score += 10;
-  }
-  if (hasAudioEndpointSignal(endpoint)) {
-    score += 10;
-  }
-  if (
-    normalizedName.includes("run") ||
-    normalizedName.includes("generate") ||
-    normalizedName.includes("predict") ||
-    normalizedName.includes("synth")
-  ) {
-    score += 10;
-  }
-  if (
-    normalizedName.includes("toggle") ||
-    normalizedName.includes("refresh") ||
-    normalizedName.includes("load")
-  ) {
-    score -= 10;
-  }
-
-  for (const parameter of parameters) {
-    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
-    if (target.includes("prompt") || target.includes("text")) score += 2;
-    if (
-      target.includes("reference audio") ||
-      target.includes("ref audio") ||
-      target.includes("ref_audio")
-    ) {
-      score += 4;
-    }
-  }
-
-  return score;
 }
 
 function resolveApiCandidates(
@@ -423,11 +359,17 @@ function classifyPredictError(error: unknown) {
     "unknown argument",
     "missing required positional argument",
     "missing 1 required positional argument",
+    "positional argument",
     "got multiple values",
     "invalid parameter",
     "required argument",
   ];
-  if (parameterIndicators.some((indicator) => message.includes(indicator))) {
+  const positionalArgumentPattern =
+    /takes .* positional arguments?.* (was|were) given/;
+  if (
+    parameterIndicators.some((indicator) => message.includes(indicator)) ||
+    positionalArgumentPattern.test(message)
+  ) {
     return "HF_SPACE_PARAMETER_INVALID";
   }
 
