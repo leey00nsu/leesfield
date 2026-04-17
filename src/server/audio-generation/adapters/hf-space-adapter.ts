@@ -299,7 +299,11 @@ function buildOutputTypesByApiName(config: ClientConfigSnapshot | null | undefin
   const outputTypesByApiName = new Map<string, string[]>();
 
   for (const dependency of config?.dependencies ?? []) {
-    const apiName = normalizeApiKey(dependency.api_name ?? "");
+    const rawApiName = dependency.api_name?.trim();
+    if (!rawApiName) {
+      continue;
+    }
+    const apiName = normalizeApiKey(rawApiName);
     const outputTypes = (dependency.outputs ?? [])
       .map((id) => componentsById.get(id))
       .map((component) => resolveComponentType(component))
@@ -373,8 +377,16 @@ function classifyPredictError(error: unknown) {
     return "HF_SPACE_PARAMETER_INVALID";
   }
 
-  const endpointIndicators = ["api_name", "endpoint", "function", "not found", "404"];
-  if (endpointIndicators.some((indicator) => message.includes(indicator))) {
+  const endpointPatterns = [
+    /\b404\b/,
+    /api_name .* not found/,
+    /unknown api[_ ]?name/,
+    /not a valid api[_ ]?name/,
+    /no endpoint named/,
+    /no function named/,
+    /endpoint .* not found/,
+  ];
+  if (endpointPatterns.some((pattern) => pattern.test(message))) {
     return "HF_SPACE_ENDPOINT_INVALID";
   }
 
@@ -900,6 +912,9 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
       };
     }
 
-    throw lastRetryableError ?? new Error("HF_SPACE_API_NOT_FOUND");
+    if (lastRetryableError) {
+      throw lastRetryableError;
+    }
+    throw new Error("HF_SPACE_RESPONSE_INVALID");
   },
 };

@@ -627,6 +627,99 @@ describe("hfSpaceAudioAdapter", () => {
     });
   });
 
+  it("빈 dependency api_name은 output scoring에 반영하지 않고 명시된 audio endpoint를 우선 선택한다", async () => {
+    const predict = vi.fn().mockResolvedValue({
+      data: [
+        {
+          audio: {
+            path: "/file=/tmp/generated.wav",
+            duration_sec: 1.9,
+          },
+        },
+      ],
+    });
+
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-missing-dependency-api-name",
+        label: "Qwen TTS Missing Dependency API Name",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/stale_endpoint",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: false,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    const viewApi = vi.fn().mockResolvedValue({
+      named_endpoints: {
+        "/generate_audio": {
+          parameters: [{ parameter_name: "text", label: "Text" }],
+        },
+        "/run_generation": {
+          parameters: [{ parameter_name: "text", label: "Text" }],
+        },
+      },
+    });
+
+    mockConnect.mockResolvedValue({
+      view_api: viewApi,
+      predict,
+      config: {
+        components: [{ id: 1, type: "audio" }],
+        dependencies: [
+          { api_name: "", outputs: [1] },
+          { api_name: "/run_generation", outputs: [1] },
+        ],
+      },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ stage: "RUNNING" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "audio/wav" }),
+        arrayBuffer: async () => Uint8Array.from([82, 73, 70, 70]).buffer,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    const result = await hfSpaceAudioAdapter.generate({
+      prompt: "hello",
+      model: "qwen-tts-missing-dependency-api-name",
+      speed: 1,
+    });
+
+    expect(predict).toHaveBeenCalledTimes(1);
+    expect(predict).toHaveBeenNthCalledWith(1, "/run_generation", expect.any(Object));
+    expect(result).toEqual({
+      audios: ["data:audio/wav;base64,UklGRg=="],
+      meta: { duration_sec: 1.9 },
+    });
+  });
+
   it("Python positional argument TypeError도 retryable parameter 오류로 분류해 다음 endpoint로 fallback한다", async () => {
     const predict = vi
       .fn()
@@ -724,6 +817,88 @@ describe("hfSpaceAudioAdapter", () => {
       audios: ["data:audio/wav;base64,UklGRg=="],
       meta: { duration_sec: 2.7 },
     });
+  });
+
+  it("generic function 오류는 endpoint invalid로 오인하지 않고 원래 오류를 유지한다", async () => {
+    const predict = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("function execution failed during inference"))
+      .mockResolvedValueOnce({
+        data: [
+          {
+            audio: {
+              path: "/file=/tmp/generated.wav",
+              duration_sec: 2.2,
+            },
+          },
+        ],
+      });
+
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-model-1",
+        type: "audio",
+        key: "qwen-tts-generic-function-error",
+        label: "Qwen TTS Generic Function Error",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          api_name: "/voice_clone",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          model_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: false,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/voice_clone": {
+            parameters: [{ parameter_name: "text", label: "Text" }],
+          },
+          "/predict": {
+            parameters: [{ parameter_name: "prompt", label: "Prompt" }],
+          },
+        },
+      }),
+      predict,
+      config: {
+        components: [{ id: 1, type: "audio" }],
+        dependencies: [{ api_name: "/predict", outputs: [1] }],
+      },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ stage: "RUNNING" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    await expect(
+      hfSpaceAudioAdapter.generate({
+        prompt: "hello",
+        model: "qwen-tts-generic-function-error",
+        speed: 1,
+      }),
+    ).rejects.toThrow("function execution failed during inference");
+
+    expect(predict).toHaveBeenCalledTimes(1);
+    expect(predict).toHaveBeenNthCalledWith(1, "/voice_clone", expect.any(Object));
   });
 
   it("view_api 조회가 실패해도 저장된 api_name으로 기존 payload fallback을 유지한다", async () => {

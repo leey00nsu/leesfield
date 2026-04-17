@@ -12,7 +12,19 @@ export function hasAudioEndpointSignal(
 ) {
   const parameters = endpoint?.parameters ?? [];
   return parameters.some((parameter) => {
-    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
+    const rawTargets = [parameter.parameter_name ?? "", parameter.label ?? ""]
+      .map((value) => value.toLowerCase().trim())
+      .filter(Boolean);
+    const normalizedTargets = rawTargets.map((value) => value.replace(/[_-]+/g, " "));
+    const tokenLists = normalizedTargets.map((value) =>
+      value.split(/[^a-z0-9]+/).filter(Boolean),
+    );
+    const hasSpeedSignal = tokenLists.some((tokens) => tokens.includes("speed"));
+    const hasStandaloneRate = normalizedTargets.some((value) => value === "rate");
+    const hasExplicitAudioRate = normalizedTargets.some((value) =>
+      /\b(audio|speech|voice)\s+rate\b/.test(value),
+    );
+    const target = normalizedTargets.join(" ");
     return (
       target.includes("reference audio") ||
       target.includes("ref audio") ||
@@ -22,8 +34,9 @@ export function hasAudioEndpointSignal(
       target.includes("voice") ||
       target.includes("speaker") ||
       target.includes("spk") ||
-      target.includes("speed") ||
-      target.includes("rate")
+      hasSpeedSignal ||
+      hasStandaloneRate ||
+      hasExplicitAudioRate
     );
   });
 }
