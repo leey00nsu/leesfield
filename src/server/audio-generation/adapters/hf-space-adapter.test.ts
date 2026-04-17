@@ -124,9 +124,14 @@ describe("hfSpaceAudioAdapter", () => {
       seed: "42",
     });
 
+    const expectedToken =
+      process.env.HF_TOKEN?.trim() ||
+      process.env.HUGGINGFACEHUB_API_TOKEN?.trim() ||
+      undefined;
+
     expect(mockConnect).toHaveBeenCalledWith(
       "leey00nsu/qwen-3.5-tts-faster-gradio",
-      { token: undefined },
+      { token: expectedToken },
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
