@@ -412,7 +412,11 @@ export async function importModelDraftFromSpace(
     outputTypesByApiName.set(apiName, outputTypes);
   }
 
+  const warnings: string[] = [];
   const requested = payload.apiName ? normalizeApiName(payload.apiName) : "";
+  if (requested && !apiNames.includes(requested)) {
+    warnings.push(`UNKNOWN_REQUESTED_API_NAME:${requested}`);
+  }
   const resolvedApiName =
     requested && apiNames.includes(requested)
         ? requested
@@ -444,7 +448,6 @@ export async function importModelDraftFromSpace(
   const outputTypes = outputTypesByApiName.get(resolvedApiName) ?? [];
 
   const parameters: Record<string, ParameterConfig> = {};
-  const warnings: string[] = [];
   let hasVideoParam = false;
   let hasAudioParam = false;
   let hasImageInput = false;

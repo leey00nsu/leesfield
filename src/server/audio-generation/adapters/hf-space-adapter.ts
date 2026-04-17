@@ -399,6 +399,48 @@ function normalizeLookupKey(parameter: EndpointParameter) {
     .replace(/[_\-]+/g, " ");
 }
 
+function resolveRequestParameterKey(parameter: EndpointParameter) {
+  const parameterName =
+    typeof parameter.parameter_name === "string"
+      ? parameter.parameter_name.trim()
+      : "";
+  if (parameterName.length > 0) {
+    return parameterName;
+  }
+
+  return typeof parameter.label === "string" ? parameter.label.trim() : "";
+}
+
+function getRetryableErrorPriority(message: string) {
+  switch (message) {
+    case "HF_SPACE_PARAMETER_INVALID":
+      return 3;
+    case "HF_SPACE_ENDPOINT_INVALID":
+      return 2;
+    case "HF_SPACE_RESPONSE_INVALID":
+      return 1;
+    case "HF_SPACE_REQUEST_TIMEOUT":
+      return 0;
+    default:
+      return -1;
+  }
+}
+
+function keepMoreSpecificRetryableError(
+  current: Error | null,
+  nextMessage: string,
+) {
+  const next = new Error(nextMessage);
+  if (!current) {
+    return next;
+  }
+
+  return getRetryableErrorPriority(next.message) >
+      getRetryableErrorPriority(current.message)
+    ? next
+    : current;
+}
+
 function resolveParamValue(
   parameter: EndpointParameter,
   payload: AudioGenerationFormValues,
@@ -524,17 +566,14 @@ function buildRequestPayload(
   const parameters =
     endpoint?.parameters?.filter(
       (parameter) => {
-        const parameterName =
-          typeof parameter.parameter_name === "string"
-            ? parameter.parameter_name.trim()
-            : "";
         const component =
           typeof parameter.component === "string"
             ? parameter.component.trim().toLowerCase()
             : "";
+        const requestKey = resolveRequestParameterKey(parameter);
 
         return (
-          parameterName.length > 0 &&
+          requestKey.length > 0 &&
           parameter.hidden !== true &&
           component !== "state"
         );
@@ -606,7 +645,7 @@ function buildRequestPayload(
   const requestPayload: Record<string, unknown> = {};
 
   parameters.forEach((parameter) => {
-    const key = parameter.parameter_name!.trim();
+    const key = resolveRequestParameterKey(parameter);
 
     requestPayload[key] = resolveParamValue(
       parameter,
@@ -857,7 +896,10 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
       } catch (error) {
         const classified = classifyPredictError(error);
         if (classified) {
-          lastRetryableError = new Error(classified);
+          lastRetryableError = keepMoreSpecificRetryableError(
+            lastRetryableError,
+            classified,
+          );
           continue;
         }
         throw error;
@@ -875,7 +917,10 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
       });
 
       if (audioGroups.length === 0) {
-        lastRetryableError = new Error("HF_SPACE_RESPONSE_INVALID");
+        lastRetryableError = keepMoreSpecificRetryableError(
+          lastRetryableError,
+          "HF_SPACE_RESPONSE_INVALID",
+        );
         continue;
       }
 
