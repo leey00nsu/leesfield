@@ -1,5 +1,8 @@
 import { Client } from "@gradio/client";
 import {
+  scoreEndpointCandidate,
+} from "@/server/hf-space/endpoint-scoring";
+import {
   normalizeRuntimeParameterOptions,
   type RuntimeParameterOptionInput,
 } from "@/shared/model-catalog/parameter-options";
@@ -333,47 +336,6 @@ function getDefaultFromParam(param?: ParameterConfig) {
   return param?.default;
 }
 
-function scoreEndpoint(
-  apiName: string,
-  endpoint: EndpointInfo | undefined,
-  outputTypes: string[],
-) {
-  const normalizedName = apiName.toLowerCase();
-  const parameters = endpoint?.parameters ?? [];
-  let score = 0;
-
-  if (outputTypes.some((type) => type.includes("audio"))) score += 10;
-  if (
-    normalizedName.includes("run") ||
-    normalizedName.includes("generate") ||
-    normalizedName.includes("predict") ||
-    normalizedName.includes("synth")
-  ) {
-    score += 10;
-  }
-  if (
-    normalizedName.includes("toggle") ||
-    normalizedName.includes("refresh") ||
-    normalizedName.includes("load")
-  ) {
-    score -= 10;
-  }
-
-  for (const parameter of parameters) {
-    const target = `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`.toLowerCase();
-    if (target.includes("prompt") || target.includes("text")) score += 2;
-    if (
-      target.includes("reference audio") ||
-      target.includes("ref audio") ||
-      target.includes("ref_audio")
-    ) {
-      score += 4;
-    }
-  }
-
-  return score;
-}
-
 async function connectWithTimeout(
   spaceRef: string,
   clientOptions?: Parameters<typeof Client.connect>[1],
@@ -450,17 +412,21 @@ export async function importModelDraftFromSpace(
     outputTypesByApiName.set(apiName, outputTypes);
   }
 
+  const warnings: string[] = [];
   const requested = payload.apiName ? normalizeApiName(payload.apiName) : "";
+  if (requested && !apiNames.includes(requested)) {
+    warnings.push(`UNKNOWN_REQUESTED_API_NAME:${requested}`);
+  }
   const resolvedApiName =
     requested && apiNames.includes(requested)
-      ? requested
-      : [...apiNames].sort((left, right) => {
-          const leftScore = scoreEndpoint(
+        ? requested
+        : [...apiNames].sort((left, right) => {
+          const leftScore = scoreEndpointCandidate(
             left,
             named[left] ?? named[left.replace(/^\//, "")],
             outputTypesByApiName.get(left) ?? [],
           );
-          const rightScore = scoreEndpoint(
+          const rightScore = scoreEndpointCandidate(
             right,
             named[right] ?? named[right.replace(/^\//, "")],
             outputTypesByApiName.get(right) ?? [],
@@ -482,7 +448,6 @@ export async function importModelDraftFromSpace(
   const outputTypes = outputTypesByApiName.get(resolvedApiName) ?? [];
 
   const parameters: Record<string, ParameterConfig> = {};
-  const warnings: string[] = [];
   let hasVideoParam = false;
   let hasAudioParam = false;
   let hasImageInput = false;

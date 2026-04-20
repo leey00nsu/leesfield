@@ -113,7 +113,7 @@ const defaultVideoProviderConfig = {
 
 const defaultAudioProviderConfig = {
   space_id: "owner/space",
-  api_name: "/generate_audio",
+  api_name: "/run_generation",
   timeout_ms: 300000,
 };
 

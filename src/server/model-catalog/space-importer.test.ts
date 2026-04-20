@@ -339,4 +339,58 @@ describe("importModelDraftFromSpace", () => {
       default: 1.1,
     });
   });
+
+  it("명시한 apiName이 없으면 UNKNOWN_REQUESTED_API_NAME warning을 남기고 점수 기반 fallback을 사용한다", async () => {
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/toggle_mode": {
+            parameters: [{ parameter_name: "mode", label: "Generation Mode" }],
+          },
+          "/run_generation": {
+            parameters: [
+              { parameter_name: "text", label: "Text" },
+              { parameter_name: "ref_audio_path", label: "Reference Audio" },
+            ],
+          },
+        },
+      }),
+      config: {
+        space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
+        title: "Faster Qwen3 TTS",
+        components: [
+          { id: 1, type: "textbox", props: { label: "Text", lines: 4 } },
+          { id: 2, type: "audio", props: { label: "Reference Audio" } },
+          { id: 3, type: "audio", props: { label: "Generated Audio" } },
+        ],
+        dependencies: [
+          {
+            api_name: "/toggle_mode",
+            inputs: [1],
+            outputs: [],
+          },
+          {
+            api_name: "/run_generation",
+            inputs: [1, 2],
+            outputs: [3],
+          },
+        ],
+      },
+    });
+
+    const { importModelDraftFromSpace } = await import(
+      "@/server/model-catalog/space-importer"
+    );
+
+    const result = await importModelDraftFromSpace({
+      spaceUrl:
+        "https://huggingface.co/spaces/leey00nsu/qwen-3.5-tts-faster-gradio",
+      apiName: "/missing_endpoint",
+    });
+
+    expect(result.resolvedApiName).toBe("/run_generation");
+    expect(result.warnings).toContain(
+      "UNKNOWN_REQUESTED_API_NAME:/missing_endpoint",
+    );
+  });
 });
