@@ -109,6 +109,7 @@ const codexCliConfigSchema = z
   .object({
     command: z.string().min(1),
     model_id: z.string().min(1),
+    agent_model: z.string().min(1).optional(),
     timeout_ms: z.number().int().positive().optional(),
   })
   .passthrough();

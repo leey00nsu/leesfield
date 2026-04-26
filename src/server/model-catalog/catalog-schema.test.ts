@@ -12,6 +12,7 @@ describe("model-catalog option normalization", () => {
       providerConfig: {
         command: "codex",
         model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
         timeout_ms: 300000,
       },
       parameters: {
@@ -28,7 +29,7 @@ describe("model-catalog option normalization", () => {
         default_height: 1024,
         default_steps: 1,
         concurrent_limit: 1,
-        max_input_images: 0,
+        max_input_images: 1,
       },
       isActive: true,
       isDefault: false,
@@ -80,6 +81,7 @@ describe("model-catalog option normalization", () => {
       providerConfig: {
         command: "codex",
         model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
       },
     });
 
@@ -97,6 +99,7 @@ describe("model-catalog option normalization", () => {
       providerConfig: {
         command: "codex",
         model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
       },
       parameters: {
         prompt: { ui: "textarea", required: true },
@@ -124,6 +127,7 @@ describe("model-catalog option normalization", () => {
       providerConfig: {
         command: "codex",
         model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
       },
       parameters: {
         prompt: { ui: "textarea", required: true },

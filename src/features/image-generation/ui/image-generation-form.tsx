@@ -208,12 +208,23 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       })
     : [];
   const showSizeControls =
-    widthConfig?.ui !== "hidden" || heightConfig?.ui !== "hidden";
-  const showSteps = stepsConfig?.ui !== "hidden";
-  const showModeChoice = modeConfig?.ui !== "hidden" && modeOptions.length > 0;
-  const showGuidanceScale = guidanceConfig?.ui !== "hidden";
-  const showPromptUpsampling = promptUpsamplingConfig?.ui !== "hidden";
-  const showSeed = seedConfig?.ui !== "hidden";
+    (Boolean(widthConfig) && widthConfig?.ui !== "hidden") ||
+    (Boolean(heightConfig) && heightConfig?.ui !== "hidden");
+  const showSteps = Boolean(stepsConfig) && stepsConfig?.ui !== "hidden";
+  const showModeChoice =
+    Boolean(modeConfig) && modeConfig?.ui !== "hidden" && modeOptions.length > 0;
+  const showGuidanceScale =
+    Boolean(guidanceConfig) && guidanceConfig?.ui !== "hidden";
+  const showPromptUpsampling =
+    Boolean(promptUpsamplingConfig) && promptUpsamplingConfig?.ui !== "hidden";
+  const showSeed = Boolean(seedConfig) && seedConfig?.ui !== "hidden";
+  const showSettingsPanel =
+    showSizeControls ||
+    showModeChoice ||
+    showSteps ||
+    showGuidanceScale ||
+    showPromptUpsampling ||
+    showSeed;
   const maxInputImages = resolveRuntimeImageMaxInputImages(activeRuntimeModel);
   const prevModeChoiceRef = useRef<string | null>(null);
   const hasInjectedInitImagesRef = useRef(false);
@@ -637,86 +648,87 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
             </div>
           </div>
 
-          <GenerationSettingsPanel
-            onReset={() => {
-              form.reset(resetDefaults);
-              resetInitImagePreviews();
-              reset();
-            }}
-          >
-            <div className="flex flex-col gap-8">
-              {showSizeControls && (
-                <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                    {tLabels("outputSize")}
-                  </span>
-                  <div className="grid grid-cols-2 gap-3">
-                    {widthConfig?.ui !== "hidden" && (
-                      <FormField
-                        control={form.control}
-                        name="width"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col gap-2">
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                              {tLabels("width")}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={widthRange.min}
-                                max={widthRange.max}
-                                step={widthRange.step}
-                                value={field.value}
-                                onChange={(event) =>
-                                  field.onChange(Number(event.target.value))
-                                }
-                                className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {heightConfig?.ui !== "hidden" && (
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col gap-2">
-                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                              {tLabels("height")}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={heightRange.min}
-                                max={heightRange.max}
-                                step={heightRange.step}
-                                value={field.value}
-                                onChange={(event) =>
-                                  field.onChange(Number(event.target.value))
-                                }
-                                className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between px-1 text-xs text-gray-500">
-                    <span>
-                      {tLabels("range", {
-                        min: widthRange.min,
-                        max: widthRange.max,
-                      })}
+          {showSettingsPanel && (
+            <GenerationSettingsPanel
+              onReset={() => {
+                form.reset(resetDefaults);
+                resetInitImagePreviews();
+                reset();
+              }}
+            >
+              <div className="flex flex-col gap-8">
+                {showSizeControls && (
+                  <div className="flex flex-col gap-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                      {tLabels("outputSize")}
                     </span>
-                    <span className="text-white">
-                      {width} × {height}
-                    </span>
+                    <div className="grid grid-cols-2 gap-3">
+                      {widthConfig?.ui !== "hidden" && (
+                        <FormField
+                          control={form.control}
+                          name="width"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2">
+                              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                                {tLabels("width")}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min={widthRange.min}
+                                  max={widthRange.max}
+                                  step={widthRange.step}
+                                  value={field.value}
+                                  onChange={(event) =>
+                                    field.onChange(Number(event.target.value))
+                                  }
+                                  className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                      {heightConfig?.ui !== "hidden" && (
+                        <FormField
+                          control={form.control}
+                          name="height"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2">
+                              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                                {tLabels("height")}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min={heightRange.min}
+                                  max={heightRange.max}
+                                  step={heightRange.step}
+                                  value={field.value}
+                                  onChange={(event) =>
+                                    field.onChange(Number(event.target.value))
+                                  }
+                                  className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between px-1 text-xs text-gray-500">
+                      <span>
+                        {tLabels("range", {
+                          min: widthRange.min,
+                          max: widthRange.max,
+                        })}
+                      </span>
+                      <span className="text-white">
+                        {width} × {height}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               <div className="h-px bg-white/5" />
 
@@ -862,42 +874,43 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
               <div className="h-px bg-white/5" />
 
-              {showSeed && (
-                <div className="flex flex-col gap-4">
-                  <FormField
-                    control={form.control}
-                    name="seed"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-2">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          {tLabels("seed")}
-                        </FormLabel>
-                        <FormControl>
-                          <div className="flex gap-2">
-                            <Input
-                              className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                              placeholder={tImage("seedPlaceholder")}
-                              {...field}
-                            />
-                            <Button
-                              type="button"
-                              variant="surface"
-                              size="icon-sm"
-                              onClick={handleRandomizeSeed}
-                              disabled={isGenerating}
-                              className="border-white/10 bg-surface-lighter text-gray-200 hover:border-primary hover:text-primary disabled:hover:border-white/10 disabled:hover:text-gray-500"
-                            >
-                              <Dice5 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-            </div>
-          </GenerationSettingsPanel>
+                {showSeed && (
+                  <div className="flex flex-col gap-4">
+                    <FormField
+                      control={form.control}
+                      name="seed"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col gap-2">
+                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                            {tLabels("seed")}
+                          </FormLabel>
+                          <FormControl>
+                            <div className="flex gap-2">
+                              <Input
+                                className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder={tImage("seedPlaceholder")}
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="surface"
+                                size="icon-sm"
+                                onClick={handleRandomizeSeed}
+                                disabled={isGenerating}
+                                className="border-white/10 bg-surface-lighter text-gray-200 hover:border-primary hover:text-primary disabled:hover:border-white/10 disabled:hover:text-gray-500"
+                              >
+                                <Dice5 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            </GenerationSettingsPanel>
+          )}
         </div>
       </form>
       <LoginGateDialog

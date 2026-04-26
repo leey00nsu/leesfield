@@ -139,6 +139,7 @@
       "provider_config": {
         "command": "codex",
         "model_id": "gpt-image-2",
+        "agent_model": "gpt-5.5",
         "timeout_ms": 300000
       },
       "parameters": {
@@ -168,7 +169,7 @@
           "default": 1
         },
         "seed": {
-          "ui": "input",
+          "ui": "hidden",
           "default": ""
         },
         "imageCount": {
@@ -182,7 +183,7 @@
       "default_height": 1024,
       "default_steps": 1,
       "concurrent_limit": 1,
-      "max_input_images": 0
+      "max_input_images": 1
     }
   ]
 }

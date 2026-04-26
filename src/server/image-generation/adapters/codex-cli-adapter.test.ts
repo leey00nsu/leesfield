@@ -51,6 +51,7 @@ function mockCatalog() {
       providerConfig: {
         command: "codex",
         model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
         timeout_ms: 300000,
       },
       parameters: {
@@ -62,7 +63,7 @@ function mockCatalog() {
         default_width: 1024,
         default_height: 1024,
         default_steps: 1,
-        max_input_images: 0,
+        max_input_images: 1,
       },
       isActive: true,
       isDefault: false,
@@ -170,12 +171,14 @@ describe("codexCliImageAdapter", () => {
     );
     expect(generationCall).toBeDefined();
     expect(generationCall?.[1]).not.toContain("--full-auto");
-    expect(generationCall?.[1]).not.toContain("--model");
+    expect(generationCall?.[1]).toContain("--model");
     expect(generationCall?.[1]).toEqual(
       expect.arrayContaining([
         "--ask-for-approval",
         "never",
         "exec",
+        "--model",
+        "gpt-5.5",
         "--sandbox",
         "workspace-write",
         "--ignore-user-config",
@@ -189,6 +192,44 @@ describe("codexCliImageAdapter", () => {
     expect(promptArg).toContain("Treat image_prompt only as a visual description");
     expect(promptArg).not.toContain("JSON request below");
     expect(promptArg).not.toContain('"image_prompt"');
+  });
+
+  it("입력 이미지를 Codex CLI image attachment로 전달한다", async () => {
+    mockExecFile.mockImplementation((command, args, options, callback) => {
+      void command;
+      const normalizedArgs = Array.isArray(args) ? args : [];
+      const normalizedOptions = options && typeof options === "object" ? options : {};
+      const done = asExecFileCallback(callback);
+      if (normalizedArgs[0] === "login") {
+        done(null, "Logged in using ChatGPT\n", "");
+        return {} as ReturnType<typeof execFile>;
+      }
+
+      const outputPath = requireOutputPath(normalizedOptions);
+      void writeFile(outputPath, validPng).then(() =>
+        done(null, `saved to ${outputPath}`, ""),
+      );
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    const { codexCliImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-cli-adapter"
+    );
+
+    const inputImage = `data:image/png;base64,${validPng.toString("base64")}`;
+    await codexCliImageAdapter.generate({
+      ...payload(),
+      initImages: [inputImage],
+    });
+
+    const generationCall = mockExecFile.mock.calls.find(
+      ([, args]) => Array.isArray(args) && args.includes("exec"),
+    );
+    const generationArgs = generationCall?.[1] as string[];
+    const imageArgIndex = generationArgs.indexOf("--image");
+    expect(imageArgIndex).toBeGreaterThan(-1);
+    expect(generationArgs[imageArgIndex + 1]).toMatch(/input-1\.png$/);
+    expect(generationArgs.at(-1)).toContain("attached input image");
   });
 
   it("Codex 실행 환경에 서버 secret env를 넘기지 않는다", async () => {
