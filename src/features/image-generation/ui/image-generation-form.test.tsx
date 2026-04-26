@@ -202,16 +202,18 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    const gptButton = await screen.findByRole("button", {
-      name: /GPT Image 2 Bridge/i,
-    });
-    await user.click(gptButton);
+    for (const label of ["GPT Image 2", "GPT Image 2 Bridge"]) {
+      const modelLabel = await screen.findByText(label);
+      const gptButton = modelLabel.closest("button");
+      expect(gptButton).not.toBeNull();
+      await user.click(gptButton as HTMLButtonElement);
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("heading", { name: "설정" }),
-      ).not.toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("heading", { name: "설정" }),
+        ).not.toBeInTheDocument();
+      });
+    }
   });
 
   it("모델 카드에 모달리티 배지를 표시한다", async () => {

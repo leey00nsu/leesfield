@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import {
@@ -6,22 +5,15 @@ import {
   type ResolvedInputImageBuffer,
 } from "@/server/shared/input-image-resolver";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
-import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import {
+  codexBridgeConfigSchema,
+  type ImageModelCatalogItem,
+} from "@/server/model-catalog/catalog-schema";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_AGENT_MODEL = "gpt-5.5";
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
 const BRIDGE_GENERATE_PATH = "/v1/images/generate";
-
-const codexBridgeConfigSchema = z
-  .object({
-    base_url_env: z.string().min(1),
-    token_env: z.string().min(1),
-    model_id: z.string().min(1),
-    agent_model: z.string().min(1).optional(),
-    timeout_ms: z.number().int().positive().optional(),
-  })
-  .strict();
 
 type CodexBridgeConfig = {
   baseUrl: string;
@@ -40,18 +32,19 @@ function normalizeBridgeBaseUrl(rawUrl: string) {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new Error("CODEX_BRIDGE_URL_REQUIRED");
+    throw new Error("CODEX_BRIDGE_URL_INVALID");
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("CODEX_BRIDGE_URL_REQUIRED");
+    throw new Error("CODEX_BRIDGE_URL_INVALID");
   }
-  url.search = "";
-  url.hash = "";
-  return url.toString().replace(/\/$/, "");
+  if (url.pathname !== "/" && url.pathname !== "") {
+    throw new Error("CODEX_BRIDGE_URL_INVALID");
+  }
+  return url.origin;
 }
 
 function buildGenerateUrl(baseUrl: string) {
-  return `${baseUrl}${BRIDGE_GENERATE_PATH}`;
+  return new URL(BRIDGE_GENERATE_PATH, `${baseUrl}/`).toString();
 }
 
 async function getCatalogImageModel(modelKey: string) {
@@ -86,16 +79,12 @@ async function getBridgeConfig(modelKey: ImageGenerationFormValues["model"]) {
     throw new Error("CODEX_BRIDGE_TOKEN_REQUIRED");
   }
 
-  const timeoutRaw = Number(providerConfig.timeout_ms ?? DEFAULT_TIMEOUT_MS);
   return {
     baseUrl: normalizeBridgeBaseUrl(rawBaseUrl),
     token,
     modelId: providerConfig.model_id.trim(),
     agentModel: providerConfig.agent_model?.trim() || DEFAULT_AGENT_MODEL,
-    timeoutMs:
-      Number.isFinite(timeoutRaw) && timeoutRaw > 0
-        ? timeoutRaw
-        : DEFAULT_TIMEOUT_MS,
+    timeoutMs: providerConfig.timeout_ms ?? DEFAULT_TIMEOUT_MS,
   } satisfies CodexBridgeConfig;
 }
 
@@ -236,6 +225,8 @@ export const codexBridgeImageAdapter: ImageGenerationAdapter = {
     switch (error.message) {
       case "CODEX_BRIDGE_URL_REQUIRED":
         return "Codex bridge URL이 설정되어 있지 않습니다.";
+      case "CODEX_BRIDGE_URL_INVALID":
+        return "Codex bridge URL 형식이 올바르지 않습니다. http(s) origin만 입력해주세요.";
       case "CODEX_BRIDGE_TOKEN_REQUIRED":
         return "Codex bridge token이 설정되어 있지 않습니다.";
       case "CODEX_BRIDGE_AUTH_FAILED":

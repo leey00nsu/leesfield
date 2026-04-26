@@ -58,10 +58,17 @@ function payload(overrides = {}) {
 }
 
 function response(body: unknown, init?: ResponseInit) {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
   return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { "content-type": "application/json" },
     ...init,
+    headers,
   });
 }
 
@@ -170,6 +177,31 @@ describe("codexBridgeImageAdapter", () => {
     expect(
       reloadedAdapter.mapError?.(new Error("CODEX_BRIDGE_TOKEN_REQUIRED")),
     ).toBe("Codex bridge token이 설정되어 있지 않습니다.");
+  });
+
+  it("bridge URL 형식 오류를 누락과 구분해 매핑한다", async () => {
+    const { codexBridgeImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-bridge-adapter"
+    );
+
+    for (const invalidUrl of [
+      "not-a-url",
+      "ftp://codex-bridge.internal",
+      "http://codex-bridge.internal:18080/api",
+    ]) {
+      vi.stubEnv("CODEX_IMAGE_BRIDGE_URL", invalidUrl);
+      await expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
+        "CODEX_BRIDGE_URL_INVALID",
+      );
+    }
+
+    expect(
+      codexBridgeImageAdapter.mapError?.(
+        new Error("CODEX_BRIDGE_URL_INVALID"),
+      ),
+    ).toBe(
+      "Codex bridge URL 형식이 올바르지 않습니다. http(s) origin만 입력해주세요.",
+    );
   });
 
   it("bridge 인증 실패와 timeout을 구분해 매핑한다", async () => {

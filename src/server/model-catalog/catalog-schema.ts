@@ -114,7 +114,7 @@ const codexCliConfigSchema = z
   })
   .passthrough();
 
-const codexBridgeConfigSchema = z
+export const codexBridgeConfigSchema = z
   .object({
     base_url_env: z.string().min(1),
     token_env: z.string().min(1),
@@ -293,6 +293,9 @@ export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
 export type AudioModelCatalogItem = z.infer<typeof audioModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];
 export type ModelCatalogInput = z.infer<typeof modelCatalogInputSchema>;
+export type CodexBridgeProviderConfig = z.infer<
+  typeof codexBridgeConfigSchema
+>;
 
 export type ModelCatalogParams = {
   includeInactive?: boolean;

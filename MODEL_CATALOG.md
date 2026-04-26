@@ -64,7 +64,7 @@
 }
 ```
 
-`base_url_env`와 `token_env`는 env 이름만 저장합니다. 실제 token 값은 모델 카탈로그/DB에 저장하지 않습니다. `codex_bridge` providerConfig는 위 필드 외의 추가 값을 거부합니다. 호출 timeout은 `timeout_ms`로 모델 카탈로그에서 관리하며, Bridge 서비스는 `POST /v1/images/generate`를 제공하고 data URL 이미지를 반환해야 합니다.
+`base_url_env`와 `token_env`는 env 이름만 저장합니다. 실제 token 값은 모델 카탈로그/DB에 저장하지 않습니다. `codex_bridge` providerConfig는 위 필드 외의 추가 값을 거부합니다. 호출 timeout은 `timeout_ms`로 모델 카탈로그에서 관리하며, `CODEX_IMAGE_BRIDGE_URL`은 path 없는 `http(s)` origin/root URL이어야 합니다. Bridge 서비스는 `POST /v1/images/generate`를 제공하고 data URL 이미지를 반환해야 합니다.
 
 ## 스키마 확장 가이드
 

@@ -167,7 +167,7 @@ pnpm dev
 4. 모델 카탈로그(DB) 갱신
 5. 필요 시 `.env.example`에 새 제공자 설정 추가
 
-`codex_bridge` provider는 별도 `codex-image-bridge` 서비스가 Codex CLI/OAuth를 소유하는 운영 구성을 위한 provider입니다. leesfield 앱에는 `CODEX_IMAGE_BRIDGE_URL`과 `CODEX_IMAGE_BRIDGE_TOKEN`만 설정하면 되고, 메인 앱 컨테이너에 `codex` CLI를 설치할 필요가 없습니다.
+`codex_bridge` provider는 별도 `codex-image-bridge` 서비스가 Codex CLI/OAuth를 소유하는 운영 구성을 위한 provider입니다. leesfield 앱에는 `CODEX_IMAGE_BRIDGE_URL`과 `CODEX_IMAGE_BRIDGE_TOKEN`만 설정하면 되고, 메인 앱 컨테이너에 `codex` CLI를 설치할 필요가 없습니다. `CODEX_IMAGE_BRIDGE_URL`은 path 없는 `http(s)` origin/root URL이어야 하며, 앱이 `/v1/images/generate`를 붙여 호출합니다.
 
 #### 2) 저장소 어댑터 (이미지/비디오/오디오 업로드)
 
