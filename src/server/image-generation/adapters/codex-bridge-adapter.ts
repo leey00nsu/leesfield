@@ -13,7 +13,8 @@ import {
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_AGENT_MODEL = "gpt-5.5";
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
-const BRIDGE_GENERATE_PATH = "/v1/images/generate";
+const DEFAULT_POLL_INTERVAL_MS = 5_000;
+const BRIDGE_JOBS_PATH = "/v1/images/jobs";
 
 type CodexBridgeConfig = {
   baseUrl: string;
@@ -43,8 +44,15 @@ function normalizeBridgeBaseUrl(rawUrl: string) {
   return url.origin;
 }
 
-function buildGenerateUrl(baseUrl: string) {
-  return new URL(BRIDGE_GENERATE_PATH, `${baseUrl}/`).toString();
+function buildJobsUrl(baseUrl: string) {
+  return new URL(BRIDGE_JOBS_PATH, `${baseUrl}/`).toString();
+}
+
+function buildJobUrl(baseUrl: string, jobId: string) {
+  return new URL(
+    `${BRIDGE_JOBS_PATH}/${encodeURIComponent(jobId)}`,
+    `${baseUrl}/`,
+  ).toString();
 }
 
 async function getCatalogImageModel(modelKey: string) {
@@ -129,6 +137,78 @@ async function readBridgeJson(response: Response) {
   }
 }
 
+function isBridgeObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function getBridgeErrorCode(parsed: unknown) {
+  if (!isBridgeObject(parsed) || !isBridgeObject(parsed.error)) {
+    return undefined;
+  }
+  const code = parsed.error.code;
+  return typeof code === "string" ? code : undefined;
+}
+
+function mapBridgeErrorCode(code: unknown, fallback: string) {
+  switch (code) {
+    case "UNAUTHORIZED":
+      return "CODEX_BRIDGE_AUTH_FAILED";
+    case "CODEX_OAUTH_REQUIRED":
+      return "CODEX_BRIDGE_OAUTH_REQUIRED";
+    case "CODEX_CLI_NOT_FOUND":
+      return "CODEX_BRIDGE_CLI_NOT_FOUND";
+    case "CODEX_IMAGE_TIMEOUT":
+      return "CODEX_BRIDGE_TIMEOUT";
+    case "CODEX_IMAGE_OUTPUT_NOT_FOUND":
+      return "CODEX_BRIDGE_OUTPUT_NOT_FOUND";
+    case "CODEX_IMAGE_OUTPUT_INVALID":
+      return "CODEX_BRIDGE_BAD_RESPONSE";
+    case "CODEX_BRIDGE_INPUT_INVALID":
+      return "CODEX_BRIDGE_INPUT_INVALID";
+    case "CODEX_IMAGE_GENERATION_FAILED":
+      return "CODEX_BRIDGE_GENERATION_FAILED";
+    default:
+      return fallback;
+  }
+}
+
+function mapBridgeHttpErrorCode(code: unknown) {
+  switch (code) {
+    case "UNAUTHORIZED":
+      return "CODEX_BRIDGE_AUTH_FAILED";
+    case "CODEX_OAUTH_REQUIRED":
+      return "CODEX_BRIDGE_OAUTH_REQUIRED";
+    case "CODEX_CLI_NOT_FOUND":
+      return "CODEX_BRIDGE_CLI_NOT_FOUND";
+    case "CODEX_IMAGE_TIMEOUT":
+      return "CODEX_BRIDGE_TIMEOUT";
+    case "CODEX_BRIDGE_INPUT_INVALID":
+      return "CODEX_BRIDGE_INPUT_INVALID";
+    default:
+      return "CODEX_BRIDGE_BAD_STATUS";
+  }
+}
+
+async function throwForBridgeHttpError(response: Response) {
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("CODEX_BRIDGE_AUTH_FAILED");
+  }
+  if (response.ok) {
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await readBridgeJson(response);
+  } catch (error) {
+    if (error instanceof Error && error.message === "CODEX_BRIDGE_TIMEOUT") {
+      throw error;
+    }
+    throw new Error("CODEX_BRIDGE_BAD_STATUS");
+  }
+  throw new Error(mapBridgeHttpErrorCode(getBridgeErrorCode(parsed)));
+}
+
 async function withBridgeTimeout<T>(
   timeoutMs: number,
   task: (signal: AbortSignal) => Promise<T>,
@@ -156,6 +236,143 @@ async function withBridgeTimeout<T>(
   }
 }
 
+function makeAbortError() {
+  return Object.assign(new Error("aborted"), { name: "AbortError" });
+}
+
+function waitForNextPoll(signal: AbortSignal) {
+  if (signal.aborted) {
+    throw makeAbortError();
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      signal.removeEventListener("abort", onAbort);
+      reject(makeAbortError());
+    };
+    const timeoutId = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, DEFAULT_POLL_INTERVAL_MS);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function fetchBridge(
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+) {
+  try {
+    return await fetch(url, { ...init, signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("CODEX_BRIDGE_TIMEOUT");
+    }
+    throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
+  }
+}
+
+function assertBridgeJobId(parsed: unknown) {
+  if (!isBridgeObject(parsed)) {
+    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+  }
+  const jobId = parsed.jobId;
+  const status = parsed.status;
+  if (
+    typeof jobId !== "string" ||
+    !jobId ||
+    (status !== "queued" && status !== "processing" && status !== "completed")
+  ) {
+    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+  }
+  return jobId;
+}
+
+function assertCompletedImages(parsed: Record<string, unknown>) {
+  const images = parsed.images;
+  if (!Array.isArray(images) || images.length === 0) {
+    throw new Error("CODEX_BRIDGE_OUTPUT_NOT_FOUND");
+  }
+  if (!images.every(isDataUrlImage)) {
+    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+  }
+  return images;
+}
+
+async function createBridgeJob(
+  config: CodexBridgeConfig,
+  payload: ImageGenerationFormValues,
+  initImages: string[],
+  signal: AbortSignal,
+) {
+  const response = await fetchBridge(
+    buildJobsUrl(config.baseUrl),
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: payload.prompt.trim(),
+        modelId: config.modelId,
+        agentModel: config.agentModel,
+        width: payload.width,
+        height: payload.height,
+        initImages,
+      }),
+    },
+    signal,
+  );
+  await throwForBridgeHttpError(response);
+  return assertBridgeJobId(await readBridgeJson(response));
+}
+
+async function pollBridgeJob(
+  config: CodexBridgeConfig,
+  jobId: string,
+  signal: AbortSignal,
+) {
+  while (true) {
+    const response = await fetchBridge(
+      buildJobUrl(config.baseUrl, jobId),
+      {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${config.token}`,
+        },
+      },
+      signal,
+    );
+    await throwForBridgeHttpError(response);
+
+    const parsed = await readBridgeJson(response);
+    if (!isBridgeObject(parsed)) {
+      throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+    }
+
+    switch (parsed.status) {
+      case "queued":
+      case "processing":
+        await waitForNextPoll(signal);
+        break;
+      case "completed":
+        return assertCompletedImages(parsed);
+      case "failed":
+        throw new Error(
+          mapBridgeErrorCode(
+            getBridgeErrorCode(parsed),
+            "CODEX_BRIDGE_GENERATION_FAILED",
+          ),
+        );
+      default:
+        throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+    }
+  }
+}
+
 async function requestBridgeImage(
   config: CodexBridgeConfig,
   payload: ImageGenerationFormValues,
@@ -163,51 +380,8 @@ async function requestBridgeImage(
   const initImages = await resolveBridgeInitImages(payload.initImages);
 
   return withBridgeTimeout(config.timeoutMs, async (signal) => {
-    let response: Response;
-
-    try {
-      response = await fetch(buildGenerateUrl(config.baseUrl), {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${config.token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: payload.prompt.trim(),
-          modelId: config.modelId,
-          agentModel: config.agentModel,
-          width: payload.width,
-          height: payload.height,
-          initImages,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new Error("CODEX_BRIDGE_TIMEOUT");
-      }
-      throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
-    }
-
-    if (response.status === 401 || response.status === 403) {
-      throw new Error("CODEX_BRIDGE_AUTH_FAILED");
-    }
-    if (!response.ok) {
-      throw new Error("CODEX_BRIDGE_BAD_STATUS");
-    }
-
-    const parsed = await readBridgeJson(response);
-    if (!parsed || typeof parsed !== "object") {
-      throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
-    }
-    const images = (parsed as { images?: unknown }).images;
-    if (!Array.isArray(images) || images.length === 0) {
-      throw new Error("CODEX_BRIDGE_OUTPUT_NOT_FOUND");
-    }
-    if (!images.every(isDataUrlImage)) {
-      throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
-    }
-    return images;
+    const jobId = await createBridgeJob(config, payload, initImages, signal);
+    return pollBridgeJob(config, jobId, signal);
   });
 }
 
@@ -231,6 +405,10 @@ export const codexBridgeImageAdapter: ImageGenerationAdapter = {
         return "Codex bridge token이 설정되어 있지 않습니다.";
       case "CODEX_BRIDGE_AUTH_FAILED":
         return "Codex bridge 인증에 실패했습니다. bridge token 설정을 확인해주세요.";
+      case "CODEX_BRIDGE_OAUTH_REQUIRED":
+        return "Codex bridge의 Codex OAuth 로그인이 필요합니다. bridge 컨테이너에서 codex login 상태를 확인해주세요.";
+      case "CODEX_BRIDGE_CLI_NOT_FOUND":
+        return "Codex bridge 컨테이너에서 Codex CLI를 찾을 수 없습니다.";
       case "CODEX_BRIDGE_TIMEOUT":
         return "Codex bridge 이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
       case "CODEX_BRIDGE_BAD_RESPONSE":

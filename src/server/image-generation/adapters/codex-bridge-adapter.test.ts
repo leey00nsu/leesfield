@@ -86,7 +86,10 @@ describe("codexBridgeImageAdapter", () => {
   it("bridge에 생성 요청을 보내고 data URL 이미지를 반환한다", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(response({ images: [pngDataUrl] }));
+      .mockResolvedValueOnce(response({ jobId: "job-1", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(
+        response({ jobId: "job-1", status: "completed", images: [pngDataUrl] }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const { codexBridgeImageAdapter } = await import(
@@ -98,7 +101,7 @@ describe("codexBridgeImageAdapter", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://codex-bridge.internal:18080/v1/images/generate",
+      "http://codex-bridge.internal:18080/v1/images/jobs",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -117,12 +120,24 @@ describe("codexBridgeImageAdapter", () => {
       height: 1024,
       initImages: [],
     });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://codex-bridge.internal:18080/v1/images/jobs/job-1",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          authorization: "Bearer secret-token",
+        }),
+      }),
+    );
   });
 
   it("init image를 resolver로 검증한 뒤 data URL로 bridge에 전달한다", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(response({ images: [pngDataUrl] }));
+      .mockResolvedValueOnce(response({ jobId: "job-1", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(
+        response({ jobId: "job-1", status: "completed", images: [pngDataUrl] }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const { codexBridgeImageAdapter } = await import(
@@ -139,7 +154,10 @@ describe("codexBridgeImageAdapter", () => {
     mockCatalog({ agent_model: undefined });
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(response({ images: [pngDataUrl] }));
+      .mockResolvedValueOnce(response({ jobId: "job-1", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(
+        response({ jobId: "job-1", status: "completed", images: [pngDataUrl] }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const { codexBridgeImageAdapter } = await import(
@@ -150,6 +168,31 @@ describe("codexBridgeImageAdapter", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
     expect(body.agentModel).toBe("gpt-5.5");
+  });
+
+  it("processing job은 완료될 때까지 polling한다", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response({ jobId: "job-1", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(response({ jobId: "job-1", status: "processing" }))
+      .mockResolvedValueOnce(
+        response({ jobId: "job-1", status: "completed", images: [pngDataUrl] }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { codexBridgeImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-bridge-adapter"
+    );
+
+    const generation = codexBridgeImageAdapter.generate(payload());
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(generation).resolves.toEqual({ images: [pngDataUrl] });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("bridge URL 또는 token env가 없으면 사용자 메시지로 매핑한다", async () => {
@@ -232,9 +275,18 @@ describe("codexBridgeImageAdapter", () => {
   it("bridge 비정상 응답과 빈 이미지 결과를 구분해 매핑한다", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response("not json", { status: 200 }))
-      .mockResolvedValueOnce(response({ images: [] }))
-      .mockResolvedValueOnce(response({ error: { code: "CODEX_IMAGE_GENERATION_FAILED" } }, { status: 502 }));
+      .mockResolvedValueOnce(new Response("not json", { status: 202 }))
+      .mockResolvedValueOnce(response({ jobId: "job-2", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(response({ jobId: "job-2", status: "completed", images: [] }))
+      .mockResolvedValueOnce(response({ error: { code: "CODEX_IMAGE_GENERATION_FAILED" } }, { status: 502 }))
+      .mockResolvedValueOnce(response({ jobId: "job-3", status: "queued" }, { status: 202 }))
+      .mockResolvedValueOnce(
+        response({
+          jobId: "job-3",
+          status: "failed",
+          error: { code: "CODEX_OAUTH_REQUIRED", status: 503 },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const { codexBridgeImageAdapter } = await import(
@@ -250,9 +302,17 @@ describe("codexBridgeImageAdapter", () => {
     await expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
       "CODEX_BRIDGE_BAD_STATUS",
     );
+    await expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
+      "CODEX_BRIDGE_OAUTH_REQUIRED",
+    );
     expect(
       codexBridgeImageAdapter.mapError?.(new Error("CODEX_BRIDGE_BAD_STATUS")),
     ).toBe("Codex bridge 호출에 실패했습니다. bridge 서비스 상태를 확인해주세요.");
+    expect(
+      codexBridgeImageAdapter.mapError?.(new Error("CODEX_BRIDGE_OAUTH_REQUIRED")),
+    ).toBe(
+      "Codex bridge의 Codex OAuth 로그인이 필요합니다. bridge 컨테이너에서 codex login 상태를 확인해주세요.",
+    );
   });
 
   it("bridge response body 파싱 중에도 timeout을 적용한다", async () => {
@@ -260,7 +320,7 @@ describe("codexBridgeImageAdapter", () => {
     mockCatalog({ timeout_ms: 10 });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      status: 200,
+      status: 202,
       json: vi.fn(() => new Promise(() => undefined)),
     });
     vi.stubGlobal("fetch", fetchMock);
