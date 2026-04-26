@@ -1,5 +1,6 @@
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
+import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 
 export const INPUT_IMAGE_STORAGE_REQUIRED = "IMAGE_INPUT_STORAGE_REQUIRED";
 export const INPUT_IMAGE_INVALID = "INPUT_IMAGE_INVALID";
@@ -73,17 +74,6 @@ function getLeemageClient() {
   return cachedClient;
 }
 
-function parseDataUrl(dataUrl: string): ImageBuffer {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match || !match[1] || !match[2]) {
-    throw new InputImageStorageError(INPUT_IMAGE_INVALID);
-  }
-  return {
-    contentType: match[1],
-    buffer: Buffer.from(match[2], "base64"),
-  };
-}
-
 function resolveExtension(contentType: string) {
   if (contentType === "image/png") return "png";
   if (contentType === "image/webp") return "webp";
@@ -128,46 +118,17 @@ function resolveUploadedUrl(file: {
   return url;
 }
 
-async function fetchImageBuffer(url: string): Promise<ImageBuffer> {
-  let resolved: URL;
-  try {
-    resolved = new URL(url);
-  } catch {
-    throw new InputImageStorageError(INPUT_IMAGE_INVALID);
-  }
-  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
-    throw new InputImageStorageError(INPUT_IMAGE_INVALID);
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(resolved.toString(), {
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error("INPUT_IMAGE_FETCH_FAILED");
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get("content-type") ?? "image/png";
-    if (contentType.startsWith("image/")) {
-      return { buffer, contentType };
-    }
-    const detected = await detectImageMime(buffer);
-    if (!detected) {
-      throw new InputImageStorageError(INPUT_IMAGE_INVALID);
-    }
-    return { buffer, contentType: detected };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 async function resolveImageBuffer(source: string): Promise<ImageBuffer> {
-  if (source.startsWith("data:")) {
-    return parseDataUrl(source);
+  const { buffer, mime } = await resolveInputImageBuffer(source, {
+    invalidErrorCode: INPUT_IMAGE_INVALID,
+    fetchErrorCode: "INPUT_IMAGE_FETCH_FAILED",
+    timeoutMs: FETCH_TIMEOUT_MS,
+  });
+  const detected = await detectImageMime(buffer);
+  if (!detected) {
+    throw new InputImageStorageError(INPUT_IMAGE_INVALID);
   }
-  return fetchImageBuffer(source);
+  return { buffer, contentType: detected || mime };
 }
 
 export async function uploadInputImages(

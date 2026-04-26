@@ -88,4 +88,60 @@ describe("hfSpaceImageAdapter", () => {
       images: ["data:image/png;base64,iVBORw=="],
     });
   });
+
+  it("사설망 HTTP 입력 이미지는 fetch 전에 거부한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "image-model-1",
+        type: "image",
+        key: "hf-image",
+        label: "HF Image",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "demo/image-space",
+          api_name: "/generate_image",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+        },
+        meta: {
+          concurrent_limit: 1,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    const predict = vi.fn().mockResolvedValue({
+      data: [{ path: "/tmp/generated.png" }],
+    });
+    mockConnect.mockResolvedValue({ predict });
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ stage: "RUNNING" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { hfSpaceImageAdapter } = await import(
+      "@/server/image-generation/adapters/hf-space-adapter"
+    );
+
+    await expect(
+      hfSpaceImageAdapter.generate({
+        prompt: "hello image",
+        model: "hf-image",
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+        steps: 10,
+        seed: "",
+        initImages: ["http://127.0.0.1/private.png"],
+      }),
+    ).rejects.toThrow("HF_SPACE_IMAGE_INVALID");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(predict).not.toHaveBeenCalled();
+  });
 });

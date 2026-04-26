@@ -1,7 +1,7 @@
 import { z } from "zod";
 import rawCatalog from "@/../configs/image-models.json";
 
-const pipelineOptions = ["diffusion", "sd", "sdxl"] as const;
+const pipelineOptions = ["diffusion", "sd", "sdxl", "image_generation"] as const;
 const parameterUiOptions = [
   "range",
   "input",

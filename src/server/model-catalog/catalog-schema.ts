@@ -105,6 +105,15 @@ const hfSpaceConfigSchema = z
   })
   .passthrough();
 
+const codexCliConfigSchema = z
+  .object({
+    command: z.string().min(1),
+    model_id: z.string().min(1),
+    agent_model: z.string().min(1).optional(),
+    timeout_ms: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
 const imageMetaSchema = z.object({
   pipeline: z.string().min(1),
   model_id: z.string().min(1),
@@ -141,8 +150,8 @@ const baseModelSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.literal("hf_space"),
-  providerConfig: hfSpaceConfigSchema,
+  provider: z.enum(["hf_space", "codex_cli"]),
+  providerConfig: z.union([hfSpaceConfigSchema, codexCliConfigSchema]),
   parameters: z.unknown(),
   meta: z.unknown(),
   isActive: z.boolean(),
@@ -157,14 +166,33 @@ const imageModelSchema = baseModelSchema.extend({
   meta: imageMetaSchema,
 });
 
+const imageHfSpaceModelSchema = imageModelSchema.extend({
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
+});
+
+const imageCodexCliModelSchema = imageModelSchema.extend({
+  provider: z.literal("codex_cli"),
+  providerConfig: codexCliConfigSchema,
+});
+
+const imageModelProviderSchema = z.union([
+  imageHfSpaceModelSchema,
+  imageCodexCliModelSchema,
+]);
+
 const videoModelSchema = baseModelSchema.extend({
   type: z.literal("video"),
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
   parameters: videoParametersSchema,
   meta: videoMetaSchema,
 });
 
 const audioModelSchema = baseModelSchema.extend({
   type: z.literal("audio"),
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
   parameters: audioParametersSchema,
   meta: audioMetaSchema,
 });
@@ -174,8 +202,8 @@ const baseModelInputSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.literal("hf_space"),
-  providerConfig: hfSpaceConfigSchema,
+  provider: z.enum(["hf_space", "codex_cli"]),
+  providerConfig: z.union([hfSpaceConfigSchema, codexCliConfigSchema]),
   parameters: z.unknown(),
   meta: z.unknown(),
   isActive: z.boolean().optional(),
@@ -188,30 +216,49 @@ const imageModelInputSchema = baseModelInputSchema.extend({
   meta: imageMetaSchema,
 });
 
+const imageHfSpaceModelInputSchema = imageModelInputSchema.extend({
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
+});
+
+const imageCodexCliModelInputSchema = imageModelInputSchema.extend({
+  provider: z.literal("codex_cli"),
+  providerConfig: codexCliConfigSchema,
+});
+
+const imageModelProviderInputSchema = z.union([
+  imageHfSpaceModelInputSchema,
+  imageCodexCliModelInputSchema,
+]);
+
 const videoModelInputSchema = baseModelInputSchema.extend({
   type: z.literal("video"),
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
   parameters: videoParametersSchema,
   meta: videoMetaSchema,
 });
 
 const audioModelInputSchema = baseModelInputSchema.extend({
   type: z.literal("audio"),
+  provider: z.literal("hf_space"),
+  providerConfig: hfSpaceConfigSchema,
   parameters: audioParametersSchema,
   meta: audioMetaSchema,
 });
 
 export const modelCatalogSchema = z.array(
-  z.union([imageModelSchema, videoModelSchema, audioModelSchema]),
+  z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]),
 );
 
 export const modelCatalogInputSchema = z.union([
-  imageModelInputSchema,
+  imageModelProviderInputSchema,
   videoModelInputSchema,
   audioModelInputSchema,
 ]);
 
 export type ModelCatalogItem = z.infer<typeof modelCatalogSchema>[number];
-export type ImageModelCatalogItem = z.infer<typeof imageModelSchema>;
+export type ImageModelCatalogItem = z.infer<typeof imageModelProviderSchema>;
 export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
 export type AudioModelCatalogItem = z.infer<typeof audioModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];

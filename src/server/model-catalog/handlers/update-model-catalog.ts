@@ -15,7 +15,7 @@ const updatePayloadSchema = z.object({
   key: z.string().min(1).optional(),
   label: z.string().min(1).optional(),
   vendor: z.string().min(1).optional(),
-  provider: z.literal("hf_space").optional(),
+  provider: z.enum(["hf_space", "codex_cli"]).optional(),
   providerConfig: z.record(z.string(), z.unknown()).optional(),
   parameters: z.record(z.string(), z.unknown()).optional(),
   meta: z.record(z.string(), z.unknown()).optional(),

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach } from "vitest";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
@@ -192,6 +192,28 @@ describe("ImageGenerationForm", () => {
     expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
   });
 
+  it("GPT Image 2 모델에서는 설정 패널을 노출하지 않는다", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+
+    const gptButton = await screen.findByRole("button", {
+      name: /GPT Image 2/i,
+    });
+    await user.click(gptButton);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "설정" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("모델 카드에 모달리티 배지를 표시한다", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
@@ -203,7 +225,7 @@ describe("ImageGenerationForm", () => {
     await waitForModels();
 
     expect(screen.getAllByText("T2I").length).toBeGreaterThan(0);
-    expect(screen.getByText("I2I")).toBeInTheDocument();
+    expect(screen.getAllByText("I2I").length).toBeGreaterThan(0);
   });
 
   it("모델 전환 시 생성 폴링을 리셋한다", async () => {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createImageGenerationSchema } from "@/features/image-generation/model/image-generation-schema";
-import { imageModels } from "@/features/image-generation/model/image-models";
+import {
+  imageModels,
+  modelImageLimits,
+} from "@/features/image-generation/model/image-models";
 
 const t = (key: string, values?: Record<string, string | number | Date>) => {
   if (!values) return key;
@@ -71,5 +74,50 @@ describe("image-generation-schema", () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.flatten().fieldErrors.model?.length).toBeGreaterThan(0);
+  });
+
+  it("GPT Image 2는 설정을 숨기고 단일 입력 이미지를 허용한다", () => {
+    const gptImageModel = imageModels.find(
+      (model) => model.key === "gpt-image-2-codex",
+    );
+    expect(gptImageModel).toBeDefined();
+    if (!gptImageModel) return;
+
+    expect(gptImageModel.parameters.width.ui).toBe("hidden");
+    expect(gptImageModel.parameters.height.ui).toBe("hidden");
+    expect(gptImageModel.parameters.steps.ui).toBe("hidden");
+    expect(gptImageModel.parameters.seed?.ui).toBe("hidden");
+    expect(modelImageLimits["gpt-image-2-codex"]?.maxInputImages).toBe(1);
+
+    const schema = createImageGenerationSchema(t);
+    const inputImage =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    const result = schema.safeParse({
+      prompt: "test",
+      width: 1024,
+      height: 1024,
+      initImages: [inputImage],
+      model: "gpt-image-2-codex",
+      imageCount: 1,
+      steps: 1,
+      seed: "",
+    });
+    const tooManyResult = schema.safeParse({
+      prompt: "test",
+      width: 1024,
+      height: 1024,
+      initImages: [inputImage, inputImage],
+      model: "gpt-image-2-codex",
+      imageCount: 1,
+      steps: 1,
+      seed: "",
+    });
+
+    expect(result.success).toBe(true);
+    expect(tooManyResult.success).toBe(false);
+    if (tooManyResult.success) return;
+    expect(
+      tooManyResult.error.flatten().fieldErrors.initImages?.length,
+    ).toBeGreaterThan(0);
   });
 });
