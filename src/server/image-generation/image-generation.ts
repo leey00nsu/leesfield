@@ -1,21 +1,43 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
+import { codexCliImageAdapter } from "@/server/image-generation/adapters/codex-cli-adapter";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import { leemageStorageAdapter } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
 import type { ImageStorageAdapter } from "@/server/image-generation/storage/storage-adapter";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
-type ImageProvider = "hf_space";
+type ImageProvider = "hf_space" | "codex_cli";
 
-function resolveImageProvider(modelKey: ImageGenerationFormValues["model"]): ImageProvider {
-  void modelKey;
-  return "hf_space";
+async function resolveCatalogImageModel(
+  modelKey: ImageGenerationFormValues["model"]
+) {
+  const catalog = await getModelCatalog({ includeInactive: true });
+  const model = catalog.find(
+    (item): item is ImageModelCatalogItem =>
+      item.type === "image" && item.key === modelKey,
+  );
+  if (!model) {
+    throw new Error(`IMAGE_MODEL_NOT_FOUND:${modelKey}`);
+  }
+  return model;
 }
 
-function getAdapter(modelKey: ImageGenerationFormValues["model"]): ImageGenerationAdapter {
-  const provider = resolveImageProvider(modelKey);
+async function resolveImageProvider(
+  modelKey: ImageGenerationFormValues["model"]
+): Promise<ImageProvider> {
+  const model = await resolveCatalogImageModel(modelKey);
+  return model.provider;
+}
+
+async function getAdapter(
+  modelKey: ImageGenerationFormValues["model"]
+): Promise<ImageGenerationAdapter> {
+  const provider = await resolveImageProvider(modelKey);
   if (provider === "hf_space") return hfSpaceImageAdapter;
+  if (provider === "codex_cli") return codexCliImageAdapter;
   throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
@@ -59,7 +81,7 @@ export async function resolveImageGenerationResult(
 }> {
   let adapter: ImageGenerationAdapter | null = null;
   try {
-    adapter = getAdapter(payload.model);
+    adapter = await getAdapter(payload.model);
     const result = await adapter.generate(payload);
     const { provider, warningMessage } = resolveImageStorageProvider();
 
