@@ -7,7 +7,10 @@
 
 - **type**: `image` | `video`
 - **key / label / vendor / provider**
-- **providerConfig**: `hf_space` 설정 (예: `space_id`, `api_name`, `timeout_ms`)
+- **providerConfig**: provider별 설정
+  - `hf_space`: `space_id`, `api_name`, `timeout_ms`
+  - `codex_cli`: `command`, `model_id`, `agent_model`, `timeout_ms`
+  - `codex_bridge`: `base_url_env`, `token_env`, `model_id`, `agent_model`, `timeout_ms`
 - **parameters**: UI 및 검증 파라미터 정의
 - **meta**: 기본값/제약/모달리티 정보
 
@@ -44,6 +47,24 @@
 
 - **이미지**: `max_input_images > 0` 이면 `I2I` 추가, 기본은 `T2I`
 - **비디오**: `supports_init_image` 또는 `i2v_model_id`가 있으면 `I2V`, `t2v_model_id`가 있으면 `T2V`
+
+## Codex bridge provider
+
+`codex_bridge`는 메인 앱 컨테이너에서 Codex CLI를 직접 실행하지 않고 별도 `codex-image-bridge` HTTP 서비스에 이미지 생성을 위임하는 image-only provider입니다.
+
+예시 providerConfig:
+
+```json
+{
+  "base_url_env": "CODEX_IMAGE_BRIDGE_URL",
+  "token_env": "CODEX_IMAGE_BRIDGE_TOKEN",
+  "model_id": "gpt-image-2",
+  "agent_model": "gpt-5.5",
+  "timeout_ms": 300000
+}
+```
+
+`base_url_env`와 `token_env`는 env 이름만 저장합니다. 실제 token 값은 모델 카탈로그/DB에 저장하지 않습니다. Bridge 서비스는 `POST /v1/images/generate`를 제공하고 data URL 이미지를 반환해야 합니다.
 
 ## 스키마 확장 가이드
 

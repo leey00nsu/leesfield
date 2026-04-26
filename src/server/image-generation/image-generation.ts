@@ -1,5 +1,6 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
+import { codexBridgeImageAdapter } from "@/server/image-generation/adapters/codex-bridge-adapter";
 import { codexCliImageAdapter } from "@/server/image-generation/adapters/codex-cli-adapter";
 import { hfSpaceImageAdapter } from "@/server/image-generation/adapters/hf-space-adapter";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
@@ -9,7 +10,7 @@ import { resolveImageStorageProvider } from "@/server/image-generation/storage/s
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
-type ImageProvider = "hf_space" | "codex_cli";
+type ImageProvider = "hf_space" | "codex_cli" | "codex_bridge";
 
 async function resolveCatalogImageModel(
   modelKey: ImageGenerationFormValues["model"]
@@ -38,6 +39,7 @@ async function getAdapter(
   const provider = await resolveImageProvider(modelKey);
   if (provider === "hf_space") return hfSpaceImageAdapter;
   if (provider === "codex_cli") return codexCliImageAdapter;
+  if (provider === "codex_bridge") return codexBridgeImageAdapter;
   throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 

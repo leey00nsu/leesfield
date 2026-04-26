@@ -80,14 +80,20 @@ describe("image-generation-schema", () => {
     const gptImageModel = imageModels.find(
       (model) => model.key === "gpt-image-2-codex",
     );
+    const bridgeImageModel = imageModels.find(
+      (model) => model.key === "gpt-image-2-bridge",
+    );
     expect(gptImageModel).toBeDefined();
-    if (!gptImageModel) return;
+    expect(bridgeImageModel).toBeDefined();
+    if (!gptImageModel || !bridgeImageModel) return;
 
-    expect(gptImageModel.parameters.width.ui).toBe("hidden");
-    expect(gptImageModel.parameters.height.ui).toBe("hidden");
-    expect(gptImageModel.parameters.steps.ui).toBe("hidden");
-    expect(gptImageModel.parameters.seed?.ui).toBe("hidden");
-    expect(modelImageLimits["gpt-image-2-codex"]?.maxInputImages).toBe(1);
+    for (const model of [gptImageModel, bridgeImageModel]) {
+      expect(model.parameters.width.ui).toBe("hidden");
+      expect(model.parameters.height.ui).toBe("hidden");
+      expect(model.parameters.steps.ui).toBe("hidden");
+      expect(model.parameters.seed?.ui).toBe("hidden");
+      expect(modelImageLimits[model.key]?.maxInputImages).toBe(1);
+    }
 
     const schema = createImageGenerationSchema(t);
     const inputImage =
@@ -97,7 +103,7 @@ describe("image-generation-schema", () => {
       width: 1024,
       height: 1024,
       initImages: [inputImage],
-      model: "gpt-image-2-codex",
+      model: "gpt-image-2-bridge",
       imageCount: 1,
       steps: 1,
       seed: "",
@@ -107,7 +113,7 @@ describe("image-generation-schema", () => {
       width: 1024,
       height: 1024,
       initImages: [inputImage, inputImage],
-      model: "gpt-image-2-codex",
+      model: "gpt-image-2-bridge",
       imageCount: 1,
       steps: 1,
       seed: "",

@@ -192,7 +192,7 @@ describe("ImageGenerationForm", () => {
     expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
   });
 
-  it("GPT Image 2 모델에서는 설정 패널을 노출하지 않는다", async () => {
+  it("GPT Image 2 모델들에서는 설정 패널을 노출하지 않는다", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -203,7 +203,7 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     const gptButton = await screen.findByRole("button", {
-      name: /GPT Image 2/i,
+      name: /GPT Image 2 Bridge/i,
     });
     await user.click(gptButton);
 
