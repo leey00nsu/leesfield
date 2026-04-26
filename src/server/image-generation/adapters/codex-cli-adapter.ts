@@ -201,6 +201,7 @@ function buildExecArgs(
     "--image",
     inputPath,
   ]);
+  const promptSeparator = imageArgs.length > 0 ? ["--"] : [];
   return [
     "--ask-for-approval",
     "never",
@@ -216,6 +217,7 @@ function buildExecArgs(
     "--cd",
     tempDir,
     ...imageArgs,
+    ...promptSeparator,
     buildPrompt(config, payload, outputPath, inputImagePaths.length),
   ];
 }

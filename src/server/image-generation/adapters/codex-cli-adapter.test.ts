@@ -227,8 +227,11 @@ describe("codexCliImageAdapter", () => {
     );
     const generationArgs = generationCall?.[1] as string[];
     const imageArgIndex = generationArgs.indexOf("--image");
+    const separatorIndex = generationArgs.indexOf("--");
     expect(imageArgIndex).toBeGreaterThan(-1);
     expect(generationArgs[imageArgIndex + 1]).toMatch(/input-1\.png$/);
+    expect(separatorIndex).toBe(imageArgIndex + 2);
+    expect(generationArgs[separatorIndex + 1]).toContain("$imagegen");
     expect(generationArgs.at(-1)).toContain("attached input image");
   });
 
