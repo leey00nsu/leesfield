@@ -16,6 +16,16 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
 
 const mockExecFile = vi.mocked(execFile);
 
+type ExecFileCallback = (
+  error: NodeJS.ErrnoException | null,
+  stdout: string,
+  stderr: string,
+) => void;
+
+function asExecFileCallback(callback: unknown) {
+  return callback as ExecFileCallback;
+}
+
 function mockCatalog() {
   mockGetModelCatalog.mockResolvedValue([
     {
@@ -72,7 +82,7 @@ describe("codexCliImageAdapter", () => {
       void command;
       void args;
       void options;
-      callback(null, "Logged in using API key\n", "");
+      asExecFileCallback(callback)(null, "Logged in using API key\n", "");
       return {} as ReturnType<typeof execFile>;
     });
 
@@ -93,20 +103,21 @@ describe("codexCliImageAdapter", () => {
       void command;
       const normalizedArgs = Array.isArray(args) ? args : [];
       const normalizedOptions = options && typeof options === "object" ? options : {};
+      const done = asExecFileCallback(callback);
       if (normalizedArgs[0] === "login") {
-        callback(null, "Logged in using ChatGPT\n", "");
+        done(null, "Logged in using ChatGPT\n", "");
         return {} as ReturnType<typeof execFile>;
       }
 
       const outputPath = (normalizedOptions.env as NodeJS.ProcessEnv)
         .CODEX_IMAGE_OUTPUT_PATH;
       if (!outputPath) {
-        callback(new Error("missing output path"), "", "");
+        done(new Error("missing output path"), "", "");
         return {} as ReturnType<typeof execFile>;
       }
 
       void writeFile(outputPath, Buffer.from([137, 80, 78, 71])).then(() =>
-        callback(null, `saved to ${outputPath}`, ""),
+        done(null, `saved to ${outputPath}`, ""),
       );
       return {} as ReturnType<typeof execFile>;
     });
@@ -145,7 +156,7 @@ describe("codexCliImageAdapter", () => {
       void options;
       const error = new Error("spawn codex ENOENT") as NodeJS.ErrnoException;
       error.code = "ENOENT";
-      callback(error, "", "");
+      asExecFileCallback(callback)(error, "", "");
       return {} as ReturnType<typeof execFile>;
     });
 

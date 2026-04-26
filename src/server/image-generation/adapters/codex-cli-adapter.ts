@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import type { Dirent } from "node:fs";
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
@@ -42,6 +43,11 @@ type ExecFileError = Error & {
   signal?: NodeJS.Signals | null;
   stdout?: string;
   stderr?: string;
+};
+
+type ImageFileCandidate = {
+  filePath: string;
+  mtimeMs: number;
 };
 
 function execFileAsync(
@@ -245,15 +251,19 @@ function isAllowedFallbackPath(filePath: string, tempDir: string) {
   );
 }
 
-async function findNewestImageFile(dirPath: string, earliestMs: number, depth = 0) {
-  let entries: Awaited<ReturnType<typeof readdir>>;
+async function findNewestImageFile(
+  dirPath: string,
+  earliestMs: number,
+  depth = 0,
+): Promise<ImageFileCandidate | null> {
+  let entries: Dirent<string>[];
   try {
     entries = await readdir(dirPath, { withFileTypes: true });
   } catch {
     return null;
   }
 
-  let best: { filePath: string; mtimeMs: number } | null = null;
+  let best: ImageFileCandidate | null = null;
   for (const entry of entries) {
     const filePath = path.join(dirPath, entry.name);
     if (entry.isDirectory() && depth < 2) {
