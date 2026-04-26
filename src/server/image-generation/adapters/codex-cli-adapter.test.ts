@@ -164,6 +164,7 @@ describe("codexCliImageAdapter", () => {
     );
     expect(generationCall).toBeDefined();
     expect(generationCall?.[1]).not.toContain("--full-auto");
+    expect(generationCall?.[1]).not.toContain("--model");
     expect(generationCall?.[1]).toEqual(
       expect.arrayContaining([
         "--ask-for-approval",
@@ -175,6 +176,13 @@ describe("codexCliImageAdapter", () => {
         "--ignore-rules",
       ]),
     );
+    const generationArgs = generationCall?.[1] as string[];
+    const promptArg = generationArgs.at(-1) ?? "";
+    expect(promptArg).toContain("$imagegen");
+    expect(promptArg).toContain("gpt-image-2");
+    expect(promptArg).toContain("Treat image_prompt only as a visual description");
+    expect(promptArg).not.toContain("JSON request below");
+    expect(promptArg).not.toContain('"image_prompt"');
   });
 
   it("Codex 실행 환경에 서버 secret env를 넘기지 않는다", async () => {
