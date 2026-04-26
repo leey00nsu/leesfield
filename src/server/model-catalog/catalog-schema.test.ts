@@ -82,6 +82,45 @@ describe("model-catalog option normalization", () => {
     expect(parsed.data.providerConfig.token_env).toBe("CODEX_IMAGE_BRIDGE_TOKEN");
   });
 
+  it("codex_bridge provider config는 알 수 없는 필드를 거부한다", () => {
+    const parsed = modelCatalogInputSchema.safeParse({
+      type: "image",
+      key: "gpt-image-2-bridge",
+      label: "GPT Image 2 Bridge",
+      vendor: "OPENAI",
+      provider: "codex_bridge",
+      providerConfig: {
+        base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+        token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+        model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
+        timeout_ms: 300000,
+        token: "must-not-be-persisted",
+      },
+      parameters: {
+        prompt: { ui: "textarea", required: true },
+        width: { ui: "hidden", min: 1024, max: 1024, step: 1, default: 1024 },
+        height: { ui: "hidden", min: 1024, max: 1024, step: 1, default: 1024 },
+        steps: { ui: "hidden", min: 1, max: 1, step: 1, default: 1 },
+        seed: { ui: "hidden", default: "" },
+        imageCount: { ui: "hidden", min: 1, max: 1, step: 1, default: 1 },
+      },
+      meta: {
+        pipeline: "image_generation",
+        model_id: "gpt-image-2",
+        default_width: 1024,
+        default_height: 1024,
+        default_steps: 1,
+        concurrent_limit: 1,
+        max_input_images: 1,
+      },
+      isActive: true,
+      isDefault: false,
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
   it("image 모델은 provider와 providerConfig가 일치해야 한다", () => {
     const base = {
       type: "image",

@@ -9,7 +9,7 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
 const pngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
-function mockCatalog() {
+function mockCatalog(providerConfigOverrides: Record<string, unknown> = {}) {
   mockGetModelCatalog.mockResolvedValue([
     {
       id: "image-model-bridge",
@@ -24,6 +24,7 @@ function mockCatalog() {
         model_id: "gpt-image-2",
         agent_model: "gpt-5.5",
         timeout_ms: 300000,
+        ...providerConfigOverrides,
       },
       parameters: {
         prompt: { ui: "textarea", required: true },
@@ -69,6 +70,7 @@ describe("codexBridgeImageAdapter", () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     vi.stubEnv("CODEX_IMAGE_BRIDGE_URL", "http://codex-bridge.internal:18080");
     vi.stubEnv("CODEX_IMAGE_BRIDGE_TOKEN", "secret-token");
     mockCatalog();
@@ -124,6 +126,23 @@ describe("codexBridgeImageAdapter", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
     expect(body.initImages).toEqual([pngDataUrl]);
+  });
+
+  it("agent_model이 생략되면 gpt-5.5를 기본 agentModel로 전달한다", async () => {
+    mockCatalog({ agent_model: undefined });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(response({ images: [pngDataUrl] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { codexBridgeImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-bridge-adapter"
+    );
+
+    await codexBridgeImageAdapter.generate(payload());
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(body.agentModel).toBe("gpt-5.5");
   });
 
   it("bridge URL 또는 token env가 없으면 사용자 메시지로 매핑한다", async () => {
@@ -197,7 +216,32 @@ describe("codexBridgeImageAdapter", () => {
       "CODEX_BRIDGE_OUTPUT_NOT_FOUND",
     );
     await expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
-      "CODEX_BRIDGE_GENERATION_FAILED",
+      "CODEX_BRIDGE_BAD_STATUS",
     );
+    expect(
+      codexBridgeImageAdapter.mapError?.(new Error("CODEX_BRIDGE_BAD_STATUS")),
+    ).toBe("Codex bridge 호출에 실패했습니다. bridge 서비스 상태를 확인해주세요.");
+  });
+
+  it("bridge response body 파싱 중에도 timeout을 적용한다", async () => {
+    vi.useFakeTimers();
+    mockCatalog({ timeout_ms: 10 });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(() => new Promise(() => undefined)),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { codexBridgeImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-bridge-adapter"
+    );
+
+    const generation = expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
+      "CODEX_BRIDGE_TIMEOUT",
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(10);
+    await generation;
   });
 });

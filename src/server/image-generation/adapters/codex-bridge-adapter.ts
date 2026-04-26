@@ -9,6 +9,7 @@ import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_AGENT_MODEL = "gpt-5.5";
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
 const BRIDGE_GENERATE_PATH = "/v1/images/generate";
 
@@ -20,13 +21,13 @@ const codexBridgeConfigSchema = z
     agent_model: z.string().min(1).optional(),
     timeout_ms: z.number().int().positive().optional(),
   })
-  .passthrough();
+  .strict();
 
 type CodexBridgeConfig = {
   baseUrl: string;
   token: string;
   modelId: string;
-  agentModel?: string;
+  agentModel: string;
   timeoutMs: number;
 };
 
@@ -90,7 +91,7 @@ async function getBridgeConfig(modelKey: ImageGenerationFormValues["model"]) {
     baseUrl: normalizeBridgeBaseUrl(rawBaseUrl),
     token,
     modelId: providerConfig.model_id.trim(),
-    agentModel: providerConfig.agent_model?.trim() || undefined,
+    agentModel: providerConfig.agent_model?.trim() || DEFAULT_AGENT_MODEL,
     timeoutMs:
       Number.isFinite(timeoutRaw) && timeoutRaw > 0
         ? timeoutRaw
@@ -131,8 +132,38 @@ function isDataUrlImage(value: unknown): value is string {
 async function readBridgeJson(response: Response) {
   try {
     return (await response.json()) as unknown;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("CODEX_BRIDGE_TIMEOUT");
+    }
     throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+  }
+}
+
+async function withBridgeTimeout<T>(
+  timeoutMs: number,
+  task: (signal: AbortSignal) => Promise<T>,
+) {
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new Error("CODEX_BRIDGE_TIMEOUT"));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([task(controller.signal), timeoutPromise]);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("CODEX_BRIDGE_TIMEOUT");
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -141,55 +172,54 @@ async function requestBridgeImage(
   payload: ImageGenerationFormValues,
 ) {
   const initImages = await resolveBridgeInitImages(payload.initImages);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
-  let response: Response;
 
-  try {
-    response = await fetch(buildGenerateUrl(config.baseUrl), {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${config.token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt: payload.prompt.trim(),
-        modelId: config.modelId,
-        agentModel: config.agentModel,
-        width: payload.width,
-        height: payload.height,
-        initImages,
-      }),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("CODEX_BRIDGE_TIMEOUT");
+  return withBridgeTimeout(config.timeoutMs, async (signal) => {
+    let response: Response;
+
+    try {
+      response = await fetch(buildGenerateUrl(config.baseUrl), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${config.token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: payload.prompt.trim(),
+          modelId: config.modelId,
+          agentModel: config.agentModel,
+          width: payload.width,
+          height: payload.height,
+          initImages,
+        }),
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("CODEX_BRIDGE_TIMEOUT");
+      }
+      throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
     }
-    throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
-  } finally {
-    clearTimeout(timeoutId);
-  }
 
-  if (response.status === 401 || response.status === 403) {
-    throw new Error("CODEX_BRIDGE_AUTH_FAILED");
-  }
-  if (!response.ok) {
-    throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
-  }
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("CODEX_BRIDGE_AUTH_FAILED");
+    }
+    if (!response.ok) {
+      throw new Error("CODEX_BRIDGE_BAD_STATUS");
+    }
 
-  const parsed = await readBridgeJson(response);
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
-  }
-  const images = (parsed as { images?: unknown }).images;
-  if (!Array.isArray(images) || images.length === 0) {
-    throw new Error("CODEX_BRIDGE_OUTPUT_NOT_FOUND");
-  }
-  if (!images.every(isDataUrlImage)) {
-    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
-  }
-  return images;
+    const parsed = await readBridgeJson(response);
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+    }
+    const images = (parsed as { images?: unknown }).images;
+    if (!Array.isArray(images) || images.length === 0) {
+      throw new Error("CODEX_BRIDGE_OUTPUT_NOT_FOUND");
+    }
+    if (!images.every(isDataUrlImage)) {
+      throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+    }
+    return images;
+  });
 }
 
 export const codexBridgeImageAdapter: ImageGenerationAdapter = {
@@ -216,6 +246,8 @@ export const codexBridgeImageAdapter: ImageGenerationAdapter = {
         return "Codex bridge 응답 형식이 올바르지 않습니다.";
       case "CODEX_BRIDGE_OUTPUT_NOT_FOUND":
         return "Codex bridge가 생성한 이미지 결과를 찾을 수 없습니다.";
+      case "CODEX_BRIDGE_BAD_STATUS":
+        return "Codex bridge 호출에 실패했습니다. bridge 서비스 상태를 확인해주세요.";
       case "CODEX_BRIDGE_INPUT_INVALID":
         return "입력 이미지 형식이 올바르지 않습니다. 다른 이미지를 사용해주세요.";
       case "CODEX_BRIDGE_CONFIG_INVALID":

@@ -122,7 +122,7 @@ const codexBridgeConfigSchema = z
     agent_model: z.string().min(1).optional(),
     timeout_ms: z.number().int().positive().optional(),
   })
-  .passthrough();
+  .strict();
 
 const imageMetaSchema = z.object({
   pipeline: z.string().min(1),

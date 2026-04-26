@@ -180,6 +180,31 @@ describe("updateModelCatalogHandler provider validation", () => {
     expect(mockInvalidateModelCatalogCache).toHaveBeenCalled();
   });
 
+  it("codex_bridge provider 업데이트는 알 수 없는 config 필드를 거부한다", async () => {
+    mockGetModelCatalogRecordByKey.mockResolvedValue(imageRecord());
+    const { updateModelCatalogHandler } = await import(
+      "@/server/model-catalog/handlers/update-model-catalog"
+    );
+
+    await expect(
+      updateModelCatalogHandler({
+        key: "gpt-image-2-codex",
+        payload: {
+          provider: "codex_bridge",
+          providerConfig: {
+            base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+            token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+            model_id: "gpt-image-2",
+            agent_model: "gpt-5.5",
+            timeout_ms: 300000,
+            token: "must-not-be-persisted",
+          },
+        },
+      }),
+    ).rejects.toThrow("INVALID_PAYLOAD");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it("video 모델은 codex_cli provider 업데이트를 거부한다", async () => {
     mockGetModelCatalogRecordByKey.mockResolvedValue(videoRecord());
     const { updateModelCatalogHandler } = await import(
