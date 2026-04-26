@@ -162,4 +162,21 @@ describe("updateModelCatalogHandler provider validation", () => {
     ).rejects.toThrow("INVALID_PAYLOAD");
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  it("image 모델도 provider만 codex_cli로 바꾸고 HF config를 남기면 거부한다", async () => {
+    mockGetModelCatalogRecordByKey.mockResolvedValue(imageRecord());
+    const { updateModelCatalogHandler } = await import(
+      "@/server/model-catalog/handlers/update-model-catalog"
+    );
+
+    await expect(
+      updateModelCatalogHandler({
+        key: "gpt-image-2-codex",
+        payload: {
+          provider: "codex_cli",
+        },
+      }),
+    ).rejects.toThrow("INVALID_PAYLOAD");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
 });
