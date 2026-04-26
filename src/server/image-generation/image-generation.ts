@@ -65,6 +65,14 @@ function mapProviderError(adapter: ImageGenerationAdapter | null, error: unknown
   if (adapter?.mapError) {
     return adapter.mapError(error);
   }
+  if (error instanceof Error) {
+    if (error.message.startsWith("IMAGE_MODEL_NOT_FOUND")) {
+      return "선택한 이미지 모델을 찾을 수 없습니다.";
+    }
+    if (error.message.startsWith("IMAGE_PROVIDER_NOT_SUPPORTED")) {
+      return "지원하지 않는 이미지 provider입니다.";
+    }
+  }
   return error instanceof Error && error.message
     ? error.message
     : "이미지 생성에 실패했습니다.";

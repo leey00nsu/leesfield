@@ -13,6 +13,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
+import {
+  resolveInputImageBuffer,
+  type ResolvedInputImageBuffer,
+} from "@/server/shared/input-image-resolver";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
@@ -60,11 +64,6 @@ type ExecFileError = Error & {
 type ImageFileCandidate = {
   filePath: string;
   mtimeMs: number;
-};
-
-type ImageBuffer = {
-  buffer: Buffer;
-  mime: string;
 };
 
 function execFileAsync(
@@ -222,7 +221,7 @@ function buildExecArgs(
   ];
 }
 
-function mapCliFailure(error: unknown) {
+function mapCliFailure(error: unknown): never {
   if (isCliMissingError(error)) {
     throw new Error("CODEX_CLI_NOT_FOUND");
   }
@@ -252,64 +251,13 @@ function getInputImageExtension(mime: string) {
   return "png";
 }
 
-function decodeDataUrlToBuffer(dataUrl: string): ImageBuffer {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match?.[1] || !match[2]) {
-    throw new Error("CODEX_IMAGE_INPUT_INVALID");
-  }
-  const buffer = Buffer.from(match[2], "base64");
-  if (buffer.byteLength === 0) {
-    throw new Error("CODEX_IMAGE_INPUT_INVALID");
-  }
-  return { buffer, mime: match[1].toLowerCase() };
-}
-
-async function fetchInputImageBuffer(url: string): Promise<ImageBuffer> {
-  let resolved: URL;
-  try {
-    resolved = new URL(url);
-  } catch {
-    throw new Error("CODEX_IMAGE_INPUT_INVALID");
-  }
-  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
-    throw new Error("CODEX_IMAGE_INPUT_INVALID");
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    INPUT_IMAGE_FETCH_TIMEOUT_MS,
-  );
-  try {
-    const response = await fetch(resolved.toString(), {
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error("CODEX_IMAGE_INPUT_INVALID");
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength === 0) {
-      throw new Error("CODEX_IMAGE_INPUT_INVALID");
-    }
-    const contentType =
-      response.headers.get("content-type")?.split(";")[0]?.toLowerCase() ??
-      "image/png";
-    return { buffer, mime: contentType };
-  } catch (error) {
-    if (error instanceof Error && error.message === "CODEX_IMAGE_INPUT_INVALID") {
-      throw error;
-    }
-    throw new Error("CODEX_IMAGE_INPUT_INVALID");
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function resolveInputImageBuffer(source: string): Promise<ImageBuffer> {
-  if (source.startsWith("data:")) {
-    return decodeDataUrlToBuffer(source);
-  }
-  return fetchInputImageBuffer(source);
+async function resolveCodexInputImageBuffer(
+  source: string,
+): Promise<ResolvedInputImageBuffer> {
+  return resolveInputImageBuffer(source, {
+    invalidErrorCode: "CODEX_IMAGE_INPUT_INVALID",
+    timeoutMs: INPUT_IMAGE_FETCH_TIMEOUT_MS,
+  });
 }
 
 async function materializeInputImages(
@@ -324,7 +272,7 @@ async function materializeInputImages(
   const { fileTypeFromBuffer } = await import("file-type");
   return Promise.all(
     inputImages.map(async (source, index) => {
-      const { buffer, mime } = await resolveInputImageBuffer(source);
+      const { buffer, mime } = await resolveCodexInputImageBuffer(source);
       const detected = await fileTypeFromBuffer(new Uint8Array(buffer));
       if (!detected?.mime.startsWith("image/")) {
         throw new Error("CODEX_IMAGE_INPUT_INVALID");
@@ -508,7 +456,6 @@ async function runCodexGeneration(
       );
     } catch (error) {
       mapCliFailure(error);
-      throw error;
     }
 
     const imagePath = await resolveGeneratedImagePath(
@@ -530,6 +477,12 @@ export const codexCliImageAdapter: ImageGenerationAdapter = {
   mapError(error: unknown) {
     if (!(error instanceof Error)) {
       return "Codex CLI 이미지 생성에 실패했습니다.";
+    }
+    if (error.message.startsWith("IMAGE_MODEL_NOT_FOUND")) {
+      return "요청한 이미지 모델을 찾을 수 없습니다.";
+    }
+    if (error.message.startsWith("IMAGE_PROVIDER_NOT_SUPPORTED")) {
+      return "요청한 이미지 제공자가 지원되지 않습니다.";
     }
     switch (error.message) {
       case "CODEX_CLI_NOT_FOUND":

@@ -174,7 +174,31 @@ describe("resolveImageGenerationResult provider dispatch", () => {
     expect(mockCodexGenerate).not.toHaveBeenCalled();
     expect(result).toEqual({
       status: "failed",
-      errorMessage: "IMAGE_MODEL_NOT_FOUND:missing-model",
+      errorMessage: "선택한 이미지 모델을 찾을 수 없습니다.",
+    });
+  });
+
+  it("지원하지 않는 image provider도 원시 식별자 대신 사용자 메시지로 실패한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        ...catalogModel("bad-provider", "hf_space"),
+        provider: "unsupported_provider",
+      },
+    ]);
+
+    const { resolveImageGenerationResult } = await import(
+      "@/server/image-generation/image-generation"
+    );
+    const result = await resolveImageGenerationResult(
+      payload("bad-provider"),
+      "req-provider",
+    );
+
+    expect(mockHfGenerate).not.toHaveBeenCalled();
+    expect(mockCodexGenerate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      status: "failed",
+      errorMessage: "지원하지 않는 이미지 provider입니다.",
     });
   });
 });

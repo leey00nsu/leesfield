@@ -235,6 +235,34 @@ describe("codexCliImageAdapter", () => {
     expect(generationArgs.at(-1)).toContain("attached input image");
   });
 
+  it("사설망 HTTP 입력 이미지는 fetch 전에 거부한다", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    mockExecFile.mockImplementation((command, args, options, callback) => {
+      void command;
+      void options;
+      const normalizedArgs = Array.isArray(args) ? args : [];
+      const done = asExecFileCallback(callback);
+      if (normalizedArgs[0] === "login") {
+        done(null, "Logged in using ChatGPT\n", "");
+      }
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    const { codexCliImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-cli-adapter"
+    );
+
+    await expect(
+      codexCliImageAdapter.generate({
+        ...payload(),
+        initImages: ["http://127.0.0.1/private.png"],
+      }),
+    ).rejects.toThrow("CODEX_IMAGE_INPUT_INVALID");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("Codex 실행 환경에 서버 secret env를 넘기지 않는다", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://secret");
     vi.stubEnv("LEEMAGE_API_KEY", "leemage-secret");
@@ -340,5 +368,11 @@ describe("codexCliImageAdapter", () => {
     expect(
       codexCliImageAdapter.mapError?.(new Error("CODEX_IMAGE_OUTPUT_NOT_FOUND")),
     ).toBe("Codex CLI가 생성한 이미지 파일을 찾을 수 없습니다.");
+    expect(
+      codexCliImageAdapter.mapError?.(new Error("IMAGE_MODEL_NOT_FOUND:missing")),
+    ).toBe("요청한 이미지 모델을 찾을 수 없습니다.");
+    expect(
+      codexCliImageAdapter.mapError?.(new Error("IMAGE_PROVIDER_NOT_SUPPORTED")),
+    ).toBe("요청한 이미지 제공자가 지원되지 않습니다.");
   });
 });

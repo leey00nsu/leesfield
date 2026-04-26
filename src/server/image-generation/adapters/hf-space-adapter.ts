@@ -1,6 +1,7 @@
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
+import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import {
   resolveHfSpaceFileReference,
@@ -255,57 +256,13 @@ async function detectImageMime(buffer: Buffer): Promise<string | null> {
   return result.mime;
 }
 
-function decodeDataUrlToBuffer(dataUrl: string) {
-  const [header, encoded] = dataUrl.split(",", 2);
-  if (!header || !encoded) {
-    throw new Error("HF_SPACE_IMAGE_INVALID");
-  }
-  if (!header.includes(";base64")) {
-    throw new Error("HF_SPACE_IMAGE_NOT_BASE64");
-  }
-  const mimeMatch = header.match(/data:(.*?);base64/);
-  const mime = mimeMatch?.[1] ?? "image/png";
-  const buffer = Buffer.from(encoded, "base64");
-  return { buffer, mime };
-}
-
-async function fetchInputImageBuffer(url: string) {
-  let resolved: URL;
-  try {
-    resolved = new URL(url);
-  } catch {
-    throw new Error("HF_SPACE_IMAGE_INVALID");
-  }
-  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
-    throw new Error("HF_SPACE_IMAGE_INVALID");
-  }
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), INPUT_IMAGE_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(resolved.toString(), { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get("content-type") ?? "image/png";
-    if (contentType.startsWith("image/")) {
-      return { buffer, mime: contentType };
-    }
-    const detected = await detectImageMime(buffer);
-    if (!detected) {
-      throw new Error("HF_SPACE_IMAGE_INVALID");
-    }
-    return { buffer, mime: detected };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function resolveInputImageBuffer(source: string) {
-  if (source.startsWith("data:")) {
-    return decodeDataUrlToBuffer(source);
-  }
-  return fetchInputImageBuffer(source);
+async function resolveHfInputImageBuffer(source: string) {
+  return resolveInputImageBuffer(source, {
+    invalidErrorCode: "HF_SPACE_IMAGE_INVALID",
+    fetchErrorCode: "HF_SPACE_IMAGE_FETCH_FAILED",
+    notBase64ErrorCode: "HF_SPACE_IMAGE_NOT_BASE64",
+    timeoutMs: INPUT_IMAGE_FETCH_TIMEOUT_MS,
+  });
 }
 
 async function fetchImageDataUrl(
@@ -424,8 +381,14 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     const inputImagesFormat = resolveInputImagesFormat(providerConfig);
     const inputImages = await Promise.all(
       initImages.map(async (source) => {
-        const { buffer, mime } = await resolveInputImageBuffer(source);
-        const file = await handle_file(new Blob([buffer], { type: mime }));
+        const { buffer, mime } = await resolveHfInputImageBuffer(source);
+        const detectedMime = await detectImageMime(buffer);
+        if (!detectedMime) {
+          throw new Error("HF_SPACE_IMAGE_INVALID");
+        }
+        const file = await handle_file(
+          new Blob([new Uint8Array(buffer)], { type: detectedMime || mime }),
+        );
         if (inputImagesFormat === "gallery") {
           return {
             image: file,
