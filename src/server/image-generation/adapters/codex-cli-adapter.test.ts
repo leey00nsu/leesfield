@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
+import { symlink, writeFile } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetModelCatalog = vi.hoisted(() => vi.fn());
 const mockExecFileFn = vi.hoisted(() => vi.fn());
@@ -15,6 +16,10 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
 }));
 
 const mockExecFile = vi.mocked(execFile);
+const validPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64",
+);
 
 type ExecFileCallback = (
   error: NodeJS.ErrnoException | null,
@@ -24,6 +29,14 @@ type ExecFileCallback = (
 
 function asExecFileCallback(callback: unknown) {
   return callback as ExecFileCallback;
+}
+
+function requireOutputPath(options: { env?: NodeJS.ProcessEnv }) {
+  const outputPath = options.env?.CODEX_IMAGE_OUTPUT_PATH;
+  if (!outputPath) {
+    throw new Error("missing output path");
+  }
+  return outputPath;
 }
 
 function mockCatalog() {
@@ -77,6 +90,10 @@ describe("codexCliImageAdapter", () => {
     mockCatalog();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("ChatGPT OAuth가 아니면 생성 전에 실패한다", async () => {
     mockExecFile.mockImplementation((command, args, options, callback) => {
       void command;
@@ -109,14 +126,9 @@ describe("codexCliImageAdapter", () => {
         return {} as ReturnType<typeof execFile>;
       }
 
-      const outputPath = (normalizedOptions.env as NodeJS.ProcessEnv)
-        .CODEX_IMAGE_OUTPUT_PATH;
-      if (!outputPath) {
-        done(new Error("missing output path"), "", "");
-        return {} as ReturnType<typeof execFile>;
-      }
+      const outputPath = requireOutputPath(normalizedOptions);
 
-      void writeFile(outputPath, Buffer.from([137, 80, 78, 71])).then(() =>
+      void writeFile(outputPath, validPng).then(() =>
         done(null, `saved to ${outputPath}`, ""),
       );
       return {} as ReturnType<typeof execFile>;
@@ -129,7 +141,7 @@ describe("codexCliImageAdapter", () => {
     const result = await codexCliImageAdapter.generate(payload());
 
     expect(result).toEqual({
-      images: ["data:image/png;base64,iVBORw=="],
+      images: [`data:image/png;base64,${validPng.toString("base64")}`],
     });
     expect(mockExecFile).toHaveBeenCalledWith(
       "codex",
@@ -147,6 +159,93 @@ describe("codexCliImageAdapter", () => {
       }),
       expect.any(Function),
     );
+    const generationCall = mockExecFile.mock.calls.find(
+      ([, args]) => Array.isArray(args) && args.includes("exec"),
+    );
+    expect(generationCall).toBeDefined();
+    expect(generationCall?.[1]).not.toContain("--full-auto");
+    expect(generationCall?.[1]).toEqual(
+      expect.arrayContaining([
+        "--ask-for-approval",
+        "never",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--ignore-user-config",
+        "--ignore-rules",
+      ]),
+    );
+  });
+
+  it("Codex 실행 환경에 서버 secret env를 넘기지 않는다", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://secret");
+    vi.stubEnv("LEEMAGE_API_KEY", "leemage-secret");
+    vi.stubEnv("OPENAI_API_KEY", "openai-secret");
+    vi.stubEnv("PATH", "/usr/local/bin:/usr/bin:/bin");
+
+    mockExecFile.mockImplementation((command, args, options, callback) => {
+      void command;
+      const normalizedArgs = Array.isArray(args) ? args : [];
+      const normalizedOptions = options && typeof options === "object" ? options : {};
+      const done = asExecFileCallback(callback);
+      if (normalizedArgs[0] === "login") {
+        done(null, "Logged in using ChatGPT\n", "");
+        return {} as ReturnType<typeof execFile>;
+      }
+
+      const outputPath = requireOutputPath(normalizedOptions);
+      void writeFile(outputPath, validPng).then(() =>
+        done(null, `saved to ${outputPath}`, ""),
+      );
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    const { codexCliImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-cli-adapter"
+    );
+
+    await codexCliImageAdapter.generate(payload());
+
+    const generationCall = mockExecFile.mock.calls.find(
+      ([, args]) => Array.isArray(args) && args.includes("exec"),
+    );
+    const env = generationCall?.[2]?.env as NodeJS.ProcessEnv;
+    expect(env.PATH).toBe("/usr/local/bin:/usr/bin:/bin");
+    expect(env.CODEX_IMAGE_OUTPUT_PATH).toMatch(/result\.png$/);
+    expect(env.DATABASE_URL).toBeUndefined();
+    expect(env.LEEMAGE_API_KEY).toBeUndefined();
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+  });
+
+  it("결과 파일이 실제 이미지가 아니거나 symlink면 실패한다", async () => {
+    mockExecFile.mockImplementation((command, args, options, callback) => {
+      void command;
+      const normalizedArgs = Array.isArray(args) ? args : [];
+      const normalizedOptions = options && typeof options === "object" ? options : {};
+      const done = asExecFileCallback(callback);
+      if (normalizedArgs[0] === "login") {
+        done(null, "Logged in using ChatGPT\n", "");
+        return {} as ReturnType<typeof execFile>;
+      }
+
+      const outputPath = requireOutputPath(normalizedOptions);
+      const targetPath = path.join(path.dirname(outputPath), "target.png");
+      void writeFile(targetPath, validPng)
+        .then(() => symlink(targetPath, outputPath))
+        .then(() => done(null, `saved to ${outputPath}`, ""));
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    const { codexCliImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-cli-adapter"
+    );
+
+    await expect(codexCliImageAdapter.generate(payload())).rejects.toThrow(
+      "CODEX_IMAGE_OUTPUT_INVALID",
+    );
+    expect(
+      codexCliImageAdapter.mapError?.(new Error("CODEX_IMAGE_OUTPUT_INVALID")),
+    ).toBe("Codex CLI가 생성한 이미지 파일 형식이 올바르지 않습니다.");
   });
 
   it("Codex CLI 실행 파일이 없으면 전용 오류로 매핑한다", async () => {
