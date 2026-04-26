@@ -272,6 +272,19 @@ describe("codexBridgeImageAdapter", () => {
     ).toBe("Codex bridge 이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
   });
 
+  it("bridge 연결 실패는 생성 실패가 아니라 호출 실패로 매핑한다", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { codexBridgeImageAdapter } = await import(
+      "@/server/image-generation/adapters/codex-bridge-adapter"
+    );
+
+    await expect(codexBridgeImageAdapter.generate(payload())).rejects.toThrow(
+      "CODEX_BRIDGE_BAD_STATUS",
+    );
+  });
+
   it("bridge 비정상 응답과 빈 이미지 결과를 구분해 매핑한다", async () => {
     const fetchMock = vi
       .fn()

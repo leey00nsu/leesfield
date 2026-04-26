@@ -270,7 +270,7 @@ async function fetchBridge(
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("CODEX_BRIDGE_TIMEOUT");
     }
-    throw new Error("CODEX_BRIDGE_GENERATION_FAILED");
+    throw new Error("CODEX_BRIDGE_BAD_STATUS");
   }
 }
 
