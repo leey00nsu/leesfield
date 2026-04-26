@@ -116,6 +116,11 @@ describe("codexCliImageAdapter", () => {
   });
 
   it("Codex가 저장한 result.png를 data URL로 반환한다", async () => {
+    const stdinEnd = vi.fn();
+    const childProcess = {
+      stdin: { end: stdinEnd },
+    } as unknown as ReturnType<typeof execFile>;
+
     mockExecFile.mockImplementation((command, args, options, callback) => {
       void command;
       const normalizedArgs = Array.isArray(args) ? args : [];
@@ -123,7 +128,7 @@ describe("codexCliImageAdapter", () => {
       const done = asExecFileCallback(callback);
       if (normalizedArgs[0] === "login") {
         done(null, "Logged in using ChatGPT\n", "");
-        return {} as ReturnType<typeof execFile>;
+        return childProcess;
       }
 
       const outputPath = requireOutputPath(normalizedOptions);
@@ -131,7 +136,7 @@ describe("codexCliImageAdapter", () => {
       void writeFile(outputPath, validPng).then(() =>
         done(null, `saved to ${outputPath}`, ""),
       );
-      return {} as ReturnType<typeof execFile>;
+      return childProcess;
     });
 
     const { codexCliImageAdapter } = await import(
@@ -159,6 +164,7 @@ describe("codexCliImageAdapter", () => {
       }),
       expect.any(Function),
     );
+    expect(stdinEnd).toHaveBeenCalledTimes(2);
     const generationCall = mockExecFile.mock.calls.find(
       ([, args]) => Array.isArray(args) && args.includes("exec"),
     );

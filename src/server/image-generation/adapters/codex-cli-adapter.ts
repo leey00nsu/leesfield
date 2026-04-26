@@ -56,7 +56,7 @@ function execFileAsync(
   options: ExecFileOptions,
 ) {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    execFile(command, args, options, (error, stdout, stderr) => {
+    const child = execFile(command, args, options, (error, stdout, stderr) => {
       const stdoutText = String(stdout ?? "");
       const stderrText = String(stderr ?? "");
       if (error) {
@@ -68,6 +68,7 @@ function execFileAsync(
       }
       resolve({ stdout: stdoutText, stderr: stderrText });
     });
+    child.stdin?.end();
   });
 }
 
