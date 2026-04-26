@@ -114,6 +114,16 @@ const codexCliConfigSchema = z
   })
   .passthrough();
 
+const codexBridgeConfigSchema = z
+  .object({
+    base_url_env: z.string().min(1),
+    token_env: z.string().min(1),
+    model_id: z.string().min(1),
+    agent_model: z.string().min(1).optional(),
+    timeout_ms: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
 const imageMetaSchema = z.object({
   pipeline: z.string().min(1),
   model_id: z.string().min(1),
@@ -150,8 +160,12 @@ const baseModelSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.enum(["hf_space", "codex_cli"]),
-  providerConfig: z.union([hfSpaceConfigSchema, codexCliConfigSchema]),
+  provider: z.enum(["hf_space", "codex_cli", "codex_bridge"]),
+  providerConfig: z.union([
+    hfSpaceConfigSchema,
+    codexCliConfigSchema,
+    codexBridgeConfigSchema,
+  ]),
   parameters: z.unknown(),
   meta: z.unknown(),
   isActive: z.boolean(),
@@ -176,9 +190,15 @@ const imageCodexCliModelSchema = imageModelSchema.extend({
   providerConfig: codexCliConfigSchema,
 });
 
+const imageCodexBridgeModelSchema = imageModelSchema.extend({
+  provider: z.literal("codex_bridge"),
+  providerConfig: codexBridgeConfigSchema,
+});
+
 const imageModelProviderSchema = z.union([
   imageHfSpaceModelSchema,
   imageCodexCliModelSchema,
+  imageCodexBridgeModelSchema,
 ]);
 
 const videoModelSchema = baseModelSchema.extend({
@@ -202,8 +222,12 @@ const baseModelInputSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.enum(["hf_space", "codex_cli"]),
-  providerConfig: z.union([hfSpaceConfigSchema, codexCliConfigSchema]),
+  provider: z.enum(["hf_space", "codex_cli", "codex_bridge"]),
+  providerConfig: z.union([
+    hfSpaceConfigSchema,
+    codexCliConfigSchema,
+    codexBridgeConfigSchema,
+  ]),
   parameters: z.unknown(),
   meta: z.unknown(),
   isActive: z.boolean().optional(),
@@ -226,9 +250,15 @@ const imageCodexCliModelInputSchema = imageModelInputSchema.extend({
   providerConfig: codexCliConfigSchema,
 });
 
+const imageCodexBridgeModelInputSchema = imageModelInputSchema.extend({
+  provider: z.literal("codex_bridge"),
+  providerConfig: codexBridgeConfigSchema,
+});
+
 const imageModelProviderInputSchema = z.union([
   imageHfSpaceModelInputSchema,
   imageCodexCliModelInputSchema,
+  imageCodexBridgeModelInputSchema,
 ]);
 
 const videoModelInputSchema = baseModelInputSchema.extend({

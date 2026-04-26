@@ -41,6 +41,47 @@ describe("model-catalog option normalization", () => {
     expect(parsed.data.providerConfig.model_id).toBe("gpt-image-2");
   });
 
+  it("image 모델은 codex_bridge provider config를 허용한다", () => {
+    const parsed = modelCatalogInputSchema.safeParse({
+      type: "image",
+      key: "gpt-image-2-bridge",
+      label: "GPT Image 2 Bridge",
+      vendor: "OPENAI",
+      provider: "codex_bridge",
+      providerConfig: {
+        base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+        token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+        model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
+        timeout_ms: 300000,
+      },
+      parameters: {
+        prompt: { ui: "textarea", required: true },
+        width: { ui: "hidden", min: 1024, max: 1024, step: 1, default: 1024 },
+        height: { ui: "hidden", min: 1024, max: 1024, step: 1, default: 1024 },
+        steps: { ui: "hidden", min: 1, max: 1, step: 1, default: 1 },
+        seed: { ui: "hidden", default: "" },
+        imageCount: { ui: "hidden", min: 1, max: 1, step: 1, default: 1 },
+      },
+      meta: {
+        pipeline: "image_generation",
+        model_id: "gpt-image-2",
+        default_width: 1024,
+        default_height: 1024,
+        default_steps: 1,
+        concurrent_limit: 1,
+        max_input_images: 1,
+      },
+      isActive: true,
+      isDefault: false,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.provider).toBe("codex_bridge");
+    expect(parsed.data.providerConfig.token_env).toBe("CODEX_IMAGE_BRIDGE_TOKEN");
+  });
+
   it("image 모델은 provider와 providerConfig가 일치해야 한다", () => {
     const base = {
       type: "image",
@@ -84,12 +125,22 @@ describe("model-catalog option normalization", () => {
         agent_model: "gpt-5.5",
       },
     });
+    const bridgeWithCodexConfig = modelCatalogInputSchema.safeParse({
+      ...base,
+      provider: "codex_bridge",
+      providerConfig: {
+        command: "codex",
+        model_id: "gpt-image-2",
+        agent_model: "gpt-5.5",
+      },
+    });
 
     expect(codexWithHfConfig.success).toBe(false);
     expect(hfWithCodexConfig.success).toBe(false);
+    expect(bridgeWithCodexConfig.success).toBe(false);
   });
 
-  it("video와 audio 모델은 codex_cli provider를 거부한다", () => {
+  it("video와 audio 모델은 codex_cli와 codex_bridge provider를 거부한다", () => {
     const videoParsed = modelCatalogInputSchema.safeParse({
       type: "video",
       key: "video-codex",
@@ -137,9 +188,58 @@ describe("model-catalog option normalization", () => {
         default_speed: 1,
       },
     });
+    const videoBridgeParsed = modelCatalogInputSchema.safeParse({
+      type: "video",
+      key: "video-bridge",
+      label: "Video Bridge",
+      vendor: "OPENAI",
+      provider: "codex_bridge",
+      providerConfig: {
+        base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+        token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+        model_id: "gpt-image-2",
+      },
+      parameters: {
+        prompt: { ui: "textarea", required: true },
+        durationSec: { ui: "range", min: 1, max: 5, step: 1, default: 3 },
+        steps: { ui: "range", min: 1, max: 10, step: 1, default: 5 },
+        guidanceScale: { ui: "range", min: 0, max: 10, step: 1, default: 1 },
+      },
+      meta: {
+        supports_init_image: false,
+        t2v_model_id: "video-bridge",
+        default_width: 1280,
+        default_height: 720,
+        default_duration_sec: 3,
+        default_fps: 24,
+        default_steps: 5,
+        default_guidance_scale: 1,
+      },
+    });
+    const audioBridgeParsed = modelCatalogInputSchema.safeParse({
+      type: "audio",
+      key: "audio-bridge",
+      label: "Audio Bridge",
+      vendor: "OPENAI",
+      provider: "codex_bridge",
+      providerConfig: {
+        base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+        token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+        model_id: "gpt-image-2",
+      },
+      parameters: {
+        prompt: { ui: "textarea", required: true },
+      },
+      meta: {
+        model_id: "audio-bridge",
+        default_speed: 1,
+      },
+    });
 
     expect(videoParsed.success).toBe(false);
     expect(audioParsed.success).toBe(false);
+    expect(videoBridgeParsed.success).toBe(false);
+    expect(audioBridgeParsed.success).toBe(false);
   });
 
   it("등록 payload의 flat/tuple options를 canonical option object로 정규화한다", () => {
