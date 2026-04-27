@@ -5,6 +5,8 @@ const mockHfGenerate = vi.hoisted(() => vi.fn());
 const mockHfMapError = vi.hoisted(() => vi.fn(() => "HF mapped error"));
 const mockCodexGenerate = vi.hoisted(() => vi.fn());
 const mockCodexMapError = vi.hoisted(() => vi.fn(() => "Codex mapped error"));
+const mockBridgeGenerate = vi.hoisted(() => vi.fn());
+const mockBridgeMapError = vi.hoisted(() => vi.fn(() => "Bridge mapped error"));
 const mockResolveImageStorageProvider = vi.hoisted(() => vi.fn());
 const mockLeemageUploadImages = vi.hoisted(() => vi.fn());
 
@@ -26,6 +28,13 @@ vi.mock("@/server/image-generation/adapters/codex-cli-adapter", () => ({
   },
 }));
 
+vi.mock("@/server/image-generation/adapters/codex-bridge-adapter", () => ({
+  codexBridgeImageAdapter: {
+    generate: mockBridgeGenerate,
+    mapError: mockBridgeMapError,
+  },
+}));
+
 vi.mock("@/server/image-generation/storage/storage-selector", () => ({
   resolveImageStorageProvider: mockResolveImageStorageProvider,
 }));
@@ -36,13 +45,16 @@ vi.mock("@/server/image-generation/storage/adapters/leemage-storage-adapter", ()
   },
 }));
 
-function catalogModel(key: string, provider: "hf_space" | "codex_cli") {
+function catalogModel(
+  key: string,
+  provider: "hf_space" | "codex_cli" | "codex_bridge",
+) {
   return {
     id: `image-${key}`,
     type: "image",
     key,
     label: key,
-    vendor: provider === "codex_cli" ? "OPENAI" : "HF",
+    vendor: provider === "hf_space" ? "HF" : "OPENAI",
     provider,
     providerConfig:
       provider === "codex_cli"
@@ -51,6 +63,14 @@ function catalogModel(key: string, provider: "hf_space" | "codex_cli") {
             model_id: "gpt-image-2",
             timeout_ms: 300000,
           }
+        : provider === "codex_bridge"
+          ? {
+              base_url_env: "CODEX_IMAGE_BRIDGE_URL",
+              token_env: "CODEX_IMAGE_BRIDGE_TOKEN",
+              model_id: "gpt-image-2",
+              agent_model: "gpt-5.5",
+              timeout_ms: 300000,
+            }
         : {
             space_id: "demo/space",
             api_name: "/generate_image",
@@ -91,6 +111,9 @@ describe("resolveImageGenerationResult provider dispatch", () => {
     mockCodexGenerate.mockResolvedValue({
       images: ["data:image/png;base64,Y29kZXg="],
     });
+    mockBridgeGenerate.mockResolvedValue({
+      images: ["data:image/png;base64,YnJpZGdl"],
+    });
   });
 
   afterEach(() => {
@@ -112,6 +135,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
       expect.objectContaining({ model: "z-image-turbo" }),
     );
     expect(mockCodexGenerate).not.toHaveBeenCalled();
+    expect(mockBridgeGenerate).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "completed",
       skipDbSave: true,
@@ -144,6 +168,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
       expect.objectContaining({ model: "gpt-image-2-codex" }),
     );
     expect(mockHfGenerate).not.toHaveBeenCalled();
+    expect(mockBridgeGenerate).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "completed",
       skipDbSave: true,
@@ -151,6 +176,39 @@ describe("resolveImageGenerationResult provider dispatch", () => {
         images: [
           {
             url: "data:image/png;base64,Y29kZXg=",
+            width: 1024,
+            height: 1024,
+          },
+        ],
+      },
+    });
+  });
+
+  it("codex_bridge 이미지 모델은 Codex bridge adapter로 라우팅한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      catalogModel("gpt-image-2-bridge", "codex_bridge"),
+    ]);
+
+    const { resolveImageGenerationResult } = await import(
+      "@/server/image-generation/image-generation"
+    );
+    const result = await resolveImageGenerationResult(
+      payload("gpt-image-2-bridge"),
+      "req-bridge",
+    );
+
+    expect(mockBridgeGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gpt-image-2-bridge" }),
+    );
+    expect(mockHfGenerate).not.toHaveBeenCalled();
+    expect(mockCodexGenerate).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "completed",
+      skipDbSave: true,
+      result: {
+        images: [
+          {
+            url: "data:image/png;base64,YnJpZGdl",
             width: 1024,
             height: 1024,
           },
@@ -172,6 +230,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
 
     expect(mockHfGenerate).not.toHaveBeenCalled();
     expect(mockCodexGenerate).not.toHaveBeenCalled();
+    expect(mockBridgeGenerate).not.toHaveBeenCalled();
     expect(result).toEqual({
       status: "failed",
       errorMessage: "선택한 이미지 모델을 찾을 수 없습니다.",
@@ -196,6 +255,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
 
     expect(mockHfGenerate).not.toHaveBeenCalled();
     expect(mockCodexGenerate).not.toHaveBeenCalled();
+    expect(mockBridgeGenerate).not.toHaveBeenCalled();
     expect(result).toEqual({
       status: "failed",
       errorMessage: "지원하지 않는 이미지 provider입니다.",

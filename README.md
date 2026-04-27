@@ -149,7 +149,7 @@ pnpm dev
 
 현재 구현된 provider:
 
-- 이미지: `hf_space`
+- 이미지: `hf_space`, `codex_cli`, `codex_bridge`
 - 비디오: `hf_space`
 
 설정/선택:
@@ -166,6 +166,8 @@ pnpm dev
 3. `image-generation.ts` / `video-generation.ts`에서 제공자 분기 추가
 4. 모델 카탈로그(DB) 갱신
 5. 필요 시 `.env.example`에 새 제공자 설정 추가
+
+`codex_bridge` provider는 별도 `codex-image-bridge` 서비스가 Codex CLI/OAuth를 소유하는 운영 구성을 위한 provider입니다. leesfield 앱에는 `CODEX_IMAGE_BRIDGE_URL`과 `CODEX_IMAGE_BRIDGE_TOKEN`만 설정하면 되고, 메인 앱 컨테이너에 `codex` CLI를 설치할 필요가 없습니다. `CODEX_IMAGE_BRIDGE_URL`은 path 없는 `http(s)` origin/root URL이어야 하며, 앱은 `/v1/images/jobs`로 job을 만든 뒤 `/v1/images/jobs/{jobId}`를 polling합니다.
 
 #### 2) 저장소 어댑터 (이미지/비디오/오디오 업로드)
 
@@ -220,8 +222,7 @@ pnpm dev
 ### 외부 API 사용
 
 모델별 `provider` 값에 따라 API 호출 어댑터가 선택됩니다.
-현재 구현된 호출 어댑터는 `hf_space`이며, Space ID/엔드포인트는
-모델 카탈로그(DB)에서 관리합니다.
+현재 이미지 호출 어댑터는 `hf_space`, `codex_cli`, `codex_bridge`이며, provider별 설정은 모델 카탈로그(DB)에서 관리합니다. `codex_bridge` token 값은 DB가 아니라 env로만 읽습니다.
 
 외부 API 엔드포인트:
 
