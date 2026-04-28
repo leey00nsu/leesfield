@@ -81,6 +81,44 @@ describe("ImageGenerationForm", () => {
     expect(modelButton).toHaveClass("border-primary");
   });
 
+  it("preset 선택 시 prompt와 추천 모델을 form state에 반영한다", async () => {
+    const startGeneration = vi.fn();
+    const reset = vi.fn();
+
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset,
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    await user.click(screen.getByRole("button", { name: /에디토리얼 컷/ }));
+
+    expect(
+      screen.getByDisplayValue(
+        "high contrast editorial portrait, reflective fabric, precise studio lighting",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }),
+    ).toHaveClass("border-primary");
+
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(startGeneration).toHaveBeenCalledTimes(1);
+    expect(startGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt:
+          "high contrast editorial portrait, reflective fabric, precise studio lighting",
+        model: "flux2-klein-9b",
+      }),
+    );
+  });
+
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
     const startGeneration = vi.fn();
     const reset = vi.fn();

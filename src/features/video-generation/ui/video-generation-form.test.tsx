@@ -99,6 +99,52 @@ describe("VideoGenerationForm", () => {
     expect(await screen.findByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
+  it("preset 선택 시 prompt와 추천 모델을 form state에 반영한다", async () => {
+    const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    const user = userEvent.setup();
+
+    await waitForModels();
+
+    await user.click(screen.getByRole("button", { name: /제품 오빗/ }));
+
+    expect(
+      screen.getByDisplayValue(
+        "slow orbit camera move around a premium product, soft reflections, controlled studio light",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Wan 2\.2/i })).toHaveClass(
+      "border-primary",
+    );
+
+    const submit = screen.getByRole("button", { name: "생성" });
+    const fileInput = container.querySelector(
+      "input[type=\"file\"]",
+    ) as HTMLInputElement | null;
+
+    expect(submit).toBeDisabled();
+    expect(fileInput).not.toBeNull();
+
+    if (fileInput) {
+      const file = new File(["test"], "sample.png", { type: "image/png" });
+      await user.upload(fileInput, file);
+    }
+
+    await screen.findByAltText("입력 이미지 미리보기");
+    expect(submit).not.toBeDisabled();
+
+    await user.click(submit);
+
+    expect(startGenerationMock).toHaveBeenCalledTimes(1);
+    expect(startGenerationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt:
+          "slow orbit camera move around a premium product, soft reflections, controlled studio light",
+        model: "wan2-2-hf",
+        initImage: "data:image/png;base64,AAAA",
+      }),
+    );
+  });
+
   it("모달리티 배지를 표시한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();

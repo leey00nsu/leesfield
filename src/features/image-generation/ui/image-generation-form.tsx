@@ -36,6 +36,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
+import { GenerationPresetStrip } from "@/shared/ui/generation-preset-strip";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
@@ -61,10 +62,13 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveImageModalities } from "@/shared/model-catalog/modality";
+import { getGenerationPresets } from "@/shared/generation/generation-presets";
 
 type ImageGenerationFormProps = {
   isAuthenticated: boolean;
 };
+
+const imagePresets = getGenerationPresets("image");
 
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -346,6 +350,24 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
+  const handlePresetSelect = useCallback(
+    (preset: (typeof imagePresets)[number], prompt: string) => {
+      if (isGenerating) {
+        reset();
+      }
+
+      form.setValue("prompt", prompt, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      if (preset.modelHint && runtimeModelMap.has(preset.modelHint)) {
+        form.setValue("model", preset.modelHint, { shouldValidate: true });
+      }
+    },
+    [form, isGenerating, reset, runtimeModelMap],
+  );
+
   const handleRandomizeSeed = () => {
     if (isGenerating) return;
     let seedValue = Math.floor(Math.random() * 1_000_000_000);
@@ -538,6 +560,12 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                 {state.errorMessage}
               </div>
             )}
+
+            <GenerationPresetStrip
+              modality="image"
+              items={imagePresets}
+              onSelect={handlePresetSelect}
+            />
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4 lg:flex-row">

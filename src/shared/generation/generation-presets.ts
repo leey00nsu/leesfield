@@ -28,17 +28,17 @@ function createPreset(
 
 export const generationPresets = {
   image: [
-    createPreset("image", "editorial-cut"),
+    createPreset("image", "editorial-cut", "flux2-klein-9b"),
     createPreset("image", "product-shadow"),
     createPreset("image", "storyboard-frame"),
   ],
   video: [
-    createPreset("video", "product-orbit"),
+    createPreset("video", "product-orbit", "wan2-2-hf"),
     createPreset("video", "street-pan"),
     createPreset("video", "macro-motion"),
   ],
   audio: [
-    createPreset("audio", "warm-voiceover"),
+    createPreset("audio", "warm-voiceover", "qwen-tts"),
     createPreset("audio", "product-tagline"),
     createPreset("audio", "ambient-intro"),
   ],

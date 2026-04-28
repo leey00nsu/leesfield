@@ -18,8 +18,8 @@ export function GenerationPromptField({
 }: GenerationPromptFieldProps) {
   return (
     <div className={cn("group relative", className)}>
-      <div className="absolute -inset-0.5 rounded-xl bg-linear-to-r from-primary/30 to-accent-purple/30 opacity-20 blur transition duration-500 group-focus-within:opacity-100" />
-      <div className="relative rounded-xl border border-white/10 bg-surface-dark transition-colors focus-within:border-primary/50">
+      <div className="absolute -inset-0.5 rounded-xl bg-linear-to-r from-primary/10 to-accent-purple/10 opacity-0 blur transition duration-300 group-focus-within:opacity-60" />
+      <div className="relative rounded-xl border border-creative-surface-border bg-creative-surface transition-colors focus-within:border-primary/40">
         {textarea}
         {attachments}
         <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">

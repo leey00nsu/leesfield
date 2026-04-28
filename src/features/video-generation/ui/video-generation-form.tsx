@@ -11,6 +11,7 @@ import {
   Video,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -29,6 +30,7 @@ import { useVideoGeneration } from "@/features/video-generation/hook/use-video-g
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
+import { GenerationPresetStrip } from "@/shared/ui/generation-preset-strip";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
@@ -52,10 +54,13 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveVideoModalities } from "@/shared/model-catalog/modality";
+import { getGenerationPresets } from "@/shared/generation/generation-presets";
 
 type VideoGenerationFormProps = {
   isAuthenticated: boolean;
 };
+
+const videoPresets = getGenerationPresets("video");
 
 export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -264,6 +269,24 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
+  const handlePresetSelect = useCallback(
+    (preset: (typeof videoPresets)[number], prompt: string) => {
+      if (isGenerating) {
+        reset();
+      }
+
+      form.setValue("prompt", prompt, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      if (preset.modelHint && runtimeModelMap.has(preset.modelHint)) {
+        form.setValue("model", preset.modelHint, { shouldValidate: true });
+      }
+    },
+    [form, isGenerating, reset, runtimeModelMap],
+  );
+
   const handleOpenImagePicker = () => {
     fileInputRef.current?.click();
   };
@@ -443,6 +466,12 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                 </div>
               </div>
             ) : null}
+
+            <GenerationPresetStrip
+              modality="video"
+              items={videoPresets}
+              onSelect={handlePresetSelect}
+            />
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4 lg:flex-row">

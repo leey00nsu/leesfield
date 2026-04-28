@@ -187,6 +187,39 @@ describe("AudioGenerationForm", () => {
     ).not.toBeNull();
   });
 
+  it("preset 선택 시 prompt를 form state에 반영한다", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    await user.click(screen.getByRole("button", { name: /따뜻한 보이스오버/ }));
+
+    expect(
+      screen.getByDisplayValue(
+        "A calm, warm voiceover introducing a creative AI studio in one concise sentence.",
+      ),
+    ).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(startGeneration).toHaveBeenCalledTimes(1);
+    expect(startGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt:
+          "A calm, warm voiceover introducing a creative AI studio in one concise sentence.",
+        model: "qwen-tts",
+      }),
+    );
+  });
+
   it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: {

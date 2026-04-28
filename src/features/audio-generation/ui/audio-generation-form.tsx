@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -28,6 +29,7 @@ import { useAudioGeneration } from "@/features/audio-generation/hook/use-audio-g
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
+import { GenerationPresetStrip } from "@/shared/ui/generation-preset-strip";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
@@ -64,6 +66,7 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveAudioModalities } from "@/shared/model-catalog/modality";
+import { getGenerationPresets } from "@/shared/generation/generation-presets";
 
 type AudioGenerationFormProps = {
   isAuthenticated: boolean;
@@ -102,6 +105,8 @@ const advancedAudioFields = new Set<AudioFieldName>([
   "topK",
   "repetitionPenalty",
 ]);
+
+const audioPresets = getGenerationPresets("audio");
 
 export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -347,6 +352,24 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     }
     form.setValue("model", modelId, { shouldValidate: true });
   };
+
+  const handlePresetSelect = useCallback(
+    (preset: (typeof audioPresets)[number], prompt: string) => {
+      if (isGenerating) {
+        reset();
+      }
+
+      form.setValue("prompt", prompt, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      if (preset.modelHint && runtimeModelMap.has(preset.modelHint)) {
+        form.setValue("model", preset.modelHint, { shouldValidate: true });
+      }
+    },
+    [form, isGenerating, reset, runtimeModelMap],
+  );
 
   const handleReset = () => {
     form.reset(resetDefaults);
@@ -925,6 +948,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 })}
               </div>
             ) : null}
+
+            <GenerationPresetStrip
+              modality="audio"
+              items={audioPresets}
+              onSelect={handlePresetSelect}
+            />
 
             <div className="flex flex-col gap-4 lg:flex-row">
               <FormField

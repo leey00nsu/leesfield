@@ -24,13 +24,13 @@ export function GenerationSettingsPanel({
   return (
     <aside
       className={cn(
-        "flex w-full shrink-0 flex-col gap-6 rounded-2xl border border-white/10 bg-background-dark px-6 py-6 shadow-2xl xl:w-[400px] xl:rounded-none xl:border-l xl:border-white/10 xl:bg-transparent xl:shadow-none",
+        "flex w-full shrink-0 flex-col gap-5 rounded-xl border border-creative-surface-border bg-creative-surface-muted px-5 py-5 xl:w-[380px] xl:rounded-none xl:border-l xl:border-white/10 xl:bg-transparent",
         className,
       )}
     >
       <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-white">
-          <span className="h-6 w-1.5 rounded-full bg-primary" />
+        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-200">
+          <span className="h-4 w-1 rounded-full bg-primary/80" />
           {resolvedTitle}
         </h3>
         <Button
