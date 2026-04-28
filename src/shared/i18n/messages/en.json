@@ -254,6 +254,66 @@
       "gridDisabled": "Grid (disabled)",
       "fullScreenDisabled": "Full Screen (disabled)"
     },
+    "presets": {
+      "hint": "Apply to prompt",
+      "image": {
+        "title": "Image starters",
+        "ariaLabel": "Image starters",
+        "editorial-cut": {
+          "label": "Editorial cut",
+          "description": "A visual prompt for portrait, fabric, and lighting in one pass.",
+          "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
+        },
+        "product-shadow": {
+          "label": "Product shadow",
+          "description": "Emphasizes crisp product form and grounded shadows.",
+          "prompt": "minimal product photo on a tinted dark surface, clean shadow, premium material detail"
+        },
+        "storyboard-frame": {
+          "label": "Storyboard frame",
+          "description": "A scene composition that can continue into video.",
+          "prompt": "cinematic storyboard frame, wide angle composition, clear subject motion cue"
+        }
+      },
+      "video": {
+        "title": "Video starters",
+        "ariaLabel": "Video starters",
+        "product-orbit": {
+          "label": "Product orbit",
+          "description": "A short, smooth move around a hero product.",
+          "prompt": "slow orbit camera move around a premium product, soft reflections, controlled studio light"
+        },
+        "street-pan": {
+          "label": "Street pan",
+          "description": "A lateral move across an atmospheric city scene.",
+          "prompt": "smooth lateral pan through a neon city street, rain reflections, cinematic pacing"
+        },
+        "macro-motion": {
+          "label": "Macro motion",
+          "description": "A close-up reveal for texture and material detail.",
+          "prompt": "macro close-up motion over textured material, shallow depth of field, slow reveal"
+        }
+      },
+      "audio": {
+        "title": "Audio starters",
+        "ariaLabel": "Audio starters",
+        "warm-voiceover": {
+          "label": "Warm voiceover",
+          "description": "A steady narration for a short intro video.",
+          "prompt": "A calm, warm voiceover introducing a creative AI studio in one concise sentence."
+        },
+        "product-tagline": {
+          "label": "Product tagline",
+          "description": "A short voice line for a product teaser.",
+          "prompt": "A confident product tagline with a polished launch trailer tone."
+        },
+        "ambient-intro": {
+          "label": "Ambient intro",
+          "description": "A calm audio direction for the opening screen.",
+          "prompt": "A soft ambient intro with minimal spoken words and a cinematic opening mood."
+        }
+      }
+    },
     "image": {
       "title": {
         "leading": "Image",

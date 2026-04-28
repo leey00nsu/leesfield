@@ -254,6 +254,66 @@
       "gridDisabled": "그리드 (비활성)",
       "fullScreenDisabled": "전체 화면 (비활성)"
     },
+    "presets": {
+      "hint": "프롬프트에 적용",
+      "image": {
+        "title": "이미지 시작점",
+        "ariaLabel": "이미지 시작점",
+        "editorial-cut": {
+          "label": "에디토리얼 컷",
+          "description": "인물, 패브릭, 조명을 한 번에 잡는 시각 프롬프트",
+          "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
+        },
+        "product-shadow": {
+          "label": "제품 섀도우",
+          "description": "선명한 제품 형태와 바닥 그림자를 강조",
+          "prompt": "minimal product photo on a tinted dark surface, clean shadow, premium material detail"
+        },
+        "storyboard-frame": {
+          "label": "스토리보드 프레임",
+          "description": "영상으로 이어갈 수 있는 장면 구도",
+          "prompt": "cinematic storyboard frame, wide angle composition, clear subject motion cue"
+        }
+      },
+      "video": {
+        "title": "비디오 시작점",
+        "ariaLabel": "비디오 시작점",
+        "product-orbit": {
+          "label": "제품 오빗",
+          "description": "제품 주변을 부드럽게 도는 짧은 무빙",
+          "prompt": "slow orbit camera move around a premium product, soft reflections, controlled studio light"
+        },
+        "street-pan": {
+          "label": "스트리트 팬",
+          "description": "도시 장면을 좌우로 훑는 모션",
+          "prompt": "smooth lateral pan through a neon city street, rain reflections, cinematic pacing"
+        },
+        "macro-motion": {
+          "label": "매크로 모션",
+          "description": "소재와 질감을 가까이 보여주는 클로즈업",
+          "prompt": "macro close-up motion over textured material, shallow depth of field, slow reveal"
+        }
+      },
+      "audio": {
+        "title": "오디오 시작점",
+        "ariaLabel": "오디오 시작점",
+        "warm-voiceover": {
+          "label": "따뜻한 보이스오버",
+          "description": "짧은 소개 영상에 맞는 안정적인 내레이션",
+          "prompt": "A calm, warm voiceover introducing a creative AI studio in one concise sentence."
+        },
+        "product-tagline": {
+          "label": "제품 태그라인",
+          "description": "제품 티저에 붙일 짧은 음성 카피",
+          "prompt": "A confident product tagline with a polished launch trailer tone."
+        },
+        "ambient-intro": {
+          "label": "앰비언트 인트로",
+          "description": "시작 화면에 어울리는 차분한 오디오 지시문",
+          "prompt": "A soft ambient intro with minimal spoken words and a cinematic opening mood."
+        }
+      }
+    },
     "image": {
       "title": {
         "leading": "이미지",
