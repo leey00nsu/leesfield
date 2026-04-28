@@ -383,7 +383,12 @@
       "live": "Live",
       "avgLabel": "AVG",
       "range": "Range",
-      "errorLabel": "Stable"
+      "errorLabel": "Stable",
+      "health": {
+        "healthy": "Healthy",
+        "watch": "Watch",
+        "attention": "Attention"
+      }
     },
     "filters": {
       "statusAll": "All",

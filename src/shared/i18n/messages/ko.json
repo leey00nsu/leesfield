@@ -383,7 +383,12 @@
       "live": "실시간",
       "avgLabel": "평균",
       "range": "기간",
-      "errorLabel": "안정"
+      "errorLabel": "안정",
+      "health": {
+        "healthy": "정상",
+        "watch": "관찰",
+        "attention": "주의"
+      }
     },
     "filters": {
       "statusAll": "전체",

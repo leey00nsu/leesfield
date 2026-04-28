@@ -2,6 +2,7 @@ import { Activity, AlertTriangle, BarChart3, Timer } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { MonitoringOverview } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
+import { resolveErrorRateHealth } from "@/features/monitoring-dashboard/lib/monitoring-health";
 import { cn } from "@/shared/lib/utils";
 
 interface MonitoringKpiCardsProps {
@@ -21,12 +22,14 @@ function StatCard({
   hint,
   icon: Icon,
   iconClassName,
+  hintClassName,
 }: {
   title: string;
   value: string;
   hint?: string;
   icon: typeof Activity;
   iconClassName?: string;
+  hintClassName?: string;
 }) {
   return (
     <div className={cardBase}>
@@ -37,7 +40,9 @@ function StatCard({
       <div className="mt-3 flex items-end gap-3">
         <span className={cardValue}>{value}</span>
         {hint ? (
-          <span className="text-xs font-mono text-primary">{hint}</span>
+          <span className={cn("text-xs font-mono text-primary", hintClassName)}>
+            {hint}
+          </span>
         ) : null}
       </div>
       <div className="pointer-events-none absolute -right-3 -bottom-6 text-white/5">
@@ -57,6 +62,7 @@ export function MonitoringKpiCards({
   const totalCount = data ? formatCompactNumber(data.totalCount) : "-";
   const avgLatency = data ? formatDuration(data.avgLatencyMs) : "-";
   const errorRate = data ? formatPercent(data.errorRate) : "-";
+  const errorHealth = resolveErrorRateHealth(data?.errorRate ?? 0);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -83,9 +89,10 @@ export function MonitoringKpiCards({
       <StatCard
         title={t("kpi.errorRate")}
         value={isLoading ? "..." : errorRate}
-        hint={t("kpi.errorLabel")}
+        hint={t(errorHealth.labelKey)}
         icon={AlertTriangle}
-        iconClassName="text-destructive"
+        iconClassName={errorHealth.iconClassName}
+        hintClassName={errorHealth.hintClassName}
       />
     </div>
   );
