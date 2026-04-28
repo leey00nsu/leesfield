@@ -85,13 +85,62 @@
   },
   "landing": {
     "hero": {
-      "status": "AI generation platform",
-      "primaryCta": "Start generating",
+      "status": "Creative studio",
       "secondaryCta": "API Docs",
-      "description": "leesfield is an AI generation platform for creators, helping you deliver results quickly with a streamlined workflow and model selection."
+      "description": "Turn an idea into image, video, and audio output, then reuse past work as the starting point for the next generation.",
+      "creation": {
+        "image": {
+          "label": "Make images",
+          "description": "Text and references"
+        },
+        "video": {
+          "label": "Make videos",
+          "description": "Scenes and motion"
+        },
+        "audio": {
+          "label": "Make audio",
+          "description": "Voice and sound"
+        }
+      },
+      "starterPrompts": {
+        "label": "Starter prompts",
+        "items": {
+          "editorial": "Neon fashion editorial",
+          "product": "Product teaser film",
+          "voiceover": "Warm voiceover"
+        }
+      },
+      "preview": {
+        "label": "Generation result preview",
+        "imageAlt": "AI generated image sample",
+        "imageTitle": "Image result",
+        "imageDescription": "From prompt to visual output",
+        "videoLabel": "AI generated video sample",
+        "videoTitle": "Video motion",
+        "audioLabel": "AI generated audio waveform",
+        "audioTitle": "Audio take",
+        "caption": "See the result types first, then jump straight into the right creation flow."
+      }
     },
     "features": {
-      "title": "Core features",
+      "eyebrow": "STUDIO LANES",
+      "title": "Start from the output you need",
+      "description": "The landing flow prioritizes creation entry points over technical explanation, with each generator framed around output and next action.",
+      "laneCta": "Open",
+      "lanes": {
+        "image": {
+          "title": "Image studio",
+          "description": "Handle prompt, reference images, and model choice in one focused flow."
+        },
+        "video": {
+          "title": "Video studio",
+          "description": "Connect a starting image and scene direction into motion output."
+        },
+        "audio": {
+          "title": "Audio studio",
+          "description": "Combine text, reference audio, and voice settings for the target result."
+        }
+      },
       "cards": {
         "generation": {
           "title": "Image & video generation",

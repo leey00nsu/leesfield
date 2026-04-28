@@ -11,29 +11,33 @@ export function LandingTechStackSection() {
   ] as const;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <h2 className="text-xl font-bold uppercase tracking-widest text-white">
+    <div className="flex flex-col gap-5 border-t border-white/10 pt-10">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <h2 className="text-base font-semibold text-gray-300">
           {t("title")}
         </h2>
-        <div className="h-px flex-1 bg-white/10" />
+        <p className="max-w-2xl text-sm leading-relaxed text-gray-500">
+          {t("description")}
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {items.map((item) => {
           const Icon = item.icon;
           return (
             <div
               key={item.key}
-              className="group flex flex-col items-center justify-center rounded-xl border border-white/5 bg-surface-dark p-6 transition-all hover:border-white/20"
+              className="flex items-center gap-3 rounded-xl border border-white/5 bg-surface-dark/40 p-4 text-left"
             >
-              <Icon className="mb-3 h-10 w-10 text-white transition-colors group-hover:text-primary" />
-              <span className="font-mono font-bold tracking-wider text-white">
-                {t(`items.${item.key}.label`)}
-              </span>
-              <span className="mt-1 text-xs text-gray-500">
-                {t(`items.${item.key}.description`)}
-              </span>
+              <Icon className="h-5 w-5 text-gray-500" />
+              <div>
+                <span className="block text-sm font-semibold text-gray-200">
+                  {t(`items.${item.key}.label`)}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t(`items.${item.key}.description`)}
+                </span>
+              </div>
             </div>
           );
         })}

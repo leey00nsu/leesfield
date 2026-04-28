@@ -27,9 +27,9 @@ export function LandingWidget({
         <section className="px-6 pb-20 pt-12 sm:px-10">
           <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-16">
             <LandingFeaturesSection />
-            <LandingTechStackSection />
             <LandingWhySection />
             <LandingCtaSection />
+            <LandingTechStackSection />
           </div>
         </section>
       </main>

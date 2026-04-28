@@ -85,13 +85,62 @@
   },
   "landing": {
     "hero": {
-      "status": "AI 생성 플랫폼",
-      "primaryCta": "생성 시작",
+      "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "leesfield는 창작을 위한 AI 생성 플랫폼으로, 간결한 워크플로우와 모델 선택을 통해 결과를 빠르게 완성합니다."
+      "description": "아이디어를 이미지, 영상, 오디오 결과로 바로 전환하고 이전 작업을 다음 생성의 출발점으로 이어가세요.",
+      "creation": {
+        "image": {
+          "label": "이미지 만들기",
+          "description": "텍스트와 참고 이미지"
+        },
+        "video": {
+          "label": "비디오 만들기",
+          "description": "장면과 모션"
+        },
+        "audio": {
+          "label": "오디오 만들기",
+          "description": "보이스와 사운드"
+        }
+      },
+      "starterPrompts": {
+        "label": "시작 프롬프트",
+        "items": {
+          "editorial": "네온 패션 editorial",
+          "product": "제품 티저 영상",
+          "voiceover": "따뜻한 보이스오버"
+        }
+      },
+      "preview": {
+        "label": "생성 결과 미리보기",
+        "imageAlt": "AI 생성 이미지 샘플",
+        "imageTitle": "Image result",
+        "imageDescription": "프롬프트에서 바로 시각 결과로",
+        "videoLabel": "AI 생성 비디오 샘플",
+        "videoTitle": "Video motion",
+        "audioLabel": "AI 생성 오디오 파형",
+        "audioTitle": "Audio take",
+        "caption": "한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다."
+      }
     },
     "features": {
-      "title": "핵심 기능",
+      "eyebrow": "STUDIO LANES",
+      "title": "필요한 결과 타입에서 바로 시작",
+      "description": "기술 설명보다 작업 진입점을 먼저 보여주고, 각 생성 흐름은 결과물과 다음 액션이 함께 보이도록 정리합니다.",
+      "laneCta": "열기",
+      "lanes": {
+        "image": {
+          "title": "이미지 스튜디오",
+          "description": "단일 프롬프트, 참고 이미지, 모델 선택을 한 흐름에서 다룹니다."
+        },
+        "video": {
+          "title": "비디오 스튜디오",
+          "description": "시작 이미지와 장면 설명을 연결해 움직이는 결과로 확장합니다."
+        },
+        "audio": {
+          "title": "오디오 스튜디오",
+          "description": "텍스트, 레퍼런스 오디오, 보이스 설정을 목적에 맞게 조합합니다."
+        }
+      },
       "cards": {
         "generation": {
           "title": "이미지/비디오 생성",
