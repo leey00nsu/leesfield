@@ -212,14 +212,34 @@
         "leading": "User",
         "accent": "Login"
       },
-      "subtitle": "AUTHENTICATION REQUIRED",
+      "panelLabel": "Login",
+      "headline": "Log in to leesfield",
+      "subtitle": "Use your account to keep creating images, videos, and audio.",
+      "terms": "Continuing opens your private workspace and generation history.",
+      "preview": {
+        "imageAlt": "Creative studio login preview",
+        "title": "LEESFIELD STUDIO",
+        "description": "Prompting, model choice, and result reuse stay in one workflow.",
+        "badges": {
+          "unlimited": "∞ WORKSPACE",
+          "quality": "2K Quality",
+          "prompt": "Prompt Enhancer"
+        },
+        "tabs": {
+          "image": "Image",
+          "video": "Video",
+          "audio": "Audio",
+          "api": "API"
+        }
+      },
       "form": {
         "emailLabel": "Username or Email",
-        "emailPlaceholder": "ENTER_ID...",
+        "emailPlaceholder": "Enter email",
         "passwordLabel": "Password",
-        "submit": "Authenticate",
-        "submitting": "Authenticating...",
-  "errors": {
+        "passwordPlaceholder": "••••••••",
+        "submit": "Log in",
+        "submitting": "Logging in...",
+        "errors": {
           "invalidCredentials": "Email or password is incorrect.",
           "serverConfig": "Server configuration is required.",
           "unknown": "Login failed."
@@ -232,7 +252,7 @@
     },
     "loginGate": {
       "title": "Login required",
-      "description": "Log in to continue your generation.",
+      "description": "Log in to continue with the prompt and model you already selected.",
       "action": "Log in",
       "cancel": "Not now"
     }

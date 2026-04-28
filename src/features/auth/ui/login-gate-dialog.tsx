@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -33,34 +35,70 @@ export function LoginGateDialog({
 }: LoginGateDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
-        <DialogHeader className="gap-2">
-          <DialogTitle className="text-xl font-bold text-white">
-            {title}
-          </DialogTitle>
-          <DialogDescription className="text-sm text-gray-400">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="mt-6 gap-2 sm:gap-3">
-          <DialogClose asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
-            >
-              {cancelLabel}
-            </Button>
-          </DialogClose>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] p-0 text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]">
+        <DialogClose asChild>
           <Button
-            asChild
             type="button"
-            variant="default"
-            className="rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-primary/90"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={cancelLabel}
+            className="absolute right-4 top-4 z-20 rounded-full bg-black/35 text-white hover:bg-white/10"
           >
-            <Link href={actionHref}>{actionLabel}</Link>
+            <X className="h-4 w-4" />
           </Button>
-        </DialogFooter>
+        </DialogClose>
+        <div className="grid sm:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="flex flex-col justify-center p-6 sm:p-8">
+            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-black text-black">
+              <Image src="/logo.webp" alt="" width={28} height={28} />
+            </div>
+            <DialogHeader className="gap-3">
+              <DialogTitle className="text-2xl font-black tracking-tight text-white">
+                {title}
+              </DialogTitle>
+              <DialogDescription className="max-w-sm text-sm leading-6 text-gray-400">
+                {description}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="surface"
+                  className="h-11 rounded-xl border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-gray-300"
+                >
+                  {cancelLabel}
+                </Button>
+              </DialogClose>
+              <Button
+                asChild
+                type="button"
+                variant="hero"
+                className="h-11 rounded-xl px-6 text-sm shadow-none"
+              >
+                <Link href={actionHref}>{actionLabel}</Link>
+              </Button>
+            </DialogFooter>
+          </div>
+          <div className="relative hidden min-h-80 overflow-hidden border-l border-white/10 sm:block">
+            <Image
+              src="/assets/creative-studio/mirror-portrait.jpg"
+              alt=""
+              fill
+              sizes="18rem"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.72),transparent_58%)]" />
+            <div className="absolute bottom-4 left-4 right-4">
+              <span className="rounded-lg bg-primary px-2.5 py-1 text-xs font-black text-black">
+                LEESFIELD
+              </span>
+              <p className="mt-3 text-lg font-black uppercase leading-tight text-white">
+                Creative workspace
+              </p>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

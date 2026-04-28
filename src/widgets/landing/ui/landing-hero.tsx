@@ -28,7 +28,7 @@ export function LandingHero() {
         >
           <div className="absolute left-[8%] top-8 h-36 w-[34%] -rotate-6 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image
-              src="/sample-image.png"
+              src="/assets/creative-studio/mirror-portrait.jpg"
               alt={t("preview.imageAlt")}
               fill
               priority
@@ -43,7 +43,7 @@ export function LandingHero() {
               muted
               playsInline
               preload="metadata"
-              poster="/sample-image.png"
+              poster="/assets/creative-studio/studio-vocalist.jpg"
             >
               <source src="/sample-video.mp4" type="video/mp4" />
             </video>
@@ -62,11 +62,11 @@ export function LandingHero() {
           </div>
           <div className="absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image
-              src="/sample-image.png"
+              src="/assets/creative-studio/blue-mosaic.jpg"
               alt={t("preview.imageAlt")}
               fill
               sizes="(min-width: 1024px) 24vw, 64vw"
-              className="object-cover grayscale"
+              className="object-cover"
             />
           </div>
         </div>
