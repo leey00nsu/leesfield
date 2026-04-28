@@ -92,7 +92,7 @@
     "hero": {
       "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "한 줄의 장면에서 시작해 이미지, 움직임, 목소리까지 바로 이어가세요.",
+      "description": "이미지, 영상, 사운드를 위한 개인 스튜디오.",
       "creation": {
         "image": {
           "label": "이미지 만들기",
@@ -120,24 +120,24 @@
       }
     },
     "features": {
-      "eyebrow": "ABOUT THE STUDIO",
-      "title": "PROMPT TO PRODUCTION",
-      "description": "아이디어가 떠오른 순간부터 결과를 고르고 다시 변형하는 흐름까지, 하나의 어두운 스튜디오 안에서 이어지도록 구성했습니다.",
+      "eyebrow": "FORMATS",
+      "title": "IMAGE VIDEO AUDIO",
+      "description": "세 가지 작업 형식.",
       "laneCta": "스튜디오 열기",
       "lanes": {
         "image": {
           "title": "이미지 스튜디오",
-          "description": "첫 장면을 세우고 참고 이미지를 더해 바로 결과를 만듭니다.",
+          "description": "인물, 제품, 무드보드",
           "imageAlt": "시네마틱 인물 이미지"
         },
         "video": {
           "title": "비디오 스튜디오",
-          "description": "컷, 움직임, 길이를 조정해 장면을 영상으로 확장합니다.",
+          "description": "컷, 움직임, 짧은 클립",
           "imageAlt": "촬영 현장 이미지"
         },
         "audio": {
           "title": "오디오 스튜디오",
-          "description": "목소리, 속도, 레퍼런스를 조합해 사운드를 완성합니다.",
+          "description": "보이스, 분위기, 사운드",
           "imageAlt": "오디오 콘솔 이미지"
         }
       },
@@ -156,9 +156,9 @@
         }
       },
       "motion": {
-        "eyebrow": "MOTION FIRST",
-        "title": "입력창 하나에서 장면, 움직임, 소리를 이어 붙입니다.",
-        "description": "페이지마다 같은 생성 dock을 유지하되, 결과 타입에 맞는 프리뷰와 설정만 남겨 작업 시작점을 더 빠르게 만듭니다."
+        "eyebrow": "NEW SESSION",
+        "title": "새 작업을 시작하세요.",
+        "description": "이미지, 비디오, 오디오"
       },
       "cards": {
         "generation": {
@@ -221,7 +221,7 @@
     },
     "cta": {
       "title": "지금 바로 leesfield로 시작하세요",
-      "description": "이미지, 비디오, 오디오 작업을 하나의 개인 작업 공간에서 이어가세요.",
+      "description": "이미지, 비디오, 오디오를 위한 개인 작업 공간.",
       "button": "대시보드로 이동"
     }
   },

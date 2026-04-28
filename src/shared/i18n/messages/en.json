@@ -92,7 +92,7 @@
     "hero": {
       "status": "Creative studio",
       "secondaryCta": "API Docs",
-      "description": "Start with one scene and carry it into images, motion, and voice without leaving the workspace.",
+      "description": "A private studio for images, video, and sound.",
       "creation": {
         "image": {
           "label": "Make images",
@@ -120,24 +120,24 @@
       }
     },
     "features": {
-      "eyebrow": "ABOUT THE STUDIO",
-      "title": "PROMPT TO PRODUCTION",
-      "description": "From the moment an idea appears to choosing, reworking, and extending the result, the studio keeps every step in one dark creative workspace.",
+      "eyebrow": "FORMATS",
+      "title": "IMAGE VIDEO AUDIO",
+      "description": "Three creation formats.",
       "laneCta": "Open studio",
       "lanes": {
         "image": {
           "title": "Image studio",
-          "description": "Build the first frame, add references, and create the result immediately.",
+          "description": "Portraits, products, moodboards",
           "imageAlt": "Cinematic portrait image"
         },
         "video": {
           "title": "Video studio",
-          "description": "Tune the cut, motion, and duration as the scene becomes video.",
+          "description": "Cuts, motion, short clips",
           "imageAlt": "Film production image"
         },
         "audio": {
           "title": "Audio studio",
-          "description": "Shape voice, speed, and references into a finished sound.",
+          "description": "Voice, ambience, sound",
           "imageAlt": "Audio console image"
         }
       },
@@ -156,9 +156,9 @@
         }
       },
       "motion": {
-        "eyebrow": "MOTION FIRST",
-        "title": "One prompt dock connects scene, motion, and sound.",
-        "description": "Every generation page keeps the same dock pattern while showing only the preview and controls that match the output type."
+        "eyebrow": "NEW SESSION",
+        "title": "Start a new piece.",
+        "description": "Image, video, audio"
       },
       "cards": {
         "generation": {
@@ -221,7 +221,7 @@
     },
     "cta": {
       "title": "Start with leesfield today",
-      "description": "Keep image, video, and audio work moving in one private workspace.",
+      "description": "A private workspace for images, video, and audio.",
       "button": "Go to dashboard"
     }
   },
