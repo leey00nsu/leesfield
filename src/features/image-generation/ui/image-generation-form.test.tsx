@@ -153,6 +153,30 @@ describe("ImageGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
+  it("등록 모델이 없으면 상단 alert 대신 dock 모델 영역에 상태를 표시한다", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+
+    expect(await screen.findByText("선택 가능한 모델 없음")).toBeInTheDocument();
+    expect(
+      screen.queryByText("등록된 모델이 없습니다. 관리자에서 모델을 추가하세요."),
+    ).not.toBeInTheDocument();
+  });
+
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
     const startGeneration = vi.fn();
     const reset = vi.fn();

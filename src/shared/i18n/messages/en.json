@@ -87,7 +87,7 @@
     "hero": {
       "status": "Creative studio",
       "secondaryCta": "API Docs",
-      "description": "Turn an idea into image, video, and audio output, then reuse past work as the starting point for the next generation.",
+      "description": "Start with one scene and carry it into images, motion, and voice without leaving the workspace.",
       "creation": {
         "image": {
           "label": "Make images",
@@ -102,14 +102,6 @@
           "description": "Voice and sound"
         }
       },
-      "starterPrompts": {
-        "label": "Starter prompts",
-        "items": {
-          "editorial": "Neon fashion editorial",
-          "product": "Product teaser film",
-          "voiceover": "Warm voiceover"
-        }
-      },
       "preview": {
         "label": "Creative media collage",
         "imageAlt": "AI generated image sample",
@@ -118,8 +110,7 @@
         "videoLabel": "AI generated video sample",
         "videoTitle": "Video motion",
         "audioLabel": "AI generated audio waveform",
-        "audioTitle": "Audio take",
-        "caption": "See the result types first, then jump straight into the right creation flow."
+        "audioTitle": "Audio take"
       }
     },
     "features": {
@@ -188,7 +179,7 @@
       "cards": {
         "openapi": {
           "title": "OpenAPI-first docs",
-          "description": "Docs are available via /api-docs (UI) and /api/openapi (JSON), making integration and validation straightforward."
+          "description": "The API reference and schema stay together so integration checks are easier."
         },
         "adapters": {
           "title": "Extensible adapter design",
@@ -202,7 +193,7 @@
     },
     "cta": {
       "title": "Start with leesfield today",
-      "description": "Experience powerful generation models and an intuitive workflow in one place.",
+      "description": "Keep image, video, and audio work moving in one private workspace.",
       "button": "Go to dashboard"
     }
   },
@@ -221,9 +212,9 @@
         "title": "LEESFIELD STUDIO",
         "description": "Prompting, model choice, and result reuse stay in one workflow.",
         "badges": {
-          "unlimited": "∞ WORKSPACE",
-          "quality": "2K Quality",
-          "prompt": "Prompt Enhancer"
+          "unlimited": "Private workspace",
+          "quality": "Saved history",
+          "prompt": "Prompt reuse"
         },
         "tabs": {
           "image": "Image",
@@ -273,6 +264,7 @@
     },
     "modelLoading": "Loading models...",
     "noModels": "No models are registered. Add a model in the admin page.",
+    "modelUnavailable": "No model available",
     "modelLoginRequired": "Log in to view the model list.",
     "settings": "Settings",
     "canvas": {

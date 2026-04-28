@@ -87,7 +87,7 @@
     "hero": {
       "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "아이디어를 이미지, 영상, 오디오 결과로 바로 전환하고 이전 작업을 다음 생성의 출발점으로 이어가세요.",
+      "description": "한 줄의 장면에서 시작해 이미지, 움직임, 목소리까지 바로 이어가세요.",
       "creation": {
         "image": {
           "label": "이미지 만들기",
@@ -102,14 +102,6 @@
           "description": "보이스와 사운드"
         }
       },
-      "starterPrompts": {
-        "label": "시작 프롬프트",
-        "items": {
-          "editorial": "네온 패션 editorial",
-          "product": "제품 티저 영상",
-          "voiceover": "따뜻한 보이스오버"
-        }
-      },
       "preview": {
         "label": "크리에이티브 미디어 콜라주",
         "imageAlt": "AI 생성 이미지 샘플",
@@ -118,8 +110,7 @@
         "videoLabel": "AI 생성 비디오 샘플",
         "videoTitle": "Video motion",
         "audioLabel": "AI 생성 오디오 파형",
-        "audioTitle": "Audio take",
-        "caption": "한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다."
+        "audioTitle": "Audio take"
       }
     },
     "features": {
@@ -188,7 +179,7 @@
       "cards": {
         "openapi": {
           "title": "OpenAPI 기반 API 문서",
-          "description": "/api-docs(UI)와 /api/openapi(JSON)로 문서가 제공되어 통합/검증이 쉽습니다."
+          "description": "API 문서와 스키마를 함께 제공해 연동 흐름을 빠르게 확인할 수 있습니다."
         },
         "adapters": {
           "title": "어댑터 기반 확장 구조",
@@ -202,7 +193,7 @@
     },
     "cta": {
       "title": "지금 바로 leesfield로 시작하세요",
-      "description": "강력한 생성 모델과 직관적인 워크플로우를 한 번에 경험할 수 있습니다.",
+      "description": "이미지, 비디오, 오디오 작업을 하나의 개인 작업 공간에서 이어가세요.",
       "button": "대시보드로 이동"
     }
   },
@@ -221,9 +212,9 @@
         "title": "LEESFIELD STUDIO",
         "description": "프롬프트, 모델 선택, 결과 재사용이 하나의 작업 흐름으로 이어집니다.",
         "badges": {
-          "unlimited": "∞ WORKSPACE",
-          "quality": "2K Quality",
-          "prompt": "Prompt Enhancer"
+          "unlimited": "Private workspace",
+          "quality": "Saved history",
+          "prompt": "Prompt reuse"
         },
         "tabs": {
           "image": "Image",
@@ -273,6 +264,7 @@
     },
     "modelLoading": "모델을 불러오는 중입니다...",
     "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
+    "modelUnavailable": "선택 가능한 모델 없음",
     "modelLoginRequired": "로그인하여 모델 목록을 확인하세요.",
     "settings": "설정",
     "canvas": {

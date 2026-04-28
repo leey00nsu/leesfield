@@ -1,5 +1,5 @@
 import type React from "react";
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -36,8 +36,10 @@ describe("LandingHero", () => {
     expect(videoLink).toHaveAttribute("href", "/video");
     expect(audioLink).toHaveAttribute("href", "/audio");
 
-    const starterPrompts = screen.getByRole("list", { name: "시작 프롬프트" });
-    expect(within(starterPrompts).getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByText("네온 패션 editorial")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다."),
+    ).not.toBeInTheDocument();
 
     expect(
       screen.getByRole("link", { name: /API 문서/ }),

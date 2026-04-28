@@ -447,22 +447,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         className="flex flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
       >
-        {isGuest && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoginRequired")}
-          </div>
-        )}
-        {!isGuest && isModelLoading && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoading")}
-          </div>
-        )}
-        {!isGuest && !isModelLoading && !hasModels && (
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {tGeneration("noModels")}
-          </div>
-        )}
-
         <div className="flex flex-col gap-8 xl:flex-row">
           <div className="flex flex-1 flex-col gap-6">
             <GenerationCanvas
@@ -647,7 +631,27 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                 activeId={activeModel}
                                 onSelect={handleSelectModel}
                               />
-                            ) : null}
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className={cn(
+                                  dockChipClass,
+                                  "max-w-[13rem] cursor-not-allowed opacity-70",
+                                )}
+                              >
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+                                  M
+                                </span>
+                                <span className="truncate">
+                                  {isModelLoading
+                                    ? tGeneration("modelLoading")
+                                    : isGuest
+                                      ? tGeneration("modelLoginRequired")
+                                      : tGeneration("modelUnavailable")}
+                                </span>
+                              </button>
+                            )}
                             <span className={dockChipClass}>
                               <ImageIcon className="h-4 w-4" />
                               {aspectLabel}

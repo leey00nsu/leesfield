@@ -79,7 +79,7 @@ export function Header({
           alt={tBrand("name")}
           width={36}
           height={36}
-          className="h-9 w-auto object-contain"
+          className="h-9 w-9 rounded-xl object-cover ring-1 ring-primary/20"
           priority
         />
         <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">

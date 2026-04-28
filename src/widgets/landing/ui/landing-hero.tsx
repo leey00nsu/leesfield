@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { AudioLines, Clapperboard, FileText, Images, Sparkles } from "lucide-react";
+import { AudioLines, Clapperboard, FileText, Images } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -10,8 +10,6 @@ const creationLinks = [
   { key: "video", href: "/video", icon: Clapperboard, primary: false },
   { key: "audio", href: "/audio", icon: AudioLines, primary: false },
 ] as const;
-
-const starterPrompts = ["editorial", "product", "voiceover"] as const;
 
 export function LandingHero() {
   const t = useTranslations("landing.hero");
@@ -62,7 +60,7 @@ export function LandingHero() {
           </div>
           <div className="absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image
-              src="/assets/creative-studio/blue-mosaic.jpg"
+              src="/assets/creative-studio/film-production.jpg"
               alt={t("preview.imageAlt")}
               fill
               sizes="(min-width: 1024px) 24vw, 64vw"
@@ -116,20 +114,6 @@ export function LandingHero() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ul
-              aria-label={t("starterPrompts.label")}
-              className="flex flex-wrap justify-center gap-2"
-            >
-              {starterPrompts.map((item) => (
-                <li
-                  key={item}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-gray-300"
-                >
-                  {t(`starterPrompts.items.${item}`)}
-                </li>
-              ))}
-            </ul>
-
             <Link
               href="/api-docs"
               className="inline-flex items-center justify-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -137,11 +121,6 @@ export function LandingHero() {
               <FileText className="h-4 w-4" />
               {t("secondaryCta")}
             </Link>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Sparkles className="h-4 w-4 text-primary" />
-            {t("preview.caption")}
           </div>
         </div>
       </div>
