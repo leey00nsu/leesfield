@@ -193,7 +193,7 @@ describe("AudioGenerationForm", () => {
     ).not.toBeNull();
   });
 
-  it("preset 선택 시 prompt를 form state에 반영한다", async () => {
+  it("does not render the old preset strip and still submits through the dock", async () => {
     const startGeneration = vi.fn();
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
@@ -206,21 +206,20 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await waitForModels();
 
-    await user.click(screen.getByRole("button", { name: /따뜻한 보이스오버/ }));
-
     expect(
-      screen.getByDisplayValue(
-        "A calm, warm voiceover introducing a creative AI studio in one concise sentence.",
-      ),
-    ).not.toBeNull();
+      screen.queryByRole("button", { name: /따뜻한 보이스오버/ }),
+    ).toBeNull();
+    await user.type(
+      screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
+      "A calm, warm voiceover introducing a creative AI studio.",
+    );
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
     expect(startGeneration).toHaveBeenCalledTimes(1);
     expect(startGeneration).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt:
-          "A calm, warm voiceover introducing a creative AI studio in one concise sentence.",
+        prompt: "A calm, warm voiceover introducing a creative AI studio.",
         model: "qwen-tts",
       }),
     );
@@ -240,7 +239,7 @@ describe("AudioGenerationForm", () => {
       name: "크리에이티브 프롬프트 dock",
     });
 
-    expect(dock).toHaveTextContent("기본 보이스");
+    expect(dock).toHaveTextContent("설정");
     expect(dock).toHaveTextContent("1x");
     expect(
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
@@ -445,15 +444,16 @@ describe("AudioGenerationForm", () => {
     vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
 
     const user = userEvent.setup();
-    const { container } = renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await screen.findByRole("button", { name: /Qwen TTS Clone/i });
 
     await user.type(
       screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
       "hello clone",
     );
+    await user.click(screen.getByRole("button", { name: /설정/i }));
     await user.upload(
-      screen.getByLabelText("Reference Audio"),
+      await screen.findByLabelText("Reference Audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
@@ -473,8 +473,6 @@ describe("AudioGenerationForm", () => {
         }),
       );
     });
-
-    expect(container.querySelector("audio")).not.toBeNull();
   });
 
   it("mode 기반 TTS 모델이면 speaker/language/advanced 필드를 렌더링하고 기본값을 제출한다", async () => {
@@ -509,6 +507,7 @@ describe("AudioGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await screen.findByRole("button", { name: /Qwen 3\.5 TTS Mode/i });
+    await user.click(screen.getByRole("button", { name: /설정/i }));
 
     expect(screen.getAllByText("Generation Mode").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Language").length).toBeGreaterThan(0);

@@ -51,10 +51,12 @@ const typeConfig = {
 export function HistoryItem({
   item,
   onSelect,
+  className,
 }: {
   item: GenerationHistoryItem;
   onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
   onSelect?: (item: GenerationHistoryItem) => void;
+  className?: string;
 }) {
   const locale = useLocale();
   const tStatuses = useTranslations("history.statuses");
@@ -86,8 +88,13 @@ export function HistoryItem({
   }, [dateFormatter, item.createdAt, tStates]);
 
   return (
-    <article className="group relative break-inside-avoid overflow-hidden rounded-none bg-black">
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#090b0d]">
+    <article
+      className={cn(
+        "group relative break-inside-avoid overflow-hidden rounded-none bg-black",
+        className,
+      )}
+    >
+      <div className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]">
         {previewUrl ? (
           isVideo ? (
             <video
@@ -174,15 +181,15 @@ export function HistoryItem({
   );
 }
 
-export function HistoryItemSkeleton() {
+export function HistoryItemSkeleton({ className }: { className?: string } = {}) {
   return (
     <article
       data-testid="history-item-skeleton"
-      className="break-inside-avoid overflow-hidden bg-black"
+      className={cn("break-inside-avoid overflow-hidden bg-black", className)}
     >
       <div
         data-testid="history-item-skeleton-media"
-        className="relative aspect-[4/5] w-full overflow-hidden bg-[#090b0d]"
+        className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]"
       >
         <Skeleton
           data-testid="history-item-skeleton-media-fill"

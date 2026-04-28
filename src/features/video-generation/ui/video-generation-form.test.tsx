@@ -119,19 +119,12 @@ describe("VideoGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
-  it("preset 선택 시 prompt와 추천 모델을 form state에 반영한다", async () => {
+  it("does not render the old preset strip and still submits through the dock", async () => {
     const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();
 
     await waitForModels();
-
-    await user.click(screen.getByRole("button", { name: /제품 오빗/ }));
-
-    expect(
-      screen.getByDisplayValue(
-        "slow orbit camera move around a premium product, soft reflections, controlled studio light",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /제품 오빗/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Wan 2\.2/i })).toHaveClass(
       "border-primary",
     );
@@ -144,6 +137,10 @@ describe("VideoGenerationForm", () => {
     expect(submit).toBeDisabled();
     expect(fileInput).not.toBeNull();
 
+    await user.type(
+      screen.getByPlaceholderText("생성할 비디오를 자세히 설명하세요..."),
+      "slow orbit camera move around a premium product",
+    );
     if (fileInput) {
       const file = new File(["test"], "sample.png", { type: "image/png" });
       await user.upload(fileInput, file);
@@ -157,8 +154,7 @@ describe("VideoGenerationForm", () => {
     expect(startGenerationMock).toHaveBeenCalledTimes(1);
     expect(startGenerationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt:
-          "slow orbit camera move around a premium product, soft reflections, controlled studio light",
+        prompt: "slow orbit camera move around a premium product",
         model: "wan2-2-hf",
         initImage: "data:image/png;base64,AAAA",
       }),

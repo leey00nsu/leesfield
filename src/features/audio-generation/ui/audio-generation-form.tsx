@@ -5,12 +5,10 @@ import {
   AudioLines,
   Download,
   ExternalLink,
-  Grid2x2,
-  Maximize2,
+  SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -29,9 +27,8 @@ import { useAudioGeneration } from "@/features/audio-generation/hook/use-audio-g
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
-import { GenerationPresetStrip } from "@/shared/ui/generation-preset-strip";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
-import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
+import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   Form,
@@ -66,7 +63,6 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveAudioModalities } from "@/shared/model-catalog/modality";
-import { getGenerationPresets } from "@/shared/generation/generation-presets";
 
 type AudioGenerationFormProps = {
   isAuthenticated: boolean;
@@ -106,7 +102,6 @@ const advancedAudioFields = new Set<AudioFieldName>([
   "repetitionPenalty",
 ]);
 
-const audioPresets = getGenerationPresets("audio");
 const dockChipClass =
   "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
 
@@ -116,7 +111,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   const tAudio = useTranslations("generation.audio");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
-  const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.audio");
   const tLoginGate = useTranslations("auth.loginGate");
 
@@ -316,33 +310,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     }
   }, [activeModel, form, runtimeModelMap]);
 
-  const resetModelKey = defaultModelKey || audioGenerationDefaults.model;
-  const resetDefaults = useMemo<AudioGenerationFormValues>(() => {
-    const model = runtimeModelMap.get(resetModelKey);
-    if (!model) return { ...audioGenerationDefaults, model: resetModelKey };
-    const defaults = resolveRuntimeAudioDefaults(model);
-    return {
-      ...audioGenerationDefaults,
-      model: resetModelKey,
-      voice: defaults.voice,
-      speaker: defaults.speaker,
-      speed: defaults.speed,
-      modeChoice: defaults.modeChoice,
-      language: defaults.language,
-      streamMode: defaults.streamMode,
-      referencePreset: defaults.referencePreset,
-      customInstruction: defaults.customInstruction,
-      voiceInstruction: defaults.voiceInstruction,
-      xvecOnly: defaults.xvecOnly,
-      chunkSize: defaults.chunkSize,
-      temperature: defaults.temperature,
-      topK: defaults.topK,
-      repetitionPenalty: defaults.repetitionPenalty,
-      inputAudio: "",
-      referenceText: "",
-    };
-  }, [resetModelKey, runtimeModelMap]);
-
   const { state, startGeneration, reset } = useAudioGeneration();
   const isGenerating =
     state.status === "pending" || state.status === "processing";
@@ -356,32 +323,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       reset();
     }
     form.setValue("model", modelId, { shouldValidate: true });
-  };
-
-  const handlePresetSelect = useCallback(
-    (preset: (typeof audioPresets)[number], prompt: string) => {
-      if (isGenerating) {
-        reset();
-      }
-
-      form.setValue("prompt", prompt, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-
-      if (preset.modelHint && runtimeModelMap.has(preset.modelHint)) {
-        form.setValue("model", preset.modelHint, { shouldValidate: true });
-      }
-    },
-    [form, isGenerating, reset, runtimeModelMap],
-  );
-
-  const handleReset = () => {
-    form.reset(resetDefaults);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    reset();
   };
 
   const handleInputAudioSelection = (event: ChangeEvent<HTMLInputElement>) => {
@@ -811,93 +752,85 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   return (
     <Form {...form}>
-      <form className="flex flex-col gap-8 pb-36" onSubmit={handleFormSubmit}>
-        {isGuest && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoginRequired")}
-          </div>
-        )}
-        {!isGuest && isModelLoading && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoading")}
-          </div>
-        )}
-        {!isGuest && !isModelLoading && !hasModels && (
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {tGeneration("noModels")}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-8 xl:flex-row">
-          <div className="flex flex-1 flex-col gap-6">
-            <GenerationCanvas
-              actions={
-                <>
-                  <Button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title={tGenerationActions("gridDisabled")}
-                  >
-                    <Grid2x2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title={tGenerationActions("fullScreenDisabled")}
-                  >
-                    <Maximize2 className="h-5 w-5" />
-                  </Button>
-                </>
-              }
-              isGenerating={isGenerating}
-              status={state.status}
-              errorMessage={state.errorMessage}
-            >
-              {hasResults && primaryAudio ? (
-                <div className="z-10 flex w-full max-w-3xl flex-col gap-3 px-6">
-                  <audio
-                    src={primaryAudio.url}
-                    controls
-                    className="w-full rounded-lg border border-white/10 bg-black/60"
-                  />
-                </div>
-              ) : (
-                <div className="z-10 flex flex-col items-center px-6 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-surface-dark shadow-[0_0_30px_rgba(212,240,50,0.05)]">
-                    <AudioLines className="h-8 w-8 text-gray-600" />
+      <form
+        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        onSubmit={handleFormSubmit}
+      >
+        <div className="flex flex-col gap-6">
+          <GenerationCanvas
+            isGenerating={isGenerating}
+            status={state.status}
+            errorMessage={state.errorMessage}
+            className="min-h-[46vh] rounded-none border-0 border-b border-white/5 bg-[#07090a] sm:min-h-[58vh]"
+          >
+            {hasResults && primaryAudio ? (
+              <div className="relative z-10 flex w-full max-w-3xl flex-col gap-3 px-6">
+                <audio
+                  src={primaryAudio.url}
+                  controls
+                  className="w-full rounded-lg border border-white/10 bg-black/60"
+                />
+              </div>
+            ) : (
+              <div className="relative z-10 flex h-full min-h-[46vh] w-full items-center justify-center overflow-hidden px-4 py-12 sm:min-h-[58vh]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_48%_18%,rgba(64,78,54,0.24),transparent_62%)]" />
+                <div className="relative flex h-[30rem] w-full max-w-5xl flex-col items-center justify-center gap-8 text-center sm:h-[34rem]">
+                  <div className="relative flex h-56 w-full max-w-4xl items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-[#111517]/80 shadow-2xl">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(212,240,50,0.18),transparent_42%)]" />
+                    <div className="relative flex h-36 w-[86%] items-center justify-center gap-2">
+                      {Array.from({ length: 36 }).map((_, index) => (
+                        <span
+                          key={index}
+                          className="w-1.5 rounded-full bg-primary/85"
+                          style={{
+                            height: `${24 + ((index * 17) % 88)}px`,
+                            opacity: 0.35 + ((index % 5) * 0.12),
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div className="absolute left-6 top-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-black">
+                      <AudioLines className="h-7 w-7" />
+                    </div>
+                    <div className="absolute bottom-5 right-5 overflow-hidden rounded-2xl border border-white/15 bg-black/60">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/assets/creative-studio/audio-console.jpg"
+                        alt={tAudio("previewTextureAlt")}
+                        className="h-24 w-36 object-cover"
+                      />
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-300">
-                    {tGeneration("canvas.emptyTitle")}
-                  </h3>
-                  <p className="mt-1 text-sm font-mono text-gray-600">
-                    {tGeneration("canvas.emptyDescription")}
-                  </p>
+                  <div className="max-w-4xl">
+                    <p className="text-sm font-semibold text-gray-500">
+                      {tAudio("previewEyebrow")}
+                    </p>
+                    <h2 className="mt-2 text-4xl font-black uppercase leading-none text-white sm:text-6xl">
+                      {tAudio("previewTitle")}
+                    </h2>
+                    <p className="mt-4 text-base text-gray-400 sm:text-lg">
+                      {tAudio("previewDescription")}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </GenerationCanvas>
-
-            {hasResults && state.errorMessage && (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-                {state.errorMessage}
               </div>
             )}
+          </GenerationCanvas>
 
-            {hasResults && resultAudios.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {resultAudios.map((audio, index) => {
-                  const downloadUrl = state.requestId
-                    ? `/api/audio-generation/${state.requestId}/download?index=${index}`
-                    : null;
+          {hasResults && state.errorMessage ? (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+              {state.errorMessage}
+            </div>
+          ) : null}
 
-                  return (
+          {hasResults && resultAudios.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {resultAudios.map((audio, index) => {
+                const downloadUrl = state.requestId
+                  ? `/api/audio-generation/${state.requestId}/download?index=${index}`
+                  : null;
+
+                return (
                   <div
                     key={`${audio.url}-${index}`}
                     className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-surface-dark/60 px-3 py-2"
@@ -930,111 +863,120 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       ) : null}
                     </div>
                   </div>
-                  );
-                })}
-              </div>
-            ) : null}
+                );
+              })}
+            </div>
+          ) : null}
 
-            <GenerationPresetStrip
-              modality="audio"
-              items={audioPresets}
-              onSelect={handlePresetSelect}
-            />
-
-            <div className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="prompt"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <GenerationPromptField
-                      ariaLabel={tGeneration("promptDock.label")}
-                      className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
-                      textarea={
-                        <FormControl>
-                          <Textarea
-                            placeholder={tAudio("promptPlaceholder")}
-                            className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
-                            {...field}
-                          />
-                        </FormControl>
-                      }
-                      footerLeft={
-                        <>
-                          {!isGuest && hasModels ? (
-                            <GenerationModelSection
-                              modality="audio"
-                              items={modelCards}
-                              activeId={activeModel}
-                              onSelect={handleSelectModel}
-                            />
+          <FormField
+            control={form.control}
+            name="prompt"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <GenerationPromptField
+                  ariaLabel={tGeneration("promptDock.label")}
+                  className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  textarea={
+                    <FormControl>
+                      <Textarea
+                        placeholder={tAudio("promptPlaceholder")}
+                        className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                        {...field}
+                      />
+                    </FormControl>
+                  }
+                  footerLeft={
+                    <>
+                      {!isGuest && hasModels ? (
+                        <GenerationModelSection
+                          modality="audio"
+                          items={modelCards}
+                          activeId={activeModel}
+                          onSelect={handleSelectModel}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className={cn(
+                            dockChipClass,
+                            "max-w-[13rem] cursor-not-allowed opacity-70",
+                          )}
+                        >
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+                            M
+                          </span>
+                          <span className="truncate">
+                            {isModelLoading
+                              ? tGeneration("modelLoading")
+                              : isGuest
+                                ? tGeneration("modelLoginRequired")
+                                : tGeneration("modelUnavailable")}
+                          </span>
+                        </button>
+                      )}
+                      <GenerationSettingsPopover
+                        label={tLabels("settings")}
+                        summary={
+                          parameterKeys.includes("speaker") && speaker?.trim()
+                            ? speaker.trim()
+                            : parameterKeys.includes("voice") &&
+                                voice?.trim() &&
+                                voice !== activeDefaults.voice
+                              ? voice
+                              : `${speed}x`
+                        }
+                        icon={<SlidersHorizontal className="h-4 w-4" />}
+                      >
+                        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
+                          {primaryParameterKeys.map((key) => renderAudioField(key))}
+                          {advancedParameterKeys.length > 0 ? (
+                            <>
+                              <div className="h-px bg-white/5" />
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                                Advanced Settings
+                              </div>
+                              {advancedParameterKeys.map((key) =>
+                                renderAudioField(key),
+                              )}
+                            </>
                           ) : null}
-                          <span className={dockChipClass}>
-                            <AudioLines className="h-4 w-4" />
-                            {parameterKeys.includes("speaker") && speaker?.trim()
-                              ? `Speaker: ${speaker.trim()}`
-                              : parameterKeys.includes("voice") &&
-                                  voice?.trim() &&
-                                  voice !== activeDefaults.voice
-                                ? `${tAudio("voiceLabel")}: ${voice}`
-                              : tAudio("voiceUnset")}
-                          </span>
-                          <span className={dockChipClass}>{speed}x</span>
-                        </>
-                      }
-                      footerRight={
-                        <>
-                          <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
-                            {tLabels("chars", { count: promptValue.length })}
-                          </span>
-                          <Button
-                            type={isAuthenticated ? "submit" : "button"}
-                            variant="hero"
-                            disabled={
-                              isGenerating ||
-                              (isAuthenticated &&
-                                (isModelLoading || !hasModels || !canSubmit))
-                            }
-                            className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
-                            onClick={
-                              isAuthenticated
-                                ? undefined
-                                : () => setIsLoginGateOpen(true)
-                            }
-                          >
-                            {isGenerating
-                              ? tActions("generating")
-                              : tActions("generate")}
-                            <Sparkles className="h-5 w-5" />
-                          </Button>
-                        </>
-                      }
-                    />
-                    <FormMessage className="text-xs text-red-400" />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
-          <GenerationSettingsPanel onReset={handleReset}>
-            <div className="flex flex-col gap-8">
-              {primaryParameterKeys.map((key) => renderAudioField(key))}
-              {advancedParameterKeys.length > 0 ? (
-                <>
-                  <div className="h-px bg-white/5" />
-                  <div className="flex flex-col gap-4">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                      Advanced Settings
-                    </div>
-                    <div className="flex flex-col gap-6">
-                      {advancedParameterKeys.map((key) => renderAudioField(key))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </GenerationSettingsPanel>
+                        </div>
+                      </GenerationSettingsPopover>
+                    </>
+                  }
+                  footerRight={
+                    <>
+                      <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
+                        {tLabels("chars", { count: promptValue.length })}
+                      </span>
+                      <Button
+                        type={isAuthenticated ? "submit" : "button"}
+                        variant="hero"
+                        disabled={
+                          isGenerating ||
+                          (isAuthenticated &&
+                            (isModelLoading || !hasModels || !canSubmit))
+                        }
+                        className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                        onClick={
+                          isAuthenticated
+                            ? undefined
+                            : () => setIsLoginGateOpen(true)
+                        }
+                      >
+                        {isGenerating
+                          ? tActions("generating")
+                          : tActions("generate")}
+                        <Sparkles className="h-5 w-5" />
+                      </Button>
+                    </>
+                  }
+                />
+                <FormMessage className="text-xs text-red-400" />
+              </FormItem>
+            )}
+          />
         </div>
       </form>
       <LoginGateDialog

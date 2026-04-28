@@ -2,16 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  Clock3,
   Download,
   ExternalLink,
-  Grid2x2,
+  Film,
+  Image as ImageIcon,
   ImagePlus,
-  Maximize2,
   Sparkles,
   Video,
 } from "lucide-react";
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -30,15 +30,15 @@ import { useVideoGeneration } from "@/features/video-generation/hook/use-video-g
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
-import { GenerationPresetStrip } from "@/shared/ui/generation-preset-strip";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
-import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
+import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/shared/ui/form";
 import { Textarea } from "@/shared/ui/textarea";
@@ -54,13 +54,11 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveVideoModalities } from "@/shared/model-catalog/modality";
-import { getGenerationPresets } from "@/shared/generation/generation-presets";
 
 type VideoGenerationFormProps = {
   isAuthenticated: boolean;
 };
 
-const videoPresets = getGenerationPresets("video");
 const dockChipClass =
   "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
 
@@ -70,7 +68,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const tVideo = useTranslations("generation.video");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
-  const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.video");
   const tLoginGate = useTranslations("auth.loginGate");
   const isGuest = !isAuthenticated;
@@ -216,23 +213,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     runtimeModelMap,
     supportsInitImage,
   ]);
-  const resetModelKey = defaultModelKey || videoGenerationDefaults.model;
-  const resetDefaults = useMemo<VideoGenerationFormValues>(() => {
-    const model = runtimeModelMap.get(resetModelKey);
-    if (!model) return { ...videoGenerationDefaults, model: resetModelKey };
-    const defaults = resolveRuntimeVideoDefaults(model);
-    return {
-      ...videoGenerationDefaults,
-      model: resetModelKey,
-      aspectRatio: defaults.aspectRatio,
-      resolution: defaults.resolution,
-      durationSec: defaults.durationSec,
-      fps: defaults.fps,
-      steps: defaults.steps,
-      guidanceScale: defaults.guidanceScale,
-    };
-  }, [resetModelKey, runtimeModelMap]);
-
   useEffect(() => {
     if (!hasModels || !defaultModelKey) return;
     const currentModel = form.getValues("model");
@@ -271,24 +251,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
-  const handlePresetSelect = useCallback(
-    (preset: (typeof videoPresets)[number], prompt: string) => {
-      if (isGenerating) {
-        reset();
-      }
-
-      form.setValue("prompt", prompt, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-
-      if (preset.modelHint && runtimeModelMap.has(preset.modelHint)) {
-        form.setValue("model", preset.modelHint, { shouldValidate: true });
-      }
-    },
-    [form, isGenerating, reset, runtimeModelMap],
-  );
-
   const handleOpenImagePicker = () => {
     fileInputRef.current?.click();
   };
@@ -318,14 +280,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     }
   };
 
-  const handleReset = () => {
-    form.reset(resetDefaults);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    reset();
-  };
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
@@ -343,295 +297,296 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-8 pb-36"
+        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
       >
-        {isGuest && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoginRequired")}
-          </div>
-        )}
-        {!isGuest && isModelLoading && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoading")}
-          </div>
-        )}
-        {!isGuest && !isModelLoading && !hasModels && (
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {tGeneration("noModels")}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-8 xl:flex-row">
-          <div className="flex flex-1 flex-col gap-6">
-            <GenerationCanvas
-              actions={
-                <>
-                  <Button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title={tGenerationActions("gridDisabled")}
-                  >
-                    <Grid2x2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    variant="surface"
-                    size="icon"
-                    className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                    title={tGenerationActions("fullScreenDisabled")}
-                  >
-                    <Maximize2 className="h-5 w-5" />
-                  </Button>
-                </>
-              }
-              isGenerating={isGenerating}
-              status={state.status}
-              errorMessage={state.errorMessage}
-            >
-              {hasResults && primaryVideo ? (
-                <video
-                  src={primaryVideo.url}
-                  controls
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="z-10 flex flex-col items-center px-6 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-surface-dark shadow-[0_0_30px_rgba(212,240,50,0.05)]">
-                    <Video className="h-8 w-8 text-gray-600" />
+        <div className="flex flex-col gap-6">
+          <GenerationCanvas
+            isGenerating={isGenerating}
+            status={state.status}
+            errorMessage={state.errorMessage}
+            className="min-h-[46vh] rounded-none border-0 border-b border-white/5 bg-[#07090a] sm:min-h-[58vh]"
+          >
+            {hasResults && primaryVideo ? (
+              <video
+                src={primaryVideo.url}
+                controls
+                className="relative z-10 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="relative z-10 flex h-full min-h-[46vh] w-full items-center justify-center overflow-hidden px-4 py-12 sm:min-h-[58vh]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_52%_16%,rgba(37,58,79,0.36),transparent_62%)]" />
+                <div className="relative flex h-[30rem] w-full max-w-6xl flex-col items-center justify-center gap-6 sm:h-[34rem]">
+                  <div className="relative h-60 w-full sm:h-72">
+                    <div className="absolute left-[7%] top-[20%] h-[52%] w-[31%] -rotate-6 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/assets/creative-studio/film-production.jpg"
+                        alt={tVideo("previewFilmAlt")}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute left-[31%] top-0 h-[78%] w-[38%] rotate-1 overflow-hidden rounded-[1.8rem] border-[5px] border-white/15 bg-black shadow-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/assets/creative-studio/mirror-portrait.jpg"
+                        alt={tVideo("previewPortraitAlt")}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute right-[8%] top-[22%] h-[50%] w-[27%] rotate-6 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/assets/creative-studio/audio-console.jpg"
+                        alt={tVideo("previewTextureAlt")}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute left-[57%] top-[34%] flex h-28 w-28 items-center justify-center rounded-full border-[5px] border-white/20 bg-[#1e2226]/90 text-primary shadow-2xl sm:h-36 sm:w-36">
+                      <Film className="h-10 w-10" />
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-300">
-                    {tGeneration("canvas.emptyTitle")}
-                  </h3>
-                  <p className="mt-1 text-sm font-mono text-gray-600">
-                    {tGeneration("canvas.emptyDescription")}
-                  </p>
+                  <div className="max-w-4xl text-center">
+                    <p className="text-sm font-semibold text-gray-500">
+                      {tVideo("previewEyebrow")}
+                    </p>
+                    <h2 className="mt-2 text-4xl font-black uppercase leading-none text-white sm:text-6xl">
+                      {tVideo("previewTitle")}
+                    </h2>
+                    <p className="mt-4 text-base text-gray-400 sm:text-lg">
+                      {tVideo("previewDescription")}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </GenerationCanvas>
-
-            {hasResults && state.errorMessage && (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-                {state.errorMessage}
               </div>
             )}
+          </GenerationCanvas>
 
-            {hasResults && primaryVideo ? (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-                  {tLabels("ready")} • {primaryVideo.width ?? "--"}x
-                  {primaryVideo.height ?? "--"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={primaryVideo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                    title={tActions("open")}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={primaryVideo.url}
-                    download
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                    title={tActions("download")}
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                </div>
+          {hasResults && state.errorMessage ? (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+              {state.errorMessage}
+            </div>
+          ) : null}
+
+          {hasResults && primaryVideo ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                {tLabels("ready")} • {primaryVideo.width ?? "--"}x
+                {primaryVideo.height ?? "--"}
               </div>
-            ) : null}
-
-            <GenerationPresetStrip
-              modality="video"
-              items={videoPresets}
-              onSelect={handlePresetSelect}
-            />
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4">
-                <FormField
-                  control={form.control}
-                  name="prompt"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <GenerationPromptField
-                        ariaLabel={tGeneration("promptDock.label")}
-                        className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
-                        textarea={
-                          <FormControl>
-                            <Textarea
-                              placeholder={tVideo("promptPlaceholder")}
-                              className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
-                              {...field}
-                            />
-                          </FormControl>
-                        }
-                        attachments={
-                          initImageValue ? (
-                            <div className="flex flex-wrap gap-2 px-4 pb-3">
-                              <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={initImageValue}
-                                  alt={tVideo("initImageAlt")}
-                                  className="h-full w-full object-cover"
-                                />
-                                <Button
-                                  type="button"
-                                  onClick={handleRemoveInitImage}
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                                  title={tActions("remove")}
-                                >
-                                  <span className="text-xs">×</span>
-                                </Button>
-                              </div>
-                            </div>
-                          ) : null
-                        }
-                        footerLeft={
-                          <>
-                            <Button
-                              type="button"
-                              variant="surface"
-                              size="icon"
-                              onClick={handleOpenImagePicker}
-                              aria-label={tVideo("uploadReference")}
-                              disabled={!supportsInitImage}
-                              className={cn(
-                                "h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] transition-colors",
-                                supportsInitImage
-                                  ? "text-white hover:border-primary/50 hover:text-primary"
-                                  : "cursor-not-allowed text-gray-700"
-                              )}
-                              title={tVideo("uploadReference")}
-                            >
-                              <ImagePlus className="h-5 w-5" />
-                            </Button>
-                            {!isGuest && hasModels ? (
-                              <GenerationModelSection
-                                modality="video"
-                                items={modelCards}
-                                activeId={activeModel}
-                                onSelect={handleSelectModel}
-                              />
-                            ) : null}
-                            <span className={dockChipClass}>
-                              <Video className="h-4 w-4" />
-                              {supportsInitImage
-                                ? hasInitImage
-                                  ? tVideo("mode.imageToVideo")
-                                  : tVideo("mode.imageRequired")
-                                : tVideo("mode.textOnly")}
-                            </span>
-                            <span className={dockChipClass}>
-                              {durationSec}s
-                            </span>
-                          </>
-                        }
-                        footerRight={
-                          <>
-                            <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
-                              {tLabels("chars", { count: promptValue.length })}
-                            </span>
-                            <Button
-                              type={isAuthenticated ? "submit" : "button"}
-                              variant="hero"
-                              disabled={
-                                isGenerating ||
-                                (isAuthenticated &&
-                                  (isModelLoading || !hasModels || !canSubmit))
-                              }
-                              className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
-                              onClick={
-                                isAuthenticated
-                                  ? undefined
-                                  : () => setIsLoginGateOpen(true)
-                              }
-                            >
-                              {isGenerating
-                                ? tActions("generating")
-                                : tActions("generate")}
-                              <Sparkles className="h-5 w-5" />
-                            </Button>
-                          </>
-                        }
-                      />
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageSelection}
-                      />
-                      <FormMessage className="text-xs text-red-400" />
-                    </FormItem>
-                  )}
-                />
+              <div className="flex items-center gap-2">
+                <a
+                  href={primaryVideo.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                  title={tActions("open")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+                <a
+                  href={primaryVideo.url}
+                  download
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                  title={tActions("download")}
+                >
+                  <Download className="h-4 w-4" />
+                </a>
               </div>
             </div>
-          </div>
+          ) : null}
 
-          <GenerationSettingsPanel onReset={handleReset}>
-            <div className="flex flex-col gap-8">
-              {showSizeNotice && (
-                <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                    {tLabels("outputSize")}
-                  </span>
-                  <div className="rounded-xl border border-white/10 bg-surface-lighter px-4 py-3 text-xs text-gray-400">
-                    {tVideo("sizeNotice")}
-                  </div>
-                </div>
-              )}
-
-              {showDuration && (
-                <FormField
-                  control={form.control}
-                  name="durationSec"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          {tLabels("durationSec")}
-                        </span>
-                        <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                          {durationSec}s
-                        </span>
+          <FormField
+            control={form.control}
+            name="prompt"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <GenerationPromptField
+                  ariaLabel={tGeneration("promptDock.label")}
+                  className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  textarea={
+                    <FormControl>
+                      <Textarea
+                        placeholder={tVideo("promptPlaceholder")}
+                        className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                        {...field}
+                      />
+                    </FormControl>
+                  }
+                  attachments={
+                    initImageValue ? (
+                      <div className="flex flex-wrap gap-2 px-4 pb-3">
+                        <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={initImageValue}
+                            alt={tVideo("initImageAlt")}
+                            className="h-full w-full object-cover"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleRemoveInitImage}
+                            variant="ghost"
+                            size="icon-sm"
+                            className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                            title={tActions("remove")}
+                          >
+                            <span className="text-xs">×</span>
+                          </Button>
+                        </div>
                       </div>
-                      <FormControl>
-                        <input
-                          type="range"
-                          min={durationRange.min}
-                          max={durationRange.max}
-                          step={durationRange.step}
-                          value={field.value}
-                          onChange={(event) =>
-                            field.onChange(Number(event.target.value))
-                          }
-                          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                    ) : null
+                  }
+                  footerLeft={
+                    <>
+                      <Button
+                        type="button"
+                        variant="surface"
+                        size="icon"
+                        onClick={handleOpenImagePicker}
+                        aria-label={tVideo("uploadReference")}
+                        disabled={!supportsInitImage}
+                        className={cn(
+                          "h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] transition-colors",
+                          supportsInitImage
+                            ? "text-white hover:border-primary/50 hover:text-primary"
+                            : "cursor-not-allowed text-gray-700",
+                        )}
+                        title={tVideo("uploadReference")}
+                      >
+                        <ImagePlus className="h-5 w-5" />
+                      </Button>
+                      {!isGuest && hasModels ? (
+                        <GenerationModelSection
+                          modality="video"
+                          items={modelCards}
+                          activeId={activeModel}
+                          onSelect={handleSelectModel}
                         />
-                      </FormControl>
-                      <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
-                        <span>{durationRange.min}s</span>
-                        <span>{durationRange.max}s</span>
-                      </div>
-                    </FormItem>
-                  )}
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className={cn(
+                            dockChipClass,
+                            "max-w-[13rem] cursor-not-allowed opacity-70",
+                          )}
+                        >
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+                            M
+                          </span>
+                          <span className="truncate">
+                            {isModelLoading
+                              ? tGeneration("modelLoading")
+                              : isGuest
+                                ? tGeneration("modelLoginRequired")
+                                : tGeneration("modelUnavailable")}
+                          </span>
+                        </button>
+                      )}
+                      <span className={dockChipClass}>
+                        <Video className="h-4 w-4" />
+                        {supportsInitImage
+                          ? hasInitImage
+                            ? tVideo("mode.imageToVideo")
+                            : tVideo("mode.imageRequired")
+                          : tVideo("mode.textOnly")}
+                      </span>
+                      {showDuration ? (
+                        <GenerationSettingsPopover
+                          label={tLabels("durationSec")}
+                          summary={`${durationSec}s`}
+                          icon={<Clock3 className="h-4 w-4" />}
+                        >
+                          <FormField
+                            control={form.control}
+                            name="durationSec"
+                            render={({ field: durationField }) => (
+                              <FormItem className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                  <FormLabel className="text-xs font-bold text-gray-500">
+                                    {tLabels("durationSec")}
+                                  </FormLabel>
+                                  <span className="text-sm font-bold text-white">
+                                    {durationSec}s
+                                  </span>
+                                </div>
+                                <FormControl>
+                                  <input
+                                    type="range"
+                                    min={durationRange.min}
+                                    max={durationRange.max}
+                                    step={durationRange.step}
+                                    value={durationField.value}
+                                    onChange={(event) =>
+                                      durationField.onChange(
+                                        Number(event.target.value),
+                                      )
+                                    }
+                                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
+                                  />
+                                </FormControl>
+                                <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
+                                  <span>{durationRange.min}s</span>
+                                  <span>{durationRange.max}s</span>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        </GenerationSettingsPopover>
+                      ) : null}
+                      {showSizeNotice ? (
+                        <GenerationSettingsPopover
+                          label={tLabels("outputSize")}
+                          summary="Auto"
+                          icon={<ImageIcon className="h-4 w-4" />}
+                        >
+                          <p className="text-sm leading-relaxed text-gray-300">
+                            {tVideo("sizeNotice")}
+                          </p>
+                        </GenerationSettingsPopover>
+                      ) : null}
+                    </>
+                  }
+                  footerRight={
+                    <>
+                      <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
+                        {tLabels("chars", { count: promptValue.length })}
+                      </span>
+                      <Button
+                        type={isAuthenticated ? "submit" : "button"}
+                        variant="hero"
+                        disabled={
+                          isGenerating ||
+                          (isAuthenticated &&
+                            (isModelLoading || !hasModels || !canSubmit))
+                        }
+                        className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                        onClick={
+                          isAuthenticated
+                            ? undefined
+                            : () => setIsLoginGateOpen(true)
+                        }
+                      >
+                        {isGenerating
+                          ? tActions("generating")
+                          : tActions("generate")}
+                        <Sparkles className="h-5 w-5" />
+                      </Button>
+                    </>
+                  }
                 />
-              )}
-            </div>
-          </GenerationSettingsPanel>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelection}
+                />
+                <FormMessage className="text-xs text-red-400" />
+              </FormItem>
+            )}
+          />
         </div>
       </form>
       <LoginGateDialog

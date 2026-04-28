@@ -6,13 +6,13 @@ export function LandingCtaSection() {
   const t = useTranslations("landing.cta");
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-surface-dark/80 px-8 py-10">
-      <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+    <section className="px-6 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start justify-between gap-6 border-y border-white/10 py-10 md:flex-row md:items-center">
         <div>
-          <h3 className="text-2xl font-bold text-white">
+          <h3 className="text-3xl font-black uppercase text-white">
             {t("title")}
           </h3>
-          <p className="mt-2 text-sm text-gray-400">
+          <p className="mt-3 max-w-2xl text-base text-gray-400">
             {t("description")}
           </p>
         </div>
@@ -20,6 +20,6 @@ export function LandingCtaSection() {
           <Link href="/login">{t("button")}</Link>
         </Button>
       </div>
-    </div>
+    </section>
   );
 }

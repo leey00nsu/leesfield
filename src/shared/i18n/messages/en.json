@@ -58,6 +58,7 @@
       "steps": "Steps",
       "imageCount": "Images",
       "guidanceScale": "Guidance_Scale",
+      "settings": "Settings",
       "modeChoice": "Mode",
       "promptUpsampling": "Prompt_Upsampling",
       "seed": "Seed",
@@ -119,23 +120,45 @@
       }
     },
     "features": {
-      "eyebrow": "STUDIO LANES",
-      "title": "Start from the output you need",
-      "description": "Pick image, video, or audio output and continue straight into the next generation.",
-      "laneCta": "Open",
+      "eyebrow": "ABOUT THE STUDIO",
+      "title": "PROMPT TO PRODUCTION",
+      "description": "From the moment an idea appears to choosing, reworking, and extending the result, the studio keeps every step in one dark creative workspace.",
+      "laneCta": "Open studio",
       "lanes": {
         "image": {
           "title": "Image studio",
-          "description": "Handle prompt, reference images, and model choice in one focused flow."
+          "description": "Build the first frame, add references, and create the result immediately.",
+          "imageAlt": "Cinematic portrait image"
         },
         "video": {
           "title": "Video studio",
-          "description": "Connect a starting image and scene direction into motion output."
+          "description": "Tune the cut, motion, and duration as the scene becomes video.",
+          "imageAlt": "Film production image"
         },
         "audio": {
           "title": "Audio studio",
-          "description": "Combine text, reference audio, and voice settings for the target result."
+          "description": "Shape voice, speed, and references into a finished sound.",
+          "imageAlt": "Audio console image"
         }
+      },
+      "stats": {
+        "image": {
+          "value": "01",
+          "label": "Image"
+        },
+        "video": {
+          "value": "02",
+          "label": "Video"
+        },
+        "audio": {
+          "value": "03",
+          "label": "Audio"
+        }
+      },
+      "motion": {
+        "eyebrow": "MOTION FIRST",
+        "title": "One prompt dock connects scene, motion, and sound.",
+        "description": "Every generation page keeps the same dock pattern while showing only the preview and controls that match the output type."
       },
       "cards": {
         "generation": {
@@ -358,6 +381,9 @@
       "previewStudioAlt": "Studio portrait photo",
       "previewTextureAlt": "Audio console photo",
       "previewFilmAlt": "Film production photo",
+      "previewEyebrow": "Image studio",
+      "previewTitle": "Set the scene, then push the detail",
+      "previewDescription": "Prompt and reference images live in the same dock, so each result can become the next starting point.",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -369,6 +395,12 @@
       "promptPlaceholder": "Describe the video you want to generate in detail...",
       "uploadReference": "Upload Reference Image",
       "initImageAlt": "Init image preview",
+      "previewFilmAlt": "Film production photo",
+      "previewPortraitAlt": "Cinematic portrait frame",
+      "previewTextureAlt": "Audio console photo",
+      "previewEyebrow": "Video studio",
+      "previewTitle": "Turn a still frame into a moving scene",
+      "previewDescription": "Starting image, scene direction, and duration settings now stay in the same dock flow.",
       "mode": {
         "imageToVideo": "IMAGE TO VIDEO",
         "imageRequired": "IMAGE REQUIRED",
@@ -389,6 +421,10 @@
       "referenceTextLabel": "Reference Text",
       "referenceTextPlaceholder": "Enter the transcript for the reference audio...",
       "speedLabel": "Speed",
+      "previewTextureAlt": "Audio console photo",
+      "previewEyebrow": "Audio studio",
+      "previewTitle": "Shape the tone before you render",
+      "previewDescription": "Text, voice, and reference audio settings are combined in one generation dock.",
       "seedPlaceholder": "Optional"
     },
     "errors": {

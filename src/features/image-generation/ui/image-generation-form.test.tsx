@@ -246,6 +246,7 @@ describe("ImageGenerationForm", () => {
     await user.click(
       await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i }),
     );
+    await user.click(await screen.findByRole("button", { name: /설정/i }));
 
     expect(await screen.findByText("모드")).toBeInTheDocument();
     expect(await screen.findByText("가이던스")).toBeInTheDocument();

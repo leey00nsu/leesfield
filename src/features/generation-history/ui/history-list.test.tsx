@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe("HistoryList", () => {
-  it("keeps history columns top-aligned so video cards do not leave empty gaps", () => {
+  it("uses varied masonry tile sizes instead of uniform cards", () => {
     mockMatchMedia({ isMdUp: true, isXlUp: false });
 
     const items = Array.from({ length: 3 }, (_, index) => ({
@@ -72,10 +72,11 @@ describe("HistoryList", () => {
     renderWithIntl(<HistoryList items={items} />);
     const wrapper = screen.getByTestId("history-gallery-grid");
 
-    Array.from(wrapper?.children ?? []).forEach((column) => {
-      expect(column).toHaveClass("self-start");
-      expect(column).toHaveClass("content-start");
-    });
+    expect(wrapper).toHaveClass("auto-rows-[7rem]");
+    expect(wrapper.children[0]).toHaveClass("md:col-span-2");
+    expect(wrapper.children[0]).toHaveClass("md:row-span-5");
+    expect(wrapper.children[1]).toHaveClass("row-span-2");
+    expect(wrapper.children[2]).toHaveClass("row-span-3");
   });
 
   it("renders all statuses in one gallery grid without separate activity sections", () => {
@@ -168,26 +169,16 @@ describe("HistoryList", () => {
     {
       name: "small viewport",
       media: { isMdUp: false, isXlUp: false },
-      expectedColumns: 2,
-      expectedItemsPerColumn: [5, 4],
     },
     {
       name: "medium viewport",
       media: { isMdUp: true, isXlUp: false },
-      expectedColumns: 3,
-      expectedItemsPerColumn: [3, 3, 3],
     },
     {
       name: "xl viewport",
       media: { isMdUp: true, isXlUp: true },
-      expectedColumns: 4,
-      expectedItemsPerColumn: [3, 2, 2, 2],
     },
-  ])("uses responsive skeleton columns for $name", ({
-    media,
-    expectedColumns,
-    expectedItemsPerColumn,
-  }) => {
+  ])("uses responsive masonry skeleton grid for $name", ({ media }) => {
     mockMatchMedia(media);
 
     const { container } = renderWithIntl(<HistoryList items={[]} isLoading />);
@@ -196,15 +187,12 @@ describe("HistoryList", () => {
     expect(wrapper).toBeTruthy();
     expect(wrapper).toHaveClass("grid");
     expect(wrapper).toHaveClass("grid-cols-2");
-    expect(wrapper).toHaveClass("md:grid-cols-3");
-    expect(wrapper).toHaveClass("xl:grid-cols-4");
+    expect(wrapper).toHaveClass("md:grid-cols-4");
+    expect(wrapper).toHaveClass("xl:grid-cols-6");
     expect(wrapper).not.toHaveClass("columns-1");
 
-    expect(wrapper?.children.length).toBe(expectedColumns);
-    Array.from(wrapper?.children ?? []).forEach((column, index) => {
-      expect(column).toHaveClass("grid");
-      expect(column).not.toHaveClass("hidden");
-      expect(column.children.length).toBe(expectedItemsPerColumn[index]);
-    });
+    expect(wrapper?.children.length).toBe(12);
+    expect(wrapper?.children[0]).toHaveClass("md:col-span-2");
+    expect(wrapper?.children[2]).toHaveClass("row-span-3");
   });
 });

@@ -1,8 +1,8 @@
 import { Archive } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useSyncExternalStore } from "react";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
+import { cn } from "@/shared/lib/utils";
 
 type HistoryListProps = {
   items: GenerationHistoryItem[];
@@ -12,42 +12,22 @@ type HistoryListProps = {
   onSelectItem?: (item: GenerationHistoryItem) => void;
 };
 
-function useMediaQuery(query: string) {
-  return useSyncExternalStore(
-    (listener) => {
-      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-        return () => undefined;
-      }
+function getHistoryTileClass(index: number) {
+  const pattern = index % 12;
 
-      const mediaQueryList = window.matchMedia(query);
-      const handler = () => listener();
-
-      if (typeof mediaQueryList.addEventListener === "function") {
-        mediaQueryList.addEventListener("change", handler);
-        return () => mediaQueryList.removeEventListener("change", handler);
-      }
-
-      mediaQueryList.addListener(handler);
-      return () => mediaQueryList.removeListener(handler);
-    },
-    () => {
-      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-        return false;
-      }
-      return window.matchMedia(query).matches;
-    },
-    () => false,
-  );
-}
-
-function createColumns<T>(items: T[], columnCount: number) {
-  const columns = Array.from({ length: columnCount }, () => [] as T[]);
-
-  items.forEach((item, index) => {
-    columns[index % columnCount].push(item);
-  });
-
-  return columns;
+  if (pattern === 0) {
+    return "row-span-4 md:col-span-2 md:row-span-5";
+  }
+  if (pattern === 2 || pattern === 8) {
+    return "row-span-3";
+  }
+  if (pattern === 5) {
+    return "row-span-4";
+  }
+  if (pattern === 7) {
+    return "row-span-3 md:col-span-2";
+  }
+  return "row-span-2";
 }
 
 export function HistoryList({
@@ -59,63 +39,15 @@ export function HistoryList({
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
-  const isMdUp = useMediaQuery("(min-width: 768px)");
-  const isXlUp = useMediaQuery("(min-width: 1280px)");
-  const columnCount = isXlUp ? 4 : isMdUp ? 3 : 2;
-
-  const skeletonColumns = useMemo(() => {
-    const columns = Array.from({ length: columnCount }, () => [] as number[]);
-
-    Array.from({ length: 9 }).forEach((_, index) => {
-      columns[index % columnCount].push(index);
-    });
-
-    return columns;
-  }, [columnCount]);
-
-  const columns = useMemo(
-    () => createColumns(items, columnCount),
-    [columnCount, items],
-  );
-
-  const renderGrid = (
-    columns: GenerationHistoryItem[][],
-    testId: string,
-  ) => (
-    <div
-      data-testid={testId}
-      className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
-    >
-      {columns.map((column, columnIndex) => (
-        <div
-          key={`${testId}-${columnIndex}`}
-          className="grid self-start content-start gap-4"
-        >
-          {column.map((item) => (
-            <HistoryItem
-              key={`${item.type}-${item.id}`}
-              item={item}
-              onDeleted={onDeleteItem}
-              onSelect={onSelectItem}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {skeletonColumns.map((column, columnIndex) => (
-          <div
-            key={`history-skeleton-column-${columnIndex}`}
-            className="grid self-start content-start gap-4"
-          >
-            {column.map((index) => (
-              <HistoryItemSkeleton key={`history-skeleton-${index}`} />
-            ))}
-          </div>
+      <div className="grid auto-rows-[7rem] grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+        {Array.from({ length: 12 }).map((_, index) => (
+          <HistoryItemSkeleton
+            key={`history-skeleton-${index}`}
+            className={getHistoryTileClass(index)}
+          />
         ))}
       </div>
     );
@@ -137,5 +69,20 @@ export function HistoryList({
     );
   }
 
-  return renderGrid(columns, "history-gallery-grid");
+  return (
+    <div
+      data-testid="history-gallery-grid"
+      className="grid auto-rows-[7rem] grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6"
+    >
+      {items.map((item, index) => (
+        <HistoryItem
+          key={`${item.type}-${item.id}`}
+          item={item}
+          onDeleted={onDeleteItem}
+          onSelect={onSelectItem}
+          className={cn("min-h-0", getHistoryTileClass(index))}
+        />
+      ))}
+    </div>
+  );
 }
