@@ -24,7 +24,7 @@ export function LandingHero() {
           aria-label={t("preview.label")}
           className="relative h-56 w-full max-w-4xl sm:h-72"
         >
-          <div className="absolute left-[8%] top-8 h-36 w-[34%] -rotate-6 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
+          <div className="lf-motion-card-a absolute left-[8%] top-8 h-36 w-[34%] -rotate-6 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image
               src="/assets/creative-studio/mirror-portrait.jpg"
               alt={t("preview.imageAlt")}
@@ -34,7 +34,7 @@ export function LandingHero() {
               className="object-cover"
             />
           </div>
-          <div className="absolute left-[31%] top-2 h-40 w-[30%] rotate-2 overflow-hidden rounded-2xl border-4 border-white/15 bg-background shadow-2xl sm:h-56">
+          <div className="lf-motion-card-b absolute left-[31%] top-2 h-40 w-[30%] rotate-2 overflow-hidden rounded-2xl border-4 border-white/15 bg-background shadow-2xl sm:h-56">
             <video
               aria-label={t("preview.videoLabel")}
               className="h-full w-full object-cover"
@@ -48,7 +48,7 @@ export function LandingHero() {
           </div>
           <div
             aria-label={t("preview.audioLabel")}
-            className="absolute left-[57%] top-9 h-36 w-36 overflow-hidden rounded-full border-4 border-white/20 bg-background shadow-2xl sm:h-48 sm:w-48"
+            className="lf-motion-card-c absolute left-[57%] top-9 h-36 w-36 overflow-hidden rounded-full border-4 border-white/20 bg-background shadow-2xl sm:h-48 sm:w-48"
           >
             <Image
               src="/assets/creative-studio/audio-console.jpg"
@@ -58,7 +58,7 @@ export function LandingHero() {
               className="object-cover"
             />
           </div>
-          <div className="absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
+          <div className="lf-motion-card-d absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image
               src="/assets/creative-studio/film-production.jpg"
               alt={t("preview.imageAlt")}
@@ -70,16 +70,16 @@ export function LandingHero() {
         </div>
 
         <div className="flex max-w-5xl flex-col items-center gap-6">
-          <p className="flex items-center gap-2 text-xs font-mono text-gray-400">
+          <p className="lf-motion-rise flex items-center gap-2 text-xs font-mono text-gray-400">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             {t("status")}
           </p>
-          <h1 className="text-4xl font-black uppercase leading-tight text-white sm:text-6xl">
+          <h1 className="lf-motion-rise text-4xl font-black uppercase leading-tight text-white sm:text-6xl">
             <span className="text-white">{tBrand("leading")}</span>
             <span className="text-primary">{tBrand("trailing")}</span>
           </h1>
 
-          <p className="max-w-3xl text-lg leading-relaxed text-gray-300 sm:text-xl">
+          <p className="lf-motion-rise max-w-3xl text-lg leading-relaxed text-gray-300 sm:text-xl">
             {t("description")}
           </p>
 

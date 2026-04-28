@@ -7,8 +7,6 @@ import {
   Copy,
   Download,
   Edit,
-  Folder,
-  Globe2,
   Grid2X2,
   Image as ImageIcon,
   Plus,
@@ -20,7 +18,7 @@ import {
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type {
   GenerationHistoryItem,
   GenerationHistorySort,
@@ -78,26 +76,7 @@ export function GenerationHistoryScreen() {
     <div className="relative flex min-h-[calc(100vh-5rem)] flex-col gap-4 overflow-x-hidden pb-36">
       <div className="sticky top-0 z-30 -mx-6 border-b border-white/10 bg-[#0b0e10]/90 px-6 py-3 backdrop-blur-xl sm:-mx-10 sm:px-10">
         <div className="mx-auto flex w-full max-w-[1800px] flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] p-1">
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 rounded-lg px-3 text-xs font-bold text-gray-400 hover:bg-white/10 hover:text-white"
-            >
-              <Folder className="h-4 w-4" />
-              {tHistory("tabs.history")}
-            </Button>
-            <Button
-              type="button"
-              variant="surface"
-              className="h-9 rounded-lg border-white/10 bg-white/[0.06] px-3 text-xs font-bold text-white"
-            >
-              <Globe2 className="h-4 w-4" />
-              {tHistory("tabs.community")}
-            </Button>
-          </div>
-
-          <div className="ml-auto flex h-10 min-w-[16rem] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3">
+          <div className="flex h-10 min-w-[16rem] flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 sm:max-w-md">
             <Search className="h-4 w-4 text-gray-500" />
             <input
               value={searchInput}
@@ -195,32 +174,32 @@ export function GenerationHistoryScreen() {
       </div>
       {selectedItem ? (
         <HistoryDetailOverlay
-	          item={selectedItem}
-	          onClose={() => setSelectedItem(null)}
-	          onRecreate={() => {
-	            const target =
-	              selectedItem.type === "video"
-	                ? "/video"
-	                : selectedItem.type === "audio"
-	                  ? "/audio"
-	                  : "/image";
-	            router.push(buildHistoryGenerationUrl(selectedItem, target));
-	          }}
-	          onCreateVideo={() =>
-	            router.push(
-	              buildHistoryGenerationUrl(selectedItem, "/video", {
-	                includeImageReference: true,
-	              }),
-	            )
-	          }
-	          onEditImage={() =>
-	            router.push(
-	              buildHistoryGenerationUrl(selectedItem, "/image", {
-	                includeImageReference: true,
-	              }),
-	            )
-	          }
-	        />
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onRecreate={() => {
+            const target =
+              selectedItem.type === "video"
+                ? "/video"
+                : selectedItem.type === "audio"
+                  ? "/audio"
+                  : "/image";
+            router.push(buildHistoryGenerationUrl(selectedItem, target));
+          }}
+          onCreateVideo={() =>
+            router.push(
+              buildHistoryGenerationUrl(selectedItem, "/video", {
+                includeImageReference: true,
+              }),
+            )
+          }
+          onEditImage={() =>
+            router.push(
+              buildHistoryGenerationUrl(selectedItem, "/image", {
+                includeImageReference: true,
+              }),
+            )
+          }
+        />
       ) : null}
       <HistoryFloatingPromptDock />
     </div>
@@ -273,10 +252,18 @@ function HistoryDetailOverlay({
   onCreateVideo: () => void;
   onEditImage: () => void;
 }) {
+  const locale = useLocale();
   const tHistory = useTranslations("history");
   const tActions = useTranslations("history.detailActions");
+  const tStatuses = useTranslations("history.statuses");
+  const tTypes = useTranslations("history.types");
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
   const canUseImageReference = item.type === "image" && Boolean(item.resultUrl);
+  const formattedDate = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(new Date(item.createdAt));
 
   const handleCopyPrompt = () => {
     void navigator.clipboard?.writeText(item.prompt);
@@ -369,11 +356,15 @@ function HistoryDetailOverlay({
             </div>
             <div className="flex items-center justify-between gap-4">
               <dt className="text-gray-500">{tHistory("detail.type")}</dt>
-              <dd className="font-semibold text-white">{item.type}</dd>
+              <dd className="font-semibold text-white">{tTypes(item.type)}</dd>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <dt className="text-gray-500">{tHistory("detail.quality")}</dt>
-              <dd className="font-semibold text-white">2k</dd>
+              <dt className="text-gray-500">{tHistory("detail.status")}</dt>
+              <dd className="font-semibold text-white">{tStatuses(item.status)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-gray-500">{tHistory("detail.date")}</dt>
+              <dd className="font-semibold text-white">{formattedDate}</dd>
             </div>
           </dl>
         </section>

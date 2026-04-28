@@ -66,6 +66,9 @@ describe("GenerationHistoryScreen", () => {
 
     renderWithIntl(<GenerationHistoryScreen />);
 
+    expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Community" })).not.toBeInTheDocument();
+
     const audioFilter = screen.getByRole("button", { name: "오디오" });
     expect(audioFilter).toBeInTheDocument();
     expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(

@@ -4,17 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { HistoryItem } from "@/features/generation-history/ui/history-item";
 import { renderWithIntl } from "@/test-utils/intl";
 
-const mockPush = vi.hoisted(() => vi.fn());
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-}));
-
 describe("HistoryItem video", () => {
-  it("video 항목은 플레이어 위 전체 오버레이 없이 /video 재사용 경로를 사용한다", async () => {
+  it("renders a video tile without inline player controls or reuse buttons", async () => {
     const user = userEvent.setup();
+    const onSelect = vi.fn();
 
     renderWithIntl(
       <HistoryItem
@@ -30,46 +23,21 @@ describe("HistoryItem video", () => {
           inputImages: ["https://example.com/init.png"],
           errorMessage: null,
         }}
+        onSelect={onSelect}
       />,
     );
 
-    expect(document.querySelector("video")).not.toBeNull();
-    const reuseButton = screen.getByRole("button", { name: "프롬프트 재사용" });
-    const downloadLink = screen.getByRole("link", { name: "다운로드" });
-    const copyButton = screen.getByRole("button", { name: "프롬프트 복사" });
-    const openLink = screen.getByRole("link", { name: "열기" });
+    const video = document.querySelector("video");
+    expect(video).not.toBeNull();
+    expect(video).not.toHaveAttribute("controls");
+    expect(screen.getByText("비디오")).toBeInTheDocument();
+    expect(screen.getByText("완료")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "프롬프트 재사용" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "다운로드" })).not.toBeInTheDocument();
 
-    expect(reuseButton.closest(".absolute.inset-0")).toBeNull();
-    expect(downloadLink).toHaveTextContent("다운로드");
-    expect(reuseButton).toHaveTextContent("프롬프트 재사용");
-
-    await user.tab();
-    expect(screen.getByRole("button", { name: "더보기" })).toHaveFocus();
-    await user.tab();
-    expect(reuseButton).toHaveFocus();
-    await user.tab();
-    expect(downloadLink).toHaveFocus();
-
-    await user.tab();
-    expect(copyButton).toHaveFocus();
-    expect(
-      (await screen.findAllByRole("tooltip", { hidden: true })).some((tooltip) =>
-        tooltip.textContent?.includes("프롬프트 복사"),
-      ),
-    ).toBe(true);
-
-    await user.tab();
-    expect(openLink).toHaveFocus();
-    expect(
-      (await screen.findAllByRole("tooltip", { hidden: true })).some((tooltip) =>
-        tooltip.textContent?.includes("열기"),
-      ),
-    ).toBe(true);
-
-    await user.click(reuseButton);
-
-    expect(mockPush).toHaveBeenCalledWith(
-      "/video?prompt=hello+video&model=wan-video&initImage=https%3A%2F%2Fexample.com%2Finit.png",
+    await user.click(
+      screen.getByRole("button", { name: /결과 상세 보기: hello video/ }),
     );
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "item-video-1" }));
   });
 });

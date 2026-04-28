@@ -91,45 +91,7 @@ describe("ImageGenerationForm", () => {
     expect(modelButton).toHaveClass("border-primary");
   });
 
-  it("preset 선택 시 prompt와 추천 모델을 form state에 반영한다", async () => {
-    const startGeneration = vi.fn();
-    const reset = vi.fn();
-
-    mockUseImageGeneration.mockReturnValue({
-      state: { status: "idle", progress: 0 },
-      startGeneration,
-      reset,
-    });
-
-    const user = userEvent.setup();
-
-    renderWithIntl(<ImageGenerationForm isAuthenticated />);
-    await waitForModels();
-
-    await user.click(screen.getByRole("button", { name: /에디토리얼 컷/ }));
-
-    expect(
-      screen.getByDisplayValue(
-        "high contrast editorial portrait, reflective fabric, precise studio lighting",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }),
-    ).toHaveClass("border-primary");
-
-    await user.click(screen.getByRole("button", { name: "생성" }));
-
-    expect(startGeneration).toHaveBeenCalledTimes(1);
-    expect(startGeneration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt:
-          "high contrast editorial portrait, reflective fabric, precise studio lighting",
-        model: "flux2-klein-9b",
-      }),
-    );
-  });
-
-  it("renders a bottom creative prompt dock with model and generation chips", async () => {
+  it("renders a bottom creative prompt dock with model and actual settings controls", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -143,10 +105,12 @@ describe("ImageGenerationForm", () => {
       name: "크리에이티브 프롬프트 dock",
     });
 
-    expect(dock).toHaveTextContent("1:1");
-    expect(dock).toHaveTextContent("1K");
-    expect(dock).toHaveTextContent("1/1");
-    expect(dock).toHaveTextContent("Draw");
+    expect(dock).not.toHaveTextContent("1:1");
+    expect(dock).not.toHaveTextContent("1K");
+    expect(dock).not.toHaveTextContent("Draw");
+    expect(dock).toHaveTextContent("출력 크기");
+    expect(dock).toHaveTextContent("이미지 수");
+    expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Z-Image Turbo|FLUX\.2 Klein 9B/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");

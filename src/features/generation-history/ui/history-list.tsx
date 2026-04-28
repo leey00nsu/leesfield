@@ -58,7 +58,6 @@ export function HistoryList({
   onSelectItem,
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
-  const tGallery = useTranslations("history.gallery");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const isXlUp = useMediaQuery("(min-width: 1280px)");
@@ -74,21 +73,9 @@ export function HistoryList({
     return columns;
   }, [columnCount]);
 
-  const completedItems = useMemo(
-    () => items.filter((item) => item.status === "completed"),
-    [items],
-  );
-  const activityItems = useMemo(
-    () => items.filter((item) => item.status !== "completed"),
-    [items],
-  );
-  const completedColumns = useMemo(
-    () => createColumns(completedItems, columnCount),
-    [columnCount, completedItems],
-  );
-  const activityColumns = useMemo(
-    () => createColumns(activityItems, columnCount),
-    [activityItems, columnCount],
+  const columns = useMemo(
+    () => createColumns(items, columnCount),
+    [columnCount, items],
   );
 
   const renderGrid = (
@@ -150,43 +137,5 @@ export function HistoryList({
     );
   }
 
-  return (
-    <div className="flex flex-col gap-8">
-      {completedItems.length > 0 ? (
-        <section
-          aria-label={tGallery("title")}
-          className="flex flex-col gap-4"
-        >
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-white">
-                {tGallery("title")}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                {tGallery("subtitle")}
-              </p>
-            </div>
-          </div>
-          {renderGrid(completedColumns, "history-gallery-grid")}
-        </section>
-      ) : null}
-
-      {activityItems.length > 0 ? (
-        <section
-          aria-label={tGallery("activityTitle")}
-          className="flex flex-col gap-4"
-        >
-          <div>
-            <h3 className="text-sm font-bold text-gray-300">
-              {tGallery("activityTitle")}
-            </h3>
-            <p className="mt-1 text-xs text-gray-600">
-              {tGallery("activitySubtitle")}
-            </p>
-          </div>
-          {renderGrid(activityColumns, "history-activity-grid")}
-        </section>
-      ) : null}
-    </div>
-  );
+  return renderGrid(columns, "history-gallery-grid");
 }

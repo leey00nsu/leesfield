@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
@@ -78,7 +78,7 @@ describe("HistoryList", () => {
     });
   });
 
-  it("renders completed results as a gallery before failed or processing activity", () => {
+  it("renders all statuses in one gallery grid without separate activity sections", () => {
     mockMatchMedia({ isMdUp: false, isXlUp: false });
 
     renderWithIntl(
@@ -121,17 +121,14 @@ describe("HistoryList", () => {
       />,
     );
 
-    const gallery = screen.getByRole("region", { name: "결과 갤러리" });
-    const activity = screen.getByRole("region", { name: "상태 활동" });
+    const gallery = screen.getByTestId("history-gallery-grid");
 
-    expect(within(gallery).getByText("completed prompt")).toBeInTheDocument();
-    expect(within(activity).getByText("failed prompt")).toBeInTheDocument();
-    expect(within(activity).getByText("processing prompt")).toBeInTheDocument();
-    expect(
-      screen.getByText("completed prompt").compareDocumentPosition(
-        screen.getByText("failed prompt"),
-      ) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(gallery).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "결과 갤러리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "상태 활동" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("이미지").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("실패").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("처리중").length).toBeGreaterThan(0);
   });
 
   it("notifies the parent when a completed result preview is selected", async () => {

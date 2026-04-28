@@ -56,10 +56,14 @@
       "width": "Width",
       "height": "Height",
       "steps": "Steps",
+      "imageCount": "Images",
       "guidanceScale": "Guidance_Scale",
       "modeChoice": "Mode",
       "promptUpsampling": "Prompt_Upsampling",
       "seed": "Seed",
+      "decrease": "Decrease",
+      "increase": "Increase",
+      "randomize": "Randomize",
       "durationSec": "Duration_Sec",
       "range": "Range: {min} ~ {max}px",
       "required": "Required",
@@ -344,12 +348,16 @@
         "leading": "Image",
         "accent": "Generation"
       },
-      "subtitle": "Make images in one click",
+      "subtitle": "Create images",
       "promptPlaceholder": "Describe your imagination in detail...",
       "uploadReference": "Upload Reference Image",
       "uploadUnsupported": "This model does not support image input.",
       "initImageAlt": "Init image preview",
       "generatedImageAlt": "Generated image {index}",
+      "previewPortraitAlt": "Dark portrait reference",
+      "previewStudioAlt": "Studio portrait photo",
+      "previewTextureAlt": "Audio console photo",
+      "previewFilmAlt": "Film production photo",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -449,10 +457,6 @@
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
     "inputImageAlt": "Input image",
-    "tabs": {
-      "history": "History",
-      "community": "Community"
-    },
     "floatingDock": {
       "placeholder": "Describe the scene you imagine",
       "model": "FLUX.2 Klein 9B",
@@ -478,14 +482,7 @@
     "actions": {
       "reusePrompt": "Reuse Prompt",
       "copyPrompt": "Copy Prompt",
-      "viewFullPrompt": "View more",
       "viewDetail": "Open result detail: {prompt}"
-    },
-    "gallery": {
-      "title": "Result gallery",
-      "subtitle": "Use completed results as the starting point for your next generation.",
-      "activityTitle": "Status activity",
-      "activitySubtitle": "In-progress and failed items are grouped for quick status checks."
     },
     "detail": {
       "title": "Result detail",
@@ -494,7 +491,8 @@
       "information": "INFORMATION",
       "model": "Model",
       "type": "Type",
-      "quality": "Quality"
+      "status": "Status",
+      "date": "Date"
     },
     "detailActions": {
       "recreate": "Recreate",

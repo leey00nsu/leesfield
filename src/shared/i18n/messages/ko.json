@@ -56,10 +56,14 @@
       "width": "너비",
       "height": "높이",
       "steps": "스텝",
+      "imageCount": "이미지 수",
       "guidanceScale": "가이던스",
       "modeChoice": "모드",
       "promptUpsampling": "프롬프트 업샘플링",
       "seed": "시드",
+      "decrease": "줄이기",
+      "increase": "늘리기",
+      "randomize": "랜덤",
       "durationSec": "재생시간",
       "range": "범위: {min} ~ {max}px",
       "required": "필수",
@@ -344,12 +348,16 @@
         "leading": "이미지",
         "accent": "생성"
       },
-      "subtitle": "원클릭 이미지 생성",
+      "subtitle": "이미지 만들기",
       "promptPlaceholder": "상세하게 프롬프트를 입력하세요...",
       "uploadReference": "레퍼런스 이미지 업로드",
       "uploadUnsupported": "이미지 입력을 지원하지 않는 모델입니다.",
       "initImageAlt": "입력 이미지 미리보기",
       "generatedImageAlt": "생성된 이미지 {index}",
+      "previewPortraitAlt": "어두운 톤의 인물 레퍼런스",
+      "previewStudioAlt": "스튜디오 인물 사진",
+      "previewTextureAlt": "오디오 콘솔 사진",
+      "previewFilmAlt": "촬영 현장 사진",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -449,10 +457,6 @@
     "error": "히스토리를 불러오지 못했습니다.",
     "previewAlt": "생성 결과 미리보기",
     "inputImageAlt": "입력 이미지",
-    "tabs": {
-      "history": "History",
-      "community": "Community"
-    },
     "floatingDock": {
       "placeholder": "Describe the scene you imagine",
       "model": "FLUX.2 Klein 9B",
@@ -478,14 +482,7 @@
     "actions": {
       "reusePrompt": "프롬프트 재사용",
       "copyPrompt": "프롬프트 복사",
-      "viewFullPrompt": "더보기",
       "viewDetail": "결과 상세 보기: {prompt}"
-    },
-    "gallery": {
-      "title": "결과 갤러리",
-      "subtitle": "완료된 결과를 다음 생성의 출발점으로 사용하세요.",
-      "activityTitle": "상태 활동",
-      "activitySubtitle": "진행 중이거나 실패한 항목은 상태 확인 중심으로 모았습니다."
     },
     "detail": {
       "title": "결과 상세",
@@ -494,7 +491,8 @@
       "information": "INFORMATION",
       "model": "Model",
       "type": "Type",
-      "quality": "Quality"
+      "status": "Status",
+      "date": "Date"
     },
     "detailActions": {
       "recreate": "Recreate",
