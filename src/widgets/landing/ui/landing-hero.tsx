@@ -48,15 +48,15 @@ export function LandingHero() {
           </div>
           <div
             aria-label={t("preview.audioLabel")}
-            className="absolute left-[57%] top-9 flex h-36 w-36 items-end gap-1 rounded-full border-4 border-white/20 bg-[#102132] p-5 shadow-2xl sm:h-48 sm:w-48"
+            className="absolute left-[57%] top-9 h-36 w-36 overflow-hidden rounded-full border-4 border-white/20 bg-background shadow-2xl sm:h-48 sm:w-48"
           >
-            {Array.from({ length: 16 }).map((_, index) => (
-              <span
-                key={index}
-                className="w-full rounded-full bg-primary/75"
-                style={{ height: `${28 + (index % 5) * 12}%` }}
-              />
-            ))}
+            <Image
+              src="/assets/creative-studio/audio-console.jpg"
+              alt={t("preview.audioImageAlt")}
+              fill
+              sizes="(min-width: 1024px) 12rem, 9rem"
+              className="object-cover"
+            />
           </div>
           <div className="absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
             <Image

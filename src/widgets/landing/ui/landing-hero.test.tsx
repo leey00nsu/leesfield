@@ -27,6 +27,7 @@ describe("LandingHero", () => {
     expect(
       screen.getByRole("region", { name: "크리에이티브 미디어 콜라주" }),
     ).toBeInTheDocument();
+    expect(screen.getByAltText("오디오 콘솔 사진")).toBeInTheDocument();
 
     const imageLink = screen.getByRole("link", { name: /이미지 만들기/ });
     const videoLink = screen.getByRole("link", { name: /비디오 만들기/ });

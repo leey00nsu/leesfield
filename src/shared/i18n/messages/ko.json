@@ -110,6 +110,7 @@
         "videoLabel": "AI 생성 비디오 샘플",
         "videoTitle": "Video motion",
         "audioLabel": "AI 생성 오디오 파형",
+        "audioImageAlt": "오디오 콘솔 사진",
         "audioTitle": "Audio take"
       }
     },

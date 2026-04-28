@@ -110,6 +110,7 @@
         "videoLabel": "AI generated video sample",
         "videoTitle": "Video motion",
         "audioLabel": "AI generated audio waveform",
+        "audioImageAlt": "Audio console photo",
         "audioTitle": "Audio take"
       }
     },
