@@ -611,6 +611,81 @@
         "duration": "DURATION"
       }
     },
+    "outcome": {
+      "labels": {
+        "bestFor": "Best for",
+        "strengths": "Strengths",
+        "style": "Result tone",
+        "technical": "Technical info",
+        "key": "Key"
+      },
+      "profiles": {
+        "imageRapid": {
+          "bestFor": "Fast image drafts",
+          "style": "Crisp prompt-led cut",
+          "strengths": {
+            "speed": "Short iteration loops",
+            "composition": "Clear composition"
+          }
+        },
+        "imageEditorial": {
+          "bestFor": "Editorial and reference images",
+          "style": "Precise portrait/product cut",
+          "strengths": {
+            "reference": "Reference image support",
+            "detail": "Material and lighting detail"
+          }
+        },
+        "imagePrecise": {
+          "bestFor": "Precise image creation/editing",
+          "style": "Clean instruction-led output",
+          "strengths": {
+            "instruction": "Keeps complex instructions",
+            "editing": "Reference-based edits"
+          }
+        },
+        "imageDefault": {
+          "bestFor": "Fast image drafts",
+          "style": "Crisp prompt-led cut",
+          "strengths": {
+            "speed": "Short iteration loops",
+            "composition": "Clear composition"
+          }
+        },
+        "videoCinematic": {
+          "bestFor": "Product motion and short cuts",
+          "style": "Smooth camera motion",
+          "strengths": {
+            "motion": "Short clip motion",
+            "reference": "Image-based starts"
+          }
+        },
+        "videoDefault": {
+          "bestFor": "Video drafts",
+          "style": "Short motion clip",
+          "strengths": {
+            "motion": "Short clip motion",
+            "pacing": "Concise cut structure"
+          }
+        },
+        "audioVoiceover": {
+          "bestFor": "Voiceover and short narration",
+          "style": "Warm voice tone",
+          "strengths": {
+            "voice": "Clear voice synthesis",
+            "pacing": "Short copy delivery"
+          }
+        },
+        "audioDefault": {
+          "bestFor": "Audio drafts",
+          "style": "Concise speech output",
+          "strengths": {
+            "voice": "Clear voice synthesis",
+            "pacing": "Short copy delivery"
+          }
+        }
+      }
+    },
     "modality": {
       "t2i": "Text to Image",
       "i2i": "Image to Image",

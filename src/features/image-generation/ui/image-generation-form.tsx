@@ -427,6 +427,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       >
         {!isGuest && (
           <GenerationModelSection
+            modality="image"
             items={modelOptions}
             activeId={activeModel}
             onSelect={handleSelectModel}

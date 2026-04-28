@@ -611,6 +611,81 @@
         "duration": "길이"
       }
     },
+    "outcome": {
+      "labels": {
+        "bestFor": "추천 용도",
+        "strengths": "강점",
+        "style": "결과 톤",
+        "technical": "기술 정보",
+        "key": "키"
+      },
+      "profiles": {
+        "imageRapid": {
+          "bestFor": "빠른 이미지 초안",
+          "style": "선명한 프롬프트 기반 컷",
+          "strengths": {
+            "speed": "짧은 반복 실험",
+            "composition": "명확한 구도"
+          }
+        },
+        "imageEditorial": {
+          "bestFor": "에디토리얼·레퍼런스 이미지",
+          "style": "정교한 인물/제품 컷",
+          "strengths": {
+            "reference": "이미지 레퍼런스 활용",
+            "detail": "소재와 조명 디테일"
+          }
+        },
+        "imagePrecise": {
+          "bestFor": "정확한 이미지 생성/수정",
+          "style": "깔끔한 지시 기반 결과",
+          "strengths": {
+            "instruction": "복잡한 지시 유지",
+            "editing": "레퍼런스 기반 수정"
+          }
+        },
+        "imageDefault": {
+          "bestFor": "빠른 이미지 초안",
+          "style": "선명한 프롬프트 기반 컷",
+          "strengths": {
+            "speed": "짧은 반복 실험",
+            "composition": "명확한 구도"
+          }
+        },
+        "videoCinematic": {
+          "bestFor": "제품 무빙과 짧은 컷",
+          "style": "부드러운 카메라 모션",
+          "strengths": {
+            "motion": "짧은 클립 모션",
+            "reference": "이미지 기반 시작"
+          }
+        },
+        "videoDefault": {
+          "bestFor": "비디오 초안 제작",
+          "style": "짧은 모션 클립",
+          "strengths": {
+            "motion": "짧은 클립 모션",
+            "pacing": "간결한 컷 구성"
+          }
+        },
+        "audioVoiceover": {
+          "bestFor": "보이스오버와 짧은 내레이션",
+          "style": "따뜻한 음성 톤",
+          "strengths": {
+            "voice": "명료한 음성 합성",
+            "pacing": "짧은 카피 전달"
+          }
+        },
+        "audioDefault": {
+          "bestFor": "오디오 초안 제작",
+          "style": "간결한 음성 결과",
+          "strengths": {
+            "voice": "명료한 음성 합성",
+            "pacing": "짧은 카피 전달"
+          }
+        }
+      }
+    },
     "modality": {
       "t2i": "텍스트 → 이미지",
       "i2i": "이미지 → 이미지",

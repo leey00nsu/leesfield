@@ -809,6 +809,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       <form className="flex flex-col gap-8" onSubmit={handleFormSubmit}>
         {!isGuest && (
           <GenerationModelSection
+            modality="audio"
             items={modelCards}
             activeId={activeModel}
             onSelect={handleSelectModel}

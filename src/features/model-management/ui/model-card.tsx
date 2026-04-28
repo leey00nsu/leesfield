@@ -4,6 +4,7 @@ import type { ModelCatalogItem } from "@/features/model-management/model/model-c
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { resolveModelOutcomeMetadata } from "@/shared/generation/model-outcome-metadata";
 import {
   resolveAudioModalities,
   resolveImageModalities,
@@ -17,35 +18,53 @@ interface ModelCardProps {
 
 const typeConfig = {
   image: {
-    className: "border-white/10 bg-black/80 text-primary",
+    className: "border-primary/30 bg-primary/10 text-primary",
     icon: ImageIcon,
     accentText: "text-primary",
-    glowClass: "from-primary/35 via-transparent to-transparent",
+    glowClass: "from-primary/20 via-creative-surface to-transparent",
   },
   video: {
-    className: "border-white/10 bg-black/80 text-accent-purple",
+    className: "border-accent-purple/30 bg-accent-purple/10 text-accent-purple",
     icon: Video,
     accentText: "text-accent-purple",
-    glowClass: "from-accent-purple/35 via-transparent to-transparent",
+    glowClass: "from-accent-purple/20 via-creative-surface to-transparent",
   },
   audio: {
-    className: "border-white/10 bg-black/80 text-cyan-300",
+    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-300",
     icon: AudioLines,
     accentText: "text-cyan-300",
-    glowClass: "from-cyan-400/35 via-transparent to-transparent",
+    glowClass: "from-cyan-400/20 via-creative-surface to-transparent",
   },
 };
 
+function resolveCatalogModalities(item: ModelCatalogItem) {
+  if (item.type === "image") {
+    return resolveImageModalities({
+      maxInputImages: item.meta.maxInputImages,
+    });
+  }
+
+  if (item.type === "video") {
+    return resolveVideoModalities({
+      supportsInitImage: item.meta.supportsInitImage,
+      t2vModelId: item.meta.t2vModelId,
+      i2vModelId: item.meta.i2vModelId,
+    });
+  }
+
+  return resolveAudioModalities({
+    supportsInputAudio: item.meta.supportsInputAudio,
+  });
+}
+
 function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
+  const modalities = resolveCatalogModalities(item);
   const base = (modalities: string[]) => [
     { label: t("meta.provider"), value: item.provider },
     { label: t("meta.modality"), value: modalities.join(" · ") },
   ];
 
   if (item.type === "image") {
-    const modalities = resolveImageModalities({
-      maxInputImages: item.meta.maxInputImages,
-    });
     return [
       ...base(modalities),
       { label: t("meta.pipeline"), value: item.meta.pipeline },
@@ -61,11 +80,6 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
   }
 
   if (item.type === "video") {
-    const modalities = resolveVideoModalities({
-      supportsInitImage: item.meta.supportsInitImage,
-      t2vModelId: item.meta.t2vModelId,
-      i2vModelId: item.meta.i2vModelId,
-    });
     return [
       ...base(modalities),
       {
@@ -83,9 +97,6 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
     ];
   }
 
-  const modalities = resolveAudioModalities({
-    supportsInputAudio: item.meta.supportsInputAudio,
-  });
   return [
     ...base(modalities),
     {
@@ -105,39 +116,30 @@ function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
 
 export function ModelCard({ item, onEdit }: ModelCardProps) {
   const tCard = useTranslations("model.card");
+  const tOutcome = useTranslations("model.outcome");
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
   const metaItems = buildMeta(item, tCard);
+  const modalities = resolveCatalogModalities(item);
+  const outcome = resolveModelOutcomeMetadata({
+    key: item.key,
+    type: item.type,
+    modalities,
+  });
 
   return (
-    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1c1c1c_0,#0a0a0a_70%)]" />
+    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-creative-surface-border bg-creative-surface-muted transition-all hover:border-primary/45">
+      <div className="relative min-h-40 w-full overflow-hidden bg-creative-surface">
         <div
           className={cn(
-            "absolute inset-0 bg-linear-to-br opacity-70 transition-opacity duration-300 group-hover:opacity-95",
-            config.glowClass
+            "absolute inset-0 bg-linear-to-br opacity-90 transition-opacity duration-300 group-hover:opacity-100",
+            config.glowClass,
           )}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,#222_1px,transparent_1px)] opacity-25" />
-        <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-transparent" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-black/40 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
-            <TypeIcon className={cn("h-7 w-7", config.accentText)} />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-bold uppercase tracking-widest text-white/80">
-              {item.label}
-            </p>
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-500">
-              {item.key}
-            </p>
-          </div>
-        </div>
         <div
           className={cn(
             "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            config.className
+            config.className,
           )}
         >
           <TypeIcon className="h-3.5 w-3.5" />
@@ -156,30 +158,75 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
             </div>
           ) : null}
         </div>
-      </div>
-      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
-        <div className="flex items-start justify-between gap-3">
+        <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-white leading-tight">
+            <h3 className="text-lg font-bold leading-tight text-white">
               {item.label}
             </h3>
-            <p className="mt-1 text-xs font-mono text-gray-400">{item.key}</p>
           </div>
-          <Badge variant="primary" className="px-2 py-1">
-            {item.vendor}
-          </Badge>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
+            <TypeIcon className={cn("h-6 w-6", config.accentText)} />
+          </div>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-white/5 p-4">
+        <div className="grid gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              {tOutcome("labels.bestFor")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-white">
+              {tOutcome(`profiles.${outcome.profile}.bestFor`)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              {tOutcome("labels.style")}
+            </p>
+            <p className="mt-1 text-sm text-gray-300">
+              {tOutcome(`profiles.${outcome.profile}.style`)}
+            </p>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-2">
-          {metaItems.map((meta) => (
+          {outcome.strengthKeys.map((strengthKey) => (
             <Badge
-              key={`${item.key}-${meta.label}`}
-              variant="muted"
-              className="px-2 py-0.5 text-gray-400"
+              key={`${item.key}-${strengthKey}`}
+              variant="primary"
+              className="px-2 py-0.5"
             >
-              {meta.label}: {meta.value}
+              {tOutcome(
+                `profiles.${outcome.profile}.strengths.${strengthKey}`,
+              )}
             </Badge>
           ))}
         </div>
+
+        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            {tOutcome("labels.technical")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="px-2 py-0.5 text-gray-300">
+              {tOutcome("labels.key")}: {item.key}
+            </Badge>
+            <Badge variant="outline" className="px-2 py-0.5 text-gray-300">
+              {item.vendor}
+            </Badge>
+            {metaItems.map((meta) => (
+              <Badge
+                key={`${item.key}-${meta.label}`}
+                variant="muted"
+                className="px-2 py-0.5 text-gray-400"
+              >
+                {meta.label}: {meta.value}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
         {onEdit ? (
           <Button
             type="button"

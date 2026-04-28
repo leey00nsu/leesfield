@@ -346,6 +346,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
       >
         {!isGuest && (
           <GenerationModelSection
+            modality="video"
             items={modelCards}
             activeId={activeModel}
             onSelect={handleSelectModel}
