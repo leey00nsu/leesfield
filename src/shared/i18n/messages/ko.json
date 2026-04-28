@@ -111,7 +111,7 @@
         }
       },
       "preview": {
-        "label": "생성 결과 미리보기",
+        "label": "크리에이티브 미디어 콜라주",
         "imageAlt": "AI 생성 이미지 샘플",
         "imageTitle": "Image result",
         "imageDescription": "프롬프트에서 바로 시각 결과로",
@@ -125,7 +125,7 @@
     "features": {
       "eyebrow": "STUDIO LANES",
       "title": "필요한 결과 타입에서 바로 시작",
-      "description": "기술 설명보다 작업 진입점을 먼저 보여주고, 각 생성 흐름은 결과물과 다음 액션이 함께 보이도록 정리합니다.",
+      "description": "이미지, 비디오, 오디오 결과를 고르고 바로 다음 생성을 이어가세요.",
       "laneCta": "열기",
       "lanes": {
         "image": {
@@ -239,6 +239,18 @@
   },
   "generation": {
     "modelSelect": "모델 선택",
+    "modelPicker": {
+      "searchPlaceholder": "모델 검색...",
+      "featured": "추천 모델",
+      "all": "전체 모델",
+      "selected": "선택됨",
+      "new": "NEW",
+      "premium": "PREMIUM",
+      "empty": "검색 결과가 없습니다."
+    },
+    "promptDock": {
+      "label": "크리에이티브 프롬프트 dock"
+    },
     "modelLoading": "모델을 불러오는 중입니다...",
     "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
     "modelLoginRequired": "로그인하여 모델 목록을 확인하세요.",
@@ -424,6 +436,15 @@
     "error": "히스토리를 불러오지 못했습니다.",
     "previewAlt": "생성 결과 미리보기",
     "inputImageAlt": "입력 이미지",
+    "tabs": {
+      "history": "History",
+      "community": "Community"
+    },
+    "floatingDock": {
+      "placeholder": "Describe the scene you imagine",
+      "model": "FLUX.2 Klein 9B",
+      "generate": "Generate"
+    },
     "empty": {
       "title": "히스토리가 없습니다",
       "default": "히스토리가 비어 있습니다.",
@@ -444,13 +465,32 @@
     "actions": {
       "reusePrompt": "프롬프트 재사용",
       "copyPrompt": "프롬프트 복사",
-      "viewFullPrompt": "더보기"
+      "viewFullPrompt": "더보기",
+      "viewDetail": "결과 상세 보기: {prompt}"
     },
     "gallery": {
       "title": "결과 갤러리",
       "subtitle": "완료된 결과를 다음 생성의 출발점으로 사용하세요.",
       "activityTitle": "상태 활동",
       "activitySubtitle": "진행 중이거나 실패한 항목은 상태 확인 중심으로 모았습니다."
+    },
+    "detail": {
+      "title": "결과 상세",
+      "author": "Author",
+      "prompt": "PROMPT",
+      "information": "INFORMATION",
+      "model": "Model",
+      "type": "Type",
+      "quality": "Quality"
+    },
+    "detailActions": {
+      "recreate": "Recreate",
+      "video": "Video",
+      "download": "Download",
+      "upscale": "Upscale",
+      "edit": "Edit",
+      "copy": "Copy",
+      "close": "Close"
     },
     "deleteDialog": {
       "title": "히스토리 삭제",

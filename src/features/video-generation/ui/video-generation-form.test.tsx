@@ -38,6 +38,10 @@ async function waitForModels() {
   await screen.findByText("Wan 2.2 (HF Space)");
 }
 
+async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: /Wan 2\.2/i }));
+}
+
 describe("VideoGenerationForm", () => {
   beforeEach(() => {
     navigationMocks.searchParams = new URLSearchParams();
@@ -99,6 +103,22 @@ describe("VideoGenerationForm", () => {
     expect(await screen.findByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
+  it("renders the shared prompt dock with video-specific control chips", async () => {
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    const dock = screen.getByRole("region", {
+      name: "크리에이티브 프롬프트 dock",
+    });
+
+    expect(dock).toHaveTextContent("이미지 필요");
+    expect(dock).toHaveTextContent("3.5s");
+    expect(
+      screen.getByRole("button", { name: /Wan 2\.2/i }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
+  });
+
   it("preset 선택 시 prompt와 추천 모델을 form state에 반영한다", async () => {
     const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();
@@ -149,6 +169,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
+    await openModelPicker(userEvent.setup());
     expect(await screen.findByText("T2V")).toBeInTheDocument();
     expect(await screen.findByText("I2V")).toBeInTheDocument();
   });

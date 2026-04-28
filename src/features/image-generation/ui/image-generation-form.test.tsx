@@ -24,7 +24,17 @@ vi.mock("@/features/image-generation/hook/use-image-generation", () => ({
 }));
 
 async function waitForModels() {
-  await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i });
+  await screen.findByRole("button", {
+    name: /Z-Image Turbo|FLUX\.2 Klein 9B/i,
+  });
+}
+
+async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    await screen.findByRole("button", {
+      name: /Z-Image Turbo|FLUX\.2 Klein 9B|GPT Image 2/i,
+    }),
+  );
 }
 
 describe("ImageGenerationForm", () => {
@@ -117,6 +127,30 @@ describe("ImageGenerationForm", () => {
         model: "flux2-klein-9b",
       }),
     );
+  });
+
+  it("renders a bottom creative prompt dock with model and generation chips", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    const dock = screen.getByRole("region", {
+      name: "크리에이티브 프롬프트 dock",
+    });
+
+    expect(dock).toHaveTextContent("1:1");
+    expect(dock).toHaveTextContent("1K");
+    expect(dock).toHaveTextContent("1/1");
+    expect(dock).toHaveTextContent("Draw");
+    expect(
+      screen.getByRole("button", { name: /Z-Image Turbo|FLUX\.2 Klein 9B/i }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
@@ -220,10 +254,10 @@ describe("ImageGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    const fluxButton = await screen.findByRole("button", {
-      name: /FLUX\.2 Klein 9B/i,
-    });
-    await user.click(fluxButton);
+    await openModelPicker(user);
+    await user.click(
+      await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i }),
+    );
 
     expect(await screen.findByText("모드")).toBeInTheDocument();
     expect(await screen.findByText("가이던스")).toBeInTheDocument();
@@ -239,8 +273,10 @@ describe("ImageGenerationForm", () => {
 
     const user = userEvent.setup();
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
 
     for (const label of ["GPT Image 2", "GPT Image 2 Bridge"]) {
+      await openModelPicker(user);
       const modelLabel = await screen.findByText(label);
       const gptButton = modelLabel.closest("button");
       expect(gptButton).not.toBeNull();
@@ -264,6 +300,7 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
     await waitForModels();
 
+    await openModelPicker(userEvent.setup());
     expect(screen.getAllByText("T2I").length).toBeGreaterThan(0);
     expect(screen.getAllByText("I2I").length).toBeGreaterThan(0);
   });
@@ -284,8 +321,9 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
     await waitForModels();
 
+    await openModelPicker(user);
     await user.click(
-      screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }),
+      await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i }),
     );
 
     expect(reset).toHaveBeenCalledTimes(1);

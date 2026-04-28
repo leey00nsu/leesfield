@@ -18,25 +18,74 @@ export function LandingHero() {
   const tBrand = useTranslations("common.brand");
 
   return (
-    <section className="border-b border-white/5 bg-background-dark/95 px-6 pb-12 pt-8 sm:px-10 lg:pb-16">
-      <div className="mx-auto grid w-full max-w-[1600px] gap-10 lg:grid-cols-[minmax(0,0.94fr)_minmax(420px,0.72fr)] lg:items-center">
-        <div className="flex max-w-4xl flex-col gap-7">
-          <div>
-            <p className="flex items-center gap-2 text-xs font-mono text-gray-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              {t("status")}
-            </p>
-            <h1 className="mt-4 text-4xl font-black uppercase leading-tight text-white sm:text-6xl">
-              <span className="text-white">{tBrand("leading")}</span>
-              <span className="text-primary">{tBrand("trailing")}</span>
-            </h1>
+    <section className="relative overflow-hidden border-b border-white/5 bg-[#080a0c] px-6 pb-12 pt-10 sm:px-10 lg:pb-16">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_18%,rgba(28,62,80,0.34),transparent_62%)]" />
+      <div className="relative mx-auto flex w-full max-w-[1600px] flex-col items-center gap-8 text-center">
+        <div
+          role="region"
+          aria-label={t("preview.label")}
+          className="relative h-56 w-full max-w-4xl sm:h-72"
+        >
+          <div className="absolute left-[8%] top-8 h-36 w-[34%] -rotate-6 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
+            <Image
+              src="/sample-image.png"
+              alt={t("preview.imageAlt")}
+              fill
+              priority
+              sizes="(min-width: 1024px) 28vw, 70vw"
+              className="object-cover"
+            />
           </div>
+          <div className="absolute left-[31%] top-2 h-40 w-[30%] rotate-2 overflow-hidden rounded-2xl border-4 border-white/15 bg-background shadow-2xl sm:h-56">
+            <video
+              aria-label={t("preview.videoLabel")}
+              className="h-full w-full object-cover"
+              muted
+              playsInline
+              preload="metadata"
+              poster="/sample-image.png"
+            >
+              <source src="/sample-video.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div
+            aria-label={t("preview.audioLabel")}
+            className="absolute left-[57%] top-9 flex h-36 w-36 items-end gap-1 rounded-full border-4 border-white/20 bg-[#102132] p-5 shadow-2xl sm:h-48 sm:w-48"
+          >
+            {Array.from({ length: 16 }).map((_, index) => (
+              <span
+                key={index}
+                className="w-full rounded-full bg-primary/75"
+                style={{ height: `${28 + (index % 5) * 12}%` }}
+              />
+            ))}
+          </div>
+          <div className="absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
+            <Image
+              src="/sample-image.png"
+              alt={t("preview.imageAlt")}
+              fill
+              sizes="(min-width: 1024px) 24vw, 64vw"
+              className="object-cover grayscale"
+            />
+          </div>
+        </div>
+
+        <div className="flex max-w-5xl flex-col items-center gap-6">
+          <p className="flex items-center gap-2 text-xs font-mono text-gray-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            {t("status")}
+          </p>
+          <h1 className="text-4xl font-black uppercase leading-tight text-white sm:text-6xl">
+            <span className="text-white">{tBrand("leading")}</span>
+            <span className="text-primary">{tBrand("trailing")}</span>
+          </h1>
 
           <p className="max-w-3xl text-lg leading-relaxed text-gray-300 sm:text-xl">
             {t("description")}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid w-full max-w-3xl gap-3 sm:grid-cols-3">
             {creationLinks.map((item) => {
               const Icon = item.icon;
               return (
@@ -69,7 +118,7 @@ export function LandingHero() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <ul
               aria-label={t("starterPrompts.label")}
-              className="flex flex-wrap gap-2"
+              className="flex flex-wrap justify-center gap-2"
             >
               {starterPrompts.map((item) => (
                 <li
@@ -83,83 +132,14 @@ export function LandingHero() {
 
             <Link
               href="/api-docs"
-              className="inline-flex items-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="inline-flex items-center justify-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <FileText className="h-4 w-4" />
               {t("secondaryCta")}
             </Link>
           </div>
-        </div>
 
-        <div
-          role="region"
-          aria-label={t("preview.label")}
-          className="creative-surface relative overflow-hidden rounded-2xl border p-3"
-        >
-          <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
-            <div className="relative min-h-[360px] overflow-hidden rounded-xl bg-background">
-              <Image
-                src="/sample-image.png"
-                alt={t("preview.imageAlt")}
-                fill
-                priority
-                sizes="(min-width: 1024px) 42vw, 100vw"
-                className="object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/80 to-transparent p-4">
-                <p className="text-sm font-semibold text-white">
-                  {t("preview.imageTitle")}
-                </p>
-                <p className="mt-1 text-xs text-gray-300">
-                  {t("preview.imageDescription")}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-background/35">
-                <video
-                  aria-label={t("preview.videoLabel")}
-                  className="aspect-video w-full object-cover"
-                  muted
-                  playsInline
-                  preload="metadata"
-                  poster="/sample-image.png"
-                >
-                  <source src="/sample-video.mp4" type="video/mp4" />
-                </video>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-sm font-semibold text-white">
-                    {t("preview.videoTitle")}
-                  </span>
-                  <Clapperboard className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-surface-dark/70 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-white">
-                    {t("preview.audioTitle")}
-                  </span>
-                  <AudioLines className="h-4 w-4 text-emerald-300" />
-                </div>
-                <div
-                  aria-label={t("preview.audioLabel")}
-                  className="mt-4 flex h-20 items-end gap-1"
-                >
-                  {Array.from({ length: 18 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="w-full rounded-full bg-primary/70"
-                      style={{ height: `${28 + (index % 5) * 12}%` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-background/35 px-4 py-3 text-sm text-gray-300">
+          <div className="flex items-center gap-2 text-sm text-gray-400">
             <Sparkles className="h-4 w-4 text-primary" />
             {t("preview.caption")}
           </div>

@@ -92,9 +92,11 @@ const typeConfig = {
 export function HistoryItem({
   item,
   onDeleted,
+  onSelect,
 }: {
   item: GenerationHistoryItem;
   onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
+  onSelect?: (item: GenerationHistoryItem) => void;
 }) {
   const router = useRouter();
   const locale = useLocale();
@@ -123,6 +125,7 @@ export function HistoryItem({
   const isAudio = item.type === "audio";
   const canDelete = item.status === "completed" || item.status === "failed";
   const canShowViewMore = item.prompt.trim().length > 0;
+  const canSelectDetail = item.status === "completed" && Boolean(onSelect);
   const usesImagePreview = !isVideo && !isAudio;
   const isPreviewLoaded =
     !!previewUrl && usesImagePreview && loadedPreviewUrl === previewUrl;
@@ -451,6 +454,17 @@ export function HistoryItem({
           </div>
         )}
 
+        {canSelectDetail ? (
+          <button
+            type="button"
+            aria-label={tActions("viewDetail", {
+              prompt: item.prompt,
+            })}
+            onClick={() => onSelect?.(item)}
+            className="absolute inset-0 z-10 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+          />
+        ) : null}
+
       </div>
 
       <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
@@ -495,7 +509,7 @@ export function HistoryItem({
         ) : null}
         {showActions ? (
           <TooltipProvider>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <Button
                 type="button"
                 onClick={handleReusePrompt}

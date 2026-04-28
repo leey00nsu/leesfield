@@ -111,7 +111,7 @@
         }
       },
       "preview": {
-        "label": "Generation result preview",
+        "label": "Creative media collage",
         "imageAlt": "AI generated image sample",
         "imageTitle": "Image result",
         "imageDescription": "From prompt to visual output",
@@ -125,7 +125,7 @@
     "features": {
       "eyebrow": "STUDIO LANES",
       "title": "Start from the output you need",
-      "description": "The landing flow prioritizes creation entry points over technical explanation, with each generator framed around output and next action.",
+      "description": "Pick image, video, or audio output and continue straight into the next generation.",
       "laneCta": "Open",
       "lanes": {
         "image": {
@@ -239,6 +239,18 @@
   },
   "generation": {
     "modelSelect": "Select_Model",
+    "modelPicker": {
+      "searchPlaceholder": "Search models...",
+      "featured": "Featured models",
+      "all": "All models",
+      "selected": "Selected",
+      "new": "NEW",
+      "premium": "PREMIUM",
+      "empty": "No models found."
+    },
+    "promptDock": {
+      "label": "Creative prompt dock"
+    },
     "modelLoading": "Loading models...",
     "noModels": "No models are registered. Add a model in the admin page.",
     "modelLoginRequired": "Log in to view the model list.",
@@ -424,6 +436,15 @@
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
     "inputImageAlt": "Input image",
+    "tabs": {
+      "history": "History",
+      "community": "Community"
+    },
+    "floatingDock": {
+      "placeholder": "Describe the scene you imagine",
+      "model": "FLUX.2 Klein 9B",
+      "generate": "Generate"
+    },
     "empty": {
       "title": "History Empty",
       "default": "No history yet.",
@@ -444,13 +465,32 @@
     "actions": {
       "reusePrompt": "Reuse Prompt",
       "copyPrompt": "Copy Prompt",
-      "viewFullPrompt": "View more"
+      "viewFullPrompt": "View more",
+      "viewDetail": "Open result detail: {prompt}"
     },
     "gallery": {
       "title": "Result gallery",
       "subtitle": "Use completed results as the starting point for your next generation.",
       "activityTitle": "Status activity",
       "activitySubtitle": "In-progress and failed items are grouped for quick status checks."
+    },
+    "detail": {
+      "title": "Result detail",
+      "author": "Author",
+      "prompt": "PROMPT",
+      "information": "INFORMATION",
+      "model": "Model",
+      "type": "Type",
+      "quality": "Quality"
+    },
+    "detailActions": {
+      "recreate": "Recreate",
+      "video": "Video",
+      "download": "Download",
+      "upscale": "Upscale",
+      "edit": "Edit",
+      "copy": "Copy",
+      "close": "Close"
     },
     "deleteDialog": {
       "title": "Delete history item",

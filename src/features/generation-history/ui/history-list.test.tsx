@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -131,6 +132,39 @@ describe("HistoryList", () => {
         screen.getByText("failed prompt"),
       ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("notifies the parent when a completed result preview is selected", async () => {
+    mockMatchMedia({ isMdUp: false, isXlUp: false });
+    const onSelectItem = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <HistoryList
+        items={[
+          {
+            id: "completed-1",
+            type: "image",
+            status: "completed",
+            prompt: "detail prompt",
+            model: "flux2-klein-9b",
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: "https://example.com/result.png",
+            thumbnailUrl: "https://example.com/thumb.png",
+            errorMessage: null,
+          },
+        ]}
+        onSelectItem={onSelectItem}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /결과 상세 보기: detail prompt/ }),
+    );
+
+    expect(onSelectItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "completed-1" }),
+    );
   });
 
   it.each([

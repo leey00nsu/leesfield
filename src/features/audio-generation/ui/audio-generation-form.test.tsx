@@ -148,6 +148,12 @@ async function waitForModels() {
   await screen.findByRole("button", { name: /Qwen 3\.5 TTS/i });
 }
 
+async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    await screen.findByRole("button", { name: /Qwen 3\.5 TTS|Bark TTS/i }),
+  );
+}
+
 describe("AudioGenerationForm", () => {
   beforeEach(() => {
     navigationMocks.searchParams = new URLSearchParams();
@@ -218,6 +224,28 @@ describe("AudioGenerationForm", () => {
         model: "qwen-tts",
       }),
     );
+  });
+
+  it("renders the shared prompt dock with audio-specific control chips", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    const dock = screen.getByRole("region", {
+      name: "크리에이티브 프롬프트 dock",
+    });
+
+    expect(dock).toHaveTextContent("기본 보이스");
+    expect(dock).toHaveTextContent("1x");
+    expect(
+      screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
   it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
@@ -366,7 +394,8 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await waitForModels();
 
-    await user.click(screen.getByRole("button", { name: /Bark TTS/i }));
+    await openModelPicker(user);
+    await user.click(await screen.findByRole("button", { name: /Bark TTS/i }));
 
     expect(reset).toHaveBeenCalledTimes(1);
   });

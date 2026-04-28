@@ -9,6 +9,7 @@ type HistoryListProps = {
   isLoading?: boolean;
   emptyMessage?: string;
   onDeleteItem?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
+  onSelectItem?: (item: GenerationHistoryItem) => void;
 };
 
 function useMediaQuery(query: string) {
@@ -54,6 +55,7 @@ export function HistoryList({
   isLoading = false,
   emptyMessage,
   onDeleteItem,
+  onSelectItem,
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
   const tGallery = useTranslations("history.gallery");
@@ -107,6 +109,7 @@ export function HistoryList({
               key={`${item.type}-${item.id}`}
               item={item}
               onDeleted={onDeleteItem}
+              onSelect={onSelectItem}
             />
           ))}
         </div>

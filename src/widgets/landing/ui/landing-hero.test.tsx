@@ -25,7 +25,7 @@ describe("LandingHero", () => {
     renderWithIntl(<LandingHero />);
 
     expect(
-      screen.getByRole("region", { name: "생성 결과 미리보기" }),
+      screen.getByRole("region", { name: "크리에이티브 미디어 콜라주" }),
     ).toBeInTheDocument();
 
     const imageLink = screen.getByRole("link", { name: /이미지 만들기/ });

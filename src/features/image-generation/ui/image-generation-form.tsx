@@ -69,6 +69,23 @@ type ImageGenerationFormProps = {
 };
 
 const imagePresets = getGenerationPresets("image");
+const dockChipClass =
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
+
+function formatAspectRatio(width: number, height: number) {
+  const gcd = (left: number, right: number): number =>
+    right === 0 ? left : gcd(right, left % right);
+  const divisor = gcd(width, height) || 1;
+  return `${width / divisor}:${height / divisor}`;
+}
+
+function formatQualityLabel(width: number, height: number) {
+  const maxEdge = Math.max(width, height);
+  if (maxEdge >= 1024) {
+    return `${Math.round(maxEdge / 1024)}K`;
+  }
+  return `${maxEdge}px`;
+}
 
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -163,6 +180,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const height =
     useWatch({ control: form.control, name: "height" }) ??
     imageGenerationDefaults.height;
+  const imageCount =
+    useWatch({ control: form.control, name: "imageCount" }) ??
+    imageGenerationDefaults.imageCount;
   const steps =
     useWatch({ control: form.control, name: "steps" }) ??
     imageGenerationDefaults.steps;
@@ -418,33 +438,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
     void form.handleSubmit((values) => startGeneration(values))(event);
   };
+  const aspectLabel = formatAspectRatio(width, height);
+  const qualityLabel = formatQualityLabel(width, height);
 
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-8"
+        className="flex flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
       >
-        {!isGuest && (
-          <GenerationModelSection
-            modality="image"
-            items={modelOptions}
-            activeId={activeModel}
-            onSelect={handleSelectModel}
-            action={
-              <Button
-                type="button"
-                variant="link"
-                disabled
-                aria-disabled="true"
-                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-                title={tActions("comingSoon")}
-              >
-                {tActions("viewAllModels")}
-              </Button>
-            }
-          />
-        )}
         {isGuest && (
           <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
             {tGeneration("modelLoginRequired")}
@@ -569,18 +571,20 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
             />
 
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="flex flex-col gap-4">
                 <FormField
                   control={form.control}
                   name="prompt"
                   render={({ field }) => (
                     <FormItem className="flex-1">
                       <GenerationPromptField
+                        ariaLabel={tGeneration("promptDock.label")}
+                        className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                         textarea={
                           <FormControl>
                             <Textarea
                               placeholder={tImage("promptPlaceholder")}
-                              className="min-h-[120px] border-none bg-transparent px-4 py-4 text-white placeholder:text-gray-600 focus-visible:ring-0"
+                              className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                               {...field}
                             />
                           </FormControl>
@@ -617,29 +621,77 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                           ) : null
                         }
                         footerLeft={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={handleOpenImagePicker}
-                            disabled={
-                              !canUploadImages ||
-                              initImagePreviews.length >= maxInputImages
-                            }
-                            className="text-gray-500 hover:bg-white/5 hover:text-white"
-                            title={
-                              canUploadImages
-                                ? tImage("uploadReference")
-                                : tImage("uploadUnsupported")
-                            }
-                          >
-                            <ImagePlus className="h-5 w-5" />
-                          </Button>
+                          <>
+                            <Button
+                              type="button"
+                              variant="surface"
+                              size="icon"
+                              onClick={handleOpenImagePicker}
+                              disabled={
+                                !canUploadImages ||
+                                initImagePreviews.length >= maxInputImages
+                              }
+                              className="h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] text-white hover:border-primary/50 hover:text-primary"
+                              title={
+                                canUploadImages
+                                  ? tImage("uploadReference")
+                                  : tImage("uploadUnsupported")
+                              }
+                            >
+                              <ImagePlus className="h-5 w-5" />
+                            </Button>
+                            {!isGuest && hasModels ? (
+                              <GenerationModelSection
+                                modality="image"
+                                items={modelOptions}
+                                activeId={activeModel}
+                                onSelect={handleSelectModel}
+                              />
+                            ) : null}
+                            <span className={dockChipClass}>
+                              <ImageIcon className="h-4 w-4" />
+                              {aspectLabel}
+                            </span>
+                            <span className={dockChipClass}>
+                              <Sparkles className="h-4 w-4" />
+                              {qualityLabel}
+                            </span>
+                            <span className={dockChipClass}>
+                              <span className="text-gray-500">-</span>
+                              {imageCount}/1
+                              <span className="text-gray-500">+</span>
+                            </span>
+                            <span className={dockChipClass}>
+                              <Dice5 className="h-4 w-4" />
+                              Draw
+                            </span>
+                          </>
                         }
                         footerRight={
-                          <span className="text-[10px] font-mono text-gray-600">
-                            {tLabels("chars", { count: promptValue.length })}
-                          </span>
+                          <>
+                            <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
+                              {tLabels("chars", { count: promptValue.length })}
+                            </span>
+                            <Button
+                              type={isAuthenticated ? "submit" : "button"}
+                              variant="hero"
+                              disabled={
+                                isGenerating ||
+                                (isAuthenticated && (isModelLoading || !hasModels))
+                              }
+                              className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                              onClick={
+                                isAuthenticated
+                                  ? undefined
+                                  : () => setIsLoginGateOpen(true)
+                              }
+                            >
+                              {isGenerating
+                                ? tActions("generating")
+                                : tActions("generate")}
+                              <Sparkles className="h-5 w-5" />
+                            </Button>
+                          </>
                         }
                       />
                       <input
@@ -654,25 +706,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                     </FormItem>
                   )}
                 />
-
-                <Button
-                  type={isAuthenticated ? "submit" : "button"}
-                  variant="hero"
-                  size="hero"
-                  disabled={
-                    isGenerating ||
-                    (isAuthenticated && (isModelLoading || !hasModels))
-                  }
-                  className="flex-col"
-                  onClick={
-                    isAuthenticated
-                      ? undefined
-                      : () => setIsLoginGateOpen(true)
-                  }
-                >
-                  <Sparkles className="h-7 w-7" />
-                  {isGenerating ? tActions("generating") : tActions("generate")}
-                </Button>
               </div>
             </div>
           </div>

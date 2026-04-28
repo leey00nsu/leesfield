@@ -61,6 +61,8 @@ type VideoGenerationFormProps = {
 };
 
 const videoPresets = getGenerationPresets("video");
+const dockChipClass =
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
 
 export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -341,29 +343,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-8"
+        className="flex flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
       >
-        {!isGuest && (
-          <GenerationModelSection
-            modality="video"
-            items={modelCards}
-            activeId={activeModel}
-            onSelect={handleSelectModel}
-            action={
-              <Button
-                type="button"
-                variant="link"
-                disabled
-                aria-disabled="true"
-                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-                title={tActions("comingSoon")}
-              >
-                {tActions("viewAllModels")}
-              </Button>
-            }
-          />
-        )}
         {isGuest && (
           <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
             {tGeneration("modelLoginRequired")}
@@ -475,18 +457,20 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
             />
 
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="flex flex-col gap-4">
                 <FormField
                   control={form.control}
                   name="prompt"
                   render={({ field }) => (
                     <FormItem className="flex-1">
                       <GenerationPromptField
+                        ariaLabel={tGeneration("promptDock.label")}
+                        className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                         textarea={
                           <FormControl>
                             <Textarea
                               placeholder={tVideo("promptPlaceholder")}
-                              className="min-h-[120px] border-none bg-transparent px-4 py-4 text-white placeholder:text-gray-600 focus-visible:ring-0"
+                              className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                               {...field}
                             />
                           </FormControl>
@@ -519,34 +503,68 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                           <>
                             <Button
                               type="button"
-                              variant="ghost"
-                              size="icon-sm"
+                              variant="surface"
+                              size="icon"
                               onClick={handleOpenImagePicker}
                               aria-label={tVideo("uploadReference")}
                               disabled={!supportsInitImage}
                               className={cn(
-                                "transition-colors",
+                                "h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] transition-colors",
                                 supportsInitImage
-                                  ? "text-gray-500 hover:bg-white/5 hover:text-white"
+                                  ? "text-white hover:border-primary/50 hover:text-primary"
                                   : "cursor-not-allowed text-gray-700"
                               )}
                               title={tVideo("uploadReference")}
                             >
                               <ImagePlus className="h-5 w-5" />
                             </Button>
-                            <span className="text-[10px] font-mono text-gray-600">
+                            {!isGuest && hasModels ? (
+                              <GenerationModelSection
+                                modality="video"
+                                items={modelCards}
+                                activeId={activeModel}
+                                onSelect={handleSelectModel}
+                              />
+                            ) : null}
+                            <span className={dockChipClass}>
+                              <Video className="h-4 w-4" />
                               {supportsInitImage
                                 ? hasInitImage
                                   ? tVideo("mode.imageToVideo")
                                   : tVideo("mode.imageRequired")
                                 : tVideo("mode.textOnly")}
                             </span>
+                            <span className={dockChipClass}>
+                              {durationSec}s
+                            </span>
                           </>
                         }
                         footerRight={
-                          <span className="text-[10px] font-mono text-gray-600">
-                            {tLabels("chars", { count: promptValue.length })}
-                          </span>
+                          <>
+                            <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
+                              {tLabels("chars", { count: promptValue.length })}
+                            </span>
+                            <Button
+                              type={isAuthenticated ? "submit" : "button"}
+                              variant="hero"
+                              disabled={
+                                isGenerating ||
+                                (isAuthenticated &&
+                                  (isModelLoading || !hasModels || !canSubmit))
+                              }
+                              className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                              onClick={
+                                isAuthenticated
+                                  ? undefined
+                                  : () => setIsLoginGateOpen(true)
+                              }
+                            >
+                              {isGenerating
+                                ? tActions("generating")
+                                : tActions("generate")}
+                              <Sparkles className="h-5 w-5" />
+                            </Button>
+                          </>
                         }
                       />
                       <input
@@ -560,26 +578,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                     </FormItem>
                   )}
                 />
-
-                <Button
-                  type={isAuthenticated ? "submit" : "button"}
-                  variant="hero"
-                  size="hero"
-                  disabled={
-                    isGenerating ||
-                    (isAuthenticated &&
-                      (isModelLoading || !hasModels || !canSubmit))
-                  }
-                  className="flex-col"
-                  onClick={
-                    isAuthenticated
-                      ? undefined
-                      : () => setIsLoginGateOpen(true)
-                  }
-                >
-                  <Sparkles className="h-7 w-7" />
-                  {isGenerating ? tActions("generating") : tActions("generate")}
-                </Button>
               </div>
             </div>
           </div>
