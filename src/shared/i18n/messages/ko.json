@@ -446,6 +446,12 @@
       "copyPrompt": "프롬프트 복사",
       "viewFullPrompt": "더보기"
     },
+    "gallery": {
+      "title": "결과 갤러리",
+      "subtitle": "완료된 결과를 다음 생성의 출발점으로 사용하세요.",
+      "activityTitle": "상태 활동",
+      "activitySubtitle": "진행 중이거나 실패한 항목은 상태 확인 중심으로 모았습니다."
+    },
     "deleteDialog": {
       "title": "히스토리 삭제",
       "description": "이 항목을 삭제하면 되돌릴 수 없으며, 스토리지 파일도 함께 삭제됩니다.",

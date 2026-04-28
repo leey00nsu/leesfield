@@ -39,6 +39,16 @@ function useMediaQuery(query: string) {
   );
 }
 
+function createColumns<T>(items: T[], columnCount: number) {
+  const columns = Array.from({ length: columnCount }, () => [] as T[]);
+
+  items.forEach((item, index) => {
+    columns[index % columnCount].push(item);
+  });
+
+  return columns;
+}
+
 export function HistoryList({
   items,
   isLoading = false,
@@ -46,6 +56,7 @@ export function HistoryList({
   onDeleteItem,
 }: HistoryListProps) {
   const tEmpty = useTranslations("history.empty");
+  const tGallery = useTranslations("history.gallery");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const isXlUp = useMediaQuery("(min-width: 1280px)");
@@ -61,15 +72,47 @@ export function HistoryList({
     return columns;
   }, [columnCount]);
 
-  const itemColumns = useMemo(() => {
-    const columns = Array.from({ length: columnCount }, () => [] as GenerationHistoryItem[]);
+  const completedItems = useMemo(
+    () => items.filter((item) => item.status === "completed"),
+    [items],
+  );
+  const activityItems = useMemo(
+    () => items.filter((item) => item.status !== "completed"),
+    [items],
+  );
+  const completedColumns = useMemo(
+    () => createColumns(completedItems, columnCount),
+    [columnCount, completedItems],
+  );
+  const activityColumns = useMemo(
+    () => createColumns(activityItems, columnCount),
+    [activityItems, columnCount],
+  );
 
-    items.forEach((item, index) => {
-      columns[index % columnCount].push(item);
-    });
-
-    return columns;
-  }, [columnCount, items]);
+  const renderGrid = (
+    columns: GenerationHistoryItem[][],
+    testId: string,
+  ) => (
+    <div
+      data-testid={testId}
+      className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
+    >
+      {columns.map((column, columnIndex) => (
+        <div
+          key={`${testId}-${columnIndex}`}
+          className="grid self-start content-start gap-4"
+        >
+          {column.map((item) => (
+            <HistoryItem
+              key={`${item.type}-${item.id}`}
+              item={item}
+              onDeleted={onDeleteItem}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -105,21 +148,42 @@ export function HistoryList({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-      {itemColumns.map((column, columnIndex) => (
-        <div
-          key={`history-column-${columnIndex}`}
-          className="grid self-start content-start gap-4"
+    <div className="flex flex-col gap-8">
+      {completedItems.length > 0 ? (
+        <section
+          aria-label={tGallery("title")}
+          className="flex flex-col gap-4"
         >
-          {column.map((item) => (
-            <HistoryItem
-              key={`${item.type}-${item.id}`}
-              item={item}
-              onDeleted={onDeleteItem}
-            />
-          ))}
-        </div>
-      ))}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-white">
+                {tGallery("title")}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                {tGallery("subtitle")}
+              </p>
+            </div>
+          </div>
+          {renderGrid(completedColumns, "history-gallery-grid")}
+        </section>
+      ) : null}
+
+      {activityItems.length > 0 ? (
+        <section
+          aria-label={tGallery("activityTitle")}
+          className="flex flex-col gap-4"
+        >
+          <div>
+            <h3 className="text-sm font-bold text-gray-300">
+              {tGallery("activityTitle")}
+            </h3>
+            <p className="mt-1 text-xs text-gray-600">
+              {tGallery("activitySubtitle")}
+            </p>
+          </div>
+          {renderGrid(activityColumns, "history-activity-grid")}
+        </section>
+      ) : null}
     </div>
   );
 }

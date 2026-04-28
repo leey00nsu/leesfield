@@ -446,6 +446,12 @@
       "copyPrompt": "Copy Prompt",
       "viewFullPrompt": "View more"
     },
+    "gallery": {
+      "title": "Result gallery",
+      "subtitle": "Use completed results as the starting point for your next generation.",
+      "activityTitle": "Status activity",
+      "activitySubtitle": "In-progress and failed items are grouped for quick status checks."
+    },
     "deleteDialog": {
       "title": "Delete history item",
       "description": "This action cannot be undone. Storage files will be deleted as well.",

@@ -345,7 +345,14 @@ export function HistoryItem({
   }, [isCopied]);
 
   return (
-    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
+    <article
+      className={cn(
+        "group relative break-inside-avoid overflow-hidden rounded-xl border transition-all",
+        item.status === "completed"
+          ? "border-creative-surface-border bg-creative-surface-muted hover:border-primary/45"
+          : "border-white/5 bg-surface-dark/70 opacity-90 hover:border-white/15",
+      )}
+    >
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
         {previewUrl ? (
           isVideo ? (
@@ -488,11 +495,21 @@ export function HistoryItem({
         ) : null}
         {showActions ? (
           <TooltipProvider>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <Button
+                type="button"
+                onClick={handleReusePrompt}
+                variant="surface"
+                className="h-10 rounded-full border-primary/35 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-primary hover:border-primary/70 hover:bg-primary/15 hover:text-primary"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {tActions("reusePrompt")}
+              </Button>
               {downloadUrl ? (
                 <Button
                   asChild
-                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black shadow-[0_10px_24px_rgba(212,240,50,0.18)] transition-all hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(212,240,50,0.28)]"
+                  variant="surface"
+                  className="h-10 rounded-full px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-200 hover:border-primary/50 hover:text-white"
                 >
                   <a
                     href={downloadUrl}
@@ -507,28 +524,14 @@ export function HistoryItem({
                 <Button
                   type="button"
                   disabled
-                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black"
+                  variant="surface"
+                  className="h-10 rounded-full px-3 text-[11px] font-bold uppercase tracking-[0.14em]"
                 >
                   <Download className="h-4 w-4" />
                   {tCommonActions("download")}
                 </Button>
               )}
               <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/35 p-1.5 backdrop-blur-md">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleReusePrompt}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-gray-300 hover:bg-white/10 hover:text-white"
-                      aria-label={tActions("reusePrompt")}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{tActions("reusePrompt")}</TooltipContent>
-                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

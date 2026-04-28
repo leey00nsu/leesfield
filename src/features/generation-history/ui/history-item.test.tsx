@@ -184,6 +184,34 @@ describe("HistoryItem", () => {
     expect(within(dialog).getByText(prompt)).toBeInTheDocument();
   });
 
+  it("완료 항목은 프롬프트 재사용 액션을 visible command로 노출한다", () => {
+    mockUseMonitoringRequestDetail.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+
+    renderWithIntl(
+      <HistoryItem
+        item={{
+          id: "item-reuse-visible",
+          type: "image",
+          status: "completed",
+          prompt: "reuse prompt",
+          model: "flux2-klein-9b",
+          createdAt: "2026-02-03T00:00:00.000Z",
+          resultUrl: "https://example.com/result.png",
+          thumbnailUrl: null,
+          errorMessage: null,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "프롬프트 재사용" }),
+    ).toHaveTextContent("프롬프트 재사용");
+  });
+
   it("HistoryItemSkeleton 핵심 placeholder 구조를 렌더링한다", () => {
     mockUseMonitoringRequestDetail.mockReturnValue({
       data: null,

@@ -79,19 +79,14 @@ describe("HistoryItem audio", () => {
 
     expect(reuseButton.closest(".absolute.inset-0")).toBeNull();
     expect(downloadLink).toHaveTextContent("다운로드");
-    expect(reuseButton).not.toHaveTextContent("프롬프트 재사용");
+    expect(reuseButton).toHaveTextContent("프롬프트 재사용");
 
     await user.tab();
     expect(screen.getByRole("button", { name: "더보기" })).toHaveFocus();
     await user.tab();
-    expect(downloadLink).toHaveFocus();
-    await user.tab();
     expect(reuseButton).toHaveFocus();
-    expect(
-      (await screen.findAllByRole("tooltip", { hidden: true })).some((tooltip) =>
-        tooltip.textContent?.includes("프롬프트 재사용"),
-      ),
-    ).toBe(true);
+    await user.tab();
+    expect(downloadLink).toHaveFocus();
 
     await user.tab();
     expect(copyButton).toHaveFocus();

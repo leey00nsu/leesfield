@@ -1,3 +1,4 @@
+import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -67,13 +68,69 @@ describe("HistoryList", () => {
       errorMessage: null,
     }));
 
-    const { container } = renderWithIntl(<HistoryList items={items} />);
-    const wrapper = container.firstElementChild;
+    renderWithIntl(<HistoryList items={items} />);
+    const wrapper = screen.getByTestId("history-gallery-grid");
 
     Array.from(wrapper?.children ?? []).forEach((column) => {
       expect(column).toHaveClass("self-start");
       expect(column).toHaveClass("content-start");
     });
+  });
+
+  it("renders completed results as a gallery before failed or processing activity", () => {
+    mockMatchMedia({ isMdUp: false, isXlUp: false });
+
+    renderWithIntl(
+      <HistoryList
+        items={[
+          {
+            id: "failed-1",
+            type: "image",
+            status: "failed",
+            prompt: "failed prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: null,
+            thumbnailUrl: null,
+            errorMessage: "boom",
+          },
+          {
+            id: "completed-1",
+            type: "image",
+            status: "completed",
+            prompt: "completed prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: "https://example.com/result.png",
+            thumbnailUrl: "https://example.com/thumb.png",
+            errorMessage: null,
+          },
+          {
+            id: "processing-1",
+            type: "video",
+            status: "processing",
+            prompt: "processing prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: null,
+            thumbnailUrl: null,
+            errorMessage: null,
+          },
+        ]}
+      />,
+    );
+
+    const gallery = screen.getByRole("region", { name: "결과 갤러리" });
+    const activity = screen.getByRole("region", { name: "상태 활동" });
+
+    expect(within(gallery).getByText("completed prompt")).toBeInTheDocument();
+    expect(within(activity).getByText("failed prompt")).toBeInTheDocument();
+    expect(within(activity).getByText("processing prompt")).toBeInTheDocument();
+    expect(
+      screen.getByText("completed prompt").compareDocumentPosition(
+        screen.getByText("failed prompt"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it.each([
