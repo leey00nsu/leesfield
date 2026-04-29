@@ -4,6 +4,7 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/ui/button";
 import { GenerationPromptSurface } from "@/shared/ui/generation-prompt-field";
+import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 const generationTabs = ["image", "video", "audio"] as const;
 
@@ -64,6 +65,10 @@ export function LandingHero() {
           aria-label={t("preview.label")}
           className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
+          <div data-layer="hero-form-shader" className="absolute inset-0">
+            <WarpShaderPanel className="absolute inset-0 opacity-75" />
+          </div>
+
           <div
             data-testid="landing-hero-form-surface"
             className="lf-editorial-panel relative mx-auto max-w-4xl overflow-hidden rounded-[1.05rem] p-3 sm:p-4"

@@ -20,13 +20,22 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("@paper-design/shaders-react", () => ({
+  Warp: ({
+    style,
+  }: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => (
+    <div data-testid="warp-shader" style={style} />
+  ),
+}));
+
 describe("LandingHero", () => {
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
 
     const panel = screen.getByRole("region", { name: "생성 패널" });
     expect(panel).toBeInTheDocument();
-    expect(screen.queryByTestId(["warp", "shader"].join("-"))).not.toBeInTheDocument();
+    expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
+    expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-form-shader");
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(
       screen.getByTestId("landing-hero-form-surface"),
