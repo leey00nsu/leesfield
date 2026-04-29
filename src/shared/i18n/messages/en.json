@@ -143,7 +143,7 @@
       "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
       "cta": "Explore history",
       "badge": "Generation",
-      "imageAlt": "Reusable portrait generation",
+      "imageAlt": "Studio portrait preview",
       "prompt": {
         "title": "Prompt",
         "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."

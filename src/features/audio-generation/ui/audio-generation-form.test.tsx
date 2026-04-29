@@ -242,7 +242,7 @@ describe("AudioGenerationForm", () => {
     });
 
     expect(dock).toHaveClass("lf-editorial-panel");
-    expect(screen.getByTestId("generation-form-surface")).toHaveClass(
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );
     expect(dock).toHaveTextContent("설정");

@@ -106,7 +106,7 @@ describe("ImageGenerationForm", () => {
     });
 
     expect(dock).toHaveClass("lf-editorial-panel");
-    expect(screen.getByTestId("generation-form-surface")).toHaveClass(
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );
     expect(dock).not.toHaveTextContent("1:1");

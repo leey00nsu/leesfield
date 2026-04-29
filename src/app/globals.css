@@ -206,20 +206,12 @@
 
   .lf-editorial-card {
     border: 1px solid oklch(1 0 0 / 0.14);
-    background:
-      radial-gradient(
-        circle at 18% 0%,
-        oklch(0.72 0.18 121 / 0.055),
-        transparent 18rem
-      ),
-      linear-gradient(
-        145deg,
-        oklch(0.15 0.008 104 / 0.92),
-        oklch(0.1 0.006 104 / 0.95)
-      );
+    background: oklch(0.12 0.006 104 / 0.94);
   }
 
-  .lf-editorial-card-flat {
+  .lf-editorial-card-flat,
+  .lf-editorial-flat-card {
+    border: 1px solid oklch(1 0 0 / 0.14);
     background: oklch(0.12 0.006 104 / 0.94);
   }
 

@@ -17,7 +17,7 @@ describe("GenerationPromptField", () => {
     const dock = screen.getByRole("region", {
       name: "작업 입력",
     });
-    const surface = screen.getByTestId("generation-form-surface");
+    const surface = screen.getByTestId("shared-prompt-form-surface");
 
     expect(dock).toHaveClass("lf-editorial-panel");
     expect(dock).toHaveClass("rounded-[1.35rem]");

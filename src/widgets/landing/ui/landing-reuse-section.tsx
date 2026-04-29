@@ -50,15 +50,6 @@ export function LandingReuseSection() {
             </dl>
           </div>
 
-          <div className="absolute bottom-16 left-[25rem] h-44 w-72 overflow-hidden rounded-[1rem] border border-white/16">
-            <Image
-              src="/sample-image.png"
-              alt=""
-              fill
-              sizes="280px"
-              className="object-cover"
-            />
-          </div>
         </div>
 
         <div>

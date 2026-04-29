@@ -84,7 +84,7 @@ export function LandingFeaturesSection() {
                   sizes="(min-width: 1024px) 38vw, 90vw"
                   className="object-cover opacity-82 transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-linear-to-t from-black/88 via-black/15 to-transparent" />
+                <div className="absolute inset-0 bg-black/42" />
                 <div className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-black">
                   <Icon className="h-5 w-5" />
                 </div>

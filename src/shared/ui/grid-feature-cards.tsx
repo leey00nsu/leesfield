@@ -24,8 +24,8 @@ export function FeatureCard({
 
   return (
     <div className={cn("relative overflow-hidden p-6", className)} {...props}>
-      <div className="pointer-events-none absolute left-1/2 top-0 -ml-20 -mt-2 h-full w-full [mask-image:linear-gradient(white,transparent)]">
-        <div className="absolute inset-0 bg-linear-to-r from-white/5 to-white/[0.02] opacity-100 [mask-image:radial-gradient(farthest-side_at_top,white,transparent)]">
+      <div className="pointer-events-none absolute left-1/2 top-0 -ml-20 -mt-2 h-full w-full opacity-60">
+        <div className="absolute inset-0">
           <GridPattern
             width={20}
             height={20}

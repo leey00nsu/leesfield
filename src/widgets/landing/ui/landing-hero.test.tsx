@@ -39,6 +39,9 @@ describe("LandingHero", () => {
     expect(
       screen.getByTestId("landing-hero-form-surface"),
     ).toHaveClass("relative");
+    expect(
+      screen.getByTestId("shared-prompt-form-surface"),
+    ).toHaveClass("bg-black/18");
     expect(screen.queryByText("크리에이티브 스튜디오")).not.toBeInTheDocument();
     expect(screen.queryByAltText("오디오 콘솔 사진")).not.toBeInTheDocument();
     expect(screen.queryByText("Recent generations")).not.toBeInTheDocument();

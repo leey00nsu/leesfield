@@ -119,5 +119,9 @@ describe("LandingPlatformSection", () => {
     expect(screen.getByText("Review")).toBeInTheDocument();
     expect(screen.getByText("Generate")).toBeInTheDocument();
     expect(screen.getByText("Deploy")).toBeInTheDocument();
+
+    const docsCard = screen.getByTestId("landing-docs-card");
+    expect(docsCard).toHaveClass("lf-editorial-flat-card");
+    expect(docsCard).not.toHaveClass("lf-editorial-card");
   });
 });
