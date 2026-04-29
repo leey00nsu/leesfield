@@ -1,5 +1,7 @@
 import { Header } from "@/widgets/header/ui/header";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
+import { LandingCoreFeaturesSection } from "@/widgets/landing/ui/landing-core-features-section";
+import { LandingTechLogoCloudSection } from "@/widgets/landing/ui/landing-tech-logo-cloud-section";
 import { LandingFeaturesSection } from "@/widgets/landing/ui/landing-features-section";
 import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
 
@@ -23,9 +25,11 @@ export function LandingWidget({
       <main className="flex flex-col">
         <LandingHero />
         <section className="pb-20">
-          <div className="flex w-full flex-col gap-16">
-            <LandingFeaturesSection />
+          <div className="flex w-full flex-col gap-12">
+            <LandingCoreFeaturesSection />
+            <LandingTechLogoCloudSection />
             <LandingCtaSection />
+            <LandingFeaturesSection />
           </div>
         </section>
       </main>

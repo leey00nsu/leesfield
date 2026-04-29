@@ -118,6 +118,38 @@
         "generate": "Generate"
       }
     },
+    "coreFeatures": {
+      "title": "Create, choose, reuse",
+      "items": {
+        "prompt": {
+          "title": "Prompt",
+          "description": "Start from one input."
+        },
+        "image": {
+          "title": "Image",
+          "description": "Work with cuts and references."
+        },
+        "motion": {
+          "title": "Video",
+          "description": "Extend scenes into motion."
+        },
+        "audio": {
+          "title": "Audio",
+          "description": "Add voice and sound."
+        },
+        "reuse": {
+          "title": "History",
+          "description": "Reuse previous results."
+        },
+        "models": {
+          "title": "Models",
+          "description": "Pick the model for the job."
+        }
+      }
+    },
+    "techCloud": {
+      "title": "Built with Next.js, React, TypeScript, and Tailwind"
+    },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
       "title": "LEESFIELD",
@@ -167,9 +199,9 @@
       }
     },
     "cta": {
-      "title": "Start with leesfield",
+      "title": "Start with images",
       "description": "",
-      "button": "Go to dashboard"
+      "button": "Make images"
     }
   },
   "auth": {

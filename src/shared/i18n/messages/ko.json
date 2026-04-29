@@ -118,6 +118,38 @@
         "generate": "생성"
       }
     },
+    "coreFeatures": {
+      "title": "만들고, 고르고, 다시 쓰세요",
+      "items": {
+        "prompt": {
+          "title": "프롬프트",
+          "description": "한 입력에서 결과를 시작합니다."
+        },
+        "image": {
+          "title": "이미지",
+          "description": "컷과 참고 이미지를 다룹니다."
+        },
+        "motion": {
+          "title": "비디오",
+          "description": "장면을 움직임으로 확장합니다."
+        },
+        "audio": {
+          "title": "오디오",
+          "description": "목소리와 사운드를 더합니다."
+        },
+        "reuse": {
+          "title": "히스토리",
+          "description": "이전 결과를 다시 시작점으로 씁니다."
+        },
+        "models": {
+          "title": "모델",
+          "description": "작업에 맞는 모델을 선택합니다."
+        }
+      }
+    },
+    "techCloud": {
+      "title": "Next.js, React, TypeScript, Tailwind 기반"
+    },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
       "title": "LEESFIELD",
@@ -167,9 +199,9 @@
       }
     },
     "cta": {
-      "title": "leesfield로 시작하세요",
+      "title": "이미지부터 시작",
       "description": "",
-      "button": "대시보드로 이동"
+      "button": "이미지 만들기"
     }
   },
   "auth": {
