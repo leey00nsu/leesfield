@@ -67,7 +67,7 @@ type ImageGenerationFormProps = {
 };
 
 const dockChipClass =
-  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
 
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -569,7 +569,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                 !canUploadImages ||
                                 initImagePreviews.length >= maxInputImages
                               }
-                              className="h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] text-white hover:border-primary/50 hover:text-primary"
+                              className="h-12 w-12 rounded-xl border-primary/20 bg-black/16 text-white hover:border-primary/50 hover:bg-black/24 hover:text-primary"
                               title={
                                 canUploadImages
                                   ? tImage("uploadReference")

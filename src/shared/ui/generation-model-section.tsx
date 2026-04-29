@@ -115,7 +115,7 @@ export function GenerationModelSection<T extends string>({
       >
         <span
           className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black text-gray-300",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/12 bg-black/18 text-sm font-semibold text-gray-300",
             isActive && "text-primary",
           )}
           aria-hidden="true"
@@ -177,14 +177,14 @@ export function GenerationModelSection<T extends string>({
         aria-expanded={isOpen}
         onClick={() => setIsOpen((value) => !value)}
         className={cn(
-          "h-12 rounded-xl border-white/10 bg-white/[0.04] px-3 text-white hover:border-primary/45 hover:bg-white/[0.07]",
+          "h-12 rounded-xl border-white/12 bg-black/16 px-3 text-white hover:border-primary/45 hover:bg-black/24",
           activeModel && "border-primary",
         )}
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
           {activeModel?.vendor?.[0] ?? activeModel?.name?.[0] ?? "M"}
         </span>
-        <span className="max-w-[13rem] truncate font-semibold">
+        <span className="max-w-[13rem] truncate font-medium">
           {activeModel?.name ?? resolvedTitle}
         </span>
         <ChevronDown className="h-4 w-4 text-primary" />
@@ -194,7 +194,7 @@ export function GenerationModelSection<T extends string>({
         <div
           role="dialog"
           aria-label={typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")}
-          className="absolute bottom-full left-0 z-50 mb-3 flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#171b1f]/95 shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
+          className="absolute bottom-full left-0 z-50 mb-3 flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border border-white/12 bg-[#171b1f]/95 shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
         >
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
             <Search className="h-5 w-5 text-gray-500" />

@@ -32,18 +32,25 @@ describe("LandingHero", () => {
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
 
-    expect(
-      screen.getByRole("region", { name: "생성 패널" }),
-    ).toBeInTheDocument();
+    const panel = screen.getByRole("region", { name: "생성 패널" });
+    expect(panel).toBeInTheDocument();
     expect(screen.getByTestId("warp-shader")).toBeInTheDocument();
+    expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-shader");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveClass("relative");
     expect(screen.queryByText("크리에이티브 스튜디오")).not.toBeInTheDocument();
     expect(screen.queryByAltText("오디오 콘솔 사진")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent generations")).not.toBeInTheDocument();
+    expect(screen.queryByText("Developer first")).not.toBeInTheDocument();
+    expect(screen.queryByText("Production ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monitor and optimize")).not.toBeInTheDocument();
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Generate anything. One platform for image, video, and audio.",
-      }),
-    ).toBeInTheDocument();
+    const headline = screen.getByRole("heading", {
+      name: "Generate anything. One platform for image, video, and audio.",
+    });
+    expect(headline).toBeInTheDocument();
+    expect(headline).toHaveClass("text-[clamp(2.5rem,4.8vw,4.9rem)]");
 
     const imageLink = screen.getByRole("link", { name: "Image" });
     const videoLink = screen.getByRole("link", { name: "Video" });

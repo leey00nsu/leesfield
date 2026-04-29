@@ -60,7 +60,7 @@ type VideoGenerationFormProps = {
 };
 
 const dockChipClass =
-  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
 
 export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -440,9 +440,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                         aria-label={tVideo("uploadReference")}
                         disabled={!supportsInitImage}
                         className={cn(
-                          "h-12 w-12 rounded-xl border-primary/20 bg-white/[0.04] transition-colors",
+                          "h-12 w-12 rounded-xl border-primary/20 bg-black/16 transition-colors",
                           supportsInitImage
-                            ? "text-white hover:border-primary/50 hover:text-primary"
+                            ? "text-white hover:border-primary/50 hover:bg-black/24 hover:text-primary"
                             : "cursor-not-allowed text-gray-700",
                         )}
                         title={tVideo("uploadReference")}

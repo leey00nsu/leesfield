@@ -89,7 +89,7 @@ export function Header({
             className="h-10 w-10 rounded-[1.1rem] object-cover"
             priority
           />
-          <span className="text-xl font-semibold tracking-tight text-white">
+          <span className="lf-serif text-xl text-white">
             {tBrand("name")}
           </span>
         </Link>
@@ -99,7 +99,7 @@ export function Header({
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm font-medium text-white/78 transition-colors hover:text-white"
+              className="lf-serif text-sm text-white/78 transition-colors hover:text-white"
             >
               {tNav(item.key)}
             </Link>
@@ -138,7 +138,7 @@ export function Header({
           className="h-9 w-9 rounded-xl object-cover ring-1 ring-primary/20"
           priority
         />
-        <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">
+        <h2 className="lf-serif text-lg leading-tight text-white">
           {tBrand("name")}
         </h2>
       </Link>

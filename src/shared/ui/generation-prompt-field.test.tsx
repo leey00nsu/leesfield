@@ -4,7 +4,7 @@ import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { renderWithIntl } from "@/test-utils/intl";
 
 describe("GenerationPromptField", () => {
-  it("uses a subdued creative surface instead of a heavy lime glow", () => {
+  it("uses the same editorial form surface as the landing hero preview", () => {
     renderWithIntl(
       <GenerationPromptField
         ariaLabel="작업 입력"
@@ -17,14 +17,14 @@ describe("GenerationPromptField", () => {
     const dock = screen.getByRole("region", {
       name: "작업 입력",
     });
-    const textarea = screen.getByLabelText("Prompt");
-    const surface = textarea.closest(".relative");
-    const glow = surface?.previousElementSibling;
+    const surface = screen.getByTestId("generation-form-surface");
 
-    expect(dock).toHaveClass("group");
-    expect(surface).toHaveClass("bg-creative-surface");
-    expect(surface).toHaveClass("rounded-[2rem]");
-    expect(glow).toHaveClass("from-primary/10");
-    expect(glow).not.toHaveClass("from-primary/30");
+    expect(dock).toHaveClass("lf-editorial-panel");
+    expect(dock).toHaveClass("rounded-[1.35rem]");
+    expect(surface).toHaveClass("relative");
+    expect(surface).toHaveClass("rounded-xl");
+    expect(surface).toHaveClass("border-white/12");
+    expect(surface).toHaveClass("bg-black/18");
+    expect(surface).not.toHaveClass("bg-creative-surface");
   });
 });

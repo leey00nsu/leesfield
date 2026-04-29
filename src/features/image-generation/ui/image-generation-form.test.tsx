@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach } from "vitest";
 import { ImageGenerationForm } from "@/features/image-generation/ui/image-generation-form";
@@ -105,11 +105,17 @@ describe("ImageGenerationForm", () => {
       name: "작업 입력",
     });
 
+    expect(dock).toHaveClass("lf-editorial-panel");
+    expect(screen.getByTestId("generation-form-surface")).toHaveClass(
+      "bg-black/18",
+    );
     expect(dock).not.toHaveTextContent("1:1");
     expect(dock).not.toHaveTextContent("1K");
     expect(dock).not.toHaveTextContent("Draw");
     expect(dock).toHaveTextContent("출력 크기");
     expect(dock).toHaveTextContent("이미지 수");
+    expect(within(dock).queryByRole("spinbutton", { name: "너비" })).toBeNull();
+    expect(within(dock).queryByRole("spinbutton", { name: "높이" })).toBeNull();
     expect(screen.queryByText("준비 완료")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Z-Image Turbo|FLUX\.2 Klein 9B/i }),

@@ -34,23 +34,23 @@ export function GenerationSettingsPopover({
           type="button"
           variant="surface"
           className={cn(
-            "h-12 min-w-max rounded-xl border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200 hover:border-primary/45 hover:text-white",
+            "h-12 min-w-max rounded-xl border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82 hover:border-primary/45 hover:bg-black/24 hover:text-white",
             className,
           )}
         >
           {icon}
           <span className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] font-bold uppercase text-gray-500">
+            <span className="text-[10px] font-semibold uppercase text-white/42">
               {label}
             </span>
             <span>{summary}</span>
           </span>
-          <ChevronDown className="h-4 w-4 text-gray-500" />
+          <ChevronDown className="h-4 w-4 text-white/46" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align={align}
-        className="w-[min(22rem,calc(100vw-2rem))] border-white/10 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
+        className="w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
       >
         {children}
       </PopoverContent>

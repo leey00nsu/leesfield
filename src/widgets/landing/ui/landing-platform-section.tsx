@@ -1,175 +1,157 @@
-import Image from "next/image";
-import Link from "next/link";
+import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import { parseMonitoringQuery } from "@/server/monitoring/monitoring-query";
+import { getMonitoringOverview } from "@/server/monitoring/overview";
+import { getMonitoringStats } from "@/server/monitoring/stats";
+import { getMonitoringTop } from "@/server/monitoring/top";
+import { modelCatalog as fallbackModelCatalog } from "@/features/model-management/model/model-catalog";
 import {
-  ArrowRight,
-  Box,
-  ChartNoAxesCombined,
-  Code2,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@/shared/ui/button";
+  LandingPlatformClientSection,
+  type LandingPlatformModel,
+  type LandingPlatformMonitoringData,
+  type LandingPlatformUsageItem,
+} from "@/widgets/landing/ui/landing-platform-section-client";
 
-export function LandingPlatformSection() {
-  const t = useTranslations("landing.platform");
+const MODEL_ASSETS = [
+  "/assets/creative-studio/studio-vocalist.jpg",
+  "/assets/creative-studio/film-production.jpg",
+  "/assets/creative-studio/audio-console.jpg",
+  "/assets/creative-studio/mirror-portrait.jpg",
+];
 
-  return (
-    <section className="px-6 py-20 sm:px-10 lg:py-28">
-      <div className="mx-auto grid w-full max-w-[1450px] items-center gap-14 lg:grid-cols-[0.42fr_0.58fr]">
-        <div>
-          <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-7 text-[clamp(3.5rem,6vw,7rem)] leading-[0.95] text-white">
-            {t("title")}
-          </h2>
-          <p className="mt-8 max-w-xl text-xl leading-8 text-white/68">
-            {t("description")}
-          </p>
-          <Button
-            asChild
-            variant="hero"
-            className="mt-10 h-14 rounded-full px-8 text-base normal-case tracking-normal"
-          >
-            <Link href="/api-docs">
-              {t("cta")}
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-          </Button>
-        </div>
+const USAGE_COLORS = ["#d4f032", "#f5f2df", "#9e8cff", "#6ee7b7"];
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <DocsCard />
-          <ModelCatalogCard />
-          <MonitoringCard />
-          <UsageCard />
-          <WorkflowCard />
-        </div>
-      </div>
-    </section>
-  );
+type FallbackCatalogItem = (typeof fallbackModelCatalog)[number];
+
+function toTitleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function DocsCard() {
-  return (
-    <div className="lf-editorial-card rounded-[1rem] p-6 md:min-h-80">
-      <div className="flex items-center justify-between">
-        <p className="flex items-center gap-3 font-semibold text-white">
-          <Code2 className="h-6 w-6 text-primary" />
-          Docs
-        </p>
-        <Link href="/api-docs" className="text-sm text-primary">
-          API Reference →
-        </Link>
-      </div>
-      <p className="mt-8 text-lg text-white">Generate image</p>
-      <p className="mt-2 text-sm text-white/62">Create high-quality images from text.</p>
-      <pre className="mt-5 overflow-hidden rounded-lg border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/68">
-{`POST /v2/image/generate
-Content-Type: application/json
-
-{
-  "model": "Leesfield V2",
-  "prompt": "mountain landscape",
-  "aspect_ratio": "16:9"
-}`}
-      </pre>
-    </div>
-  );
+function toLandingModel(
+  model: Pick<
+    FallbackCatalogItem | ModelCatalogItem,
+    "key" | "label" | "vendor" | "provider" | "type"
+  >,
+  index: number,
+): LandingPlatformModel {
+  return {
+    key: model.key,
+    label: model.label,
+    vendor: model.vendor,
+    provider: model.provider,
+    modality: toTitleCase(model.type) as LandingPlatformModel["modality"],
+    asset: MODEL_ASSETS[index % MODEL_ASSETS.length],
+  };
 }
 
-function ModelCatalogCard() {
-  const models = [
-    ["/assets/creative-studio/studio-vocalist.jpg", "Leesfield V2", "Image"],
-    ["/assets/creative-studio/film-production.jpg", "Leesfield Video", "Video"],
-    ["/assets/creative-studio/audio-console.jpg", "Leesfield Audio", "Audio"],
-  ];
+async function loadModelCatalog() {
+  try {
+    const catalog = await getModelCatalog({
+      bypassCache: true,
+      includeInactive: false,
+    });
 
-  return (
-    <div className="lf-editorial-card rounded-[1rem] p-6 md:min-h-80">
-      <div className="flex items-center justify-between">
-        <p className="flex items-center gap-3 font-semibold text-white">
-          <Box className="h-6 w-6 text-primary" />
-          Model catalog
-        </p>
-        <Link href="/model" className="text-sm text-primary">
-          View all →
-        </Link>
-      </div>
-      <div className="mt-6 space-y-4">
-        {models.map(([src, name, type]) => (
-          <div key={name} className="grid grid-cols-[6rem_1fr] gap-4">
-            <div className="relative h-16 overflow-hidden rounded-lg">
-              <Image src={src} alt="" fill sizes="96px" className="object-cover" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">{name}</p>
-              <span className="mt-2 inline-flex rounded-md bg-white/8 px-2 py-1 text-xs text-white/72">
-                {type}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    if (catalog.length > 0) {
+      return catalog.map(toLandingModel);
+    }
+  } catch {
+    // Landing should still render when the local database is not available.
+  }
+
+  return fallbackModelCatalog.map(toLandingModel);
 }
 
-function MonitoringCard() {
-  return (
-    <div className="lf-editorial-card rounded-[1rem] p-6">
-      <p className="flex items-center justify-between font-semibold text-white">
-        <span className="flex items-center gap-3">
-          <ChartNoAxesCombined className="h-6 w-6 text-primary" />
-          Monitoring
-        </span>
-        <span className="text-sm text-primary">Live ●</span>
-      </p>
-      <div className="mt-8 grid grid-cols-2 gap-8">
-        <div>
-          <p className="text-sm text-white/56">Requests</p>
-          <p className="mt-2 text-4xl font-semibold text-white">2.4M</p>
-        </div>
-        <div>
-          <p className="text-sm text-white/56">Success rate</p>
-          <p className="mt-2 text-4xl font-semibold text-white">99.2%</p>
-        </div>
-      </div>
-      <div className="mt-8 h-20 rounded-lg bg-[linear-gradient(180deg,transparent,oklch(0.78_0.18_121_/_0.16)),repeating-linear-gradient(135deg,transparent_0_14px,oklch(0.78_0.18_121_/_0.16)_15px_16px)]" />
-    </div>
+function selectFeaturedModels(catalog: LandingPlatformModel[]) {
+  const imageModel =
+    catalog.find((model) => model.key.includes("gpt-image-2")) ??
+    catalog.find((model) => model.modality === "Image");
+  const videoModel = catalog.find((model) => model.modality === "Video");
+  const audioModel = catalog.find((model) => model.modality === "Audio");
+  const fallback = catalog.find(
+    (model) => model.key !== imageModel?.key && model.key !== videoModel?.key,
   );
+
+  return [imageModel, videoModel, audioModel, fallback].filter(
+    (model): model is LandingPlatformModel => Boolean(model),
+  ).slice(0, 3);
 }
 
-function UsageCard() {
-  return (
-    <div className="lf-editorial-card rounded-[1rem] p-6">
-      <p className="font-semibold text-white">Usage by model</p>
-      <div className="mt-8 flex items-center gap-7">
-        <div className="h-28 w-28 rounded-full bg-[conic-gradient(var(--primary)_0_58%,oklch(1_0_0_/_0.75)_58%_70%,oklch(1_0_0_/_0.28)_70%_100%)] p-6">
-          <div className="h-full w-full rounded-full bg-background-dark" />
-        </div>
-        <div className="space-y-3 text-sm text-white/62">
-          <p>Leesfield V2 60%</p>
-          <p>Leesfield Video 25%</p>
-          <p>Leesfield Audio 10%</p>
-        </div>
-      </div>
-    </div>
-  );
+function formatChartDay(day: string) {
+  const [, month, date] = day.split("-");
+  return month && date ? `${month}/${date}` : day;
 }
 
-function WorkflowCard() {
+function toUsageData(
+  models: Awaited<ReturnType<typeof getMonitoringTop>>["models"],
+  catalog: LandingPlatformModel[],
+): LandingPlatformUsageItem[] {
+  const labelByKey = new Map(catalog.map((model) => [model.key, model.label]));
+  const total = models.reduce((sum, model) => sum + model.total, 0);
+
+  if (total <= 0) {
+    return [];
+  }
+
+  return models
+    .filter((model) => model.total > 0)
+    .slice(0, 4)
+    .map((model, index) => ({
+      name: labelByKey.get(model.key) ?? model.label,
+      value: Math.round((model.total / total) * 100),
+      total: model.total,
+      color: USAGE_COLORS[index] ?? USAGE_COLORS[USAGE_COLORS.length - 1],
+    }));
+}
+
+async function loadMonitoringData(
+  catalog: LandingPlatformModel[],
+): Promise<LandingPlatformMonitoringData> {
+  const emptyData = {
+    totalCount: 0,
+    successRate: null,
+    trend: [],
+    usage: [],
+  };
+
+  try {
+    const query = parseMonitoringQuery(new URLSearchParams(), {
+      defaultDays: 7,
+      defaultLimit: 50,
+      defaultMetric: "requests",
+    });
+    const [overview, stats, top] = await Promise.all([
+      getMonitoringOverview(query),
+      getMonitoringStats(query),
+      getMonitoringTop(query, 4),
+    ]);
+
+    return {
+      totalCount: overview.totalCount,
+      successRate:
+        overview.totalCount > 0
+          ? Number(((1 - overview.errorRate) * 100).toFixed(1))
+          : null,
+      trend: stats.map((row) => ({
+        day: formatChartDay(row.day),
+        requests: row.total,
+        errors: row.failed,
+      })),
+      usage: toUsageData(top.models, catalog),
+    };
+  } catch {
+    return emptyData;
+  }
+}
+
+export async function LandingPlatformSection() {
+  const modelCatalog = await loadModelCatalog();
+  const featuredModels = selectFeaturedModels(modelCatalog);
+  const monitoring = await loadMonitoringData(modelCatalog);
+
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-6 md:col-span-2">
-      <p className="font-semibold text-white">Workflow</p>
-      <div className="mt-6 grid gap-3 md:grid-cols-4">
-        {["Input", "Generate", "Review", "Deploy"].map((label) => (
-          <div
-            key={label}
-            className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/18 p-4"
-          >
-            <Box className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-white">{label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <LandingPlatformClientSection
+      featuredModels={featuredModels}
+      monitoring={monitoring}
+    />
   );
 }

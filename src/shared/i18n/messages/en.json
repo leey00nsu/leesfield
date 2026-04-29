@@ -105,7 +105,7 @@
         "promptLabel": "Prompt",
         "placeholder": "Describe what you want to create...",
         "modelLabel": "Model",
-        "model": "Leesfield V2",
+        "model": "GPT Image 2",
         "aspectLabel": "Aspect ratio",
         "aspect": "16:9",
         "generate": "Generate"

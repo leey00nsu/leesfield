@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
 export async function LoginScreen() {
   const tLogin = await getTranslations("auth.login");
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#07090b] font-display text-white">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#07090b] text-white">
       <div className="pointer-events-none absolute inset-0">
         <Image
           src="/assets/creative-studio/blue-mosaic.jpg"
@@ -28,10 +28,10 @@ export async function LoginScreen() {
         >
           <div className="flex min-h-[38rem] min-w-0 overflow-hidden flex-col justify-center px-6 py-8 sm:px-10 lg:px-14">
             <div className="mx-auto flex w-full min-w-0 max-w-[19.5rem] flex-col items-center text-center sm:max-w-md">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-black text-black shadow-[0_0_34px_rgba(205,255,0,0.25)]">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-semibold text-black shadow-[0_0_34px_rgba(205,255,0,0.25)]">
                 <Image src="/logo.webp" alt="" width={32} height={32} />
               </div>
-              <h1 className="max-w-full text-3xl font-black tracking-tight text-white sm:text-4xl">
+              <h1 className="lf-serif max-w-full text-3xl text-white sm:text-4xl">
                 {tLogin("headline")}
               </h1>
               <p className="mt-3 w-full max-w-full whitespace-normal break-words text-sm leading-6 text-gray-400 sm:max-w-sm">
@@ -70,7 +70,7 @@ export async function LoginScreen() {
                   {tLogin("preview.badges.prompt")}
                 </span>
               </div>
-              <h2 className="text-4xl font-black uppercase leading-none text-white">
+              <h2 className="lf-serif text-4xl leading-none text-white">
                 {tLogin("preview.title")}
               </h2>
               <p className="mt-3 text-sm text-gray-300">

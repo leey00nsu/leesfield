@@ -22,13 +22,18 @@ export function GenerationPromptField({
     <div
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
-      className={cn("group relative", className)}
+      className={cn(
+        "lf-editorial-panel relative overflow-hidden rounded-[1.35rem] p-4",
+        className,
+      )}
     >
-      <div className="absolute -inset-0.5 rounded-[2rem] bg-linear-to-r from-primary/10 via-white/5 to-accent-purple/10 opacity-60 blur transition duration-300 group-focus-within:opacity-100" />
-      <div className="relative rounded-[2rem] border border-creative-surface-border bg-creative-surface shadow-[0_18px_80px_rgba(0,0,0,0.38)] transition-colors focus-within:border-primary/40">
+      <div
+        data-testid="generation-form-surface"
+        className="relative rounded-xl border border-white/12 bg-black/18 transition-colors focus-within:border-primary/45"
+      >
         {textarea}
         {attachments}
-        <div className="flex flex-col gap-3 border-t border-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-white/12 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {footerLeft}
           </div>

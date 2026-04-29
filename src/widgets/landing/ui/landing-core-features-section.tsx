@@ -23,10 +23,10 @@ export function LandingCoreFeaturesSection() {
       <div className="mx-auto w-full max-w-[1500px]">
         <div className="mx-auto max-w-4xl text-center">
           <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-7 text-[clamp(3.25rem,6vw,6.8rem)] leading-[0.95] text-white">
+          <h2 className="lf-serif mt-7 text-[clamp(2.4rem,4.6vw,5.2rem)] leading-[0.96] text-white">
             {t("title")}
           </h2>
-          <p className="mx-auto mt-7 max-w-3xl text-xl leading-8 text-white/64">
+          <p className="mx-auto mt-7 max-w-3xl text-base leading-7 text-white/64 md:text-lg">
             {t("description")}
           </p>
         </div>
@@ -48,7 +48,7 @@ export function LandingCoreFeaturesSection() {
                   <MiniWorkflowPreview itemKey={item.key} />
                 </div>
                 <div className="mt-8 border-t border-primary/55 pt-6">
-                  <p className="max-w-xs text-xl leading-8 text-white/78">
+                  <p className="max-w-xs text-base leading-7 text-white/78">
                     {t(`items.${item.key}.description`)}
                   </p>
                   <span className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">

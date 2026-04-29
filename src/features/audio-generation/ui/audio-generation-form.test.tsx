@@ -241,8 +241,14 @@ describe("AudioGenerationForm", () => {
       name: "작업 입력",
     });
 
+    expect(dock).toHaveClass("lf-editorial-panel");
+    expect(screen.getByTestId("generation-form-surface")).toHaveClass(
+      "bg-black/18",
+    );
     expect(dock).toHaveTextContent("설정");
     expect(dock).toHaveTextContent("1x");
+    expect(within(dock).queryByRole("slider")).toBeNull();
+    expect(within(dock).queryByLabelText("Sample audio")).toBeNull();
     expect(
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");

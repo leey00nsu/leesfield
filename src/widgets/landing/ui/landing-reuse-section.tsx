@@ -42,7 +42,7 @@ export function LandingReuseSection() {
             </p>
             <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
               <dt className="text-white/54">Model</dt>
-              <dd className="text-right text-white">Leesfield V2</dd>
+              <dd className="text-right text-white">GPT Image 2</dd>
               <dt className="text-white/54">Aspect</dt>
               <dd className="text-right text-white">16:9</dd>
               <dt className="text-white/54">Style</dt>
@@ -63,10 +63,10 @@ export function LandingReuseSection() {
 
         <div>
           <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-7 text-[clamp(3.5rem,6vw,7rem)] leading-[0.95] text-white">
+          <h2 className="lf-serif mt-7 text-[clamp(2.45rem,4.6vw,5.2rem)] leading-[0.96] text-white">
             {t("title")}
           </h2>
-          <p className="mt-8 max-w-xl text-2xl leading-10 text-white/72">
+          <p className="mt-8 max-w-xl text-base leading-7 text-white/72 md:text-lg">
             {t("description")}
           </p>
           <Button

@@ -108,7 +108,7 @@ const visibleAdvancedAudioFields = new Set<AudioFieldName>([
 ]);
 
 const dockChipClass =
-  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
 
 export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProps) {
   const searchParams = useSearchParams();
