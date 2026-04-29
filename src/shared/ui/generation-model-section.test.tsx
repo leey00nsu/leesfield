@@ -39,6 +39,7 @@ describe("GenerationModelSection", () => {
     await user.click(trigger);
 
     const picker = screen.getByRole("dialog", { name: "모델 선택" });
+    expect(picker).toHaveClass("z-[90]");
     expect(screen.getByPlaceholderText("모델 검색...")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "추천 모델" }),

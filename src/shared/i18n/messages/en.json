@@ -94,6 +94,8 @@
     "hero": {
       "secondaryCta": "API docs",
       "headline": "Generate anything. One platform for image, video, and audio.",
+      "headlineFirst": "Generate anything.",
+      "headlineSecond": "One platform for image, video, and audio.",
       "subhead": "Built for creators and developers who ship.",
       "tabs": {
         "image": "Image",
@@ -109,24 +111,6 @@
         "aspectLabel": "Aspect ratio",
         "aspect": "16:9",
         "generate": "Generate"
-      },
-      "recent": {
-        "title": "Recent generations",
-        "cta": "View all"
-      },
-      "valueCards": {
-        "developer": {
-          "title": "Developer first",
-          "description": "Clean API, SDKs, and comprehensive docs."
-        },
-        "production": {
-          "title": "Production ready",
-          "description": "Scalable infrastructure, security, and reliability."
-        },
-        "monitoring": {
-          "title": "Monitor and optimize",
-          "description": "Real-time insights and usage analytics."
-        }
       }
     },
     "workflow": {
@@ -160,7 +144,6 @@
       "cta": "Explore history",
       "badge": "Generation",
       "imageAlt": "Reusable portrait generation",
-      "referenceAlt": "Reusable reference image",
       "prompt": {
         "title": "Prompt",
         "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."

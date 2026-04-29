@@ -219,6 +219,10 @@
       );
   }
 
+  .lf-editorial-card-flat {
+    background: oklch(0.12 0.006 104 / 0.94);
+  }
+
   .lf-serif {
     font-family: var(--font-heading);
     font-weight: 400;
@@ -242,6 +246,20 @@
 
   .lf-motion-rise {
     animation: lf-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .lf-text-generate-word {
+    display: inline-block;
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(0.16em);
+    animation: lf-text-generate 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--word-index, 0) * 96ms);
+    will-change: opacity, filter, transform;
+  }
+
+  .lf-shader-fade-in {
+    animation: lf-shader-fade 1050ms ease-out both;
   }
 
   .lf-motion-card-a,
@@ -275,6 +293,23 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes lf-text-generate {
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes lf-shader-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 
@@ -316,12 +351,20 @@
 
   @media (prefers-reduced-motion: reduce) {
     .lf-motion-rise,
+    .lf-text-generate-word,
+    .lf-shader-fade-in,
     .lf-motion-card-a,
     .lf-motion-card-b,
     .lf-motion-card-c,
     .lf-motion-card-d {
       animation: none;
       will-change: auto;
+    }
+
+    .lf-text-generate-word {
+      opacity: 1;
+      filter: none;
+      transform: none;
     }
   }
 }

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { BrandLogo } from "@/shared/ui/brand-logo";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -49,9 +50,12 @@ export function LoginGateDialog({
         </DialogClose>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col justify-center p-6 sm:p-8">
-            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-black text-black">
-              <Image src="/logo.webp" alt="" width={28} height={28} />
-            </div>
+            <BrandLogo
+              variant="icon"
+              size="md"
+              className="mb-5"
+              markClassName="h-10 w-10"
+            />
             <DialogHeader className="gap-3">
               <DialogTitle className="text-2xl font-black tracking-tight text-white">
                 {title}

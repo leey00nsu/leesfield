@@ -17,6 +17,7 @@ type GenerationSettingsPopoverProps = {
   children: ReactNode;
   className?: string;
   align?: "start" | "center" | "end";
+  side?: "top" | "right" | "bottom" | "left";
 };
 
 export function GenerationSettingsPopover({
@@ -26,6 +27,7 @@ export function GenerationSettingsPopover({
   children,
   className,
   align = "start",
+  side = "top",
 }: GenerationSettingsPopoverProps) {
   return (
     <Popover>
@@ -50,7 +52,10 @@ export function GenerationSettingsPopover({
       </PopoverTrigger>
       <PopoverContent
         align={align}
-        className="w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
+        side={side}
+        sideOffset={12}
+        collisionPadding={16}
+        className="z-[90] w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
       >
         {children}
       </PopoverContent>

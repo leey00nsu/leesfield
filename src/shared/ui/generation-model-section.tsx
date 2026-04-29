@@ -7,6 +7,11 @@ import type { GenerationModality } from "@/shared/generation/generation-presets"
 import { resolveModelOutcomeMetadata } from "@/shared/generation/model-outcome-metadata";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/ui/popover";
 
 interface GenerationModelOption<T extends string> {
   id: T;
@@ -40,6 +45,12 @@ export function GenerationModelSection<T extends string>({
   const tPicker = useTranslations("generation.modelPicker");
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setQuery("");
+    }
+  };
   const resolvedTitle = title ?? t("modelSelect");
   const activeModel = items.find((model) => model.id === activeId) ?? items[0];
   const filteredItems = useMemo(() => {
@@ -169,33 +180,40 @@ export function GenerationModelSection<T extends string>({
   };
 
   return (
-    <div className={cn("relative", className)}>
-      <Button
-        type="button"
-        variant="surface"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((value) => !value)}
-        className={cn(
-          "h-12 rounded-xl border-white/12 bg-black/16 px-3 text-white hover:border-primary/45 hover:bg-black/24",
-          activeModel && "border-primary",
-        )}
-      >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
-          {activeModel?.vendor?.[0] ?? activeModel?.name?.[0] ?? "M"}
-        </span>
-        <span className="max-w-[13rem] truncate font-medium">
-          {activeModel?.name ?? resolvedTitle}
-        </span>
-        <ChevronDown className="h-4 w-4 text-primary" />
-      </Button>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <div className={cn("relative", className)}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="surface"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            className={cn(
+              "h-12 rounded-xl border-white/12 bg-black/16 px-3 text-white hover:border-primary/45 hover:bg-black/24",
+              activeModel && "border-primary",
+            )}
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+              {activeModel?.vendor?.[0] ?? activeModel?.name?.[0] ?? "M"}
+            </span>
+            <span className="max-w-[13rem] truncate font-medium">
+              {activeModel?.name ?? resolvedTitle}
+            </span>
+            <ChevronDown className="h-4 w-4 text-primary" />
+          </Button>
+        </PopoverTrigger>
+      </div>
 
-      {isOpen ? (
-        <div
-          role="dialog"
-          aria-label={typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")}
-          className="absolute bottom-full left-0 z-50 mb-3 flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border border-white/12 bg-[#171b1f]/95 shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
-        >
+      <PopoverContent
+        side="top"
+        align="start"
+        sideOffset={12}
+        collisionPadding={16}
+        role="dialog"
+        aria-label={typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")}
+        className="z-[90] flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border-white/12 bg-[#171b1f]/95 p-0 text-white shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
+      >
+        <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
             <Search className="h-5 w-5 text-gray-500" />
             <input
@@ -236,7 +254,7 @@ export function GenerationModelSection<T extends string>({
             </section>
           </div>
         </div>
-      ) : null}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -119,7 +119,7 @@ export function LandingPlatformClientSection({
 
 function DocsCard({ model }: { model: LandingPlatformModel }) {
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-5 md:min-h-72">
+    <div className="lf-editorial-card lf-editorial-card-flat rounded-[1rem] p-5 md:min-h-72">
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
           <Code2 className="h-5 w-5 text-primary" />

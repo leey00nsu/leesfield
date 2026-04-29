@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -20,6 +19,7 @@ import {
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
+import { BrandLogo } from "@/shared/ui/brand-logo";
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
@@ -81,17 +81,7 @@ export function Header({
     return (
       <header className="relative z-30 mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-6 sm:px-10">
         <Link href="/" className="flex items-center gap-3">
-          <Image
-            src="/logo.webp"
-            alt={tBrand("name")}
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-[1.1rem] object-cover"
-            priority
-          />
-          <span className="lf-serif text-xl text-white">
-            {tBrand("name")}
-          </span>
+          <BrandLogo label={tBrand("name")} priority />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">
@@ -99,7 +89,7 @@ export function Header({
             <Link
               key={item.href}
               href={item.href}
-              className="lf-serif text-sm text-white/78 transition-colors hover:text-white"
+              className="text-sm font-medium text-white/78 transition-colors hover:text-white"
             >
               {tNav(item.key)}
             </Link>
@@ -130,17 +120,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
       <Link href="/" className="flex items-center gap-3">
-        <Image
-          src="/logo.webp"
-          alt={tBrand("name")}
-          width={36}
-          height={36}
-          className="h-9 w-9 rounded-xl object-cover ring-1 ring-primary/20"
+        <BrandLogo
+          label={tBrand("name")}
+          size="sm"
           priority
+          textClassName="text-lg leading-tight"
         />
-        <h2 className="lf-serif text-lg leading-tight text-white">
-          {tBrand("name")}
-        </h2>
       </Link>
 
       <nav className="hidden items-center gap-1 rounded-full border border-white/5 bg-surface-dark p-1 lg:flex">

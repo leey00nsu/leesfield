@@ -50,7 +50,10 @@ describe("LandingHero", () => {
       name: "Generate anything. One platform for image, video, and audio.",
     });
     expect(headline).toBeInTheDocument();
-    expect(headline).toHaveClass("text-[clamp(2.5rem,4.8vw,4.9rem)]");
+    expect(headline).toHaveClass("text-[clamp(2.15rem,3.55vw,3.85rem)]");
+    expect(headline.querySelectorAll("span.block")).toHaveLength(2);
+    expect(headline.querySelector("span.block")).toHaveClass("sm:whitespace-nowrap");
+    expect(headline.querySelector(".lf-text-generate-word")).toBeInTheDocument();
 
     const imageLink = screen.getByRole("link", { name: "Image" });
     const videoLink = screen.getByRole("link", { name: "Video" });

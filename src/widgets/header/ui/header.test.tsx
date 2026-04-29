@@ -35,9 +35,22 @@ describe("Header", () => {
   });
 
   it("브랜드 로고 이미지를 rounded icon으로 표시한다", () => {
-    renderWithIntl(<Header isAuthenticated userEmail="admin@example.com" />);
+    const { container } = renderWithIntl(
+      <Header isAuthenticated userEmail="admin@example.com" />,
+    );
 
-    expect(screen.getByAltText("leesfield")).toHaveClass("rounded-xl");
+    const logoImage = container.querySelector('img[src="/logo.webp"]');
+    expect(logoImage?.parentElement).toHaveClass("rounded-xl");
+  });
+
+  it("public header navigation uses the sans font tone", () => {
+    renderWithIntl(<Header variant="public" />);
+
+    const desktopNav = screen.getByRole("navigation");
+    const imageLink = within(desktopNav).getByRole("link", { name: "이미지" });
+
+    expect(imageLink).toHaveClass("font-medium");
+    expect(imageLink).not.toHaveClass("lf-serif");
   });
 
   it("desktop nav 링크는 xl 미만 숨김용 라벨 wrapper와 접근성 이름을 가진다", () => {

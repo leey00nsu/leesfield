@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { BrandLogo } from "@/shared/ui/brand-logo";
 
 const groups = [
   {
@@ -37,16 +37,7 @@ export function LandingFooter() {
       <div className="lf-editorial-panel mx-auto max-w-[1500px] rounded-[1.6rem] p-8 md:p-14">
         <div className="grid gap-12 md:grid-cols-[1fr_0.46fr_0.46fr_0.46fr]">
           <Link href="/" className="flex items-center gap-3 self-start">
-            <Image
-              src="/logo.webp"
-              alt="leesfield"
-              width={44}
-              height={44}
-              className="h-11 w-11 rounded-[1rem] object-cover"
-            />
-            <span className="text-2xl font-semibold tracking-tight text-white">
-              leesfield
-            </span>
+            <BrandLogo size="lg" textClassName="text-2xl" />
           </Link>
           {groups.map((group) => (
             <div key={group.title}>
