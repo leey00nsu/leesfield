@@ -109,15 +109,13 @@
         }
       },
       "preview": {
-        "label": "Studio showcase",
-        "imageAlt": "AI generated image sample",
-        "imageTitle": "Image result",
-        "imageDescription": "Finished visual cut",
-        "videoLabel": "AI generated video sample",
-        "videoTitle": "Video motion",
-        "audioLabel": "AI generated audio waveform",
-        "audioImageAlt": "Audio console photo",
-        "audioTitle": "Audio take"
+        "label": "Generation panel",
+        "promptLabel": "Prompt",
+        "attachLabel": "Add image",
+        "model": "Z-Image Turbo",
+        "aspect": "3:4",
+        "quality": "1K",
+        "generate": "Generate"
       }
     },
     "features": {

@@ -109,15 +109,13 @@
         }
       },
       "preview": {
-        "label": "스튜디오 쇼케이스",
-        "imageAlt": "AI 생성 이미지 샘플",
-        "imageTitle": "Image result",
-        "imageDescription": "선명한 비주얼 컷",
-        "videoLabel": "AI 생성 비디오 샘플",
-        "videoTitle": "Video motion",
-        "audioLabel": "AI 생성 오디오 파형",
-        "audioImageAlt": "오디오 콘솔 사진",
-        "audioTitle": "Audio take"
+        "label": "생성 패널",
+        "promptLabel": "프롬프트",
+        "attachLabel": "이미지 추가",
+        "model": "Z-Image Turbo",
+        "aspect": "3:4",
+        "quality": "1K",
+        "generate": "생성"
       }
     },
     "features": {

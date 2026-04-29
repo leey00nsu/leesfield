@@ -1,9 +1,18 @@
 import Link from "next/link";
-import Image from "next/image";
-import { AudioLines, Clapperboard, FileText, Images } from "lucide-react";
+import {
+  AudioLines,
+  ChevronDown,
+  Clapperboard,
+  FileText,
+  ImagePlus,
+  Images,
+  Plus,
+  Sparkles,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
+import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 const creationLinks = [
   { key: "image", href: "/image", icon: Images, primary: true },
@@ -19,61 +28,7 @@ export function LandingHero() {
     <section className="relative overflow-hidden border-b border-white/5 bg-[#080a0c] px-6 pb-12 pt-10 sm:px-10 lg:pb-16">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_18%,rgba(28,62,80,0.34),transparent_62%)]" />
       <div className="relative mx-auto flex w-full max-w-[1600px] flex-col items-center gap-8 text-center">
-        <div
-          role="region"
-          aria-label={t("preview.label")}
-          className="relative h-56 w-full max-w-4xl sm:h-72"
-        >
-          <div className="lf-motion-card-a absolute left-[8%] top-8 h-36 w-[34%] -rotate-6 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
-            <Image
-              src="/assets/creative-studio/mirror-portrait.jpg"
-              alt={t("preview.imageAlt")}
-              fill
-              priority
-              sizes="(min-width: 1024px) 28vw, 70vw"
-              className="object-cover"
-            />
-          </div>
-          <div className="lf-motion-card-b absolute left-[31%] top-2 h-40 w-[30%] rotate-2 overflow-hidden rounded-2xl border-4 border-white/15 bg-background shadow-2xl sm:h-56">
-            <video
-              aria-label={t("preview.videoLabel")}
-              className="h-full w-full object-cover"
-              muted
-              playsInline
-              preload="metadata"
-              poster="/assets/creative-studio/studio-vocalist.jpg"
-            >
-              <source src="/sample-video.mp4" type="video/mp4" />
-            </video>
-          </div>
-          <div
-            aria-label={t("preview.audioLabel")}
-            className="lf-motion-card-c absolute left-[57%] top-9 h-36 w-36 overflow-hidden rounded-full border-4 border-white/20 bg-background shadow-2xl sm:h-48 sm:w-48"
-          >
-            <Image
-              src="/assets/creative-studio/audio-console.jpg"
-              alt={t("preview.audioImageAlt")}
-              fill
-              sizes="(min-width: 1024px) 12rem, 9rem"
-              className="object-cover"
-            />
-          </div>
-          <div className="lf-motion-card-d absolute right-[4%] top-8 h-36 w-[28%] rotate-3 overflow-hidden rounded-2xl border-4 border-white/20 bg-background shadow-2xl sm:h-48">
-            <Image
-              src="/assets/creative-studio/film-production.jpg"
-              alt={t("preview.imageAlt")}
-              fill
-              sizes="(min-width: 1024px) 24vw, 64vw"
-              className="object-cover"
-            />
-          </div>
-        </div>
-
         <div className="flex max-w-5xl flex-col items-center gap-6">
-          <p className="lf-motion-rise flex items-center gap-2 text-xs font-mono text-gray-400">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-            {t("status")}
-          </p>
           <h1 className="lf-motion-rise text-4xl font-black uppercase leading-tight text-white sm:text-6xl">
             <span className="text-white">{tBrand("leading")}</span>
             <span className="text-primary">{tBrand("trailing")}</span>
@@ -114,6 +69,74 @@ export function LandingHero() {
               <FileText className="h-4 w-4" />
               {t("secondaryCta")}
             </Link>
+          </div>
+        </div>
+
+        <div
+          role="region"
+          aria-label={t("preview.label")}
+          className="relative mt-2 w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#061215] p-4 shadow-2xl shadow-primary/10 sm:p-6 lg:rounded-[2.5rem] lg:p-10"
+        >
+          <WarpShaderPanel className="absolute inset-0 opacity-95" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.22),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.04),rgba(0,0,0,0.5))]" />
+          <div className="relative mx-auto flex min-h-[22rem] max-w-5xl items-end justify-center py-10 sm:min-h-[28rem]">
+            <div className="w-full rounded-[1.75rem] border border-white/15 bg-[#15191d]/88 p-3 text-left shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-4">
+              <div className="min-h-32 rounded-2xl border border-white/5 bg-[#111518]/78 p-4 sm:min-h-40 sm:p-5">
+                <label htmlFor="landing-prompt-preview" className="sr-only">
+                  {t("preview.promptLabel")}
+                </label>
+                <textarea
+                  id="landing-prompt-preview"
+                  readOnly
+                  aria-label={t("preview.promptLabel")}
+                  className="h-full min-h-24 w-full resize-none bg-transparent text-base text-white outline-none placeholder:text-transparent sm:min-h-32"
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-3 border-t border-white/5 pt-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    asChild
+                    variant="surface"
+                    size="icon"
+                    className="h-11 w-11 rounded-xl bg-white/5"
+                  >
+                    <Link href="/image" aria-label={t("preview.attachLabel")}>
+                      <Plus className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="surface"
+                    className="h-11 rounded-xl border-primary/70 bg-[#202416] px-4 text-white"
+                  >
+                    <Link href="/image">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/20 text-primary">
+                        H
+                      </span>
+                      {t("preview.model")}
+                      <ChevronDown className="h-4 w-4 text-primary" />
+                    </Link>
+                  </Button>
+                  <span className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-gray-200">
+                    <ImagePlus className="h-4 w-4" />
+                    {t("preview.aspect")}
+                  </span>
+                  <span className="inline-flex h-11 items-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-gray-200">
+                    {t("preview.quality")}
+                  </span>
+                </div>
+                <Button
+                  asChild
+                  variant="hero"
+                  className="h-14 rounded-2xl px-8 text-base font-black"
+                >
+                  <Link href="/image">
+                    {t("preview.generate")}
+                    <Sparkles className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

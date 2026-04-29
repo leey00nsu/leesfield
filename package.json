@@ -23,6 +23,7 @@
     "@asteasolutions/zod-to-openapi": "^8.4.0",
     "@gradio/client": "^2.0.1",
     "@hookform/resolvers": "^5.2.2",
+    "@paper-design/shaders-react": "^0.0.76",
     "@prisma/adapter-pg": "^6.0.0",
     "@prisma/client": "^6.0.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
