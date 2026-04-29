@@ -4,7 +4,8 @@
     "logout": "Log out",
     "profile": "Profile",
     "menu": "Menu",
-    "language": "Language"
+    "language": "Language",
+    "dashboard": "Go to dashboard"
   },
   "nav": {
     "image": "Image",
@@ -91,117 +92,96 @@
   },
   "landing": {
     "hero": {
-      "status": "Creative studio",
       "secondaryCta": "API docs",
-      "description": "",
-      "creation": {
-        "image": {
-          "label": "Make images",
-        "description": ""
-        },
-        "video": {
-          "label": "Make videos",
-        "description": ""
-        },
-        "audio": {
-          "label": "Make audio",
-        "description": ""
-        }
+      "headline": "Generate anything. One platform for image, video, and audio.",
+      "subhead": "Built for creators and developers who ship.",
+      "tabs": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
       },
       "preview": {
         "label": "Generation panel",
         "promptLabel": "Prompt",
-        "attachLabel": "Add image",
-        "model": "Z-Image Turbo",
-        "aspect": "3:4",
-        "quality": "1K",
+        "placeholder": "Describe what you want to create...",
+        "modelLabel": "Model",
+        "model": "Leesfield V2",
+        "aspectLabel": "Aspect ratio",
+        "aspect": "16:9",
         "generate": "Generate"
-      }
-    },
-    "coreFeatures": {
-      "title": "Core Features",
-      "items": {
-        "generation": {
-          "title": "Image/Video/Audio Generation",
-          "description": "Create media results from text and references."
+      },
+      "recent": {
+        "title": "Recent generations",
+        "cta": "View all"
+      },
+      "valueCards": {
+        "developer": {
+          "title": "Developer first",
+          "description": "Clean API, SDKs, and comprehensive docs."
         },
-        "history": {
-          "title": "History Gallery",
-          "description": "Browse finished results and reuse them."
+        "production": {
+          "title": "Production ready",
+          "description": "Scalable infrastructure, security, and reliability."
         },
         "monitoring": {
-          "title": "Monitoring",
-          "description": "Check request status and processing flow in one place."
-        },
-        "models": {
-          "title": "Adapter-Based Model Management",
-          "description": "Manage model and provider connections flexibly."
-        },
-        "developerApi": {
-          "title": "Developer API",
-          "description": "Call generation features from external services."
-        },
-        "openApiDocs": {
-          "title": "OpenAPI-Based API Docs",
-          "description": "Use schema-based docs to inspect integration points."
+          "title": "Monitor and optimize",
+          "description": "Real-time insights and usage analytics."
         }
       }
+    },
+    "workflow": {
+      "eyebrow": "SYSTEM OVERVIEW",
+      "title": "A workflow built for shipping.",
+      "description": "leesfield unifies generation, review, reuse, and delivery so teams can move from idea to shipped work with clarity and speed.",
+      "items": {
+        "generate": {
+          "title": "Generate",
+          "description": "Create on-brand content in seconds."
+        },
+        "review": {
+          "title": "Review",
+          "description": "Collaborate, annotate, and approve with context."
+        },
+        "reuse": {
+          "title": "Reuse",
+          "description": "Tap into assets, templates, and past work."
+        }
+        ,
+        "deliver": {
+          "title": "Deliver",
+          "description": "Export, publish, and ship with confidence."
+        }
+      }
+    },
+    "reuse": {
+      "eyebrow": "FEATURE",
+      "title": "Results you can reuse.",
+      "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
+      "cta": "Explore history",
+      "badge": "Generation",
+      "imageAlt": "Reusable portrait generation",
+      "referenceAlt": "Reusable reference image",
+      "prompt": {
+        "title": "Prompt",
+        "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."
+      },
+      "settings": {
+        "title": "Settings"
+      }
+    },
+    "platform": {
+      "eyebrow": "DEVELOPER WORKFLOW",
+      "title": "Docs, models, and workflows curated for teams.",
+      "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
+      "cta": "Explore platform"
     },
     "techCloud": {
       "title": "Tech Stacks"
     },
-    "features": {
-      "eyebrow": "STUDIO SYSTEM",
-      "title": "LEESFIELD",
-      "description": "",
-      "laneCta": "Open studio",
-      "capabilities": {
-        "draft": "Fast drafts",
-        "reuse": "Reusable results",
-        "model": "Model choice",
-        "share": "Saved work"
-      },
-      "lanes": {
-        "image": {
-          "title": "Build the cut",
-          "description": "",
-          "imageAlt": "Cinematic portrait image"
-        },
-        "video": {
-          "title": "Extend the scene",
-          "description": "",
-          "imageAlt": "Film production image"
-        },
-        "audio": {
-          "title": "Shape the tone",
-          "description": "",
-          "imageAlt": "Audio console image"
-        }
-      },
-      "stats": {
-        "workspace": {
-          "value": "3",
-          "label": "Studio modes"
-        },
-        "history": {
-          "value": "1",
-          "label": "History loop"
-        },
-        "models": {
-          "value": "M",
-          "label": "Model choice"
-        }
-      },
-      "motion": {
-        "eyebrow": "LIVE CANVAS",
-        "title": "STUDIO",
-        "description": ""
-      }
-    },
     "cta": {
-      "title": "Start now",
+      "title": "Design with leesfield",
       "description": "",
-      "button": "Get started"
+      "button": "Get started now"
     }
   },
   "auth": {

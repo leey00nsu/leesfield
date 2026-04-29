@@ -13,18 +13,20 @@ export function CtaCard({ className, title, buttonText, href, ...props }: CtaCar
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[#0d1114] text-white shadow-2xl shadow-black/30",
+        "lf-editorial-panel lf-outline-map relative w-full overflow-hidden rounded-[2rem] text-center text-white",
         className,
       )}
       {...props}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(212,240,50,0.24),transparent_32%),radial-gradient(circle_at_82%_65%,rgba(55,183,178,0.2),transparent_34%),linear-gradient(135deg,#11161a,#050607)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.08),transparent)]" />
-      <div className="relative z-10 flex flex-col items-start justify-between gap-8 p-8 md:flex-row md:items-center md:p-12 lg:p-16">
-        <h2 className="max-w-3xl text-4xl font-black uppercase leading-[0.95] md:text-6xl">
+      <div className="relative z-10 flex min-h-[34rem] flex-col items-center justify-center gap-8 p-8 md:p-12 lg:p-16">
+        <h2 className="lf-serif max-w-4xl text-[clamp(3.5rem,6vw,7rem)] leading-[0.95]">
           {title}
         </h2>
-        <Button asChild variant="hero" size="lg" className="rounded-full px-7">
+        <Button
+          asChild
+          variant="hero"
+          className="h-16 rounded-full px-12 text-lg normal-case tracking-normal"
+        >
           <Link href={href}>
             {buttonText}
             <ArrowRight className="h-4 w-4" />

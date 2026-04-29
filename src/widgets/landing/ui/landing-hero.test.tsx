@@ -39,9 +39,15 @@ describe("LandingHero", () => {
     expect(screen.queryByText("크리에이티브 스튜디오")).not.toBeInTheDocument();
     expect(screen.queryByAltText("오디오 콘솔 사진")).not.toBeInTheDocument();
 
-    const imageLink = screen.getByRole("link", { name: /이미지 만들기/ });
-    const videoLink = screen.getByRole("link", { name: /비디오 만들기/ });
-    const audioLink = screen.getByRole("link", { name: /오디오 만들기/ });
+    expect(
+      screen.getByRole("heading", {
+        name: "Generate anything. One platform for image, video, and audio.",
+      }),
+    ).toBeInTheDocument();
+
+    const imageLink = screen.getByRole("link", { name: "Image" });
+    const videoLink = screen.getByRole("link", { name: "Video" });
+    const audioLink = screen.getByRole("link", { name: "Audio" });
 
     expect(imageLink).toHaveAttribute("href", "/image");
     expect(videoLink).toHaveAttribute("href", "/video");
@@ -52,13 +58,10 @@ describe("LandingHero", () => {
       screen.queryByText("한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다."),
     ).not.toBeInTheDocument();
 
-    expect(
-      screen.getByRole("link", { name: /API 문서/ }),
-    ).toHaveAttribute("href", "/api-docs");
     expect(screen.getByRole("textbox", { name: "프롬프트" })).toHaveAttribute(
       "readonly",
     );
-    expect(screen.getByRole("link", { name: /생성/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Generate/ })).toHaveAttribute(
       "href",
       "/image",
     );

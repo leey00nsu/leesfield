@@ -5,8 +5,8 @@ export function LandingCtaSection() {
   const t = useTranslations("landing.cta");
 
   return (
-    <section className="px-6 sm:px-10">
-      <div className="mx-auto w-full max-w-[1600px] py-4">
+    <section className="px-6 py-20 sm:px-10 lg:py-28">
+      <div className="mx-auto w-full max-w-[1500px]">
         <CtaCard title={t("title")} buttonText={t("button")} href="/image" />
       </div>
     </section>

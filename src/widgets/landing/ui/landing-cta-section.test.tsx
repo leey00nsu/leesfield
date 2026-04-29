@@ -8,9 +8,9 @@ describe("LandingCtaSection", () => {
     renderWithIntl(<LandingCtaSection />);
 
     expect(
-      screen.getByRole("heading", { name: "지금 바로 시작해보세요" }),
+      screen.getByRole("heading", { name: "Design with leesfield" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /시작하기/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Get started now/ })).toHaveAttribute(
       "href",
       "/image",
     );

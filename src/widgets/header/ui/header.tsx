@@ -61,6 +61,7 @@ function getInitials(email?: string | null) {
 }
 
 export function Header({
+  variant = "dashboard",
   isAuthenticated = false,
   userEmail = null,
   userAvatarUrl,
@@ -70,6 +71,61 @@ export function Header({
   const tBrand = useTranslations("common.brand");
   const tNav = useTranslations("nav");
   const tCommonLabels = useTranslations("common.labels");
+  const publicNav = dashboardNavigation.filter((item) =>
+    ["/image", "/video", "/audio", "/history", "/model", "/monitoring", "/api-docs"].includes(
+      item.href,
+    ),
+  );
+
+  if (variant === "public") {
+    return (
+      <header className="relative z-30 mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-6 sm:px-10">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.webp"
+            alt={tBrand("name")}
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-[1.1rem] object-cover"
+            priority
+          />
+          <span className="text-xl font-semibold tracking-tight text-white">
+            {tBrand("name")}
+          </span>
+        </Link>
+
+        <nav className="hidden items-center gap-8 lg:flex">
+          {publicNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-medium text-white/78 transition-colors hover:text-white"
+            >
+              {tNav(item.key)}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-4">
+          <Link
+            href={isAuthenticated ? "/profile" : "/login"}
+            className="hidden text-sm font-medium text-white/78 transition-colors hover:text-white sm:inline-flex"
+          >
+            {isAuthenticated ? tHeader("profile") : tHeader("login")}
+          </Link>
+          <Button
+            asChild
+            variant="hero"
+            className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+          >
+            <Link href={isAuthenticated ? "/image" : "/login"}>
+              {tHeader("dashboard")}
+            </Link>
+          </Button>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">

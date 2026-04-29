@@ -4,7 +4,8 @@
     "logout": "로그아웃",
     "profile": "프로필",
     "menu": "메뉴",
-    "language": "언어"
+    "language": "언어",
+    "dashboard": "대시보드로 이동"
   },
   "nav": {
     "image": "이미지",
@@ -91,117 +92,96 @@
   },
   "landing": {
     "hero": {
-      "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "",
-      "creation": {
-        "image": {
-          "label": "이미지 만들기",
-        "description": ""
-        },
-        "video": {
-          "label": "비디오 만들기",
-        "description": ""
-        },
-        "audio": {
-          "label": "오디오 만들기",
-        "description": ""
-        }
+      "headline": "Generate anything. One platform for image, video, and audio.",
+      "subhead": "Built for creators and developers who ship.",
+      "tabs": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
       },
       "preview": {
         "label": "생성 패널",
         "promptLabel": "프롬프트",
-        "attachLabel": "이미지 추가",
-        "model": "Z-Image Turbo",
-        "aspect": "3:4",
-        "quality": "1K",
-        "generate": "생성"
-      }
-    },
-    "coreFeatures": {
-      "title": "Core Features",
-      "items": {
-        "generation": {
-          "title": "이미지/비디오/오디오 생성",
-          "description": "텍스트와 참고 자료로 미디어 결과를 만듭니다."
+        "placeholder": "Describe what you want to create...",
+        "modelLabel": "Model",
+        "model": "Leesfield V2",
+        "aspectLabel": "Aspect ratio",
+        "aspect": "16:9",
+        "generate": "Generate"
+      },
+      "recent": {
+        "title": "Recent generations",
+        "cta": "View all"
+      },
+      "valueCards": {
+        "developer": {
+          "title": "Developer first",
+          "description": "Clean API, SDKs, and comprehensive docs."
         },
-        "history": {
-          "title": "히스토리 갤러리",
-          "description": "완성된 결과를 모아 보고 다시 사용할 수 있습니다."
+        "production": {
+          "title": "Production ready",
+          "description": "Scalable infrastructure, security, and reliability."
         },
         "monitoring": {
-          "title": "모니터링",
-          "description": "요청 상태와 처리 흐름을 한곳에서 확인합니다."
-        },
-        "models": {
-          "title": "어댑터 기반 모델 관리",
-          "description": "모델과 provider 연결을 유연하게 관리합니다."
-        },
-        "developerApi": {
-          "title": "개발자 API",
-          "description": "외부 서비스에서 생성 기능을 호출할 수 있습니다."
-        },
-        "openApiDocs": {
-          "title": "OpenAPI 기반 API 문서",
-          "description": "스키마 기반 문서로 연동 지점을 확인합니다."
+          "title": "Monitor and optimize",
+          "description": "Real-time insights and usage analytics."
         }
       }
+    },
+    "workflow": {
+      "eyebrow": "SYSTEM OVERVIEW",
+      "title": "A workflow built for shipping.",
+      "description": "leesfield unifies generation, review, reuse, and delivery so teams can move from idea to shipped work with clarity and speed.",
+      "items": {
+        "generate": {
+          "title": "Generate",
+          "description": "Create on-brand content in seconds."
+        },
+        "review": {
+          "title": "Review",
+          "description": "Collaborate, annotate, and approve with context."
+        },
+        "reuse": {
+          "title": "Reuse",
+          "description": "Tap into assets, templates, and past work."
+        }
+        ,
+        "deliver": {
+          "title": "Deliver",
+          "description": "Export, publish, and ship with confidence."
+        }
+      }
+    },
+    "reuse": {
+      "eyebrow": "FEATURE",
+      "title": "Results you can reuse.",
+      "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
+      "cta": "Explore history",
+      "badge": "Generation",
+      "imageAlt": "Reusable portrait generation",
+      "referenceAlt": "Reusable reference image",
+      "prompt": {
+        "title": "Prompt",
+        "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."
+      },
+      "settings": {
+        "title": "Settings"
+      }
+    },
+    "platform": {
+      "eyebrow": "DEVELOPER WORKFLOW",
+      "title": "Docs, models, and workflows curated for teams.",
+      "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
+      "cta": "Explore platform"
     },
     "techCloud": {
       "title": "Tech Stacks"
     },
-    "features": {
-      "eyebrow": "STUDIO SYSTEM",
-      "title": "LEESFIELD",
-      "description": "",
-      "laneCta": "스튜디오 열기",
-      "capabilities": {
-        "draft": "빠른 초안",
-        "reuse": "결과 재사용",
-        "model": "모델 선택",
-        "share": "작업 보관"
-      },
-      "lanes": {
-        "image": {
-          "title": "컷 만들기",
-          "description": "",
-          "imageAlt": "시네마틱 인물 이미지"
-        },
-        "video": {
-          "title": "장면 확장",
-          "description": "",
-          "imageAlt": "촬영 현장 이미지"
-        },
-        "audio": {
-          "title": "톤 입히기",
-          "description": "",
-          "imageAlt": "오디오 콘솔 이미지"
-        }
-      },
-      "stats": {
-        "workspace": {
-          "value": "3",
-          "label": "Studio modes"
-        },
-        "history": {
-          "value": "1",
-          "label": "History loop"
-        },
-        "models": {
-          "value": "M",
-          "label": "Model choice"
-        }
-      },
-      "motion": {
-        "eyebrow": "LIVE CANVAS",
-        "title": "STUDIO",
-        "description": ""
-      }
-    },
     "cta": {
-      "title": "지금 바로 시작해보세요",
+      "title": "Design with leesfield",
       "description": "",
-      "button": "시작하기"
+      "button": "Get started now"
     }
   },
   "auth": {

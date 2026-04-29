@@ -61,7 +61,7 @@
 :root {
   --font-mono: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-heading: var(--font-body);
+  --font-heading: Georgia, "Times New Roman", serif;
   --radius: 0.625rem;
   --background: #0a0a0a;
   --foreground: #ffffff;
@@ -82,9 +82,9 @@
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.1);
   --ring: rgba(212, 240, 50, 0.5);
-  --background-dark: #0a0a0a;
-  --surface-dark: #141414;
-  --surface-lighter: #1e1e1e;
+  --background-dark: oklch(0.075 0.006 104);
+  --surface-dark: oklch(0.12 0.008 104);
+  --surface-lighter: oklch(0.17 0.01 104);
   --creative-surface: #151812;
   --creative-surface-muted: #10130e;
   --creative-surface-border: rgba(212, 240, 50, 0.16);
@@ -171,6 +171,73 @@
         var(--creative-surface-muted)
       );
     border-color: var(--creative-surface-border);
+  }
+
+  .lf-editorial-page {
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        oklch(0.2 0.03 104 / 0.42),
+        transparent 34rem
+      ),
+      radial-gradient(
+        circle at 18% 24%,
+        oklch(0.2 0.025 104 / 0.24),
+        transparent 30rem
+      ),
+      oklch(0.075 0.006 104);
+  }
+
+  .lf-editorial-panel {
+    border: 1px solid oklch(1 0 0 / 0.14);
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        oklch(0.72 0.18 121 / 0.075),
+        transparent 28rem
+      ),
+      linear-gradient(
+        180deg,
+        oklch(0.16 0.008 104 / 0.9),
+        oklch(0.1 0.006 104 / 0.94)
+      );
+    box-shadow: 0 34px 110px oklch(0 0 0 / 0.45);
+  }
+
+  .lf-editorial-card {
+    border: 1px solid oklch(1 0 0 / 0.14);
+    background:
+      radial-gradient(
+        circle at 18% 0%,
+        oklch(0.72 0.18 121 / 0.055),
+        transparent 18rem
+      ),
+      linear-gradient(
+        145deg,
+        oklch(0.15 0.008 104 / 0.92),
+        oklch(0.1 0.006 104 / 0.95)
+      );
+  }
+
+  .lf-serif {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+  }
+
+  .lf-eyebrow {
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .lf-outline-map {
+    background-image:
+      radial-gradient(circle at center, oklch(1 0 0 / 0.026) 1px, transparent 1px),
+      linear-gradient(135deg, oklch(1 0 0 / 0.05), transparent 44%);
+    background-size: 26px 26px, 100% 100%;
   }
 
   .lf-motion-rise {
