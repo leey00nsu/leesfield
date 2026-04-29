@@ -121,7 +121,7 @@ function DocsCard({ model }: { model: LandingPlatformModel }) {
   return (
     <div
       data-testid="landing-docs-card"
-      className="lf-editorial-flat-card rounded-[1rem] p-5 md:min-h-72"
+      className="lf-editorial-card rounded-[1rem] border border-white/14 p-5 md:min-h-72"
     >
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
