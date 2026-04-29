@@ -41,7 +41,7 @@
     },
     "labels": {
       "filterOptions": "Filter options",
-      "searchPlaceholder": "SEARCH_DATABASE...",
+      "searchPlaceholder": "Search history...",
       "all": "All",
       "images": "Images",
       "videos": "Videos",
@@ -51,21 +51,22 @@
       "dateDesc": "Newest",
       "dateAsc": "Oldest",
       "ready": "Ready",
-      "chars": "{count} CHARS",
-      "outputSize": "Output_Size",
+      "chars": "{count} chars",
+      "outputSize": "Output size",
       "width": "Width",
       "height": "Height",
       "steps": "Steps",
       "imageCount": "Images",
-      "guidanceScale": "Guidance_Scale",
+      "guidanceScale": "Guidance",
       "settings": "Settings",
+      "moreControls": "More controls",
       "modeChoice": "Mode",
-      "promptUpsampling": "Prompt_Upsampling",
+      "promptUpsampling": "Prompt boost",
       "seed": "Seed",
       "decrease": "Decrease",
       "increase": "Increase",
       "randomize": "Randomize",
-      "durationSec": "Duration_Sec",
+      "durationSec": "Duration",
       "range": "Range: {min} ~ {max}px",
       "required": "Required",
       "enabled": "Enabled",
@@ -91,8 +92,8 @@
   "landing": {
     "hero": {
       "status": "Creative studio",
-      "secondaryCta": "API Docs",
-      "description": "A private studio for images, video, and sound.",
+      "secondaryCta": "API docs",
+      "description": "A private studio from first scene to finished take.",
       "creation": {
         "image": {
           "label": "Make images",
@@ -108,10 +109,10 @@
         }
       },
       "preview": {
-        "label": "Creative media collage",
+        "label": "Studio showcase",
         "imageAlt": "AI generated image sample",
         "imageTitle": "Image result",
-        "imageDescription": "From prompt to visual output",
+        "imageDescription": "Finished visual cut",
         "videoLabel": "AI generated video sample",
         "videoTitle": "Video motion",
         "audioLabel": "AI generated audio waveform",
@@ -120,45 +121,51 @@
       }
     },
     "features": {
-      "eyebrow": "FORMATS",
-      "title": "IMAGE VIDEO AUDIO",
-      "description": "Three creation formats.",
+      "eyebrow": "STUDIO SYSTEM",
+      "title": "ONE IDEA, MANY FINISHES",
+      "description": "Concept, model choice, and saved results stay in one private workspace rhythm.",
       "laneCta": "Open studio",
+      "capabilities": {
+        "draft": "Fast drafts",
+        "reuse": "Reusable results",
+        "model": "Model choice",
+        "share": "Saved work"
+      },
       "lanes": {
         "image": {
-          "title": "Image studio",
+          "title": "Build the cut",
           "description": "Portraits, products, moodboards",
           "imageAlt": "Cinematic portrait image"
         },
         "video": {
-          "title": "Video studio",
+          "title": "Extend the scene",
           "description": "Cuts, motion, short clips",
           "imageAlt": "Film production image"
         },
         "audio": {
-          "title": "Audio studio",
+          "title": "Shape the tone",
           "description": "Voice, ambience, sound",
           "imageAlt": "Audio console image"
         }
       },
       "stats": {
-        "image": {
-          "value": "01",
-          "label": "Image"
+        "workspace": {
+          "value": "3",
+          "label": "Studio modes"
         },
-        "video": {
-          "value": "02",
-          "label": "Video"
+        "history": {
+          "value": "1",
+          "label": "History loop"
         },
-        "audio": {
-          "value": "03",
-          "label": "Audio"
+        "models": {
+          "value": "M",
+          "label": "Model choice"
         }
       },
       "motion": {
-        "eyebrow": "NEW SESSION",
-        "title": "Start a new piece.",
-        "description": "Image, video, audio"
+        "eyebrow": "LIVE CANVAS",
+        "title": "Start fast. Keep the best take.",
+        "description": "Today's cuts and sounds become material for the next pass."
       },
       "cards": {
         "generation": {
@@ -202,27 +209,56 @@
       }
     },
     "why": {
-      "title": "Why leesfield",
-      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture.",
+      "eyebrow": "ABOUT LEESFIELD",
+      "title": "Keep the work from scattering",
+      "description": "leesfield keeps ideas, model choices, results, and history in a single creative workspace.",
+      "proof": {
+        "left": {
+          "value": "1",
+          "label": "Private workspace"
+        },
+        "right": {
+          "value": "∞",
+          "label": "Reusable results"
+        }
+      },
       "cards": {
-        "openapi": {
-          "title": "OpenAPI-first docs",
-          "description": "The API reference and schema stay together so integration checks are easier."
+        "look": {
+          "title": "Results first",
+          "description": "See the work and the choices before long explanations."
         },
-        "adapters": {
-          "title": "Extensible adapter design",
-          "description": "Generation calls and storage uploads are decoupled, so providers and storage backends can be swapped or extended."
+        "reuse": {
+          "title": "History with context",
+          "description": "Keep the take, model, and input together for the next direction."
         },
-        "dashboard": {
-          "title": "Dashboard-centric workflow",
-          "description": "Manage image/video generation, history, and model catalog/monitoring in one place."
+        "private": {
+          "title": "Private workspace",
+          "description": "A quiet flow for your own projects, not a public feed."
+        },
+        "momentum": {
+          "title": "Fast handoff",
+          "description": "Turn a short idea into a result, keep the strongest direction, and move."
         }
       }
     },
     "cta": {
-      "title": "Start with leesfield today",
-      "description": "A private workspace for images, video, and audio.",
-      "button": "Go to dashboard"
+      "title": "Start with leesfield",
+      "description": "Create, save, and continue your personal studio work.",
+      "button": "Go to dashboard",
+      "faq": {
+        "ownership": {
+          "title": "What gets saved?",
+          "description": "Your results, selected model, and input stay together."
+        },
+        "reuse": {
+          "title": "Can I continue a result?",
+          "description": "Use history items as the starting point for the next pass."
+        },
+        "access": {
+          "title": "Who is it for?",
+          "description": "Individual creators, small studios, and prototype work."
+        }
+      }
     }
   },
   "auth": {
@@ -277,7 +313,7 @@
     }
   },
   "generation": {
-    "modelSelect": "Select_Model",
+    "modelSelect": "Select model",
     "modelPicker": {
       "searchPlaceholder": "Search models...",
       "featured": "Featured models",
@@ -288,16 +324,16 @@
       "empty": "No models found."
     },
     "promptDock": {
-      "label": "Creative prompt dock"
+      "label": "Creation input"
     },
     "modelLoading": "Loading models...",
-    "noModels": "No models are registered. Add a model in the admin page.",
+    "noModels": "No generation model is available right now.",
     "modelUnavailable": "No model available",
-    "modelLoginRequired": "Log in to view the model list.",
+    "modelLoginRequired": "Log in to start creating.",
     "settings": "Settings",
     "canvas": {
-      "emptyTitle": "Canvas Empty",
-      "emptyDescription": "Configure your prompt below to start generating",
+      "emptyTitle": "Ready when you are",
+      "emptyDescription": "Add an idea to begin.",
       "generating": "Generating...",
       "failedTitle": "Generation failed",
       "failedDescription": "Please try again later."
@@ -307,13 +343,13 @@
       "fullScreenDisabled": "Full Screen (disabled)"
     },
     "presets": {
-      "hint": "Apply to prompt",
+      "hint": "Apply",
       "image": {
         "title": "Image starters",
         "ariaLabel": "Image starters",
         "editorial-cut": {
           "label": "Editorial cut",
-          "description": "A visual prompt for portrait, fabric, and lighting in one pass.",
+          "description": "A portrait cut with fabric and studio lighting.",
           "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
         },
         "product-shadow": {
@@ -372,7 +408,7 @@
         "accent": "Generation"
       },
       "subtitle": "Create images",
-      "promptPlaceholder": "Describe your imagination in detail...",
+      "promptPlaceholder": "Describe the scene you want...",
       "uploadReference": "Upload Reference Image",
       "uploadUnsupported": "This model does not support image input.",
       "initImageAlt": "Init image preview",
@@ -381,9 +417,9 @@
       "previewStudioAlt": "Studio portrait photo",
       "previewTextureAlt": "Audio console photo",
       "previewFilmAlt": "Film production photo",
-      "previewEyebrow": "Image studio",
+      "previewEyebrow": "VISUAL TAKE",
       "previewTitle": "Set the scene, then push the detail",
-      "previewDescription": "Prompt and reference images live in the same dock, so each result can become the next starting point.",
+      "previewDescription": "Build a finished image from an idea and optional reference.",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -391,40 +427,40 @@
         "leading": "Video",
         "accent": "Generation"
       },
-      "subtitle": "Make videos in one click",
-      "promptPlaceholder": "Describe the video you want to generate in detail...",
+      "subtitle": "Create a short scene",
+      "promptPlaceholder": "Describe the scene in motion...",
       "uploadReference": "Upload Reference Image",
       "initImageAlt": "Init image preview",
       "previewFilmAlt": "Film production photo",
       "previewPortraitAlt": "Cinematic portrait frame",
       "previewTextureAlt": "Audio console photo",
-      "previewEyebrow": "Video studio",
+      "previewEyebrow": "MOTION TAKE",
       "previewTitle": "Turn a still frame into a moving scene",
-      "previewDescription": "Starting image, scene direction, and duration settings now stay in the same dock flow.",
+      "previewDescription": "Start from an image or scene idea and create a short clip.",
       "mode": {
         "imageToVideo": "IMAGE TO VIDEO",
         "imageRequired": "IMAGE REQUIRED",
         "textOnly": "TEXT ONLY"
       },
-      "sizeNotice": "This space does not support changing resolution or aspect ratio. If an image is provided, its aspect ratio is used; text-only uses the default resolution."
+      "sizeNotice": "Size changes are not available for this selection."
     },
     "audio": {
       "title": {
         "leading": "Audio",
         "accent": "Generation"
       },
-      "subtitle": "Generate speech from text",
-      "promptPlaceholder": "Describe or paste the text you want spoken...",
+      "subtitle": "Create a voice take",
+      "promptPlaceholder": "Write the line or tone you want...",
       "voiceLabel": "Voice",
       "voiceUnset": "Default voice",
       "voicePlaceholder": "e.g. alloy",
-      "referenceTextLabel": "Reference Text",
-      "referenceTextPlaceholder": "Enter the transcript for the reference audio...",
+      "referenceTextLabel": "Sample line",
+      "referenceTextPlaceholder": "Enter the line from the sample audio...",
       "speedLabel": "Speed",
       "previewTextureAlt": "Audio console photo",
-      "previewEyebrow": "Audio studio",
+      "previewEyebrow": "VOICE TAKE",
       "previewTitle": "Shape the tone before you render",
-      "previewDescription": "Text, voice, and reference audio settings are combined in one generation dock.",
+      "previewDescription": "Write the line, choose a voice direction, and listen back.",
       "seedPlaceholder": "Optional"
     },
     "errors": {

@@ -91,7 +91,7 @@ describe("ImageGenerationForm", () => {
     expect(modelButton).toHaveClass("border-primary");
   });
 
-  it("renders a bottom creative prompt dock with model and actual settings controls", async () => {
+  it("renders a bottom creation input with model and actual settings controls", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -102,7 +102,7 @@ describe("ImageGenerationForm", () => {
     await waitForModels();
 
     const dock = screen.getByRole("region", {
-      name: "크리에이티브 프롬프트 dock",
+      name: "작업 입력",
     });
 
     expect(dock).not.toHaveTextContent("1:1");
@@ -110,7 +110,7 @@ describe("ImageGenerationForm", () => {
     expect(dock).not.toHaveTextContent("Draw");
     expect(dock).toHaveTextContent("출력 크기");
     expect(dock).toHaveTextContent("이미지 수");
-    expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
+    expect(screen.queryByText("준비 완료")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Z-Image Turbo|FLUX\.2 Klein 9B/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");
@@ -137,7 +137,7 @@ describe("ImageGenerationForm", () => {
 
     expect(await screen.findByText("선택 가능한 모델 없음")).toBeInTheDocument();
     expect(
-      screen.queryByText("등록된 모델이 없습니다. 관리자에서 모델을 추가하세요."),
+      screen.queryByText("지금 사용할 수 있는 생성 모델이 없습니다."),
     ).not.toBeInTheDocument();
   });
 
@@ -198,7 +198,7 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.getByAltText("생성된 이미지 1")).toBeInTheDocument();
-    expect(screen.queryByText("캔버스 비어 있음")).not.toBeInTheDocument();
+    expect(screen.queryByText("준비 완료")).not.toBeInTheDocument();
     expect(screen.queryByText("생성 중...")).not.toBeInTheDocument();
   });
 
@@ -217,7 +217,7 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated={false} />);
 
     expect(
-      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+      await screen.findByText("로그인하면 바로 만들 수 있습니다."),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -250,7 +250,7 @@ describe("ImageGenerationForm", () => {
 
     expect(await screen.findByText("모드")).toBeInTheDocument();
     expect(await screen.findByText("가이던스")).toBeInTheDocument();
-    expect(await screen.findByText("프롬프트 업샘플링")).toBeInTheDocument();
+    expect(await screen.findByText("프롬프트 보강")).toBeInTheDocument();
   });
 
   it("GPT Image 2 모델들에서는 설정 패널을 노출하지 않는다", async () => {

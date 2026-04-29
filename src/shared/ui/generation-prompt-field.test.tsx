@@ -7,7 +7,7 @@ describe("GenerationPromptField", () => {
   it("uses a subdued creative surface instead of a heavy lime glow", () => {
     renderWithIntl(
       <GenerationPromptField
-        ariaLabel="크리에이티브 프롬프트 dock"
+        ariaLabel="작업 입력"
         textarea={<textarea aria-label="Prompt" />}
         footerLeft={<span>Attach</span>}
         footerRight={<span>0 chars</span>}
@@ -15,7 +15,7 @@ describe("GenerationPromptField", () => {
     );
 
     const dock = screen.getByRole("region", {
-      name: "크리에이티브 프롬프트 dock",
+      name: "작업 입력",
     });
     const textarea = screen.getByLabelText("Prompt");
     const surface = textarea.closest(".relative");

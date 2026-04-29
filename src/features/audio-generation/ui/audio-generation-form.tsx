@@ -101,6 +101,11 @@ const advancedAudioFields = new Set<AudioFieldName>([
   "topK",
   "repetitionPenalty",
 ]);
+const visibleAdvancedAudioFields = new Set<AudioFieldName>([
+  "referencePreset",
+  "customInstruction",
+  "voiceInstruction",
+]);
 
 const dockChipClass =
   "inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-gray-200";
@@ -247,7 +252,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     (key) => !advancedAudioFields.has(key),
   );
   const advancedParameterKeys = parameterKeys.filter((key) =>
-    advancedAudioFields.has(key),
+    advancedAudioFields.has(key) && visibleAdvancedAudioFields.has(key),
   );
   const canSubmit =
     hasModels &&
@@ -433,9 +438,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const getFieldLabel = (key: AudioFieldName) => {
     const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
-    if (typeof config?.label === "string" && config.label.trim()) {
-      return config.label;
-    }
     switch (key) {
       case "voice":
         return tAudio("voiceLabel");
@@ -446,40 +448,42 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       case "seed":
         return tLabels("seed");
       case "modeChoice":
-        return "Generation Mode";
+        return "Mode";
       case "language":
         return "Language";
       case "speaker":
         return "Speaker";
       case "streamMode":
-        return "Streaming";
+        return "Live output";
       case "referencePreset":
-        return "Reference Preset";
+        return "Voice sample";
       case "customInstruction":
-        return "Custom Instruction";
+        return "Notes";
       case "voiceInstruction":
-        return "Voice Instruction";
+        return "Voice style";
       case "xvecOnly":
-        return "xvec only";
+        return "Voice match";
       case "chunkSize":
-        return "Chunk Size";
+        return "Detail";
       case "temperature":
-        return "Temperature";
+        return "Variation";
       case "topK":
-        return "Top K";
+        return "Clarity";
       case "repetitionPenalty":
-        return "Repetition Penalty";
+        return "Repetition";
       case "inputAudio":
-        return "Reference Audio";
+        return "Sample audio";
       default:
-        return key;
+        return typeof config?.label === "string" && config.label.trim()
+          ? config.label
+          : key;
     }
   };
 
   const getFieldTextareaPlaceholder = (key: AudioFieldName) => {
     if (key === "referenceText") return tAudio("referenceTextPlaceholder");
-    if (key === "customInstruction") return "Describe how the generated voice should behave.";
-    if (key === "voiceInstruction") return "Describe the target voice style.";
+    if (key === "customInstruction") return "Warm, calm, energetic...";
+    if (key === "voiceInstruction") return "Bright narrator, soft whisper...";
     return "";
   };
 
@@ -934,7 +938,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                             <>
                               <div className="h-px bg-white/5" />
                               <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                                Advanced Settings
+                                {tLabels("moreControls")}
                               </div>
                               {advancedParameterKeys.map((key) =>
                                 renderAudioField(key),

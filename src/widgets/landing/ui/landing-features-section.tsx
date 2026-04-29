@@ -29,7 +29,8 @@ const creationLinks = [
   },
 ] as const;
 
-const statKeys = ["image", "video", "audio"] as const;
+const statKeys = ["workspace", "history", "models"] as const;
+const capabilityKeys = ["draft", "reuse", "model", "share"] as const;
 
 export function LandingFeaturesSection() {
   const t = useTranslations("landing.features");
@@ -62,6 +63,17 @@ export function LandingFeaturesSection() {
                   {t(`stats.${key}.label`)}
                 </p>
               </div>
+            ))}
+          </div>
+
+          <div className="mt-8 flex max-w-xl flex-wrap gap-2">
+            {capabilityKeys.map((key) => (
+              <span
+                key={key}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-gray-300"
+              >
+                {t(`capabilities.${key}`)}
+              </span>
             ))}
           </div>
         </div>
@@ -98,7 +110,7 @@ export function LandingFeaturesSection() {
                   <h3 className="mt-1 text-2xl font-black text-white">
                     {t(`lanes.${item.key}.title`)}
                   </h3>
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-300 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-300 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100">
                     {t(`lanes.${item.key}.description`)}
                   </p>
                 </div>

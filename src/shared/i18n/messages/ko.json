@@ -59,8 +59,9 @@
       "imageCount": "이미지 수",
       "guidanceScale": "가이던스",
       "settings": "설정",
+      "moreControls": "추가 조정",
       "modeChoice": "모드",
-      "promptUpsampling": "프롬프트 업샘플링",
+      "promptUpsampling": "프롬프트 보강",
       "seed": "시드",
       "decrease": "줄이기",
       "increase": "늘리기",
@@ -92,7 +93,7 @@
     "hero": {
       "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "이미지, 영상, 사운드를 위한 개인 스튜디오.",
+      "description": "한 장면에서 시작해 완성본까지 이어지는 개인 스튜디오.",
       "creation": {
         "image": {
           "label": "이미지 만들기",
@@ -108,10 +109,10 @@
         }
       },
       "preview": {
-        "label": "크리에이티브 미디어 콜라주",
+        "label": "스튜디오 쇼케이스",
         "imageAlt": "AI 생성 이미지 샘플",
         "imageTitle": "Image result",
-        "imageDescription": "프롬프트에서 바로 시각 결과로",
+        "imageDescription": "선명한 비주얼 컷",
         "videoLabel": "AI 생성 비디오 샘플",
         "videoTitle": "Video motion",
         "audioLabel": "AI 생성 오디오 파형",
@@ -120,45 +121,51 @@
       }
     },
     "features": {
-      "eyebrow": "FORMATS",
-      "title": "IMAGE VIDEO AUDIO",
-      "description": "세 가지 작업 형식.",
+      "eyebrow": "STUDIO SYSTEM",
+      "title": "ONE IDEA, MANY FINISHES",
+      "description": "컨셉, 모델 선택, 결과 보관을 한 흐름으로 묶어 개인 작업실처럼 씁니다.",
       "laneCta": "스튜디오 열기",
+      "capabilities": {
+        "draft": "빠른 초안",
+        "reuse": "결과 재사용",
+        "model": "모델 선택",
+        "share": "작업 보관"
+      },
       "lanes": {
         "image": {
-          "title": "이미지 스튜디오",
+          "title": "컷 만들기",
           "description": "인물, 제품, 무드보드",
           "imageAlt": "시네마틱 인물 이미지"
         },
         "video": {
-          "title": "비디오 스튜디오",
+          "title": "장면 확장",
           "description": "컷, 움직임, 짧은 클립",
           "imageAlt": "촬영 현장 이미지"
         },
         "audio": {
-          "title": "오디오 스튜디오",
+          "title": "톤 입히기",
           "description": "보이스, 분위기, 사운드",
           "imageAlt": "오디오 콘솔 이미지"
         }
       },
       "stats": {
-        "image": {
-          "value": "01",
-          "label": "Image"
+        "workspace": {
+          "value": "3",
+          "label": "Studio modes"
         },
-        "video": {
-          "value": "02",
-          "label": "Video"
+        "history": {
+          "value": "1",
+          "label": "History loop"
         },
-        "audio": {
-          "value": "03",
-          "label": "Audio"
+        "models": {
+          "value": "M",
+          "label": "Model choice"
         }
       },
       "motion": {
-        "eyebrow": "NEW SESSION",
-        "title": "새 작업을 시작하세요.",
-        "description": "이미지, 비디오, 오디오"
+        "eyebrow": "LIVE CANVAS",
+        "title": "시작은 짧고, 결과는 오래 남깁니다.",
+        "description": "오늘 만든 컷과 사운드는 다음 작업의 재료가 됩니다."
       },
       "cards": {
         "generation": {
@@ -202,27 +209,56 @@
       }
     },
     "why": {
-      "title": "왜 leesfield인가",
-      "description": "대시보드 UX, OpenAPI 문서, 모델 카탈로그/관리, 어댑터 기반 확장 구조 등 실제 구현된 기능을 중심으로 설계된 오픈소스 프로젝트입니다.",
+      "eyebrow": "ABOUT LEESFIELD",
+      "title": "작업 흐름을 흩어지지 않게",
+      "description": "leesfield는 아이디어, 모델, 결과, 히스토리를 한 화면의 리듬으로 묶어 반복 작업을 줄이는 개인 창작 공간입니다.",
+      "proof": {
+        "left": {
+          "value": "1",
+          "label": "Private workspace"
+        },
+        "right": {
+          "value": "∞",
+          "label": "Reusable results"
+        }
+      },
       "cards": {
-        "openapi": {
-          "title": "OpenAPI 기반 API 문서",
-          "description": "API 문서와 스키마를 함께 제공해 연동 흐름을 빠르게 확인할 수 있습니다."
+        "look": {
+          "title": "먼저 보이는 결과",
+          "description": "긴 설명보다 결과물과 선택지를 먼저 보여줘 다음 판단을 빠르게 만듭니다."
         },
-        "adapters": {
-          "title": "어댑터 기반 확장 구조",
-          "description": "생성 호출과 스토리지 업로드를 분리해, API 프로바이더 / 스토리지 교체 및 확장이 용이합니다."
+        "reuse": {
+          "title": "다시 쓰는 히스토리",
+          "description": "완성본, 모델, 입력값을 함께 남겨 다음 시도에 바로 이어 붙입니다."
         },
-        "dashboard": {
-          "title": "대시보드 중심 워크플로우",
-          "description": "이미지/비디오 생성, 히스토리, 모델 관리/모니터링을 한 곳에서 다룹니다."
+        "private": {
+          "title": "개인 작업 공간",
+          "description": "공개 피드보다 내 프로젝트와 반복 작업에 맞춘 조용한 흐름을 우선합니다."
+        },
+        "momentum": {
+          "title": "빠른 전환",
+          "description": "짧은 아이디어를 결과로 바꾸고, 마음에 드는 방향만 남겨 속도를 유지합니다."
         }
       }
     },
     "cta": {
-      "title": "지금 바로 leesfield로 시작하세요",
-      "description": "이미지, 비디오, 오디오를 위한 개인 작업 공간.",
-      "button": "대시보드로 이동"
+      "title": "leesfield로 시작하세요",
+      "description": "개인 창작물을 만들고, 보관하고, 다시 이어갑니다.",
+      "button": "대시보드로 이동",
+      "faq": {
+        "ownership": {
+          "title": "무엇을 남기나요?",
+          "description": "결과물과 선택한 모델, 입력값을 함께 보관합니다."
+        },
+        "reuse": {
+          "title": "다시 만들 수 있나요?",
+          "description": "히스토리에서 마음에 드는 결과를 다음 작업의 출발점으로 씁니다."
+        },
+        "access": {
+          "title": "누구를 위한 공간인가요?",
+          "description": "개인 creator, small studio, prototype 작업자에게 맞춘 흐름입니다."
+        }
+      }
     }
   },
   "auth": {
@@ -288,16 +324,16 @@
       "empty": "검색 결과가 없습니다."
     },
     "promptDock": {
-      "label": "크리에이티브 프롬프트 dock"
+      "label": "작업 입력"
     },
     "modelLoading": "모델을 불러오는 중입니다...",
-    "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
+    "noModels": "지금 사용할 수 있는 생성 모델이 없습니다.",
     "modelUnavailable": "선택 가능한 모델 없음",
-    "modelLoginRequired": "로그인하여 모델 목록을 확인하세요.",
+    "modelLoginRequired": "로그인하면 바로 만들 수 있습니다.",
     "settings": "설정",
     "canvas": {
-      "emptyTitle": "캔버스 비어 있음",
-      "emptyDescription": "아래에서 프롬프트를 입력해 생성을 시작하세요.",
+      "emptyTitle": "준비 완료",
+      "emptyDescription": "아이디어를 입력해 시작하세요.",
       "generating": "생성 중...",
       "failedTitle": "생성에 실패했습니다",
       "failedDescription": "잠시 후 다시 시도해주세요."
@@ -307,13 +343,13 @@
       "fullScreenDisabled": "전체 화면 (비활성)"
     },
     "presets": {
-      "hint": "프롬프트에 적용",
+      "hint": "적용",
       "image": {
         "title": "이미지 시작점",
         "ariaLabel": "이미지 시작점",
         "editorial-cut": {
           "label": "에디토리얼 컷",
-          "description": "인물, 패브릭, 조명을 한 번에 잡는 시각 프롬프트",
+          "description": "인물, 패브릭, 조명을 한 번에 잡는 컷",
           "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
         },
         "product-shadow": {
@@ -372,7 +408,7 @@
         "accent": "생성"
       },
       "subtitle": "이미지 만들기",
-      "promptPlaceholder": "상세하게 프롬프트를 입력하세요...",
+      "promptPlaceholder": "만들고 싶은 장면을 입력하세요...",
       "uploadReference": "레퍼런스 이미지 업로드",
       "uploadUnsupported": "이미지 입력을 지원하지 않는 모델입니다.",
       "initImageAlt": "입력 이미지 미리보기",
@@ -381,9 +417,9 @@
       "previewStudioAlt": "스튜디오 인물 사진",
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewFilmAlt": "촬영 현장 사진",
-      "previewEyebrow": "이미지 스튜디오",
+      "previewEyebrow": "VISUAL TAKE",
       "previewTitle": "장면을 먼저 세우고 디테일을 밀어붙이세요",
-      "previewDescription": "프롬프트와 참고 이미지를 한 번에 넣고, 결과를 바로 다음 작업의 출발점으로 이어갑니다.",
+      "previewDescription": "아이디어와 참고 이미지를 완성된 이미지로 만들어보세요.",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -391,40 +427,40 @@
         "leading": "비디오",
         "accent": "생성"
       },
-      "subtitle": "원클릭 비디오 생성",
-      "promptPlaceholder": "생성할 비디오를 자세히 설명하세요...",
+      "subtitle": "짧은 장면 만들기",
+      "promptPlaceholder": "움직일 장면을 입력하세요...",
       "uploadReference": "레퍼런스 이미지 업로드",
       "initImageAlt": "입력 이미지 미리보기",
       "previewFilmAlt": "촬영 현장 사진",
       "previewPortraitAlt": "시네마틱 인물 프레임",
       "previewTextureAlt": "오디오 콘솔 사진",
-      "previewEyebrow": "비디오 스튜디오",
+      "previewEyebrow": "MOTION TAKE",
       "previewTitle": "정지된 컷을 움직이는 장면으로 확장하세요",
-      "previewDescription": "시작 이미지, 장면 설명, 길이 설정을 같은 하단 입력 흐름에서 조정합니다.",
+      "previewDescription": "이미지나 장면 아이디어로 짧은 영상을 만들어보세요.",
       "mode": {
         "imageToVideo": "이미지 → 비디오",
         "imageRequired": "이미지 필요",
         "textOnly": "텍스트 전용"
       },
-      "sizeNotice": "이 스페이스는 해상도/비율 변경을 지원하지 않습니다. 이미지 입력이 있으면 그 비율을 참고하며, 텍스트 전용은 기본 해상도로 생성됩니다."
+      "sizeNotice": "현재 선택에서는 크기 변경을 사용할 수 없습니다."
     },
     "audio": {
       "title": {
         "leading": "오디오",
         "accent": "생성"
       },
-      "subtitle": "텍스트로 음성을 생성합니다",
-      "promptPlaceholder": "생성할 음성 내용을 자연스럽게 입력하세요...",
+      "subtitle": "목소리 만들기",
+      "promptPlaceholder": "읽을 문장이나 톤을 입력하세요...",
       "voiceLabel": "보이스",
       "voiceUnset": "기본 보이스",
       "voicePlaceholder": "예: alloy",
-      "referenceTextLabel": "레퍼런스 텍스트",
-      "referenceTextPlaceholder": "레퍼런스 오디오의 텍스트를 입력하세요...",
+      "referenceTextLabel": "샘플 문장",
+      "referenceTextPlaceholder": "샘플 오디오의 문장을 입력하세요...",
       "speedLabel": "속도",
       "previewTextureAlt": "오디오 콘솔 사진",
-      "previewEyebrow": "오디오 스튜디오",
+      "previewEyebrow": "VOICE TAKE",
       "previewTitle": "목소리와 사운드의 톤을 먼저 잡으세요",
-      "previewDescription": "텍스트, 보이스, 레퍼런스 오디오 설정을 하나의 생성 dock 안에서 조합합니다.",
+      "previewDescription": "문장을 쓰고 목소리 톤을 정해 바로 들어보세요.",
       "seedPlaceholder": "선택 사항"
     },
     "errors": {

@@ -25,7 +25,7 @@ describe("LandingHero", () => {
     renderWithIntl(<LandingHero />);
 
     expect(
-      screen.getByRole("region", { name: "크리에이티브 미디어 콜라주" }),
+      screen.getByRole("region", { name: "스튜디오 쇼케이스" }),
     ).toBeInTheDocument();
     expect(screen.getByAltText("오디오 콘솔 사진")).toBeInTheDocument();
 

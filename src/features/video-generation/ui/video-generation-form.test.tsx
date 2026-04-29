@@ -103,12 +103,12 @@ describe("VideoGenerationForm", () => {
     expect(await screen.findByText("Wan 2.2 (HF Space)")).toBeInTheDocument();
   });
 
-  it("renders the shared prompt dock with video-specific control chips", async () => {
+  it("renders the shared creation input with video-specific control chips", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
     const dock = screen.getByRole("region", {
-      name: "크리에이티브 프롬프트 dock",
+      name: "작업 입력",
     });
 
     expect(dock).toHaveTextContent("이미지 필요");
@@ -138,7 +138,7 @@ describe("VideoGenerationForm", () => {
     expect(fileInput).not.toBeNull();
 
     await user.type(
-      screen.getByPlaceholderText("생성할 비디오를 자세히 설명하세요..."),
+      screen.getByPlaceholderText("움직일 장면을 입력하세요..."),
       "slow orbit camera move around a premium product",
     );
     if (fileInput) {
@@ -176,7 +176,7 @@ describe("VideoGenerationForm", () => {
     await waitForModels();
 
     const prompt = screen.getByPlaceholderText(
-      "생성할 비디오를 자세히 설명하세요...",
+      "움직일 장면을 입력하세요...",
     );
     const submit = screen.getByRole("button", { name: "생성" });
     const fileInput = container.querySelector(
@@ -218,7 +218,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated={false} />);
 
     expect(
-      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+      await screen.findByText("로그인하면 바로 만들 수 있습니다."),
     ).toBeInTheDocument();
 
     const user = userEvent.setup();
