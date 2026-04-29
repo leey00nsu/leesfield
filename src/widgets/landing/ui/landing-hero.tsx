@@ -79,10 +79,6 @@ export function LandingHero() {
             <span className="text-primary">{tBrand("trailing")}</span>
           </h1>
 
-          <p className="lf-motion-rise max-w-3xl text-lg leading-relaxed text-gray-300 sm:text-xl">
-            {t("description")}
-          </p>
-
           <div className="grid w-full max-w-3xl gap-3 sm:grid-cols-3">
             {creationLinks.map((item) => {
               const Icon = item.icon;
@@ -102,9 +98,6 @@ export function LandingHero() {
                     <span className="flex flex-col items-start gap-0.5 text-left">
                       <span className="font-semibold">
                         {t(`creation.${item.key}.label`)}
-                      </span>
-                      <span className="text-xs font-normal opacity-75">
-                        {t(`creation.${item.key}.description`)}
                       </span>
                     </span>
                   </Link>

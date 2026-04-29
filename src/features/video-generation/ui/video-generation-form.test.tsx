@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
@@ -137,10 +137,10 @@ describe("VideoGenerationForm", () => {
     expect(submit).toBeDisabled();
     expect(fileInput).not.toBeNull();
 
-    await user.type(
-      screen.getByPlaceholderText("움직일 장면을 입력하세요..."),
-      "slow orbit camera move around a premium product",
-    );
+    const prompt = within(
+      screen.getByRole("region", { name: "작업 입력" }),
+    ).getByRole("textbox");
+    await user.type(prompt, "slow orbit camera move around a premium product");
     if (fileInput) {
       const file = new File(["test"], "sample.png", { type: "image/png" });
       await user.upload(fileInput, file);
@@ -175,9 +175,9 @@ describe("VideoGenerationForm", () => {
     const user = userEvent.setup();
     await waitForModels();
 
-    const prompt = screen.getByPlaceholderText(
-      "움직일 장면을 입력하세요...",
-    );
+    const prompt = within(
+      screen.getByRole("region", { name: "작업 입력" }),
+    ).getByRole("textbox");
     const submit = screen.getByRole("button", { name: "생성" });
     const fileInput = container.querySelector(
       "input[type=\"file\"]",

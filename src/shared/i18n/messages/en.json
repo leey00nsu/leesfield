@@ -93,19 +93,19 @@
     "hero": {
       "status": "Creative studio",
       "secondaryCta": "API docs",
-      "description": "A private studio from first scene to finished take.",
+      "description": "",
       "creation": {
         "image": {
           "label": "Make images",
-          "description": "Text and references"
+        "description": ""
         },
         "video": {
           "label": "Make videos",
-          "description": "Scenes and motion"
+        "description": ""
         },
         "audio": {
           "label": "Make audio",
-          "description": "Voice and sound"
+        "description": ""
         }
       },
       "preview": {
@@ -122,8 +122,8 @@
     },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
-      "title": "ONE IDEA, MANY FINISHES",
-      "description": "Concept, model choice, and saved results stay in one private workspace rhythm.",
+      "title": "LEESFIELD",
+      "description": "",
       "laneCta": "Open studio",
       "capabilities": {
         "draft": "Fast drafts",
@@ -134,17 +134,17 @@
       "lanes": {
         "image": {
           "title": "Build the cut",
-          "description": "Portraits, products, moodboards",
+          "description": "",
           "imageAlt": "Cinematic portrait image"
         },
         "video": {
           "title": "Extend the scene",
-          "description": "Cuts, motion, short clips",
+          "description": "",
           "imageAlt": "Film production image"
         },
         "audio": {
           "title": "Shape the tone",
-          "description": "Voice, ambience, sound",
+          "description": "",
           "imageAlt": "Audio console image"
         }
       },
@@ -164,101 +164,14 @@
       },
       "motion": {
         "eyebrow": "LIVE CANVAS",
-        "title": "Start fast. Keep the best take.",
-        "description": "Today's cuts and sounds become material for the next pass."
-      },
-      "cards": {
-        "generation": {
-          "title": "Image & video generation",
-          "description": "Generate images and videos from the dashboard and review results quickly."
-        },
-        "history": {
-          "title": "Generation history",
-          "description": "Keep all prompts and settings to return to results anytime."
-        },
-        "model": {
-          "title": "Model management",
-          "description": "Switch image/video models to match the task and get the best results."
-        },
-        "api": {
-          "title": "Developer API",
-          "description": "Automate workflows and integrate generation into your services with REST APIs."
-        }
-      }
-    },
-    "techStack": {
-      "title": "Tech stack",
-      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more.",
-      "items": {
-        "nextjs": {
-          "label": "NEXT.JS",
-          "description": "Frontend Framework"
-        },
-        "typescript": {
-          "label": "TYPESCRIPT",
-          "description": "Language"
-        },
-        "prisma": {
-          "label": "PRISMA",
-          "description": "ORM"
-        },
-        "tailwind": {
-          "label": "TAILWIND",
-          "description": "Styling (+ shadcn/ui)"
-        }
-      }
-    },
-    "why": {
-      "eyebrow": "ABOUT LEESFIELD",
-      "title": "Keep the work from scattering",
-      "description": "leesfield keeps ideas, model choices, results, and history in a single creative workspace.",
-      "proof": {
-        "left": {
-          "value": "1",
-          "label": "Private workspace"
-        },
-        "right": {
-          "value": "∞",
-          "label": "Reusable results"
-        }
-      },
-      "cards": {
-        "look": {
-          "title": "Results first",
-          "description": "See the work and the choices before long explanations."
-        },
-        "reuse": {
-          "title": "History with context",
-          "description": "Keep the take, model, and input together for the next direction."
-        },
-        "private": {
-          "title": "Private workspace",
-          "description": "A quiet flow for your own projects, not a public feed."
-        },
-        "momentum": {
-          "title": "Fast handoff",
-          "description": "Turn a short idea into a result, keep the strongest direction, and move."
-        }
+        "title": "STUDIO",
+        "description": ""
       }
     },
     "cta": {
       "title": "Start with leesfield",
-      "description": "Create, save, and continue your personal studio work.",
-      "button": "Go to dashboard",
-      "faq": {
-        "ownership": {
-          "title": "What gets saved?",
-          "description": "Your results, selected model, and input stay together."
-        },
-        "reuse": {
-          "title": "Can I continue a result?",
-          "description": "Use history items as the starting point for the next pass."
-        },
-        "access": {
-          "title": "Who is it for?",
-          "description": "Individual creators, small studios, and prototype work."
-        }
-      }
+      "description": "",
+      "button": "Go to dashboard"
     }
   },
   "auth": {
@@ -274,11 +187,11 @@
       "preview": {
         "imageAlt": "Creative studio login preview",
         "title": "LEESFIELD STUDIO",
-        "description": "Prompting, model choice, and result reuse stay in one workflow.",
+        "description": "",
         "badges": {
           "unlimited": "Private workspace",
           "quality": "Saved history",
-          "prompt": "Prompt reuse"
+          "prompt": "Saved work"
         },
         "tabs": {
           "image": "Image",
@@ -307,7 +220,7 @@
     },
     "loginGate": {
       "title": "Login required",
-      "description": "Log in to continue with the prompt and model you already selected.",
+      "description": "",
       "action": "Log in",
       "cancel": "Not now"
     }
@@ -333,7 +246,7 @@
     "settings": "Settings",
     "canvas": {
       "emptyTitle": "Ready when you are",
-      "emptyDescription": "Add an idea to begin.",
+      "emptyDescription": "",
       "generating": "Generating...",
       "failedTitle": "Generation failed",
       "failedDescription": "Please try again later."
@@ -408,7 +321,7 @@
         "accent": "Generation"
       },
       "subtitle": "Create images",
-      "promptPlaceholder": "Describe the scene you want...",
+      "promptPlaceholder": "",
       "uploadReference": "Upload Reference Image",
       "uploadUnsupported": "This model does not support image input.",
       "initImageAlt": "Init image preview",
@@ -418,8 +331,8 @@
       "previewTextureAlt": "Audio console photo",
       "previewFilmAlt": "Film production photo",
       "previewEyebrow": "VISUAL TAKE",
-      "previewTitle": "Set the scene, then push the detail",
-      "previewDescription": "Build a finished image from an idea and optional reference.",
+      "previewTitle": "",
+      "previewDescription": "",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -428,15 +341,15 @@
         "accent": "Generation"
       },
       "subtitle": "Create a short scene",
-      "promptPlaceholder": "Describe the scene in motion...",
+      "promptPlaceholder": "",
       "uploadReference": "Upload Reference Image",
       "initImageAlt": "Init image preview",
       "previewFilmAlt": "Film production photo",
       "previewPortraitAlt": "Cinematic portrait frame",
       "previewTextureAlt": "Audio console photo",
       "previewEyebrow": "MOTION TAKE",
-      "previewTitle": "Turn a still frame into a moving scene",
-      "previewDescription": "Start from an image or scene idea and create a short clip.",
+      "previewTitle": "",
+      "previewDescription": "",
       "mode": {
         "imageToVideo": "IMAGE TO VIDEO",
         "imageRequired": "IMAGE REQUIRED",
@@ -450,17 +363,17 @@
         "accent": "Generation"
       },
       "subtitle": "Create a voice take",
-      "promptPlaceholder": "Write the line or tone you want...",
+      "promptPlaceholder": "",
       "voiceLabel": "Voice",
       "voiceUnset": "Default voice",
       "voicePlaceholder": "e.g. alloy",
       "referenceTextLabel": "Sample line",
-      "referenceTextPlaceholder": "Enter the line from the sample audio...",
+      "referenceTextPlaceholder": "",
       "speedLabel": "Speed",
       "previewTextureAlt": "Audio console photo",
       "previewEyebrow": "VOICE TAKE",
-      "previewTitle": "Shape the tone before you render",
-      "previewDescription": "Write the line, choose a voice direction, and listen back.",
+      "previewTitle": "",
+      "previewDescription": "",
       "seedPlaceholder": "Optional"
     },
     "errors": {

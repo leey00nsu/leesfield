@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
@@ -210,7 +210,9 @@ describe("AudioGenerationForm", () => {
       screen.queryByRole("button", { name: /따뜻한 보이스오버/ }),
     ).toBeNull();
     await user.type(
-      screen.getByPlaceholderText("읽을 문장이나 톤을 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       "A calm, warm voiceover introducing a creative AI studio.",
     );
 
@@ -342,7 +344,9 @@ describe("AudioGenerationForm", () => {
     await waitForModels();
 
     await user.type(
-      screen.getByPlaceholderText("읽을 문장이나 톤을 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       "hello audio",
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -448,7 +452,9 @@ describe("AudioGenerationForm", () => {
     await screen.findByRole("button", { name: /Qwen TTS Clone/i });
 
     await user.type(
-      screen.getByPlaceholderText("읽을 문장이나 톤을 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       "hello clone",
     );
     await user.click(screen.getByRole("button", { name: /설정/i }));
@@ -459,7 +465,7 @@ describe("AudioGenerationForm", () => {
       }),
     );
     await user.type(
-      screen.getByPlaceholderText("샘플 오디오의 문장을 입력하세요..."),
+      screen.getByRole("textbox", { name: "샘플 문장" }),
       "reference words",
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -521,7 +527,9 @@ describe("AudioGenerationForm", () => {
     expect(screen.queryByText("Repetition Penalty")).not.toBeInTheDocument();
 
     fireEvent.change(
-      screen.getByPlaceholderText("읽을 문장이나 톤을 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       { target: { value: "hello qwen" } },
     );
     await user.upload(
@@ -531,7 +539,7 @@ describe("AudioGenerationForm", () => {
       }),
     );
     fireEvent.change(
-      screen.getByPlaceholderText("샘플 오디오의 문장을 입력하세요..."),
+      screen.getByRole("textbox", { name: "샘플 문장" }),
       { target: { value: "reference transcript" } },
     );
     await user.click(screen.getByRole("button", { name: "생성" }));

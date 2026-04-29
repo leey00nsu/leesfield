@@ -499,12 +499,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                       <p className="text-sm font-semibold text-gray-500">
                         {tImage("previewEyebrow")}
                       </p>
-                      <h2 className="mt-2 text-4xl font-black uppercase leading-none text-white sm:text-6xl">
-                        {tImage("previewTitle")}
-                      </h2>
-                      <p className="mt-4 text-base text-gray-400 sm:text-lg">
-                        {tImage("previewDescription")}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -530,7 +524,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         textarea={
                           <FormControl>
                             <Textarea
-                              placeholder={tImage("promptPlaceholder")}
                               className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                               {...field}
                             />

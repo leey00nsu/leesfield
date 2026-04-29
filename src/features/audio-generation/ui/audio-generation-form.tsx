@@ -480,18 +480,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     }
   };
 
-  const getFieldTextareaPlaceholder = (key: AudioFieldName) => {
-    if (key === "referenceText") return tAudio("referenceTextPlaceholder");
-    if (key === "customInstruction") return "Warm, calm, energetic...";
-    if (key === "voiceInstruction") return "Bright narrator, soft whisper...";
-    return "";
-  };
+  const getFieldTextareaPlaceholder = () => "";
 
-  const getFieldInputPlaceholder = (key: AudioFieldName) => {
-    if (key === "voice") return tAudio("voicePlaceholder");
-    if (key === "seed") return tAudio("seedPlaceholder");
-    return "";
-  };
+  const getFieldInputPlaceholder = () => "";
 
   const getResolvedDefaultValue = (key: AudioFieldName) => {
     const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
@@ -718,7 +709,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 <Textarea
                   {...field}
                   value={typeof field.value === "string" ? field.value : ""}
-                  placeholder={getFieldTextareaPlaceholder(key)}
+                  placeholder={getFieldTextareaPlaceholder()}
                   className="min-h-[96px] rounded-xl border-white/10 bg-black/40 px-4 py-3 text-sm text-white"
                 />
               </FormControl>
@@ -743,7 +734,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
               <Input
                 {...field}
                 value={typeof field.value === "string" ? field.value : ""}
-                placeholder={getFieldInputPlaceholder(key)}
+                placeholder={getFieldInputPlaceholder()}
                 className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white"
               />
             </FormControl>
@@ -808,12 +799,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   <div className="max-w-4xl">
                     <p className="text-sm font-semibold text-gray-500">
                       {tAudio("previewEyebrow")}
-                    </p>
-                    <h2 className="mt-2 text-4xl font-black uppercase leading-none text-white sm:text-6xl">
-                      {tAudio("previewTitle")}
-                    </h2>
-                    <p className="mt-4 text-base text-gray-400 sm:text-lg">
-                      {tAudio("previewDescription")}
                     </p>
                   </div>
                 </div>
@@ -883,7 +868,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   textarea={
                     <FormControl>
                       <Textarea
-                        placeholder={tAudio("promptPlaceholder")}
                         className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                         {...field}
                       />

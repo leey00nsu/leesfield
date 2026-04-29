@@ -30,7 +30,6 @@ const creationLinks = [
 ] as const;
 
 const statKeys = ["workspace", "history", "models"] as const;
-const capabilityKeys = ["draft", "reuse", "model", "share"] as const;
 
 export function LandingFeaturesSection() {
   const t = useTranslations("landing.features");
@@ -46,9 +45,6 @@ export function LandingFeaturesSection() {
           <h2 className="mt-5 max-w-3xl text-5xl font-black uppercase leading-[0.92] text-white sm:text-7xl lg:text-8xl">
             {t("title")}
           </h2>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-400">
-            {t("description")}
-          </p>
 
           <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
             {statKeys.map((key) => (
@@ -63,17 +59,6 @@ export function LandingFeaturesSection() {
                   {t(`stats.${key}.label`)}
                 </p>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex max-w-xl flex-wrap gap-2">
-            {capabilityKeys.map((key) => (
-              <span
-                key={key}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-gray-300"
-              >
-                {t(`capabilities.${key}`)}
-              </span>
             ))}
           </div>
         </div>
@@ -110,9 +95,6 @@ export function LandingFeaturesSection() {
                   <h3 className="mt-1 text-2xl font-black text-white">
                     {t(`lanes.${item.key}.title`)}
                   </h3>
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-300 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100">
-                    {t(`lanes.${item.key}.description`)}
-                  </p>
                 </div>
               </Link>
             );
@@ -126,9 +108,6 @@ export function LandingFeaturesSection() {
             <h3 className="mt-4 max-w-4xl text-4xl font-black uppercase leading-[0.95] sm:text-5xl">
               {t("motion.title")}
             </h3>
-            <p className="mt-4 max-w-2xl text-sm font-semibold leading-relaxed text-black/70 sm:text-base">
-              {t("motion.description")}
-            </p>
             <Button
               asChild
               variant="surface"

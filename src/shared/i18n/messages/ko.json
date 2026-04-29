@@ -93,19 +93,19 @@
     "hero": {
       "status": "크리에이티브 스튜디오",
       "secondaryCta": "API 문서",
-      "description": "한 장면에서 시작해 완성본까지 이어지는 개인 스튜디오.",
+      "description": "",
       "creation": {
         "image": {
           "label": "이미지 만들기",
-          "description": "텍스트와 참고 이미지"
+        "description": ""
         },
         "video": {
           "label": "비디오 만들기",
-          "description": "장면과 모션"
+        "description": ""
         },
         "audio": {
           "label": "오디오 만들기",
-          "description": "보이스와 사운드"
+        "description": ""
         }
       },
       "preview": {
@@ -122,8 +122,8 @@
     },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
-      "title": "ONE IDEA, MANY FINISHES",
-      "description": "컨셉, 모델 선택, 결과 보관을 한 흐름으로 묶어 개인 작업실처럼 씁니다.",
+      "title": "LEESFIELD",
+      "description": "",
       "laneCta": "스튜디오 열기",
       "capabilities": {
         "draft": "빠른 초안",
@@ -134,17 +134,17 @@
       "lanes": {
         "image": {
           "title": "컷 만들기",
-          "description": "인물, 제품, 무드보드",
+          "description": "",
           "imageAlt": "시네마틱 인물 이미지"
         },
         "video": {
           "title": "장면 확장",
-          "description": "컷, 움직임, 짧은 클립",
+          "description": "",
           "imageAlt": "촬영 현장 이미지"
         },
         "audio": {
           "title": "톤 입히기",
-          "description": "보이스, 분위기, 사운드",
+          "description": "",
           "imageAlt": "오디오 콘솔 이미지"
         }
       },
@@ -164,101 +164,14 @@
       },
       "motion": {
         "eyebrow": "LIVE CANVAS",
-        "title": "시작은 짧고, 결과는 오래 남깁니다.",
-        "description": "오늘 만든 컷과 사운드는 다음 작업의 재료가 됩니다."
-      },
-      "cards": {
-        "generation": {
-          "title": "이미지/비디오 생성",
-          "description": "대시보드에서 이미지/비디오를 생성하고 결과를 빠르게 확인할 수 있습니다."
-        },
-        "history": {
-          "title": "생성 히스토리",
-          "description": "모든 프롬프트와 설정을 보관해 언제든 동일한 결과로 되돌릴 수 있습니다."
-        },
-        "model": {
-          "title": "모델 관리",
-          "description": "이미지/비디오 모델을 상황에 맞게 전환하고 최적의 결과를 얻습니다."
-        },
-        "api": {
-          "title": "개발자 API",
-          "description": "REST API로 워크플로우를 자동화하고 자체 서비스에 생성 기능을 통합합니다."
-        }
-      }
-    },
-    "techStack": {
-      "title": "기술 스택",
-      "description": "이 프로젝트는 Next.js(App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest 등으로 구성되어 있습니다.",
-      "items": {
-        "nextjs": {
-          "label": "NEXT.JS",
-          "description": "Frontend Framework"
-        },
-        "typescript": {
-          "label": "TYPESCRIPT",
-          "description": "Language"
-        },
-        "prisma": {
-          "label": "PRISMA",
-          "description": "ORM"
-        },
-        "tailwind": {
-          "label": "TAILWIND",
-          "description": "Styling (+ shadcn/ui)"
-        }
-      }
-    },
-    "why": {
-      "eyebrow": "ABOUT LEESFIELD",
-      "title": "작업 흐름을 흩어지지 않게",
-      "description": "leesfield는 아이디어, 모델, 결과, 히스토리를 한 화면의 리듬으로 묶어 반복 작업을 줄이는 개인 창작 공간입니다.",
-      "proof": {
-        "left": {
-          "value": "1",
-          "label": "Private workspace"
-        },
-        "right": {
-          "value": "∞",
-          "label": "Reusable results"
-        }
-      },
-      "cards": {
-        "look": {
-          "title": "먼저 보이는 결과",
-          "description": "긴 설명보다 결과물과 선택지를 먼저 보여줘 다음 판단을 빠르게 만듭니다."
-        },
-        "reuse": {
-          "title": "다시 쓰는 히스토리",
-          "description": "완성본, 모델, 입력값을 함께 남겨 다음 시도에 바로 이어 붙입니다."
-        },
-        "private": {
-          "title": "개인 작업 공간",
-          "description": "공개 피드보다 내 프로젝트와 반복 작업에 맞춘 조용한 흐름을 우선합니다."
-        },
-        "momentum": {
-          "title": "빠른 전환",
-          "description": "짧은 아이디어를 결과로 바꾸고, 마음에 드는 방향만 남겨 속도를 유지합니다."
-        }
+        "title": "STUDIO",
+        "description": ""
       }
     },
     "cta": {
       "title": "leesfield로 시작하세요",
-      "description": "개인 창작물을 만들고, 보관하고, 다시 이어갑니다.",
-      "button": "대시보드로 이동",
-      "faq": {
-        "ownership": {
-          "title": "무엇을 남기나요?",
-          "description": "결과물과 선택한 모델, 입력값을 함께 보관합니다."
-        },
-        "reuse": {
-          "title": "다시 만들 수 있나요?",
-          "description": "히스토리에서 마음에 드는 결과를 다음 작업의 출발점으로 씁니다."
-        },
-        "access": {
-          "title": "누구를 위한 공간인가요?",
-          "description": "개인 creator, small studio, prototype 작업자에게 맞춘 흐름입니다."
-        }
-      }
+      "description": "",
+      "button": "대시보드로 이동"
     }
   },
   "auth": {
@@ -274,11 +187,11 @@
       "preview": {
         "imageAlt": "크리에이티브 스튜디오 로그인 미리보기",
         "title": "LEESFIELD STUDIO",
-        "description": "프롬프트, 모델 선택, 결과 재사용이 하나의 작업 흐름으로 이어집니다.",
+        "description": "",
         "badges": {
           "unlimited": "Private workspace",
           "quality": "Saved history",
-          "prompt": "Prompt reuse"
+          "prompt": "Saved work"
         },
         "tabs": {
           "image": "Image",
@@ -307,7 +220,7 @@
     },
     "loginGate": {
       "title": "로그인이 필요합니다",
-      "description": "로그인하면 지금 입력한 프롬프트와 선택한 모델로 바로 생성을 이어갈 수 있습니다.",
+      "description": "",
       "action": "로그인",
       "cancel": "나중에"
     }
@@ -333,7 +246,7 @@
     "settings": "설정",
     "canvas": {
       "emptyTitle": "준비 완료",
-      "emptyDescription": "아이디어를 입력해 시작하세요.",
+      "emptyDescription": "",
       "generating": "생성 중...",
       "failedTitle": "생성에 실패했습니다",
       "failedDescription": "잠시 후 다시 시도해주세요."
@@ -408,7 +321,7 @@
         "accent": "생성"
       },
       "subtitle": "이미지 만들기",
-      "promptPlaceholder": "만들고 싶은 장면을 입력하세요...",
+      "promptPlaceholder": "",
       "uploadReference": "레퍼런스 이미지 업로드",
       "uploadUnsupported": "이미지 입력을 지원하지 않는 모델입니다.",
       "initImageAlt": "입력 이미지 미리보기",
@@ -418,8 +331,8 @@
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewFilmAlt": "촬영 현장 사진",
       "previewEyebrow": "VISUAL TAKE",
-      "previewTitle": "장면을 먼저 세우고 디테일을 밀어붙이세요",
-      "previewDescription": "아이디어와 참고 이미지를 완성된 이미지로 만들어보세요.",
+      "previewTitle": "",
+      "previewDescription": "",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -428,15 +341,15 @@
         "accent": "생성"
       },
       "subtitle": "짧은 장면 만들기",
-      "promptPlaceholder": "움직일 장면을 입력하세요...",
+      "promptPlaceholder": "",
       "uploadReference": "레퍼런스 이미지 업로드",
       "initImageAlt": "입력 이미지 미리보기",
       "previewFilmAlt": "촬영 현장 사진",
       "previewPortraitAlt": "시네마틱 인물 프레임",
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewEyebrow": "MOTION TAKE",
-      "previewTitle": "정지된 컷을 움직이는 장면으로 확장하세요",
-      "previewDescription": "이미지나 장면 아이디어로 짧은 영상을 만들어보세요.",
+      "previewTitle": "",
+      "previewDescription": "",
       "mode": {
         "imageToVideo": "이미지 → 비디오",
         "imageRequired": "이미지 필요",
@@ -450,17 +363,17 @@
         "accent": "생성"
       },
       "subtitle": "목소리 만들기",
-      "promptPlaceholder": "읽을 문장이나 톤을 입력하세요...",
+      "promptPlaceholder": "",
       "voiceLabel": "보이스",
       "voiceUnset": "기본 보이스",
       "voicePlaceholder": "예: alloy",
       "referenceTextLabel": "샘플 문장",
-      "referenceTextPlaceholder": "샘플 오디오의 문장을 입력하세요...",
+      "referenceTextPlaceholder": "",
       "speedLabel": "속도",
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewEyebrow": "VOICE TAKE",
-      "previewTitle": "목소리와 사운드의 톤을 먼저 잡으세요",
-      "previewDescription": "문장을 쓰고 목소리 톤을 정해 바로 들어보세요.",
+      "previewTitle": "",
+      "previewDescription": "",
       "seedPlaceholder": "선택 사항"
     },
     "errors": {

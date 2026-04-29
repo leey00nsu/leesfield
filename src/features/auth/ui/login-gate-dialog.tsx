@@ -18,7 +18,7 @@ type LoginGateDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description?: string;
   actionLabel: string;
   cancelLabel: string;
   actionHref?: string;
@@ -56,8 +56,14 @@ export function LoginGateDialog({
               <DialogTitle className="text-2xl font-black tracking-tight text-white">
                 {title}
               </DialogTitle>
-              <DialogDescription className="max-w-sm text-sm leading-6 text-gray-400">
-                {description}
+              <DialogDescription
+                className={
+                  description
+                    ? "max-w-sm text-sm leading-6 text-gray-400"
+                    : "sr-only"
+                }
+              >
+                {description || actionLabel}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
