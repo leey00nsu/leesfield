@@ -1,14 +1,21 @@
-import { Cpu, Images, RefreshCcw, Sparkles, WandSparkles, Workflow } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  Cpu,
+  GalleryHorizontalEnd,
+  Images,
+  KeyRound,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { FeatureCard } from "@/shared/ui/grid-feature-cards";
 
 const featureKeys = [
-  { key: "prompt", icon: Sparkles },
-  { key: "image", icon: Images },
-  { key: "motion", icon: WandSparkles },
-  { key: "audio", icon: Workflow },
-  { key: "reuse", icon: RefreshCcw },
+  { key: "generation", icon: Images },
+  { key: "history", icon: GalleryHorizontalEnd },
+  { key: "monitoring", icon: Activity },
   { key: "models", icon: Cpu },
+  { key: "developerApi", icon: KeyRound },
+  { key: "openApiDocs", icon: BookOpen },
 ] as const;
 
 export function LandingCoreFeaturesSection() {

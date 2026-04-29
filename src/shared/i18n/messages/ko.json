@@ -119,36 +119,36 @@
       }
     },
     "coreFeatures": {
-      "title": "만들고, 고르고, 다시 쓰세요",
+      "title": "Core Features",
       "items": {
-        "prompt": {
-          "title": "프롬프트",
-          "description": "한 입력에서 결과를 시작합니다."
+        "generation": {
+          "title": "이미지/비디오/오디오 생성",
+          "description": "텍스트와 참고 자료로 미디어 결과를 만듭니다."
         },
-        "image": {
-          "title": "이미지",
-          "description": "컷과 참고 이미지를 다룹니다."
+        "history": {
+          "title": "히스토리 갤러리",
+          "description": "완성된 결과를 모아 보고 다시 사용할 수 있습니다."
         },
-        "motion": {
-          "title": "비디오",
-          "description": "장면을 움직임으로 확장합니다."
-        },
-        "audio": {
-          "title": "오디오",
-          "description": "목소리와 사운드를 더합니다."
-        },
-        "reuse": {
-          "title": "히스토리",
-          "description": "이전 결과를 다시 시작점으로 씁니다."
+        "monitoring": {
+          "title": "모니터링",
+          "description": "요청 상태와 처리 흐름을 한곳에서 확인합니다."
         },
         "models": {
-          "title": "모델",
-          "description": "작업에 맞는 모델을 선택합니다."
+          "title": "어댑터 기반 모델 관리",
+          "description": "모델과 provider 연결을 유연하게 관리합니다."
+        },
+        "developerApi": {
+          "title": "개발자 API",
+          "description": "외부 서비스에서 생성 기능을 호출할 수 있습니다."
+        },
+        "openApiDocs": {
+          "title": "OpenAPI 기반 API 문서",
+          "description": "스키마 기반 문서로 연동 지점을 확인합니다."
         }
       }
     },
     "techCloud": {
-      "title": "Next.js, React, TypeScript, Tailwind 기반"
+      "title": "Tech Stacks"
     },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
@@ -199,9 +199,9 @@
       }
     },
     "cta": {
-      "title": "이미지부터 시작",
+      "title": "지금 바로 시작해보세요",
       "description": "",
-      "button": "이미지 만들기"
+      "button": "시작하기"
     }
   },
   "auth": {

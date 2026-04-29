@@ -16,7 +16,7 @@ describe("LandingTechLogoCloudSection", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Next.js, React, TypeScript, Tailwind 기반",
+        name: "Tech Stacks",
       }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("infinite-slider")).toBeInTheDocument();

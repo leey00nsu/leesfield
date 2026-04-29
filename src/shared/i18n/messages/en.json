@@ -119,36 +119,36 @@
       }
     },
     "coreFeatures": {
-      "title": "Create, choose, reuse",
+      "title": "Core Features",
       "items": {
-        "prompt": {
-          "title": "Prompt",
-          "description": "Start from one input."
+        "generation": {
+          "title": "Image/Video/Audio Generation",
+          "description": "Create media results from text and references."
         },
-        "image": {
-          "title": "Image",
-          "description": "Work with cuts and references."
+        "history": {
+          "title": "History Gallery",
+          "description": "Browse finished results and reuse them."
         },
-        "motion": {
-          "title": "Video",
-          "description": "Extend scenes into motion."
-        },
-        "audio": {
-          "title": "Audio",
-          "description": "Add voice and sound."
-        },
-        "reuse": {
-          "title": "History",
-          "description": "Reuse previous results."
+        "monitoring": {
+          "title": "Monitoring",
+          "description": "Check request status and processing flow in one place."
         },
         "models": {
-          "title": "Models",
-          "description": "Pick the model for the job."
+          "title": "Adapter-Based Model Management",
+          "description": "Manage model and provider connections flexibly."
+        },
+        "developerApi": {
+          "title": "Developer API",
+          "description": "Call generation features from external services."
+        },
+        "openApiDocs": {
+          "title": "OpenAPI-Based API Docs",
+          "description": "Use schema-based docs to inspect integration points."
         }
       }
     },
     "techCloud": {
-      "title": "Built with Next.js, React, TypeScript, and Tailwind"
+      "title": "Tech Stacks"
     },
     "features": {
       "eyebrow": "STUDIO SYSTEM",
@@ -199,9 +199,9 @@
       }
     },
     "cta": {
-      "title": "Start with images",
+      "title": "Start now",
       "description": "",
-      "button": "Make images"
+      "button": "Get started"
     }
   },
   "auth": {

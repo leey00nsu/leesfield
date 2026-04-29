@@ -2,7 +2,6 @@ import { Header } from "@/widgets/header/ui/header";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { LandingCoreFeaturesSection } from "@/widgets/landing/ui/landing-core-features-section";
 import { LandingTechLogoCloudSection } from "@/widgets/landing/ui/landing-tech-logo-cloud-section";
-import { LandingFeaturesSection } from "@/widgets/landing/ui/landing-features-section";
 import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
 
 interface LandingWidgetProps {
@@ -29,7 +28,6 @@ export function LandingWidget({
             <LandingCoreFeaturesSection />
             <LandingTechLogoCloudSection />
             <LandingCtaSection />
-            <LandingFeaturesSection />
           </div>
         </section>
       </main>
