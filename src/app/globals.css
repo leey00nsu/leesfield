@@ -159,48 +159,17 @@
   }
 
   .creative-surface {
-    background:
-      radial-gradient(
-        circle at top right,
-        var(--creative-surface-glow),
-        transparent 34rem
-      ),
-      linear-gradient(
-        180deg,
-        var(--creative-surface),
-        var(--creative-surface-muted)
-      );
+    background: var(--creative-surface);
     border-color: var(--creative-surface-border);
   }
 
   .lf-editorial-page {
-    background:
-      radial-gradient(
-        circle at 50% 0%,
-        oklch(0.2 0.03 104 / 0.42),
-        transparent 34rem
-      ),
-      radial-gradient(
-        circle at 18% 24%,
-        oklch(0.2 0.025 104 / 0.24),
-        transparent 30rem
-      ),
-      oklch(0.075 0.006 104);
+    background: oklch(0.075 0.006 104);
   }
 
   .lf-editorial-panel {
     border: 1px solid oklch(1 0 0 / 0.14);
-    background:
-      radial-gradient(
-        circle at 50% 0%,
-        oklch(0.72 0.18 121 / 0.075),
-        transparent 28rem
-      ),
-      linear-gradient(
-        180deg,
-        oklch(0.16 0.008 104 / 0.9),
-        oklch(0.1 0.006 104 / 0.94)
-      );
+    background: oklch(0.12 0.006 104 / 0.94);
     box-shadow: 0 34px 110px oklch(0 0 0 / 0.45);
   }
 
@@ -230,10 +199,7 @@
   }
 
   .lf-outline-map {
-    background-image:
-      radial-gradient(circle at center, oklch(1 0 0 / 0.026) 1px, transparent 1px),
-      linear-gradient(135deg, oklch(1 0 0 / 0.05), transparent 44%);
-    background-size: 26px 26px, 100% 100%;
+    background: oklch(0.12 0.006 104 / 0.94);
   }
 
   .lf-motion-rise {

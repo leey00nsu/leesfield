@@ -36,7 +36,6 @@ export function LandingFeaturesSection() {
 
   return (
     <section className="relative overflow-hidden border-y border-white/5 bg-[#060708] px-6 py-20 sm:px-10 lg:py-28">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_50%_0%,rgba(48,66,78,0.32),transparent_62%)]" />
       <div className="relative mx-auto grid w-full max-w-[1600px] gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div className="lg:sticky lg:top-28">
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">

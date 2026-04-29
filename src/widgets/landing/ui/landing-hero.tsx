@@ -4,7 +4,6 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/ui/button";
 import { GenerationPromptSurface } from "@/shared/ui/generation-prompt-field";
-import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 const generationTabs = ["image", "video", "audio"] as const;
 
@@ -41,7 +40,6 @@ export function LandingHero() {
 
   return (
     <section className="relative overflow-hidden px-6 pb-16 pt-8 sm:px-10 lg:pb-24">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,oklch(0.22_0.026_104_/_0.46),transparent_34rem)]" />
       <div className="relative mx-auto flex w-full max-w-[1500px] flex-col items-center">
         <div className="mx-auto max-w-6xl text-center">
           <h1
@@ -64,13 +62,8 @@ export function LandingHero() {
         <div
           role="region"
           aria-label={t("preview.label")}
-          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] p-6 sm:p-8 lg:p-10"
+          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
-          <div data-layer="hero-shader" className="lf-shader-fade-in absolute inset-0">
-            <WarpShaderPanel className="absolute inset-0 opacity-75" />
-          </div>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.12_0.008_104_/_0.18),oklch(0.08_0.006_104_/_0.62))]" />
-
           <div
             data-testid="landing-hero-form-surface"
             className="lf-editorial-panel relative mx-auto max-w-4xl overflow-hidden rounded-[1.05rem] p-3 sm:p-4"
