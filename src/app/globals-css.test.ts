@@ -30,8 +30,14 @@ describe("editorial surface CSS", () => {
     expect(cardBlock).toContain("transparent 28rem");
     expect(cardBlock).toContain("linear-gradient");
     expect(cardBlock).toContain("180deg");
-    expect(panelBlock).toContain("rgba(");
-    expect(cardBlock).toContain("rgba(");
+    expect(panelBlock).toContain("rgba(212, 240, 50, 0.052)");
+    expect(cardBlock).toContain("rgba(212, 240, 50, 0.052)");
+    expect(panelBlock).not.toContain("rgba(212, 240, 50, 0.075)");
+    expect(cardBlock).not.toContain("rgba(212, 240, 50, 0.075)");
+    expect(panelBlock).toContain("rgba(15, 17, 12, 0.84)");
+    expect(panelBlock).toContain("rgba(5, 6, 4, 0.9)");
+    expect(cardBlock).toContain("rgba(15, 17, 12, 0.84)");
+    expect(cardBlock).toContain("rgba(5, 6, 4, 0.9)");
     expect(panelBlock).not.toMatch(/radial-gradient\([^)]*oklch/);
     expect(cardBlock).not.toMatch(/radial-gradient\([^)]*oklch/);
   });

@@ -66,7 +66,7 @@ export function BrandLogo({
       {iconOnly ? null : (
         <span
           className={cn(
-            "lf-serif truncate text-white",
+            "lf-serif truncate font-medium text-white",
             textSizeClasses[size],
             textClassName,
           )}
