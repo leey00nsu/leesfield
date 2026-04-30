@@ -27,9 +27,15 @@ const preview: Preview = {
             style={{
               "--font-body":
                 "Pretendard, Noto Sans KR, Noto Sans, ui-sans-serif, system-ui, sans-serif",
-              "--font-heading": "Georgia, Times New Roman, serif",
+              "--font-heading":
+                "Nanum Myeongjo, Georgia, Times New Roman, serif",
             }}
           >
+            <style>
+              {
+                "@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');"
+              }
+            </style>
             <Story />
           </div>
         </QueryClientProvider>

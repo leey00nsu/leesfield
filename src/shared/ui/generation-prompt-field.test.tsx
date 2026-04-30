@@ -26,7 +26,8 @@ describe("GenerationPromptField", () => {
     expect(surface).toHaveClass("relative");
     expect(surface).toHaveClass("rounded-xl");
     expect(surface).toHaveClass("border-white/12");
-    expect(surface).toHaveClass("bg-black/18");
+    expect(surface.className).toContain("[background:radial-gradient");
+    expect(surface.className).toContain("linear-gradient");
     expect(surface).not.toHaveClass("bg-creative-surface");
   });
 });

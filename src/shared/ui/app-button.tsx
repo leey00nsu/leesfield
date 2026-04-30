@@ -18,13 +18,13 @@ type AppButtonProps = Omit<ComponentProps<typeof Button>, "variant" | "size"> & 
 
 const variantClasses: Record<AppButtonVariant, string> = {
   primary:
-    "bg-primary text-primary-content shadow-[0_0_30px_rgba(212,240,50,0.18)] hover:bg-primary/92 hover:shadow-[0_0_46px_rgba(212,240,50,0.28)]",
+    "bg-primary text-primary-content shadow-[0_0_30px_rgba(212,240,50,0.18)] hover:bg-primary hover:text-primary-content hover:shadow-[0_0_46px_rgba(212,240,50,0.28)]",
   surface:
-    "border border-white/12 bg-black/16 text-white/82 hover:border-primary/45 hover:bg-black/24 hover:text-white",
-  ghost: "text-white/70 hover:bg-white/8 hover:text-white",
-  white: "bg-white text-black hover:bg-white/88",
+    "border border-white/12 bg-black/16 text-white/82 hover:border-white/12 hover:bg-black/16 hover:text-white/82",
+  ghost: "text-white/70 hover:bg-transparent hover:text-white/70",
+  white: "bg-white text-black hover:bg-white hover:text-black",
   danger:
-    "border border-red-300/20 bg-red-500/12 text-red-100 hover:bg-red-500/18",
+    "border border-red-300/20 bg-red-500/12 text-red-100 hover:border-red-300/20 hover:bg-red-500/12 hover:text-red-100",
 };
 
 const sizeClasses: Record<AppButtonSize, string> = {

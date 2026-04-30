@@ -61,7 +61,7 @@
 :root {
   --font-mono: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-heading: Georgia, "Times New Roman", serif;
+  --font-heading: "Nanum Myeongjo", Georgia, "Times New Roman", serif;
   --radius: 0.625rem;
   --background: #0a0a0a;
   --foreground: #ffffff;

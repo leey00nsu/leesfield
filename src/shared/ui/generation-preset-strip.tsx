@@ -47,7 +47,7 @@ export function GenerationPresetStrip({
               key={preset.id}
               type="button"
               variant="surface"
-              className="h-auto min-h-24 flex-col items-start justify-between rounded-xl bg-creative-surface-muted p-4 text-left hover:border-primary/40"
+              className="h-auto min-h-24 flex-col items-start justify-between rounded-xl bg-creative-surface-muted p-4 text-left hover:border-white/12 hover:bg-creative-surface-muted"
               onClick={() => onSelect(preset, prompt)}
             >
               <span className="flex w-full items-center justify-between gap-3">

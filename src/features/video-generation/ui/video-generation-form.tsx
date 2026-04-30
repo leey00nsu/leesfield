@@ -416,7 +416,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                         className={cn(
                           "h-12 w-12 rounded-xl border-primary/20 bg-black/16 transition-colors",
                           supportsInitImage
-                            ? "text-white hover:border-primary/50 hover:bg-black/24 hover:text-primary"
+                            ? "text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
                             : "cursor-not-allowed text-gray-700",
                         )}
                         title={tVideo("uploadReference")}

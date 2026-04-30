@@ -539,7 +539,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                 !canUploadImages ||
                                 initImagePreviews.length >= maxInputImages
                               }
-                              className="h-12 w-12 rounded-xl border-primary/20 bg-black/16 text-white hover:border-primary/50 hover:bg-black/24 hover:text-primary"
+                              className="h-12 w-12 rounded-xl border-primary/20 bg-black/16 text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
                               title={
                                 canUploadImages
                                   ? tImage("uploadReference")

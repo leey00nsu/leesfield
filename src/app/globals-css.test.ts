@@ -8,6 +8,12 @@ const globalsCss = readFileSync(
 );
 
 describe("global CSS boundaries", () => {
+  it("keeps Nanum Myeongjo as the display point font fallback", () => {
+    expect(globalsCss).toContain(
+      '--font-heading: "Nanum Myeongjo", Georgia, "Times New Roman", serif;',
+    );
+  });
+
   it("does not keep project editorial surface recipes in global CSS", () => {
     const legacyClassNames = [
       [".lf", "editorial", "panel"].join("-"),

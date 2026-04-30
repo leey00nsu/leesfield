@@ -36,7 +36,7 @@ export function GenerationSettingsPopover({
           type="button"
           variant="surface"
           className={cn(
-            "h-12 min-w-max rounded-xl border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82 hover:border-primary/45 hover:bg-black/24 hover:text-white",
+            "h-12 min-w-max rounded-xl border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82 hover:border-white/12 hover:bg-black/16 hover:text-white/82",
             className,
           )}
         >

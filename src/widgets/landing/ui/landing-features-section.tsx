@@ -110,7 +110,7 @@ export function LandingFeaturesSection() {
             <AppButton
               asChild
               variant="surface"
-              className="mt-7 border-black/10 bg-black text-white hover:bg-black/85"
+              className="mt-7 border-black/10 bg-black text-white hover:border-black/10 hover:bg-black hover:text-white"
             >
               <Link href="/image">
                 {t("laneCta")}
