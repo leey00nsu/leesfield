@@ -4,6 +4,7 @@ import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generat
 import { renderWithIntl } from "@/test-utils/intl";
 
 const useGenerationHistoryListMock = vi.fn();
+const useMonitoringRequestDetailMock = vi.fn();
 const routerPushMock = vi.hoisted(() => vi.fn());
 const clipboardWriteTextMock = vi.hoisted(() => vi.fn());
 
@@ -15,6 +16,11 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/features/generation-history/hook/use-generation-history-list", () => ({
   useGenerationHistoryList: (...args: unknown[]) => useGenerationHistoryListMock(...args),
+}));
+
+vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => ({
+  useMonitoringRequestDetail: (...args: unknown[]) =>
+    useMonitoringRequestDetailMock(...args),
 }));
 
 const detailFixture = vi.hoisted(() => ({
@@ -57,6 +63,12 @@ vi.mock("@/features/generation-history/ui/history-list", () => ({
 describe("GenerationHistoryScreen", () => {
   beforeEach(() => {
     useGenerationHistoryListMock.mockReset();
+    useMonitoringRequestDetailMock.mockReset();
+    useMonitoringRequestDetailMock.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
     routerPushMock.mockReset();
     clipboardWriteTextMock.mockReset();
     Object.defineProperty(navigator, "clipboard", {
@@ -231,6 +243,89 @@ describe("GenerationHistoryScreen", () => {
     );
 
     expect(screen.getByRole("button", { name: "Upscale" })).toBeDisabled();
+  });
+
+  it("hydrates missing rail metadata from the canonical request detail response", () => {
+    const staleListItem = {
+      ...detailFixture,
+      updatedAt: null,
+      durationMs: null,
+      progress: null,
+      resultUrl: null,
+      thumbnailUrl: null,
+      inputImages: [],
+    };
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [staleListItem],
+      total: 1,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+    useMonitoringRequestDetailMock.mockReturnValue({
+      data: {
+        id: "history-detail-1",
+        type: "image",
+        status: "completed",
+        prompt: "hydrated prompt",
+        model: "hydrated-model",
+        createdAt: "2026-03-10T00:00:00.000Z",
+        updatedAt: "2026-03-10T00:00:02.500Z",
+        durationMs: 2500,
+        progress: 100,
+        errorMessage: null,
+        warningMessage: "asset warning",
+        inputImages: ["https://example.com/detail-input.png"],
+        inputAudios: [],
+        referenceText: "hydrated reference",
+        assets: [
+          {
+            url: "https://example.com/detail-result.png",
+            width: 1024,
+            height: 1024,
+            durationSec: null,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    fireEvent.click(screen.getByTestId("history-list"));
+
+    expect(useMonitoringRequestDetailMock).toHaveBeenCalledWith(
+      "image",
+      "history-detail-1",
+      true,
+    );
+    expect(screen.getByText("hydrated prompt")).toBeInTheDocument();
+    expect(screen.getByText("hydrated reference")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.getAllByText("hydrated-model").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
+    const completedAtRow = screen.getByText("완료 시간").parentElement;
+    expect(completedAtRow).toHaveTextContent("2026");
+    expect(completedAtRow).not.toHaveTextContent("-");
+    expect(screen.getByText("2.5s")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
+    expect(screen.getByText("경고 메시지")).toBeInTheDocument();
+    expect(screen.getByText("asset warning")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
+      "href",
+      "https://example.com/detail-result.png",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Video" }));
+    expect(routerPushMock).toHaveBeenCalledWith(
+      "/video?prompt=hydrated+prompt&model=hydrated-model&initImage=https%3A%2F%2Fexample.com%2Fdetail-result.png",
+    );
   });
 
   it("collapses long prompt text and expands it on request", () => {

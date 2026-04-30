@@ -502,6 +502,8 @@
       "resultVideo": "Result video",
       "resultAudio": "Result audio",
       "referenceText": "Reference text",
+      "errorMessage": "Error message",
+      "warningMessage": "Warning message",
       "openAsset": "Open",
       "noInputAsset": "No input asset",
       "noResultAsset": "No result yet"

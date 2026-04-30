@@ -502,6 +502,8 @@
       "resultVideo": "결과 비디오",
       "resultAudio": "결과 오디오",
       "referenceText": "참조 텍스트",
+      "errorMessage": "오류 메시지",
+      "warningMessage": "경고 메시지",
       "openAsset": "열기",
       "noInputAsset": "입력 자산 없음",
       "noResultAsset": "결과 없음"
