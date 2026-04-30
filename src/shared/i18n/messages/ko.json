@@ -559,11 +559,11 @@
       "successRate": "성공률",
       "active": "활성 작업",
       "avgLatency": "평균 지연",
-      "apiUsage": "API 사용량",
+      "total": "요청 수",
       "live": "실시간",
       "avgLabel": "평균",
       "vsRange": "기간 내",
-      "requestsInRange": "기간 내 요청",
+      "successShare": "성공 비율",
       "errorLabel": "안정",
       "health": {
         "healthy": "정상",
@@ -656,38 +656,6 @@
         "page": "{current}/{total}",
         "range": "{start}-{end} / {total}"
       }
-    },
-    "ops": {
-      "serviceStatus": "서비스 상태",
-      "alertsTitle": "알림",
-      "viewAll": "View all",
-      "operational": "정상",
-      "degraded": "확인 필요",
-      "now": "방금",
-      "range": "기간",
-      "live": "실시간",
-      "services": {
-        "api": "API",
-        "workerQueue": "작업 큐",
-        "modelCatalog": "모델 카탈로그",
-        "requestLog": "요청 로그"
-      },
-      "alerts": {
-        "dataIssue": "데이터 로드 이슈 감지",
-        "dataIssueDescription": "일부 모니터링 지표가 최신 상태가 아닐 수 있습니다.",
-        "errorRate": "오류율 상승",
-        "errorRateDescription": "선택한 기간의 오류율이 {value}입니다.",
-        "queue": "진행 중인 작업 존재",
-        "queueDescription": "{value}개의 작업이 큐에서 처리 중입니다.",
-        "nominal": "활성 알림 없음",
-        "nominalDescription": "선택한 기간의 서비스 상태가 안정적입니다."
-      },
-      "modelHealth": "모델 상태",
-      "modelsCount": "{count}개 모델",
-      "storageStatus": "스토리지 상태",
-      "requestsInRange": "기간 내 기록된 요청",
-      "queueActivity": "큐 활동",
-      "jobsInQueue": "큐 대기 작업"
     }
   },
   "model": {

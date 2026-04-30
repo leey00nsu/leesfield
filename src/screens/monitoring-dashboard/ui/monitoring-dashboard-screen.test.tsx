@@ -154,12 +154,14 @@ describe("MonitoringDashboardScreen", () => {
 
     expect(screen.getByText("성공률")).toBeInTheDocument();
     expect(screen.getByText("활성 작업")).toBeInTheDocument();
-    expect(screen.getByText("API 사용량")).toBeInTheDocument();
+    expect(screen.getAllByText("요청 수").length).toBeGreaterThan(0);
     expect(screen.getByText("최근 작업")).toBeInTheDocument();
-    expect(screen.getByText("서비스 상태")).toBeInTheDocument();
-    expect(screen.getByText("알림")).toBeInTheDocument();
-    expect(screen.getByText("모델 상태")).toBeInTheDocument();
-    expect(screen.getByText("큐 활동")).toBeInTheDocument();
+    expect(screen.getByText("트래픽 & 오류")).toBeInTheDocument();
+    expect(screen.getByText("Top N 지표")).toBeInTheDocument();
+    expect(screen.queryByText("서비스 상태")).not.toBeInTheDocument();
+    expect(screen.queryByText("알림")).not.toBeInTheDocument();
+    expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();
+    expect(screen.queryByText("스토리지 상태")).not.toBeInTheDocument();
   });
 
   it("최근 작업을 클릭하면 요청 상세를 연다", async () => {

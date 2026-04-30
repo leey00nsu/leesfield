@@ -5,7 +5,6 @@ import {
   AreaChart,
   CartesianGrid,
   Line,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -13,6 +12,7 @@ import {
 import type { MonitoringStatsRow } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 import { AppCard } from "@/shared/ui/app-card";
+import { ChartContainer, ChartTooltipContent } from "@/shared/ui/chart";
 
 interface MonitoringStatsChartProps {
   data: MonitoringStatsRow[];
@@ -44,19 +44,21 @@ function ChartTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0].payload;
   return (
-    <div className="rounded-xl border border-white/10 bg-background-dark/95 px-3 py-2 text-xs text-white shadow-lg">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
-        {label ? formatDayLabel(label) : "-"}
-      </div>
-      <div className="mt-1 flex items-center justify-between gap-4">
-        <span className="text-gray-400">{labels.requests}</span>
-        <span className="text-white">{formatCompactNumber(item.total)}</span>
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-gray-400">{labels.errorRate}</span>
-        <span className="text-white">{formatPercent(item.errorRate)}</span>
-      </div>
-    </div>
+    <ChartTooltipContent
+      label={label ? formatDayLabel(label) : "-"}
+      rows={[
+        {
+          label: labels.requests,
+          value: formatCompactNumber(item.total),
+          color: "#d4f032",
+        },
+        {
+          label: labels.errorRate,
+          value: formatPercent(item.errorRate),
+          color: "#9e8cff",
+        },
+      ]}
+    />
   );
 }
 
@@ -122,8 +124,12 @@ export function MonitoringStatsChart({
             {t("stats.empty")}
           </div>
         ) : (
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+          <ChartContainer
+            role="img"
+            aria-label={t("stats.aria")}
+            className="border-white/8 bg-black/16"
+            height={CHART_HEIGHT}
+          >
               <AreaChart data={chartData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="monitoring-area" x1="0" y1="0" x2="0" y2="1">
@@ -166,6 +172,7 @@ export function MonitoringStatsChart({
                   stroke="#d4f032"
                   strokeWidth={2}
                   fill="url(#monitoring-area)"
+                  isAnimationActive={false}
                 />
                 <Line
                   yAxisId="right"
@@ -175,10 +182,10 @@ export function MonitoringStatsChart({
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   dot={false}
+                  isAnimationActive={false}
                 />
               </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          </ChartContainer>
         )}
       </div>
 

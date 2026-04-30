@@ -559,11 +559,11 @@
       "successRate": "Success rate",
       "active": "Active Tasks",
       "avgLatency": "Avg. Latency",
-      "apiUsage": "API usage",
+      "total": "Requests",
       "live": "Live",
       "avgLabel": "AVG",
       "vsRange": "In range",
-      "requestsInRange": "Requests in range",
+      "successShare": "Success share",
       "errorLabel": "Stable",
       "health": {
         "healthy": "Healthy",
@@ -656,38 +656,6 @@
         "page": "{current}/{total}",
         "range": "{start}-{end} / {total}"
       }
-    },
-    "ops": {
-      "serviceStatus": "Service status",
-      "alertsTitle": "Alerts",
-      "viewAll": "View all",
-      "operational": "Operational",
-      "degraded": "Degraded",
-      "now": "Now",
-      "range": "Range",
-      "live": "Live",
-      "services": {
-        "api": "API",
-        "workerQueue": "Worker queue",
-        "modelCatalog": "Model catalog",
-        "requestLog": "Request log"
-      },
-      "alerts": {
-        "dataIssue": "Data loading issue detected",
-        "dataIssueDescription": "Some monitoring signals may not be current.",
-        "errorRate": "Elevated error rate",
-        "errorRateDescription": "Error rate is {value} for the selected range.",
-        "queue": "Active jobs in queue",
-        "queueDescription": "{value} jobs are currently processing.",
-        "nominal": "No active alerts",
-        "nominalDescription": "Service health is stable for the selected range."
-      },
-      "modelHealth": "Model health",
-      "modelsCount": "{count} models",
-      "storageStatus": "Storage status",
-      "requestsInRange": "Requests recorded in range",
-      "queueActivity": "Queue activity",
-      "jobsInQueue": "Jobs in queue"
     }
   },
   "model": {

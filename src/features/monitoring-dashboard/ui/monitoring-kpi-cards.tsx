@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
+import { Activity, BarChart3, CheckCircle2, Timer } from "lucide-react";
 import {
-  Activity,
-  BarChart3,
-  CheckCircle2,
-  Timer,
-  TrendingUp,
-} from "lucide-react";
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  Cell,
+  Label,
+  Pie,
+  PieChart,
+} from "recharts";
 import { useTranslations } from "next-intl";
 import type {
   MonitoringOverview,
@@ -15,6 +19,7 @@ import { formatCompactNumber, formatDuration, formatPercent } from "@/features/m
 import { resolveErrorRateHealth } from "@/features/monitoring-dashboard/lib/monitoring-health";
 import { cn } from "@/shared/lib/utils";
 import { AppCard } from "@/shared/ui/app-card";
+import { ChartContainer } from "@/shared/ui/chart";
 
 interface MonitoringKpiCardsProps {
   data: MonitoringOverview | null;
@@ -25,60 +30,86 @@ interface MonitoringKpiCardsProps {
 const cardTitle = "text-sm font-semibold text-white/70";
 const cardValue = "font-serif text-[2.65rem] font-normal leading-none text-white";
 
-function Sparkline({
+function SparklineChart({
   values,
   variant = "line",
 }: {
   values: number[];
   variant?: "line" | "bars";
 }) {
-  const normalized = values.length > 0 ? values : [0, 0, 0, 0, 0, 0, 0, 0];
-  const max = Math.max(...normalized, 1);
+  const normalized = (values.length > 0 ? values : [0, 0, 0, 0, 0, 0, 0, 0])
+    .slice(-24)
+    .map((value, index) => ({
+      index,
+      value: Math.max(0, Number.isFinite(value) ? value : 0),
+    }));
 
   if (variant === "bars") {
     return (
-      <div className="flex h-10 items-end gap-1">
-        {normalized.slice(-22).map((value, index) => (
-          <span
-            key={`${value}-${index}`}
-            className="w-1.5 rounded-full bg-primary/85 shadow-[0_0_14px_rgba(212,240,50,0.18)]"
-            style={{ height: `${Math.max(18, (value / max) * 100)}%` }}
+      <ChartContainer className="border-0 bg-transparent p-0" height={54}>
+        <BarChart data={normalized} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+          <Bar
+            dataKey="value"
+            fill="#d4f032"
+            radius={[4, 4, 0, 0]}
+            barSize={4}
+            isAnimationActive={false}
           />
-        ))}
-      </div>
+        </BarChart>
+      </ChartContainer>
     );
   }
 
   return (
-    <div className="flex h-10 items-center gap-1">
-      {normalized.slice(-30).map((value, index) => (
-        <span
-          key={`${value}-${index}`}
-          className="h-1 flex-1 rounded-full bg-primary/75"
-          style={{
-            opacity: 0.32 + (value / max) * 0.58,
-            transform: `translateY(${(0.5 - value / max) * 14}px)`,
-          }}
+    <ChartContainer className="border-0 bg-transparent p-0" height={54}>
+      <AreaChart data={normalized} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke="#d4f032"
+          strokeWidth={2}
+          fill="#d4f032"
+          fillOpacity={0.06}
+          dot={false}
+          isAnimationActive={false}
         />
-      ))}
-    </div>
+      </AreaChart>
+    </ChartContainer>
   );
 }
 
-function DonutMeter({ value }: { value: number }) {
+function DonutChart({ value, label }: { value: number; label: string }) {
   const safeValue = Math.max(0, Math.min(100, value));
+  const data = [
+    { name: "value", value: safeValue },
+    { name: "remaining", value: Math.max(0, 100 - safeValue) },
+  ];
   return (
-    <div
-      className="grid h-24 w-24 place-items-center rounded-full"
-      style={{
-        background: `conic-gradient(#d4f032 ${safeValue * 3.6}deg, rgba(255,255,255,0.12) 0deg)`,
-      }}
-      aria-hidden="true"
-    >
-      <div className="grid h-16 w-16 place-items-center rounded-full bg-[#10110f] text-sm font-semibold text-white">
-        {Math.round(safeValue)}%
-      </div>
-    </div>
+    <ChartContainer className="h-24 w-24 border-0 bg-transparent p-0" height={96}>
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="value"
+          innerRadius={30}
+          outerRadius={44}
+          startAngle={90}
+          endAngle={-270}
+          stroke="rgba(0,0,0,0.22)"
+          strokeWidth={2}
+          isAnimationActive={false}
+        >
+          <Cell fill="#d4f032" />
+          <Cell fill="rgba(255,255,255,0.12)" />
+          <Label
+            value={label}
+            position="center"
+            fill="#fff"
+            fontSize={13}
+            fontWeight={600}
+          />
+        </Pie>
+      </PieChart>
+    </ChartContainer>
   );
 }
 
@@ -114,7 +145,7 @@ function StatCard({
           </span>
         ) : null}
       </div>
-      <div className="mt-5">{visual}</div>
+      <div className="mt-4">{visual}</div>
       <div className="pointer-events-none absolute inset-x-6 bottom-5 h-px bg-white/8" />
     </AppCard>
   );
@@ -137,11 +168,11 @@ function UsageCard({
       className="relative min-h-[13.75rem] rounded-[1.1rem] p-6"
     >
       <div className="flex items-center gap-3">
-        <TrendingUp className="h-5 w-5 text-white/52" />
+        <BarChart3 className="h-5 w-5 text-white/52" />
         <span className={cardTitle}>{title}</span>
       </div>
       <div className="mt-6 flex items-center gap-7">
-        <DonutMeter value={percent} />
+        <DonutChart value={percent} label={`${Math.round(percent)}%`} />
         <div>
           <div className={cardValue}>{value}</div>
           <div className="mt-3 text-sm font-semibold text-white/42">{hint}</div>
@@ -166,15 +197,7 @@ export function MonitoringKpiCards({
   const errorHealth = resolveErrorRateHealth(data?.errorRate ?? 0);
   const totalValues = stats.map((item) => item.total);
   const latencyValues = stats.map((item) => item.avgLatencyMs ?? 0);
-  const usagePercent = data?.totalCount
-    ? Math.max(
-        8,
-        Math.min(
-          96,
-          (data.totalCount / Math.max(data.totalCount + data.activeCount, 1)) * 100,
-        ),
-      )
-    : 0;
+  const successPercent = successRateValue * 100;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -183,7 +206,7 @@ export function MonitoringKpiCards({
         value={isLoading ? "..." : successRate}
         hint={t(errorHealth.labelKey)}
         icon={CheckCircle2}
-        visual={<Sparkline values={stats.map((item) => 1 - item.errorRate)} />}
+        visual={<SparklineChart values={stats.map((item) => 1 - item.errorRate)} />}
         hintClassName={errorHealth.hintClassName}
       />
       <StatCard
@@ -191,20 +214,20 @@ export function MonitoringKpiCards({
         value={isLoading ? "..." : activeCount}
         hint={t("kpi.vsRange")}
         icon={BarChart3}
-        visual={<Sparkline values={totalValues} variant="bars" />}
+        visual={<SparklineChart values={totalValues} variant="bars" />}
       />
       <StatCard
         title={t("kpi.avgLatency")}
         value={isLoading ? "..." : avgLatency}
         hint={t("kpi.avgLabel")}
         icon={Timer}
-        visual={<Sparkline values={latencyValues} />}
+        visual={<SparklineChart values={latencyValues} />}
       />
       <UsageCard
-        title={t("kpi.apiUsage")}
+        title={t("kpi.total")}
         value={isLoading ? "..." : totalCount}
-        hint={t("kpi.requestsInRange")}
-        percent={usagePercent}
+        hint={t("kpi.successShare")}
+        percent={successPercent}
       />
     </div>
   );

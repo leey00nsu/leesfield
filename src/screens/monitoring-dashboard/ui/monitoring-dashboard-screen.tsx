@@ -13,11 +13,6 @@ import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitorin
 import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
 import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
 import { MonitoringTopList } from "@/features/monitoring-dashboard/ui/monitoring-top-list";
-import {
-  MonitoringAlertsPanel,
-  MonitoringOpsSummaryCards,
-  MonitoringServiceStatusPanel,
-} from "@/features/monitoring-dashboard/ui/monitoring-ops-panels";
 import { createRangeFromDays } from "@/features/monitoring-dashboard/lib/format";
 import type {
   MonitoringFilters as MonitoringFiltersState,
@@ -124,20 +119,6 @@ export function MonitoringDashboardScreen() {
   const updatedAt = requestsQuery.data?.updatedAt ?? null;
   const requestsError = requestsQuery.error ? t("requests.error") : null;
   const stats = statsQuery.data?.items ?? [];
-  const hasDataIssue = Boolean(
-    overviewQuery.error ||
-      statsQuery.error ||
-      requestsQuery.error ||
-      topQuery.error ||
-      apiKeysQuery.error ||
-      modelCatalog.error,
-  );
-  const serviceStates = [
-    { key: "api", healthy: !overviewQuery.error },
-    { key: "workerQueue", healthy: !requestsQuery.error },
-    { key: "modelCatalog", healthy: !modelCatalog.error },
-    { key: "requestLog", healthy: !statsQuery.error },
-  ];
 
   return (
     <div className="overflow-x-hidden pb-20 pt-6">
@@ -173,7 +154,7 @@ export function MonitoringDashboardScreen() {
           </span>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(24rem,0.7fr)]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(24rem,0.75fr)]">
           <MonitoringRequestTable
             items={requestsQuery.data?.items ?? []}
             total={requestsQuery.data?.total ?? 0}
@@ -189,30 +170,15 @@ export function MonitoringDashboardScreen() {
             updatedAt={updatedAt}
             timeZone={filters.tz}
           />
-          <div className="grid gap-5">
-            <MonitoringServiceStatusPanel states={serviceStates} />
-            <MonitoringAlertsPanel
-              overview={overviewQuery.data ?? null}
-              hasDataIssue={hasDataIssue}
-            />
-          </div>
-        </div>
-
-        <MonitoringOpsSummaryCards
-          overview={overviewQuery.data ?? null}
-          stats={stats}
-          modelCount={models.length}
-        />
-
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
-          <MonitoringTopList
-            data={topQuery.data ?? null}
-            isLoading={topQuery.isLoading}
-            metric={metric}
-            onMetricChange={setMetric}
-          />
         </div>
+
+        <MonitoringTopList
+          data={topQuery.data ?? null}
+          isLoading={topQuery.isLoading}
+          metric={metric}
+          onMetricChange={setMetric}
+        />
       </div>
     </div>
   );

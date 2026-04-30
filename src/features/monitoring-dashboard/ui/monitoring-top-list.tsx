@@ -1,6 +1,7 @@
 import { Gauge, ListOrdered } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
 import type {
   MonitoringMetric,
   MonitoringTopItem,
@@ -9,6 +10,7 @@ import type {
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppCard } from "@/shared/ui/app-card";
+import { ChartContainer, ChartTooltipContent } from "@/shared/ui/chart";
 import { cn } from "@/shared/lib/utils";
 
 interface MonitoringTopListProps {
@@ -53,6 +55,17 @@ function TopListSection({
       0,
     );
   }, [items, metric]);
+  const chartData = useMemo(
+    () =>
+      items.map((item) => ({
+        label: item.label,
+        value: resolveMetricValue(item, metric),
+        formatted: formatMetricValue(item, metric),
+        total: formatCompactNumber(item.total),
+        errorRate: formatPercent(item.errorRate),
+      })),
+    [items, metric],
+  );
 
   return (
     <div className="rounded-2xl border border-white/5 bg-background-dark/60 p-4">
@@ -63,29 +76,71 @@ function TopListSection({
         {items.length === 0 ? (
           <div className="text-sm text-gray-500">-</div>
         ) : (
-          items.map((item, index) => {
-            const metricValue = resolveMetricValue(item, metric);
-            const width = maxValue > 0 ? (metricValue / maxValue) * 100 : 0;
-            return (
-              <div key={`${item.key}-${index}`} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white">{item.label}</span>
-                  <span className="text-xs font-mono text-primary">
-                    {formatMetricValue(item, metric)}
-                  </span>
+          <>
+            <ChartContainer className="border-0 bg-transparent p-0" height={148}>
+              <BarChart
+                data={chartData}
+                layout="vertical"
+                margin={{ top: 2, right: 8, bottom: 0, left: 0 }}
+              >
+                <XAxis type="number" hide domain={[0, Math.max(maxValue, 1)]} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  width={96}
+                  tick={{ fill: "rgba(255,255,255,0.68)", fontSize: 11 }}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const datum = payload[0].payload as (typeof chartData)[number];
+                    return (
+                      <ChartTooltipContent
+                        label={datum.label}
+                        rows={[
+                          {
+                            label: "Metric",
+                            value: datum.formatted,
+                            color: "#d4f032",
+                          },
+                          {
+                            label: "Requests / error",
+                            value: `${datum.total} / ${datum.errorRate}`,
+                          },
+                        ]}
+                      />
+                    );
+                  }}
+                />
+                <Bar
+                  dataKey="value"
+                  radius={[0, 6, 6, 0]}
+                  barSize={8}
+                  isAnimationActive={false}
+                >
+                  {chartData.map((item, index) => (
+                    <Cell
+                      key={`${item.label}-${index}`}
+                      fill={index === 0 ? "#d4f032" : "rgba(212,240,50,0.58)"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+            <div className="space-y-2">
+              {chartData.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 text-xs"
+                >
+                  <span className="truncate text-white/42">{item.label}</span>
+                  <span className="font-mono text-primary">{item.formatted}</span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-black/40">
-                  <div
-                    className="h-2 rounded-full bg-gradient-to-r from-primary to-primary/40"
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <div className="text-[10px] font-mono text-gray-500">
-                  {formatCompactNumber(item.total)} {"/"} {formatPercent(item.errorRate)}
-                </div>
-              </div>
-            );
-          })
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
