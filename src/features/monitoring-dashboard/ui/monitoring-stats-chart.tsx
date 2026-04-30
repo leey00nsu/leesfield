@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import type { MonitoringStatsRow } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatPercent } from "@/features/monitoring-dashboard/lib/format";
+import { AppCard } from "@/shared/ui/app-card";
 
 interface MonitoringStatsChartProps {
   data: MonitoringStatsRow[];
@@ -103,9 +104,9 @@ export function MonitoringStatsChart({
   );
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-6 shadow-2xl">
+    <AppCard variant="editorial-flat" className="rounded-[1.1rem] p-6">
       <div className="flex flex-col gap-2">
-        <div className="text-lg font-semibold text-white">
+          <div className="text-xl font-semibold text-white">
           {t("stats.title")}
         </div>
         <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
@@ -197,6 +198,6 @@ export function MonitoringStatsChart({
           )}
         </div>
       </div>
-    </div>
+    </AppCard>
   );
 }

@@ -556,13 +556,14 @@
     "lastUpdated": "마지막 갱신",
     "updating": "스트리밍",
     "kpi": {
+      "successRate": "성공률",
       "active": "활성 작업",
       "avgLatency": "평균 지연",
-      "total": "요청 수",
-      "errorRate": "오류율",
+      "apiUsage": "API 사용량",
       "live": "실시간",
       "avgLabel": "평균",
-      "range": "기간",
+      "vsRange": "기간 내",
+      "requestsInRange": "기간 내 요청",
       "errorLabel": "안정",
       "health": {
         "healthy": "정상",
@@ -607,7 +608,7 @@
       "empty": "표시할 랭킹이 없습니다."
     },
     "requests": {
-      "title": "실시간 요청 로그",
+      "title": "최근 작업",
       "subtitle": "실시간 추론 로그",
       "updating": "업데이트 중",
       "updated": "{time} 업데이트",
@@ -634,10 +635,17 @@
       "detailWarning": "경고",
       "detailFetchError": "요청 상세를 불러오지 못했습니다.",
       "detailClose": "닫기",
+      "type": {
+        "image": "이미지 생성",
+        "video": "비디오 렌더",
+        "audio": "오디오 작업"
+      },
       "columns": {
+        "job": "작업",
         "apiKey": "API 키",
         "model": "모델",
         "timestamp": "시간",
+        "started": "시작",
         "duration": "소요 시간",
         "status": "상태"
       },
@@ -648,6 +656,38 @@
         "page": "{current}/{total}",
         "range": "{start}-{end} / {total}"
       }
+    },
+    "ops": {
+      "serviceStatus": "서비스 상태",
+      "alertsTitle": "알림",
+      "viewAll": "View all",
+      "operational": "정상",
+      "degraded": "확인 필요",
+      "now": "방금",
+      "range": "기간",
+      "live": "실시간",
+      "services": {
+        "api": "API",
+        "workerQueue": "작업 큐",
+        "modelCatalog": "모델 카탈로그",
+        "requestLog": "요청 로그"
+      },
+      "alerts": {
+        "dataIssue": "데이터 로드 이슈 감지",
+        "dataIssueDescription": "일부 모니터링 지표가 최신 상태가 아닐 수 있습니다.",
+        "errorRate": "오류율 상승",
+        "errorRateDescription": "선택한 기간의 오류율이 {value}입니다.",
+        "queue": "진행 중인 작업 존재",
+        "queueDescription": "{value}개의 작업이 큐에서 처리 중입니다.",
+        "nominal": "활성 알림 없음",
+        "nominalDescription": "선택한 기간의 서비스 상태가 안정적입니다."
+      },
+      "modelHealth": "모델 상태",
+      "modelsCount": "{count}개 모델",
+      "storageStatus": "스토리지 상태",
+      "requestsInRange": "기간 내 기록된 요청",
+      "queueActivity": "큐 활동",
+      "jobsInQueue": "큐 대기 작업"
     }
   },
   "model": {

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PageHeader, PageHeaderSearchInput } from "@/shared/ui/page-header";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import {
@@ -14,6 +13,11 @@ import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitorin
 import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
 import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
 import { MonitoringTopList } from "@/features/monitoring-dashboard/ui/monitoring-top-list";
+import {
+  MonitoringAlertsPanel,
+  MonitoringOpsSummaryCards,
+  MonitoringServiceStatusPanel,
+} from "@/features/monitoring-dashboard/ui/monitoring-ops-panels";
 import { createRangeFromDays } from "@/features/monitoring-dashboard/lib/format";
 import type {
   MonitoringFilters as MonitoringFiltersState,
@@ -45,6 +49,9 @@ export function MonitoringDashboardScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [requestLimit, setRequestLimit] = useState(DEFAULT_REQUEST_LIMIT);
   const [requestOffset, setRequestOffset] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+  const rangeFromTime = range.from.getTime();
+  const rangeToTime = range.to.getTime();
 
   const debouncedQuery = useDebouncedValue(searchInput, 350).trim();
   const tz = useMemo(
@@ -69,14 +76,18 @@ export function MonitoringDashboardScreen() {
   const overviewQuery = useMonitoringOverview(filters);
   const statsQuery = useMonitoringStats(filters);
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     setRequestOffset(0);
   }, [
     type,
     status,
     model,
     apiKeyId,
-    range.from.getTime(),
-    range.to.getTime(),
+    rangeFromTime,
+    rangeToTime,
     debouncedQuery,
   ]);
 
@@ -112,61 +123,89 @@ export function MonitoringDashboardScreen() {
 
   const updatedAt = requestsQuery.data?.updatedAt ?? null;
   const requestsError = requestsQuery.error ? t("requests.error") : null;
+  const stats = statsQuery.data?.items ?? [];
+  const hasDataIssue = Boolean(
+    overviewQuery.error ||
+      statsQuery.error ||
+      requestsQuery.error ||
+      topQuery.error ||
+      apiKeysQuery.error ||
+      modelCatalog.error,
+  );
+  const serviceStates = [
+    { key: "api", healthy: !overviewQuery.error },
+    { key: "workerQueue", healthy: !requestsQuery.error },
+    { key: "modelCatalog", healthy: !modelCatalog.error },
+    { key: "requestLog", healthy: !statsQuery.error },
+  ];
 
   return (
-    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <PageHeader
-        title={
-          <>
-            <span className="text-white">{t("title.leading")}</span>{" "}
-            <span className="text-primary">{t("title.accent")}</span>
-          </>
-        }
-        subtitle={t("subtitle")}
-        rightSlot={
-          <div className="flex flex-col gap-3">
-            <PageHeaderSearchInput
-              value={searchInput}
-              onChange={setSearchInput}
-              placeholder={tCommonLabels("searchPlaceholder")}
-              showFilterButton={false}
-            />
-            <div className="rounded-2xl border border-white/10 bg-surface-dark px-4 py-3 text-xs font-mono text-gray-400">
-              <div className="uppercase tracking-widest text-gray-500">
-                {t("lastUpdated")}
-              </div>
-              <div className="text-sm font-semibold text-white">
-                {updatedAt ? new Date(updatedAt).toLocaleString() : t("updating")}
-              </div>
-            </div>
-          </div>
-        }
-        rightSlotClassName="md:w-[340px]"
-      >
-        <MonitoringFilters
-          filters={filters}
-          onTypeChange={setType}
-          onStatusChange={setStatus}
-          onModelChange={setModel}
-          onApiKeyChange={setApiKeyId}
-          onRangeChange={setRange}
-          onQuickRange={(days) => setRange(createRangeFromDays(days))}
-          models={models}
-          apiKeys={apiKeys}
-        />
-      </PageHeader>
-
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+    <div className="overflow-x-hidden pb-20 pt-6">
+      <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-5 px-4 sm:px-6 lg:px-8">
         <MonitoringKpiCards
           data={overviewQuery.data ?? null}
+          stats={stats}
           isLoading={overviewQuery.isLoading}
         />
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <MonitoringStatsChart
-            data={statsQuery.data?.items ?? []}
-            isLoading={statsQuery.isLoading}
+        {isMounted ? (
+          <MonitoringFilters
+            filters={filters}
+            onTypeChange={setType}
+            onStatusChange={setStatus}
+            onModelChange={setModel}
+            onApiKeyChange={setApiKeyId}
+            onRangeChange={setRange}
+            onQuickRange={(days) => setRange(createRangeFromDays(days))}
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            searchPlaceholder={tCommonLabels("searchPlaceholder")}
+            models={models}
+            apiKeys={apiKeys}
           />
+        ) : (
+          <div className="h-16 rounded-[1.1rem] border border-white/10 bg-white/[0.025]" />
+        )}
+        <div className="flex justify-end text-xs font-semibold text-white/42">
+          <span>
+            {t("lastUpdated")}:{" "}
+            {updatedAt ? new Date(updatedAt).toLocaleString() : t("updating")}
+          </span>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(24rem,0.7fr)]">
+          <MonitoringRequestTable
+            items={requestsQuery.data?.items ?? []}
+            total={requestsQuery.data?.total ?? 0}
+            limit={requestsQuery.data?.limit ?? requestLimit}
+            offset={requestsQuery.data?.offset ?? requestOffset}
+            onLimitChange={(nextLimit) => {
+              setRequestLimit(nextLimit);
+              setRequestOffset(0);
+            }}
+            onOffsetChange={setRequestOffset}
+            isLoading={requestsQuery.isLoading}
+            error={requestsError}
+            updatedAt={updatedAt}
+            timeZone={filters.tz}
+          />
+          <div className="grid gap-5">
+            <MonitoringServiceStatusPanel states={serviceStates} />
+            <MonitoringAlertsPanel
+              overview={overviewQuery.data ?? null}
+              hasDataIssue={hasDataIssue}
+            />
+          </div>
+        </div>
+
+        <MonitoringOpsSummaryCards
+          overview={overviewQuery.data ?? null}
+          stats={stats}
+          modelCount={models.length}
+        />
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
           <MonitoringTopList
             data={topQuery.data ?? null}
             isLoading={topQuery.isLoading}
@@ -174,22 +213,6 @@ export function MonitoringDashboardScreen() {
             onMetricChange={setMetric}
           />
         </div>
-
-        <MonitoringRequestTable
-          items={requestsQuery.data?.items ?? []}
-          total={requestsQuery.data?.total ?? 0}
-          limit={requestsQuery.data?.limit ?? requestLimit}
-          offset={requestsQuery.data?.offset ?? requestOffset}
-          onLimitChange={(nextLimit) => {
-            setRequestLimit(nextLimit);
-            setRequestOffset(0);
-          }}
-          onOffsetChange={setRequestOffset}
-          isLoading={requestsQuery.isLoading}
-          error={requestsError}
-          updatedAt={updatedAt}
-          timeZone={filters.tz}
-        />
       </div>
     </div>
   );

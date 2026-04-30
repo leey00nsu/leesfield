@@ -13,6 +13,7 @@ import { cn } from "@/shared/lib/utils";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
 import {
   Select,
   SelectContent,
@@ -63,12 +64,15 @@ export function MonitoringRequestTable({
       return formatter.format(parsed);
     };
   }, [locale, timeZone]);
-  const statusLabels: Record<string, string> = {
-    pending: t("statuses.pending"),
-    processing: t("statuses.processing"),
-    completed: t("statuses.completed"),
-    failed: t("statuses.failed"),
-  };
+  const statusLabels = useMemo<Record<string, string>>(
+    () => ({
+      pending: t("statuses.pending"),
+      processing: t("statuses.processing"),
+      completed: t("statuses.completed"),
+      failed: t("statuses.failed"),
+    }),
+    [t],
+  );
   const pageSizeOptions = useMemo(
     () =>
       Array.from(new Set([20, 50, 100, limit]))
@@ -106,10 +110,17 @@ export function MonitoringRequestTable({
   const columns = useMemo<ColumnDef<MonitoringRequestItem>[]>(
     () => [
       {
-        id: "apiKey",
-        header: t("requests.columns.apiKey"),
+        id: "job",
+        header: t("requests.columns.job"),
         cell: ({ row }) => (
-          <span className="text-gray-400">{row.original.apiKeyLabel}</span>
+          <div className="min-w-0">
+            <div className="font-semibold text-white">
+              {t(`requests.type.${row.original.type}`)}
+            </div>
+            <div className="mt-1 truncate text-xs text-white/38">
+              {row.original.apiKeyLabel}
+            </div>
+          </div>
         ),
       },
       {
@@ -126,7 +137,7 @@ export function MonitoringRequestTable({
       },
       {
         id: "timestamp",
-        header: t("requests.columns.timestamp"),
+        header: t("requests.columns.started"),
         cell: ({ row }) => (
           <span className="text-gray-500">
             {formatDateTime(row.original.createdAt)}
@@ -165,6 +176,15 @@ export function MonitoringRequestTable({
           );
         },
       },
+      {
+        id: "open",
+        header: "",
+        cell: () => (
+          <div className="flex justify-end text-white/35 transition-colors group-hover:text-primary">
+            <ChevronRight className="h-5 w-5" />
+          </div>
+        ),
+      },
     ],
     [formatDateTime, statusLabels, t],
   );
@@ -184,13 +204,13 @@ export function MonitoringRequestTable({
   });
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-6 shadow-2xl">
+    <AppCard variant="editorial-flat" className="rounded-[1.1rem] p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-lg font-semibold text-white">
+              <div className="text-xl font-semibold text-white">
             {t("requests.title")}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono uppercase tracking-widest text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white/38">
             <span>{t("requests.subtitle")}</span>
             <span>
               {t("requests.pagination.range", {
@@ -202,7 +222,7 @@ export function MonitoringRequestTable({
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-primary">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           {updatedAt ? t("requests.updated", { time: formatDateTime(updatedAt) }) : t("requests.updating")}
         </div>
       </div>
@@ -220,7 +240,7 @@ export function MonitoringRequestTable({
           </div>
         ) : (
           <>
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr
@@ -230,7 +250,11 @@ export function MonitoringRequestTable({
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className={cn("px-4 py-3", header.id === "status" && "text-right")}
+                        className={cn(
+                          "px-4 py-3",
+                          header.id === "status" && "text-right",
+                          header.id === "open" && "w-12 text-right",
+                        )}
                       >
                         {header.isPlaceholder
                           ? null
@@ -247,7 +271,7 @@ export function MonitoringRequestTable({
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="group cursor-pointer transition-colors hover:bg-white/5 focus-within:bg-white/5"
+                    className="group cursor-pointer transition-colors hover:bg-white/[0.045] focus-within:bg-white/[0.045]"
                     role="button"
                     tabIndex={0}
                     onClick={() => handleOpenDetail(row.original)}
@@ -323,6 +347,6 @@ export function MonitoringRequestTable({
         request={selected}
         timeZone={timeZone}
       />
-    </div>
+    </AppCard>
   );
 }

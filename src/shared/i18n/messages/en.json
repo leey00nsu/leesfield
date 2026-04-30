@@ -556,13 +556,14 @@
     "lastUpdated": "Last updated",
     "updating": "Streaming",
     "kpi": {
+      "successRate": "Success rate",
       "active": "Active Tasks",
       "avgLatency": "Avg. Latency",
-      "total": "Requests",
-      "errorRate": "Error Rate",
+      "apiUsage": "API usage",
       "live": "Live",
       "avgLabel": "AVG",
-      "range": "Range",
+      "vsRange": "In range",
+      "requestsInRange": "Requests in range",
       "errorLabel": "Stable",
       "health": {
         "healthy": "Healthy",
@@ -607,7 +608,7 @@
       "empty": "No ranking data."
     },
     "requests": {
-      "title": "Live Request Feed",
+      "title": "Recent jobs",
       "subtitle": "Realtime inference logs",
       "updating": "Updating",
       "updated": "Updated {time}",
@@ -634,10 +635,17 @@
       "detailWarning": "Warning",
       "detailFetchError": "Failed to load request detail.",
       "detailClose": "Close",
+      "type": {
+        "image": "Image Generation",
+        "video": "Video Render",
+        "audio": "Audio Job"
+      },
       "columns": {
+        "job": "Job",
         "apiKey": "API Key",
         "model": "Model",
         "timestamp": "Timestamp",
+        "started": "Started",
         "duration": "Duration",
         "status": "Status"
       },
@@ -648,6 +656,38 @@
         "page": "{current}/{total}",
         "range": "{start}-{end} / {total}"
       }
+    },
+    "ops": {
+      "serviceStatus": "Service status",
+      "alertsTitle": "Alerts",
+      "viewAll": "View all",
+      "operational": "Operational",
+      "degraded": "Degraded",
+      "now": "Now",
+      "range": "Range",
+      "live": "Live",
+      "services": {
+        "api": "API",
+        "workerQueue": "Worker queue",
+        "modelCatalog": "Model catalog",
+        "requestLog": "Request log"
+      },
+      "alerts": {
+        "dataIssue": "Data loading issue detected",
+        "dataIssueDescription": "Some monitoring signals may not be current.",
+        "errorRate": "Elevated error rate",
+        "errorRateDescription": "Error rate is {value} for the selected range.",
+        "queue": "Active jobs in queue",
+        "queueDescription": "{value} jobs are currently processing.",
+        "nominal": "No active alerts",
+        "nominalDescription": "Service health is stable for the selected range."
+      },
+      "modelHealth": "Model health",
+      "modelsCount": "{count} models",
+      "storageStatus": "Storage status",
+      "requestsInRange": "Requests recorded in range",
+      "queueActivity": "Queue activity",
+      "jobsInQueue": "Jobs in queue"
     }
   },
   "model": {

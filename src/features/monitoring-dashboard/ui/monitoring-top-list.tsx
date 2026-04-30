@@ -8,6 +8,7 @@ import type {
 } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
 import { cn } from "@/shared/lib/utils";
 
 interface MonitoringTopListProps {
@@ -100,10 +101,10 @@ export function MonitoringTopList({
   const t = useTranslations("monitoringDashboard");
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-6 shadow-2xl">
+    <AppCard variant="editorial-flat" className="rounded-[1.1rem] p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold text-white">
+          <div className="text-xl font-semibold text-white">
             {t("top.title")}
           </div>
           <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
@@ -155,6 +156,6 @@ export function MonitoringTopList({
         {t("top.caption")}
         <Gauge className="h-4 w-4 text-primary" />
       </div>
-    </div>
+    </AppCard>
   );
 }

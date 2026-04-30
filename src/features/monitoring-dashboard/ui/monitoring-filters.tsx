@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, Filter, KeyRound, Layers3 } from "lucide-react";
+import {
+  AudioLines,
+  CalendarRange,
+  Filter,
+  Grid2X2,
+  ImageIcon,
+  KeyRound,
+  Layers3,
+  Video,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { Locale as DateFnsLocale } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
@@ -11,12 +20,13 @@ import type {
   MonitoringType,
 } from "@/features/monitoring-dashboard/model/types";
 import { createRangeFromDays, endOfDay, formatDateInputValue, startOfDay } from "@/features/monitoring-dashboard/lib/format";
-import {
-  DashboardFilterBar,
-  DashboardFilterDivider,
-  DashboardFilterToggle,
-} from "@/shared/ui/dashboard-filter-bar";
 import { AppButton } from "@/shared/ui/app-button";
+import {
+  AppFilterGroup,
+  AppFilterToggle,
+  AppFilterToolbar,
+  AppSearchField,
+} from "@/shared/ui/app-filter-toolbar";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
@@ -47,6 +57,9 @@ interface MonitoringFiltersProps {
   onApiKeyChange: (value: string | null) => void;
   onRangeChange: (range: { from: Date; to: Date }) => void;
   onQuickRange: (days: number) => void;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
   models: MonitoringFilterModel[];
   apiKeys: MonitoringFilterApiKey[];
 }
@@ -59,6 +72,9 @@ export function MonitoringFilters({
   onApiKeyChange,
   onRangeChange,
   onQuickRange,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
   models,
   apiKeys,
 }: MonitoringFiltersProps) {
@@ -121,155 +137,175 @@ export function MonitoringFilters({
   const rangeLabel = `${formatDateInputValue(filters.from)} ~ ${formatDateInputValue(filters.to)}`;
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-4">
-      <DashboardFilterBar className="gap-2">
-        <DashboardFilterToggle
-          active={filters.type === "all"}
-          onClick={() => onTypeChange("all")}
-        >
-          {tCommon("all")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
-          active={filters.type === "image"}
-          onClick={() => onTypeChange("image")}
-        >
-          {tCommon("images")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
-          active={filters.type === "video"}
-          onClick={() => onTypeChange("video")}
-        >
-          {tCommon("videos")}
-        </DashboardFilterToggle>
-        <DashboardFilterDivider />
-        <DashboardFilterToggle
-          active={filters.status === "all"}
-          onClick={() => onStatusChange("all")}
-        >
-          {t("filters.statusAll")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
-          active={filters.status === "active"}
-          onClick={() => onStatusChange("active")}
-        >
-          {t("filters.statusActive")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
-          active={filters.status === "completed"}
-          onClick={() => onStatusChange("completed")}
-        >
-          {t("statuses.completed")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
-          active={filters.status === "failed"}
-          onClick={() => onStatusChange("failed")}
-        >
-          {t("statuses.failed")}
-        </DashboardFilterToggle>
-      </DashboardFilterBar>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
-          <Layers3 className="h-4 w-4 text-primary" />
-          <Select
-            value={filters.model ?? "all"}
-            onValueChange={(value) => onModelChange(value === "all" ? null : value)}
+    <AppFilterToolbar className="items-stretch rounded-[1.1rem]">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <AppFilterGroup>
+          <AppFilterToggle
+            active={filters.type === "all"}
+            icon={<Grid2X2 className="h-4 w-4" />}
+            onClick={() => onTypeChange("all")}
           >
-            <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
-              <SelectValue placeholder={t("filters.modelAll")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filters.modelAll")}</SelectItem>
-              {models.map((model) => (
-                <SelectItem key={model.key} value={model.key}>
-                  {model.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
-          <KeyRound className="h-4 w-4 text-primary" />
-          <Select
-            value={filters.apiKeyId ?? "all"}
-            onValueChange={(value) =>
-              onApiKeyChange(value === "all" ? null : value)
-            }
+            {tCommon("all")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.type === "image"}
+            icon={<ImageIcon className="h-4 w-4" />}
+            onClick={() => onTypeChange("image")}
           >
-            <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
-              <SelectValue placeholder={t("filters.apiKeyAll")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filters.apiKeyAll")}</SelectItem>
-              <SelectItem value="ui">{t("filters.apiKeyUi")}</SelectItem>
-              {apiKeys.map((key) => (
-                <SelectItem key={key.id} value={key.id}>
-                  {key.maskedKey}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {tCommon("images")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.type === "video"}
+            icon={<Video className="h-4 w-4" />}
+            onClick={() => onTypeChange("video")}
+          >
+            {tCommon("videos")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.type === "audio"}
+            icon={<AudioLines className="h-4 w-4" />}
+            onClick={() => onTypeChange("audio")}
+          >
+            {tCommon("audios")}
+          </AppFilterToggle>
+          <span className="mx-1 h-8 w-px bg-white/10" aria-hidden="true" />
+          <AppFilterToggle
+            active={filters.status === "all"}
+            onClick={() => onStatusChange("all")}
+          >
+            {t("filters.statusAll")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.status === "active"}
+            onClick={() => onStatusChange("active")}
+          >
+            {t("filters.statusActive")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.status === "completed"}
+            onClick={() => onStatusChange("completed")}
+          >
+            {t("statuses.completed")}
+          </AppFilterToggle>
+          <AppFilterToggle
+            active={filters.status === "failed"}
+            onClick={() => onStatusChange("failed")}
+          >
+            {t("statuses.failed")}
+          </AppFilterToggle>
+        </AppFilterGroup>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-500">
-            <Filter className="h-4 w-4" />
-            {t("filters.range")}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.15fr)]">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
+            <Layers3 className="h-4 w-4 text-primary" />
+            <Select
+              value={filters.model ?? "all"}
+              onValueChange={(value) =>
+                onModelChange(value === "all" ? null : value)
+              }
+            >
+              <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
+                <SelectValue placeholder={t("filters.modelAll")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filters.modelAll")}</SelectItem>
+                {models.map((model) => (
+                  <SelectItem key={model.key} value={model.key}>
+                    {model.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <AppButton
-              type="button"
-              size="sm"
-              variant="surface"
-              className="text-xs font-bold uppercase tracking-widest"
-              onClick={() => handleQuickRange(7)}
+
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
+            <KeyRound className="h-4 w-4 text-primary" />
+            <Select
+              value={filters.apiKeyId ?? "all"}
+              onValueChange={(value) =>
+                onApiKeyChange(value === "all" ? null : value)
+              }
             >
-              7D
-            </AppButton>
-            <AppButton
-              type="button"
-              size="sm"
-              variant="surface"
-              className="text-xs font-bold uppercase tracking-widest"
-              onClick={() => handleQuickRange(30)}
-            >
-              30D
-            </AppButton>
-            <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
-              <CalendarRange className="h-4 w-4" />
-              <span title={filters.tz}>{timeZoneLabel}</span>
+              <SelectTrigger className="h-9 border-none bg-transparent px-0 text-sm shadow-none">
+                <SelectValue placeholder={t("filters.apiKeyAll")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filters.apiKeyAll")}</SelectItem>
+                <SelectItem value="ui">{t("filters.apiKeyUi")}</SelectItem>
+                {apiKeys.map((key) => (
+                  <SelectItem key={key.id} value={key.id}>
+                    {key.maskedKey}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background-dark/50 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-500">
+              <Filter className="h-4 w-4" />
+              {t("filters.range")}
             </div>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <AppButton
-                    type="button"
-                    variant="surface"
-                    className="h-9 w-full justify-start gap-2 text-xs text-white"
-                  >
-                    <CalendarRange className="h-4 w-4 text-primary" />
-                    {rangeLabel}
-                  </AppButton>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto p-0">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={displayRange?.from}
-                    selected={displayRange}
-                    onSelect={handleRangeSelect}
-                    numberOfMonths={2}
-                    locale={calendarLocale}
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="flex flex-wrap items-center gap-2">
+              <AppButton
+                type="button"
+                size="sm"
+                variant="surface"
+                className="text-xs font-bold uppercase tracking-widest"
+                onClick={() => handleQuickRange(7)}
+              >
+                7D
+              </AppButton>
+              <AppButton
+                type="button"
+                size="sm"
+                variant="surface"
+                className="text-xs font-bold uppercase tracking-widest"
+                onClick={() => handleQuickRange(30)}
+              >
+                30D
+              </AppButton>
+              <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
+                <CalendarRange className="h-4 w-4" />
+                <span title={filters.tz}>{timeZoneLabel}</span>
+              </div>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <AppButton
+                      type="button"
+                      variant="surface"
+                      className="h-9 w-full justify-start gap-2 text-xs text-white"
+                    >
+                      <CalendarRange className="h-4 w-4 text-primary" />
+                      {rangeLabel}
+                    </AppButton>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto p-0">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={displayRange?.from}
+                      selected={displayRange}
+                      onSelect={handleRangeSelect}
+                      numberOfMonths={2}
+                      locale={calendarLocale}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <AppSearchField
+        value={searchValue}
+        onChange={(event) => onSearchChange(event.target.value)}
+        placeholder={searchPlaceholder}
+        containerClassName="lg:max-w-[28rem]"
+      />
+    </AppFilterToolbar>
   );
 }
