@@ -36,6 +36,7 @@ describe("LandingHero", () => {
     expect(panel).toBeInTheDocument();
     expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
     expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-form-shader");
+    expect(panel.firstElementChild).toHaveClass("lf-hero-shader-fade");
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(
       screen.getByTestId("landing-hero-form-surface"),
