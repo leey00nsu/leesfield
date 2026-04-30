@@ -183,6 +183,10 @@
     box-shadow: 0 34px 110px oklch(0 0 0 / 0.45);
   }
 
+  .lf-editorial-panel-borderless {
+    border: 0;
+  }
+
   .lf-editorial-card {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:

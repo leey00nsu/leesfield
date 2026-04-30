@@ -1,8 +1,12 @@
 import type React from "react";
 import { screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { renderWithIntl } from "@/test-utils/intl";
+import {
+  markClientShellHydrated,
+  resetClientShellHydrationForTests,
+} from "@/shared/lib/client-navigation-state";
 
 vi.mock("next/image", () => ({
   default: (
@@ -29,6 +33,10 @@ vi.mock("@paper-design/shaders-react", () => ({
 }));
 
 describe("LandingHero", () => {
+  beforeEach(() => {
+    resetClientShellHydrationForTests();
+  });
+
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
 
@@ -42,6 +50,9 @@ describe("LandingHero", () => {
     expect(
       screen.getByTestId("landing-hero-form-surface"),
     ).toHaveClass("relative");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveClass("lf-editorial-panel-borderless");
     expect(
       screen.getByTestId("shared-prompt-form-surface"),
     ).toHaveClass("bg-black/18");
@@ -80,6 +91,21 @@ describe("LandingHero", () => {
     expect(screen.getByRole("link", { name: /Generate/ })).toHaveAttribute(
       "href",
       "/image",
+    );
+  });
+
+  it("does not restart the shader fade after client-side navigation", () => {
+    markClientShellHydrated();
+
+    renderWithIntl(<LandingHero />);
+
+    const panel = screen.getByTestId("warp-shader-panel");
+    expect(panel).not.toHaveClass("animate-in");
+    expect(panel).not.toHaveClass("fade-in");
+    expect(panel).toHaveClass("bg-[#07090a]");
+    expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
+    expect(screen.getByTestId("warp-shader-scrim")).toHaveClass(
+      "bg-[#07090a]/35",
     );
   });
 });

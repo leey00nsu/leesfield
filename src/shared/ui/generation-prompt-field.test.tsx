@@ -20,6 +20,7 @@ describe("GenerationPromptField", () => {
     const surface = screen.getByTestId("shared-prompt-form-surface");
 
     expect(dock).toHaveClass("lf-editorial-panel");
+    expect(dock).toHaveClass("lf-editorial-panel-borderless");
     expect(dock).toHaveClass("rounded-[1.35rem]");
     expect(surface).toHaveClass("relative");
     expect(surface).toHaveClass("rounded-xl");

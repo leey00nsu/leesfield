@@ -60,7 +60,7 @@ export function GenerationPromptField({
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
       className={cn(
-        "lf-editorial-panel relative overflow-hidden rounded-[1.35rem] p-4",
+        "lf-editorial-panel lf-editorial-panel-borderless relative overflow-hidden rounded-[1.35rem] p-4",
         className,
       )}
     >
