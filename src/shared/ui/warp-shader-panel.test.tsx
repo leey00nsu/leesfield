@@ -1,6 +1,6 @@
 import type React from "react";
-import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 vi.mock("@paper-design/shaders-react", () => ({
@@ -12,27 +12,17 @@ vi.mock("@paper-design/shaders-react", () => ({
 }));
 
 describe("WarpShaderPanel", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("starts hidden and fades in after client mount", () => {
-    vi.useFakeTimers();
-
+  it("uses Tailwind opacity animation classes for fade-in", () => {
     render(<WarpShaderPanel className="absolute inset-0" fadeIn />);
 
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(panel).toHaveAttribute("data-visible", "false");
-    expect(panel).toHaveClass("opacity-0");
-    expect(panel).toHaveClass("scale-[1.02]");
-
-    act(() => {
-      vi.advanceTimersByTime(180);
-    });
-
-    expect(panel).toHaveAttribute("data-visible", "true");
     expect(panel).toHaveClass("opacity-75");
-    expect(panel).toHaveClass("scale-100");
-    expect(panel).toHaveClass("motion-reduce:transition-none");
+    expect(panel).toHaveClass("animate-in");
+    expect(panel).toHaveClass("fade-in");
+    expect(panel).toHaveClass("duration-1000");
+    expect(panel).toHaveClass("delay-150");
+    expect(panel).toHaveClass("fill-mode-forwards");
+    expect(panel).toHaveClass("motion-reduce:animate-none");
+    expect(panel).not.toHaveAttribute("data-visible");
   });
 });

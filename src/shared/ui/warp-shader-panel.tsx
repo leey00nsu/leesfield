@@ -11,7 +11,6 @@ type WarpShaderPanelProps = {
 
 export function WarpShaderPanel({ className, fadeIn = false }: WarpShaderPanelProps) {
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [isVisible, setIsVisible] = useState(!fadeIn);
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -29,35 +28,15 @@ export function WarpShaderPanel({ className, fadeIn = false }: WarpShaderPanelPr
     };
   }, []);
 
-  useEffect(() => {
-    if (!fadeIn) {
-      return;
-    }
-
-    const fadeTimer = window.setTimeout(() => {
-      setIsVisible(true);
-    }, 180);
-
-    return () => {
-      window.clearTimeout(fadeTimer);
-    };
-  }, [fadeIn]);
-
   return (
     <div
       aria-hidden="true"
       className={cn(
         className,
         fadeIn &&
-          "origin-center transition-[opacity,transform] duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:opacity-75",
-        fadeIn
-          ? isVisible
-            ? "scale-100 opacity-75"
-            : "scale-[1.02] opacity-0"
-          : null,
+          "animate-in fade-in fill-mode-forwards opacity-75 delay-150 duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none",
       )}
       data-testid="warp-shader-panel"
-      data-visible={String(isVisible)}
     >
       <Warp
         style={{ height: "100%", width: "100%" }}

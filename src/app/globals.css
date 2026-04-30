@@ -170,27 +170,48 @@
   .lf-editorial-panel {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.26), transparent 48%),
-      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.14), transparent 46%),
-      oklch(0.12 0.006 104 / 0.94);
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(212, 240, 50, 0.075),
+        transparent 28rem
+      ),
+      linear-gradient(
+        180deg,
+        rgba(15, 17, 12, 0.9),
+        rgba(5, 6, 4, 0.94)
+      );
     box-shadow: 0 34px 110px oklch(0 0 0 / 0.45);
   }
 
   .lf-editorial-card {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.22), transparent 50%),
-      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.11), transparent 48%),
-      oklch(0.12 0.006 104 / 0.94);
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(212, 240, 50, 0.075),
+        transparent 28rem
+      ),
+      linear-gradient(
+        180deg,
+        rgba(15, 17, 12, 0.9),
+        rgba(5, 6, 4, 0.94)
+      );
   }
 
   .lf-editorial-card-flat,
   .lf-editorial-flat-card {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.22), transparent 50%),
-      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.11), transparent 48%),
-      oklch(0.12 0.006 104 / 0.94);
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(212, 240, 50, 0.075),
+        transparent 28rem
+      ),
+      linear-gradient(
+        180deg,
+        rgba(15, 17, 12, 0.9),
+        rgba(5, 6, 4, 0.94)
+      );
   }
 
   .lf-serif {

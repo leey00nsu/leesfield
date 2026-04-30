@@ -8,7 +8,7 @@ const globalsCss = readFileSync(
 );
 
 describe("editorial surface CSS", () => {
-  it("uses one subtle gradient treatment for shared card and panel surfaces", () => {
+  it("uses the original footer gradient geometry for shared card and panel surfaces", () => {
     const panelBlock = globalsCss.match(
       /\.lf-editorial-panel\s*{[\s\S]*?}\n/,
     )?.[0];
@@ -22,6 +22,14 @@ describe("editorial surface CSS", () => {
     expect(globalsCss).toMatch(
       /\.lf-editorial-card\s*{[\s\S]*?radial-gradient/,
     );
+    expect(panelBlock).toContain("circle at 50% 0%");
+    expect(panelBlock).toContain("transparent 28rem");
+    expect(panelBlock).toContain("linear-gradient");
+    expect(panelBlock).toContain("180deg");
+    expect(cardBlock).toContain("circle at 50% 0%");
+    expect(cardBlock).toContain("transparent 28rem");
+    expect(cardBlock).toContain("linear-gradient");
+    expect(cardBlock).toContain("180deg");
     expect(panelBlock).toContain("rgba(");
     expect(cardBlock).toContain("rgba(");
     expect(panelBlock).not.toMatch(/radial-gradient\([^)]*oklch/);
