@@ -66,11 +66,7 @@ export function LandingHero() {
           className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
           <div data-layer="hero-form-shader" className="absolute inset-0">
-            <WarpShaderPanel
-              className="absolute inset-0"
-              fadeIn
-              fadeInOnInitialLoadOnly
-            />
+            <WarpShaderPanel className="absolute inset-0" fadeIn />
           </div>
 
           <div

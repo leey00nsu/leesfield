@@ -2,24 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Warp } from "@paper-design/shaders-react";
-import { hasClientShellHydrated } from "@/shared/lib/client-navigation-state";
 import { cn } from "@/shared/lib/utils";
 
 type WarpShaderPanelProps = {
   className?: string;
   fadeIn?: boolean;
-  fadeInOnInitialLoadOnly?: boolean;
 };
 
 export function WarpShaderPanel({
   className,
   fadeIn = false,
-  fadeInOnInitialLoadOnly = false,
 }: WarpShaderPanelProps) {
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [shouldFadeIn] = useState(
-    () => fadeIn && (!fadeInOnInitialLoadOnly || !hasClientShellHydrated()),
-  );
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -43,7 +37,7 @@ export function WarpShaderPanel({
       className={cn(
         "grid isolate overflow-hidden bg-[#07090a]",
         className,
-        shouldFadeIn &&
+        fadeIn &&
           "animate-in fade-in fill-mode-forwards opacity-75 delay-150 duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none",
       )}
       data-testid="warp-shader-panel"

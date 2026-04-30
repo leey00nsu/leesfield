@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { Toaster } from "sonner";
-import { markClientShellHydrated } from "@/shared/lib/client-navigation-state";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -33,10 +32,6 @@ export function Providers({
         },
       }),
   );
-
-  useEffect(() => {
-    markClientShellHydrated();
-  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

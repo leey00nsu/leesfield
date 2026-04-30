@@ -1,10 +1,6 @@
 import type React from "react";
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  markClientShellHydrated,
-  resetClientShellHydrationForTests,
-} from "@/shared/lib/client-navigation-state";
+import { describe, expect, it, vi } from "vitest";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 vi.mock("@paper-design/shaders-react", () => ({
@@ -16,10 +12,6 @@ vi.mock("@paper-design/shaders-react", () => ({
 }));
 
 describe("WarpShaderPanel", () => {
-  beforeEach(() => {
-    resetClientShellHydrationForTests();
-  });
-
   it("masks a white shader first frame without hiding the shader colors", () => {
     render(<WarpShaderPanel className="absolute inset-0" fadeIn />);
 
@@ -50,20 +42,12 @@ describe("WarpShaderPanel", () => {
     expect(panel).not.toHaveAttribute("data-visible");
   });
 
-  it("can keep the first load fade without replaying it after client navigation", () => {
-    markClientShellHydrated();
-
-    render(
-      <WarpShaderPanel
-        className="absolute inset-0"
-        fadeIn
-        fadeInOnInitialLoadOnly
-      />,
-    );
+  it("keeps the fade-in classes even after client navigation", () => {
+    render(<WarpShaderPanel className="absolute inset-0" fadeIn />);
 
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(panel).not.toHaveClass("animate-in");
-    expect(panel).not.toHaveClass("fade-in");
+    expect(panel).toHaveClass("animate-in");
+    expect(panel).toHaveClass("fade-in");
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
   });

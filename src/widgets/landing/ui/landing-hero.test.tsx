@@ -1,12 +1,8 @@
 import type React from "react";
 import { screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { renderWithIntl } from "@/test-utils/intl";
-import {
-  markClientShellHydrated,
-  resetClientShellHydrationForTests,
-} from "@/shared/lib/client-navigation-state";
 
 vi.mock("next/image", () => ({
   default: (
@@ -33,10 +29,6 @@ vi.mock("@paper-design/shaders-react", () => ({
 }));
 
 describe("LandingHero", () => {
-  beforeEach(() => {
-    resetClientShellHydrationForTests();
-  });
-
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
 
@@ -94,14 +86,16 @@ describe("LandingHero", () => {
     );
   });
 
-  it("does not restart the shader fade after client-side navigation", () => {
-    markClientShellHydrated();
-
+  it("smoothly fades the shader in after client-side navigation", () => {
+    const firstRender = renderWithIntl(<LandingHero />);
+    firstRender.unmount();
     renderWithIntl(<LandingHero />);
 
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(panel).not.toHaveClass("animate-in");
-    expect(panel).not.toHaveClass("fade-in");
+    expect(panel).toHaveClass("animate-in");
+    expect(panel).toHaveClass("fade-in");
+    expect(panel).toHaveClass("fill-mode-forwards");
+    expect(panel).toHaveClass("duration-1000");
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
     expect(screen.getByTestId("warp-shader-scrim")).toHaveClass(
