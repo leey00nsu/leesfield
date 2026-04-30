@@ -25,6 +25,7 @@ import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
 import { AppDetailRail, AppDetailSection } from "@/shared/ui/app-detail-rail";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppExpandableText } from "@/shared/ui/app-expandable-text";
 import {
   AppFilterGroup,
   AppFilterToolbar,
@@ -32,6 +33,7 @@ import {
   AppSearchField,
   AppSortSelect,
 } from "@/shared/ui/app-filter-toolbar";
+import { AppTabs } from "@/shared/ui/app-tabs";
 import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
@@ -311,17 +313,18 @@ function HistoryDetailOverlay({
   const formattedProgress = formatProgress(item.progress);
   const resultUrl = item.resultUrl ?? null;
   const thumbnailUrl = item.thumbnailUrl ?? item.resultUrl ?? null;
-  const shortId = item.id.length > 18 ? `${item.id.slice(0, 8)}...${item.id.slice(-6)}` : item.id;
 
-  const requestRows = [
-    { label: tHistory("detail.requestId"), value: shortId, title: item.id },
+  const settingsRows = [
     { label: tHistory("detail.model"), value: formatFallback(item.model) },
     { label: tHistory("detail.type"), value: tTypes(item.type) },
+    { label: tHistory("detail.status"), value: tStatuses(item.status) },
+    { label: tHistory("detail.progress"), value: formattedProgress },
+  ];
+  const metadataRows = [
+    { label: tHistory("detail.requestId"), value: item.id },
     { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
     { label: tHistory("detail.completedAt"), value: completedAt },
     { label: tHistory("detail.duration"), value: formattedDuration },
-    { label: tHistory("detail.progress"), value: formattedProgress },
-    { label: tHistory("detail.status"), value: tStatuses(item.status) },
   ];
 
   const primaryInputImage = inputImages[0] ?? null;
@@ -346,7 +349,7 @@ function HistoryDetailOverlay({
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="max-w-[9rem] truncate text-[10px] font-semibold tracking-normal text-white/48 hover:text-primary"
+            className="text-[10px] font-semibold tracking-normal text-white/48 hover:text-primary"
           >
             {tHistory("detail.openAsset")}
           </a>
@@ -383,6 +386,101 @@ function HistoryDetailOverlay({
   const handleCopyPrompt = () => {
     void navigator.clipboard?.writeText(item.prompt);
   };
+
+  const renderRows = (rows: Array<{ label: string; value: string }>) => (
+    <dl className="grid gap-3 text-sm">
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-3"
+        >
+          <dt className="text-white/42">{row.label}</dt>
+          <dd className="min-w-0 break-words text-right font-semibold text-white">
+            {row.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+
+  const promptTab = (
+    <div className="grid gap-5">
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-3 text-sm font-semibold text-white">
+          <span>{tHistory("detail.fullPrompt")}</span>
+          <AppButton
+            type="button"
+            variant="surface"
+            size="sm"
+            onClick={handleCopyPrompt}
+            className="h-8 rounded-lg px-2.5 text-xs"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {tActions("copy")}
+          </AppButton>
+        </div>
+        <AppExpandableText
+          collapsedLines={4}
+          showMoreLabel={tHistory("detail.showMore")}
+          showLessLabel={tHistory("detail.showLess")}
+          bodyClassName="rounded-xl border border-white/10 bg-black/18 p-4 text-sm leading-6 text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+        >
+          {item.prompt}
+        </AppExpandableText>
+      </div>
+
+      {item.referenceText ? (
+        <div className="grid gap-3">
+          <div className="text-sm font-semibold text-white">
+            {tHistory("detail.referenceText")}
+          </div>
+          <AppExpandableText
+            collapsedLines={3}
+            showMoreLabel={tHistory("detail.showMore")}
+            showLessLabel={tHistory("detail.showLess")}
+            bodyClassName="rounded-xl border border-white/10 bg-black/18 p-4 text-sm leading-6 text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          >
+            {item.referenceText}
+          </AppExpandableText>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const settingsTab = (
+    <AppDetailSection className="p-4">{renderRows(settingsRows)}</AppDetailSection>
+  );
+
+  const metadataTab = (
+    <AppDetailSection className="p-4">{renderRows(metadataRows)}</AppDetailSection>
+  );
+
+  const historyTab = (
+    <div className="grid gap-3">
+      {renderMediaPreview({
+        label: inputLabel,
+        url: item.type === "audio" ? primaryInputAudio : primaryInputImage,
+        type: item.type === "audio" ? "audio" : "image",
+        empty: tHistory("detail.noInputAsset"),
+      })}
+      {item.errorMessage ? (
+        <AppExpandableText
+          collapsedLines={3}
+          showMoreLabel={tHistory("detail.showMore")}
+          showLessLabel={tHistory("detail.showLess")}
+          bodyClassName="rounded-xl border border-red-300/20 bg-red-500/10 p-4 text-sm leading-6 text-red-50/80"
+        >
+          {item.errorMessage}
+        </AppExpandableText>
+      ) : null}
+      {renderMediaPreview({
+        label: resultLabel,
+        url: thumbnailUrl ?? resultUrl,
+        type: item.type,
+        empty: tHistory("detail.noResultAsset"),
+      })}
+    </div>
+  );
 
   return (
     <div
@@ -496,78 +594,31 @@ function HistoryDetailOverlay({
           </div>
         }
       >
-        <div className="grid gap-4">
-        <AppDetailSection>
-          <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase text-gray-500">
-            <span>{tHistory("detail.prompt")}</span>
-            <AppButton
-              type="button"
-              variant="surface"
-              size="sm"
-              onClick={handleCopyPrompt}
-              className="h-7 rounded-md px-2 text-xs"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              {tActions("copy")}
-            </AppButton>
-          </div>
-          <p className="line-clamp-5 text-sm leading-relaxed text-gray-300">
-            {item.prompt}
-          </p>
-        </AppDetailSection>
-
-        <AppDetailSection>
-          <div className="mb-3 text-xs font-bold uppercase text-gray-500">
-            {tHistory("detail.information")}
-          </div>
-          <dl className="grid gap-2 text-sm">
-            {requestRows.map((row) => (
-              <div
-                key={row.label}
-                className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-3 rounded-lg border border-white/5 bg-black/18 px-3 py-2"
-              >
-                <dt className="text-xs font-medium text-gray-500">{row.label}</dt>
-                <dd
-                  title={row.title}
-                  className="min-w-0 truncate text-right font-semibold text-white"
-                >
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </AppDetailSection>
-
-        <AppDetailSection>
-          <div className="mb-3 text-xs font-bold uppercase text-gray-500">
-            {tHistory("detail.assets")}
-          </div>
-          <div className="grid gap-3">
-            {renderMediaPreview({
-              label: inputLabel,
-              url: item.type === "audio" ? primaryInputAudio : primaryInputImage,
-              type: item.type === "audio" ? "audio" : "image",
-              empty: tHistory("detail.noInputAsset"),
-            })}
-            {item.referenceText ? (
-              <div className="rounded-xl border border-white/10 bg-black/18 p-3">
-                <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
-                  {tHistory("detail.referenceText")}
-                </div>
-                <p className="line-clamp-4 text-sm leading-relaxed text-white/68">
-                  {item.referenceText}
-                </p>
-              </div>
-            ) : null}
-            {renderMediaPreview({
-              label: resultLabel,
-              url: thumbnailUrl ?? resultUrl,
-              type: item.type,
-              empty: tHistory("detail.noResultAsset"),
-            })}
-          </div>
-        </AppDetailSection>
-        </div>
+        <AppTabs
+          ariaLabel={tHistory("detail.tabsAriaLabel")}
+          items={[
+            {
+              value: "prompt",
+              label: tHistory("detail.tabPrompt"),
+              content: promptTab,
+            },
+            {
+              value: "settings",
+              label: tHistory("detail.tabSettings"),
+              content: settingsTab,
+            },
+            {
+              value: "metadata",
+              label: tHistory("detail.tabMetadata"),
+              content: metadataTab,
+            },
+            {
+              value: "history",
+              label: tHistory("detail.tabHistory"),
+              content: historyTab,
+            },
+          ]}
+        />
       </AppDetailRail>
     </div>
   );

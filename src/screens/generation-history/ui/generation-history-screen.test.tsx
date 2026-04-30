@@ -184,15 +184,33 @@ describe("GenerationHistoryScreen", () => {
       "data-app-detail-rail",
       "",
     );
+    expect(screen.getByRole("tablist", { name: "결과 상세 섹션" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Prompt" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(screen.getByText("medium shot editorial result")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    expect(clipboardWriteTextMock).toHaveBeenCalledWith(
+      "medium shot editorial result",
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.getByText("Model")).toBeInTheDocument();
+    expect(screen.getAllByText("flux2-klein-9b").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
     expect(screen.getByText("요청 ID")).toBeInTheDocument();
     expect(screen.getByText("history-detail-1")).toBeInTheDocument();
     expect(screen.getByText("요청 시간")).toBeInTheDocument();
     expect(screen.getByText("완료 시간")).toBeInTheDocument();
     expect(screen.getByText("소요 시간")).toBeInTheDocument();
     expect(screen.getByText("2.5s")).toBeInTheDocument();
-    expect(screen.getByText("진행률")).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
     expect(screen.getByText("입력 이미지")).toBeInTheDocument();
     expect(screen.getByText("결과 이미지")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: /이미지/ })).toHaveLength(2);
@@ -200,11 +218,6 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
       "href",
       "https://example.com/result.png",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
-    expect(clipboardWriteTextMock).toHaveBeenCalledWith(
-      "medium shot editorial result",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Video" }));
@@ -218,6 +231,39 @@ describe("GenerationHistoryScreen", () => {
     );
 
     expect(screen.getByRole("button", { name: "Upscale" })).toBeDisabled();
+  });
+
+  it("collapses long prompt text and expands it on request", () => {
+    const longPrompt = [
+      "A majestic mountain landscape at golden hour with dramatic clouds",
+      "a winding river through the valley",
+      "a cinematic photorealistic style",
+      "precise camera direction",
+      "reusable lighting notes",
+      "and production-ready composition details.",
+    ].join(", ");
+
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [{ ...detailFixture, prompt: longPrompt }],
+      total: 1,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    fireEvent.click(screen.getByTestId("history-list"));
+
+    const showMore = screen.getByRole("button", { name: "더 보기" });
+    expect(showMore).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(showMore);
+
+    expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   it("shows placeholders for missing request detail metadata", () => {
@@ -246,9 +292,12 @@ describe("GenerationHistoryScreen", () => {
 
     fireEvent.click(screen.getByTestId("history-list"));
 
+    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
     expect(screen.getByText("pending-detail")).toBeInTheDocument();
+    expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.click(screen.getByRole("tab", { name: "History" }));
     expect(screen.getByText("입력 자산 없음")).toBeInTheDocument();
     expect(screen.getByText("결과 없음")).toBeInTheDocument();
-    expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(3);
   });
 });
