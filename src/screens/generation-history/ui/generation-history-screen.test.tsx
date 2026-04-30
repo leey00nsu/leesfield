@@ -143,6 +143,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
+    expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "실패" }));
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");

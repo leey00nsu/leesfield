@@ -131,7 +131,6 @@ export function GenerationHistoryScreen() {
     statusFilter === "all"
       ? items
       : items.filter((item) => item.status === statusFilter);
-  const displayTotal = statusFilter === "all" ? total : displayItems.length;
   const hasFilteredState = query.length > 0 || statusFilter !== "all";
 
   return (
@@ -209,9 +208,6 @@ export function GenerationHistoryScreen() {
             />
           </div>
         </AppFilterToolbar>
-        <div className="-mt-5 text-right text-xs font-mono uppercase tracking-widest text-white/38">
-          {tCommonLabels("total", { total: displayTotal })}
-        </div>
       </section>
 
       <div className="mx-auto w-full max-w-[1800px]">
