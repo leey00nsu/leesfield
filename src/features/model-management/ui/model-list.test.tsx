@@ -23,28 +23,28 @@ const modelItemFixture: ModelCatalogItem = {
 };
 
 describe("ModelList", () => {
-  it("uses grid layout for model cards", () => {
+  it("uses an app-styled compact row list", () => {
     const { container } = renderWithIntl(<ModelList items={[modelItemFixture]} />);
 
     const wrapper = container.firstElementChild;
     expect(wrapper).toBeTruthy();
     const className = wrapper?.getAttribute("class") ?? "";
-    expect(className).toContain("grid");
-    expect(className).toContain("grid-cols-1");
-    expect(className).toContain("sm:grid-cols-2");
-    expect(className).toContain("xl:grid-cols-3");
-    expect(className).not.toContain("columns-1");
+    expect(wrapper).toHaveAttribute("data-app-card");
+    expect(wrapper).toHaveAttribute("role", "list");
+    expect(className).toContain("rounded-[1.1rem]");
+    expect(className).not.toContain("grid-cols-1");
+    expect(container.querySelector("[data-model-row]")).toBeTruthy();
   });
 
-  it("shows outcome metadata while keeping provider/key as supporting meta", () => {
+  it("shows compact model metadata and status", () => {
     renderWithIntl(<ModelList items={[modelItemFixture]} />);
 
-    expect(screen.getByText("추천 용도")).toBeInTheDocument();
-    expect(screen.getByText("빠른 이미지 초안")).toBeInTheDocument();
-    expect(screen.getByText("결과 톤")).toBeInTheDocument();
-    expect(screen.getByText("선명한 프롬프트 기반 컷")).toBeInTheDocument();
-    expect(screen.getByText("기술 정보")).toBeInTheDocument();
-    expect(screen.getByText(/hf_space/)).toBeInTheDocument();
-    expect(screen.getByText(/test-model/)).toBeInTheDocument();
+    expect(screen.getByText("Test Model")).toBeInTheDocument();
+    expect(screen.getByText("HUGGINGFACE")).toBeInTheDocument();
+    expect(screen.getByText("이미지")).toBeInTheDocument();
+    expect(screen.getByText("T2I")).toBeInTheDocument();
+    expect(screen.getByText("활성")).toBeInTheDocument();
+    expect(screen.getByText("업데이트")).toBeInTheDocument();
+    expect(screen.getByText("기본값")).toBeInTheDocument();
   });
 });

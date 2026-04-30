@@ -128,6 +128,10 @@ describe("ModelManagementScreen", () => {
 
     const imageLabels = await screen.findAllByText(imageModel!.label);
     expect(imageLabels.length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText("검색...")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "모델 정렬" })).toBeInTheDocument();
+    expect(screen.queryByText("모델 관리")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "이미지" }));
 
@@ -135,6 +139,39 @@ describe("ModelManagementScreen", () => {
       expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
       expect(screen.queryAllByText(imageModel!.label).length).toBeGreaterThan(0);
     });
+  });
+
+  it("기본 정렬은 최신 업데이트 순서로 모델 row를 보여준다", async () => {
+    expect(imageModel).toBeDefined();
+    expect(videoModel).toBeDefined();
+
+    const olderImage = {
+      ...imageModel!,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const newerVideo = {
+      ...videoModel!,
+      createdAt: "2026-02-01T00:00:00.000Z",
+      updatedAt: "2026-02-01T00:00:00.000Z",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [olderImage, newerVideo] }),
+      }),
+    );
+
+    renderWithIntl(<ModelManagementScreen />);
+
+    await screen.findByText(newerVideo.label);
+    const labels = Array.from(document.querySelectorAll("[data-model-row] h3")).map(
+      (node) => node.textContent,
+    );
+
+    expect(labels[0]).toBe(newerVideo.label);
+    expect(labels[1]).toBe(olderImage.label);
   });
 
   it("검색어로 모델 목록을 필터링한다", async () => {

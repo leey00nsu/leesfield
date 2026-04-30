@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AudioLines,
-  Grid2X2,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -20,7 +19,6 @@ import {
 import { ModelList } from "@/features/model-management/ui/model-list";
 import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
-import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,28 +39,31 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import {
-  PageHeader,
-  PageHeaderSearchInput,
-} from "@/shared/ui/page-header";
 import { Textarea } from "@/shared/ui/textarea";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
+import { cn } from "@/shared/lib/utils";
 import {
-  DashboardFilterBar,
-  DashboardFilterDivider,
-  DashboardFilterToggle,
-} from "@/shared/ui/dashboard-filter-bar";
+  AppFilterGroup,
+  AppFilterToolbar,
+  AppFilterToggle,
+  AppSearchField,
+  AppSortSelect,
+} from "@/shared/ui/app-filter-toolbar";
+import { AppCard } from "@/shared/ui/app-card";
 
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
 type ModelType = "image" | "video" | "audio";
 type VendorOption = "HUGGINGFACE" | "API";
+type ModelSortOption = "latest" | "name" | "type";
 
 const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
   { value: "HUGGINGFACE" },
   { value: "API", disabled: true },
 ];
+
+const modelSortOptions: ModelSortOption[] = ["latest", "name", "type"];
 
 type AdminModelRecord = {
   id: string;
@@ -255,6 +256,8 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
     provider: record.provider,
     isActive: record.isActive,
     isDefault: record.isDefault,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   };
   const meta = record.meta ?? {};
 
@@ -303,12 +306,38 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
   };
 }
 
+function getModelTimestamp(item: ModelCatalogItem) {
+  const time = new Date(item.updatedAt ?? item.createdAt ?? "").getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortModelCatalogItems(
+  items: ModelCatalogItem[],
+  sort: ModelSortOption,
+) {
+  return [...items].sort((a, b) => {
+    if (sort === "latest") {
+      return getModelTimestamp(b) - getModelTimestamp(a);
+    }
+
+    if (sort === "type") {
+      return (
+        a.type.localeCompare(b.type) ||
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+      );
+    }
+
+    return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+  });
+}
+
 export function ModelManagementScreen() {
   const tModel = useTranslations("model");
   const tAdmin = useTranslations("model.admin");
   const tCommonLabels = useTranslations("common.labels");
   const [type, setType] = useState<ModelCatalogFilterType>("all");
   const [searchInput, setSearchInput] = useState("");
+  const [sort, setSort] = useState<ModelSortOption>("latest");
   const [records, setRecords] = useState<AdminModelRecord[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -344,8 +373,8 @@ export function ModelManagementScreen() {
   );
 
   const filteredModels = useMemo(
-    () => filterModelCatalog(displayItems, { type, query }),
-    [displayItems, query, type],
+    () => sortModelCatalogItems(filterModelCatalog(displayItems, { type, query }), sort),
+    [displayItems, query, sort, type],
   );
 
   const loadModels = useCallback(async () => {
@@ -469,7 +498,7 @@ export function ModelManagementScreen() {
     });
   };
 
-  const parseJson = (value: string, field: keyof JsonErrors) => {
+  const parseJson = (value: string) => {
     try {
       const parsed = JSON.parse(value);
       return { parsed, error: null } as const;
@@ -485,12 +514,9 @@ export function ModelManagementScreen() {
     }
 
     setDeleteError(null);
-    const providerConfigResult = parseJson(
-      draft.providerConfigText,
-      "providerConfig",
-    );
-    const parametersResult = parseJson(draft.parametersText, "parameters");
-    const metaResult = parseJson(draft.metaText, "meta");
+    const providerConfigResult = parseJson(draft.providerConfigText);
+    const parametersResult = parseJson(draft.parametersText);
+    const metaResult = parseJson(draft.metaText);
 
     const nextJsonErrors: JsonErrors = {
       providerConfig: providerConfigResult.error ?? undefined,
@@ -683,22 +709,28 @@ export function ModelManagementScreen() {
   const content = (() => {
     if (loadState === "loading") {
       return (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+        <AppCard
+          variant="editorial-flat"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+        >
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
             {tAdmin("status.loading")}
           </p>
-        </div>
+        </AppCard>
       );
     }
 
     if (loadState === "error") {
       return (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+        <AppCard
+          variant="editorial-flat"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+        >
           <p className="text-xs font-mono uppercase tracking-widest text-red-300">
             {loadError ?? tAdmin("errors.load")}
           </p>
-        </div>
+        </AppCard>
       );
     }
 
@@ -712,85 +744,110 @@ export function ModelManagementScreen() {
   })();
 
   return (
-    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <PageHeader
-        title={
-          <>
-            <span className="text-white">{tModel("title.leading")}</span>{" "}
-            <span className="text-primary">{tModel("title.accent")}</span>
-          </>
-        }
-        subtitle={tModel("subtitle")}
-        rightSlot={
-          <PageHeaderSearchInput
-            value={searchInput}
-            onChange={setSearchInput}
-            placeholder={tCommonLabels("searchPlaceholder")}
-            filterButtonLabel={tCommonLabels("filterOptions")}
-          />
-        }
-      >
-        <DashboardFilterBar>
-          <DashboardFilterToggle
+    <div className="overflow-x-hidden pb-20 pt-4 sm:pt-6">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 sm:px-6 lg:px-8">
+        <AppFilterToolbar className="rounded-none border-0 bg-transparent p-0 shadow-none backdrop-blur-0">
+          <AppFilterGroup className="gap-1 border-b border-white/10">
+          <AppFilterToggle
             onClick={() => setType("all")}
-            aria-pressed={type === "all"}
-            active={type === "all"}
-            icon={<Grid2X2 className="h-4 w-4" />}
+              aria-pressed={type === "all"}
+              active={type === "all"}
+            className={cn(
+              "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
+              type === "all"
+                ? "border-primary text-primary hover:!text-primary"
+                : "border-transparent text-white/58 hover:!text-white/58",
+            )}
           >
             {tCommonLabels("all")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
+          </AppFilterToggle>
+          <AppFilterToggle
             onClick={() => setType("image")}
             aria-pressed={type === "image"}
-            active={type === "image"}
-            icon={<ImageIcon className="h-4 w-4" />}
+              active={type === "image"}
+              icon={<ImageIcon className="h-4 w-4" />}
+              className={cn(
+                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
+                type === "image"
+                  ? "border-primary text-primary hover:!text-primary"
+                  : "border-transparent text-white/58 hover:!text-white/58",
+              )}
           >
             {tCommonLabels("images")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
+          </AppFilterToggle>
+          <AppFilterToggle
             onClick={() => setType("video")}
             aria-pressed={type === "video"}
-            active={type === "video"}
-            icon={<Video className="h-4 w-4" />}
+              active={type === "video"}
+              icon={<Video className="h-4 w-4" />}
+              className={cn(
+                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
+                type === "video"
+                  ? "border-primary text-primary hover:!text-primary"
+                  : "border-transparent text-white/58 hover:!text-white/58",
+              )}
           >
             {tCommonLabels("videos")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
+          </AppFilterToggle>
+          <AppFilterToggle
             onClick={() => setType("audio")}
             aria-pressed={type === "audio"}
-            active={type === "audio"}
-            icon={<AudioLines className="h-4 w-4" />}
+              active={type === "audio"}
+              icon={<AudioLines className="h-4 w-4" />}
+              className={cn(
+                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
+                type === "audio"
+                  ? "border-primary text-primary hover:!text-primary"
+                  : "border-transparent text-white/58 hover:!text-white/58",
+              )}
           >
             {tCommonLabels("audios")}
-          </DashboardFilterToggle>
-          <DashboardFilterDivider />
-          <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
-            {tCommonLabels("total", { total: filteredModels.length })}
-          </span>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          </AppFilterToggle>
+          </AppFilterGroup>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-[42rem]">
+            <AppSearchField
+              aria-label={tCommonLabels("searchPlaceholder")}
+              containerClassName="sm:min-w-[18rem]"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder={tCommonLabels("searchPlaceholder")}
+            />
+            <AppSortSelect
+              value={sort}
+              onValueChange={(value) => setSort(value as ModelSortOption)}
+              ariaLabel={tModel("sort.label")}
+              options={modelSortOptions.map((option) => ({
+                value: option,
+                label: tModel(`sort.${option}`),
+              }))}
+            />
             <AppButton
               type="button"
               variant="surface"
-              size="sm"
+              size="md"
               isLoading={loadState === "loading"}
               loadingText={tAdmin("toolbar.reloading")}
               onClick={loadModels}
+              className="shrink-0 rounded-xl"
             >
               <RefreshCw className="h-4 w-4" />
               {tAdmin("toolbar.reload")}
             </AppButton>
-            <DashboardCtaButton
+            <AppButton
               type="button"
+              size="md"
               onClick={openCreateDialog}
+              className="shrink-0 rounded-xl"
             >
               <Plus className="h-4 w-4" />
               {tAdmin("toolbar.create")}
-            </DashboardCtaButton>
+            </AppButton>
           </div>
-        </DashboardFilterBar>
-      </PageHeader>
+        </AppFilterToolbar>
 
-      <div className="mx-auto w-full max-w-[1600px]">{content}</div>
+        {content}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : undefined)}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-3xl rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
@@ -826,7 +883,7 @@ export function ModelManagementScreen() {
                 <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
                   {tAdmin("vendor.title")}
                 </div>
-                <DashboardFilterBar className="mt-3 gap-2">
+                <AppFilterGroup className="mt-3 gap-2">
                   {vendorOptions.map((option) => {
                     const labelKey =
                       option.value === "HUGGINGFACE"
@@ -834,7 +891,7 @@ export function ModelManagementScreen() {
                         : "vendor.api";
                     const isActive = isHuggingFaceVendor && option.value === "HUGGINGFACE";
                     return (
-                      <DashboardFilterToggle
+                      <AppFilterToggle
                         key={option.value}
                         onClick={() => handleVendorSelect(option.value)}
                         aria-pressed={isActive}
@@ -843,10 +900,10 @@ export function ModelManagementScreen() {
                         className="disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {tAdmin(labelKey)}
-                      </DashboardFilterToggle>
+                      </AppFilterToggle>
                     );
                   })}
-                </DashboardFilterBar>
+                </AppFilterGroup>
                 <p className="mt-2 text-xs text-gray-500">
                   {tAdmin("vendor.description")}
                 </p>
@@ -1082,7 +1139,7 @@ export function ModelManagementScreen() {
             >
               {tAdmin("dialog.cancel")}
             </Button>
-            <DashboardCtaButton
+            <AppButton
               type="button"
               onClick={handleSave}
               isLoading={isSaving}
@@ -1091,7 +1148,7 @@ export function ModelManagementScreen() {
               className="px-5 text-xs"
             >
               {tAdmin("dialog.save")}
-            </DashboardCtaButton>
+            </AppButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

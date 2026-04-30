@@ -20,6 +20,8 @@ interface BaseModelCatalogItem {
   provider: string;
   isActive: boolean;
   isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ImageModelMeta {

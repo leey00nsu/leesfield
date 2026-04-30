@@ -1,10 +1,9 @@
-import { AudioLines, Image as ImageIcon, Sparkles, Video } from "lucide-react";
-import { useTranslations } from "next-intl";
+import Image from "next/image";
+import { AudioLines, Circle, Image as ImageIcon, MoreVertical, Sparkles, Video } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { Badge } from "@/shared/ui/badge";
-import { resolveModelOutcomeMetadata } from "@/shared/generation/model-outcome-metadata";
 import {
   resolveAudioModalities,
   resolveImageModalities,
@@ -18,22 +17,19 @@ interface ModelCardProps {
 
 const typeConfig = {
   image: {
-    className: "border-primary/30 bg-primary/10 text-primary",
     icon: ImageIcon,
-    accentText: "text-primary",
-    glowClass: "from-primary/20 via-creative-surface to-transparent",
+    preview: "/assets/creative-studio/mirror-portrait.jpg",
+    previewClassName: "from-primary/16 to-white/5",
   },
   video: {
-    className: "border-accent-purple/30 bg-accent-purple/10 text-accent-purple",
     icon: Video,
-    accentText: "text-accent-purple",
-    glowClass: "from-accent-purple/20 via-creative-surface to-transparent",
+    preview: "/assets/creative-studio/film-production.jpg",
+    previewClassName: "from-accent-purple/16 to-white/5",
   },
   audio: {
-    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-300",
     icon: AudioLines,
-    accentText: "text-cyan-300",
-    glowClass: "from-cyan-400/20 via-creative-surface to-transparent",
+    preview: "/assets/creative-studio/audio-console.jpg",
+    previewClassName: "from-primary/14 to-white/5",
   },
 };
 
@@ -57,188 +53,146 @@ function resolveCatalogModalities(item: ModelCatalogItem) {
   });
 }
 
-function buildMeta(item: ModelCatalogItem, t: (key: string) => string) {
-  const modalities = resolveCatalogModalities(item);
-  const base = (modalities: string[]) => [
-    { label: t("meta.provider"), value: item.provider },
-    { label: t("meta.modality"), value: modalities.join(" · ") },
-  ];
-
+function resolvePrimarySpec(item: ModelCatalogItem) {
   if (item.type === "image") {
-    return [
-      ...base(modalities),
-      { label: t("meta.pipeline"), value: item.meta.pipeline },
-      {
-        label: t("meta.size"),
-        value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
-      },
-      {
-        label: t("meta.input"),
-        value: `${item.meta.maxInputImages}`,
-      },
-    ];
+    return `${item.meta.defaultWidth}:${item.meta.defaultHeight}`;
   }
 
   if (item.type === "video") {
-    return [
-      ...base(modalities),
-      {
-        label: t("meta.mode"),
-        value: modalities.includes("I2V") ? "I2V" : "T2V",
-      },
-      {
-        label: t("meta.size"),
-        value: `${item.meta.defaultWidth}x${item.meta.defaultHeight}`,
-      },
-      {
-        label: t("meta.duration"),
-        value: `${item.meta.defaultDurationSec}s`,
-      },
-    ];
+    return `${item.meta.defaultDurationSec}s`;
   }
 
-  return [
-    ...base(modalities),
-    {
-      label: t("meta.model"),
-      value: item.meta.modelId,
-    },
-    {
-      label: t("meta.speed"),
-      value: `${item.meta.defaultSpeed}x`,
-    },
-    {
-      label: t("meta.input"),
-      value: item.meta.supportsInputAudio ? "A2A" : "T2A",
-    },
-  ];
+  return `${item.meta.defaultSpeed}x`;
+}
+
+function resolveSecondarySpec(item: ModelCatalogItem) {
+  if (item.type === "image") {
+    return `${item.meta.defaultSteps} steps`;
+  }
+
+  if (item.type === "video") {
+    return `${item.meta.defaultFps} fps`;
+  }
+
+  return item.meta.supportsInputAudio ? "A2A" : "T2A";
+}
+
+function formatDate(value: string | undefined, locale: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 export function ModelCard({ item, onEdit }: ModelCardProps) {
   const tCard = useTranslations("model.card");
-  const tOutcome = useTranslations("model.outcome");
+  const locale = useLocale();
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
-  const metaItems = buildMeta(item, tCard);
   const modalities = resolveCatalogModalities(item);
-  const outcome = resolveModelOutcomeMetadata({
-    key: item.key,
-    type: item.type,
-    modalities,
-  });
+  const isEnabled = item.isActive;
 
   return (
-    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-creative-surface-border bg-creative-surface-muted transition-all hover:border-primary/45">
-      <div className="relative min-h-40 w-full overflow-hidden bg-creative-surface">
-        <div
-          className={cn(
-            "absolute inset-0 bg-linear-to-br opacity-90 transition-opacity duration-300 group-hover:opacity-100",
-            config.glowClass,
-          )}
+    <article
+      data-model-row=""
+      data-default={item.isDefault ? "true" : "false"}
+      className={cn(
+        "grid gap-4 border-b border-white/8 px-3 py-3 transition-colors last:border-b-0 hover:bg-white/[0.026] md:grid-cols-[8rem_minmax(16rem,1fr)_6.25rem_6.25rem_5.75rem_2.25rem] md:items-center md:px-4",
+        item.isDefault && "rounded-[1.05rem] border border-primary/70 bg-primary/[0.035] shadow-[0_0_0_1px_rgba(212,240,50,0.12)]",
+      )}
+    >
+      <div className="relative h-20 overflow-hidden rounded-xl border border-white/10 md:h-[4.8rem]">
+        <Image
+          src={config.preview}
+          alt=""
+          fill
+          sizes="176px"
+          className="object-cover opacity-80 saturate-[0.9]"
         />
-        <div
-          className={cn(
-            "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            config.className,
-          )}
-        >
-          <TypeIcon className="h-3.5 w-3.5" />
-          {tCard(`type.${item.type}`)}
-        </div>
-        <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
-          {item.isDefault ? (
-            <div className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/90 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-black">
-              <Sparkles className="h-3.5 w-3.5" />
-              {tCard("default")}
-            </div>
-          ) : null}
-          {!item.isActive ? (
-            <div className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-300">
-              {tCard("inactive")}
-            </div>
-          ) : null}
-        </div>
-        <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold leading-tight text-white">
-              {item.label}
-            </h3>
-          </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
-            <TypeIcon className={cn("h-6 w-6", config.accentText)} />
-          </div>
+        <div className={cn("absolute inset-0 bg-linear-to-br", config.previewClassName)} />
+        <div className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-background-dark/70 text-primary backdrop-blur">
+          <TypeIcon className="h-4 w-4" />
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-white/5 p-4">
-        <div className="grid gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-              {tOutcome("labels.bestFor")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-white">
-              {tOutcome(`profiles.${outcome.profile}.bestFor`)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-              {tOutcome("labels.style")}
-            </p>
-            <p className="mt-1 text-sm text-gray-300">
-              {tOutcome(`profiles.${outcome.profile}.style`)}
-            </p>
-          </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate text-base font-semibold text-white md:text-lg">
+            {item.label}
+          </h3>
+          {item.isDefault ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/45 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+              <Sparkles className="h-3 w-3" />
+              {tCard("default")}
+            </span>
+          ) : null}
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          {outcome.strengthKeys.map((strengthKey) => (
-            <Badge
-              key={`${item.key}-${strengthKey}`}
-              variant="primary"
-              className="px-2 py-0.5"
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-white/46">
+          <span>{item.vendor}</span>
+          <span className="h-1 w-1 rounded-full bg-white/22" aria-hidden="true" />
+          <span>{tCard(`type.${item.type}`)}</span>
+          {modalities.map((modality) => (
+            <span
+              key={`${item.key}-${modality}`}
+              className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-white/62"
             >
-              {tOutcome(
-                `profiles.${outcome.profile}.strengths.${strengthKey}`,
-              )}
-            </Badge>
+              {modality}
+            </span>
           ))}
         </div>
+      </div>
 
-        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-            {tOutcome("labels.technical")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="px-2 py-0.5 text-gray-300">
-              {tOutcome("labels.key")}: {item.key}
-            </Badge>
-            <Badge variant="outline" className="px-2 py-0.5 text-gray-300">
-              {item.vendor}
-            </Badge>
-            {metaItems.map((meta) => (
-              <Badge
-                key={`${item.key}-${meta.label}`}
-                variant="muted"
-                className="px-2 py-0.5 text-gray-400"
-              >
-                {meta.label}: {meta.value}
-              </Badge>
-            ))}
-          </div>
-        </div>
+      <MetaColumn label={tCard("meta.updated")} value={formatDate(item.updatedAt, locale)} />
+      <MetaColumn label={tCard("meta.defaultValue")} value={resolvePrimarySpec(item)} />
+      <div className="flex items-center gap-2 md:justify-start">
+        <Circle
+          className={cn(
+            "h-3 w-3 fill-current",
+            isEnabled ? "text-primary" : "text-white/34",
+          )}
+        />
+        <span className={cn("text-sm font-semibold", isEnabled ? "text-white/76" : "text-white/42")}>
+          {isEnabled ? tCard("enabled") : tCard("disabled")}
+        </span>
+        <span className="ml-2 rounded-md border border-white/10 px-2 py-0.5 text-xs text-white/46 md:hidden">
+          {resolveSecondarySpec(item)}
+        </span>
+      </div>
 
+      <div className="flex items-center justify-end gap-2">
+        <span className="hidden rounded-md border border-white/10 px-2 py-1 text-xs text-white/46 md:inline-flex">
+          {resolveSecondarySpec(item)}
+        </span>
         {onEdit ? (
           <AppButton
             type="button"
-            variant="surface"
-            size="sm"
-            className="mt-2 w-full"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={tCard("edit")}
             onClick={() => onEdit(item.key)}
+            className="text-white/52"
           >
-            {tCard("edit")}
+            <MoreVertical className="h-5 w-5" />
           </AppButton>
         ) : null}
       </div>
     </article>
+  );
+}
+
+function MetaColumn({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="truncate text-sm font-semibold text-white/82 md:text-base">
+        {value}
+      </div>
+      <div className="mt-1 text-xs font-semibold text-white/38">
+        {label}
+      </div>
+    </div>
   );
 }

@@ -636,7 +636,14 @@
     "empty": {
       "title": "Models Empty",
       "default": "No models available.",
-      "search": "No results found."
+      "search": "No results found.",
+      "listLabel": "Model list"
+    },
+    "sort": {
+      "label": "Sort models",
+      "latest": "Latest first",
+      "name": "Name",
+      "type": "Type"
     },
     "card": {
       "type": {
@@ -646,6 +653,8 @@
       },
       "default": "DEFAULT",
       "inactive": "INACTIVE",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
       "edit": "EDIT",
       "meta": {
         "provider": "PROVIDER",
@@ -656,7 +665,9 @@
         "input": "INPUT",
         "mode": "MODE",
         "modality": "MODALITY",
-        "duration": "DURATION"
+        "duration": "DURATION",
+        "updated": "Updated",
+        "defaultValue": "Default"
       }
     },
     "outcome": {

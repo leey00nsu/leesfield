@@ -2,6 +2,7 @@ import { Boxes } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { ModelCard } from "@/features/model-management/ui/model-card";
+import { AppCard } from "@/shared/ui/app-card";
 
 interface ModelListProps {
   items: ModelCatalogItem[];
@@ -19,7 +20,10 @@ export function ModelList({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+      <AppCard
+        variant="editorial-flat"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+      >
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Boxes className="h-6 w-6 text-gray-500" />
         </div>
@@ -29,15 +33,22 @@ export function ModelList({
         <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
           {resolvedEmptyMessage}
         </p>
-      </div>
+      </AppCard>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+    <AppCard
+      variant="editorial-flat"
+      className="rounded-[1.1rem] p-1"
+      role="list"
+      aria-label={tEmpty("listLabel")}
+    >
       {items.map((item) => (
-        <ModelCard key={`${item.type}-${item.key}`} item={item} onEdit={onEdit} />
+        <div key={`${item.type}-${item.key}`} role="listitem">
+          <ModelCard item={item} onEdit={onEdit} />
+        </div>
       ))}
-    </div>
+    </AppCard>
   );
 }

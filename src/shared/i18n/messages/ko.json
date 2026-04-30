@@ -636,7 +636,14 @@
     "empty": {
       "title": "모델이 없습니다",
       "default": "모델 카탈로그가 비어 있습니다.",
-      "search": "검색 결과가 없습니다."
+      "search": "검색 결과가 없습니다.",
+      "listLabel": "모델 목록"
+    },
+    "sort": {
+      "label": "모델 정렬",
+      "latest": "최신순",
+      "name": "이름순",
+      "type": "유형순"
     },
     "card": {
       "type": {
@@ -646,6 +653,8 @@
       },
       "default": "기본",
       "inactive": "비활성",
+      "enabled": "활성",
+      "disabled": "비활성",
       "edit": "수정",
       "meta": {
         "provider": "제공자",
@@ -656,7 +665,9 @@
         "input": "입력",
         "mode": "모드",
         "modality": "모달리티",
-        "duration": "길이"
+        "duration": "길이",
+        "updated": "업데이트",
+        "defaultValue": "기본값"
       }
     },
     "outcome": {
