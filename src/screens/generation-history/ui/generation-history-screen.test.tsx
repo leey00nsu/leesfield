@@ -24,8 +24,12 @@ const detailFixture = vi.hoisted(() => ({
   prompt: "medium shot editorial result",
   model: "flux2-klein-9b",
   createdAt: "2026-03-10T00:00:00.000Z",
+  updatedAt: "2026-03-10T00:00:02.500Z",
+  durationMs: 2500,
+  progress: 100,
   resultUrl: "https://example.com/result.png",
   thumbnailUrl: "https://example.com/thumb.png",
+  inputImages: ["https://example.com/input.png"],
   errorMessage: null,
 } as const));
 
@@ -39,7 +43,11 @@ vi.mock("@/features/generation-history/ui/history-list", () => ({
   }) => (
     <div>
       <span data-testid="history-items-count">{items.length}</span>
-      <button type="button" data-testid="history-list" onClick={() => onSelectItem?.(detailFixture)}>
+      <button
+        type="button"
+        data-testid="history-list"
+        onClick={() => onSelectItem?.((items[0] as typeof detailFixture) ?? detailFixture)}
+      >
         open detail
       </button>
     </div>
@@ -177,6 +185,17 @@ describe("GenerationHistoryScreen", () => {
       "",
     );
     expect(screen.getByText("medium shot editorial result")).toBeInTheDocument();
+    expect(screen.getByText("요청 ID")).toBeInTheDocument();
+    expect(screen.getByText("history-detail-1")).toBeInTheDocument();
+    expect(screen.getByText("요청 시간")).toBeInTheDocument();
+    expect(screen.getByText("완료 시간")).toBeInTheDocument();
+    expect(screen.getByText("소요 시간")).toBeInTheDocument();
+    expect(screen.getByText("2.5s")).toBeInTheDocument();
+    expect(screen.getByText("진행률")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("입력 이미지")).toBeInTheDocument();
+    expect(screen.getByText("결과 이미지")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /이미지/ })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Recreate" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
       "href",
@@ -199,5 +218,37 @@ describe("GenerationHistoryScreen", () => {
     );
 
     expect(screen.getByRole("button", { name: "Upscale" })).toBeDisabled();
+  });
+
+  it("shows placeholders for missing request detail metadata", () => {
+    const pendingFixture = {
+      ...detailFixture,
+      id: "pending-detail",
+      status: "pending",
+      updatedAt: null,
+      durationMs: null,
+      progress: null,
+      resultUrl: null,
+      thumbnailUrl: null,
+      inputImages: [],
+    } as const;
+
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [pendingFixture],
+      total: 1,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    fireEvent.click(screen.getByTestId("history-list"));
+
+    expect(screen.getByText("pending-detail")).toBeInTheDocument();
+    expect(screen.getByText("입력 자산 없음")).toBeInTheDocument();
+    expect(screen.getByText("결과 없음")).toBeInTheDocument();
+    expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(3);
   });
 });

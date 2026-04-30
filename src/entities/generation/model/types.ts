@@ -9,6 +9,9 @@ export interface GenerationHistoryItem {
   prompt: string;
   model: string | null;
   createdAt: string;
+  updatedAt?: string | null;
+  durationMs?: number | null;
+  progress?: number | null;
   resultUrl: string | null;
   thumbnailUrl: string | null;
   inputImages?: string[];

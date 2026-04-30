@@ -34,8 +34,10 @@ import {
 } from "@/shared/ui/app-filter-toolbar";
 import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
+import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 
 type HistoryStatusFilter = "all" | Extract<GenerationHistoryStatus, "completed" | "failed">;
+const FINISHED_STATUSES = new Set(["completed", "failed"]);
 
 function buildHistoryGenerationUrl(
   item: GenerationHistoryItem,
@@ -52,6 +54,14 @@ function buildHistoryGenerationUrl(
   }
   const query = params.toString();
   return query ? `${target}?${query}` : target;
+}
+
+function formatFallback(value: string | null | undefined) {
+  return value?.trim() ? value : "-";
+}
+
+function formatProgress(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value}%` : "-";
 }
 
 export function GenerationHistoryScreen() {
@@ -259,11 +269,116 @@ function HistoryDetailOverlay({
   const tTypes = useTranslations("history.types");
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
   const canUseImageReference = item.type === "image" && Boolean(item.resultUrl);
-  const formattedDate = new Intl.DateTimeFormat(locale, {
+  const dateFormatter = new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "2-digit",
     year: "numeric",
-  }).format(new Date(item.createdAt));
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const formatDateTime = (value: string | null | undefined) => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return dateFormatter.format(parsed);
+  };
+  const updatedAt = item.updatedAt ?? null;
+  const completedAt =
+    updatedAt && FINISHED_STATUSES.has(item.status) ? formatDateTime(updatedAt) : "-";
+  const durationMs =
+    typeof item.durationMs === "number"
+      ? item.durationMs
+      : updatedAt && FINISHED_STATUSES.has(item.status)
+        ? Math.max(
+            0,
+            new Date(updatedAt).getTime() - new Date(item.createdAt).getTime(),
+          )
+        : null;
+  const inputImages = item.inputImages ?? [];
+  const inputAudios = item.inputAudios ?? [];
+  const resultLabel =
+    item.type === "audio"
+      ? tHistory("detail.resultAudio")
+      : item.type === "video"
+        ? tHistory("detail.resultVideo")
+        : tHistory("detail.resultImage");
+  const inputLabel =
+    item.type === "audio"
+      ? tHistory("detail.inputAudio")
+      : tHistory("detail.inputImage");
+  const formattedRequestedAt = formatDateTime(item.createdAt);
+  const formattedDuration = formatDuration(durationMs);
+  const formattedProgress = formatProgress(item.progress);
+  const resultUrl = item.resultUrl ?? null;
+  const thumbnailUrl = item.thumbnailUrl ?? item.resultUrl ?? null;
+  const shortId = item.id.length > 18 ? `${item.id.slice(0, 8)}...${item.id.slice(-6)}` : item.id;
+
+  const requestRows = [
+    { label: tHistory("detail.requestId"), value: shortId, title: item.id },
+    { label: tHistory("detail.model"), value: formatFallback(item.model) },
+    { label: tHistory("detail.type"), value: tTypes(item.type) },
+    { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
+    { label: tHistory("detail.completedAt"), value: completedAt },
+    { label: tHistory("detail.duration"), value: formattedDuration },
+    { label: tHistory("detail.progress"), value: formattedProgress },
+    { label: tHistory("detail.status"), value: tStatuses(item.status) },
+  ];
+
+  const primaryInputImage = inputImages[0] ?? null;
+  const primaryInputAudio = inputAudios[0] ?? null;
+
+  const renderMediaPreview = ({
+    label,
+    url,
+    type,
+    empty,
+  }: {
+    label: string;
+    url: string | null;
+    type: GenerationHistoryItem["type"];
+    empty: string;
+  }) => (
+    <div className="rounded-xl border border-white/10 bg-black/18 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-gray-500">
+        <span>{label}</span>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="max-w-[9rem] truncate text-[10px] font-semibold tracking-normal text-white/48 hover:text-primary"
+          >
+            {tHistory("detail.openAsset")}
+          </a>
+        ) : null}
+      </div>
+      {url ? (
+        type === "audio" ? (
+          <div className="flex min-h-24 items-center rounded-lg bg-black/45 p-3">
+            <audio controls className="w-full" src={url} />
+          </div>
+        ) : type === "video" ? (
+          <video
+            controls
+            className="h-36 w-full rounded-lg bg-black/45 object-contain"
+            src={url}
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt={label}
+            loading="lazy"
+            className="h-36 w-full rounded-lg bg-black/45 object-contain"
+          />
+        )
+      ) : (
+        <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-white/36">
+          {empty}
+        </div>
+      )}
+    </div>
+  );
 
   const handleCopyPrompt = () => {
     void navigator.clipboard?.writeText(item.prompt);
@@ -313,7 +428,7 @@ function HistoryDetailOverlay({
               </span>
               <div>
                 <AppEyebrow className="text-[0.68rem]">{tTypes(item.type)}</AppEyebrow>
-                <div className="mt-1 font-semibold text-white">{item.model ?? "-"}</div>
+                <div className="mt-1 font-semibold text-white">{formatFallback(item.model)}</div>
               </div>
             </div>
             <AppButton
@@ -405,24 +520,52 @@ function HistoryDetailOverlay({
           <div className="mb-3 text-xs font-bold uppercase text-gray-500">
             {tHistory("detail.information")}
           </div>
-          <dl className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-gray-500">{tHistory("detail.model")}</dt>
-              <dd className="font-semibold text-white">{item.model ?? "-"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-gray-500">{tHistory("detail.type")}</dt>
-              <dd className="font-semibold text-white">{tTypes(item.type)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-gray-500">{tHistory("detail.status")}</dt>
-              <dd className="font-semibold text-white">{tStatuses(item.status)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-gray-500">{tHistory("detail.date")}</dt>
-              <dd className="font-semibold text-white">{formattedDate}</dd>
-            </div>
+          <dl className="grid gap-2 text-sm">
+            {requestRows.map((row) => (
+              <div
+                key={row.label}
+                className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-3 rounded-lg border border-white/5 bg-black/18 px-3 py-2"
+              >
+                <dt className="text-xs font-medium text-gray-500">{row.label}</dt>
+                <dd
+                  title={row.title}
+                  className="min-w-0 truncate text-right font-semibold text-white"
+                >
+                  {row.value}
+                </dd>
+              </div>
+            ))}
           </dl>
+        </AppDetailSection>
+
+        <AppDetailSection>
+          <div className="mb-3 text-xs font-bold uppercase text-gray-500">
+            {tHistory("detail.assets")}
+          </div>
+          <div className="grid gap-3">
+            {renderMediaPreview({
+              label: inputLabel,
+              url: item.type === "audio" ? primaryInputAudio : primaryInputImage,
+              type: item.type === "audio" ? "audio" : "image",
+              empty: tHistory("detail.noInputAsset"),
+            })}
+            {item.referenceText ? (
+              <div className="rounded-xl border border-white/10 bg-black/18 p-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
+                  {tHistory("detail.referenceText")}
+                </div>
+                <p className="line-clamp-4 text-sm leading-relaxed text-white/68">
+                  {item.referenceText}
+                </p>
+              </div>
+            ) : null}
+            {renderMediaPreview({
+              label: resultLabel,
+              url: thumbnailUrl ?? resultUrl,
+              type: item.type,
+              empty: tHistory("detail.noResultAsset"),
+            })}
+          </div>
         </AppDetailSection>
         </div>
       </AppDetailRail>

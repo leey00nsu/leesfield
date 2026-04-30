@@ -481,7 +481,22 @@
       "model": "Model",
       "type": "Type",
       "status": "Status",
-      "date": "Date"
+      "date": "Date",
+      "requestId": "요청 ID",
+      "requestedAt": "요청 시간",
+      "completedAt": "완료 시간",
+      "duration": "소요 시간",
+      "progress": "진행률",
+      "assets": "ASSETS",
+      "inputImage": "입력 이미지",
+      "inputAudio": "입력 오디오",
+      "resultImage": "결과 이미지",
+      "resultVideo": "결과 비디오",
+      "resultAudio": "결과 오디오",
+      "referenceText": "참조 텍스트",
+      "openAsset": "열기",
+      "noInputAsset": "입력 자산 없음",
+      "noResultAsset": "결과 없음"
     },
     "detailActions": {
       "recreate": "Recreate",

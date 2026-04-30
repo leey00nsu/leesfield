@@ -481,7 +481,22 @@
       "model": "Model",
       "type": "Type",
       "status": "Status",
-      "date": "Date"
+      "date": "Date",
+      "requestId": "Request ID",
+      "requestedAt": "Requested",
+      "completedAt": "Completed",
+      "duration": "Duration",
+      "progress": "Progress",
+      "assets": "ASSETS",
+      "inputImage": "Input image",
+      "inputAudio": "Input audio",
+      "resultImage": "Result image",
+      "resultVideo": "Result video",
+      "resultAudio": "Result audio",
+      "referenceText": "Reference text",
+      "openAsset": "Open",
+      "noInputAsset": "No input asset",
+      "noResultAsset": "No result yet"
     },
     "detailActions": {
       "recreate": "Recreate",
