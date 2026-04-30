@@ -119,32 +119,26 @@ export function Header({
   }
 
   return (
-    <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-background-dark/78 px-6 py-5 backdrop-blur-md sm:px-10">
       <Link href="/" className="flex items-center gap-3">
         <AppBrandLogo
           label={tBrand("name")}
           size="sm"
           priority
-          textClassName="text-lg leading-tight"
+          textClassName="text-xl leading-tight"
         />
       </Link>
 
-      <nav className="hidden items-center gap-1 rounded-full border border-white/5 bg-surface-dark p-1 lg:flex">
-        {dashboardNavigation.map((item) => {
-          const Icon = headerIcons[item.href] ?? ImageIcon;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-label={tNav(item.key)}
-              className="flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white xl:px-4"
-            >
-              <Icon className="h-4 w-4" />
-              <span className="hidden xl:inline">{tNav(item.key)}</span>
-            </Link>
-          );
-        })}
+      <nav className="hidden items-center gap-8 lg:flex">
+        {publicNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="text-sm font-medium text-white/72 transition-colors hover:text-white"
+          >
+            {tNav(item.key)}
+          </Link>
+        ))}
       </nav>
 
       <div className="flex items-center gap-3">

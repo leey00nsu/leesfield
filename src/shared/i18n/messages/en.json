@@ -432,6 +432,16 @@
       "leading": "Generation",
       "accent": "History"
     },
+    "hero": {
+      "eyebrow": "HISTORY STUDIO",
+      "title": "Results you can reuse.",
+      "description": "Search every generated image, video, and audio result. Filter by format or outcome, then reopen the exact prompt when you need it."
+    },
+    "filters": {
+      "search": "Search history",
+      "searchPlaceholder": "Search by prompt, model, or tags...",
+      "sort": "Sort history"
+    },
     "subtitle": "Find your generations fast",
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",

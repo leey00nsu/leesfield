@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
 import { cn } from "@/shared/lib/utils";
+import { AppCard } from "@/shared/ui/app-card";
 
 type HistoryListProps = {
   items: GenerationHistoryItem[];
@@ -55,7 +56,10 @@ export function HistoryList({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+      <AppCard
+        variant="editorial-flat"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.5rem] px-6 text-center"
+      >
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Archive className="h-6 w-6 text-gray-500" />
         </div>
@@ -65,7 +69,7 @@ export function HistoryList({
         <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
           {resolvedEmptyMessage}
         </p>
-      </div>
+      </AppCard>
     );
   }
 

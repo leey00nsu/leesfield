@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   AudioLines,
   Copy,
@@ -9,10 +8,7 @@ import {
   Edit,
   Grid2X2,
   Image as ImageIcon,
-  Plus,
   RotateCcw,
-  Search,
-  SlidersHorizontal,
   Sparkles,
   X,
   Video,
@@ -22,18 +18,24 @@ import { useLocale, useTranslations } from "next-intl";
 import type {
   GenerationHistoryItem,
   GenerationHistorySort,
+  GenerationHistoryStatus,
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
+import { AppDetailRail, AppDetailSection } from "@/shared/ui/app-detail-rail";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
-import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
-  DashboardFilterBar,
-  DashboardFilterDivider,
-  DashboardFilterToggle,
-} from "@/shared/ui/dashboard-filter-bar";
+  AppFilterGroup,
+  AppFilterToolbar,
+  AppFilterToggle,
+  AppSearchField,
+  AppSortSelect,
+} from "@/shared/ui/app-filter-toolbar";
+import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
+import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
+
+type HistoryStatusFilter = "all" | Extract<GenerationHistoryStatus, "completed" | "failed">;
 
 function buildHistoryGenerationUrl(
   item: GenerationHistoryItem,
@@ -58,6 +60,7 @@ export function GenerationHistoryScreen() {
   const tCommonLabels = useTranslations("common.labels");
   const tCommonActions = useTranslations("common.actions");
   const [type, setType] = useState<GenerationHistoryType>("all");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
   const [searchInput, setSearchInput] = useState("");
   const [selectedItem, setSelectedItem] = useState<GenerationHistoryItem | null>(null);
@@ -70,76 +73,106 @@ export function GenerationHistoryScreen() {
       query,
     });
 
-  const renderSortLabel =
-    sort === "date_desc" ? tCommonLabels("dateDesc") : tCommonLabels("dateAsc");
+  const displayItems =
+    statusFilter === "all"
+      ? items
+      : items.filter((item) => item.status === statusFilter);
+  const displayTotal = statusFilter === "all" ? total : displayItems.length;
+  const hasFilteredState = query.length > 0 || statusFilter !== "all";
 
   return (
-    <div className="relative flex min-h-[calc(100vh-5rem)] flex-col gap-4 overflow-x-hidden pb-36">
-      <div className="sticky top-0 z-30 -mx-6 border-b border-white/10 bg-[#0b0e10]/90 px-6 py-3 backdrop-blur-xl sm:-mx-10 sm:px-10">
-        <div className="mx-auto flex w-full max-w-[1800px] flex-wrap items-center gap-3">
-          <div className="flex h-10 min-w-[16rem] flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 sm:max-w-md">
-            <Search className="h-4 w-4 text-gray-500" />
-            <input
+    <div className="relative flex min-h-[calc(100vh-5rem)] flex-col gap-8 overflow-x-hidden pb-16">
+      <section className="mx-auto flex w-full max-w-[1800px] flex-col gap-8 pt-12 text-center sm:pt-16 lg:pt-20">
+        <div className="mx-auto flex max-w-5xl flex-col items-center">
+          <AppEyebrow className="mb-4">{tHistory("hero.eyebrow")}</AppEyebrow>
+          <AppHeading
+            as="h1"
+            size="studio"
+            className="max-w-[58rem] text-white/95 [text-shadow:0_0_18px_rgba(255,255,255,0.14)]"
+          >
+            {tHistory("hero.title")}
+          </AppHeading>
+          <p className="mt-4 max-w-2xl text-[clamp(0.95rem,1.05vw,1.125rem)] font-semibold leading-relaxed text-white/58">
+            {tHistory("hero.description")}
+          </p>
+        </div>
+
+        <AppFilterToolbar>
+          <AppFilterGroup>
+            <AppFilterToggle
+              onClick={() => {
+                setType("all");
+                setStatusFilter("all");
+              }}
+              aria-pressed={type === "all" && statusFilter === "all"}
+              active={type === "all" && statusFilter === "all"}
+              icon={<Grid2X2 className="h-4 w-4" />}
+            >
+              {tCommonLabels("all")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("image")}
+              aria-pressed={type === "image"}
+              active={type === "image"}
+              icon={<ImageIcon className="h-4 w-4" />}
+            >
+              {tCommonLabels("images")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("video")}
+              aria-pressed={type === "video"}
+              active={type === "video"}
+              icon={<Video className="h-4 w-4" />}
+            >
+              {tCommonLabels("videos")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("audio")}
+              aria-pressed={type === "audio"}
+              active={type === "audio"}
+              icon={<AudioLines className="h-4 w-4" />}
+            >
+              {tCommonLabels("audios")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setStatusFilter("completed")}
+              aria-pressed={statusFilter === "completed"}
+              active={statusFilter === "completed"}
+            >
+              {tHistory("statuses.completed")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setStatusFilter("failed")}
+              aria-pressed={statusFilter === "failed"}
+              active={statusFilter === "failed"}
+            >
+              {tHistory("statuses.failed")}
+            </AppFilterToggle>
+          </AppFilterGroup>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-3xl">
+            <AppSearchField
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder={tCommonLabels("searchPlaceholder")}
-              className="w-full border-none bg-transparent text-sm text-white outline-none placeholder:text-gray-500"
+              placeholder={tHistory("filters.searchPlaceholder")}
+              aria-label={tHistory("filters.search")}
+            />
+            <AppSortSelect
+              value={sort}
+              onValueChange={(value) => setSort(value as GenerationHistorySort)}
+              ariaLabel={tHistory("filters.sort")}
+              className="sm:w-[12rem] sm:flex-none"
+              options={[
+                { value: "date_desc", label: tCommonLabels("dateDesc") },
+                { value: "date_asc", label: tCommonLabels("dateAsc") },
+              ]}
             />
           </div>
-
-          <DashboardFilterBar>
-          <DashboardFilterToggle
-            onClick={() => setType("all")}
-            aria-pressed={type === "all"}
-            active={type === "all"}
-            icon={<Grid2X2 className="h-4 w-4" />}
-          >
-            {tCommonLabels("all")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("image")}
-            aria-pressed={type === "image"}
-            active={type === "image"}
-            icon={<ImageIcon className="h-4 w-4" />}
-          >
-            {tCommonLabels("images")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("video")}
-            aria-pressed={type === "video"}
-            active={type === "video"}
-            icon={<Video className="h-4 w-4" />}
-          >
-            {tCommonLabels("videos")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("audio")}
-            aria-pressed={type === "audio"}
-            active={type === "audio"}
-            icon={<AudioLines className="h-4 w-4" />}
-          >
-            {tCommonLabels("audios")}
-          </DashboardFilterToggle>
-          <DashboardFilterDivider />
-          <Button
-            type="button"
-            onClick={() =>
-              setSort((prev) =>
-                prev === "date_desc" ? "date_asc" : "date_desc",
-              )
-            }
-            variant="ghost"
-            className="h-9 gap-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-transparent hover:text-primary"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            {tCommonLabels("sort", { order: renderSortLabel })}
-          </Button>
-          <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
-            {tCommonLabels("total", { total })}
-          </span>
-        </DashboardFilterBar>
+        </AppFilterToolbar>
+        <div className="-mt-5 text-right text-xs font-mono uppercase tracking-widest text-white/38">
+          {tCommonLabels("total", { total: displayTotal })}
         </div>
-      </div>
+      </section>
 
       <div className="mx-auto w-full max-w-[1800px]">
         {error ? (
@@ -148,12 +181,12 @@ export function GenerationHistoryScreen() {
           </div>
         ) : (
           <HistoryList
-            items={items}
+            items={displayItems}
             isLoading={isLoading && items.length === 0}
             onDeleteItem={removeItem}
             onSelectItem={setSelectedItem}
             emptyMessage={
-              query ? tHistory("empty.search") : tHistory("empty.default")
+              hasFilteredState ? tHistory("empty.search") : tHistory("empty.default")
             }
           />
         )}
@@ -202,40 +235,6 @@ export function GenerationHistoryScreen() {
           }
         />
       ) : null}
-      <HistoryFloatingPromptDock />
-    </div>
-  );
-}
-
-function HistoryFloatingPromptDock() {
-  const tHistory = useTranslations("history");
-
-  return (
-    <div className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-5xl rounded-[2rem] border border-white/10 bg-[#1a1d20]/94 p-4 shadow-[0_18px_90px_rgba(0,0,0,0.52)] backdrop-blur-xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 text-white">
-            <Plus className="h-5 w-5" />
-          </span>
-          <span className="truncate text-sm text-gray-400">
-            {tHistory("floatingDock.placeholder")}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white">
-            {tHistory("floatingDock.model")}
-          </span>
-          <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white">
-            3:4
-          </span>
-          <AppButton asChild size="lg" className="h-12 rounded-xl px-6 shadow-none">
-            <Link href="/image">
-              {tHistory("floatingDock.generate")}
-              <Sparkles className="h-4 w-4" />
-            </Link>
-          </AppButton>
-        </div>
-      </div>
     </div>
   );
 }
@@ -275,9 +274,9 @@ function HistoryDetailOverlay({
       role="dialog"
       aria-modal="true"
       aria-label={tHistory("detail.title")}
-      className="fixed inset-0 z-50 grid bg-black/82 text-white lg:grid-cols-[1fr_24rem]"
+      className="fixed inset-0 z-50 grid bg-black/88 text-white lg:grid-cols-[1fr_25rem]"
     >
-      <div className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.08),transparent_48%)] p-6">
+      <div className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(212,240,50,0.055),transparent_42%),#050606] p-6">
         {previewUrl ? (
           item.type === "video" ? (
             <video
@@ -304,30 +303,86 @@ function HistoryDetailOverlay({
         )}
       </div>
 
-      <aside className="flex min-h-0 flex-col gap-5 border-l border-white/10 bg-[#0f1316] p-4 shadow-[-24px_0_90px_rgba(0,0,0,0.45)]">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-black">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div>
-              <div className="font-bold text-white">{item.model ?? "-"}</div>
-              <div className="text-xs text-gray-500">{tHistory("detail.author")}</div>
+      <AppDetailRail
+        data-testid="history-detail-rail"
+        header={
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-black">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <AppEyebrow className="text-[0.68rem]">{tTypes(item.type)}</AppEyebrow>
+                <div className="mt-1 font-semibold text-white">{item.model ?? "-"}</div>
+              </div>
+            </div>
+            <AppButton
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label={tActions("close")}
+              className="rounded-full"
+            >
+              <X className="h-4 w-4" />
+            </AppButton>
+          </div>
+        }
+        footer={
+          <div className="grid gap-2">
+            <AppButton
+              type="button"
+              size="lg"
+              onClick={onRecreate}
+              className="h-12 rounded-xl text-sm shadow-none"
+            >
+              <RotateCcw className="h-4 w-4" />
+              {tActions("recreate")}
+            </AppButton>
+            <div className="grid grid-cols-2 gap-2">
+              <AppButton
+                type="button"
+                variant="surface"
+                disabled={!canUseImageReference}
+                onClick={onCreateVideo}
+                className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Video className="h-4 w-4" />
+                {tActions("video")}
+              </AppButton>
+              {item.resultUrl ? (
+                <AppButton asChild variant="surface" className="h-11 rounded-xl">
+                  <a href={item.resultUrl} download aria-label={tActions("download")}>
+                    <Download className="h-4 w-4" />
+                    {tActions("download")}
+                  </a>
+                </AppButton>
+              ) : null}
+              <AppButton
+                type="button"
+                variant="surface"
+                disabled
+                className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Sparkles className="h-4 w-4" />
+                {tActions("upscale")}
+              </AppButton>
+              <AppButton
+                type="button"
+                variant="surface"
+                disabled={!canUseImageReference}
+                onClick={onEditImage}
+                className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Edit className="h-4 w-4" />
+                {tActions("edit")}
+              </AppButton>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClose}
-            aria-label={tActions("close")}
-            className="rounded-full text-gray-400 hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        }
+      >
+        <div className="grid gap-4">
+        <AppDetailSection>
           <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase text-gray-500">
             <span>{tHistory("detail.prompt")}</span>
             <AppButton
@@ -344,9 +399,9 @@ function HistoryDetailOverlay({
           <p className="line-clamp-5 text-sm leading-relaxed text-gray-300">
             {item.prompt}
           </p>
-        </section>
+        </AppDetailSection>
 
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <AppDetailSection>
           <div className="mb-3 text-xs font-bold uppercase text-gray-500">
             {tHistory("detail.information")}
           </div>
@@ -368,59 +423,9 @@ function HistoryDetailOverlay({
               <dd className="font-semibold text-white">{formattedDate}</dd>
             </div>
           </dl>
-        </section>
-
-        <div className="mt-auto grid gap-2">
-          <AppButton
-            type="button"
-            size="lg"
-            onClick={onRecreate}
-            className="h-12 rounded-xl text-sm shadow-none"
-          >
-            <RotateCcw className="h-4 w-4" />
-            {tActions("recreate")}
-          </AppButton>
-          <div className="grid grid-cols-2 gap-2">
-            <AppButton
-              type="button"
-              variant="surface"
-              disabled={!canUseImageReference}
-              onClick={onCreateVideo}
-              className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <Video className="h-4 w-4" />
-              {tActions("video")}
-            </AppButton>
-            {item.resultUrl ? (
-              <AppButton asChild variant="surface" className="h-11 rounded-xl">
-                <a href={item.resultUrl} download aria-label={tActions("download")}>
-                  <Download className="h-4 w-4" />
-                  {tActions("download")}
-                </a>
-              </AppButton>
-            ) : null}
-            <AppButton
-              type="button"
-              variant="surface"
-              disabled
-              className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <Sparkles className="h-4 w-4" />
-              {tActions("upscale")}
-            </AppButton>
-            <AppButton
-              type="button"
-              variant="surface"
-              disabled={!canUseImageReference}
-              onClick={onEditImage}
-              className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <Edit className="h-4 w-4" />
-              {tActions("edit")}
-            </AppButton>
-          </div>
+        </AppDetailSection>
         </div>
-      </aside>
+      </AppDetailRail>
     </div>
   );
 }

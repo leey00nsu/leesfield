@@ -32,12 +32,17 @@ const detailFixture = vi.hoisted(() => ({
 vi.mock("@/features/generation-history/ui/history-list", () => ({
   HistoryList: ({
     onSelectItem,
+    items,
   }: {
+    items: unknown[];
     onSelectItem?: (item: typeof detailFixture) => void;
   }) => (
-    <button type="button" data-testid="history-list" onClick={() => onSelectItem?.(detailFixture)}>
-      open detail
-    </button>
+    <div>
+      <span data-testid="history-items-count">{items.length}</span>
+      <button type="button" data-testid="history-list" onClick={() => onSelectItem?.(detailFixture)}>
+        open detail
+      </button>
+    </div>
   ),
 }));
 
@@ -66,6 +71,9 @@ describe("GenerationHistoryScreen", () => {
 
     renderWithIntl(<GenerationHistoryScreen />);
 
+    expect(screen.getByText("HISTORY STUDIO")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Results you can reuse." })).toBeInTheDocument();
+    expect(screen.getByTestId("history-items-count")).toHaveTextContent("0");
     expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Community" })).not.toBeInTheDocument();
 
@@ -88,6 +96,37 @@ describe("GenerationHistoryScreen", () => {
         query: "",
       }),
     );
+  });
+
+  it("filters visible history by status while keeping the app toolbar controls", () => {
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [
+        detailFixture,
+        {
+          ...detailFixture,
+          id: "history-detail-2",
+          status: "failed",
+          prompt: "failed result",
+        },
+      ],
+      total: 2,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색...")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
+    expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
+
+    fireEvent.click(screen.getByRole("button", { name: "실패" }));
+    expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");
+
+    fireEvent.click(screen.getByRole("button", { name: "전체" }));
+    expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
   });
 
   it("renders the infinite loading sentinel without decorative pill styles", () => {
@@ -133,6 +172,10 @@ describe("GenerationHistoryScreen", () => {
     expect(
       screen.getByRole("dialog", { name: "결과 상세" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("history-detail-rail")).toHaveAttribute(
+      "data-app-detail-rail",
+      "",
+    );
     expect(screen.getByText("medium shot editorial result")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Recreate" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
