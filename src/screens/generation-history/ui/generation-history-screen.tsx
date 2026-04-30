@@ -559,28 +559,47 @@ function HistoryDetailOverlay({
       aria-label={tHistory("detail.title")}
       className="fixed inset-0 z-50 grid bg-black/88 text-white lg:grid-cols-[1fr_25rem]"
     >
-      <div className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(212,240,50,0.055),transparent_42%),#050606] p-6">
+      <div
+        data-testid="history-detail-preview-backdrop"
+        role="presentation"
+        onClick={onClose}
+        className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(212,240,50,0.055),transparent_42%),#050606] p-6"
+      >
         {previewUrl ? (
           hydratedItem.type === "video" ? (
             <video
+              data-testid="history-detail-preview-media"
               src={previewUrl}
               controls
+              onClick={(event) => event.stopPropagation()}
               className="max-h-[86vh] max-w-full rounded-2xl object-contain"
             />
           ) : hydratedItem.type === "audio" ? (
-            <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-8">
+            <div
+              data-testid="history-detail-preview-media"
+              role="presentation"
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-8"
+            >
               <audio src={previewUrl} controls className="w-full" />
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              data-testid="history-detail-preview-media"
               src={previewUrl}
               alt={tHistory("previewAlt")}
+              onClick={(event) => event.stopPropagation()}
               className="max-h-[86vh] max-w-full rounded-2xl object-contain shadow-[0_24px_120px_rgba(0,0,0,0.55)]"
             />
           )
         ) : (
-          <div className="flex h-80 w-full max-w-xl items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+          <div
+            data-testid="history-detail-preview-media"
+            role="presentation"
+            onClick={(event) => event.stopPropagation()}
+            className="flex h-80 w-full max-w-xl items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
+          >
             <ImageIcon className="h-12 w-12 text-gray-500" />
           </div>
         )}

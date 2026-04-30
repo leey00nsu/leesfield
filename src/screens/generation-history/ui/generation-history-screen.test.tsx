@@ -245,6 +245,32 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByRole("button", { name: "Upscale" })).toBeDisabled();
   });
 
+  it("closes the detail overlay from the preview backdrop but not from media or rail clicks", () => {
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [detailFixture],
+      total: 1,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    fireEvent.click(screen.getByTestId("history-list"));
+
+    fireEvent.click(screen.getByTestId("history-detail-preview-media"));
+    expect(screen.getByRole("dialog", { name: "결과 상세" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("history-detail-rail"));
+    expect(screen.getByRole("dialog", { name: "결과 상세" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("history-detail-preview-backdrop"));
+    expect(
+      screen.queryByRole("dialog", { name: "결과 상세" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("hydrates missing rail metadata from the canonical request detail response", () => {
     const staleListItem = {
       ...detailFixture,
