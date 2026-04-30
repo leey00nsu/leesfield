@@ -27,7 +27,7 @@ export function AppHeading({
     <Component
       data-app-heading=""
       className={cn(
-        "font-[var(--font-heading)] font-normal tracking-[-0.035em] text-white",
+        "font-display font-normal tracking-[-0.035em] text-white",
         headingSizeClasses[size],
         className,
       )}

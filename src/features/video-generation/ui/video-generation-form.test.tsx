@@ -116,8 +116,11 @@ describe("VideoGenerationForm", () => {
       "data-variant",
       "prompt",
     );
-    expect(screen.getByTestId("shared-prompt-form-surface").className).toContain(
+    expect(dock.className).toContain(
       "[background:radial-gradient",
+    );
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
+      "bg-black/18",
     );
     expect(dock).toHaveTextContent("이미지 필요");
     expect(dock).toHaveTextContent("3.5s");

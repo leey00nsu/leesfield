@@ -60,11 +60,15 @@ export function AppPromptField({
   ariaLabel,
 }: AppPromptFieldProps) {
   return (
-    <div
+    <AppCard
+      variant="editorial-flat"
       data-app-prompt-field=""
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
-      className={cn("relative overflow-hidden rounded-[1.35rem] p-4", className)}
+      className={cn(
+        "relative rounded-[1.35rem] border-0 p-4 shadow-none",
+        className,
+      )}
     >
       <AppPromptSurface
         textarea={textarea}
@@ -72,6 +76,6 @@ export function AppPromptField({
         footerLeft={footerLeft}
         footerRight={footerRight}
       />
-    </div>
+    </AppCard>
   );
 }

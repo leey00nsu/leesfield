@@ -26,8 +26,7 @@ const variantClasses: Record<AppCardVariant, string> = {
   "outline-map":
     "isolate overflow-hidden border-white/19 bg-[linear-gradient(135deg,#1c1c19_0%,#11110f_48%,#191916_100%)] text-white shadow-[0_44px_120px_rgba(0,0,0,0.72)]",
   prompt: cn(
-    "border-white/12 text-white shadow-[0_24px_90px_rgba(0,0,0,0.36)] transition-colors focus-within:border-primary/45",
-    editorialBackground,
+    "border-white/12 bg-black/18 text-white transition-colors focus-within:border-primary/45",
   ),
   result: "border-white/10 bg-background/40 text-white",
   plain: "border-white/10 bg-transparent text-white shadow-none",

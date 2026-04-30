@@ -68,7 +68,7 @@ export function BrandLogo({
       {iconOnly ? null : (
         <span
           className={cn(
-            "truncate font-[var(--font-heading)] font-medium tracking-[-0.035em] text-white",
+            "font-display truncate font-medium tracking-[-0.035em] text-white",
             textSizeClasses[size],
             textClassName,
           )}

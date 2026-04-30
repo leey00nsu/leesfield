@@ -20,14 +20,18 @@ describe("GenerationPromptField", () => {
     const surface = screen.getByTestId("shared-prompt-form-surface");
 
     expect(dock).toHaveAttribute("data-app-prompt-field");
+    expect(dock).toHaveAttribute("data-app-card");
+    expect(dock).toHaveAttribute("data-variant", "editorial-flat");
     expect(dock).toHaveClass("rounded-[1.35rem]");
+    expect(dock).toHaveClass("border-0");
+    expect(dock.className).toContain("[background:radial-gradient");
+    expect(dock.className).toContain("linear-gradient");
     expect(surface).toHaveAttribute("data-app-card");
     expect(surface).toHaveAttribute("data-variant", "prompt");
     expect(surface).toHaveClass("relative");
     expect(surface).toHaveClass("rounded-xl");
     expect(surface).toHaveClass("border-white/12");
-    expect(surface.className).toContain("[background:radial-gradient");
-    expect(surface.className).toContain("linear-gradient");
+    expect(surface).toHaveClass("bg-black/18");
     expect(surface).not.toHaveClass("bg-creative-surface");
   });
 });

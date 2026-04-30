@@ -148,7 +148,7 @@
 
 @layer utilities {
   .font-display {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
   }
 
   .line-clamp-3 {

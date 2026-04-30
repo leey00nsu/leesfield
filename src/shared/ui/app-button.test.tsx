@@ -14,18 +14,18 @@ describe("AppButton", () => {
 
     expect(screen.getByRole("button", { name: "Generate" })).toHaveClass(
       "bg-primary",
-      "hover:bg-primary",
-      "hover:text-primary-content",
+      "hover:!bg-primary",
+      "hover:!text-primary-content",
     );
     expect(screen.getByRole("button", { name: "Surface" })).toHaveClass(
       "bg-black/16",
-      "hover:bg-black/16",
-      "hover:text-white/82",
+      "hover:!bg-black/16",
+      "hover:!text-white/82",
     );
     expect(screen.getByRole("button", { name: "White" })).toHaveClass(
       "bg-white",
-      "hover:bg-white",
-      "hover:text-black",
+      "hover:!bg-white",
+      "hover:!text-black",
     );
   });
 });

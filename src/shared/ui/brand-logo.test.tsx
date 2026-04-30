@@ -23,7 +23,7 @@ describe("BrandLogo", () => {
     renderWithIntl(<BrandLogo label="leesfield" />);
 
     const wordmark = screen.getByText("leesfield");
-    expect(wordmark).toHaveClass("font-[var(--font-heading)]");
+    expect(wordmark).toHaveClass("font-display");
     expect(wordmark).toHaveClass("font-medium");
     expect(wordmark).not.toHaveClass("font-normal");
   });

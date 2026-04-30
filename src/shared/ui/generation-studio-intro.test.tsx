@@ -19,6 +19,7 @@ describe("GenerationStudioIntro", () => {
 
     expect(intro).not.toHaveClass("min-h-[58vh]");
     expect(intro).not.toHaveClass("h-full");
+    expect(heading).toHaveClass("font-display");
     expect(heading).toHaveClass("text-[clamp(2.35rem,4.8vw,5.15rem)]");
     expect(heading).not.toHaveClass("text-[clamp(3.1rem,7vw,7rem)]");
   });

@@ -191,7 +191,7 @@ export function GenerationModelSection<T extends string>({
             aria-haspopup="dialog"
             aria-expanded={isOpen}
             className={cn(
-              "h-12 rounded-xl border-white/12 bg-black/16 px-3 text-white hover:border-white/12 hover:bg-black/16 hover:text-white",
+              "h-12 rounded-xl border-white/12 bg-black/16 px-3 text-white hover:!bg-black/16 hover:!text-white",
               activeModel && "border-primary",
             )}
           >
