@@ -844,11 +844,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   textarea={
                     <FormControl>
                       <Textarea
-                        className="min-h-[104px] border-none bg-transparent px-5 py-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                        className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                         {...field}
                       />
                     </FormControl>
                   }
+                  promptMeta={tLabels("chars", { count: promptValue.length })}
                   footerLeft={
                     <>
                       {!isGuest && hasModels ? (
@@ -864,18 +865,20 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                           disabled
                           className={cn(
                             dockChipClass,
-                            "max-w-[13rem] cursor-not-allowed opacity-70",
+                            "min-w-[13rem] max-w-[13rem] cursor-not-allowed justify-between opacity-70",
                           )}
                         >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
-                            M
-                          </span>
-                          <span className="truncate">
-                            {isModelLoading
-                              ? tGeneration("modelLoading")
-                              : isGuest
-                                ? tGeneration("modelLoginRequired")
-                                : tGeneration("modelUnavailable")}
+                          <span className="min-w-0 flex flex-col items-start leading-tight">
+                            <span className="text-[10px] font-semibold uppercase text-white/42">
+                              {tGeneration("modelSelect")}
+                            </span>
+                            <span className="max-w-[13rem] truncate font-medium">
+                              {isModelLoading
+                                ? tGeneration("modelLoading")
+                                : isGuest
+                                  ? tGeneration("modelLoginRequired")
+                                  : tGeneration("modelUnavailable")}
+                            </span>
                           </span>
                         </button>
                       )}
@@ -911,9 +914,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   }
                   footerRight={
                     <>
-                      <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
-                        {tLabels("chars", { count: promptValue.length })}
-                      </span>
                       <AppButton
                         type={isAuthenticated ? "submit" : "button"}
                         size="xl"

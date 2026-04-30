@@ -7,10 +7,14 @@ import {
 interface GenerationPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
+  promptMeta?: ReactNode;
   className?: string;
   ariaLabel?: string;
+  testId?: string;
 }
 
 interface GenerationPromptSurfaceProps {
@@ -45,19 +49,27 @@ export function GenerationPromptSurface({
 export function GenerationPromptField({
   textarea,
   attachments,
+  header,
+  footer,
   footerLeft,
   footerRight,
+  promptMeta,
   className,
   ariaLabel,
+  testId,
 }: GenerationPromptFieldProps) {
   return (
     <AppPromptField
       textarea={textarea}
       attachments={attachments}
+      header={header}
+      footer={footer}
       footerLeft={footerLeft}
       footerRight={footerRight}
+      promptMeta={promptMeta}
       className={className}
       ariaLabel={ariaLabel}
+      testId={testId}
     />
   );
 }

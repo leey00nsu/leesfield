@@ -56,7 +56,7 @@ export function LandingReuseSection() {
 
         <div>
           <AppEyebrow>{t("eyebrow")}</AppEyebrow>
-          <AppHeading className="mt-7 text-[clamp(2.45rem,4.6vw,5.2rem)]">
+          <AppHeading className="mt-7 max-w-[10.75ch] text-[clamp(2.45rem,4.6vw,5.2rem)]">
             {t("title")}
           </AppHeading>
           <p className="mt-8 max-w-xl text-base leading-7 text-white/72 md:text-lg">
@@ -64,7 +64,6 @@ export function LandingReuseSection() {
           </p>
           <AppButton
             asChild
-            variant="white"
             size="lg"
             className="mt-10 rounded-full px-8 text-base font-semibold"
           >

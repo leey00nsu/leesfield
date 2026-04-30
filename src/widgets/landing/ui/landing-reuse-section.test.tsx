@@ -30,5 +30,10 @@ describe("LandingReuseSection", () => {
     expect(container.querySelector(`img[src="${sampleImageSrc}"]`)).toBeNull();
     expect(container).not.toHaveTextContent(reusableReferencePattern);
     expect(screen.queryByAltText(referenceImagePattern)).not.toBeInTheDocument();
+
+    const historyCta = screen.getByRole("link", { name: "Explore history" });
+    expect(historyCta).toHaveAttribute("href", "/history");
+    expect(historyCta).toHaveClass("bg-primary");
+    expect(historyCta).not.toHaveClass("bg-white");
   });
 });

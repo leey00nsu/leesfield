@@ -225,6 +225,7 @@
       "featured": "추천 모델",
       "all": "전체 모델",
       "selected": "선택됨",
+      "default": "default",
       "new": "NEW",
       "premium": "PREMIUM",
       "empty": "검색 결과가 없습니다."

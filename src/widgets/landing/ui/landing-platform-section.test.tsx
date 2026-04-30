@@ -115,6 +115,12 @@ describe("LandingPlatformSection", () => {
     expect(
       screen.getByRole("img", { name: "Usage by model distribution" }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Live")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "View all" })
+        .some((link) => link.getAttribute("href") === "/monitoring"),
+    ).toBe(true);
 
     expect(screen.getByText("Review")).toBeInTheDocument();
     expect(screen.getByText("Generate")).toBeInTheDocument();

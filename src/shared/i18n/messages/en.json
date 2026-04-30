@@ -225,6 +225,7 @@
       "featured": "Featured models",
       "all": "All models",
       "selected": "Selected",
+      "default": "default",
       "new": "NEW",
       "premium": "PREMIUM",
       "empty": "No models found."

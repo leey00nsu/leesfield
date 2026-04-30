@@ -122,6 +122,8 @@ describe("VideoGenerationForm", () => {
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(dock).toHaveTextContent("모델 선택");
     expect(dock).toHaveTextContent("이미지 필요");
     expect(dock).toHaveTextContent("3.5s");
     expect(within(dock).queryByRole("slider")).toBeNull();
@@ -197,13 +199,15 @@ describe("VideoGenerationForm", () => {
     );
   });
 
-  it("모달리티 배지를 표시한다", async () => {
+  it("모델 카드에서 기술 배지와 설명을 제거하고 기본 모델만 표시한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
     await openModelPicker(userEvent.setup());
-    expect(await screen.findByText("T2V")).toBeInTheDocument();
-    expect(await screen.findByText("I2V")).toBeInTheDocument();
+    expect(await screen.findByText("default")).toBeInTheDocument();
+    expect(screen.queryByText("T2V")).not.toBeInTheDocument();
+    expect(screen.queryByText("I2V")).not.toBeInTheDocument();
+    expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {

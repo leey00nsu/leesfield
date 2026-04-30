@@ -3,9 +3,8 @@ import type { CSSProperties } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppCard } from "@/shared/ui/app-card";
 import { AppHeading } from "@/shared/ui/app-typography";
-import { GenerationPromptSurface } from "@/shared/ui/generation-prompt-field";
+import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
 const generationTabs = ["image", "video", "audio"] as const;
@@ -72,86 +71,82 @@ export function LandingHero() {
             <WarpShaderPanel className="absolute inset-0" fadeIn />
           </div>
 
-          <AppCard
-            variant="plain"
-            data-testid="landing-hero-form-surface"
-            className="relative mx-auto max-w-4xl rounded-[1.05rem] border-0 p-3 sm:p-4"
-          >
-            <GenerationPromptSurface
-              header={
-                <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
-                  {generationTabs.map((tab, index) => (
-                    <Link
-                      key={tab}
-                      href={`/${tab === "image" ? "image" : tab}`}
-                      className="relative py-4 text-white/80 transition-colors hover:text-white"
-                    >
-                      {t(`tabs.${tab}`)}
-                      {index === 0 ? (
-                        <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-full max-w-[15rem] bg-primary" />
-                      ) : null}
-                    </Link>
-                  ))}
-                </div>
-              }
-              textarea={
-                <>
-                  <label htmlFor="landing-prompt-preview" className="sr-only">
-                    {t("preview.promptLabel")}
-                  </label>
-                  <textarea
-                    id="landing-prompt-preview"
-                    readOnly
-                    aria-label={t("preview.promptLabel")}
-                    placeholder={t("preview.placeholder")}
-                    className="h-24 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
-                  />
-                </>
-              }
-              footer={
-                <div className="grid gap-3 border-t border-white/12 p-3 lg:grid-cols-[1fr_1fr_0.62fr]">
+          <GenerationPromptField
+            testId="landing-hero-form-surface"
+            className="relative mx-auto max-w-4xl rounded-[1.05rem] p-3 sm:p-4"
+            header={
+              <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
+                {generationTabs.map((tab, index) => (
                   <Link
-                    href="/model"
-                    className="flex items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
+                    key={tab}
+                    href={`/${tab === "image" ? "image" : tab}`}
+                    className="relative py-4 text-white/80 transition-colors hover:text-white"
                   >
-                    <span>
-                      <span className="block text-sm text-white/46">
-                        {t("preview.modelLabel")}
-                      </span>
-                      <span className="text-sm font-medium text-white">
-                        {t("preview.model")}
-                      </span>
-                    </span>
-                    <ChevronDown className="h-5 w-5 text-white/62" />
+                    {t(`tabs.${tab}`)}
+                    {index === 0 ? (
+                      <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-full max-w-[15rem] bg-primary" />
+                    ) : null}
                   </Link>
-                  <Link
-                    href="/image"
-                    className="flex items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
-                  >
-                    <span>
-                      <span className="block text-sm text-white/46">
-                        {t("preview.aspectLabel")}
-                      </span>
-                      <span className="text-sm font-medium text-white">
-                        {t("preview.aspect")}
-                      </span>
+                ))}
+              </div>
+            }
+            textarea={
+              <>
+                <label htmlFor="landing-prompt-preview" className="sr-only">
+                  {t("preview.promptLabel")}
+                </label>
+                <textarea
+                  id="landing-prompt-preview"
+                  readOnly
+                  aria-label={t("preview.promptLabel")}
+                  placeholder={t("preview.placeholder")}
+                  className="h-24 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
+                />
+              </>
+            }
+            footer={
+              <div className="grid gap-3 border-t border-white/12 p-3 lg:grid-cols-[1fr_1fr_0.62fr]">
+                <Link
+                  href="/model"
+                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-xs text-white/46">
+                      {t("preview.modelLabel")}
                     </span>
-                    <ChevronDown className="h-5 w-5 text-white/62" />
+                    <span className="block truncate text-sm font-medium text-white">
+                      {t("preview.model")}
+                    </span>
+                  </span>
+                  <ChevronDown className="h-5 w-5 text-white/62" />
+                </Link>
+                <Link
+                  href="/image"
+                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-xs text-white/46">
+                      {t("preview.aspectLabel")}
+                    </span>
+                    <span className="block truncate text-sm font-medium text-white">
+                      {t("preview.aspect")}
+                    </span>
+                  </span>
+                  <ChevronDown className="h-5 w-5 text-white/62" />
+                </Link>
+                <AppButton
+                  asChild
+                  size="lg"
+                  className="h-full min-h-14 rounded-xl text-sm"
+                >
+                  <Link href="/image">
+                    {t("preview.generate")}
+                    <ArrowRight className="h-5 w-5" />
                   </Link>
-                  <AppButton
-                    asChild
-                    size="lg"
-                    className="h-full min-h-14 rounded-xl text-sm"
-                  >
-                    <Link href="/image">
-                      {t("preview.generate")}
-                      <ArrowRight className="h-5 w-5" />
-                    </Link>
-                  </AppButton>
-                </div>
-              }
-            />
-          </AppCard>
+                </AppButton>
+              </div>
+            }
+          />
         </div>
       </div>
     </section>

@@ -116,6 +116,8 @@ describe("ImageGenerationForm", () => {
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(dock).toHaveTextContent("모델 선택");
     expect(dock).not.toHaveTextContent("1:1");
     expect(dock).not.toHaveTextContent("1K");
     expect(dock).not.toHaveTextContent("Draw");
@@ -322,7 +324,7 @@ describe("ImageGenerationForm", () => {
     }
   });
 
-  it("모델 카드에 모달리티 배지를 표시한다", async () => {
+  it("모델 카드에서 기술 배지와 설명을 제거하고 기본 모델만 표시한다", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -333,8 +335,10 @@ describe("ImageGenerationForm", () => {
     await waitForModels();
 
     await openModelPicker(userEvent.setup());
-    expect(screen.getAllByText("T2I").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("I2I").length).toBeGreaterThan(0);
+    expect(screen.getByText("default")).toBeInTheDocument();
+    expect(screen.queryByText("T2I")).not.toBeInTheDocument();
+    expect(screen.queryByText("I2I")).not.toBeInTheDocument();
+    expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
   });
 
   it("모델 전환 시 생성 폴링을 리셋한다", async () => {

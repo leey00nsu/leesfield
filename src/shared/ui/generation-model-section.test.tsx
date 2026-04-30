@@ -5,7 +5,7 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { renderWithIntl } from "@/test-utils/intl";
 
 describe("GenerationModelSection", () => {
-  it("opens a searchable model picker with grouped outcome metadata", async () => {
+  it("opens a searchable model picker with simplified model rows", async () => {
     const user = userEvent.setup();
 
     renderWithIntl(
@@ -47,11 +47,12 @@ describe("GenerationModelSection", () => {
     expect(
       screen.getByRole("heading", { name: "전체 모델" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("에디토리얼·레퍼런스 이미지")).toBeInTheDocument();
-    expect(screen.getByText("정교한 인물/제품 컷")).toBeInTheDocument();
-    expect(screen.getAllByText("기술 정보").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("flux2-klein-9b").length).toBeGreaterThan(0);
-    expect(screen.getByText("선택됨")).toBeInTheDocument();
+    expect(screen.getByText("default")).toBeInTheDocument();
+    expect(screen.queryByText("에디토리얼·레퍼런스 이미지")).not.toBeInTheDocument();
+    expect(screen.queryByText("정교한 인물/제품 컷")).not.toBeInTheDocument();
+    expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
+    expect(screen.queryByText("flux2-klein-9b")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("선택됨")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("모델 검색..."), "GPT");
 

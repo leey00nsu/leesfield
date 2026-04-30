@@ -211,7 +211,9 @@ function MonitoringCard({
           <ChartNoAxesCombined className="h-5 w-5 text-primary" />
           Monitoring
         </span>
-        <span className="text-sm text-primary">Live</span>
+        <Link href="/monitoring" className="text-sm text-primary">
+          View all
+        </Link>
       </p>
       <div className="mt-6 grid grid-cols-2 gap-5">
         <div>

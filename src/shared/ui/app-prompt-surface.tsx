@@ -9,16 +9,21 @@ interface AppPromptSurfaceProps {
   footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
+  promptMeta?: ReactNode;
   className?: string;
 }
 
 interface AppPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
+  promptMeta?: ReactNode;
   className?: string;
   ariaLabel?: string;
+  testId?: string;
 }
 
 export function AppPromptSurface({
@@ -28,6 +33,7 @@ export function AppPromptSurface({
   footer,
   footerLeft,
   footerRight,
+  promptMeta,
   className,
 }: AppPromptSurfaceProps) {
   return (
@@ -37,7 +43,17 @@ export function AppPromptSurface({
       className={cn("rounded-xl", className)}
     >
       {header}
-      {textarea}
+      <div className="relative">
+        {textarea}
+        {promptMeta ? (
+          <div
+            data-testid="shared-prompt-meta"
+            className="pointer-events-none absolute bottom-3 right-4 text-[10px] font-mono text-gray-600"
+          >
+            {promptMeta}
+          </div>
+        ) : null}
+      </div>
       {attachments}
       {footer ?? (
         <div className="flex flex-col gap-3 border-t border-white/12 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -54,15 +70,20 @@ export function AppPromptSurface({
 export function AppPromptField({
   textarea,
   attachments,
+  header,
+  footer,
   footerLeft,
   footerRight,
+  promptMeta,
   className,
   ariaLabel,
+  testId,
 }: AppPromptFieldProps) {
   return (
     <AppCard
       variant="editorial-flat"
       data-app-prompt-field=""
+      data-testid={testId}
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
       className={cn(
@@ -73,8 +94,11 @@ export function AppPromptField({
       <AppPromptSurface
         textarea={textarea}
         attachments={attachments}
+        header={header}
+        footer={footer}
         footerLeft={footerLeft}
         footerRight={footerRight}
+        promptMeta={promptMeta}
       />
     </AppCard>
   );

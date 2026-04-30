@@ -9,8 +9,9 @@ describe("GenerationPromptField", () => {
       <GenerationPromptField
         ariaLabel="작업 입력"
         textarea={<textarea aria-label="Prompt" />}
+        promptMeta={<span>0 chars</span>}
         footerLeft={<span>Attach</span>}
-        footerRight={<span>0 chars</span>}
+        footerRight={<span>Generate</span>}
       />,
     );
 
@@ -33,5 +34,6 @@ describe("GenerationPromptField", () => {
     expect(surface).toHaveClass("border-white/12");
     expect(surface).toHaveClass("bg-black/18");
     expect(surface).not.toHaveClass("bg-creative-surface");
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0 chars");
   });
 });

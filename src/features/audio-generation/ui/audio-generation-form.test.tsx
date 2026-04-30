@@ -252,6 +252,8 @@ describe("AudioGenerationForm", () => {
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(dock).toHaveTextContent("모델 선택");
     expect(dock).toHaveTextContent("설정");
     expect(dock).toHaveTextContent("1x");
     expect(within(dock).queryByRole("slider")).toBeNull();
