@@ -140,6 +140,15 @@ describe("ImageGenerationForm", () => {
     expect(
       screen.getByText("Describe your idea. Choose your settings. Generate with precision."),
     ).toBeInTheDocument();
+    const resultFrame = screen.getByTestId("generation-canvas");
+    expect(resultFrame).toHaveClass("rounded-[1.75rem]");
+    expect(resultFrame).toHaveClass("max-w-6xl");
+    expect(resultFrame).not.toHaveClass("bg-[#07090a]");
+    expect(
+      screen.getByRole("heading", { name: "Create images with control." }).closest(
+        "[data-testid='generation-canvas']",
+      ),
+    ).toBeNull();
     expect(screen.queryByAltText("어두운 톤의 인물 레퍼런스")).not.toBeInTheDocument();
     expect(screen.queryByText("VISUAL TAKE")).not.toBeInTheDocument();
   });

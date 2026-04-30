@@ -30,6 +30,7 @@ export function GenerationCanvas({
 
   return (
     <div
+      data-testid="generation-canvas"
       className={cn(
         "group relative flex aspect-video items-center justify-center overflow-hidden bg-background/40",
         className

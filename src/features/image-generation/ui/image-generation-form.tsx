@@ -69,6 +69,10 @@ type ImageGenerationFormProps = {
 
 const dockChipClass =
   "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
+const studioPreviewShellClass =
+  "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
+const studioResultFrameClass =
+  "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -405,67 +409,70 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       >
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-6">
-            <GenerationCanvas
-              isGenerating={isGenerating}
-              status={state.status}
-              errorMessage={state.errorMessage}
-              className="min-h-[46vh] rounded-none border-0 bg-[#07090a] sm:min-h-[58vh]"
-            >
-              {hasResults ? (
-                <div
-                  className={cn(
-                    "relative z-10 grid h-full w-full gap-3 p-4",
-                    resultsGridClass
-                  )}
-                >
-                  {resultImages.map((image, index) => {
-                    const downloadUrl = state.requestId
-                      ? `/api/image-generation/${state.requestId}/download?index=${index}`
-                      : image.url;
+            <div className={studioPreviewShellClass}>
+              <GenerationStudioIntro
+                eyebrow={tImage("previewEyebrow")}
+                title={tImage("previewTitle")}
+                description={tImage("previewDescription")}
+              />
+              <GenerationCanvas
+                isGenerating={isGenerating}
+                status={state.status}
+                errorMessage={state.errorMessage}
+                className={studioResultFrameClass}
+              >
+                {hasResults ? (
+                  <div
+                    className={cn(
+                      "relative z-10 grid h-full w-full gap-3 p-4",
+                      resultsGridClass
+                    )}
+                  >
+                    {resultImages.map((image, index) => {
+                      const downloadUrl = state.requestId
+                        ? `/api/image-generation/${state.requestId}/download?index=${index}`
+                        : image.url;
 
-                    return (
-                      <div
-                        key={`${image.url}-${index}`}
-                        className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={image.url}
-                          alt={tImage("generatedImageAlt", { index: index + 1 })}
-                          className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
-                        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
-                          <a
-                            href={image.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title={tActions("open")}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                          <a
-                            href={downloadUrl}
-                            download
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title={tActions("download")}
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
+                      return (
+                        <div
+                          key={`${image.url}-${index}`}
+                          className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt={tImage("generatedImageAlt", { index: index + 1 })}
+                            className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
+                          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
+                            <a
+                              href={image.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                              title={tActions("open")}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                            <a
+                              href={downloadUrl}
+                              download
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
+                              title={tActions("download")}
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <GenerationStudioIntro
-                  eyebrow={tImage("previewEyebrow")}
-                  title={tImage("previewTitle")}
-                  description={tImage("previewDescription")}
-                />
-              )}
-            </GenerationCanvas>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div aria-hidden="true" className="h-full w-full" />
+                )}
+              </GenerationCanvas>
+            </div>
 
             {hasResults && state.errorMessage && (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">

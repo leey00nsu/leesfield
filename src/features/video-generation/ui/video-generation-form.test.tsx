@@ -135,6 +135,15 @@ describe("VideoGenerationForm", () => {
     expect(
       screen.getByText("Describe your idea. We'll handle the camera, the movement, and the magic."),
     ).toBeInTheDocument();
+    const resultFrame = screen.getByTestId("generation-canvas");
+    expect(resultFrame).toHaveClass("rounded-[1.75rem]");
+    expect(resultFrame).toHaveClass("max-w-6xl");
+    expect(resultFrame).not.toHaveClass("bg-[#07090a]");
+    expect(
+      screen.getByRole("heading", { name: "Create motion with control." }).closest(
+        "[data-testid='generation-canvas']",
+      ),
+    ).toBeNull();
     expect(screen.queryByAltText("촬영 현장 사진")).not.toBeInTheDocument();
     expect(screen.queryByText("MOTION TAKE")).not.toBeInTheDocument();
   });

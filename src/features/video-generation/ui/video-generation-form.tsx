@@ -61,6 +61,10 @@ type VideoGenerationFormProps = {
 
 const dockChipClass =
   "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
+const studioPreviewShellClass =
+  "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
+const studioResultFrameClass =
+  "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
 export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
@@ -301,26 +305,29 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-6">
-          <GenerationCanvas
-            isGenerating={isGenerating}
-            status={state.status}
-            errorMessage={state.errorMessage}
-            className="min-h-[46vh] rounded-none border-0 bg-[#07090a] sm:min-h-[58vh]"
-          >
-            {hasResults && primaryVideo ? (
-              <video
-                src={primaryVideo.url}
-                controls
-                className="relative z-10 h-full w-full object-cover"
-              />
-            ) : (
-              <GenerationStudioIntro
-                eyebrow={tVideo("previewEyebrow")}
-                title={tVideo("previewTitle")}
-                description={tVideo("previewDescription")}
-              />
-            )}
-          </GenerationCanvas>
+          <div className={studioPreviewShellClass}>
+            <GenerationStudioIntro
+              eyebrow={tVideo("previewEyebrow")}
+              title={tVideo("previewTitle")}
+              description={tVideo("previewDescription")}
+            />
+            <GenerationCanvas
+              isGenerating={isGenerating}
+              status={state.status}
+              errorMessage={state.errorMessage}
+              className={studioResultFrameClass}
+            >
+              {hasResults && primaryVideo ? (
+                <video
+                  src={primaryVideo.url}
+                  controls
+                  className="relative z-10 h-full w-full object-cover"
+                />
+              ) : (
+                <div aria-hidden="true" className="h-full w-full" />
+              )}
+            </GenerationCanvas>
+          </div>
 
           {hasResults && state.errorMessage ? (
             <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">

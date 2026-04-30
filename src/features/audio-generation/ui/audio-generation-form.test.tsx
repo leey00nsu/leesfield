@@ -272,6 +272,15 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByText("Describe the sound you need. Fine-tune the settings. Generate production-ready audio."),
     ).not.toBeNull();
+    const resultFrame = screen.getByTestId("generation-canvas");
+    expect(resultFrame).toHaveClass("rounded-[1.75rem]");
+    expect(resultFrame).toHaveClass("max-w-6xl");
+    expect(resultFrame).not.toHaveClass("bg-[#07090a]");
+    expect(
+      screen.getByRole("heading", { name: "Shape sound with control." }).closest(
+        "[data-testid='generation-canvas']",
+      ),
+    ).toBeNull();
     expect(screen.queryByAltText("오디오 콘솔 사진")).toBeNull();
     expect(screen.queryByText("VOICE TAKE")).toBeNull();
   });
