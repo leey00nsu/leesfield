@@ -91,8 +91,10 @@ describe("GenerationHistoryScreen", () => {
 
     renderWithIntl(<GenerationHistoryScreen />);
 
-    expect(screen.getByText("HISTORY STUDIO")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Results you can reuse." })).toBeInTheDocument();
+    expect(screen.queryByText("HISTORY STUDIO")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Results you can reuse." }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("0");
     expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Community" })).not.toBeInTheDocument();

@@ -36,7 +36,7 @@ import {
   AppSortSelect,
 } from "@/shared/ui/app-filter-toolbar";
 import { AppTabs } from "@/shared/ui/app-tabs";
-import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
+import { AppEyebrow } from "@/shared/ui/app-typography";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 
@@ -136,21 +136,7 @@ export function GenerationHistoryScreen() {
 
   return (
     <div className="relative flex min-h-[calc(100vh-5rem)] flex-col gap-8 overflow-x-hidden pb-16">
-      <section className="mx-auto flex w-full max-w-[1800px] flex-col gap-8 pt-12 text-center sm:pt-16 lg:pt-20">
-        <div className="mx-auto flex max-w-5xl flex-col items-center">
-          <AppEyebrow className="mb-4">{tHistory("hero.eyebrow")}</AppEyebrow>
-          <AppHeading
-            as="h1"
-            size="studio"
-            className="max-w-[58rem] text-white/95 [text-shadow:0_0_18px_rgba(255,255,255,0.14)]"
-          >
-            {tHistory("hero.title")}
-          </AppHeading>
-          <p className="mt-4 max-w-2xl text-[clamp(0.95rem,1.05vw,1.125rem)] font-semibold leading-relaxed text-white/58">
-            {tHistory("hero.description")}
-          </p>
-        </div>
-
+      <section className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 pt-6 sm:pt-8 lg:pt-10">
         <AppFilterToolbar>
           <AppFilterGroup>
             <AppFilterToggle
