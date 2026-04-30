@@ -170,8 +170,8 @@
   .lf-editorial-panel {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, oklch(0.45 0.07 165 / 0.12), transparent 44%),
-      radial-gradient(circle at 100% 18%, oklch(0.78 0.16 105 / 0.055), transparent 38%),
+      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.26), transparent 48%),
+      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.14), transparent 46%),
       oklch(0.12 0.006 104 / 0.94);
     box-shadow: 0 34px 110px oklch(0 0 0 / 0.45);
   }
@@ -179,8 +179,8 @@
   .lf-editorial-card {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, oklch(0.45 0.07 165 / 0.1), transparent 46%),
-      radial-gradient(circle at 100% 18%, oklch(0.78 0.16 105 / 0.045), transparent 40%),
+      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.22), transparent 50%),
+      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.11), transparent 48%),
       oklch(0.12 0.006 104 / 0.94);
   }
 
@@ -188,8 +188,8 @@
   .lf-editorial-flat-card {
     border: 1px solid oklch(1 0 0 / 0.14);
     background:
-      radial-gradient(circle at 18% 0%, oklch(0.45 0.07 165 / 0.1), transparent 46%),
-      radial-gradient(circle at 100% 18%, oklch(0.78 0.16 105 / 0.045), transparent 40%),
+      radial-gradient(circle at 18% 0%, rgba(43, 172, 146, 0.22), transparent 50%),
+      radial-gradient(circle at 100% 18%, rgba(212, 240, 50, 0.11), transparent 48%),
       oklch(0.12 0.006 104 / 0.94);
   }
 
@@ -227,14 +227,6 @@
 
   .lf-shader-fade-in {
     animation: lf-shader-fade 1050ms ease-out both;
-  }
-
-  .lf-hero-shader-fade {
-    opacity: 0;
-    transform: scale(1.015);
-    transform-origin: center;
-    animation: lf-hero-shader-fade-in 920ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
-    will-change: opacity, transform;
   }
 
   .lf-motion-card-a,
@@ -288,13 +280,6 @@
     }
   }
 
-  @keyframes lf-hero-shader-fade-in {
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
   @keyframes lf-card-drift-a {
     from {
       transform: translate3d(-4px, 8px, 0) rotate(-7deg);
@@ -335,7 +320,6 @@
     .lf-motion-rise,
     .lf-text-generate-word,
     .lf-shader-fade-in,
-    .lf-hero-shader-fade,
     .lf-motion-card-a,
     .lf-motion-card-b,
     .lf-motion-card-c,
@@ -348,12 +332,6 @@
       opacity: 1;
       filter: none;
       transform: none;
-    }
-
-    .lf-hero-shader-fade {
-      opacity: 1;
-      transform: none;
-      animation: none;
     }
   }
 }

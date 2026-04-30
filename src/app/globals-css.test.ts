@@ -9,20 +9,27 @@ const globalsCss = readFileSync(
 
 describe("editorial surface CSS", () => {
   it("uses one subtle gradient treatment for shared card and panel surfaces", () => {
+    const panelBlock = globalsCss.match(
+      /\.lf-editorial-panel\s*{[\s\S]*?}\n/,
+    )?.[0];
+    const cardBlock = globalsCss.match(
+      /\.lf-editorial-card\s*{[\s\S]*?}\n/,
+    )?.[0];
+
     expect(globalsCss).toMatch(
       /\.lf-editorial-panel\s*{[\s\S]*?radial-gradient/,
     );
     expect(globalsCss).toMatch(
       /\.lf-editorial-card\s*{[\s\S]*?radial-gradient/,
     );
+    expect(panelBlock).toContain("rgba(");
+    expect(cardBlock).toContain("rgba(");
+    expect(panelBlock).not.toMatch(/radial-gradient\([^)]*oklch/);
+    expect(cardBlock).not.toMatch(/radial-gradient\([^)]*oklch/);
   });
 
-  it("animates the hero shader in while respecting reduced motion", () => {
-    expect(globalsCss).toContain(".lf-hero-shader-fade");
-    expect(globalsCss).toContain("@keyframes lf-hero-shader-fade-in");
-    expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
-    expect(globalsCss).toMatch(
-      /\.lf-hero-shader-fade\s*{[\s\S]*?animation:\s*none/,
-    );
+  it("keeps the legacy shader keyframes available without relying on hero wrapper CSS", () => {
+    expect(globalsCss).toContain("@keyframes lf-shader-fade");
+    expect(globalsCss).not.toContain(".lf-hero-shader-fade");
   });
 });
