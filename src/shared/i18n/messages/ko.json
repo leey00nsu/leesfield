@@ -558,18 +558,9 @@
     "kpi": {
       "successRate": "성공률",
       "active": "활성 작업",
-      "avgLatency": "평균 지연",
+      "avgLatency": "지연 시간",
       "total": "요청 수",
-      "live": "실시간",
-      "avgLabel": "평균",
-      "vsRange": "기간 내",
-      "successShare": "성공 비율",
-      "errorLabel": "안정",
-      "health": {
-        "healthy": "정상",
-        "watch": "관찰",
-        "attention": "주의"
-      }
+      "live": "실시간"
     },
     "filters": {
       "statusAll": "전체",
@@ -593,19 +584,6 @@
       "aria": "요청 추이 차트",
       "totalLabel": "요청 수",
       "errorLabel": "오류율"
-    },
-    "top": {
-      "title": "Top N 지표",
-      "subtitle": "활성 모델/키 순위",
-      "metric": {
-        "requests": "요청 수",
-        "errors": "오류 수",
-        "latency": "지연"
-      },
-      "models": "모델 Top",
-      "apiKeys": "API Key Top",
-      "caption": "선택한 지표 기준",
-      "empty": "표시할 랭킹이 없습니다."
     },
     "requests": {
       "title": "최근 작업",

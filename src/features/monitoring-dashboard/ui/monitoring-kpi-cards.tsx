@@ -16,8 +16,6 @@ import type {
   MonitoringStatsRow,
 } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
-import { resolveErrorRateHealth } from "@/features/monitoring-dashboard/lib/monitoring-health";
-import { cn } from "@/shared/lib/utils";
 import { AppCard } from "@/shared/ui/app-card";
 import { ChartContainer } from "@/shared/ui/chart";
 
@@ -116,17 +114,13 @@ function DonutChart({ value, label }: { value: number; label: string }) {
 function StatCard({
   title,
   value,
-  hint,
   icon: Icon,
   visual,
-  hintClassName,
 }: {
   title: string;
   value: string;
-  hint?: string;
   icon: typeof Activity;
   visual?: ReactNode;
-  hintClassName?: string;
 }) {
   return (
     <AppCard
@@ -139,11 +133,6 @@ function StatCard({
       </div>
       <div className="mt-8 flex items-end gap-3">
         <span className={cardValue}>{value}</span>
-        {hint ? (
-          <span className={cn("pb-1 text-sm font-semibold text-primary", hintClassName)}>
-            {hint}
-          </span>
-        ) : null}
       </div>
       <div className="mt-4">{visual}</div>
       <div className="pointer-events-none absolute inset-x-6 bottom-5 h-px bg-white/8" />
@@ -154,12 +143,10 @@ function StatCard({
 function UsageCard({
   title,
   value,
-  hint,
   percent,
 }: {
   title: string;
   value: string;
-  hint: string;
   percent: number;
 }) {
   return (
@@ -175,7 +162,6 @@ function UsageCard({
         <DonutChart value={percent} label={`${Math.round(percent)}%`} />
         <div>
           <div className={cardValue}>{value}</div>
-          <div className="mt-3 text-sm font-semibold text-white/42">{hint}</div>
         </div>
       </div>
     </AppCard>
@@ -194,7 +180,6 @@ export function MonitoringKpiCards({
   const avgLatency = data ? formatDuration(data.avgLatencyMs) : "-";
   const successRateValue = data ? Math.max(0, 1 - data.errorRate) : 0;
   const successRate = data ? formatPercent(successRateValue) : "-";
-  const errorHealth = resolveErrorRateHealth(data?.errorRate ?? 0);
   const totalValues = stats.map((item) => item.total);
   const latencyValues = stats.map((item) => item.avgLatencyMs ?? 0);
   const successPercent = successRateValue * 100;
@@ -204,29 +189,24 @@ export function MonitoringKpiCards({
       <StatCard
         title={t("kpi.successRate")}
         value={isLoading ? "..." : successRate}
-        hint={t(errorHealth.labelKey)}
         icon={CheckCircle2}
         visual={<SparklineChart values={stats.map((item) => 1 - item.errorRate)} />}
-        hintClassName={errorHealth.hintClassName}
       />
       <StatCard
         title={t("kpi.active")}
         value={isLoading ? "..." : activeCount}
-        hint={t("kpi.vsRange")}
         icon={BarChart3}
         visual={<SparklineChart values={totalValues} variant="bars" />}
       />
       <StatCard
         title={t("kpi.avgLatency")}
         value={isLoading ? "..." : avgLatency}
-        hint={t("kpi.avgLabel")}
         icon={Timer}
         visual={<SparklineChart values={latencyValues} />}
       />
       <UsageCard
         title={t("kpi.total")}
         value={isLoading ? "..." : totalCount}
-        hint={t("kpi.successShare")}
         percent={successPercent}
       />
     </div>

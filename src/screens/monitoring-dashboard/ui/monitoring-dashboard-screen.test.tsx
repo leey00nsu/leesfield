@@ -157,7 +157,12 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.getAllByText("요청 수").length).toBeGreaterThan(0);
     expect(screen.getByText("최근 작업")).toBeInTheDocument();
     expect(screen.getByText("트래픽 & 오류")).toBeInTheDocument();
-    expect(screen.getByText("Top N 지표")).toBeInTheDocument();
+    expect(screen.queryByText("주의")).not.toBeInTheDocument();
+    expect(screen.queryByText("기간 내")).not.toBeInTheDocument();
+    expect(screen.queryByText("평균")).not.toBeInTheDocument();
+    expect(screen.queryByText("성공 비율")).not.toBeInTheDocument();
+    expect(screen.queryByText("Top N 지표")).not.toBeInTheDocument();
+    expect(mockUseMonitoringTop).not.toHaveBeenCalled();
     expect(screen.queryByText("서비스 상태")).not.toBeInTheDocument();
     expect(screen.queryByText("알림")).not.toBeInTheDocument();
     expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();

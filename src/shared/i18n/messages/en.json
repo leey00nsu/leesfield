@@ -558,18 +558,9 @@
     "kpi": {
       "successRate": "Success rate",
       "active": "Active Tasks",
-      "avgLatency": "Avg. Latency",
+      "avgLatency": "Latency",
       "total": "Requests",
-      "live": "Live",
-      "avgLabel": "AVG",
-      "vsRange": "In range",
-      "successShare": "Success share",
-      "errorLabel": "Stable",
-      "health": {
-        "healthy": "Healthy",
-        "watch": "Watch",
-        "attention": "Attention"
-      }
+      "live": "Live"
     },
     "filters": {
       "statusAll": "All",
@@ -593,19 +584,6 @@
       "aria": "Request trend chart",
       "totalLabel": "Requests",
       "errorLabel": "Error rate"
-    },
-    "top": {
-      "title": "Top N Signals",
-      "subtitle": "Most active models and keys",
-      "metric": {
-        "requests": "Requests",
-        "errors": "Errors",
-        "latency": "Latency"
-      },
-      "models": "Top Models",
-      "apiKeys": "Top API Keys",
-      "caption": "Ranked by selected metric",
-      "empty": "No ranking data."
     },
     "requests": {
       "title": "Recent jobs",

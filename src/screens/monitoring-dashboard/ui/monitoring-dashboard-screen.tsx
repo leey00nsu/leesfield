@@ -12,11 +12,9 @@ import {
 import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitoring-kpi-cards";
 import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
 import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
-import { MonitoringTopList } from "@/features/monitoring-dashboard/ui/monitoring-top-list";
 import { createRangeFromDays } from "@/features/monitoring-dashboard/lib/format";
 import type {
   MonitoringFilters as MonitoringFiltersState,
-  MonitoringMetric,
   MonitoringStatusFilter,
   MonitoringType,
 } from "@/features/monitoring-dashboard/model/types";
@@ -25,11 +23,9 @@ import {
   useMonitoringOverview,
   useMonitoringRequests,
   useMonitoringStats,
-  useMonitoringTop,
 } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
 
 const DEFAULT_REQUEST_LIMIT = 50;
-const TOP_LIMIT = 5;
 
 export function MonitoringDashboardScreen() {
   const t = useTranslations("monitoringDashboard");
@@ -40,7 +36,6 @@ export function MonitoringDashboardScreen() {
   const [model, setModel] = useState<string | null>(null);
   const [apiKeyId, setApiKeyId] = useState<string | null>(null);
   const [range, setRange] = useState(() => createRangeFromDays(7));
-  const [metric, setMetric] = useState<MonitoringMetric>("requests");
   const [searchInput, setSearchInput] = useState("");
   const [requestLimit, setRequestLimit] = useState(DEFAULT_REQUEST_LIMIT);
   const [requestOffset, setRequestOffset] = useState(0);
@@ -90,7 +85,6 @@ export function MonitoringDashboardScreen() {
     limit: requestLimit,
     offset: requestOffset,
   });
-  const topQuery = useMonitoringTop(filters, metric, TOP_LIMIT);
   const apiKeysQuery = useMonitoringApiKeys();
   const modelCatalog = useRuntimeModelCatalog();
 
@@ -172,13 +166,6 @@ export function MonitoringDashboardScreen() {
           />
           <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
         </div>
-
-        <MonitoringTopList
-          data={topQuery.data ?? null}
-          isLoading={topQuery.isLoading}
-          metric={metric}
-          onMetricChange={setMetric}
-        />
       </div>
     </div>
   );
