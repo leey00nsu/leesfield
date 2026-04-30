@@ -40,4 +40,24 @@ describe("editorial surface CSS", () => {
     expect(globalsCss).toContain("@keyframes lf-shader-fade");
     expect(globalsCss).not.toContain(".lf-hero-shader-fade");
   });
+
+  it("adds a decorative topographic pattern to the landing CTA outline map", () => {
+    const outlineBlock = globalsCss.match(
+      /\.lf-outline-map\s*{[\s\S]*?}\n/,
+    )?.[0];
+    const patternBlock = globalsCss.match(
+      /\.lf-outline-map::before\s*{[\s\S]*?}\n/,
+    )?.[0];
+    const overlayBlock = globalsCss.match(
+      /\.lf-outline-map::after\s*{[\s\S]*?}\n/,
+    )?.[0];
+
+    expect(outlineBlock).toContain("isolation: isolate");
+    expect(outlineBlock).toContain("linear-gradient");
+    expect(patternBlock).toContain("data:image/svg+xml");
+    expect(patternBlock).toContain("stroke-dasharray");
+    expect(patternBlock).toContain("pointer-events: none");
+    expect(overlayBlock).toContain("radial-gradient");
+    expect(overlayBlock).toContain("pointer-events: none");
+  });
 });

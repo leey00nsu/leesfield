@@ -10,6 +10,9 @@ describe("LandingCtaSection", () => {
     expect(
       screen.getByRole("heading", { name: "Design with leesfield" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Design with leesfield" }).closest(".lf-outline-map"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Get started now/ })).toHaveAttribute(
       "href",
       "/image",
