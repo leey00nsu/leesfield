@@ -38,6 +38,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   imageGenerationDefaults,
@@ -408,7 +409,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
               isGenerating={isGenerating}
               status={state.status}
               errorMessage={state.errorMessage}
-              className="min-h-[46vh] rounded-none border-0 border-b border-white/5 bg-[#07090a] sm:min-h-[58vh]"
+              className="min-h-[46vh] rounded-none border-0 bg-[#07090a] sm:min-h-[58vh]"
             >
               {hasResults ? (
                 <div
@@ -458,50 +459,11 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                   })}
                 </div>
               ) : (
-                <div className="relative z-10 flex h-full min-h-[46vh] w-full items-center justify-center overflow-hidden px-4 py-10 sm:min-h-[58vh]">
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_10%,rgba(44,73,92,0.32),transparent_60%)]" />
-                  <div className="relative flex h-[31rem] w-full max-w-5xl flex-col items-center justify-center gap-6 sm:h-[34rem]">
-                    <div className="relative h-56 w-full sm:h-64">
-                    <div className="absolute left-[4%] top-[24%] h-[52%] w-[30%] -rotate-8 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/mirror-portrait.jpg"
-                        alt={tImage("previewPortraitAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute left-[28%] top-[2%] h-[70%] w-[34%] rotate-1 overflow-hidden rounded-[1.6rem] border-[5px] border-white/15 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/studio-vocalist.jpg"
-                        alt={tImage("previewStudioAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute left-[57%] top-[16%] h-40 w-40 overflow-hidden rounded-full border-[5px] border-white/20 bg-black shadow-2xl sm:h-48 sm:w-48">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/audio-console.jpg"
-                        alt={tImage("previewTextureAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute right-[4%] top-[18%] h-[54%] w-[28%] rotate-6 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/film-production.jpg"
-                        alt={tImage("previewFilmAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    </div>
-                    <div className="max-w-4xl text-center">
-                      <p className="text-sm font-semibold text-gray-500">
-                        {tImage("previewEyebrow")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <GenerationStudioIntro
+                  eyebrow={tImage("previewEyebrow")}
+                  title={tImage("previewTitle")}
+                  description={tImage("previewDescription")}
+                />
               )}
             </GenerationCanvas>
 

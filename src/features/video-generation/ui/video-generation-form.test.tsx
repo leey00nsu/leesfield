@@ -124,6 +124,21 @@ describe("VideoGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
+  it("renders a text-first video studio preview without mock media cards", async () => {
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getByText("VIDEO STUDIO")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Create motion with control." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Describe your idea. We'll handle the camera, the movement, and the magic."),
+    ).toBeInTheDocument();
+    expect(screen.queryByAltText("촬영 현장 사진")).not.toBeInTheDocument();
+    expect(screen.queryByText("MOTION TAKE")).not.toBeInTheDocument();
+  });
+
   it("does not render the old preset strip and still submits through the dock", async () => {
     const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
     const user = userEvent.setup();

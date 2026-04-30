@@ -255,6 +255,27 @@ describe("AudioGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
+  it("renders a text-first audio studio preview without mock media cards", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getByText("AUDIO STUDIO")).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Shape sound with control." }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Describe the sound you need. Fine-tune the settings. Generate production-ready audio."),
+    ).not.toBeNull();
+    expect(screen.queryByAltText("오디오 콘솔 사진")).toBeNull();
+    expect(screen.queryByText("VOICE TAKE")).toBeNull();
+  });
+
   it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: {

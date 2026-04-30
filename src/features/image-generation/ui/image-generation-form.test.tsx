@@ -123,6 +123,27 @@ describe("ImageGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
+  it("renders a text-first image studio preview without mock media cards", async () => {
+    mockUseImageGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getByText("IMAGE STUDIO")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Create images with control." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Describe your idea. Choose your settings. Generate with precision."),
+    ).toBeInTheDocument();
+    expect(screen.queryByAltText("어두운 톤의 인물 레퍼런스")).not.toBeInTheDocument();
+    expect(screen.queryByText("VISUAL TAKE")).not.toBeInTheDocument();
+  });
+
   it("등록 모델이 없으면 상단 alert 대신 dock 모델 영역에 상태를 표시한다", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },

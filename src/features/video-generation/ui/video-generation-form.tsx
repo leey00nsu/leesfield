@@ -5,7 +5,6 @@ import {
   Clock3,
   Download,
   ExternalLink,
-  Film,
   Image as ImageIcon,
   ImagePlus,
   Sparkles,
@@ -32,6 +31,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   Form,
@@ -305,7 +305,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
             isGenerating={isGenerating}
             status={state.status}
             errorMessage={state.errorMessage}
-            className="min-h-[46vh] rounded-none border-0 border-b border-white/5 bg-[#07090a] sm:min-h-[58vh]"
+            className="min-h-[46vh] rounded-none border-0 bg-[#07090a] sm:min-h-[58vh]"
           >
             {hasResults && primaryVideo ? (
               <video
@@ -314,45 +314,11 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                 className="relative z-10 h-full w-full object-cover"
               />
             ) : (
-              <div className="relative z-10 flex h-full min-h-[46vh] w-full items-center justify-center overflow-hidden px-4 py-12 sm:min-h-[58vh]">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_52%_16%,rgba(37,58,79,0.36),transparent_62%)]" />
-                <div className="relative flex h-[30rem] w-full max-w-6xl flex-col items-center justify-center gap-6 sm:h-[34rem]">
-                  <div className="relative h-60 w-full sm:h-72">
-                    <div className="absolute left-[7%] top-[20%] h-[52%] w-[31%] -rotate-6 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/film-production.jpg"
-                        alt={tVideo("previewFilmAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute left-[31%] top-0 h-[78%] w-[38%] rotate-1 overflow-hidden rounded-[1.8rem] border-[5px] border-white/15 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/mirror-portrait.jpg"
-                        alt={tVideo("previewPortraitAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute right-[8%] top-[22%] h-[50%] w-[27%] rotate-6 overflow-hidden rounded-[1.4rem] border-[5px] border-white/20 bg-black shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/audio-console.jpg"
-                        alt={tVideo("previewTextureAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute left-[57%] top-[34%] flex h-28 w-28 items-center justify-center rounded-full border-[5px] border-white/20 bg-[#1e2226]/90 text-primary shadow-2xl sm:h-36 sm:w-36">
-                      <Film className="h-10 w-10" />
-                    </div>
-                  </div>
-                  <div className="max-w-4xl text-center">
-                    <p className="text-sm font-semibold text-gray-500">
-                      {tVideo("previewEyebrow")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <GenerationStudioIntro
+                eyebrow={tVideo("previewEyebrow")}
+                title={tVideo("previewTitle")}
+                description={tVideo("previewDescription")}
+              />
             )}
           </GenerationCanvas>
 

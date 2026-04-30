@@ -323,9 +323,9 @@
       "previewStudioAlt": "Studio portrait photo",
       "previewTextureAlt": "Audio console photo",
       "previewFilmAlt": "Film production photo",
-      "previewEyebrow": "VISUAL TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "IMAGE STUDIO",
+      "previewTitle": "Create images with control.",
+      "previewDescription": "Describe your idea. Choose your settings. Generate with precision.",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -340,9 +340,9 @@
       "previewFilmAlt": "Film production photo",
       "previewPortraitAlt": "Cinematic portrait frame",
       "previewTextureAlt": "Audio console photo",
-      "previewEyebrow": "MOTION TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "VIDEO STUDIO",
+      "previewTitle": "Create motion with control.",
+      "previewDescription": "Describe your idea. We'll handle the camera, the movement, and the magic.",
       "mode": {
         "imageToVideo": "IMAGE TO VIDEO",
         "imageRequired": "IMAGE REQUIRED",
@@ -364,9 +364,9 @@
       "referenceTextPlaceholder": "",
       "speedLabel": "Speed",
       "previewTextureAlt": "Audio console photo",
-      "previewEyebrow": "VOICE TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "AUDIO STUDIO",
+      "previewTitle": "Shape sound with control.",
+      "previewDescription": "Describe the sound you need. Fine-tune the settings. Generate production-ready audio.",
       "seedPlaceholder": "Optional"
     },
     "errors": {

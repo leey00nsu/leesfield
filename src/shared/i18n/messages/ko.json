@@ -323,9 +323,9 @@
       "previewStudioAlt": "스튜디오 인물 사진",
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewFilmAlt": "촬영 현장 사진",
-      "previewEyebrow": "VISUAL TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "IMAGE STUDIO",
+      "previewTitle": "Create images with control.",
+      "previewDescription": "Describe your idea. Choose your settings. Generate with precision.",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -340,9 +340,9 @@
       "previewFilmAlt": "촬영 현장 사진",
       "previewPortraitAlt": "시네마틱 인물 프레임",
       "previewTextureAlt": "오디오 콘솔 사진",
-      "previewEyebrow": "MOTION TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "VIDEO STUDIO",
+      "previewTitle": "Create motion with control.",
+      "previewDescription": "Describe your idea. We'll handle the camera, the movement, and the magic.",
       "mode": {
         "imageToVideo": "이미지 → 비디오",
         "imageRequired": "이미지 필요",
@@ -364,9 +364,9 @@
       "referenceTextPlaceholder": "",
       "speedLabel": "속도",
       "previewTextureAlt": "오디오 콘솔 사진",
-      "previewEyebrow": "VOICE TAKE",
-      "previewTitle": "",
-      "previewDescription": "",
+      "previewEyebrow": "AUDIO STUDIO",
+      "previewTitle": "Shape sound with control.",
+      "previewDescription": "Describe the sound you need. Fine-tune the settings. Generate production-ready audio.",
       "seedPlaceholder": "선택 사항"
     },
     "errors": {

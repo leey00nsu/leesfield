@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AudioLines,
   Download,
   ExternalLink,
   SlidersHorizontal,
@@ -29,6 +28,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
   Form,
@@ -756,7 +756,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             isGenerating={isGenerating}
             status={state.status}
             errorMessage={state.errorMessage}
-            className="min-h-[46vh] rounded-none border-0 border-b border-white/5 bg-[#07090a] sm:min-h-[58vh]"
+            className="min-h-[46vh] rounded-none border-0 bg-[#07090a] sm:min-h-[58vh]"
           >
             {hasResults && primaryAudio ? (
               <div className="relative z-10 flex w-full max-w-3xl flex-col gap-3 px-6">
@@ -767,42 +767,11 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 />
               </div>
             ) : (
-              <div className="relative z-10 flex h-full min-h-[46vh] w-full items-center justify-center overflow-hidden px-4 py-12 sm:min-h-[58vh]">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_48%_18%,rgba(64,78,54,0.24),transparent_62%)]" />
-                <div className="relative flex h-[30rem] w-full max-w-5xl flex-col items-center justify-center gap-8 text-center sm:h-[34rem]">
-                  <div className="relative flex h-56 w-full max-w-4xl items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-[#111517]/80 shadow-2xl">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(212,240,50,0.18),transparent_42%)]" />
-                    <div className="relative flex h-36 w-[86%] items-center justify-center gap-2">
-                      {Array.from({ length: 36 }).map((_, index) => (
-                        <span
-                          key={index}
-                          className="w-1.5 rounded-full bg-primary/85"
-                          style={{
-                            height: `${24 + ((index * 17) % 88)}px`,
-                            opacity: 0.35 + ((index % 5) * 0.12),
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <div className="absolute left-6 top-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-black">
-                      <AudioLines className="h-7 w-7" />
-                    </div>
-                    <div className="absolute bottom-5 right-5 overflow-hidden rounded-2xl border border-white/15 bg-black/60">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/assets/creative-studio/audio-console.jpg"
-                        alt={tAudio("previewTextureAlt")}
-                        className="h-24 w-36 object-cover"
-                      />
-                    </div>
-                  </div>
-                  <div className="max-w-4xl">
-                    <p className="text-sm font-semibold text-gray-500">
-                      {tAudio("previewEyebrow")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <GenerationStudioIntro
+                eyebrow={tAudio("previewEyebrow")}
+                title={tAudio("previewTitle")}
+                description={tAudio("previewDescription")}
+              />
             )}
           </GenerationCanvas>
 

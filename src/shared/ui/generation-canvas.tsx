@@ -31,11 +31,10 @@ export function GenerationCanvas({
   return (
     <div
       className={cn(
-        "group relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-white/10 bg-background/40",
+        "group relative flex aspect-video items-center justify-center overflow-hidden bg-background/40",
         className
       )}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle,#333_1px,transparent_1px)] opacity-20" />
       {actions ? (
         <div className="absolute right-4 top-4 flex gap-2">{actions}</div>
       ) : null}
