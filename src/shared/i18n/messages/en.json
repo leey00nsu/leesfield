@@ -562,15 +562,6 @@
       "total": "Requests",
       "live": "Live"
     },
-    "filters": {
-      "statusAll": "All",
-      "statusActive": "Active",
-      "modelAll": "All models",
-      "apiKeyAll": "All keys",
-      "apiKeyUi": "UI requests",
-      "range": "Range",
-      "month": "Month"
-    },
     "statuses": {
       "pending": "Pending",
       "processing": "Processing",

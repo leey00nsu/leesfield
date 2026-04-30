@@ -125,13 +125,13 @@ function StatCard({
   return (
     <AppCard
       variant="editorial-flat"
-      className="relative min-h-[13.75rem] rounded-[1.1rem] p-6"
+      className="relative min-h-[11.5rem] rounded-[1.1rem] p-6"
     >
       <div className="flex items-center gap-3">
         <Icon className="h-5 w-5 text-white/52" />
         <span className={cardTitle}>{title}</span>
       </div>
-      <div className="mt-8 flex items-end gap-3">
+      <div className="mt-6 flex items-end gap-3">
         <span className={cardValue}>{value}</span>
       </div>
       <div className="mt-4">{visual}</div>
@@ -152,13 +152,13 @@ function UsageCard({
   return (
     <AppCard
       variant="editorial-flat"
-      className="relative min-h-[13.75rem] rounded-[1.1rem] p-6"
+      className="relative min-h-[11.5rem] rounded-[1.1rem] p-6"
     >
       <div className="flex items-center gap-3">
         <BarChart3 className="h-5 w-5 text-white/52" />
         <span className={cardTitle}>{title}</span>
       </div>
-      <div className="mt-6 flex items-center gap-7">
+      <div className="mt-5 flex items-center gap-7">
         <DonutChart value={percent} label={`${Math.round(percent)}%`} />
         <div>
           <div className={cardValue}>{value}</div>

@@ -162,7 +162,13 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.queryByText("평균")).not.toBeInTheDocument();
     expect(screen.queryByText("성공 비율")).not.toBeInTheDocument();
     expect(screen.queryByText("Top N 지표")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("검색...")).not.toBeInTheDocument();
+    expect(screen.queryByText("전체 모델")).not.toBeInTheDocument();
+    expect(screen.queryByText("전체 키")).not.toBeInTheDocument();
+    expect(screen.queryByText("기간")).not.toBeInTheDocument();
     expect(mockUseMonitoringTop).not.toHaveBeenCalled();
+    expect(mockUseMonitoringApiKeys).not.toHaveBeenCalled();
+    expect(mockUseRuntimeModelCatalog).not.toHaveBeenCalled();
     expect(screen.queryByText("서비스 상태")).not.toBeInTheDocument();
     expect(screen.queryByText("알림")).not.toBeInTheDocument();
     expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();

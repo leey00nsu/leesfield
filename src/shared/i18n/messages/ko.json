@@ -562,15 +562,6 @@
       "total": "요청 수",
       "live": "실시간"
     },
-    "filters": {
-      "statusAll": "전체",
-      "statusActive": "진행 중",
-      "modelAll": "전체 모델",
-      "apiKeyAll": "전체 키",
-      "apiKeyUi": "UI 요청",
-      "range": "기간",
-      "month": "월 선택"
-    },
     "statuses": {
       "pending": "대기",
       "processing": "처리 중",
