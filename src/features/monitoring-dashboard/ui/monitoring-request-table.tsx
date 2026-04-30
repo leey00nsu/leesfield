@@ -12,7 +12,7 @@ import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
   Select,
   SelectContent,
@@ -286,7 +286,7 @@ export function MonitoringRequestTable({
                 </Select>
               </div>
               <div className="flex items-center gap-2">
-                <Button
+                <AppButton
                   type="button"
                   size="sm"
                   variant="surface"
@@ -295,14 +295,14 @@ export function MonitoringRequestTable({
                   aria-label={t("requests.pagination.previous")}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </Button>
+                </AppButton>
                 <div className="min-w-[84px] text-center text-xs font-mono text-gray-400">
                   {t("requests.pagination.page", {
                     current: safeCurrentPage,
                     total: safePageCount,
                   })}
                 </div>
-                <Button
+                <AppButton
                   type="button"
                   size="sm"
                   variant="surface"
@@ -311,7 +311,7 @@ export function MonitoringRequestTable({
                   aria-label={t("requests.pagination.next")}
                 >
                   <ChevronRight className="h-4 w-4" />
-                </Button>
+                </AppButton>
               </div>
             </div>
           </>

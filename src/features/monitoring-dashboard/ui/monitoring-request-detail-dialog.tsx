@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { cn } from "@/shared/lib/utils";
 import type { MonitoringRequestDetail, MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
@@ -370,9 +370,9 @@ export function MonitoringRequestDetailDialog({
 
         <div className="mt-6 flex justify-end">
           <DialogClose asChild>
-            <Button type="button" variant="surface">
+            <AppButton type="button" variant="surface">
               {t("requests.detailClose")}
-            </Button>
+            </AppButton>
           </DialogClose>
         </div>
       </DialogContent>

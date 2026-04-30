@@ -23,7 +23,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 import {
   ChartContainer,
   ChartTooltipContent,
@@ -86,23 +88,23 @@ export function LandingPlatformClientSection({
     <section className="px-6 py-16 sm:px-10 lg:py-24">
       <div className="mx-auto grid w-full max-w-[1450px] items-center gap-12 lg:grid-cols-[0.4fr_0.6fr]">
         <div>
-          <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-6 text-[clamp(2.35rem,4.2vw,4.75rem)] leading-[0.96] text-white">
+          <AppEyebrow>{t("eyebrow")}</AppEyebrow>
+          <AppHeading as="h2" size="section" className="mt-6">
             {t("title")}
-          </h2>
+          </AppHeading>
           <p className="mt-7 max-w-xl text-base leading-7 text-white/68">
             {t("description")}
           </p>
-          <Button
+          <AppButton
             asChild
-            variant="hero"
+            size="lg"
             className="mt-9 h-12 rounded-full px-7 text-sm font-medium normal-case tracking-normal"
           >
             <Link href="/api-docs">
               {t("cta")}
               <ArrowRight className="h-5 w-5" />
             </Link>
-          </Button>
+          </AppButton>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
@@ -119,9 +121,10 @@ export function LandingPlatformClientSection({
 
 function DocsCard({ model }: { model: LandingPlatformModel }) {
   return (
-    <div
+    <AppCard
       data-testid="landing-docs-card"
-      className="lf-editorial-card rounded-[1rem] border border-white/14 p-5 md:min-h-72"
+      variant="editorial"
+      className="rounded-[1rem] p-5 md:min-h-72"
     >
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
@@ -146,7 +149,7 @@ Content-Type: application/json
   "aspect_ratio": "16:9"
 }`}
       </pre>
-    </div>
+    </AppCard>
   );
 }
 
@@ -156,7 +159,7 @@ function ModelCatalogCard({
   featuredModels: LandingPlatformModel[];
 }) {
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-5 md:min-h-72">
+    <AppCard variant="editorial" className="rounded-[1rem] p-5 md:min-h-72">
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
           <Box className="h-5 w-5 text-primary" />
@@ -192,7 +195,7 @@ function ModelCatalogCard({
           </div>
         ))}
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -202,7 +205,7 @@ function MonitoringCard({
   monitoring: LandingPlatformMonitoringData;
 }) {
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-5">
+    <AppCard variant="editorial" className="rounded-[1rem] p-5">
       <p className="flex items-center justify-between font-medium text-white">
         <span className="flex items-center gap-3">
           <ChartNoAxesCombined className="h-5 w-5 text-primary" />
@@ -289,7 +292,7 @@ function MonitoringCard({
           />
         </AreaChart>
       </ChartContainer>
-    </div>
+    </AppCard>
   );
 }
 
@@ -301,7 +304,7 @@ function UsageCard({
   const usageData = monitoring.usage;
 
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-5">
+    <AppCard variant="editorial" className="rounded-[1rem] p-5">
       <p className="font-medium text-white">Usage by model</p>
       <div className="mt-6 grid items-center gap-5 sm:grid-cols-[9rem_1fr] md:grid-cols-1 xl:grid-cols-[9rem_1fr]">
         <ChartContainer
@@ -370,7 +373,7 @@ function UsageCard({
           )}
         </div>
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -383,7 +386,7 @@ function WorkflowCard() {
   ];
 
   return (
-    <div className="lf-editorial-card rounded-[1rem] p-5 md:col-span-2">
+    <AppCard variant="editorial" className="rounded-[1rem] p-5 md:col-span-2">
       <p className="font-medium text-white">Workflow</p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => (
@@ -411,6 +414,6 @@ function WorkflowCard() {
           </div>
         ))}
       </div>
-    </div>
+    </AppCard>
   );
 }

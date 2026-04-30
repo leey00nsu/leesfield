@@ -44,7 +44,10 @@ describe("LandingHero", () => {
     ).toHaveClass("relative");
     expect(
       screen.getByTestId("landing-hero-form-surface"),
-    ).toHaveClass("lf-editorial-panel-borderless");
+    ).toHaveAttribute("data-app-card");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveAttribute("data-variant", "plain");
     expect(
       screen.getByTestId("shared-prompt-form-surface"),
     ).toHaveClass("bg-black/18");

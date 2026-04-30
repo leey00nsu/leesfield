@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AppButton } from "@/shared/ui/app-button";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -247,7 +248,7 @@ export function ApiDocsEndpointsSection({
                               );
                             })}
                           </div>
-                          <Button
+                          <AppButton
                             type="button"
                             size="sm"
                             variant="surface"
@@ -259,7 +260,7 @@ export function ApiDocsEndpointsSection({
                             {copiedOperationId === operation.id
                               ? tSnippets("copied")
                               : tSnippets("copy")}
-                          </Button>
+                          </AppButton>
                         </div>
                       </div>
                       <pre className="overflow-x-auto p-6 text-sm text-gray-300">

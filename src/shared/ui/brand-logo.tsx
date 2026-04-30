@@ -1,12 +1,12 @@
 import Image from "next/image";
+import type React from "react";
 import { cn } from "@/shared/lib/utils";
 
-type BrandLogoProps = {
+type BrandLogoProps = Omit<React.ComponentProps<"span">, "children"> & {
   variant?: "icon" | "full";
   size?: "sm" | "md" | "lg";
   label?: string;
   priority?: boolean;
-  className?: string;
   markClassName?: string;
   textClassName?: string;
 };
@@ -37,6 +37,7 @@ export function BrandLogo({
   className,
   markClassName,
   textClassName,
+  ...props
 }: BrandLogoProps) {
   const iconOnly = variant === "icon";
 
@@ -46,6 +47,7 @@ export function BrandLogo({
         "inline-flex min-w-0 items-center gap-3 text-white",
         className,
       )}
+      {...props}
     >
       <span
         className={cn(
@@ -66,7 +68,7 @@ export function BrandLogo({
       {iconOnly ? null : (
         <span
           className={cn(
-            "lf-serif truncate font-medium text-white",
+            "truncate font-[var(--font-heading)] font-medium tracking-[-0.035em] text-white",
             textSizeClasses[size],
             textClassName,
           )}

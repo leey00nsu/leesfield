@@ -23,7 +23,7 @@ import {
   type AudioGenerationFormValues,
 } from "@/features/audio-generation/model/audio-generation-schema";
 import { useAudioGeneration } from "@/features/audio-generation/hook/use-audio-generation";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
@@ -550,7 +550,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     controls
                     className="w-full rounded-lg border border-white/10 bg-black/60"
                   />
-                  <Button
+                  <AppButton
                     type="button"
                     variant="surface"
                     size="sm"
@@ -558,7 +558,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     className="self-start"
                   >
                     {tActions("remove")}
-                  </Button>
+                  </AppButton>
                 </div>
               ) : null}
               <FormMessage className="text-xs text-red-400" />
@@ -677,9 +677,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   {label}
                 </FormLabel>
                 <FormControl>
-                  <Button
+                  <AppButton
                     type="button"
-                    variant={isEnabled ? "default" : "surface"}
+                    variant={isEnabled ? "primary" : "surface"}
                     size="sm"
                     aria-pressed={isEnabled}
                     onClick={() => field.onChange(!isEnabled)}
@@ -689,7 +689,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     )}
                   >
                     {isEnabled ? "On" : "Off"}
-                  </Button>
+                  </AppButton>
                 </FormControl>
               </FormItem>
             );
@@ -914,9 +914,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
                         {tLabels("chars", { count: promptValue.length })}
                       </span>
-                      <Button
+                      <AppButton
                         type={isAuthenticated ? "submit" : "button"}
-                        variant="hero"
+                        size="xl"
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
@@ -933,7 +933,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                           ? tActions("generating")
                           : tActions("generate")}
                         <Sparkles className="h-5 w-5" />
-                      </Button>
+                      </AppButton>
                     </>
                   }
                 />

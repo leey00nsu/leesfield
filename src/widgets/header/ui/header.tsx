@@ -19,7 +19,8 @@ import {
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
-import { BrandLogo } from "@/shared/ui/brand-logo";
+import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
@@ -81,7 +82,7 @@ export function Header({
     return (
       <header className="relative z-30 mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-6 sm:px-10">
         <Link href="/" className="flex items-center gap-3">
-          <BrandLogo label={tBrand("name")} priority />
+          <AppBrandLogo label={tBrand("name")} priority />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">
@@ -103,15 +104,15 @@ export function Header({
           >
             {isAuthenticated ? tHeader("profile") : tHeader("login")}
           </Link>
-          <Button
+          <AppButton
             asChild
-            variant="hero"
+            size="md"
             className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
           >
             <Link href={isAuthenticated ? "/image" : "/login"}>
               {tHeader("dashboard")}
             </Link>
-          </Button>
+          </AppButton>
         </div>
       </header>
     );
@@ -120,7 +121,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
       <Link href="/" className="flex items-center gap-3">
-        <BrandLogo
+        <AppBrandLogo
           label={tBrand("name")}
           size="sm"
           priority

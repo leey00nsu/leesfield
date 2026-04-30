@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppHeading } from "@/shared/ui/app-typography";
 import { GenerationPromptSurface } from "@/shared/ui/generation-prompt-field";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 
@@ -43,9 +45,10 @@ export function LandingHero() {
     <section className="relative overflow-hidden px-6 pb-16 pt-8 sm:px-10 lg:pb-24">
       <div className="relative mx-auto flex w-full max-w-[1500px] flex-col items-center">
         <div className="mx-auto max-w-6xl text-center">
-          <h1
+          <AppHeading
+            as="h1"
+            size="hero"
             aria-label={fullHeadline}
-            className="lf-serif text-[clamp(2.15rem,3.55vw,3.85rem)] leading-[0.98] text-white"
           >
             <span aria-hidden="true">
               <TextGenerateLine text={headlineFirst} />
@@ -54,7 +57,7 @@ export function LandingHero() {
                 startIndex={headlineFirst.split(" ").length}
               />
             </span>
-          </h1>
+          </AppHeading>
           <p className="mt-6 text-base leading-7 text-white/68 md:text-xl">
             {t("subhead")}
           </p>
@@ -69,9 +72,10 @@ export function LandingHero() {
             <WarpShaderPanel className="absolute inset-0" fadeIn />
           </div>
 
-          <div
+          <AppCard
+            variant="plain"
             data-testid="landing-hero-form-surface"
-            className="lf-editorial-panel lf-editorial-panel-borderless relative mx-auto max-w-4xl overflow-hidden rounded-[1.05rem] p-3 sm:p-4"
+            className="relative mx-auto max-w-4xl rounded-[1.05rem] border-0 p-3 sm:p-4"
           >
             <GenerationPromptSurface
               header={
@@ -134,20 +138,20 @@ export function LandingHero() {
                     </span>
                     <ChevronDown className="h-5 w-5 text-white/62" />
                   </Link>
-                  <Button
+                  <AppButton
                     asChild
-                    variant="hero"
-                    className="h-full min-h-14 rounded-xl text-sm normal-case tracking-normal"
+                    size="lg"
+                    className="h-full min-h-14 rounded-xl text-sm"
                   >
                     <Link href="/image">
                       {t("preview.generate")}
                       <ArrowRight className="h-5 w-5" />
                     </Link>
-                  </Button>
+                  </AppButton>
                 </div>
               }
             />
-          </div>
+          </AppCard>
         </div>
       </div>
     </section>

@@ -1,16 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Download, Maximize2 } from "lucide-react";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 
 const actions = (
   <>
-    <Button variant="surface" size="icon-sm" aria-label="Preview fullscreen">
+    <AppButton variant="surface" size="icon-sm" aria-label="Preview fullscreen">
       <Maximize2 className="h-4 w-4" />
-    </Button>
-    <Button variant="surface" size="icon-sm" aria-label="Download result">
+    </AppButton>
+    <AppButton variant="surface" size="icon-sm" aria-label="Download result">
       <Download className="h-4 w-4" />
-    </Button>
+    </AppButton>
   </>
 );
 

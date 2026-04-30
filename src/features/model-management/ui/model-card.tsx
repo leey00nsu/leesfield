@@ -2,8 +2,8 @@ import { AudioLines, Image as ImageIcon, Sparkles, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
+import { AppButton } from "@/shared/ui/app-button";
 import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
 import { resolveModelOutcomeMetadata } from "@/shared/generation/model-outcome-metadata";
 import {
   resolveAudioModalities,
@@ -228,7 +228,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
         </div>
 
         {onEdit ? (
-          <Button
+          <AppButton
             type="button"
             variant="surface"
             size="sm"
@@ -236,7 +236,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
             onClick={() => onEdit(item.key)}
           >
             {tCard("edit")}
-          </Button>
+          </AppButton>
         ) : null}
       </div>
     </article>

@@ -26,6 +26,7 @@ import {
   type VideoGenerationFormValues,
 } from "@/features/video-generation/model/video-generation-schema";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
@@ -405,7 +406,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   }
                   footerLeft={
                     <>
-                      <Button
+                      <AppButton
                         type="button"
                         variant="surface"
                         size="icon"
@@ -421,7 +422,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                         title={tVideo("uploadReference")}
                       >
                         <ImagePlus className="h-5 w-5" />
-                      </Button>
+                      </AppButton>
                       {!isGuest && hasModels ? (
                         <GenerationModelSection
                           modality="video"
@@ -519,9 +520,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                       <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
                         {tLabels("chars", { count: promptValue.length })}
                       </span>
-                      <Button
+                      <AppButton
                         type={isAuthenticated ? "submit" : "button"}
-                        variant="hero"
+                        size="xl"
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
@@ -538,7 +539,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                           ? tActions("generating")
                           : tActions("generate")}
                         <Sparkles className="h-5 w-5" />
-                      </Button>
+                      </AppButton>
                     </>
                   }
                 />

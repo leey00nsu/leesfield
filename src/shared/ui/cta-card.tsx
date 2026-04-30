@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppHeading } from "@/shared/ui/app-typography";
 
 type CtaCardProps = React.ComponentProps<"div"> & {
   title: string;
@@ -11,28 +13,29 @@ type CtaCardProps = React.ComponentProps<"div"> & {
 
 export function CtaCard({ className, title, buttonText, href, ...props }: CtaCardProps) {
   return (
-    <div
+    <AppCard
+      variant="outline-map"
       className={cn(
-        "lf-editorial-panel lf-outline-map relative w-full overflow-hidden rounded-[2rem] text-center text-white",
+        "w-full rounded-[2rem] text-center",
         className,
       )}
       {...props}
     >
       <div className="relative z-10 flex min-h-[34rem] flex-col items-center justify-center gap-8 p-8 md:p-12 lg:p-16">
-        <h2 className="lf-serif max-w-4xl text-[clamp(3.5rem,6vw,7rem)] leading-[0.95]">
+        <AppHeading as="h2" size="section" className="max-w-4xl text-[clamp(3.5rem,6vw,7rem)] leading-[0.95]">
           {title}
-        </h2>
-        <Button
+        </AppHeading>
+        <AppButton
           asChild
-          variant="hero"
-          className="h-16 rounded-full px-12 text-lg normal-case tracking-normal"
+          size="xl"
+          className="rounded-full px-12 text-lg"
         >
           <Link href={href}>
             {buttonText}
             <ArrowRight className="h-4 w-4" />
           </Link>
-        </Button>
+        </AppButton>
       </div>
-    </div>
+    </AppCard>
   );
 }

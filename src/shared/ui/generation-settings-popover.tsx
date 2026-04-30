@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
   Popover,
   PopoverContent,
@@ -32,7 +32,7 @@ export function GenerationSettingsPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
+        <AppButton
           type="button"
           variant="surface"
           className={cn(
@@ -48,7 +48,7 @@ export function GenerationSettingsPopover({
             <span>{summary}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-white/46" />
-        </Button>
+        </AppButton>
       </PopoverTrigger>
       <PopoverContent
         align={align}

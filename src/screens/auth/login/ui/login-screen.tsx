@@ -2,7 +2,8 @@ import Image from "next/image";
 import { Header } from "@/widgets/header/ui/header";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
 import { getTranslations } from "next-intl/server";
-import { BrandLogo } from "@/shared/ui/brand-logo";
+import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { AppHeading } from "@/shared/ui/app-typography";
 
 export async function LoginScreen() {
   const tLogin = await getTranslations("auth.login");
@@ -29,15 +30,19 @@ export async function LoginScreen() {
         >
           <div className="flex min-h-[38rem] min-w-0 overflow-hidden flex-col justify-center px-6 py-8 sm:px-10 lg:px-14">
             <div className="mx-auto flex w-full min-w-0 max-w-[19.5rem] flex-col items-center text-center sm:max-w-md">
-              <BrandLogo
+              <AppBrandLogo
                 variant="icon"
                 size="lg"
                 className="mb-6"
                 markClassName="shadow-[0_0_34px_rgba(205,255,0,0.25)]"
               />
-              <h1 className="lf-serif max-w-full text-3xl text-white sm:text-4xl">
+              <AppHeading
+                as="h1"
+                size="compact"
+                className="max-w-full text-3xl sm:text-4xl"
+              >
                 {tLogin("headline")}
-              </h1>
+              </AppHeading>
               <p className="mt-3 w-full max-w-full whitespace-normal break-words text-sm leading-6 text-gray-400 sm:max-w-sm">
                 {tLogin("subtitle")}
               </p>
@@ -74,9 +79,9 @@ export async function LoginScreen() {
                   {tLogin("preview.badges.prompt")}
                 </span>
               </div>
-              <h2 className="lf-serif text-4xl leading-none text-white">
+              <AppHeading as="h2" size="compact" className="text-4xl leading-none">
                 {tLogin("preview.title")}
-              </h2>
+              </AppHeading>
               <p className="mt-3 text-sm text-gray-300">
                 {tLogin("preview.description")}
               </p>

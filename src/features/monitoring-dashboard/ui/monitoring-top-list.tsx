@@ -7,7 +7,7 @@ import type {
   MonitoringTopResponse,
 } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { cn } from "@/shared/lib/utils";
 
 interface MonitoringTopListProps {
@@ -112,11 +112,11 @@ export function MonitoringTopList({
         </div>
         <div className="flex items-center gap-2">
           {["requests", "errors", "latency"].map((value) => (
-            <Button
+            <AppButton
               key={value}
               type="button"
               size="sm"
-              variant={metric === value ? "default" : "surface"}
+              variant={metric === value ? "primary" : "surface"}
               className={cn(
                 "text-xs font-bold uppercase tracking-widest",
                 metric === value ? "text-black" : "text-gray-400",
@@ -124,7 +124,7 @@ export function MonitoringTopList({
               onClick={() => onMetricChange(value as MonitoringMetric)}
             >
               {t(`top.metric.${value}`)}
-            </Button>
+            </AppButton>
           ))}
         </div>
       </div>

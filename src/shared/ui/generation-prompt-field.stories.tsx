@@ -1,10 +1,10 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { SlidersHorizontal, Sparkles } from "lucide-react";
+import { AppButton } from "@/shared/ui/app-button";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
-import { Button } from "@/shared/ui/button";
 
 const imageModels = [
   {
@@ -94,14 +94,14 @@ function PromptFieldPreview() {
           footerRight={
             <>
               <span className="hidden text-xs text-white/42 sm:inline">118자</span>
-              <Button
+              <AppButton
                 type="button"
-                variant="hero"
+                size="lg"
                 className="h-12 rounded-xl px-8 normal-case tracking-normal"
               >
                 생성
                 <Sparkles className="h-4 w-4" />
-              </Button>
+              </AppButton>
             </>
           }
         />

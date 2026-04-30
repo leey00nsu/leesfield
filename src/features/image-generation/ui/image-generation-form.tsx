@@ -22,6 +22,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import {
   Form,
@@ -529,7 +530,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         }
                         footerLeft={
                           <>
-                            <Button
+                            <AppButton
                               type="button"
                               variant="surface"
                               size="icon"
@@ -546,7 +547,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                               }
                             >
                               <ImagePlus className="h-5 w-5" />
-                            </Button>
+                            </AppButton>
                             {!isGuest && hasModels ? (
                               <GenerationModelSection
                                 modality="image"
@@ -647,7 +648,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                   {tLabels("imageCount")}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <Button
+                                  <AppButton
                                     type="button"
                                     variant="surface"
                                     size="icon-sm"
@@ -659,11 +660,11 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                     aria-label={tLabels("decrease")}
                                   >
                                     -
-                                  </Button>
+                                  </AppButton>
                                   <span className="min-w-8 text-center text-lg font-black text-white">
                                     {imageCount}
                                   </span>
-                                  <Button
+                                  <AppButton
                                     type="button"
                                     variant="surface"
                                     size="icon-sm"
@@ -675,7 +676,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                     aria-label={tLabels("increase")}
                                   >
                                     +
-                                  </Button>
+                                  </AppButton>
                                 </div>
                               </div>
                             </GenerationSettingsPopover>
@@ -806,10 +807,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               {tLabels("promptUpsampling")}
                                             </FormLabel>
                                             <FormControl>
-                                              <Button
+                                              <AppButton
                                                 type="button"
                                                 variant={
-                                                  isEnabled ? "default" : "surface"
+                                                  isEnabled ? "primary" : "surface"
                                                 }
                                                 size="sm"
                                                 onClick={() =>
@@ -826,7 +827,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 {isEnabled
                                                   ? tLabels("enabled")
                                                   : tLabels("disabled")}
-                                              </Button>
+                                              </AppButton>
                                             </FormControl>
                                           </FormItem>
                                         );
@@ -849,7 +850,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 placeholder={tImage("seedPlaceholder")}
                                                 {...field}
                                               />
-                                              <Button
+                                              <AppButton
                                                 type="button"
                                                 variant="surface"
                                                 size="icon"
@@ -858,7 +859,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 aria-label={tLabels("randomize")}
                                               >
                                                 <Dice5 className="h-4 w-4" />
-                                              </Button>
+                                              </AppButton>
                                             </div>
                                           </FormControl>
                                         </FormItem>
@@ -875,9 +876,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                             <span className="hidden text-[10px] font-mono text-gray-600 sm:inline">
                               {tLabels("chars", { count: promptValue.length })}
                             </span>
-                            <Button
+                            <AppButton
                               type={isAuthenticated ? "submit" : "button"}
-                              variant="hero"
+                              size="xl"
                               disabled={
                                 isGenerating ||
                                 (isAuthenticated && (isModelLoading || !hasModels))
@@ -893,7 +894,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                 ? tActions("generating")
                                 : tActions("generate")}
                               <Sparkles className="h-5 w-5" />
-                            </Button>
+                            </AppButton>
                           </>
                         }
                       />

@@ -121,9 +121,9 @@ describe("LandingPlatformSection", () => {
     expect(screen.getByText("Deploy")).toBeInTheDocument();
 
     const docsCard = screen.getByTestId("landing-docs-card");
-    expect(docsCard).toHaveClass("lf-editorial-card");
+    expect(docsCard).toHaveAttribute("data-app-card");
+    expect(docsCard).toHaveAttribute("data-variant", "editorial");
     expect(docsCard).toHaveClass("border");
     expect(docsCard).toHaveClass("border-white/14");
-    expect(docsCard).not.toHaveClass("lf-editorial-flat-card");
   });
 });

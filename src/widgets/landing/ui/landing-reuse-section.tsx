@@ -2,7 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { SlidersHorizontal, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 
 export function LandingReuseSection() {
   const t = useTranslations("landing.reuse");
@@ -25,7 +27,7 @@ export function LandingReuseSection() {
             </span>
           </div>
 
-          <div className="lf-editorial-card absolute left-[18rem] top-28 w-56 rounded-[1rem] p-5">
+          <AppCard variant="editorial" className="absolute left-[18rem] top-28 w-56 rounded-[1rem] p-5">
             <p className="text-sm font-semibold text-white">{t("prompt.title")}</p>
             <p className="mt-4 text-sm leading-6 text-white/68">
               {t("prompt.body")}
@@ -33,9 +35,9 @@ export function LandingReuseSection() {
             <span className="mt-4 inline-flex rounded-full bg-primary px-3 py-1 text-xs font-bold text-black">
               v2
             </span>
-          </div>
+          </AppCard>
 
-          <div className="lf-editorial-card absolute bottom-0 left-16 w-64 rounded-[1rem] p-5">
+          <AppCard variant="editorial" className="absolute bottom-0 left-16 w-64 rounded-[1rem] p-5">
             <p className="text-sm font-semibold text-white">
               <SlidersHorizontal className="mr-2 inline h-4 w-4 text-primary" />
               {t("settings.title")}
@@ -48,24 +50,26 @@ export function LandingReuseSection() {
               <dt className="text-white/54">Style</dt>
               <dd className="text-right text-white">Cinematic</dd>
             </dl>
-          </div>
+          </AppCard>
 
         </div>
 
         <div>
-          <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-7 text-[clamp(2.45rem,4.6vw,5.2rem)] leading-[0.96] text-white">
+          <AppEyebrow>{t("eyebrow")}</AppEyebrow>
+          <AppHeading className="mt-7 text-[clamp(2.45rem,4.6vw,5.2rem)]">
             {t("title")}
-          </h2>
+          </AppHeading>
           <p className="mt-8 max-w-xl text-base leading-7 text-white/72 md:text-lg">
             {t("description")}
           </p>
-          <Button
+          <AppButton
             asChild
-            className="mt-10 h-14 rounded-full bg-white px-8 text-base font-semibold text-black hover:bg-white/88"
+            variant="white"
+            size="lg"
+            className="mt-10 rounded-full px-8 text-base font-semibold"
           >
             <Link href="/history">{t("cta")}</Link>
-          </Button>
+          </AppButton>
         </div>
       </div>
     </section>

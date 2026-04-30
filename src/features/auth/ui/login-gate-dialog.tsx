@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
-import { BrandLogo } from "@/shared/ui/brand-logo";
+import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -50,7 +51,7 @@ export function LoginGateDialog({
         </DialogClose>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col justify-center p-6 sm:p-8">
-            <BrandLogo
+            <AppBrandLogo
               variant="icon"
               size="md"
               className="mb-5"
@@ -72,22 +73,22 @@ export function LoginGateDialog({
             </DialogHeader>
             <DialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
               <DialogClose asChild>
-                <Button
+                <AppButton
                   type="button"
                   variant="surface"
                   className="h-11 rounded-xl border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-gray-300"
                 >
                   {cancelLabel}
-                </Button>
+                </AppButton>
               </DialogClose>
-              <Button
+              <AppButton
                 asChild
                 type="button"
-                variant="hero"
+                size="md"
                 className="h-11 rounded-xl px-6 text-sm shadow-none"
               >
                 <Link href={actionHref}>{actionLabel}</Link>
-              </Button>
+              </AppButton>
             </DialogFooter>
           </div>
           <div className="relative hidden min-h-80 overflow-hidden border-l border-white/10 sm:block">

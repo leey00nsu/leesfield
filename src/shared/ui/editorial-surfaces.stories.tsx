@@ -1,23 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { ArrowRight, Code2, Sparkles } from "lucide-react";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 
 function EditorialSurfaces() {
   return (
-    <div className="lf-editorial-page min-h-screen px-6 py-12 text-white sm:px-10">
+    <div className="min-h-screen bg-background-dark px-6 py-12 text-white sm:px-10">
       <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="lf-editorial-panel rounded-[1.6rem] p-8">
-          <p className="lf-eyebrow">EDITORIAL PANEL</p>
-          <h1 className="lf-serif mt-6 max-w-3xl text-[clamp(3rem,6vw,6rem)] leading-[0.94]">
+        <AppCard variant="editorial" className="rounded-[1.6rem] p-8">
+          <AppEyebrow>EDITORIAL PANEL</AppEyebrow>
+          <AppHeading as="h1" size="section" className="mt-6 max-w-3xl">
             Project surfaces, not base primitives.
-          </h1>
+          </AppHeading>
           <p className="mt-6 max-w-xl text-base leading-7 text-white/64">
             Shared panels keep the leesfield gradient, border, and dark surface
             treatment visible without cataloging raw shadcn components.
           </p>
-        </section>
+        </AppCard>
 
         <section className="grid gap-5">
-          <div className="lf-editorial-card rounded-[1.25rem] p-6">
+          <AppCard variant="editorial" className="rounded-[1.25rem] p-6">
             <div className="flex items-center gap-3 text-primary">
               <Sparkles className="h-5 w-5" />
               <span className="font-semibold">Generation</span>
@@ -29,9 +31,9 @@ function EditorialSurfaces() {
                 <div className="h-12 rounded-lg bg-primary" />
               </div>
             </div>
-          </div>
+          </AppCard>
 
-          <div className="lf-editorial-card-flat rounded-[1.25rem] p-6">
+          <AppCard variant="editorial-flat" className="rounded-[1.25rem] p-6">
             <div className="flex items-center justify-between">
               <p className="flex items-center gap-3 font-medium">
                 <Code2 className="h-5 w-5 text-primary" />
@@ -46,7 +48,7 @@ function EditorialSurfaces() {
   "prompt": "cinematic product study"
 }`}
             </pre>
-          </div>
+          </AppCard>
         </section>
       </div>
     </div>

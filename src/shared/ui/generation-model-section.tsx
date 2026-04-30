@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import type { GenerationModality } from "@/shared/generation/generation-presets";
 import { resolveModelOutcomeMetadata } from "@/shared/generation/model-outcome-metadata";
 import { cn } from "@/shared/lib/utils";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import {
   Popover,
@@ -183,9 +184,10 @@ export function GenerationModelSection<T extends string>({
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <div className={cn("relative", className)}>
         <PopoverTrigger asChild>
-          <Button
+          <AppButton
             type="button"
             variant="surface"
+            size="md"
             aria-haspopup="dialog"
             aria-expanded={isOpen}
             className={cn(
@@ -200,7 +202,7 @@ export function GenerationModelSection<T extends string>({
               {activeModel?.name ?? resolvedTitle}
             </span>
             <ChevronDown className="h-4 w-4 text-primary" />
-          </Button>
+          </AppButton>
         </PopoverTrigger>
       </div>
 

@@ -18,6 +18,7 @@ import {
   type ModelCatalogItem,
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
 import {
@@ -767,7 +768,7 @@ export function ModelManagementScreen() {
             {tCommonLabels("total", { total: filteredModels.length })}
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Button
+            <AppButton
               type="button"
               variant="surface"
               size="sm"
@@ -777,7 +778,7 @@ export function ModelManagementScreen() {
             >
               <RefreshCw className="h-4 w-4" />
               {tAdmin("toolbar.reload")}
-            </Button>
+            </AppButton>
             <DashboardCtaButton
               type="button"
               onClick={openCreateDialog}
@@ -891,7 +892,7 @@ export function ModelManagementScreen() {
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <Button
+                      <AppButton
                         type="button"
                         variant="surface"
                         size="sm"
@@ -900,7 +901,7 @@ export function ModelManagementScreen() {
                         onClick={handleImport}
                       >
                         {tAdmin("import.action")}
-                      </Button>
+                      </AppButton>
                       {importError ? (
                         <span className="text-xs text-red-300">{importError}</span>
                       ) : null}

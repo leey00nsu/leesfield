@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { AppCard, AppCardContent, AppCardHeader } from "@/shared/ui/app-card";
 import { PageHeader } from "@/shared/ui/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { useMonitoringQueue } from "@/features/monitoring-queue/hook/use-monitoring-queue";
 
 export function MonitoringQueueScreen() {
@@ -61,18 +61,22 @@ export function MonitoringQueueScreen() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (
-              <Card key={`${item.type}-${item.model}`} className="border-white/10 bg-surface-dark/80 text-white">
-                <CardHeader className="border-b border-white/5 pb-4">
-                  <CardTitle className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <AppCard
+                key={`${item.type}-${item.model}`}
+                variant="plain"
+                className="border-white/10 bg-surface-dark/80 text-white"
+              >
+                <AppCardHeader className="border-b border-white/5 px-6 py-6 pb-4">
+                  <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
                     {item.type === "image"
                       ? tCommonLabels("images")
                       : tCommonLabels("videos")}
-                  </CardTitle>
+                  </div>
                   <div className="text-lg font-semibold text-white">
                     {item.model}
                   </div>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
+                </AppCardHeader>
+                <AppCardContent className="grid grid-cols-2 gap-4 px-6 py-6">
                   <div className="rounded-xl border border-white/10 bg-background-dark/60 px-4 py-3">
                     <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
                       {tMonitoring("pending")}
@@ -89,8 +93,8 @@ export function MonitoringQueueScreen() {
                       {item.processing}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </AppCardContent>
+              </AppCard>
             ))}
           </div>
         )}

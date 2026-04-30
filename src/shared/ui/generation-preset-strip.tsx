@@ -5,7 +5,7 @@ import type {
   GenerationPreset,
 } from "@/shared/generation/generation-presets";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 
 type GenerationPresetStripProps = {
   modality: GenerationModality;
@@ -43,7 +43,7 @@ export function GenerationPresetStrip({
           const prompt = t(preset.promptKey);
 
           return (
-            <Button
+            <AppButton
               key={preset.id}
               type="button"
               variant="surface"
@@ -59,7 +59,7 @@ export function GenerationPresetStrip({
               <span className="text-xs leading-relaxed text-gray-400">
                 {description}
               </span>
-            </Button>
+            </AppButton>
           );
         })}
       </div>

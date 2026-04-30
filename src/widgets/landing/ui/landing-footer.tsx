@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BrandLogo } from "@/shared/ui/brand-logo";
+import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { AppCard } from "@/shared/ui/app-card";
 
 const groups = [
   {
@@ -34,10 +35,10 @@ const groups = [
 export function LandingFooter() {
   return (
     <footer className="px-6 pb-12 pt-8 sm:px-10">
-      <div className="lf-editorial-panel mx-auto max-w-[1500px] rounded-[1.6rem] p-8 md:p-14">
+      <AppCard variant="editorial" className="mx-auto max-w-[1500px] rounded-[1.6rem] p-8 md:p-14">
         <div className="grid gap-12 md:grid-cols-[1fr_0.46fr_0.46fr_0.46fr]">
           <Link href="/" className="flex items-center gap-3 self-start">
-            <BrandLogo size="lg" textClassName="text-2xl" />
+            <AppBrandLogo size="lg" textClassName="text-2xl" />
           </Link>
           {groups.map((group) => (
             <div key={group.title}>
@@ -62,7 +63,7 @@ export function LandingFooter() {
         <div className="mt-24 border-t border-white/12 pt-8 text-sm text-white/48">
           © 2026 leesfield. All rights reserved.
         </div>
-      </div>
+      </AppCard>
     </footer>
   );
 }

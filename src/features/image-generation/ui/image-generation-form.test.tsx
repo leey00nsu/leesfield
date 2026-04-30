@@ -105,7 +105,11 @@ describe("ImageGenerationForm", () => {
       name: "작업 입력",
     });
 
-    expect(dock).toHaveClass("lf-editorial-panel");
+    expect(dock).toHaveAttribute("data-app-prompt-field");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveAttribute(
+      "data-variant",
+      "prompt",
+    );
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );

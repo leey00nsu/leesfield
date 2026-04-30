@@ -16,7 +16,7 @@ import {
   DashboardFilterDivider,
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
@@ -218,7 +218,7 @@ export function MonitoringFilters({
             {t("filters.range")}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
+            <AppButton
               type="button"
               size="sm"
               variant="surface"
@@ -226,8 +226,8 @@ export function MonitoringFilters({
               onClick={() => handleQuickRange(7)}
             >
               7D
-            </Button>
-            <Button
+            </AppButton>
+            <AppButton
               type="button"
               size="sm"
               variant="surface"
@@ -235,7 +235,7 @@ export function MonitoringFilters({
               onClick={() => handleQuickRange(30)}
             >
               30D
-            </Button>
+            </AppButton>
             <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
               <CalendarRange className="h-4 w-4" />
               <span title={filters.tz}>{timeZoneLabel}</span>
@@ -245,14 +245,14 @@ export function MonitoringFilters({
             <div className="md:col-span-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
+                  <AppButton
                     type="button"
                     variant="surface"
                     className="h-9 w-full justify-start gap-2 text-xs text-white"
                   >
                     <CalendarRange className="h-4 w-4 text-primary" />
                     {rangeLabel}
-                  </Button>
+                  </AppButton>
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-auto p-0">
                   <Calendar

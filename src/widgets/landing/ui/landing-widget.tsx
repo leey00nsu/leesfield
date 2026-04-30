@@ -16,7 +16,7 @@ export function LandingWidget({
   userEmail,
 }: LandingWidgetProps) {
   return (
-    <div className="lf-editorial-page min-h-screen text-white">
+    <div className="min-h-screen bg-background-dark text-white">
       <Header
         variant="public"
         isAuthenticated={isAuthenticated}

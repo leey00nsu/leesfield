@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AudioLines, Clapperboard, Images, WandSparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { cn } from "@/shared/lib/utils";
 
 const creationLinks = [
@@ -107,7 +107,7 @@ export function LandingFeaturesSection() {
             <h3 className="mt-4 max-w-4xl text-4xl font-black uppercase leading-[0.95] sm:text-5xl">
               {t("motion.title")}
             </h3>
-            <Button
+            <AppButton
               asChild
               variant="surface"
               className="mt-7 border-black/10 bg-black text-white hover:bg-black/85"
@@ -116,7 +116,7 @@ export function LandingFeaturesSection() {
                 {t("laneCta")}
                 <WandSparkles className="h-4 w-4" />
               </Link>
-            </Button>
+            </AppButton>
           </div>
         </div>
       </div>

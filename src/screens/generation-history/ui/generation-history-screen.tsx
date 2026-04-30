@@ -26,6 +26,7 @@ import type {
 } from "@/entities/generation/model/types";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
+import { AppButton } from "@/shared/ui/app-button";
 import { Button } from "@/shared/ui/button";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
@@ -227,12 +228,12 @@ function HistoryFloatingPromptDock() {
           <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white">
             3:4
           </span>
-          <Button asChild variant="hero" className="h-12 rounded-xl px-6 shadow-none">
+          <AppButton asChild size="lg" className="h-12 rounded-xl px-6 shadow-none">
             <Link href="/image">
               {tHistory("floatingDock.generate")}
               <Sparkles className="h-4 w-4" />
             </Link>
-          </Button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -329,7 +330,7 @@ function HistoryDetailOverlay({
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase text-gray-500">
             <span>{tHistory("detail.prompt")}</span>
-            <Button
+            <AppButton
               type="button"
               variant="surface"
               size="sm"
@@ -338,7 +339,7 @@ function HistoryDetailOverlay({
             >
               <Copy className="h-3.5 w-3.5" />
               {tActions("copy")}
-            </Button>
+            </AppButton>
           </div>
           <p className="line-clamp-5 text-sm leading-relaxed text-gray-300">
             {item.prompt}
@@ -370,17 +371,17 @@ function HistoryDetailOverlay({
         </section>
 
         <div className="mt-auto grid gap-2">
-          <Button
+          <AppButton
             type="button"
-            variant="hero"
+            size="lg"
             onClick={onRecreate}
             className="h-12 rounded-xl text-sm shadow-none"
           >
             <RotateCcw className="h-4 w-4" />
             {tActions("recreate")}
-          </Button>
+          </AppButton>
           <div className="grid grid-cols-2 gap-2">
-            <Button
+            <AppButton
               type="button"
               variant="surface"
               disabled={!canUseImageReference}
@@ -389,16 +390,16 @@ function HistoryDetailOverlay({
             >
               <Video className="h-4 w-4" />
               {tActions("video")}
-            </Button>
+            </AppButton>
             {item.resultUrl ? (
-              <Button asChild variant="surface" className="h-11 rounded-xl">
+              <AppButton asChild variant="surface" className="h-11 rounded-xl">
                 <a href={item.resultUrl} download aria-label={tActions("download")}>
                   <Download className="h-4 w-4" />
                   {tActions("download")}
                 </a>
-              </Button>
+              </AppButton>
             ) : null}
-            <Button
+            <AppButton
               type="button"
               variant="surface"
               disabled
@@ -406,8 +407,8 @@ function HistoryDetailOverlay({
             >
               <Sparkles className="h-4 w-4" />
               {tActions("upscale")}
-            </Button>
-            <Button
+            </AppButton>
+            <AppButton
               type="button"
               variant="surface"
               disabled={!canUseImageReference}
@@ -416,7 +417,7 @@ function HistoryDetailOverlay({
             >
               <Edit className="h-4 w-4" />
               {tActions("edit")}
-            </Button>
+            </AppButton>
           </div>
         </div>
       </aside>

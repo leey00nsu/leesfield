@@ -7,6 +7,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 
 const workflowItems = [
   { key: "generate", icon: Sparkles, href: "/image" },
@@ -22,10 +24,10 @@ export function LandingCoreFeaturesSection() {
     <section className="px-6 py-20 sm:px-10 lg:py-28">
       <div className="mx-auto w-full max-w-[1500px]">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="lf-eyebrow">{t("eyebrow")}</p>
-          <h2 className="lf-serif mt-7 text-[clamp(2.4rem,4.6vw,5.2rem)] leading-[0.96] text-white">
+          <AppEyebrow>{t("eyebrow")}</AppEyebrow>
+          <AppHeading className="mt-7">
             {t("title")}
-          </h2>
+          </AppHeading>
           <p className="mx-auto mt-7 max-w-3xl text-base leading-7 text-white/64 md:text-lg">
             {t("description")}
           </p>
@@ -35,27 +37,29 @@ export function LandingCoreFeaturesSection() {
           {workflowItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
+              <AppCard
                 key={item.key}
-                href={item.href}
-                className="lf-editorial-card group flex min-h-[24rem] flex-col rounded-[1.35rem] p-6 transition-transform duration-300 hover:-translate-y-1"
+                variant="editorial"
+                className="group min-h-[24rem] rounded-[1.35rem] p-0 transition-transform duration-300 hover:-translate-y-1"
               >
-                <div className="flex items-center gap-3 text-primary">
-                  <Icon className="h-6 w-6" />
-                  <span className="font-semibold">{t(`items.${item.key}.title`)}</span>
-                </div>
-                <div className="mt-8 flex-1 rounded-xl border border-white/10 bg-black/18 p-4">
-                  <MiniWorkflowPreview itemKey={item.key} />
-                </div>
-                <div className="mt-8 border-t border-primary/55 pt-6">
-                  <p className="max-w-xs text-base leading-7 text-white/78">
-                    {t(`items.${item.key}.description`)}
-                  </p>
-                  <span className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">
-                    <ArrowRight className="h-5 w-5" />
-                  </span>
-                </div>
-              </Link>
+                <Link href={item.href} className="flex min-h-[24rem] flex-col p-6">
+                  <div className="flex items-center gap-3 text-primary">
+                    <Icon className="h-6 w-6" />
+                    <span className="font-semibold">{t(`items.${item.key}.title`)}</span>
+                  </div>
+                  <div className="mt-8 flex-1 rounded-xl border border-white/10 bg-black/18 p-4">
+                    <MiniWorkflowPreview itemKey={item.key} />
+                  </div>
+                  <div className="mt-8 border-t border-primary/55 pt-6">
+                    <p className="max-w-xs text-base leading-7 text-white/78">
+                      {t(`items.${item.key}.description`)}
+                    </p>
+                    <span className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">
+                      <ArrowRight className="h-5 w-5" />
+                    </span>
+                  </div>
+                </Link>
+              </AppCard>
             );
           })}
         </div>

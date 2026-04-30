@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 
 const filterToggleBase =
   "h-9 gap-2 rounded-lg px-4 text-xs font-bold uppercase tracking-wider";
@@ -38,9 +38,9 @@ export function DashboardFilterToggle({
   ...rest
 }: DashboardFilterToggleProps) {
   return (
-    <Button
+    <AppButton
       type={type}
-      variant={active ? "default" : "surface"}
+      variant={active ? "primary" : "surface"}
       className={cn(
         filterToggleBase,
         active ? filterToggleActive : filterToggleInactive,
@@ -50,7 +50,7 @@ export function DashboardFilterToggle({
     >
       {icon}
       {children}
-    </Button>
+    </AppButton>
   );
 }
 
