@@ -12,7 +12,7 @@ vi.mock("@paper-design/shaders-react", () => ({
 }));
 
 describe("WarpShaderPanel", () => {
-  it("masks a white shader first frame with a dark fallback and blend layer", () => {
+  it("masks a white shader first frame without hiding the shader colors", () => {
     render(<WarpShaderPanel className="absolute inset-0" fadeIn />);
 
     const panel = screen.getByTestId("warp-shader-panel");
@@ -21,11 +21,11 @@ describe("WarpShaderPanel", () => {
     expect(panel).toHaveClass("overflow-hidden");
 
     const shaderLayer = screen.getByTestId("warp-shader-layer");
-    expect(shaderLayer).toHaveClass("mix-blend-multiply");
-    expect(shaderLayer).toHaveClass("opacity-95");
+    expect(shaderLayer).toHaveClass("opacity-100");
+    expect(shaderLayer).not.toHaveClass("mix-blend-multiply");
 
     const scrim = screen.getByTestId("warp-shader-scrim");
-    expect(scrim).toHaveClass("bg-[#07090a]/20");
+    expect(scrim).toHaveClass("bg-[#07090a]/35");
   });
 
   it("uses Tailwind opacity animation classes for fade-in", () => {

@@ -40,7 +40,7 @@ export function WarpShaderPanel({ className, fadeIn = false }: WarpShaderPanelPr
       data-testid="warp-shader-panel"
     >
       <div
-        className="[grid-area:1/1] h-full w-full mix-blend-multiply opacity-95"
+        className="[grid-area:1/1] h-full w-full opacity-100 saturate-[1.15]"
         data-testid="warp-shader-layer"
       >
         <Warp
@@ -64,7 +64,7 @@ export function WarpShaderPanel({ className, fadeIn = false }: WarpShaderPanelPr
         />
       </div>
       <div
-        className="pointer-events-none [grid-area:1/1] bg-[#07090a]/20"
+        className="pointer-events-none [grid-area:1/1] bg-[#07090a]/35"
         data-testid="warp-shader-scrim"
       />
     </div>
