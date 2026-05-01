@@ -1,4 +1,4 @@
-import { AudioLines, Circle, Image as ImageIcon, MoreVertical, Sparkles, Video } from "lucide-react";
+import { AudioLines, Circle, Image as ImageIcon, MoreVertical, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
@@ -17,18 +17,18 @@ interface ModelCardProps {
 const typeConfig = {
   image: {
     icon: ImageIcon,
-    iconClassName: "text-primary",
-    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
+    iconClassName: "text-white/66",
+    surfaceClassName: "border-white/10 bg-white/[0.035]",
   },
   video: {
     icon: Video,
-    iconClassName: "text-primary",
-    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
+    iconClassName: "text-white/66",
+    surfaceClassName: "border-white/10 bg-white/[0.035]",
   },
   audio: {
     icon: AudioLines,
-    iconClassName: "text-primary",
-    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
+    iconClassName: "text-white/66",
+    surfaceClassName: "border-white/10 bg-white/[0.035]",
   },
 };
 
@@ -84,8 +84,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
             {item.label}
           </h3>
           {item.isDefault ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-primary/45 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary">
-              <Sparkles className="h-3 w-3" />
+            <span className="rounded bg-primary px-1.5 py-0.5 text-[9px] font-black uppercase leading-none text-black">
               {tCard("default")}
             </span>
           ) : null}

@@ -36,6 +36,14 @@ describe("ModelList", () => {
     expect(container.querySelector("[data-model-row]")).toBeTruthy();
     expect(container.querySelector("[data-model-row] img")).toBeNull();
     expect(container.querySelector("[data-model-type-icon]")).toBeTruthy();
+    expect(container.querySelector("[data-model-type-icon]")).toHaveClass(
+      "border-white/10",
+      "bg-white/[0.035]",
+    );
+    expect(container.querySelector("[data-model-type-icon]")).not.toHaveClass(
+      "border-primary/18",
+      "bg-primary/[0.055]",
+    );
   });
 
   it("shows compact model metadata and status", () => {
@@ -61,5 +69,10 @@ describe("ModelList", () => {
     expect(row).toHaveClass("!border-primary/70");
     expect(row).toHaveClass("ring-1");
     expect(row).toHaveClass("ring-primary/35");
+    expect(screen.getByText("기본")).toHaveClass(
+      "rounded",
+      "bg-primary",
+      "text-black",
+    );
   });
 });
