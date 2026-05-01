@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AudioLines,
+  Grid2X2,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -41,7 +42,6 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
-import { cn } from "@/shared/lib/utils";
 import {
   AppFilterGroup,
   AppFilterToolbar,
@@ -746,63 +746,40 @@ export function ModelManagementScreen() {
   return (
     <div className="overflow-x-hidden pb-20 pt-4 sm:pt-6">
       <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 sm:px-6 lg:px-8">
-        <AppFilterToolbar className="rounded-none border-0 bg-transparent p-0 shadow-none backdrop-blur-0">
-          <AppFilterGroup className="gap-1 border-b border-white/10">
-          <AppFilterToggle
-            onClick={() => setType("all")}
+        <AppFilterToolbar>
+          <AppFilterGroup>
+            <AppFilterToggle
+              onClick={() => setType("all")}
               aria-pressed={type === "all"}
               active={type === "all"}
-            className={cn(
-              "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
-              type === "all"
-                ? "border-primary text-primary hover:!text-primary"
-                : "border-transparent text-white/58 hover:!text-white/58",
-            )}
-          >
-            {tCommonLabels("all")}
-          </AppFilterToggle>
-          <AppFilterToggle
-            onClick={() => setType("image")}
-            aria-pressed={type === "image"}
+              icon={<Grid2X2 className="h-4 w-4" />}
+            >
+              {tCommonLabels("all")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("image")}
+              aria-pressed={type === "image"}
               active={type === "image"}
               icon={<ImageIcon className="h-4 w-4" />}
-              className={cn(
-                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
-                type === "image"
-                  ? "border-primary text-primary hover:!text-primary"
-                  : "border-transparent text-white/58 hover:!text-white/58",
-              )}
-          >
-            {tCommonLabels("images")}
-          </AppFilterToggle>
-          <AppFilterToggle
-            onClick={() => setType("video")}
-            aria-pressed={type === "video"}
+            >
+              {tCommonLabels("images")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("video")}
+              aria-pressed={type === "video"}
               active={type === "video"}
               icon={<Video className="h-4 w-4" />}
-              className={cn(
-                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
-                type === "video"
-                  ? "border-primary text-primary hover:!text-primary"
-                  : "border-transparent text-white/58 hover:!text-white/58",
-              )}
-          >
-            {tCommonLabels("videos")}
-          </AppFilterToggle>
-          <AppFilterToggle
-            onClick={() => setType("audio")}
-            aria-pressed={type === "audio"}
+            >
+              {tCommonLabels("videos")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("audio")}
+              aria-pressed={type === "audio"}
               active={type === "audio"}
               icon={<AudioLines className="h-4 w-4" />}
-              className={cn(
-                "rounded-none border-x-0 border-t-0 border-b bg-transparent px-6 ring-0 shadow-none",
-                type === "audio"
-                  ? "border-primary text-primary hover:!text-primary"
-                  : "border-transparent text-white/58 hover:!text-white/58",
-              )}
-          >
-            {tCommonLabels("audios")}
-          </AppFilterToggle>
+            >
+              {tCommonLabels("audios")}
+            </AppFilterToggle>
           </AppFilterGroup>
 
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-[42rem]">
