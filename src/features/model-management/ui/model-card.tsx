@@ -1,5 +1,5 @@
 import { AudioLines, Circle, Image as ImageIcon, MoreVertical, Sparkles, Video } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
@@ -52,32 +52,8 @@ function resolveCatalogModalities(item: ModelCatalogItem) {
   });
 }
 
-function resolvePrimarySpec(item: ModelCatalogItem) {
-  if (item.type === "image") {
-    return `${item.meta.defaultWidth}:${item.meta.defaultHeight}`;
-  }
-
-  if (item.type === "video") {
-    return `${item.meta.defaultDurationSec}s`;
-  }
-
-  return `${item.meta.defaultSpeed}x`;
-}
-
-function formatDate(value: string | undefined, locale: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
 export function ModelCard({ item, onEdit }: ModelCardProps) {
   const tCard = useTranslations("model.card");
-  const locale = useLocale();
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
   const modalities = resolveCatalogModalities(item);
@@ -88,7 +64,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
       data-model-row=""
       data-default={item.isDefault ? "true" : "false"}
       className={cn(
-        "grid gap-4 border border-transparent border-b-white/8 px-3 py-3 transition-colors last:border-b-transparent hover:bg-white/[0.026] md:grid-cols-[4.75rem_minmax(16rem,1fr)_6.25rem_6.25rem_5.75rem_2.25rem] md:items-center md:px-4",
+        "grid gap-4 border border-transparent border-b-white/8 px-3 py-3 transition-colors last:border-b-transparent hover:bg-white/[0.026] md:grid-cols-[4.75rem_minmax(16rem,1fr)_5.75rem_2.25rem] md:items-center md:px-4",
         item.isDefault && "rounded-[1.05rem] !border-primary/70 bg-primary/[0.035] ring-1 ring-primary/35",
       )}
     >
@@ -129,8 +105,6 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
         </div>
       </div>
 
-      <MetaColumn label={tCard("meta.updated")} value={formatDate(item.updatedAt, locale)} />
-      <MetaColumn label={tCard("meta.defaultValue")} value={resolvePrimarySpec(item)} />
       <div className="flex items-center gap-2 md:justify-start">
         <Circle
           className={cn(
@@ -158,18 +132,5 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
         ) : null}
       </div>
     </article>
-  );
-}
-
-function MetaColumn({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-sm font-semibold text-white/82 md:text-base">
-        {value}
-      </div>
-      <div className="mt-1 text-xs font-semibold text-white/38">
-        {label}
-      </div>
-    </div>
   );
 }

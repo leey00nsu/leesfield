@@ -46,8 +46,9 @@ describe("ModelList", () => {
     expect(screen.getByText("이미지")).toBeInTheDocument();
     expect(screen.getByText("T2I")).toBeInTheDocument();
     expect(screen.getByText("활성")).toBeInTheDocument();
-    expect(screen.getByText("업데이트")).toBeInTheDocument();
-    expect(screen.getByText("기본값")).toBeInTheDocument();
+    expect(screen.queryByText("업데이트")).not.toBeInTheDocument();
+    expect(screen.queryByText("기본값")).not.toBeInTheDocument();
+    expect(screen.queryByText("1024:1024")).not.toBeInTheDocument();
     expect(screen.queryByText("10 steps")).not.toBeInTheDocument();
   });
 
