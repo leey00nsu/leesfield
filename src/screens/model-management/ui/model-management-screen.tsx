@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Video,
+  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -19,28 +20,33 @@ import {
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/ui/alert-dialog";
+  AppConfirmDialog,
+  AppConfirmDialogAction,
+  AppConfirmDialogCancel,
+  AppConfirmDialogContent,
+  AppConfirmDialogDescription,
+  AppConfirmDialogFooter,
+  AppConfirmDialogHeader,
+  AppConfirmDialogTitle,
+} from "@/shared/ui/app-confirm-dialog";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/shared/ui/dialog";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
-import { Textarea } from "@/shared/ui/textarea";
+  AppDialog,
+  AppDialogClose,
+  AppDialogContent,
+  AppDialogDescription,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogTitle,
+} from "@/shared/ui/app-dialog";
+import {
+  AppCheckbox,
+  AppFormField,
+  AppInput,
+  AppLabel,
+  AppSelectNative,
+  AppTextarea,
+} from "@/shared/ui/app-form-control";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   AppFilterGroup,
@@ -827,33 +833,33 @@ export function ModelManagementScreen() {
         {content}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : undefined)}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-3xl rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4">
+      <AppDialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : undefined)}>
+        <AppDialogContent>
+          <AppDialogHeader>
             <div>
-              <DialogDescription className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <AppDialogDescription>
                 {dialogMode === "create"
                   ? tAdmin("dialog.createTitle")
                   : tAdmin("dialog.editTitle")}
-              </DialogDescription>
-              <DialogTitle className="mt-2 text-xl font-bold text-white">
+              </AppDialogDescription>
+              <AppDialogTitle>
                 {draft.label || draft.key || tAdmin("dialog.untitled")}
-              </DialogTitle>
+              </AppDialogTitle>
               <p className="mt-1 text-xs font-mono text-gray-500">
                 {draft.key ? `#${draft.key}` : tAdmin("dialog.helper")}
               </p>
             </div>
-            <DialogClose asChild>
-              <Button
+            <AppDialogClose asChild>
+              <AppButton
                 type="button"
-                variant="ghost"
-                className="rounded-lg border border-white/10 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
+                variant="surface"
+                size="icon-sm"
                 aria-label={tAdmin("dialog.close")}
               >
-                ✕
-              </Button>
-            </DialogClose>
-          </div>
+                <X className="h-4 w-4" />
+              </AppButton>
+            </AppDialogClose>
+          </AppDialogHeader>
 
           <div className="mt-6 space-y-6">
             {dialogMode === "create" ? (
@@ -895,26 +901,24 @@ export function ModelManagementScreen() {
                       {tAdmin("import.description")}
                     </p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                      <AppFormField>
+                        <AppLabel>
                           {tAdmin("import.spaceUrl")}
-                        </Label>
-                        <Input
+                        </AppLabel>
+                        <AppInput
                           value={importUrl}
                           onChange={(event) => setImportUrl(event.target.value)}
                           placeholder="https://huggingface.co/spaces/owner/space"
-                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                      </AppFormField>
+                      <AppFormField>
+                        <AppLabel>
                           {tAdmin("import.apiName")}
-                        </Label>
-                        <Input
+                        </AppLabel>
+                        <AppInput
                           value={importApiName}
                           onChange={(event) => setImportApiName(event.target.value)}
                           placeholder="/predict"
-                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                           list="model-import-api-names"
                         />
                         {importOptions.length > 0 ? (
@@ -924,7 +928,7 @@ export function ModelManagementScreen() {
                             ))}
                           </datalist>
                         ) : null}
-                      </div>
+                      </AppFormField>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <AppButton
@@ -953,170 +957,158 @@ export function ModelManagementScreen() {
               </div>
             ) : null}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label
+              <AppFormField>
+                <AppLabel
                   htmlFor="model-type"
-                  className="text-xs font-mono uppercase tracking-widest text-gray-500"
                 >
                   {tAdmin("fields.type")}
-                </Label>
-                <select
+                </AppLabel>
+                <AppSelectNative
                   id="model-type"
                   value={draft.type}
                   onChange={(event) => updateType(event.target.value as ModelType)}
                   disabled={dialogMode === "edit"}
-                  className="h-11 w-full rounded-xl border border-white/10 bg-surface-lighter px-3 text-sm text-white focus:border-primary focus:outline-none"
                 >
                   <option value="image">{tCommonLabels("images")}</option>
                   <option value="video">{tCommonLabels("videos")}</option>
                   <option value="audio">{tCommonLabels("audios")}</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                </AppSelectNative>
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.key")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.key}
                   disabled={dialogMode === "edit"}
                   onChange={(event) => updateDraft({ key: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.label")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.label}
                   onChange={(event) => updateDraft({ label: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.vendor")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.vendor}
                   disabled
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.provider")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.provider}
                   disabled
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
-              </div>
+              </AppFormField>
             </div>
 
             <div className="flex flex-wrap items-center gap-6">
-              <label className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={draft.isActive}
-                  onChange={(event) =>
-                    updateDraft({ isActive: event.target.checked })
-                  }
-                  className="h-4 w-4 accent-primary"
-                />
-                {tAdmin("fields.isActive")}
-              </label>
-              <label className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={draft.isDefault}
-                  onChange={(event) =>
-                    updateDraft({ isDefault: event.target.checked })
-                  }
-                  className="h-4 w-4 accent-primary"
-                />
-                {tAdmin("fields.isDefault")}
-              </label>
+              <AppCheckbox
+                label={tAdmin("fields.isActive")}
+                checked={draft.isActive}
+                onChange={(event) =>
+                  updateDraft({ isActive: event.target.checked })
+                }
+              />
+              <AppCheckbox
+                label={tAdmin("fields.isDefault")}
+                checked={draft.isDefault}
+                onChange={(event) =>
+                  updateDraft({ isDefault: event.target.checked })
+                }
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.providerConfig")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.providerConfigText}
                 onChange={(event) =>
                   updateDraft({ providerConfigText: event.target.value })
                 }
-                className="min-h-[140px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[140px]"
               />
               {jsonErrors.providerConfig ? (
                 <p className="text-xs text-red-300">
                   {jsonErrors.providerConfig}
                 </p>
               ) : null}
-            </div>
+            </AppFormField>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.parameters")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.parametersText}
                 onChange={(event) =>
                   updateDraft({ parametersText: event.target.value })
                 }
-                className="min-h-[180px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[180px]"
               />
               {jsonErrors.parameters ? (
                 <p className="text-xs text-red-300">
                   {jsonErrors.parameters}
                 </p>
               ) : null}
-            </div>
+            </AppFormField>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.meta")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.metaText}
                 onChange={(event) =>
                   updateDraft({ metaText: event.target.value })
                 }
-                className="min-h-[160px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[160px]"
               />
               {jsonErrors.meta ? (
                 <p className="text-xs text-red-300">{jsonErrors.meta}</p>
               ) : null}
-            </div>
+            </AppFormField>
             {deleteError || saveError ? (
               <p className="text-xs text-red-300">{deleteError ?? saveError}</p>
             ) : null}
           </div>
 
-          <DialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <AppDialogFooter>
             {dialogMode === "edit" ? (
-              <Button
+              <AppButton
                 type="button"
-                variant="destructive"
+                variant="danger"
+                size="sm"
                 onClick={handleDelete}
                 isLoading={isDeleting}
                 loadingText={tAdmin("dialog.deleting")}
-                className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider sm:mr-auto"
+                className="px-5 text-xs sm:mr-auto"
               >
                 {tAdmin("dialog.delete")}
-              </Button>
+              </AppButton>
             ) : null}
-            <Button
+            <AppButton
               type="button"
               variant="ghost"
-              className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
+              size="sm"
+              className="border border-white/10 px-5 text-xs"
               onClick={closeDialog}
             >
               {tAdmin("dialog.cancel")}
-            </Button>
+            </AppButton>
             <AppButton
               type="button"
               onClick={handleSave}
@@ -1127,44 +1119,43 @@ export function ModelManagementScreen() {
             >
               {tAdmin("dialog.save")}
             </AppButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <AlertDialog
+          </AppDialogFooter>
+        </AppDialogContent>
+      </AppDialog>
+      <AppConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           if (!isDeleting) setDeleteDialogOpen(open);
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-bold text-white">
+        <AppConfirmDialogContent>
+          <AppConfirmDialogHeader>
+            <AppConfirmDialogTitle>
               {tAdmin("dialog.deleteTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-gray-300">
+            </AppConfirmDialogTitle>
+            <AppConfirmDialogDescription>
               {tAdmin("dialog.deleteConfirm", { key: draft.key })}
-            </AlertDialogDescription>
+            </AppConfirmDialogDescription>
             <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
               {tAdmin("dialog.deleteDescription")}
             </p>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10">
+          </AppConfirmDialogHeader>
+          <AppConfirmDialogFooter>
+            <AppConfirmDialogCancel>
               {tAdmin("dialog.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </AppConfirmDialogCancel>
+            <AppConfirmDialogAction
               disabled={isDeleting}
               onClick={() => {
                 setDeleteDialogOpen(false);
                 void performDelete();
               }}
-              className="rounded-full bg-destructive px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-destructive/90"
             >
               {tAdmin("dialog.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </AppConfirmDialogAction>
+          </AppConfirmDialogFooter>
+        </AppConfirmDialogContent>
+      </AppConfirmDialog>
     </div>
   );
 }

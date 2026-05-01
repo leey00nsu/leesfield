@@ -61,4 +61,42 @@ describe("app-* design wrapper boundaries", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("keeps model management modal surfaces behind app wrappers", () => {
+    const modelScreen = readFileSync(
+      join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
+      "utf8",
+    );
+    const forbiddenImports = [
+      '@/shared/ui/button',
+      '@/shared/ui/dialog',
+      '@/shared/ui/alert-dialog',
+      '@/shared/ui/input',
+      '@/shared/ui/label',
+      '@/shared/ui/textarea',
+    ];
+    const forbiddenJsx = [
+      "<Button",
+      "<Dialog",
+      "<DialogContent",
+      "<DialogTitle",
+      "<DialogDescription",
+      "<DialogFooter",
+      "<AlertDialog",
+      "<AlertDialogContent",
+      "<AlertDialogAction",
+      "<AlertDialogCancel",
+      "<Input",
+      "<Textarea",
+      "<Label",
+      "<select",
+      'type="checkbox"',
+    ];
+
+    expect(forbiddenImports.filter((value) => modelScreen.includes(value))).toEqual([]);
+    expect(forbiddenJsx.filter((value) => modelScreen.includes(value))).toEqual([]);
+    expect(modelScreen).toContain("@/shared/ui/app-dialog");
+    expect(modelScreen).toContain("@/shared/ui/app-confirm-dialog");
+    expect(modelScreen).toContain("@/shared/ui/app-form-control");
+  });
 });
