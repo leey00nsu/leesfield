@@ -905,7 +905,10 @@
       }
     },
     "sidebar": {
+      "reference": "API 레퍼런스",
       "label": "API 레퍼런스 {version}",
+      "searchPlaceholder": "엔드포인트 검색...",
+      "noResults": "검색 결과가 없습니다.",
       "general": "일반",
       "endpoints": "엔드포인트",
       "nav": {

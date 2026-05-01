@@ -37,7 +37,6 @@ export function ApiDocsErrorSection() {
   return (
     <section id="errors" className="scroll-mt-32">
       <AppDocsSectionCard
-        eyebrow={<AppBadge variant="outline">ERROR REFERENCE</AppBadge>}
         title={
           <span className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-primary" />

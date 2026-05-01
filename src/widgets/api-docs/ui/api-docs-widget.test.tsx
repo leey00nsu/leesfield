@@ -24,6 +24,7 @@ describe("ApiDocsWidget", () => {
     expect(document.getElementById("videos")).toBeTruthy();
     expect(document.getElementById("audio")).toBeTruthy();
     expect(document.getElementById("models")).toBeTruthy();
+    expect(container.querySelector("h1")).toBeNull();
     expect(container.querySelector("[data-app-card]")).toBeTruthy();
     expect(container.querySelector("[data-app-badge]")).toBeTruthy();
   });

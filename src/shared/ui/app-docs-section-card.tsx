@@ -25,13 +25,16 @@ export function AppDocsSectionCard({
 }: AppDocsSectionCardProps) {
   return (
     <AppCard
-      variant="editorial-flat"
-      className={cn("rounded-[1.4rem] border-white/12", className)}
+      variant="plain"
+      className={cn(
+        "rounded-[1.25rem] border-white/10 bg-[#0b0d0e] shadow-[0_18px_70px_rgba(0,0,0,0.28)]",
+        className,
+      )}
     >
       <AppCardContent className={cn("p-0", bodyClassName)}>
         <div
           className={cn(
-            "flex flex-col gap-6 border-b border-white/8 px-6 py-6 sm:flex-row sm:items-start sm:justify-between",
+            "flex flex-col gap-4 border-b border-white/8 px-5 py-5 sm:flex-row sm:items-start sm:justify-between",
             headerClassName,
           )}
         >
@@ -41,18 +44,18 @@ export function AppDocsSectionCard({
                 {eyebrow}
               </div>
             ) : null}
-            <div className="text-2xl font-black tracking-[-0.03em] text-white sm:text-3xl">
+            <div className="text-lg font-semibold tracking-[-0.02em] text-white sm:text-xl">
               {title}
             </div>
             {description ? (
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60 sm:text-base">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/58">
                 {description}
               </p>
             ) : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>
-        <div className="px-6 py-6">{children}</div>
+        <div className="px-5 py-5">{children}</div>
       </AppCardContent>
     </AppCard>
   );

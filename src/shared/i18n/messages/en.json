@@ -905,7 +905,10 @@
       }
     },
     "sidebar": {
+      "reference": "API Reference",
       "label": "API Reference {version}",
+      "searchPlaceholder": "Search endpoints...",
+      "noResults": "No results found.",
       "general": "General",
       "endpoints": "Endpoints",
       "nav": {

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 
@@ -16,7 +15,6 @@ export function ApiDocsAuthSection() {
   return (
     <section id="authentication" className="scroll-mt-32">
       <AppDocsSectionCard
-        eyebrow={<AppBadge variant="outline">API SECURITY</AppBadge>}
         title={
           <span className="flex items-center gap-3">
             <KeyRound className="h-5 w-5 text-primary" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
@@ -11,8 +11,8 @@ import {
   tagIdMap,
   type ApiDocsNavItem,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
-import { AppBadge } from "@/shared/ui/app-badge";
 import { AppCard } from "@/shared/ui/app-card";
+import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 
 interface ApiDocsSidebarProps {
   apiVersion: string;
@@ -25,6 +25,7 @@ export function ApiDocsSidebar({
 }: ApiDocsSidebarProps) {
   const t = useTranslations("apiDocs.sidebar");
   const tNav = useTranslations("apiDocs.sidebar.nav");
+  const [searchQuery, setSearchQuery] = useState("");
   const generalItems: ApiDocsNavItem[] = useMemo(
     () =>
       generalNavItems.map((item) => ({
@@ -48,33 +49,59 @@ export function ApiDocsSidebar({
       icon: getEndpointIcon(section),
     }));
   }, [apiSections, tNav]);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredGeneralItems = useMemo(() => {
+    if (!normalizedQuery) return generalItems;
+    return generalItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(normalizedQuery) ||
+        item.id.toLowerCase().includes(normalizedQuery),
+    );
+  }, [generalItems, normalizedQuery]);
+  const filteredEndpointItems = useMemo(() => {
+    if (!normalizedQuery) return endpointItems;
+    return endpointItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(normalizedQuery) ||
+        item.id.toLowerCase().includes(normalizedQuery),
+    );
+  }, [endpointItems, normalizedQuery]);
   const sectionIds = useMemo(
-    () => [...generalItems, ...endpointItems].map((item) => item.id),
-    [generalItems, endpointItems],
+    () => [...filteredGeneralItems, ...filteredEndpointItems].map((item) => item.id),
+    [filteredEndpointItems, filteredGeneralItems],
   );
   const { activeSectionId } = useApiDocsNavigation({ sectionIds });
 
   return (
     <aside className="hidden w-72 shrink-0 lg:flex">
       <AppCard
-        variant="editorial-flat"
-        className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.35rem] border-white/12 p-5"
+        variant="plain"
+        className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.25rem] border-white/10 bg-[#0b0d0e] p-4"
       >
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <AppBadge variant="primary" className="px-2.5 py-1">
-            {t("label", { version: apiVersion })}
-          </AppBadge>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/38">
-            API
-          </span>
+        <div className="mb-4 flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-white">
+                {t("reference")}
+              </div>
+              <div className="mt-1 text-[11px] text-white/38">{apiVersion}</div>
+            </div>
+          </div>
+          <AppSearchField
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            containerClassName="h-11 rounded-xl border-white/10 bg-black/22"
+            className="text-sm"
+          />
         </div>
-        <nav className="flex min-h-0 flex-col gap-7 overflow-y-auto pr-1">
+        <nav className="flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
           <div className="flex flex-col gap-2">
-            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/42">
+            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/36">
               {t("general")}
             </h3>
             <div className="flex flex-col gap-1">
-              {generalItems.map((item) => {
+              {filteredGeneralItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSectionId === item.id;
                 return (
@@ -83,7 +110,7 @@ export function ApiDocsSidebar({
                     href={`#${item.id}`}
                     className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
-                        ? "border-primary/20 bg-primary/10 text-primary"
+                        ? "border-primary/25 bg-primary/10 text-primary"
                         : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
                     }`}
                   >
@@ -96,11 +123,11 @@ export function ApiDocsSidebar({
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/42">
+            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/36">
               {t("endpoints")}
             </h3>
             <div className="flex flex-col gap-1">
-              {endpointItems.map((item) => {
+              {filteredEndpointItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSectionId === item.id;
                 return (
@@ -109,7 +136,7 @@ export function ApiDocsSidebar({
                     href={`#${item.id}`}
                     className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
-                        ? "border-primary/20 bg-primary/10 text-primary"
+                        ? "border-primary/25 bg-primary/10 text-primary"
                         : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
                     }`}
                   >
@@ -118,6 +145,11 @@ export function ApiDocsSidebar({
                   </a>
                 );
               })}
+              {!filteredGeneralItems.length && !filteredEndpointItems.length ? (
+                <div className="px-2 py-3 text-xs text-white/36">
+                  {t("noResults")}
+                </div>
+              ) : null}
             </div>
           </div>
         </nav>
