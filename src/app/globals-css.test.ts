@@ -39,4 +39,10 @@ describe("global CSS boundaries", () => {
     expect(globalsCss).toContain(".lf-motion-card-a");
     expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
   });
+
+  it("keeps project scrollbar treatment available globally", () => {
+    expect(globalsCss).toContain(".app-scrollbar");
+    expect(globalsCss).toContain("*::-webkit-scrollbar-thumb");
+    expect(globalsCss).toContain("scrollbar-color: rgba(255, 255, 255, 0.18) transparent");
+  });
 });

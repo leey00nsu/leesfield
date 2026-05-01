@@ -1,3 +1,4 @@
+import { screen } from "@testing-library/react";
 import { renderWithIntl } from "@/test-utils/intl";
 import { getOpenApiDocument } from "@/features/api-docs/model/openapi";
 import { ApiDocsWidget } from "@/widgets/api-docs/ui/api-docs-widget";
@@ -21,11 +22,16 @@ describe("ApiDocsWidget", () => {
     expect(document.getElementById("authentication")).toBeTruthy();
     expect(document.getElementById("errors")).toBeTruthy();
     expect(document.getElementById("images")).toBeTruthy();
+    expect(document.getElementById("post-/api/external/image-generation")).toBeTruthy();
     expect(document.getElementById("videos")).toBeTruthy();
     expect(document.getElementById("audio")).toBeTruthy();
     expect(document.getElementById("models")).toBeTruthy();
     expect(container.querySelector("h1")).toBeNull();
     expect(container.querySelector("[data-app-card]")).toBeTruthy();
     expect(container.querySelector("[data-app-badge]")).toBeTruthy();
+    expect(container.querySelector(".sticky")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /POST\/api\/external\/image-generation/i }),
+    ).toBeTruthy();
   });
 });

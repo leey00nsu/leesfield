@@ -9,6 +9,7 @@ import {
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
 import { Button } from "@/shared/ui/button";
+import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 
 export function ApiKeyManagementWidget() {
@@ -16,6 +17,10 @@ export function ApiKeyManagementWidget() {
   const t = useTranslations("apiKey");
   const tCommonLabels = useTranslations("common.labels");
   const tCommonActions = useTranslations("common.actions");
+  const handleCopyPendingKey = async () => {
+    const copied = await pending.copy();
+    if (copied) appToast.copied(tCommonActions("copied"));
+  };
 
   return (
     <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
@@ -64,7 +69,7 @@ export function ApiKeyManagementWidget() {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  onClick={pending.copy}
+                  onClick={handleCopyPendingKey}
                   variant="ghost"
                   className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
                 >

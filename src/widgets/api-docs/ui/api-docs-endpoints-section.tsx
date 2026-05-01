@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 import { cn } from "@/shared/lib/utils";
+import { copyTextToClipboard } from "@/shared/lib/clipboard";
+import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 import {
   buildExampleFromSchema,
@@ -93,25 +96,11 @@ export function ApiDocsEndpointsSection({
 
   const handleCopySnippet = async (operationId: string, snippet: string) => {
     if (!snippet.trim()) return;
-    try {
-      await navigator.clipboard.writeText(snippet);
+    const copied = await copyTextToClipboard(snippet);
+    if (copied) {
       setCopiedOperationId(operationId);
-      return;
-    } catch {
-      // fallback below
-    }
-
-    try {
-      const textarea = document.createElement("textarea");
-      textarea.value = snippet;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopiedOperationId(operationId);
-    } catch {
+      appToast.copied(tSnippets("copied"));
+    } else {
       setCopiedOperationId(null);
     }
   };
@@ -182,7 +171,11 @@ export function ApiDocsEndpointsSection({
                 });
 
                   return (
-                    <div key={operation.id} className="flex flex-col gap-6">
+                    <div
+                      key={operation.id}
+                      id={operation.id}
+                      className="scroll-mt-32 flex flex-col gap-6"
+                    >
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-3">
                         <AppBadge
@@ -253,18 +246,23 @@ export function ApiDocsEndpointsSection({
                             type="button"
                             size="sm"
                             variant="surface"
-                            className="h-7 rounded-full border-white/10 px-3 text-[11px] font-bold uppercase tracking-wider"
+                            className="h-8 rounded-lg px-2.5 text-xs font-semibold"
                             onClick={() =>
                               handleCopySnippet(operation.id, snippet)
                             }
                           >
+                            {copiedOperationId === operation.id ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
                             {copiedOperationId === operation.id
                               ? tSnippets("copied")
                               : tSnippets("copy")}
                           </AppButton>
                         </div>
                       </div>
-                      <pre className="overflow-x-auto p-6 text-sm text-gray-300">
+                      <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
                         {snippet}
                       </pre>
                     </div>
@@ -328,7 +326,7 @@ export function ApiDocsEndpointsSection({
                             {tEndpoints("requestExample")}
                           </span>
                         </div>
-                        <pre className="overflow-x-auto p-6 text-sm text-gray-300">
+                        <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
                           {formatJson(requestExample)}
                         </pre>
                       </div>
@@ -365,7 +363,7 @@ export function ApiDocsEndpointsSection({
                                       tEndpoints("response")}
                                   </span>
                                 </div>
-                                <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
+                                <pre className="app-scrollbar mt-3 max-h-48 overflow-auto text-xs text-gray-400">
                                   {formatJson(
                                     responsePayload ?? {
                                       message:

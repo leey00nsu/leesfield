@@ -37,6 +37,8 @@ import {
 } from "@/shared/ui/app-filter-toolbar";
 import { AppTabs } from "@/shared/ui/app-tabs";
 import { AppEyebrow } from "@/shared/ui/app-typography";
+import { appToast } from "@/shared/ui/app-toast";
+import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 
@@ -291,6 +293,7 @@ function HistoryDetailOverlay({
   const locale = useLocale();
   const tHistory = useTranslations("history");
   const tActions = useTranslations("history.detailActions");
+  const tCommonActions = useTranslations("common.actions");
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
   const detailQuery = useMonitoringRequestDetail(item.type, item.id, true);
@@ -415,8 +418,11 @@ function HistoryDetailOverlay({
     </div>
   );
 
-  const handleCopyPrompt = () => {
-    void navigator.clipboard?.writeText(hydratedItem.prompt);
+  const handleCopyPrompt = async () => {
+    const copied = await copyTextToClipboard(hydratedItem.prompt);
+    if (copied) {
+      appToast.copied(tCommonActions("copied"));
+    }
   };
 
   const renderRows = (rows: Array<{ label: string; value: string }>) => (

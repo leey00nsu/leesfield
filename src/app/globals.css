@@ -115,23 +115,29 @@
     font-family: var(--font-body);
   }
 
-  [data-slot="dialog-content"],
-  [data-slot="alert-dialog-content"] {
+  *,
+  .app-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
 
+  *::-webkit-scrollbar,
+  .app-scrollbar::-webkit-scrollbar,
   [data-slot="dialog-content"]::-webkit-scrollbar,
   [data-slot="alert-dialog-content"]::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
+  *::-webkit-scrollbar-track,
+  .app-scrollbar::-webkit-scrollbar-track,
   [data-slot="dialog-content"]::-webkit-scrollbar-track,
   [data-slot="alert-dialog-content"]::-webkit-scrollbar-track {
     background: transparent;
   }
 
+  *::-webkit-scrollbar-thumb,
+  .app-scrollbar::-webkit-scrollbar-thumb,
   [data-slot="dialog-content"]::-webkit-scrollbar-thumb,
   [data-slot="alert-dialog-content"]::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.16);
@@ -140,6 +146,8 @@
     background-clip: content-box;
   }
 
+  *::-webkit-scrollbar-thumb:hover,
+  .app-scrollbar::-webkit-scrollbar-thumb:hover,
   [data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover,
   [data-slot="alert-dialog-content"]::-webkit-scrollbar-thumb:hover {
     background-color: rgba(212, 240, 50, 0.28);

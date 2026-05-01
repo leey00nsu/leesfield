@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
 import {
@@ -13,11 +14,20 @@ import {
 } from "@/widgets/api-docs/lib/api-docs-metadata";
 import { AppCard } from "@/shared/ui/app-card";
 import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
+import { cn } from "@/shared/lib/utils";
 
 interface ApiDocsSidebarProps {
   apiVersion: string;
   apiSections: ApiSection[];
 }
+
+type EndpointNavSection = ApiDocsNavItem & {
+  operations: Array<{
+    id: string;
+    method: string;
+    path: string;
+  }>;
+};
 
 export function ApiDocsSidebar({
   apiVersion,
@@ -34,11 +44,12 @@ export function ApiDocsSidebar({
       })),
     [tNav],
   );
-  const endpointItems: ApiDocsNavItem[] = useMemo(() => {
+  const endpointItems: EndpointNavSection[] = useMemo(() => {
     if (!apiSections.length) {
       return fallbackEndpointItems.map((item) => ({
         ...item,
         label: tNav(item.id),
+        operations: [],
       }));
     }
     return apiSections.map((section) => ({
@@ -47,8 +58,16 @@ export function ApiDocsSidebar({
         ? tNav(tagIdMap[section.title])
         : section.title,
       icon: getEndpointIcon(section),
+      operations: section.operations.map((operation) => ({
+        id: operation.id,
+        method: operation.method,
+        path: operation.path,
+      })),
     }));
   }, [apiSections, tNav]);
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredGeneralItems = useMemo(() => {
     if (!normalizedQuery) return generalItems;
@@ -60,17 +79,57 @@ export function ApiDocsSidebar({
   }, [generalItems, normalizedQuery]);
   const filteredEndpointItems = useMemo(() => {
     if (!normalizedQuery) return endpointItems;
-    return endpointItems.filter(
-      (item) =>
+    return endpointItems
+      .map((item) => {
+        const sectionMatches =
         item.label.toLowerCase().includes(normalizedQuery) ||
-        item.id.toLowerCase().includes(normalizedQuery),
-    );
+          item.id.toLowerCase().includes(normalizedQuery);
+        const operations = item.operations.filter(
+          (operation) =>
+            operation.path.toLowerCase().includes(normalizedQuery) ||
+            operation.method.toLowerCase().includes(normalizedQuery),
+        );
+        return sectionMatches ? item : { ...item, operations };
+      })
+      .filter(
+        (item) =>
+          item.label.toLowerCase().includes(normalizedQuery) ||
+          item.id.toLowerCase().includes(normalizedQuery) ||
+          item.operations.length > 0,
+      );
   }, [endpointItems, normalizedQuery]);
   const sectionIds = useMemo(
-    () => [...filteredGeneralItems, ...filteredEndpointItems].map((item) => item.id),
+    () => [
+      ...filteredGeneralItems.map((item) => item.id),
+      ...filteredEndpointItems.flatMap((item) => [
+        item.id,
+        ...item.operations.map((operation) => operation.id),
+      ]),
+    ],
     [filteredEndpointItems, filteredGeneralItems],
   );
   const { activeSectionId } = useApiDocsNavigation({ sectionIds });
+  const activeEndpointSectionId = useMemo(
+    () =>
+      filteredEndpointItems.find(
+        (item) =>
+          item.id === activeSectionId ||
+          item.operations.some((operation) => operation.id === activeSectionId),
+      )?.id ?? null,
+    [activeSectionId, filteredEndpointItems],
+  );
+
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
 
   return (
     <aside className="hidden w-72 shrink-0 lg:flex">
@@ -95,7 +154,7 @@ export function ApiDocsSidebar({
             className="text-sm"
           />
         </div>
-        <nav className="flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
+        <nav className="app-scrollbar flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
           <div className="flex flex-col gap-2">
             <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/36">
               {t("general")}
@@ -108,11 +167,12 @@ export function ApiDocsSidebar({
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
                         ? "border-primary/25 bg-primary/10 text-primary"
-                        : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
-                    }`}
+                        : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white",
+                    )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 truncate">{item.label}</span>
@@ -129,20 +189,77 @@ export function ApiDocsSidebar({
             <div className="flex flex-col gap-1">
               {filteredEndpointItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = activeSectionId === item.id;
+                const isActive =
+                  activeSectionId === item.id ||
+                  item.operations.some(
+                    (operation) => operation.id === activeSectionId,
+                  );
+                const isExpanded =
+                  normalizedQuery.length > 0 ||
+                  activeEndpointSectionId === item.id ||
+                  !collapsedSectionIds.has(item.id);
                 return (
-                  <a
-                    key={item.id}
-                    href={`#${item.id}`}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "border-primary/25 bg-primary/10 text-primary"
-                        : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 truncate">{item.label}</span>
-                  </a>
+                  <div key={item.id} className="flex flex-col gap-1">
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "border-primary/25 bg-primary/10 text-primary"
+                          : "border-transparent text-white/60 hover:border-white/8 hover:bg-white/[0.035] hover:text-white",
+                      )}
+                    >
+                      <a
+                        href={`#${item.id}`}
+                        className="flex min-w-0 flex-1 items-center gap-3"
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0 truncate">{item.label}</span>
+                      </a>
+                      {item.operations.length ? (
+                        <button
+                          type="button"
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-current/70 transition-colors hover:bg-white/10 hover:text-white"
+                          aria-label={item.label}
+                          aria-expanded={isExpanded}
+                          onClick={() => toggleSection(item.id)}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 transition-transform",
+                              isExpanded && "rotate-180",
+                            )}
+                          />
+                        </button>
+                      ) : null}
+                    </div>
+                    {isExpanded && item.operations.length ? (
+                      <div className="ml-6 flex flex-col gap-0.5 border-l border-white/8 pl-3">
+                        {item.operations.map((operation) => {
+                          const isOperationActive =
+                            activeSectionId === operation.id;
+                          return (
+                            <a
+                              key={operation.id}
+                              href={`#${operation.id}`}
+                              className={cn(
+                                "grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors",
+                                isOperationActive
+                                  ? "bg-white/[0.07] text-primary"
+                                  : "text-white/42 hover:bg-white/[0.035] hover:text-white/78",
+                              )}
+                            >
+                              <span className="font-mono text-[10px] font-bold uppercase">
+                                {operation.method}
+                              </span>
+                              <span className="min-w-0 truncate font-mono">
+                                {operation.path}
+                              </span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
               {!filteredGeneralItems.length && !filteredEndpointItems.length ? (
