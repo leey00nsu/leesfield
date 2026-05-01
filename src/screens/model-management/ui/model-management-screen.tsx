@@ -782,10 +782,10 @@ export function ModelManagementScreen() {
             </AppFilterToggle>
           </AppFilterGroup>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-[42rem]">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap lg:max-w-none lg:flex-[1_1_34rem]">
             <AppSearchField
               aria-label={tCommonLabels("searchPlaceholder")}
-              containerClassName="sm:min-w-[18rem]"
+              containerClassName="sm:min-w-[18rem] sm:flex-[1_1_18rem]"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder={tCommonLabels("searchPlaceholder")}
@@ -794,6 +794,7 @@ export function ModelManagementScreen() {
               value={sort}
               onValueChange={(value) => setSort(value as ModelSortOption)}
               ariaLabel={tModel("sort.label")}
+              className="w-full sm:w-[12rem]"
               options={modelSortOptions.map((option) => ({
                 value: option,
                 label: tModel(`sort.${option}`),

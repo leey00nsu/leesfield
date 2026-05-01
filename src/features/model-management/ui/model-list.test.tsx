@@ -34,6 +34,8 @@ describe("ModelList", () => {
     expect(className).toContain("rounded-[1.1rem]");
     expect(className).not.toContain("grid-cols-1");
     expect(container.querySelector("[data-model-row]")).toBeTruthy();
+    expect(container.querySelector("[data-model-row] img")).toBeNull();
+    expect(container.querySelector("[data-model-type-icon]")).toBeTruthy();
   });
 
   it("shows compact model metadata and status", () => {
@@ -46,5 +48,17 @@ describe("ModelList", () => {
     expect(screen.getByText("활성")).toBeInTheDocument();
     expect(screen.getByText("업데이트")).toBeInTheDocument();
     expect(screen.getByText("기본값")).toBeInTheDocument();
+    expect(screen.queryByText("10 steps")).not.toBeInTheDocument();
+  });
+
+  it("uses an even selected border for the default model row", () => {
+    const { container } = renderWithIntl(
+      <ModelList items={[{ ...modelItemFixture, isDefault: true }]} />,
+    );
+
+    const row = container.querySelector("[data-model-row]");
+    expect(row).toHaveClass("!border-primary/70");
+    expect(row).toHaveClass("ring-1");
+    expect(row).toHaveClass("ring-primary/35");
   });
 });

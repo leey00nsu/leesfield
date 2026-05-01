@@ -23,7 +23,7 @@ export function AppFilterToolbar({
     <div
       data-app-filter-toolbar=""
       className={cn(
-        "flex w-full flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between",
+        "flex w-full flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)] backdrop-blur-xl lg:flex-row lg:flex-wrap lg:items-center lg:justify-between",
         className,
       )}
       {...props}

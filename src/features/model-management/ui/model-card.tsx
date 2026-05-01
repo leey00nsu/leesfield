@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { AudioLines, Circle, Image as ImageIcon, MoreVertical, Sparkles, Video } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
@@ -18,18 +17,18 @@ interface ModelCardProps {
 const typeConfig = {
   image: {
     icon: ImageIcon,
-    preview: "/assets/creative-studio/mirror-portrait.jpg",
-    previewClassName: "from-primary/16 to-white/5",
+    iconClassName: "text-primary",
+    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
   },
   video: {
     icon: Video,
-    preview: "/assets/creative-studio/film-production.jpg",
-    previewClassName: "from-accent-purple/16 to-white/5",
+    iconClassName: "text-primary",
+    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
   },
   audio: {
     icon: AudioLines,
-    preview: "/assets/creative-studio/audio-console.jpg",
-    previewClassName: "from-primary/14 to-white/5",
+    iconClassName: "text-primary",
+    surfaceClassName: "border-primary/18 bg-primary/[0.055]",
   },
 };
 
@@ -65,18 +64,6 @@ function resolvePrimarySpec(item: ModelCatalogItem) {
   return `${item.meta.defaultSpeed}x`;
 }
 
-function resolveSecondarySpec(item: ModelCatalogItem) {
-  if (item.type === "image") {
-    return `${item.meta.defaultSteps} steps`;
-  }
-
-  if (item.type === "video") {
-    return `${item.meta.defaultFps} fps`;
-  }
-
-  return item.meta.supportsInputAudio ? "A2A" : "T2A";
-}
-
 function formatDate(value: string | undefined, locale: string) {
   if (!value) return "-";
   const date = new Date(value);
@@ -101,22 +88,18 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
       data-model-row=""
       data-default={item.isDefault ? "true" : "false"}
       className={cn(
-        "grid gap-4 border-b border-white/8 px-3 py-3 transition-colors last:border-b-0 hover:bg-white/[0.026] md:grid-cols-[8rem_minmax(16rem,1fr)_6.25rem_6.25rem_5.75rem_2.25rem] md:items-center md:px-4",
-        item.isDefault && "rounded-[1.05rem] border border-primary/70 bg-primary/[0.035] shadow-[0_0_0_1px_rgba(212,240,50,0.12)]",
+        "grid gap-4 border border-transparent border-b-white/8 px-3 py-3 transition-colors last:border-b-transparent hover:bg-white/[0.026] md:grid-cols-[4.75rem_minmax(16rem,1fr)_6.25rem_6.25rem_5.75rem_2.25rem] md:items-center md:px-4",
+        item.isDefault && "rounded-[1.05rem] !border-primary/70 bg-primary/[0.035] ring-1 ring-primary/35",
       )}
     >
-      <div className="relative h-20 overflow-hidden rounded-xl border border-white/10 md:h-[4.8rem]">
-        <Image
-          src={config.preview}
-          alt=""
-          fill
-          sizes="176px"
-          className="object-cover opacity-80 saturate-[0.9]"
-        />
-        <div className={cn("absolute inset-0 bg-linear-to-br", config.previewClassName)} />
-        <div className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-background-dark/70 text-primary backdrop-blur">
-          <TypeIcon className="h-4 w-4" />
-        </div>
+      <div
+        data-model-type-icon=""
+        className={cn(
+          "flex h-14 w-14 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:h-16 md:w-16",
+          config.surfaceClassName,
+        )}
+      >
+        <TypeIcon className={cn("h-6 w-6", config.iconClassName)} />
       </div>
 
       <div className="min-w-0">
@@ -158,15 +141,9 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
         <span className={cn("text-sm font-semibold", isEnabled ? "text-white/76" : "text-white/42")}>
           {isEnabled ? tCard("enabled") : tCard("disabled")}
         </span>
-        <span className="ml-2 rounded-md border border-white/10 px-2 py-0.5 text-xs text-white/46 md:hidden">
-          {resolveSecondarySpec(item)}
-        </span>
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <span className="hidden rounded-md border border-white/10 px-2 py-1 text-xs text-white/46 md:inline-flex">
-          {resolveSecondarySpec(item)}
-        </span>
         {onEdit ? (
           <AppButton
             type="button"

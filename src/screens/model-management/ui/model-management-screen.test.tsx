@@ -132,7 +132,9 @@ describe("ModelManagementScreen", () => {
     expect(screen.getByRole("combobox", { name: "모델 정렬" })).toBeInTheDocument();
     expect(screen.queryByText("모델 관리")).not.toBeInTheDocument();
     expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
-    expect(document.querySelector("[data-app-filter-toolbar]")).toBeInTheDocument();
+    const toolbar = document.querySelector("[data-app-filter-toolbar]");
+    expect(toolbar).toBeInTheDocument();
+    expect(toolbar).toHaveClass("lg:flex-wrap");
     expect(screen.getByRole("button", { name: "전체" })).toHaveClass("rounded-full");
     expect(screen.getByRole("button", { name: "전체" })).not.toHaveClass("rounded-none");
 
