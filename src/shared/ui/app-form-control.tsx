@@ -4,6 +4,13 @@ import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
 
 export function AppFormField({
@@ -67,19 +74,62 @@ export function AppTextarea({
   );
 }
 
-export function AppSelectNative({
+type AppSelectOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+};
+
+type AppSelectProps = {
+  id?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: AppSelectOption[];
+  ariaLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+};
+
+export function AppSelect({
+  id,
+  value,
+  onValueChange,
+  options,
+  ariaLabel,
+  placeholder,
+  disabled,
   className,
-  ...props
-}: ComponentProps<"select">) {
+}: AppSelectProps) {
   return (
-    <select
-      data-app-select-native=""
-      className={cn(
-        "h-11 w-full rounded-xl border border-white/10 bg-surface-lighter px-3 text-sm text-white focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-        className,
-      )}
-      {...props}
-    />
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger
+        id={id}
+        data-app-select=""
+        aria-label={ariaLabel}
+        className={cn(
+          "h-11 w-full rounded-xl border-white/10 bg-surface-lighter px-3 text-sm font-medium text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60",
+          className,
+        )}
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent
+        data-app-select-content=""
+        className="border-white/10 bg-[#0b0d0e] text-white"
+      >
+        {options.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            disabled={option.disabled}
+            className="text-sm"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

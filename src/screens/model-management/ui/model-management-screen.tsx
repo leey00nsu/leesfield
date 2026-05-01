@@ -44,7 +44,7 @@ import {
   AppFormField,
   AppInput,
   AppLabel,
-  AppSelectNative,
+  AppSelect,
   AppTextarea,
 } from "@/shared/ui/app-form-control";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
@@ -963,16 +963,18 @@ export function ModelManagementScreen() {
                 >
                   {tAdmin("fields.type")}
                 </AppLabel>
-                <AppSelectNative
+                <AppSelect
                   id="model-type"
                   value={draft.type}
-                  onChange={(event) => updateType(event.target.value as ModelType)}
+                  onValueChange={(value) => updateType(value as ModelType)}
                   disabled={dialogMode === "edit"}
-                >
-                  <option value="image">{tCommonLabels("images")}</option>
-                  <option value="video">{tCommonLabels("videos")}</option>
-                  <option value="audio">{tCommonLabels("audios")}</option>
-                </AppSelectNative>
+                  ariaLabel={tAdmin("fields.type")}
+                  options={[
+                    { value: "image", label: tCommonLabels("images") },
+                    { value: "video", label: tCommonLabels("videos") },
+                    { value: "audio", label: tCommonLabels("audios") },
+                  ]}
+                />
               </AppFormField>
               <AppFormField>
                 <AppLabel>

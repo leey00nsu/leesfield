@@ -4,7 +4,7 @@ import {
   AppFormField,
   AppInput,
   AppLabel,
-  AppSelectNative,
+  AppSelect,
   AppTextarea,
 } from "@/shared/ui/app-form-control";
 
@@ -29,11 +29,17 @@ export const Controls: Story = {
       </AppFormField>
       <AppFormField>
         <AppLabel htmlFor="app-form-type">Type</AppLabel>
-        <AppSelectNative id="app-form-type" defaultValue="video">
-          <option value="image">Image</option>
-          <option value="video">Video</option>
-          <option value="audio">Audio</option>
-        </AppSelectNative>
+        <AppSelect
+          id="app-form-type"
+          value="video"
+          onValueChange={() => undefined}
+          ariaLabel="Type"
+          options={[
+            { value: "image", label: "Image" },
+            { value: "video", label: "Video" },
+            { value: "audio", label: "Audio" },
+          ]}
+        />
       </AppFormField>
       <AppFormField>
         <AppLabel htmlFor="app-form-json">Configuration</AppLabel>

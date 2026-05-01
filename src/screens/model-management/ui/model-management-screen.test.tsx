@@ -123,6 +123,18 @@ describe("ModelManagementScreen", () => {
     mockFetch();
 
     const user = userEvent.setup();
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = () => false;
+    }
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = () => undefined;
+    }
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = () => undefined;
+    }
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => undefined;
+    }
 
     renderWithIntl(<ModelManagementScreen />);
 
@@ -244,11 +256,14 @@ describe("ModelManagementScreen", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "모델 추가" }));
-    const typeSelect = screen.getByLabelText("유형");
-    await user.selectOptions(typeSelect, "audio");
+    const typeSelect = screen.getByRole("combobox", { name: "유형" });
+    expect(typeSelect).toHaveAttribute("data-app-select");
+    expect(document.querySelector("[data-app-select-native]")).not.toBeInTheDocument();
+    await user.click(typeSelect);
+    await user.click(screen.getByRole("option", { name: "오디오" }));
 
     await waitFor(() => {
-      expect((typeSelect as HTMLSelectElement).value).toBe("audio");
+      expect(screen.getByRole("combobox", { name: "유형" })).toHaveTextContent("오디오");
       expect(screen.getByDisplayValue(/run_generation/)).toBeTruthy();
       expect(screen.getByDisplayValue(/default_speed/)).toBeTruthy();
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();

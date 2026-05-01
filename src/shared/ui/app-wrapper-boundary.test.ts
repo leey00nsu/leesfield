@@ -90,6 +90,7 @@ describe("app-* design wrapper boundaries", () => {
       "<Textarea",
       "<Label",
       "<select",
+      "AppSelectNative",
       'type="checkbox"',
     ];
 
