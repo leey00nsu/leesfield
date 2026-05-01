@@ -40,9 +40,20 @@ function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-function getPrimaryResponse(responses: ApiOperation["responses"]) {
-  const success = responses.find((response) => response.status.startsWith("2"));
-  return success ?? responses[0] ?? null;
+function getResponsePayload(
+  response: ApiOperation["responses"][number],
+  openApiDocument: OpenApiDocument | null,
+  exampleStrings: ExampleStrings,
+) {
+  return (
+    response.example ??
+    buildExampleFromSchema(
+      response.schema,
+      openApiDocument,
+      undefined,
+      exampleStrings,
+    )
+  );
 }
 
 interface ApiDocsEndpointsSectionProps {
@@ -142,19 +153,9 @@ export function ApiDocsEndpointsSection({
               <div className="flex flex-col gap-10">
                 {section.operations.map((operation) => {
                 const request = operation.request;
-                const primaryResponse = getPrimaryResponse(operation.responses);
                 const requestExample = request?.schema
                   ? buildExampleFromSchema(
                       request.schema,
-                      openApiDocument,
-                      undefined,
-                      exampleStrings,
-                    )
-                  : null;
-                const responseExample = primaryResponse
-                  ? primaryResponse.example ??
-                    buildExampleFromSchema(
-                      primaryResponse.schema,
                       openApiDocument,
                       undefined,
                       exampleStrings,
@@ -333,47 +334,22 @@ export function ApiDocsEndpointsSection({
                       </div>
                     ) : null}
 
-                    {primaryResponse ? (
-                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
-                        <div className="flex items-center justify-between border-b border-white/5 bg-surface-lighter px-4 py-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            {tEndpoints("responseExample")}
-                          </span>
-                          <AppBadge
-                            variant="primary"
-                            className="px-2 py-0.5 text-[10px] font-mono"
-                          >
-                            {primaryResponse.status}
-                          </AppBadge>
-                        </div>
-                        <pre className="overflow-x-auto p-6 text-sm text-gray-300">
-                          {formatJson(
-                            responseExample ?? {
-                              message:
-                                primaryResponse.description ??
-                                tEndpoints("responseFallback"),
-                            },
-                          )}
-                        </pre>
-                      </div>
-                    ) : null}
-
-                    {operation.responses.length > 1 ? (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {operation.responses
-                          .filter((response) => response !== primaryResponse)
-                          .map((response) => {
-                            const responsePayload =
-                              response.example ??
-                              buildExampleFromSchema(
-                                response.schema,
-                                openApiDocument,
-                                undefined,
-                                exampleStrings,
-                              );
+                    {operation.responses.length ? (
+                      <div className="flex flex-col gap-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          {tEndpoints("responseExample")}
+                        </span>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {operation.responses.map((response) => {
+                            const responsePayload = getResponsePayload(
+                              response,
+                              openApiDocument,
+                              exampleStrings,
+                            );
                             return (
                               <div
                                 key={response.status}
+                                data-testid="api-response-card"
                                 className="rounded-xl border border-white/5 bg-surface-dark p-4"
                               >
                                 <div className="flex items-center gap-3">
@@ -389,14 +365,19 @@ export function ApiDocsEndpointsSection({
                                       tEndpoints("response")}
                                   </span>
                                 </div>
-                                {responsePayload ? (
-                                  <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
-                                    {formatJson(responsePayload)}
-                                  </pre>
-                                ) : null}
+                                <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
+                                  {formatJson(
+                                    responsePayload ?? {
+                                      message:
+                                        response.description ??
+                                        tEndpoints("responseFallback"),
+                                    },
+                                  )}
+                                </pre>
                               </div>
                             );
                           })}
+                        </div>
                       </div>
                     ) : null}
                     </div>
