@@ -206,7 +206,7 @@ export function ApiDocsEndpointsSection({
                       ) : null}
                     </div>
 
-                    <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
+                    <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
                       <div className="flex flex-col gap-4 border-b border-white/5 bg-black px-4 py-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
@@ -269,8 +269,8 @@ export function ApiDocsEndpointsSection({
                     </div>
 
                     {request?.properties?.length ? (
-                      <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
-                        <div className="border-b border-white/5 bg-white/5 px-6 py-4">
+                      <div className="rounded-2xl border border-white/8 bg-transparent shadow-none">
+                        <div className="border-b border-white/8 px-6 py-4">
                           <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
                             {tEndpoints("requestParams")}
                           </span>
@@ -296,10 +296,10 @@ export function ApiDocsEndpointsSection({
                                 <AppBadge
                                   variant="muted"
                                   className={cn(
-                                    "text-[10px] font-bold uppercase tracking-wider",
+                                    "w-fit self-start rounded-full bg-transparent px-2.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider",
                                     param.required
-                                      ? "text-destructive"
-                                      : "text-gray-500",
+                                      ? "border border-destructive/25 text-destructive"
+                                      : "border border-white/12 text-gray-500",
                                   )}
                                 >
                                   {param.required
@@ -321,7 +321,7 @@ export function ApiDocsEndpointsSection({
                     ) : null}
 
                     {requestExample ? (
-                      <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
+                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
                         <div className="flex items-center justify-between border-b border-white/5 bg-black px-4 py-2">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
                             {tEndpoints("requestExample")}
@@ -334,7 +334,7 @@ export function ApiDocsEndpointsSection({
                     ) : null}
 
                     {primaryResponse ? (
-                      <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
+                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
                         <div className="flex items-center justify-between border-b border-white/5 bg-surface-lighter px-4 py-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                             {tEndpoints("responseExample")}
