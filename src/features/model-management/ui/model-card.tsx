@@ -14,21 +14,24 @@ interface ModelCardProps {
   onEdit?: (key: string) => void;
 }
 
+const neutralTypeCardIconClassName = "text-white/66";
+const neutralTypeCardSurfaceClassName = "border-white/10 bg-white/[0.035]";
+
 const typeConfig = {
   image: {
     icon: ImageIcon,
-    iconClassName: "text-white/66",
-    surfaceClassName: "border-white/10 bg-white/[0.035]",
+    iconClassName: neutralTypeCardIconClassName,
+    surfaceClassName: neutralTypeCardSurfaceClassName,
   },
   video: {
     icon: Video,
-    iconClassName: "text-white/66",
-    surfaceClassName: "border-white/10 bg-white/[0.035]",
+    iconClassName: neutralTypeCardIconClassName,
+    surfaceClassName: neutralTypeCardSurfaceClassName,
   },
   audio: {
     icon: AudioLines,
-    iconClassName: "text-white/66",
-    surfaceClassName: "border-white/10 bg-white/[0.035]",
+    iconClassName: neutralTypeCardIconClassName,
+    surfaceClassName: neutralTypeCardSurfaceClassName,
   },
 };
 
