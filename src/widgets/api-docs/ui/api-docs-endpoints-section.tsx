@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
-import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
+import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 import { cn } from "@/shared/lib/utils";
 import { useTranslations } from "next-intl";
 import {
@@ -114,33 +114,33 @@ export function ApiDocsEndpointsSection({
           ? tNav(tagIdMap[section.title])
           : section.title;
         return (
-          <section
-            key={section.id}
-            id={section.id}
-            className="flex flex-col gap-8 scroll-mt-32"
-          >
-            <div className="flex items-center gap-4">
-              <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
-                <Icon className="h-5 w-5 text-primary" />
-                {sectionTitle}
-              </h2>
-              <Badge
-                variant={isVideo ? "primary" : "muted"}
-                className={cn(
-                  "rounded px-2 py-0.5 text-[10px]",
-                  isVideo
-                    ? "bg-primary text-black"
-                    : "border border-white/5 bg-white/10 text-gray-400",
-                )}
-              >
-                {isVideo
-                  ? tCommonLabels("beta")
-                  : tCommonLabels("version", { version: apiVersion })}
-              </Badge>
-            </div>
-
-            <div className="flex flex-col gap-10">
-              {section.operations.map((operation) => {
+          <section key={section.id} id={section.id} className="scroll-mt-32">
+            <AppDocsSectionCard
+              eyebrow={<AppBadge variant="muted">{section.id}</AppBadge>}
+              title={
+                <span className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-primary" />
+                  {sectionTitle}
+                </span>
+              }
+              action={
+                <AppBadge
+                  variant={isVideo ? "primary" : "muted"}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px]",
+                    isVideo
+                      ? "bg-primary text-black"
+                      : "border border-white/5 bg-white/10 text-gray-400",
+                  )}
+                >
+                  {isVideo
+                    ? tCommonLabels("beta")
+                    : tCommonLabels("version", { version: apiVersion })}
+                </AppBadge>
+              }
+            >
+              <div className="flex flex-col gap-10">
+                {section.operations.map((operation) => {
                 const request = operation.request;
                 const primaryResponse = getPrimaryResponse(operation.responses);
                 const requestExample = request?.schema
@@ -180,11 +180,11 @@ export function ApiDocsEndpointsSection({
                   fileFields,
                 });
 
-                return (
-                  <div key={operation.id} className="flex flex-col gap-6">
+                  return (
+                    <div key={operation.id} className="flex flex-col gap-6">
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-3">
-                        <Badge
+                        <AppBadge
                           variant="muted"
                           size="md"
                           className={cn(
@@ -194,7 +194,7 @@ export function ApiDocsEndpointsSection({
                           )}
                         >
                           {operation.method}
-                        </Badge>
+                        </AppBadge>
                         <code className="font-mono text-lg text-white">
                           {operation.path}
                         </code>
@@ -224,11 +224,11 @@ export function ApiDocsEndpointsSection({
                             {orderedLanguages.map((language) => {
                               const isActive = language === selectedLanguage;
                               return (
-                                <Button
+                                <AppButton
                                   key={language}
                                   type="button"
                                   size="sm"
-                                  variant={isActive ? "default" : "ghost"}
+                                  variant={isActive ? "primary" : "ghost"}
                                   className={cn(
                                     "h-7 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider",
                                     isActive
@@ -244,7 +244,7 @@ export function ApiDocsEndpointsSection({
                                   }
                                 >
                                   {tSnippets(`languages.${language}`)}
-                                </Button>
+                                </AppButton>
                               );
                             })}
                           </div>
@@ -286,14 +286,14 @@ export function ApiDocsEndpointsSection({
                                   <code className="font-mono font-bold text-primary">
                                     {param.name}
                                   </code>
-                                  <Badge
+                                  <AppBadge
                                     variant="muted"
                                     className="rounded bg-white/10 px-2 py-0.5 font-mono uppercase text-gray-400"
                                   >
                                     {param.typeLabel}
-                                  </Badge>
+                                  </AppBadge>
                                 </div>
-                                <Badge
+                                <AppBadge
                                   variant="muted"
                                   className={cn(
                                     "text-[10px] font-bold uppercase tracking-wider",
@@ -305,7 +305,7 @@ export function ApiDocsEndpointsSection({
                                   {param.required
                                     ? tEndpoints("required")
                                     : tEndpoints("optional")}
-                                </Badge>
+                                </AppBadge>
                               </div>
                               <div className="flex flex-col gap-2">
                                 {param.description ? (
@@ -339,12 +339,12 @@ export function ApiDocsEndpointsSection({
                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                             {tEndpoints("responseExample")}
                           </span>
-                          <Badge
+                          <AppBadge
                             variant="primary"
                             className="px-2 py-0.5 text-[10px] font-mono"
                           >
                             {primaryResponse.status}
-                          </Badge>
+                          </AppBadge>
                         </div>
                         <pre className="overflow-x-auto p-6 text-sm text-gray-300">
                           {formatJson(
@@ -377,13 +377,13 @@ export function ApiDocsEndpointsSection({
                                 className="rounded-xl border border-white/5 bg-surface-dark p-4"
                               >
                                 <div className="flex items-center gap-3">
-                                  <Badge
+                                  <AppBadge
                                     variant="muted"
                                     size="md"
                                     className="px-2.5 py-1 text-gray-300"
                                   >
                                     {response.status}
-                                  </Badge>
+                                  </AppBadge>
                                   <span className="text-sm font-semibold text-white">
                                     {response.description ??
                                       tEndpoints("response")}
@@ -399,10 +399,11 @@ export function ApiDocsEndpointsSection({
                           })}
                       </div>
                     ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </AppDocsSectionCard>
           </section>
         );
       })}

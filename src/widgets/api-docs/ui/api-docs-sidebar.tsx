@@ -11,6 +11,8 @@ import {
   tagIdMap,
   type ApiDocsNavItem,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppCard } from "@/shared/ui/app-card";
 
 interface ApiDocsSidebarProps {
   apiVersion: string;
@@ -53,15 +55,22 @@ export function ApiDocsSidebar({
   const { activeSectionId } = useApiDocsNavigation({ sectionIds });
 
   return (
-    <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-white/10 pr-6">
-      <div className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex flex-col gap-6">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 font-mono">
-          <span className="h-2 w-2 rounded-full bg-primary" />
-          {t("label", { version: apiVersion })}
+    <aside className="hidden w-72 shrink-0 lg:flex">
+      <AppCard
+        variant="editorial-flat"
+        className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.35rem] border-white/12 p-5"
+      >
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <AppBadge variant="primary" className="px-2.5 py-1">
+            {t("label", { version: apiVersion })}
+          </AppBadge>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/38">
+            API
+          </span>
         </div>
-        <nav className="flex flex-col gap-8">
+        <nav className="flex min-h-0 flex-col gap-7 overflow-y-auto pr-1">
           <div className="flex flex-col gap-2">
-            <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
+            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/42">
               {t("general")}
             </h3>
             <div className="flex flex-col gap-1">
@@ -72,14 +81,14 @@ export function ApiDocsSidebar({
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
-                        ? "border border-primary/10 bg-primary/10 text-primary"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        ? "border-primary/20 bg-primary/10 text-primary"
+                        : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{item.label}</span>
                   </a>
                 );
               })}
@@ -87,7 +96,7 @@ export function ApiDocsSidebar({
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-white">
+            <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/42">
               {t("endpoints")}
             </h3>
             <div className="flex flex-col gap-1">
@@ -98,21 +107,21 @@ export function ApiDocsSidebar({
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
-                        ? "border border-primary/10 bg-primary/10 text-primary"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        ? "border-primary/20 bg-primary/10 text-primary"
+                        : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{item.label}</span>
                   </a>
                 );
               })}
             </div>
           </div>
         </nav>
-      </div>
+      </AppCard>
     </aside>
   );
 }
