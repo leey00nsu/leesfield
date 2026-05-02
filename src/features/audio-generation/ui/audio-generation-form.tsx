@@ -38,7 +38,8 @@ import {
   AppFormLabel,
   AppFormMessage,
 } from "@/shared/ui/app-form";
-import { AppInput, AppTextarea } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 import {
   AppSelectContent,
   AppSelectItem,

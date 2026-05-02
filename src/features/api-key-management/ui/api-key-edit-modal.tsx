@@ -9,7 +9,8 @@ import {
   AppDialogDescription,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
-import { AppInput, AppLabel } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppLabel } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
 
 type ApiKeyEditModalProps = {

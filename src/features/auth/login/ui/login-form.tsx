@@ -17,7 +17,7 @@ import {
   AppFormLabel,
   AppFormMessage,
 } from "@/shared/ui/app-form";
-import { AppInput } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
 import { useTranslations } from "next-intl";
 
 const initialState = {

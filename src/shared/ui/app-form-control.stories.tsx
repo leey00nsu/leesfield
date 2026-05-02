@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { AppInput } from "@/shared/ui/app-input";
 import {
   AppCheckbox,
   AppFormField,
-  AppInput,
   AppLabel,
   AppSelect,
   AppTextarea,

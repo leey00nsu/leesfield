@@ -11,7 +11,8 @@ import {
   AppDialogHeader,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
-import { AppFormField, AppInput, AppLabel } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppFormField, AppLabel } from "@/shared/ui/app-form-control";
 
 const meta = {
   title: "Project Design/App/AppDialog",

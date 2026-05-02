@@ -20,8 +20,10 @@ export const Default: Story = {
     showLessLabel: "Show less",
   },
   render: (args) => (
-    <div className="w-[420px] rounded-2xl border border-white/10 bg-surface-dark p-5">
-      <AppExpandableText {...args} />
-    </div>
+    <AppExpandableText
+      {...args}
+      className="w-[420px] rounded-2xl border border-white/10 bg-surface-dark p-5"
+      bodyClassName="text-white"
+    />
   ),
 };

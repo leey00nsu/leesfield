@@ -5,7 +5,7 @@ import {
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
 import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
-import { AppInput } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
 import { useTranslations } from "next-intl";
 
 type ApiKeyToolbarProps = {

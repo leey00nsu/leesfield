@@ -4,7 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppInput } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
 import {
   AppSelectContent,
   AppSelectItem,

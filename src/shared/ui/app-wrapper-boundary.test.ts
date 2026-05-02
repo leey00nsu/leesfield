@@ -101,6 +101,34 @@ describe("app-* design wrapper boundaries", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("keeps project input fields behind the dedicated AppInput wrapper", () => {
+    const offenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      if (relativePath.endsWith("src/shared/ui/app-form-control.tsx")) return [];
+
+      const contents = readFileSync(filePath, "utf8");
+      const importsFormControlInput =
+        /import\s+\{[^}]*\bAppInput\b[^}]*\}\s+from\s+["']@\/shared\/ui\/app-form-control["']/.test(
+          contents,
+        );
+      return importsFormControlInput ? [relativePath] : [];
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps expandable text surfaces on the wrapper instead of the body slot", () => {
+    const offenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      const contents = readFileSync(filePath, "utf8");
+      return /bodyClassName=["'][^"']*\brounded-/.test(contents)
+        ? [relativePath]
+        : [];
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
   it("keeps model management modal surfaces behind app wrappers", () => {
     const modelScreen = readFileSync(
       join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
@@ -137,6 +165,7 @@ describe("app-* design wrapper boundaries", () => {
     expect(forbiddenJsx.filter((value) => modelScreen.includes(value))).toEqual([]);
     expect(modelScreen).toContain("@/shared/ui/app-dialog");
     expect(modelScreen).toContain("@/shared/ui/app-confirm-dialog");
+    expect(modelScreen).toContain("@/shared/ui/app-input");
     expect(modelScreen).toContain("@/shared/ui/app-form-control");
   });
 });

@@ -31,7 +31,8 @@ import {
   AppFormLabel,
   AppFormMessage,
 } from "@/shared/ui/app-form";
-import { AppInput, AppTextarea } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 import { cn } from "@/shared/lib/utils";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";

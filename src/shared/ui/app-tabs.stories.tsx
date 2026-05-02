@@ -38,7 +38,8 @@ export const DetailRail: Story = {
               <AppExpandableText
                 showMoreLabel="Show more"
                 showLessLabel="Show less"
-                bodyClassName="rounded-xl border border-white/10 bg-black/18 p-4 text-sm leading-6 text-white/68"
+                className="rounded-xl border border-white/10 bg-black/18 p-4"
+                bodyClassName="text-sm leading-6 text-white/68"
               >
                 A majestic mountain landscape at golden hour with dramatic clouds,
                 a winding river through the valley, precise camera direction,

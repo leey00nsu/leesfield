@@ -461,7 +461,8 @@ function HistoryDetailOverlay({
           collapsedLines={4}
           showMoreLabel={tHistory("detail.showMore")}
           showLessLabel={tHistory("detail.showLess")}
-          bodyClassName="rounded-xl border border-white/10 bg-black/18 p-4 text-sm leading-6 text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          className="rounded-xl border border-white/10 bg-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          bodyClassName="text-sm leading-6 text-white/68"
         >
           {hydratedItem.prompt}
         </AppExpandableText>
@@ -476,7 +477,8 @@ function HistoryDetailOverlay({
             collapsedLines={3}
             showMoreLabel={tHistory("detail.showMore")}
             showLessLabel={tHistory("detail.showLess")}
-            bodyClassName="rounded-xl border border-white/10 bg-black/18 p-4 text-sm leading-6 text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+            className="rounded-xl border border-white/10 bg-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+            bodyClassName="text-sm leading-6 text-white/68"
           >
             {hydratedItem.referenceText}
           </AppExpandableText>
@@ -510,7 +512,8 @@ function HistoryDetailOverlay({
             collapsedLines={3}
             showMoreLabel={tHistory("detail.showMore")}
             showLessLabel={tHistory("detail.showLess")}
-            bodyClassName="rounded-xl border border-red-300/20 bg-red-500/10 p-4 text-sm leading-6 text-red-50/80"
+            className="rounded-xl border border-red-300/20 bg-red-500/10 p-4"
+            bodyClassName="text-sm leading-6 text-red-50/80"
           >
             {hydratedItem.errorMessage}
           </AppExpandableText>
@@ -525,7 +528,8 @@ function HistoryDetailOverlay({
             collapsedLines={3}
             showMoreLabel={tHistory("detail.showMore")}
             showLessLabel={tHistory("detail.showLess")}
-            bodyClassName="rounded-xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50/80"
+            className="rounded-xl border border-amber-300/20 bg-amber-400/10 p-4"
+            bodyClassName="text-sm leading-6 text-amber-50/80"
           >
             {warningMessage}
           </AppExpandableText>

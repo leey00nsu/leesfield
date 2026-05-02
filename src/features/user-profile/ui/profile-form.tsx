@@ -1,4 +1,5 @@
-import { AppInput, AppLabel, AppTextarea } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppLabel, AppTextarea } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
 
 export interface ProfileFormValues {

@@ -42,11 +42,11 @@ import {
 import {
   AppCheckbox,
   AppFormField,
-  AppInput,
   AppLabel,
   AppSelect,
   AppTextarea,
 } from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   AppFilterGroup,
