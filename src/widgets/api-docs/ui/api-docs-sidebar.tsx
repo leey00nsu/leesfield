@@ -150,8 +150,6 @@ export function ApiDocsSidebar({
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t("searchPlaceholder")}
-            containerClassName="h-11 rounded-xl border-white/10 bg-black/22"
-            className="text-sm"
           />
         </div>
         <nav className="app-scrollbar flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">

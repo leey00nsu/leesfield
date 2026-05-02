@@ -86,29 +86,32 @@ export function AppFilterToggle({
 
 type AppSearchFieldProps = Omit<ComponentProps<typeof AppInput>, "size"> & {
   containerClassName?: string;
+  trailing?: ReactNode;
 };
 
 export function AppSearchField({
   className,
   containerClassName,
+  trailing,
   ...props
 }: AppSearchFieldProps) {
   return (
     <label
       data-app-search-field=""
       className={cn(
-        "flex h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/10 bg-black/22 px-4 text-white/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] focus-within:border-primary/45",
+        "flex h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-4 text-white shadow-xs transition-colors focus-within:border-primary",
         containerClassName,
       )}
     >
       <Search className="h-5 w-5 shrink-0 text-white/38" />
       <AppInput
         className={cn(
-          "h-auto border-0 bg-transparent px-0 py-0 text-sm font-medium text-white shadow-none outline-none placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0",
+          "h-auto border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0",
           className,
         )}
         {...props}
       />
+      {trailing}
     </label>
   );
 }

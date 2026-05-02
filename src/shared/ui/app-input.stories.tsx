@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { AppInput } from "@/shared/ui/app-input";
+import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 
 const meta = {
   title: "Project Design/App/AppInput",
@@ -19,6 +20,18 @@ export const Default: Story = {
   render: (args) => (
     <div className="w-[320px] rounded-2xl border border-white/10 bg-surface-dark p-5">
       <AppInput {...args} />
+    </div>
+  ),
+};
+
+export const InputAndSearch: Story = {
+  render: () => (
+    <div className="grid w-[360px] gap-4 rounded-2xl border border-white/10 bg-surface-dark p-5">
+      <AppInput aria-label="Model name" defaultValue="Leesfield Video" />
+      <AppSearchField
+        aria-label="Search"
+        placeholder="Search by prompt, model, or tags..."
+      />
     </div>
   ),
 };
