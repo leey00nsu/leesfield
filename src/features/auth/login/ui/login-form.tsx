@@ -8,16 +8,16 @@ import {
   createLoginSchema,
   type LoginFormValues,
 } from "@/features/auth/login/model/login-schema";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/shared/ui/form";
-import { Input } from "@/shared/ui/input";
+  AppForm,
+  AppFormControl,
+  AppFormControllerField,
+  AppFormItem,
+  AppFormLabel,
+  AppFormMessage,
+} from "@/shared/ui/app-form";
+import { AppInput } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
 
 const initialState = {
@@ -59,44 +59,44 @@ export function LoginForm() {
   });
 
   return (
-    <Form {...form}>
+    <AppForm {...form}>
       <form className="flex min-w-0 flex-col gap-3" onSubmit={onSubmit}>
-        <FormField
+        <AppFormControllerField
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className="sr-only">{tForm("emailLabel")}</FormLabel>
-              <FormControl>
-                <Input
+            <AppFormItem>
+              <AppFormLabel className="sr-only">{tForm("emailLabel")}</AppFormLabel>
+              <AppFormControl>
+                <AppInput
                   className="h-14 min-w-0 rounded-xl border-white/12 bg-[#111417] px-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-primary/70"
                   placeholder={tForm("emailPlaceholder")}
                   autoComplete="username"
                   {...field}
                 />
-              </FormControl>
-              <FormMessage className="pt-1 text-left text-xs text-red-300" />
-            </FormItem>
+              </AppFormControl>
+              <AppFormMessage className="pt-1 text-left text-xs text-red-300" />
+            </AppFormItem>
           )}
         />
 
-        <FormField
+        <AppFormControllerField
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className="sr-only">{tForm("passwordLabel")}</FormLabel>
-              <FormControl>
-                <Input
+            <AppFormItem>
+              <AppFormLabel className="sr-only">{tForm("passwordLabel")}</AppFormLabel>
+              <AppFormControl>
+                <AppInput
                   type="password"
                   className="h-14 min-w-0 rounded-xl border-white/12 bg-[#111417] px-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-primary/70"
                   placeholder={tForm("passwordPlaceholder")}
                   autoComplete="current-password"
                   {...field}
                 />
-              </FormControl>
-              <FormMessage className="pt-1 text-left text-xs text-red-300" />
-            </FormItem>
+              </AppFormControl>
+              <AppFormMessage className="pt-1 text-left text-xs text-red-300" />
+            </AppFormItem>
           )}
         />
 
@@ -106,14 +106,14 @@ export function LoginForm() {
           </div>
         )}
 
-        <Button
+        <AppButton
           type="submit"
           disabled={isPending}
           className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-[#22262c] text-base font-bold text-white shadow-none transition-colors hover:bg-[#2b3037]"
         >
           {isPending ? tForm("submitting") : tForm("submit")}
-        </Button>
+        </AppButton>
       </form>
-    </Form>
+    </AppForm>
   );
 }

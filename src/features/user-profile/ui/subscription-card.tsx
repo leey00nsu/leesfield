@@ -1,5 +1,5 @@
-import { Button } from "@/shared/ui/button";
-import { Badge } from "@/shared/ui/badge";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppButton } from "@/shared/ui/app-button";
 import { useTranslations } from "next-intl";
 
 export function SubscriptionCard() {
@@ -12,14 +12,14 @@ export function SubscriptionCard() {
           <span className="text-primary">◆</span>
           {t("title")}
         </h3>
-        <Button
+        <AppButton
           type="button"
           variant="ghost"
           disabled
           className="h-auto p-0 text-xs font-bold uppercase tracking-wide text-primary disabled:opacity-50"
         >
           {t("manage")}
-        </Button>
+        </AppButton>
       </div>
       <div className="mb-4 rounded-xl border border-primary/20 bg-surface-lighter p-5">
         <div className="mb-2 flex items-start justify-between">
@@ -27,9 +27,9 @@ export function SubscriptionCard() {
             <p className="text-sm font-bold text-white">{t("plan")}</p>
             <p className="text-xs text-gray-400">{t("price")}</p>
           </div>
-          <Badge variant="muted" className="bg-white/10 text-gray-300">
+          <AppBadge variant="muted" className="bg-white/10 text-gray-300">
             {t("badge")}
-          </Badge>
+          </AppBadge>
         </div>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/30">
           <div className="h-full w-[15%] bg-white/40" />
@@ -38,14 +38,14 @@ export function SubscriptionCard() {
           {t("noRenewal")}
         </p>
       </div>
-      <Button
+      <AppButton
         type="button"
-        variant="outline"
+        variant="surface"
         disabled
         className="w-full rounded-lg border-white/10 py-3 text-sm font-bold uppercase tracking-wide text-gray-300 disabled:opacity-50 disabled:hover:bg-transparent"
       >
         {t("upgrade")}
-      </Button>
+      </AppButton>
     </section>
   );
 }

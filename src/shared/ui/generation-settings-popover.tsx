@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { AppButton } from "@/shared/ui/app-button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+  AppPopover,
+  AppPopoverContent,
+  AppPopoverTrigger,
+} from "@/shared/ui/app-popover";
 import { cn } from "@/shared/lib/utils";
 
 type GenerationSettingsPopoverProps = {
@@ -30,8 +30,8 @@ export function GenerationSettingsPopover({
   side = "top",
 }: GenerationSettingsPopoverProps) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <AppPopover>
+      <AppPopoverTrigger asChild>
         <AppButton
           type="button"
           variant="surface"
@@ -49,8 +49,8 @@ export function GenerationSettingsPopover({
           </span>
           <ChevronDown className="h-4 w-4 text-white/46" />
         </AppButton>
-      </PopoverTrigger>
-      <PopoverContent
+      </AppPopoverTrigger>
+      <AppPopoverContent
         align={align}
         side={side}
         sideOffset={12}
@@ -58,7 +58,7 @@ export function GenerationSettingsPopover({
         className="z-[90] w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
       >
         {children}
-      </PopoverContent>
-    </Popover>
+      </AppPopoverContent>
+    </AppPopover>
   );
 }

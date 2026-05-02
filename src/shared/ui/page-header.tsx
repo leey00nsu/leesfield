@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -111,7 +111,7 @@ export function PageHeaderSearchInput({
       />
       {showFilterButton ? (
         <div className="pr-2">
-          <Button
+          <AppButton
             type="button"
             variant="ghost"
             size="icon-sm"
@@ -120,7 +120,7 @@ export function PageHeaderSearchInput({
             aria-label={resolvedFilterButtonLabel}
           >
             <SlidersHorizontal className="h-5 w-5" />
-          </Button>
+          </AppButton>
         </div>
       ) : null}
     </div>

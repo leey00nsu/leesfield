@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 
 interface GenerationSettingsPanelProps {
   title?: ReactNode;
@@ -33,7 +33,7 @@ export function GenerationSettingsPanel({
           <span className="h-4 w-1 rounded-full bg-primary/80" />
           {resolvedTitle}
         </h3>
-        <Button
+        <AppButton
           type="button"
           variant="ghost"
           size="icon-sm"
@@ -42,7 +42,7 @@ export function GenerationSettingsPanel({
           aria-label={tActions("reset")}
         >
           <RotateCcw className="h-5 w-5" />
-        </Button>
+        </AppButton>
       </div>
       {children}
     </aside>

@@ -5,16 +5,15 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
+  AppDialog,
+  AppDialogClose,
+  AppDialogContent,
+  AppDialogDescription,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogTitle,
+} from "@/shared/ui/app-dialog";
 
 type LoginGateDialogProps = {
   open: boolean;
@@ -36,10 +35,10 @@ export function LoginGateDialog({
   actionHref = "/login",
 }: LoginGateDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] p-0 text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]">
-        <DialogClose asChild>
-          <Button
+    <AppDialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent className="w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] p-0 text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]">
+        <AppDialogClose asChild>
+          <AppButton
             type="button"
             variant="ghost"
             size="icon-sm"
@@ -47,8 +46,8 @@ export function LoginGateDialog({
             className="absolute right-4 top-4 z-20 rounded-full bg-black/35 text-white hover:bg-white/10"
           >
             <X className="h-4 w-4" />
-          </Button>
-        </DialogClose>
+          </AppButton>
+        </AppDialogClose>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col justify-center p-6 sm:p-8">
             <AppBrandLogo
@@ -57,11 +56,11 @@ export function LoginGateDialog({
               className="mb-5"
               markClassName="h-10 w-10"
             />
-            <DialogHeader className="gap-3">
-              <DialogTitle className="text-2xl font-black tracking-tight text-white">
+            <AppDialogHeader className="gap-3">
+              <AppDialogTitle className="text-2xl font-black tracking-tight text-white">
                 {title}
-              </DialogTitle>
-              <DialogDescription
+              </AppDialogTitle>
+              <AppDialogDescription
                 className={
                   description
                     ? "max-w-sm text-sm leading-6 text-gray-400"
@@ -69,10 +68,10 @@ export function LoginGateDialog({
                 }
               >
                 {description || actionLabel}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
-              <DialogClose asChild>
+              </AppDialogDescription>
+            </AppDialogHeader>
+            <AppDialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
+              <AppDialogClose asChild>
                 <AppButton
                   type="button"
                   variant="surface"
@@ -80,7 +79,7 @@ export function LoginGateDialog({
                 >
                   {cancelLabel}
                 </AppButton>
-              </DialogClose>
+              </AppDialogClose>
               <AppButton
                 asChild
                 type="button"
@@ -89,7 +88,7 @@ export function LoginGateDialog({
               >
                 <Link href={actionHref}>{actionLabel}</Link>
               </AppButton>
-            </DialogFooter>
+            </AppDialogFooter>
           </div>
           <div className="relative hidden min-h-80 overflow-hidden border-l border-white/10 sm:block">
             <Image
@@ -110,7 +109,7 @@ export function LoginGateDialog({
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AppDialogContent>
+    </AppDialog>
   );
 }

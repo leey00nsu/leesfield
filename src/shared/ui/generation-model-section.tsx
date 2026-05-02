@@ -6,12 +6,11 @@ import { useTranslations } from "next-intl";
 import type { GenerationModality } from "@/shared/generation/generation-presets";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+  AppPopover,
+  AppPopoverContent,
+  AppPopoverTrigger,
+} from "@/shared/ui/app-popover";
 
 interface GenerationModelOption<T extends string> {
   id: T;
@@ -84,7 +83,7 @@ export function GenerationModelSection<T extends string>({
     const isActive = activeId === model.id;
 
     return (
-      <Button
+      <AppButton
         key={`${scope}-${model.id}`}
         type="button"
         onClick={() => {
@@ -114,14 +113,14 @@ export function GenerationModelSection<T extends string>({
             <Check className="h-4 w-4" />
           </span>
         ) : null}
-      </Button>
+      </AppButton>
     );
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+    <AppPopover open={isOpen} onOpenChange={handleOpenChange}>
       <div className={cn("relative", className)}>
-        <PopoverTrigger asChild>
+        <AppPopoverTrigger asChild>
           <AppButton
             type="button"
             variant="surface"
@@ -143,10 +142,10 @@ export function GenerationModelSection<T extends string>({
             </span>
             <ChevronDown className="h-4 w-4 text-primary" />
           </AppButton>
-        </PopoverTrigger>
+        </AppPopoverTrigger>
       </div>
 
-      <PopoverContent
+      <AppPopoverContent
         side="top"
         align="start"
         sideOffset={12}
@@ -191,7 +190,7 @@ export function GenerationModelSection<T extends string>({
             </section>
           </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      </AppPopoverContent>
+    </AppPopover>
   );
 }

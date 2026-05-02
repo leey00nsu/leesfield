@@ -1,8 +1,8 @@
 import { Camera } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
-import { Badge } from "@/shared/ui/badge";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppButton } from "@/shared/ui/app-button";
 import type {
   ProfileBadgeTone,
   ProfileSummary,
@@ -47,9 +47,8 @@ export function ProfileSummaryCard({
               </span>
             )}
           </div>
-          <Button
+          <AppButton
             type="button"
-            variant="default"
             size="icon"
             onClick={onChangeAvatar}
             disabled={!canChangeAvatar}
@@ -60,20 +59,20 @@ export function ProfileSummaryCard({
             title={tSummary("changeAvatar")}
           >
             <Camera className="h-4 w-4" />
-          </Button>
+          </AppButton>
         </div>
         <h2 className="mb-1 text-2xl font-bold text-white">{profile.name}</h2>
         <p className="mb-4 text-sm font-mono text-primary">{profile.handle}</p>
         <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
           {profile.badges.map((badge) => (
-            <Badge
+            <AppBadge
               key={badge.label}
               variant={badge.tone === "primary" ? "primary" : "default"}
               size="md"
               className="px-3 py-1 tracking-widest"
             >
               {badge.label}
-            </Badge>
+            </AppBadge>
           ))}
         </div>
         <div className="my-2 h-px w-full bg-white/5" />

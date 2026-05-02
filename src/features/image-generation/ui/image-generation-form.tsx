@@ -23,17 +23,15 @@ import {
   X,
 } from "lucide-react";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/shared/ui/form";
-import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
+  AppForm,
+  AppFormControl,
+  AppFormControllerField,
+  AppFormItem,
+  AppFormLabel,
+  AppFormMessage,
+} from "@/shared/ui/app-form";
+import { AppInput, AppTextarea } from "@/shared/ui/app-form-control";
 import { cn } from "@/shared/lib/utils";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
@@ -403,7 +401,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     void form.handleSubmit((values) => startGeneration(values))(event);
   };
   return (
-    <Form {...form}>
+    <AppForm {...form}>
       <form
         className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
@@ -483,21 +481,21 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4">
-                <FormField
+                <AppFormControllerField
                   control={form.control}
                   name="prompt"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <AppFormItem className="flex-1">
                       <GenerationPromptField
                         ariaLabel={tGeneration("promptDock.label")}
                         className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                         textarea={
-                          <FormControl>
-                            <Textarea
+                          <AppFormControl>
+                            <AppTextarea
                               className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                               {...field}
                             />
-                          </FormControl>
+                          </AppFormControl>
                         }
                         promptMeta={tLabels("chars", {
                           count: promptValue.length,
@@ -516,7 +514,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                     alt={tImage("initImageAlt")}
                                     className="h-full w-full object-cover"
                                   />
-                                  <Button
+                                  <AppButton
                                     type="button"
                                     onClick={() => handleRemoveInitImage(item.id)}
                                     variant="ghost"
@@ -525,7 +523,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                     title={tActions("remove")}
                                   >
                                     <X className="h-3 w-3" />
-                                  </Button>
+                                  </AppButton>
                                 </div>
                               ))}
                             </div>
@@ -589,16 +587,16 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                               >
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   {widthConfig?.ui !== "hidden" ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="width"
                                       render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-xs font-bold text-gray-500">
+                                        <AppFormItem>
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
                                             {tLabels("width")}
-                                          </FormLabel>
-                                          <FormControl>
-                                            <Input
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <AppInput
                                               type="number"
                                               min={widthRange.min}
                                               max={widthRange.max}
@@ -609,22 +607,22 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               }
                                               className="h-11 border-white/10 bg-black/30 text-white"
                                             />
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
                                   {heightConfig?.ui !== "hidden" ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="height"
                                       render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-xs font-bold text-gray-500">
+                                        <AppFormItem>
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
                                             {tLabels("height")}
-                                          </FormLabel>
-                                          <FormControl>
-                                            <Input
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <AppInput
                                               type="number"
                                               min={heightRange.min}
                                               max={heightRange.max}
@@ -635,8 +633,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               }
                                               className="h-11 border-white/10 bg-black/30 text-white"
                                             />
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
@@ -701,15 +699,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                               >
                                 <div className="flex flex-col gap-5">
                                   {showModeChoice ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="modeChoice"
                                       render={({ field }) => (
-                                        <FormItem className="flex flex-col gap-2">
-                                          <FormLabel className="text-xs font-bold text-gray-500">
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
                                             {tLabels("modeChoice")}
-                                          </FormLabel>
-                                          <FormControl>
+                                          </AppFormLabel>
+                                          <AppFormControl>
                                             <select
                                               value={field.value ?? ""}
                                               onChange={field.onChange}
@@ -729,26 +727,26 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 );
                                               })}
                                             </select>
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
                                   {showSteps ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="steps"
                                       render={({ field }) => (
-                                        <FormItem className="flex flex-col gap-2">
+                                        <AppFormItem className="flex flex-col gap-2">
                                           <div className="flex items-center justify-between">
-                                            <FormLabel className="text-xs font-bold text-gray-500">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
                                               {tLabels("steps")}
-                                            </FormLabel>
+                                            </AppFormLabel>
                                             <span className="text-sm font-bold text-white">
                                               {steps}
                                             </span>
                                           </div>
-                                          <FormControl>
+                                          <AppFormControl>
                                             <input
                                               type="range"
                                               min={stepsRange.min}
@@ -762,26 +760,26 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               }
                                               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
                                             />
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
                                   {showGuidanceScale ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="guidanceScale"
                                       render={({ field }) => (
-                                        <FormItem className="flex flex-col gap-2">
+                                        <AppFormItem className="flex flex-col gap-2">
                                           <div className="flex items-center justify-between">
-                                            <FormLabel className="text-xs font-bold text-gray-500">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
                                               {tLabels("guidanceScale")}
-                                            </FormLabel>
+                                            </AppFormLabel>
                                             <span className="text-sm font-bold text-white">
                                               {guidanceScale}
                                             </span>
                                           </div>
-                                          <FormControl>
+                                          <AppFormControl>
                                             <input
                                               type="range"
                                               min={guidanceRange.min}
@@ -795,23 +793,23 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               }
                                               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
                                             />
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
                                   {showPromptUpsampling ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="promptUpsampling"
                                       render={({ field }) => {
                                         const isEnabled = Boolean(field.value);
                                         return (
-                                          <FormItem className="flex items-center justify-between gap-3">
-                                            <FormLabel className="text-xs font-bold text-gray-500">
+                                          <AppFormItem className="flex items-center justify-between gap-3">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
                                               {tLabels("promptUpsampling")}
-                                            </FormLabel>
-                                            <FormControl>
+                                            </AppFormLabel>
+                                            <AppFormControl>
                                               <AppButton
                                                 type="button"
                                                 variant={
@@ -833,24 +831,24 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                   ? tLabels("enabled")
                                                   : tLabels("disabled")}
                                               </AppButton>
-                                            </FormControl>
-                                          </FormItem>
+                                            </AppFormControl>
+                                          </AppFormItem>
                                         );
                                       }}
                                     />
                                   ) : null}
                                   {showSeed ? (
-                                    <FormField
+                                    <AppFormControllerField
                                       control={form.control}
                                       name="seed"
                                       render={({ field }) => (
-                                        <FormItem className="flex flex-col gap-2">
-                                          <FormLabel className="text-xs font-bold text-gray-500">
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
                                             {tLabels("seed")}
-                                          </FormLabel>
-                                          <FormControl>
+                                          </AppFormLabel>
+                                          <AppFormControl>
                                             <div className="flex items-center gap-2">
-                                              <Input
+                                              <AppInput
                                                 className="h-11 border-white/10 bg-black/30 text-white placeholder:text-gray-600"
                                                 placeholder={tImage("seedPlaceholder")}
                                                 {...field}
@@ -866,8 +864,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 <Dice5 className="h-4 w-4" />
                                               </AppButton>
                                             </div>
-                                          </FormControl>
-                                        </FormItem>
+                                          </AppFormControl>
+                                        </AppFormItem>
                                       )}
                                     />
                                   ) : null}
@@ -908,8 +906,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         className="hidden"
                         onChange={handleImageSelection}
                       />
-                      <FormMessage className="text-xs text-red-400" />
-                    </FormItem>
+                      <AppFormMessage className="text-xs text-red-400" />
+                    </AppFormItem>
                   )}
                 />
               </div>
@@ -925,6 +923,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         actionLabel={tLoginGate("action")}
         cancelLabel={tLoginGate("cancel")}
       />
-    </Form>
+    </AppForm>
   );
 }

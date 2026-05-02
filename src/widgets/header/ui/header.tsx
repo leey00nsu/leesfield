@@ -18,18 +18,21 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
+import {
+  AppAvatar,
+  AppAvatarFallback,
+  AppAvatarImage,
+} from "@/shared/ui/app-avatar";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/ui/dropdown-menu";
+  AppDropdownMenu,
+  AppDropdownMenuContent,
+  AppDropdownMenuItem,
+  AppDropdownMenuLabel,
+  AppDropdownMenuSeparator,
+  AppDropdownMenuTrigger,
+} from "@/shared/ui/app-dropdown-menu";
 import { LanguageSwitcher } from "@/shared/ui/language-switcher";
 
 type HeaderProps = {
@@ -134,17 +137,18 @@ export function Header({
           <Link
             key={item.href}
             href={item.href}
+            aria-label={tNav(item.key)}
             className="text-sm font-medium text-white/72 transition-colors hover:text-white"
           >
-            {tNav(item.key)}
+            <span className="hidden xl:inline">{tNav(item.key)}</span>
           </Link>
         ))}
       </nav>
 
       <div className="flex items-center gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
+        <AppDropdownMenu>
+          <AppDropdownMenuTrigger asChild>
+            <AppButton
               type="button"
               variant="ghost"
               size="icon"
@@ -152,23 +156,23 @@ export function Header({
               aria-label={tHeader("menu")}
             >
               <Menu className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
+            </AppButton>
+          </AppDropdownMenuTrigger>
+          <AppDropdownMenuContent
             align="start"
             className="w-64 border-white/10 bg-background-dark text-white"
           >
-            <DropdownMenuLabel className="font-display text-white">
+            <AppDropdownMenuLabel className="font-display text-white">
               {tBrand("name")}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-white/10" />
+            </AppDropdownMenuLabel>
+            <AppDropdownMenuSeparator className="bg-white/10" />
             {isAuthenticated ? (
               <>
                 {dashboardNavigation.map((item) => {
                   const Icon = headerIcons[item.href] ?? ImageIcon;
 
                   return (
-                    <DropdownMenuItem key={item.href} asChild>
+                    <AppDropdownMenuItem key={item.href} asChild>
                       <Link
                         href={item.href}
                         className="flex items-center gap-3 text-sm text-gray-200"
@@ -176,11 +180,11 @@ export function Header({
                         <Icon className="h-4 w-4 text-primary" />
                         {tNav(item.key)}
                       </Link>
-                    </DropdownMenuItem>
+                    </AppDropdownMenuItem>
                   );
                 })}
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem asChild>
+                <AppDropdownMenuSeparator className="bg-white/10" />
+                <AppDropdownMenuItem asChild>
                   <Link
                     href="/profile"
                     className="flex items-center gap-3 text-sm text-gray-200"
@@ -188,23 +192,23 @@ export function Header({
                     <User className="h-4 w-4 text-primary" />
                     {tHeader("profile")}
                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem asChild>
+                </AppDropdownMenuItem>
+                <AppDropdownMenuSeparator className="bg-white/10" />
+                <AppDropdownMenuItem asChild>
                   <form action={logoutAction} className="w-full">
-                    <Button
+                    <AppButton
                       type="submit"
                       variant="ghost"
                       className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                     >
                       <LogOut className="h-4 w-4" />
                       {tHeader("logout")}
-                    </Button>
+                    </AppButton>
                   </form>
-                </DropdownMenuItem>
+                </AppDropdownMenuItem>
               </>
             ) : (
-              <DropdownMenuItem asChild>
+              <AppDropdownMenuItem asChild>
                 <Link
                   href="/login"
                   className="flex items-center gap-3 text-sm text-gray-200"
@@ -212,56 +216,56 @@ export function Header({
                   <LogIn className="h-4 w-4 text-primary" />
                   {tHeader("login")}
                 </Link>
-              </DropdownMenuItem>
+              </AppDropdownMenuItem>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </AppDropdownMenuContent>
+        </AppDropdownMenu>
         <LanguageSwitcher />
         {isAuthenticated ? (
           <Link href="/profile" className="flex items-center">
-            <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
+            <AppAvatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
               {userAvatarUrl ? (
-                <AvatarImage
+                <AppAvatarImage
                   src={userAvatarUrl}
                   alt={userEmail ?? tCommonLabels("user")}
                 />
               ) : null}
-              <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
+              <AppAvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
                 {initials || <User className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
+              </AppAvatarFallback>
+            </AppAvatar>
           </Link>
         ) : (
           <Link href="/login" className="flex items-center">
-            <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
-              <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
+            <AppAvatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
+              <AppAvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
                 <User className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
+              </AppAvatarFallback>
+            </AppAvatar>
           </Link>
         )}
         {isAuthenticated ? (
           <form action={logoutAction} className="hidden lg:flex">
-            <Button
+            <AppButton
               type="submit"
-              variant="outline"
+              variant="surface"
               className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
             >
               <LogOut className="h-4 w-4 text-primary" />
               {tHeader("logout")}
-            </Button>
+            </AppButton>
           </form>
         ) : (
-          <Button
+          <AppButton
             asChild
-            variant="outline"
+            variant="surface"
             className="hidden h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary lg:flex"
           >
             <Link href="/login">
               <LogIn className="h-4 w-4 text-primary" />
               {tHeader("login")}
             </Link>
-          </Button>
+          </AppButton>
         )}
       </div>
     </header>

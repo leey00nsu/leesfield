@@ -1,6 +1,4 @@
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
-import { Textarea } from "@/shared/ui/textarea";
+import { AppInput, AppLabel, AppTextarea } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
 
 export interface ProfileFormValues {
@@ -49,20 +47,20 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
       <div className="p-8">
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
-            <Label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
+            <AppLabel className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
               {tForm("firstName")}
-            </Label>
-            <Input
+            </AppLabel>
+            <AppInput
               defaultValue={values.firstName}
               placeholder={resolvedPlaceholders.firstName}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
             />
           </div>
           <div>
-            <Label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
+            <AppLabel className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
               {tForm("lastName")}
-            </Label>
-            <Input
+            </AppLabel>
+            <AppInput
               defaultValue={values.lastName}
               placeholder={resolvedPlaceholders.lastName}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
@@ -71,10 +69,10 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
         </div>
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
-            <Label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
+            <AppLabel className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
               {tForm("email")}
-            </Label>
-            <Input
+            </AppLabel>
+            <AppInput
               type="email"
               defaultValue={values.email}
               placeholder={resolvedPlaceholders.email}
@@ -82,10 +80,10 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
             />
           </div>
           <div>
-            <Label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
+            <AppLabel className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
               {tForm("username")}
-            </Label>
-            <Input
+            </AppLabel>
+            <AppInput
               defaultValue={values.username}
               placeholder={resolvedPlaceholders.username}
               className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
@@ -93,10 +91,10 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
           </div>
         </div>
         <div>
-          <Label className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
+          <AppLabel className="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-500">
             {tForm("bio")}
-          </Label>
-          <Textarea
+          </AppLabel>
+          <AppTextarea
             rows={4}
             defaultValue={values.bio}
             placeholder={resolvedPlaceholders.bio}

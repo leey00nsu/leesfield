@@ -31,22 +31,21 @@ import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popov
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/shared/ui/form";
-import { Input } from "@/shared/ui/input";
+  AppForm,
+  AppFormControl,
+  AppFormControllerField,
+  AppFormItem,
+  AppFormLabel,
+  AppFormMessage,
+} from "@/shared/ui/app-form";
+import { AppInput, AppTextarea } from "@/shared/ui/app-form-control";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-import { Textarea } from "@/shared/ui/textarea";
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+  AppSelectValue,
+} from "@/shared/ui/app-select";
 import { useTranslations } from "next-intl";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import { cn } from "@/shared/lib/utils";
@@ -524,16 +523,16 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
     if (key === "inputAudio") {
       return (
-        <FormField
+        <AppFormControllerField
           key={`${activeModel}-${key}`}
           control={form.control}
           name={key}
           render={() => (
-            <FormItem className="flex flex-col gap-3">
-              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            <AppFormItem className="flex flex-col gap-3">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                 {label}
-              </FormLabel>
-              <FormControl>
+              </AppFormLabel>
+              <AppFormControl>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -542,7 +541,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   onChange={handleInputAudioSelection}
                   className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
                 />
-              </FormControl>
+              </AppFormControl>
               {inputAudio ? (
                 <div className="flex flex-col gap-2">
                   <audio
@@ -561,8 +560,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   </AppButton>
                 </div>
               ) : null}
-              <FormMessage className="text-xs text-red-400" />
-            </FormItem>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
           )}
         />
       );
@@ -571,12 +570,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     if (config.ui === "range") {
       const range = getRuntimeAudioParamRange(activeRuntimeModel, key);
       return (
-        <FormField
+        <AppFormControllerField
           key={`${activeModel}-${key}`}
           control={form.control}
           name={key}
           render={({ field }) => (
-            <FormItem className="flex flex-col gap-3">
+            <AppFormItem className="flex flex-col gap-3">
               {(() => {
                 const effectiveValue =
                   typeof field.value === "number"
@@ -587,14 +586,14 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 return (
                   <>
               <div className="flex items-center justify-between">
-                <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                   {label}
-                </FormLabel>
+                </AppFormLabel>
                 <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
                   {effectiveValue}
                 </span>
               </div>
-              <FormControl>
+              <AppFormControl>
                 <input
                   type="range"
                   min={range.min}
@@ -604,12 +603,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   onChange={(event) => field.onChange(Number(event.target.value))}
                   className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
                 />
-              </FormControl>
-              <FormMessage className="text-xs text-red-400" />
+              </AppFormControl>
+              <AppFormMessage className="text-xs text-red-400" />
                   </>
                 );
               })()}
-            </FormItem>
+            </AppFormItem>
           )}
         />
       );
@@ -618,16 +617,16 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     if (config.ui === "select") {
       const options = Array.isArray(config.options) ? config.options : [];
       return (
-        <FormField
+        <AppFormControllerField
           key={`${activeModel}-${key}`}
           control={form.control}
           name={key}
           render={({ field }) => (
-            <FormItem className="flex flex-col gap-2">
-              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            <AppFormItem className="flex flex-col gap-2">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                 {label}
-              </FormLabel>
-              <Select
+              </AppFormLabel>
+              <AppSelectRoot
                 value={
                   field.value
                     ? String(field.value)
@@ -637,24 +636,24 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 }
                 onValueChange={(nextValue) => field.onChange(nextValue)}
               >
-                <FormControl>
-                  <SelectTrigger className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white">
-                    <SelectValue placeholder={label} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
+                <AppFormControl>
+                  <AppSelectTrigger className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white">
+                    <AppSelectValue placeholder={label} />
+                  </AppSelectTrigger>
+                </AppFormControl>
+                <AppSelectContent>
                   {options.map((option) => (
-                    <SelectItem
+                    <AppSelectItem
                       key={String(getRuntimeParameterOptionValue(option))}
                       value={String(getRuntimeParameterOptionValue(option))}
                     >
                       {getRuntimeParameterOptionLabel(option)}
-                    </SelectItem>
+                    </AppSelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              <FormMessage className="text-xs text-red-400" />
-            </FormItem>
+                </AppSelectContent>
+              </AppSelectRoot>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
           )}
         />
       );
@@ -662,7 +661,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
     if (config.ui === "toggle") {
       return (
-        <FormField
+        <AppFormControllerField
           key={`${activeModel}-${key}`}
           control={form.control}
           name={key}
@@ -672,11 +671,11 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 ? field.value
                 : Boolean(getResolvedDefaultValue(key));
             return (
-              <FormItem className="flex items-center justify-between gap-4">
-                <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormItem className="flex items-center justify-between gap-4">
+                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                   {label}
-                </FormLabel>
-                <FormControl>
+                </AppFormLabel>
+                <AppFormControl>
                   <AppButton
                     type="button"
                     variant={isEnabled ? "primary" : "surface"}
@@ -690,8 +689,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   >
                     {isEnabled ? "On" : "Off"}
                   </AppButton>
-                </FormControl>
-              </FormItem>
+                </AppFormControl>
+              </AppFormItem>
             );
           }}
         />
@@ -700,57 +699,57 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
     if (config.ui === "textarea") {
       return (
-        <FormField
+        <AppFormControllerField
           key={`${activeModel}-${key}`}
           control={form.control}
           name={key}
           render={({ field }) => (
-            <FormItem className="flex flex-col gap-2">
-              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            <AppFormItem className="flex flex-col gap-2">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                 {label}
-              </FormLabel>
-              <FormControl>
-                <Textarea
+              </AppFormLabel>
+              <AppFormControl>
+                <AppTextarea
                   {...field}
                   value={typeof field.value === "string" ? field.value : ""}
                   placeholder={getFieldTextareaPlaceholder()}
                   className="min-h-[96px] rounded-xl border-white/10 bg-black/40 px-4 py-3 text-sm text-white"
                 />
-              </FormControl>
-              <FormMessage className="text-xs text-red-400" />
-            </FormItem>
+              </AppFormControl>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
           )}
         />
       );
     }
 
     return (
-      <FormField
+      <AppFormControllerField
         key={`${activeModel}-${key}`}
         control={form.control}
         name={key}
         render={({ field }) => (
-          <FormItem className="flex flex-col gap-2">
-            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+          <AppFormItem className="flex flex-col gap-2">
+            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
               {label}
-            </FormLabel>
-            <FormControl>
-              <Input
+            </AppFormLabel>
+            <AppFormControl>
+              <AppInput
                 {...field}
                 value={typeof field.value === "string" ? field.value : ""}
                 placeholder={getFieldInputPlaceholder()}
                 className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white"
               />
-            </FormControl>
-            <FormMessage className="text-xs text-red-400" />
-          </FormItem>
+            </AppFormControl>
+            <AppFormMessage className="text-xs text-red-400" />
+          </AppFormItem>
         )}
       />
     );
   };
 
   return (
-    <Form {...form}>
+    <AppForm {...form}>
       <form
         className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
@@ -833,21 +832,21 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             </div>
           ) : null}
 
-          <FormField
+          <AppFormControllerField
             control={form.control}
             name="prompt"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <AppFormItem className="flex-1">
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
                   className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                   textarea={
-                    <FormControl>
-                      <Textarea
+                    <AppFormControl>
+                      <AppTextarea
                         className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                         {...field}
                       />
-                    </FormControl>
+                    </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
                   footerLeft={
@@ -937,8 +936,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     </>
                   }
                 />
-                <FormMessage className="text-xs text-red-400" />
-              </FormItem>
+                <AppFormMessage className="text-xs text-red-400" />
+              </AppFormItem>
             )}
           />
         </div>
@@ -951,6 +950,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
         actionLabel={tLoginGate("action")}
         cancelLabel={tLoginGate("cancel")}
       />
-    </Form>
+    </AppForm>
   );
 }

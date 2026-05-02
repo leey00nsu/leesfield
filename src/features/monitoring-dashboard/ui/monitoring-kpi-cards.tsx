@@ -17,7 +17,7 @@ import type {
 } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatDuration, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 import { AppCard } from "@/shared/ui/app-card";
-import { ChartContainer } from "@/shared/ui/chart";
+import { AppChartContainer } from "@/shared/ui/app-chart";
 
 interface MonitoringKpiCardsProps {
   data: MonitoringOverview | null;
@@ -44,7 +44,7 @@ function SparklineChart({
 
   if (variant === "bars") {
     return (
-      <ChartContainer className="border-0 bg-transparent p-0" height={54}>
+      <AppChartContainer className="border-0 bg-transparent p-0" height={54}>
         <BarChart data={normalized} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
           <Bar
             dataKey="value"
@@ -54,12 +54,12 @@ function SparklineChart({
             isAnimationActive={false}
           />
         </BarChart>
-      </ChartContainer>
+      </AppChartContainer>
     );
   }
 
   return (
-    <ChartContainer className="border-0 bg-transparent p-0" height={54}>
+    <AppChartContainer className="border-0 bg-transparent p-0" height={54}>
       <AreaChart data={normalized} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
         <Area
           type="monotone"
@@ -72,7 +72,7 @@ function SparklineChart({
           isAnimationActive={false}
         />
       </AreaChart>
-    </ChartContainer>
+    </AppChartContainer>
   );
 }
 
@@ -83,7 +83,7 @@ function DonutChart({ value, label }: { value: number; label: string }) {
     { name: "remaining", value: Math.max(0, 100 - safeValue) },
   ];
   return (
-    <ChartContainer className="h-24 w-24 border-0 bg-transparent p-0" height={96}>
+    <AppChartContainer className="h-24 w-24 border-0 bg-transparent p-0" height={96}>
       <PieChart>
         <Pie
           data={data}
@@ -107,7 +107,7 @@ function DonutChart({ value, label }: { value: number; label: string }) {
           />
         </Pie>
       </PieChart>
-    </ChartContainer>
+    </AppChartContainer>
   );
 }
 

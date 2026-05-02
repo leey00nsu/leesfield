@@ -8,7 +8,7 @@ import {
   PageHeader,
   PageHeaderSearchInput,
 } from "@/shared/ui/page-header";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 
@@ -67,7 +67,7 @@ export function ApiKeyManagementWidget() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
+                <AppButton
                   type="button"
                   onClick={handleCopyPendingKey}
                   variant="ghost"
@@ -76,15 +76,15 @@ export function ApiKeyManagementWidget() {
                   {pending.pendingCopied
                     ? t("pending.copied")
                     : t("pending.copy")}
-                </Button>
-                <Button
+                </AppButton>
+                <AppButton
                   type="button"
                   onClick={pending.dismiss}
                   variant="ghost"
                   className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
                 >
                   {tCommonActions("dismiss")}
-                </Button>
+                </AppButton>
               </div>
             </div>
             <p className="mt-3 text-xs text-primary/70">

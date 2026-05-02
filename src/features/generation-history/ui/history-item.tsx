@@ -15,8 +15,8 @@ import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
+import { AppBadge } from "@/shared/ui/app-badge";
 import { cn } from "@/shared/lib/utils";
-import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 const statusConfig: Record<
@@ -127,11 +127,11 @@ export function HistoryItem({
         <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-          <Badge className="gap-1.5 rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold uppercase text-white backdrop-blur">
+          <AppBadge className="gap-1.5 rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold uppercase text-white backdrop-blur">
             <TypeIcon className="h-3 w-3" />
             {tTypes(item.type)}
-          </Badge>
-          <Badge
+          </AppBadge>
+          <AppBadge
             className={cn(
               "gap-1.5 rounded-full px-2 py-1 text-[10px] font-black uppercase",
               status.className,
@@ -139,18 +139,18 @@ export function HistoryItem({
           >
             <StatusIcon className={cn("h-3 w-3", status.spin && "animate-spin")} />
             {tStatuses(item.status)}
-          </Badge>
+          </AppBadge>
         </div>
 
         <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
           {item.model ? (
-            <Badge className="max-w-full truncate rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
+            <AppBadge className="max-w-full truncate rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
               {item.model}
-            </Badge>
+            </AppBadge>
           ) : null}
-          <Badge className="rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
+          <AppBadge className="rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
             {formattedDate}
-          </Badge>
+          </AppBadge>
         </div>
 
         {item.status === "failed" ? (

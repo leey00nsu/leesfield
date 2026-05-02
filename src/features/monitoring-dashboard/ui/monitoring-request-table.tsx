@@ -15,12 +15,12 @@ import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/u
 import { AppButton } from "@/shared/ui/app-button";
 import { AppCard } from "@/shared/ui/app-card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+  AppSelectValue,
+} from "@/shared/ui/app-select";
 
 interface MonitoringRequestTableProps {
   items: MonitoringRequestItem[];
@@ -296,18 +296,18 @@ export function MonitoringRequestTable({
                 <span className="font-mono uppercase tracking-widest">
                   {t("requests.pagination.rowsPerPage")}
                 </span>
-                <Select value={String(limit)} onValueChange={handleLimitChange}>
-                  <SelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+                <AppSelectRoot value={String(limit)} onValueChange={handleLimitChange}>
+                  <AppSelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
+                    <AppSelectValue />
+                  </AppSelectTrigger>
+                  <AppSelectContent>
                     {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={String(option)}>
+                      <AppSelectItem key={option} value={String(option)}>
                         {option}
-                      </SelectItem>
+                      </AppSelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </AppSelectContent>
+                </AppSelectRoot>
               </div>
               <div className="flex items-center gap-2">
                 <AppButton

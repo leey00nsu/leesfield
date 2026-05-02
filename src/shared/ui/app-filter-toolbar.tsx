@@ -4,13 +4,13 @@ import type { ComponentProps, ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { Input } from "@/shared/ui/input";
+import { AppInput } from "@/shared/ui/app-form-control";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/shared/ui/select";
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+} from "@/shared/ui/app-select";
 
 type AppFilterToolbarProps = ComponentProps<"div">;
 
@@ -84,7 +84,7 @@ export function AppFilterToggle({
   );
 }
 
-type AppSearchFieldProps = Omit<ComponentProps<typeof Input>, "size"> & {
+type AppSearchFieldProps = Omit<ComponentProps<typeof AppInput>, "size"> & {
   containerClassName?: string;
 };
 
@@ -102,7 +102,7 @@ export function AppSearchField({
       )}
     >
       <Search className="h-5 w-5 shrink-0 text-white/38" />
-      <Input
+      <AppInput
         className={cn(
           "h-auto border-0 bg-transparent px-0 py-0 text-sm font-medium text-white shadow-none outline-none placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0",
           className,
@@ -136,8 +136,8 @@ export function AppSortSelect({
   const selectedLabel = options.find((option) => option.value === value)?.label;
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger
+    <AppSelectRoot value={value} onValueChange={onValueChange}>
+      <AppSelectTrigger
         data-app-sort-select=""
         aria-label={ariaLabel}
         className={cn(
@@ -148,14 +148,14 @@ export function AppSortSelect({
         <span aria-hidden="true" className="min-w-0 flex-1 truncate text-left text-white/86">
           {selectedLabel}
         </span>
-      </SelectTrigger>
-      <SelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+      </AppSelectTrigger>
+      <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+          <AppSelectItem key={option.value} value={option.value}>
             {option.label}
-          </SelectItem>
+          </AppSelectItem>
         ))}
-      </SelectContent>
-    </Select>
+      </AppSelectContent>
+    </AppSelectRoot>
   );
 }

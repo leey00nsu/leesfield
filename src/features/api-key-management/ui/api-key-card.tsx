@@ -1,7 +1,7 @@
 import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
-import { Badge } from "@/shared/ui/badge";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppButton } from "@/shared/ui/app-button";
 import { useTranslations } from "next-intl";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
@@ -61,13 +61,13 @@ export function ApiKeyCard({
             <h3 className="text-lg font-bold tracking-tight text-white">
               {name}
             </h3>
-            <Badge
+            <AppBadge
               variant="muted"
               className={cn("gap-1 bg-white/5", config.text)}
             >
               <StatusIcon className="h-3 w-3" />
               {t(`status.${status}`)}
-            </Badge>
+            </AppBadge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <code className="rounded border border-white/5 bg-black/50 px-2 py-1 text-xs font-mono text-gray-400">
@@ -96,7 +96,7 @@ export function ApiKeyCard({
           </span>
         </div>
         <div className="flex items-center gap-2 md:ml-auto">
-          <Button
+          <AppButton
             type="button"
             onClick={onEdit}
             disabled={!canEdit}
@@ -110,7 +110,7 @@ export function ApiKeyCard({
             )}
           >
             {tCommonActions("edit")}
-          </Button>
+          </AppButton>
         </div>
       </div>
     </article>

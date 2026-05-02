@@ -12,7 +12,10 @@ import {
 import type { MonitoringStatsRow } from "@/features/monitoring-dashboard/model/types";
 import { formatCompactNumber, formatPercent } from "@/features/monitoring-dashboard/lib/format";
 import { AppCard } from "@/shared/ui/app-card";
-import { ChartContainer, ChartTooltipContent } from "@/shared/ui/chart";
+import {
+  AppChartContainer,
+  AppChartTooltipContent,
+} from "@/shared/ui/app-chart";
 
 interface MonitoringStatsChartProps {
   data: MonitoringStatsRow[];
@@ -44,7 +47,7 @@ function ChartTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0].payload;
   return (
-    <ChartTooltipContent
+    <AppChartTooltipContent
       label={label ? formatDayLabel(label) : "-"}
       rows={[
         {
@@ -124,7 +127,7 @@ export function MonitoringStatsChart({
             {t("stats.empty")}
           </div>
         ) : (
-          <ChartContainer
+          <AppChartContainer
             role="img"
             aria-label={t("stats.aria")}
             className="border-white/8 bg-black/16"
@@ -185,7 +188,7 @@ export function MonitoringStatsChart({
                   isAnimationActive={false}
                 />
               </AreaChart>
-          </ChartContainer>
+          </AppChartContainer>
         )}
       </div>
 

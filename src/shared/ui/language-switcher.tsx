@@ -5,15 +5,15 @@ import { Check, Globe } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { localeCookie, locales } from "@/shared/i18n/config";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/ui/dropdown-menu";
+  AppDropdownMenu,
+  AppDropdownMenuContent,
+  AppDropdownMenuItem,
+  AppDropdownMenuLabel,
+  AppDropdownMenuSeparator,
+  AppDropdownMenuTrigger,
+} from "@/shared/ui/app-dropdown-menu";
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -38,9 +38,9 @@ export function LanguageSwitcher() {
   }, [locale, pathname, pendingLocale, router]);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
+    <AppDropdownMenu>
+      <AppDropdownMenuTrigger asChild>
+        <AppButton
           type="button"
           variant="ghost"
           size="icon"
@@ -48,18 +48,18 @@ export function LanguageSwitcher() {
           aria-label={t("language")}
         >
           <Globe className="h-5 w-5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+        </AppButton>
+      </AppDropdownMenuTrigger>
+      <AppDropdownMenuContent
         align="end"
         className="w-44 border-white/10 bg-background-dark text-white"
       >
-        <DropdownMenuLabel className="font-display text-white">
+        <AppDropdownMenuLabel className="font-display text-white">
           {t("language")}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-white/10" />
+        </AppDropdownMenuLabel>
+        <AppDropdownMenuSeparator className="bg-white/10" />
         {locales.map((option) => (
-          <DropdownMenuItem
+          <AppDropdownMenuItem
             key={option}
             onClick={() => handleSelect(option)}
             className="flex items-center justify-between text-sm text-gray-200"
@@ -68,9 +68,9 @@ export function LanguageSwitcher() {
             {locale === option ? (
               <Check className="h-4 w-4 text-primary" />
             ) : null}
-          </DropdownMenuItem>
+          </AppDropdownMenuItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </AppDropdownMenuContent>
+    </AppDropdownMenu>
   );
 }

@@ -5,7 +5,7 @@ import {
   DashboardFilterToggle,
 } from "@/shared/ui/dashboard-filter-bar";
 import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
-import { Input } from "@/shared/ui/input";
+import { AppInput } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
 
 type ApiKeyToolbarProps = {
@@ -56,7 +56,7 @@ export function ApiKeyToolbar({
         </DashboardFilterToggle>
       </DashboardFilterBar>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
+        <AppInput
           type="text"
           value={newKeyLabel}
           onChange={(event) => onNewKeyLabelChange(event.target.value)}

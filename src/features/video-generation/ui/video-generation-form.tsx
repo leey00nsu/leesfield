@@ -27,7 +27,6 @@ import {
 } from "@/features/video-generation/model/video-generation-schema";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
 import { AppButton } from "@/shared/ui/app-button";
-import { Button } from "@/shared/ui/button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
@@ -35,14 +34,14 @@ import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popov
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/shared/ui/form";
-import { Textarea } from "@/shared/ui/textarea";
+  AppForm,
+  AppFormControl,
+  AppFormControllerField,
+  AppFormItem,
+  AppFormLabel,
+  AppFormMessage,
+} from "@/shared/ui/app-form";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 import { cn } from "@/shared/lib/utils";
 import { useTranslations } from "next-intl";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
@@ -300,7 +299,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   };
 
   return (
-    <Form {...form}>
+    <AppForm {...form}>
       <form
         className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
@@ -364,21 +363,21 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
             </div>
           ) : null}
 
-          <FormField
+          <AppFormControllerField
             control={form.control}
             name="prompt"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <AppFormItem className="flex-1">
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
                   className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                   textarea={
-                    <FormControl>
-                      <Textarea
+                    <AppFormControl>
+                      <AppTextarea
                         className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
                         {...field}
                       />
-                    </FormControl>
+                    </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
                   attachments={
@@ -391,7 +390,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                             alt={tVideo("initImageAlt")}
                             className="h-full w-full object-cover"
                           />
-                          <Button
+                          <AppButton
                             type="button"
                             onClick={handleRemoveInitImage}
                             variant="ghost"
@@ -400,7 +399,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                             title={tActions("remove")}
                           >
                             <span className="text-xs">×</span>
-                          </Button>
+                          </AppButton>
                         </div>
                       </div>
                     ) : null
@@ -468,20 +467,20 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                           summary={`${durationSec}s`}
                           icon={<Clock3 className="h-4 w-4" />}
                         >
-                          <FormField
+                          <AppFormControllerField
                             control={form.control}
                             name="durationSec"
                             render={({ field: durationField }) => (
-                              <FormItem className="flex flex-col gap-3">
+                              <AppFormItem className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between">
-                                  <FormLabel className="text-xs font-bold text-gray-500">
+                                  <AppFormLabel className="text-xs font-bold text-gray-500">
                                     {tLabels("durationSec")}
-                                  </FormLabel>
+                                  </AppFormLabel>
                                   <span className="text-sm font-bold text-white">
                                     {durationSec}s
                                   </span>
                                 </div>
-                                <FormControl>
+                                <AppFormControl>
                                   <input
                                     type="range"
                                     min={durationRange.min}
@@ -495,12 +494,12 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                                     }
                                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
                                   />
-                                </FormControl>
+                                </AppFormControl>
                                 <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
                                   <span>{durationRange.min}s</span>
                                   <span>{durationRange.max}s</span>
                                 </div>
-                              </FormItem>
+                              </AppFormItem>
                             )}
                           />
                         </GenerationSettingsPopover>
@@ -550,8 +549,8 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   className="hidden"
                   onChange={handleImageSelection}
                 />
-                <FormMessage className="text-xs text-red-400" />
-              </FormItem>
+                <AppFormMessage className="text-xs text-red-400" />
+              </AppFormItem>
             )}
           />
         </div>
@@ -564,6 +563,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
         actionLabel={tLoginGate("action")}
         cancelLabel={tLoginGate("cancel")}
       />
-    </Form>
+    </AppForm>
   );
 }

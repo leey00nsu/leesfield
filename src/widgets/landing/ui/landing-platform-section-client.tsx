@@ -27,9 +27,9 @@ import { AppButton } from "@/shared/ui/app-button";
 import { AppCard } from "@/shared/ui/app-card";
 import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 import {
-  ChartContainer,
-  ChartTooltipContent,
-} from "@/shared/ui/chart";
+  AppChartContainer,
+  AppChartTooltipContent,
+} from "@/shared/ui/app-chart";
 
 export type LandingPlatformModel = {
   key: string;
@@ -231,7 +231,7 @@ function MonitoringCard({
           </p>
         </div>
       </div>
-      <ChartContainer
+      <AppChartContainer
         role="img"
         aria-label="Monitoring requests trend"
         className="mt-6"
@@ -260,7 +260,7 @@ function MonitoringCard({
               if (!active || !payload?.length) return null;
               const datum = payload[0].payload as LandingPlatformMonitoringData["trend"][number];
               return (
-                <ChartTooltipContent
+                <AppChartTooltipContent
                   label={String(label)}
                   rows={[
                     {
@@ -293,7 +293,7 @@ function MonitoringCard({
             dot={false}
           />
         </AreaChart>
-      </ChartContainer>
+      </AppChartContainer>
     </AppCard>
   );
 }
@@ -309,7 +309,7 @@ function UsageCard({
     <AppCard variant="editorial" className="rounded-[1rem] p-5">
       <p className="font-medium text-white">Usage by model</p>
       <div className="mt-6 grid items-center gap-5 sm:grid-cols-[9rem_1fr] md:grid-cols-1 xl:grid-cols-[9rem_1fr]">
-        <ChartContainer
+        <AppChartContainer
           role="img"
           aria-label="Usage by model distribution"
           className="mx-auto w-36 border-0 bg-transparent p-0"
@@ -342,7 +342,7 @@ function UsageCard({
                 if (!active || !payload?.length) return null;
                 const datum = payload[0].payload as LandingPlatformUsageItem;
                 return (
-                  <ChartTooltipContent
+                  <AppChartTooltipContent
                     rows={[
                       {
                         label: datum.name,
@@ -355,7 +355,7 @@ function UsageCard({
               }}
             />
           </PieChart>
-        </ChartContainer>
+        </AppChartContainer>
         <div className="space-y-3 text-sm text-white/62">
           {usageData.length === 0 ? (
             <p>No requests</p>

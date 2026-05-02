@@ -23,6 +23,33 @@ const legacyClassNames = [
   ["lf", "outline", "map"].join("-"),
 ];
 const rawCardModule = ["@", "shared", "ui", "card"].join("/");
+const rawUiModules = [
+  "avatar",
+  "badge",
+  "button",
+  "chart",
+  "checkbox",
+  "dialog",
+  "dropdown-menu",
+  "form",
+  "input",
+  "label",
+  "popover",
+  "select",
+  "textarea",
+];
+const rawUiImportPattern = new RegExp(
+  `from\\s+["']@/shared/ui/(${rawUiModules.join("|")})["']`,
+);
+
+function isAllowedRawUiImportFile(relativePath: string) {
+  if (!relativePath.startsWith("src/shared/ui/")) return false;
+  const fileName = relativePath.split("/").at(-1) ?? "";
+
+  if (fileName.startsWith("app-")) return true;
+  if (["alert-dialog.tsx", "calendar.tsx"].includes(fileName)) return true;
+  return rawUiModules.some((moduleName) => fileName === `${moduleName}.tsx`);
+}
 
 describe("app-* design wrapper boundaries", () => {
   it("keeps project editorial styles out of legacy global utility classes", () => {
@@ -57,6 +84,18 @@ describe("app-* design wrapper boundaries", () => {
 
       const contents = readFileSync(filePath, "utf8");
       return contents.includes(rawCardModule) ? [relativePath] : [];
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps base shadcn primitives behind app-* wrappers outside the base layer", () => {
+    const offenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      if (isAllowedRawUiImportFile(relativePath)) return [];
+
+      const contents = readFileSync(filePath, "utf8");
+      return rawUiImportPattern.test(contents) ? [relativePath] : [];
     });
 
     expect(offenders).toEqual([]);
