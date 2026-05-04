@@ -204,7 +204,7 @@ export function MonitoringRequestTable({
   });
 
   return (
-    <AppCard variant="editorial-flat" className="rounded-[1.1rem] p-6">
+    <AppCard variant="editorial-flat" radius="lg" padding="lg">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
               <div className="text-xl font-semibold text-white">
@@ -297,7 +297,10 @@ export function MonitoringRequestTable({
                   {t("requests.pagination.rowsPerPage")}
                 </span>
                 <AppSelectRoot value={String(limit)} onValueChange={handleLimitChange}>
-                  <AppSelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
+                  <AppSelectTrigger
+                    triggerSize="sm"
+                    className="w-[92px] text-xs"
+                  >
                     <AppSelectValue />
                   </AppSelectTrigger>
                   <AppSelectContent>

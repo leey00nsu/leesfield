@@ -127,7 +127,7 @@ export function HistoryItem({
         <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-          <AppBadge className="gap-1.5 rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold uppercase text-white backdrop-blur">
+          <AppBadge variant="overlay" className="gap-1.5 backdrop-blur">
             <TypeIcon className="h-3 w-3" />
             {tTypes(item.type)}
           </AppBadge>
@@ -144,11 +144,11 @@ export function HistoryItem({
 
         <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
           {item.model ? (
-            <AppBadge className="max-w-full truncate rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
+            <AppBadge variant="overlay" className="max-w-full truncate normal-case tracking-normal backdrop-blur">
               {item.model}
             </AppBadge>
           ) : null}
-          <AppBadge className="rounded-full border-white/15 bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
+          <AppBadge variant="overlay" className="normal-case tracking-normal backdrop-blur">
             {formattedDate}
           </AppBadge>
         </div>

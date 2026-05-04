@@ -69,7 +69,9 @@ export function LoginForm() {
               <AppFormLabel className="sr-only">{tForm("emailLabel")}</AppFormLabel>
               <AppFormControl>
                 <AppInput
-                  className="h-14 min-w-0 rounded-xl border-white/12 bg-[#111417] px-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-primary/70"
+                  surface="auth"
+                  inputSize="lg"
+                  className="min-w-0"
                   placeholder={tForm("emailPlaceholder")}
                   autoComplete="username"
                   {...field}
@@ -89,7 +91,9 @@ export function LoginForm() {
               <AppFormControl>
                 <AppInput
                   type="password"
-                  className="h-14 min-w-0 rounded-xl border-white/12 bg-[#111417] px-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-primary/70"
+                  surface="auth"
+                  inputSize="lg"
+                  className="min-w-0"
                   placeholder={tForm("passwordPlaceholder")}
                   autoComplete="current-password"
                   {...field}
@@ -109,7 +113,9 @@ export function LoginForm() {
         <AppButton
           type="submit"
           disabled={isPending}
-          className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-[#22262c] text-base font-bold text-white shadow-none transition-colors hover:bg-[#2b3037]"
+          variant="auth"
+          size="toolbar"
+          className="mt-2 w-full rounded-xl text-base font-bold"
         >
           {isPending ? tForm("submitting") : tForm("submit")}
         </AppButton>

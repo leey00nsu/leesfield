@@ -27,7 +27,7 @@ export function SubscriptionCard() {
             <p className="text-sm font-bold text-white">{t("plan")}</p>
             <p className="text-xs text-gray-400">{t("price")}</p>
           </div>
-          <AppBadge variant="muted" className="bg-white/10 text-gray-300">
+          <AppBadge variant="default">
             {t("badge")}
           </AppBadge>
         </div>

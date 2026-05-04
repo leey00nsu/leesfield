@@ -721,7 +721,8 @@ export function ModelManagementScreen() {
       return (
         <AppCard
           variant="editorial-flat"
-          className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+          radius="lg"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
         >
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
@@ -735,7 +736,8 @@ export function ModelManagementScreen() {
       return (
         <AppCard
           variant="editorial-flat"
-          className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+          radius="lg"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
         >
           <p className="text-xs font-mono uppercase tracking-widest text-red-300">
             {loadError ?? tAdmin("errors.load")}

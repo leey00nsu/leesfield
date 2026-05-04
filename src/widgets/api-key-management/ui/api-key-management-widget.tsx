@@ -58,8 +58,9 @@ export function ApiKeyManagementWidget() {
                 <AppButton
                   type="button"
                   onClick={handleCopyPendingKey}
-                  variant="ghost"
-                  className="rounded-full border border-primary/35 px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/12 hover:text-primary"
+                  variant="primary"
+                  size="pill-sm"
+                  className="font-semibold"
                 >
                   {pending.pendingCopied
                     ? t("pending.copied")
@@ -68,8 +69,9 @@ export function ApiKeyManagementWidget() {
                 <AppButton
                   type="button"
                   onClick={pending.dismiss}
-                  variant="ghost"
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white/70 transition-colors hover:bg-white/6 hover:text-white"
+                  variant="surface"
+                  size="pill-sm"
+                  className="font-semibold"
                 >
                   {tCommonActions("dismiss")}
                 </AppButton>

@@ -221,14 +221,9 @@ export function ApiDocsEndpointsSection({
                                 <AppButton
                                   key={language}
                                   type="button"
-                                  size="sm"
-                                  variant={isActive ? "primary" : "ghost"}
-                                  className={cn(
-                                    "h-7 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider",
-                                    isActive
-                                      ? "bg-primary text-black"
-                                      : "border border-white/10 text-gray-300 hover:bg-white/5",
-                                  )}
+                                  size="pill-sm"
+                                  variant={isActive ? "primary" : "tab"}
+                                  className="font-bold uppercase tracking-wider"
                                   aria-pressed={isActive}
                                   onClick={() =>
                                     setSnippetLanguagesById((prev) => ({
@@ -244,9 +239,9 @@ export function ApiDocsEndpointsSection({
                           </div>
                           <AppButton
                             type="button"
-                            size="sm"
+                            size="pill-sm"
                             variant="surface"
-                            className="h-8 rounded-lg px-2.5 text-xs font-semibold"
+                            className="text-xs font-semibold"
                             onClick={() =>
                               handleCopySnippet(operation.id, snippet)
                             }

@@ -110,11 +110,11 @@ export function ApiKeyCard({
               aria-disabled={!canEdit}
               title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
               variant="surface"
-              size="sm"
+              size="pill-md"
               className={cn(
-                "h-10 rounded-full border-white/10 px-4 text-sm font-semibold text-white/76 hover:bg-white/6 hover:text-white",
+                "font-semibold",
                 !canEdit &&
-                  "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-white/76",
+                  "cursor-not-allowed opacity-50",
               )}
             >
               <Pencil className="h-4 w-4" />
@@ -127,9 +127,9 @@ export function ApiKeyCard({
               disabled={!canEdit}
               aria-disabled={!canEdit}
               title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
-              variant="surface"
-              size="sm"
-              className="h-10 rounded-full border-white/10 px-4 text-sm font-semibold text-white/44 hover:bg-white/6 hover:text-white"
+              variant="surface-muted"
+              size="pill-md"
+              className="font-semibold"
             >
               <Slash className="h-4 w-4" />
               {tCommonActions("edit")}

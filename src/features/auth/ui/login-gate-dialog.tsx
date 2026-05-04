@@ -4,14 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
-import { AppButton } from "@/shared/ui/app-button";
 import {
   AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
   AppDialogClose,
   AppDialogContent,
   AppDialogDescription,
   AppDialogFooter,
   AppDialogHeader,
+  AppDialogIconButton,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 
@@ -38,15 +40,13 @@ export function LoginGateDialog({
     <AppDialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent surface="media" padding="none">
         <AppDialogClose asChild>
-          <AppButton
+          <AppDialogIconButton
             type="button"
-            variant="ghost"
-            size="icon-sm"
             aria-label={cancelLabel}
-            className="absolute right-4 top-4 z-20 rounded-full bg-black/35 text-white hover:bg-white/10"
+            className="absolute right-4 top-4 z-20 rounded-full"
           >
             <X className="h-4 w-4" />
-          </AppButton>
+          </AppDialogIconButton>
         </AppDialogClose>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col justify-center p-6 sm:p-8">
@@ -72,22 +72,18 @@ export function LoginGateDialog({
             </AppDialogHeader>
             <AppDialogFooter className="mt-8 gap-2 sm:justify-start sm:gap-3">
               <AppDialogClose asChild>
-                <AppButton
+                <AppDialogCancelButton
                   type="button"
-                  variant="surface"
-                  className="h-11 rounded-xl border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-gray-300"
                 >
                   {cancelLabel}
-                </AppButton>
+                </AppDialogCancelButton>
               </AppDialogClose>
-              <AppButton
+              <AppDialogActionButton
                 asChild
                 type="button"
-                size="md"
-                className="h-11 rounded-xl px-6 text-sm shadow-none"
               >
                 <Link href={actionHref}>{actionLabel}</Link>
-              </AppButton>
+              </AppDialogActionButton>
             </AppDialogFooter>
           </div>
           <div className="relative hidden min-h-80 overflow-hidden border-l border-white/10 sm:block">

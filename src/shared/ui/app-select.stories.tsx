@@ -35,3 +35,30 @@ function AppSelectPreview() {
 }
 
 export const Default: Story = {};
+
+export const Surfaces: Story = {
+  render: () => (
+    <div className="grid w-[280px] gap-3">
+      <AppSelectRoot defaultValue="image">
+        <AppSelectTrigger>
+          <AppSelectValue />
+        </AppSelectTrigger>
+        <AppSelectContent>
+          <AppSelectItem value="image">Image</AppSelectItem>
+          <AppSelectItem value="video">Video</AppSelectItem>
+          <AppSelectItem value="audio">Audio</AppSelectItem>
+        </AppSelectContent>
+      </AppSelectRoot>
+      <AppSelectRoot defaultValue="video">
+        <AppSelectTrigger surface="toolbar">
+          <AppSelectValue />
+        </AppSelectTrigger>
+        <AppSelectContent>
+          <AppSelectItem value="image">Image</AppSelectItem>
+          <AppSelectItem value="video">Video</AppSelectItem>
+          <AppSelectItem value="audio">Audio</AppSelectItem>
+        </AppSelectContent>
+      </AppSelectRoot>
+    </div>
+  ),
+};

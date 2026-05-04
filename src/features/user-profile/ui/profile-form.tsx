@@ -54,7 +54,7 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
             <AppInput
               defaultValue={values.firstName}
               placeholder={resolvedPlaceholders.firstName}
-              className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+              surface="profile"
             />
           </div>
           <div>
@@ -64,7 +64,7 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
             <AppInput
               defaultValue={values.lastName}
               placeholder={resolvedPlaceholders.lastName}
-              className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+              surface="profile"
             />
           </div>
         </div>
@@ -77,7 +77,7 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
               type="email"
               defaultValue={values.email}
               placeholder={resolvedPlaceholders.email}
-              className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+              surface="profile"
             />
           </div>
           <div>
@@ -87,7 +87,7 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
             <AppInput
               defaultValue={values.username}
               placeholder={resolvedPlaceholders.username}
-              className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+              surface="profile"
             />
           </div>
         </div>
@@ -99,7 +99,7 @@ export function ProfileForm({ values, placeholders }: ProfileFormProps) {
             rows={4}
             defaultValue={values.bio}
             placeholder={resolvedPlaceholders.bio}
-            className="rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+            surface="profile"
           />
           <div className="mt-2 flex justify-end">
             <span className="text-[10px] font-mono text-gray-600">

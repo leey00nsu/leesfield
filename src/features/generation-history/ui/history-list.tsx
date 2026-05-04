@@ -58,7 +58,8 @@ export function HistoryList({
     return (
       <AppCard
         variant="editorial-flat"
-        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.5rem] px-6 text-center"
+        radius="xl"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Archive className="h-6 w-6 text-gray-500" />

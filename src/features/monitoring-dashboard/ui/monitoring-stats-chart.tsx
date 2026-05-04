@@ -109,7 +109,7 @@ export function MonitoringStatsChart({
   );
 
   return (
-    <AppCard variant="editorial-flat" className="rounded-[1.1rem] p-6">
+    <AppCard variant="editorial-flat" radius="lg" padding="lg">
       <div className="flex flex-col gap-2">
           <div className="text-xl font-semibold text-white">
           {t("stats.title")}

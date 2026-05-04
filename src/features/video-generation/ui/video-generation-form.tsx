@@ -374,7 +374,8 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   textarea={
                     <AppFormControl>
                       <AppTextarea
-                        className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                        surface="transparent"
+                        className="min-h-[104px]"
                         {...field}
                       />
                     </AppFormControl>

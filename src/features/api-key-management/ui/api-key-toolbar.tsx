@@ -75,14 +75,16 @@ export function ApiKeyToolbar({
           value={newKeyLabel}
           onChange={(event) => onNewKeyLabelChange(event.target.value)}
           placeholder={t("newKeyPlaceholder")}
-          className="h-14 min-w-0 rounded-[1.5rem] border-white/10 bg-black/45 px-5 font-mono text-sm text-white placeholder:text-white/38 focus-visible:ring-0 lg:w-64"
+          surface="toolbar"
+          inputSize="lg"
+          className="min-w-0 lg:w-64"
         />
         <AppButton
           type="button"
           onClick={onGenerate}
           disabled={isIssuing}
-          size="lg"
-          className="h-14 rounded-[1.5rem] px-6 font-semibold text-black hover:bg-primary hover:text-black"
+          size="toolbar"
+          className="font-semibold"
         >
           <Plus className="h-5 w-5" />
           {isIssuing ? t("generating") : t("generate")}

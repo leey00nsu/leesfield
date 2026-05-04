@@ -52,7 +52,7 @@ export function ApiDocsErrorSection() {
               className="rounded-2xl border border-white/8 bg-black/18 p-5"
             >
               <div className="flex items-center gap-3">
-                <AppBadge variant="muted" size="md" className="px-2.5 py-1 text-white/68">
+                <AppBadge variant="muted" size="md">
                   {card.status}
                 </AppBadge>
                 <h3 className="text-sm font-bold text-white">

@@ -28,6 +28,23 @@ export const InputAndSearch: Story = {
   render: () => (
     <div className="grid w-[360px] gap-4 rounded-2xl border border-white/10 bg-surface-dark p-5">
       <AppInput aria-label="Model name" defaultValue="Leesfield Video" />
+      <AppInput
+        aria-label="Toolbar input"
+        surface="toolbar"
+        inputSize="lg"
+        defaultValue="Production API key"
+      />
+      <AppInput
+        aria-label="Auth input"
+        surface="auth"
+        inputSize="lg"
+        defaultValue="creator@leesfield.local"
+      />
+      <AppInput
+        aria-label="Profile input"
+        surface="profile"
+        defaultValue="leesfield"
+      />
       <AppSearchField
         aria-label="Search"
         placeholder="Search by prompt, model, or tags..."

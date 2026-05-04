@@ -22,7 +22,8 @@ export function ModelList({
     return (
       <AppCard
         variant="editorial-flat"
-        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.1rem] px-6 text-center"
+        radius="lg"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Boxes className="h-6 w-6 text-gray-500" />
@@ -40,7 +41,8 @@ export function ModelList({
   return (
     <AppCard
       variant="editorial-flat"
-      className="rounded-[1.1rem] p-1"
+      radius="lg"
+      className="p-1"
       role="list"
       aria-label={tEmpty("listLabel")}
     >

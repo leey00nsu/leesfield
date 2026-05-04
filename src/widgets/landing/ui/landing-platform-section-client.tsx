@@ -159,7 +159,7 @@ function ModelCatalogCard({
   featuredModels: LandingPlatformModel[];
 }) {
   return (
-    <AppCard variant="editorial" className="rounded-[1rem] p-5 md:min-h-72">
+    <AppCard variant="editorial" radius="md" padding="md" className="md:min-h-72">
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
           <Box className="h-5 w-5 text-primary" />
@@ -205,7 +205,7 @@ function MonitoringCard({
   monitoring: LandingPlatformMonitoringData;
 }) {
   return (
-    <AppCard variant="editorial" className="rounded-[1rem] p-5">
+    <AppCard variant="editorial" radius="md" padding="md">
       <p className="flex items-center justify-between font-medium text-white">
         <span className="flex items-center gap-3">
           <ChartNoAxesCombined className="h-5 w-5 text-primary" />
@@ -306,7 +306,7 @@ function UsageCard({
   const usageData = monitoring.usage;
 
   return (
-    <AppCard variant="editorial" className="rounded-[1rem] p-5">
+    <AppCard variant="editorial" radius="md" padding="md">
       <p className="font-medium text-white">Usage by model</p>
       <div className="mt-6 grid items-center gap-5 sm:grid-cols-[9rem_1fr] md:grid-cols-1 xl:grid-cols-[9rem_1fr]">
         <AppChartContainer
@@ -388,7 +388,7 @@ function WorkflowCard() {
   ];
 
   return (
-    <AppCard variant="editorial" className="rounded-[1rem] p-5 md:col-span-2">
+    <AppCard variant="editorial" radius="md" padding="md" className="md:col-span-2">
       <p className="font-medium text-white">Workflow</p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => (

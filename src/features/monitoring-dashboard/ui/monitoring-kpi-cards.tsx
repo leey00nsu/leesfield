@@ -125,7 +125,9 @@ function StatCard({
   return (
     <AppCard
       variant="editorial-flat"
-      className="relative min-h-[11.5rem] rounded-[1.1rem] p-6"
+      radius="lg"
+      padding="lg"
+      className="relative min-h-[11.5rem]"
     >
       <div className="flex items-center gap-3">
         <Icon className="h-5 w-5 text-white/52" />
@@ -152,7 +154,9 @@ function UsageCard({
   return (
     <AppCard
       variant="editorial-flat"
-      className="relative min-h-[11.5rem] rounded-[1.1rem] p-6"
+      radius="lg"
+      padding="lg"
+      className="relative min-h-[11.5rem]"
     >
       <div className="flex items-center gap-3">
         <BarChart3 className="h-5 w-5 text-white/52" />

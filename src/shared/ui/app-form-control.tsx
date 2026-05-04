@@ -4,12 +4,16 @@ import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Label } from "@/shared/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+  AppSelectValue,
+} from "@/shared/ui/app-select";
+import {
+  type AppSelectTriggerSize,
+  type AppSelectTriggerSurface,
+} from "@/shared/ui/app-select";
 import { Textarea } from "@/shared/ui/textarea";
 export { AppInput } from "@/shared/ui/app-input";
 
@@ -42,17 +46,30 @@ export function AppLabel({
   );
 }
 
+type AppTextareaSurface = "default" | "profile" | "transparent";
+type AppTextareaProps = ComponentProps<typeof Textarea> & {
+  surface?: AppTextareaSurface;
+};
+
+const appTextareaSurfaceClassNames: Record<AppTextareaSurface, string> = {
+  default:
+    "rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary",
+  profile:
+    "rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
+  transparent:
+    "border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0",
+};
+
 export function AppTextarea({
   className,
+  surface = "default",
   ...props
-}: ComponentProps<typeof Textarea>) {
+}: AppTextareaProps) {
   return (
     <Textarea
       data-app-textarea=""
-      className={cn(
-        "w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary",
-        className,
-      )}
+      data-surface={surface}
+      className={cn("w-full", appTextareaSurfaceClassNames[surface], className)}
       {...props}
     />
   );
@@ -73,6 +90,8 @@ type AppSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  surface?: AppSelectTriggerSurface;
+  triggerSize?: AppSelectTriggerSize;
 };
 
 export function AppSelect({
@@ -84,36 +103,37 @@ export function AppSelect({
   placeholder,
   disabled,
   className,
+  surface,
+  triggerSize,
 }: AppSelectProps) {
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger
+    <AppSelectRoot value={value} onValueChange={onValueChange} disabled={disabled}>
+      <AppSelectTrigger
         id={id}
         data-app-select=""
         aria-label={ariaLabel}
-        className={cn(
-          "h-11 w-full rounded-xl border-white/10 bg-surface-lighter px-3 text-sm font-medium text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60",
-          className,
-        )}
+        surface={surface}
+        triggerSize={triggerSize}
+        className={className}
       >
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent
+        <AppSelectValue placeholder={placeholder} />
+      </AppSelectTrigger>
+      <AppSelectContent
         data-app-select-content=""
         className="border-white/10 bg-[#0b0d0e] text-white"
       >
         {options.map((option) => (
-          <SelectItem
+          <AppSelectItem
             key={option.value}
             value={option.value}
             disabled={option.disabled}
             className="text-sm"
           >
             {option.label}
-          </SelectItem>
+          </AppSelectItem>
         ))}
-      </SelectContent>
-    </Select>
+      </AppSelectContent>
+    </AppSelectRoot>
   );
 }
 

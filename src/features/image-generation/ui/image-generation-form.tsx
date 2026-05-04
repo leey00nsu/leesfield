@@ -493,7 +493,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         textarea={
                           <AppFormControl>
                             <AppTextarea
-                              className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                              surface="transparent"
+                              className="min-h-[104px]"
                               {...field}
                             />
                           </AppFormControl>
@@ -850,7 +851,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                           <AppFormControl>
                                             <div className="flex items-center gap-2">
                                               <AppInput
-                                                className="h-11 border-white/10 bg-black/30 text-white placeholder:text-gray-600"
                                                 placeholder={tImage("seedPlaceholder")}
                                                 {...field}
                                               />

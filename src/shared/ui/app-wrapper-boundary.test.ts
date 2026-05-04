@@ -222,6 +222,76 @@ describe("app-* design wrapper boundaries", () => {
     expect(modelScreen).toContain("AppDialogIconButton");
   });
 
+  it("keeps repeated form and action surfaces behind app wrapper variants", () => {
+    const loginGate = readFileSync(
+      join(sourceRoot, "features/auth/ui/login-gate-dialog.tsx"),
+      "utf8",
+    );
+    const apiKeyToolbar = readFileSync(
+      join(sourceRoot, "features/api-key-management/ui/api-key-toolbar.tsx"),
+      "utf8",
+    );
+    const apiKeyCard = readFileSync(
+      join(sourceRoot, "features/api-key-management/ui/api-key-card.tsx"),
+      "utf8",
+    );
+    const loginForm = readFileSync(
+      join(sourceRoot, "features/auth/login/ui/login-form.tsx"),
+      "utf8",
+    );
+    const profileForm = readFileSync(
+      join(sourceRoot, "features/user-profile/ui/profile-form.tsx"),
+      "utf8",
+    );
+    const appButton = readFileSync(
+      join(sourceRoot, "shared/ui/app-button.tsx"),
+      "utf8",
+    );
+    const appInput = readFileSync(
+      join(sourceRoot, "shared/ui/app-input.tsx"),
+      "utf8",
+    );
+    const appFormControl = readFileSync(
+      join(sourceRoot, "shared/ui/app-form-control.tsx"),
+      "utf8",
+    );
+    const appSelect = readFileSync(
+      join(sourceRoot, "shared/ui/app-select.tsx"),
+      "utf8",
+    );
+
+    expect(appButton).toContain("surface-muted");
+    expect(appButton).toContain("auth:");
+    expect(appInput).toContain('type AppInputSurface = "default"');
+    expect(appInput).toContain('"toolbar"');
+    expect(appInput).toContain('"auth"');
+    expect(appInput).toContain('"profile"');
+    expect(appFormControl).toContain('type AppTextareaSurface = "default"');
+    expect(appSelect).toContain("AppSelectTriggerSurface");
+
+    expect(loginGate).toContain("AppDialogActionButton");
+    expect(loginGate).toContain("AppDialogCancelButton");
+    expect(loginGate).toContain("AppDialogIconButton");
+    expect(loginGate).not.toContain("bg-white/[0.04]");
+    expect(loginGate).not.toContain("bg-black/35");
+
+    expect(apiKeyToolbar).toContain('surface="toolbar"');
+    expect(apiKeyToolbar).toContain('size="toolbar"');
+    expect(apiKeyToolbar).not.toContain("rounded-[1.5rem] border-white/10 bg-black/45");
+
+    expect(apiKeyCard).toContain('variant="surface-muted"');
+    expect(apiKeyCard).toContain('size="pill-md"');
+    expect(apiKeyCard).not.toContain("hover:bg-white/6");
+
+    expect(loginForm).toContain('surface="auth"');
+    expect(loginForm).toContain('variant="auth"');
+    expect(loginForm).not.toContain("bg-[#111417]");
+    expect(loginForm).not.toContain("bg-[#22262c]");
+
+    expect(profileForm).toContain('surface="profile"');
+    expect(profileForm).not.toContain("bg-surface-lighter px-4 py-3");
+  });
+
   it("keeps model management modal surfaces behind app wrappers", () => {
     const modelScreen = readFileSync(
       join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),

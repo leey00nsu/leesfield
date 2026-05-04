@@ -638,7 +638,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 onValueChange={(nextValue) => field.onChange(nextValue)}
               >
                 <AppFormControl>
-                  <AppSelectTrigger className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white">
+                  <AppSelectTrigger surface="toolbar">
                     <AppSelectValue placeholder={label} />
                   </AppSelectTrigger>
                 </AppFormControl>
@@ -714,7 +714,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   {...field}
                   value={typeof field.value === "string" ? field.value : ""}
                   placeholder={getFieldTextareaPlaceholder()}
-                  className="min-h-[96px] rounded-xl border-white/10 bg-black/40 px-4 py-3 text-sm text-white"
+                  className="min-h-[96px]"
                 />
               </AppFormControl>
               <AppFormMessage className="text-xs text-red-400" />
@@ -739,7 +739,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 {...field}
                 value={typeof field.value === "string" ? field.value : ""}
                 placeholder={getFieldInputPlaceholder()}
-                className="h-11 rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white"
               />
             </AppFormControl>
             <AppFormMessage className="text-xs text-red-400" />
@@ -844,7 +843,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   textarea={
                     <AppFormControl>
                       <AppTextarea
-                        className="min-h-[104px] border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0"
+                        surface="transparent"
+                        className="min-h-[104px]"
                         {...field}
                       />
                     </AppFormControl>

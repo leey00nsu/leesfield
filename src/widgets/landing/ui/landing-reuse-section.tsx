@@ -27,7 +27,7 @@ export function LandingReuseSection() {
             </span>
           </div>
 
-          <AppCard variant="editorial" className="absolute left-[18rem] top-28 w-56 rounded-[1rem] p-5">
+          <AppCard variant="editorial" radius="md" padding="md" className="absolute left-[18rem] top-28 w-56">
             <p className="text-sm font-semibold text-white">{t("prompt.title")}</p>
             <p className="mt-4 text-sm leading-6 text-white/68">
               {t("prompt.body")}
@@ -37,7 +37,7 @@ export function LandingReuseSection() {
             </span>
           </AppCard>
 
-          <AppCard variant="editorial" className="absolute bottom-0 left-16 w-64 rounded-[1rem] p-5">
+          <AppCard variant="editorial" radius="md" padding="md" className="absolute bottom-0 left-16 w-64">
             <p className="text-sm font-semibold text-white">
               <SlidersHorizontal className="mr-2 inline h-4 w-4 text-primary" />
               {t("settings.title")}

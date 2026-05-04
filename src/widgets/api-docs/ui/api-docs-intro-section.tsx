@@ -25,7 +25,7 @@ export function ApiDocsIntroSection({
         title={introTitle}
         description={introDescription}
         action={
-          <AppBadge variant="muted" className="px-2.5 py-1">
+          <AppBadge variant="muted" size="md">
             {apiVersion}
           </AppBadge>
         }

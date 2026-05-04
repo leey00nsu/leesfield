@@ -80,7 +80,8 @@ export function ApiKeyEditModal({
             type="text"
             value={label}
             onChange={(event) => onLabelChange(event.target.value)}
-            className="h-14 w-full rounded-[1.25rem] border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary focus-visible:ring-0"
+            inputSize="lg"
+            className="focus-visible:ring-0"
           />
           {error ? <p className="text-xs text-red-300">{error}</p> : null}
         </div>
