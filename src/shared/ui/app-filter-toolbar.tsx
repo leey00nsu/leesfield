@@ -4,7 +4,8 @@ import type { ComponentProps, ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppInput, appInputSurfaceClassName } from "@/shared/ui/app-input";
+import { appInputSurfaceClassName } from "@/shared/ui/app-input";
+import { Input } from "@/shared/ui/input";
 import {
   AppSelectContent,
   AppSelectItem,
@@ -84,7 +85,7 @@ export function AppFilterToggle({
   );
 }
 
-type AppSearchFieldProps = Omit<ComponentProps<typeof AppInput>, "size"> & {
+type AppSearchFieldProps = Omit<ComponentProps<typeof Input>, "size"> & {
   containerClassName?: string;
   trailing?: ReactNode;
 };
@@ -105,9 +106,10 @@ export function AppSearchField({
       )}
     >
       <Search className="h-5 w-5 shrink-0 text-white/38" />
-      <AppInput
+      <Input
+        data-app-search-input=""
         className={cn(
-          "h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0",
+          "h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none dark:bg-transparent placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
           className,
         )}
         {...props}

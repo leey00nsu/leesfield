@@ -32,6 +32,12 @@ export const InputAndSearch: Story = {
         aria-label="Search"
         placeholder="Search by prompt, model, or tags..."
       />
+      <div className="w-60">
+        <AppSearchField
+          aria-label="Narrow search"
+          placeholder="Search endpoints..."
+        />
+      </div>
     </div>
   ),
 };
