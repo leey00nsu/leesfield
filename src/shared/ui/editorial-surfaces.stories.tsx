@@ -13,7 +13,7 @@ function EditorialSurfaces() {
             Project surfaces, not base primitives.
           </AppHeading>
           <p className="mt-6 max-w-xl text-base leading-7 text-white/64">
-            Shared panels keep the leesfield gradient, border, and dark surface
+            Shared panels keep the leesfield border and dark surface
             treatment visible without cataloging raw shadcn components.
           </p>
         </AppCard>

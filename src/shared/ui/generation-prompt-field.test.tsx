@@ -25,8 +25,8 @@ describe("GenerationPromptField", () => {
     expect(dock).toHaveAttribute("data-variant", "editorial-flat");
     expect(dock).toHaveClass("rounded-[1.35rem]");
     expect(dock).toHaveClass("border-0");
-    expect(dock.className).toContain("[background:radial-gradient");
-    expect(dock.className).toContain("linear-gradient");
+    expect(dock.className).toContain("bg-[#0b0d0e]");
+    expect(dock.className).not.toContain("gradient");
     expect(surface).toHaveAttribute("data-app-card");
     expect(surface).toHaveAttribute("data-variant", "prompt");
     expect(surface).toHaveClass("relative");

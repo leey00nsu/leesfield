@@ -19,7 +19,7 @@ export function AppDetailRail({
       data-app-detail-rail=""
       variant="editorial"
       className={cn(
-        "h-full rounded-none border-y-0 border-r-0 border-white/12 p-0 shadow-[-24px_0_90px_rgba(0,0,0,0.45)] [background:radial-gradient(circle_at_50%_0%,rgba(212,240,50,0.04),transparent_26rem),linear-gradient(180deg,rgba(10,12,8,0.96),rgba(5,6,4,0.98))]",
+        "h-full rounded-none border-y-0 border-r-0 border-white/12 bg-[#050604] p-0 shadow-[-24px_0_90px_rgba(0,0,0,0.45)]",
         className,
       )}
       {...props}

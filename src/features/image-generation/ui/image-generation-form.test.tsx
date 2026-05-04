@@ -110,9 +110,8 @@ describe("ImageGenerationForm", () => {
       "data-variant",
       "prompt",
     );
-    expect(dock.className).toContain(
-      "[background:radial-gradient",
-    );
+    expect(dock.className).toContain("bg-[#0b0d0e]");
+    expect(dock.className).not.toContain("gradient");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );

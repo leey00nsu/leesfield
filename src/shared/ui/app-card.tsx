@@ -16,17 +16,12 @@ type AppCardProps = ComponentProps<typeof Card> & {
   radius?: "md" | "lg" | "xl";
 };
 
-const editorialBackground =
-  "[background:radial-gradient(circle_at_50%_0%,rgba(212,240,50,0.052),transparent_28rem),linear-gradient(180deg,rgba(15,17,12,0.84),rgba(5,6,4,0.9))]";
-
 const variantClasses: Record<AppCardVariant, string> = {
-  editorial: cn(
-    "border-white/14 text-white shadow-[0_34px_110px_oklch(0_0_0_/_0.45)]",
-    editorialBackground,
-  ),
-  "editorial-flat": cn("border-white/14 text-white", editorialBackground),
+  editorial:
+    "border-white/14 bg-[#0b0d0e] text-white shadow-[0_34px_110px_oklch(0_0_0_/_0.45)]",
+  "editorial-flat": "border-white/14 bg-[#0b0d0e] text-white",
   "outline-map":
-    "isolate overflow-hidden border-white/19 bg-[linear-gradient(135deg,#1c1c19_0%,#11110f_48%,#191916_100%)] text-white shadow-[0_44px_120px_rgba(0,0,0,0.72)]",
+    "isolate overflow-hidden border-white/19 bg-[#11120f] text-white shadow-[0_44px_120px_rgba(0,0,0,0.72)]",
   prompt: cn(
     "border-white/12 bg-black/18 text-white transition-colors focus-within:border-primary/45",
   ),
@@ -79,10 +74,6 @@ export function AppCard({
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 z-0 opacity-45 [background-position:center] [background-repeat:no-repeat] [background-size:100%_100%]"
             style={{ backgroundImage: outlinePatternSvg }}
-          />
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_center,transparent_0_42%,rgba(0,0,0,0.34)_100%),linear-gradient(to_bottom,rgba(255,255,255,0.045),transparent_32%,rgba(0,0,0,0.18))]"
           />
           <div className="relative z-10">{children}</div>
         </>

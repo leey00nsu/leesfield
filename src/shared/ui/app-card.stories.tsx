@@ -25,7 +25,7 @@ export const Surfaces: Story = {
       <AppCard variant="editorial" className="rounded-[1.4rem] p-6">
         <AppEyebrow>EDITORIAL</AppEyebrow>
         <AppHeading as="h2" size="compact" className="mt-5">
-          Gradient surface
+          Editorial surface
         </AppHeading>
         <p className="mt-4 text-sm leading-6 text-white/62">
           Shared project surface wrapped over the shadcn card primitive.
