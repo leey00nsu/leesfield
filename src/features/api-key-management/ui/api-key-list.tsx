@@ -2,6 +2,7 @@ import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ApiKeyCard } from "@/features/api-key-management/ui/api-key-card";
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
+import { AppCard } from "@/shared/ui/app-card";
 
 type ApiKeyListItem = {
   id: string;
@@ -27,17 +28,20 @@ export function ApiKeyList({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
-          <KeyRound className="h-6 w-6 text-gray-500" />
+      <AppCard
+        variant="plain"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-white/10 bg-[rgba(11,13,14,0.72)] px-6 text-center shadow-[0_22px_80px_rgba(0,0,0,0.22)]"
+      >
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/35">
+          <KeyRound className="h-6 w-6 text-white/38" />
         </div>
-        <h3 className="text-lg font-bold text-gray-200">
+        <h3 className="text-lg font-semibold text-white">
           {t("emptyTitle")}
         </h3>
-        <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+        <p className="text-sm text-white/42">
           {resolvedEmptyMessage}
         </p>
-      </div>
+      </AppCard>
     );
   }
 

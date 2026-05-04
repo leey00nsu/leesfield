@@ -1,7 +1,8 @@
-import { CheckCircle2, Shield, Slash, XCircle } from "lucide-react";
+import { CheckCircle2, KeyRound, Pencil, Slash, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
 import { useTranslations } from "next-intl";
 
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
@@ -47,72 +48,95 @@ export function ApiKeyCard({
       : t("usage.lastUsed", { value: lastUsedLabel });
 
   return (
-    <article className="group relative flex flex-col gap-6 rounded-xl border border-white/5 bg-surface-dark p-6 shadow-lg transition-all hover:border-primary/50 md:flex-row md:items-center md:justify-between">
-      <div className="flex w-full items-start gap-5 md:w-auto md:items-center">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-surface-lighter text-primary">
-          {status === "active" ? (
-            <Shield className="h-7 w-7" />
-          ) : (
-            <Slash className="h-7 w-7 text-red-400" />
-          )}
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-lg font-bold tracking-tight text-white">
-              {name}
-            </h3>
-            <AppBadge
-              variant="muted"
-              className={cn("gap-1 bg-white/5", config.text)}
-            >
-              <StatusIcon className="h-3 w-3" />
-              {t(`status.${status}`)}
-            </AppBadge>
+    <AppCard
+      variant="plain"
+      className={cn(
+        "group rounded-[1.5rem] border-white/10 bg-[rgba(11,13,14,0.74)] px-5 py-5 shadow-[0_22px_80px_rgba(0,0,0,0.22)] transition-colors hover:border-primary/45",
+        status === "revoked" && "opacity-70 hover:border-white/18",
+      )}
+    >
+      <article className="grid gap-5 md:grid-cols-[minmax(0,1.45fr)_minmax(7rem,0.4fr)_minmax(7rem,0.4fr)_auto] md:items-center">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-white/68">
+            <KeyRound className="h-6 w-6" />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded border border-white/5 bg-black/50 px-2 py-1 text-xs font-mono text-gray-400">
-              {maskedKey}
-            </code>
-            <span className="text-xs font-mono text-gray-600">• {usageHint}</span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="min-w-0 truncate text-lg font-semibold text-white">
+                {name}
+              </h3>
+              <AppBadge
+                variant="muted"
+                className={cn(
+                  "gap-1 rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs font-semibold",
+                  config.text,
+                )}
+              >
+                <StatusIcon className="h-3 w-3" />
+                {t(`status.${status}`)}
+              </AppBadge>
+            </div>
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+              <code className="max-w-full truncate rounded-xl border border-white/10 bg-black/32 px-3 py-1.5 font-mono text-xs text-white/52">
+                {maskedKey}
+              </code>
+              <span className="text-xs text-white/36">{usageHint}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex w-full flex-col gap-6 border-t border-white/5 pt-4 md:w-auto md:flex-row md:items-center md:gap-10 md:border-t-0 md:pt-0">
-        <div className="flex min-w-[100px] flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/34">
             {t("lastUsedLabel")}
           </span>
-          <span className="flex items-center gap-2 text-sm font-mono text-gray-200">
-            <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />
-            {lastUsedLabel}
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-white/74">
+            <span className={cn("h-2 w-2 rounded-full", config.dot)} />
+            <span className="truncate">{lastUsedLabel}</span>
           </span>
         </div>
-        <div className="flex min-w-[100px] flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/34">
             {t("createdLabel")}
           </span>
-          <span className="text-sm font-mono text-gray-400">
+          <span className="truncate text-sm font-medium text-white/62">
             {createdAtLabel}
           </span>
         </div>
-        <div className="flex items-center gap-2 md:ml-auto">
-          <AppButton
-            type="button"
-            onClick={onEdit}
-            disabled={!canEdit}
-            aria-disabled={!canEdit}
-            title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
-            variant="ghost"
-            className={cn(
-              "rounded-lg border border-transparent px-4 text-xs font-bold uppercase tracking-wider text-gray-400 transition-all hover:border-white/10 hover:bg-white/5 hover:text-white",
-              !canEdit &&
-                "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent hover:text-gray-400",
-            )}
-          >
-            {tCommonActions("edit")}
-          </AppButton>
+        <div className="flex items-center md:justify-end">
+          {status === "active" ? (
+            <AppButton
+              type="button"
+              onClick={onEdit}
+              disabled={!canEdit}
+              aria-disabled={!canEdit}
+              title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
+              variant="surface"
+              size="sm"
+              className={cn(
+                "h-10 rounded-full border-white/10 px-4 text-sm font-semibold text-white/76 hover:bg-white/6 hover:text-white",
+                !canEdit &&
+                  "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-white/76",
+              )}
+            >
+              <Pencil className="h-4 w-4" />
+              {tCommonActions("edit")}
+            </AppButton>
+          ) : (
+            <AppButton
+              type="button"
+              onClick={onEdit}
+              disabled={!canEdit}
+              aria-disabled={!canEdit}
+              title={canEdit ? tCommonActions("edit") : tCommonActions("comingSoon")}
+              variant="surface"
+              size="sm"
+              className="h-10 rounded-full border-white/10 px-4 text-sm font-semibold text-white/44 hover:bg-white/6 hover:text-white"
+            >
+              <Slash className="h-4 w-4" />
+              {tCommonActions("edit")}
+            </AppButton>
+          )}
         </div>
-      </div>
-    </article>
+      </article>
+    </AppCard>
   );
 }
