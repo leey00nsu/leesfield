@@ -4,7 +4,6 @@ import type { ComponentProps, ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
-import { appInputSurfaceClassName } from "@/shared/ui/app-input";
 import { Input } from "@/shared/ui/input";
 import {
   AppSelectContent,
@@ -90,6 +89,9 @@ type AppSearchFieldProps = Omit<ComponentProps<typeof Input>, "size"> & {
   trailing?: ReactNode;
 };
 
+export const appSearchFieldSurfaceClassName =
+  "flex h-14 w-full min-w-0 items-center gap-4 rounded-[1.5rem] border border-white/10 bg-black/45 px-5 text-white shadow-xs transition-colors focus-within:border-primary";
+
 export function AppSearchField({
   className,
   containerClassName,
@@ -99,22 +101,23 @@ export function AppSearchField({
   return (
     <label
       data-app-search-field=""
-      className={cn(
-        appInputSurfaceClassName,
-        "flex min-w-0 flex-1 items-center gap-3 shadow-xs transition-colors focus-within:border-primary",
-        containerClassName,
-      )}
+      className={cn("block min-w-0", containerClassName)}
     >
-      <Search className="h-5 w-5 shrink-0 text-white/38" />
-      <Input
-        data-app-search-input=""
-        className={cn(
-          "h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none dark:bg-transparent placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-          className,
-        )}
-        {...props}
-      />
-      {trailing}
+      <span
+        data-app-search-surface=""
+        className={appSearchFieldSurfaceClassName}
+      >
+        <Search className="h-6 w-6 shrink-0 text-white/38" />
+        <Input
+          data-app-search-input=""
+          className={cn(
+            "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none dark:bg-transparent placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+            className,
+          )}
+          {...props}
+        />
+        {trailing}
+      </span>
     </label>
   );
 }
