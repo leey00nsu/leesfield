@@ -32,11 +32,15 @@ import {
 } from "@/shared/ui/app-confirm-dialog";
 import {
   AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
   AppDialogClose,
   AppDialogContent,
+  AppDialogDangerButton,
   AppDialogDescription,
   AppDialogFooter,
   AppDialogHeader,
+  AppDialogIconButton,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import {
@@ -850,14 +854,12 @@ export function ModelManagementScreen() {
               </p>
             </div>
             <AppDialogClose asChild>
-              <AppButton
+              <AppDialogIconButton
                 type="button"
-                variant="surface"
-                size="icon-sm"
                 aria-label={tAdmin("dialog.close")}
               >
                 <X className="h-4 w-4" />
-              </AppButton>
+              </AppDialogIconButton>
             </AppDialogClose>
           </AppDialogHeader>
 
@@ -1090,37 +1092,33 @@ export function ModelManagementScreen() {
 
           <AppDialogFooter>
             {dialogMode === "edit" ? (
-              <AppButton
+              <AppDialogDangerButton
                 type="button"
-                variant="danger"
                 size="sm"
                 onClick={handleDelete}
                 isLoading={isDeleting}
                 loadingText={tAdmin("dialog.deleting")}
-                className="px-5 text-xs sm:mr-auto"
+                className="sm:mr-auto"
               >
                 {tAdmin("dialog.delete")}
-              </AppButton>
+              </AppDialogDangerButton>
             ) : null}
-            <AppButton
+            <AppDialogCancelButton
               type="button"
-              variant="ghost"
               size="sm"
-              className="border border-white/10 px-5 text-xs"
               onClick={closeDialog}
             >
               {tAdmin("dialog.cancel")}
-            </AppButton>
-            <AppButton
+            </AppDialogCancelButton>
+            <AppDialogActionButton
               type="button"
               onClick={handleSave}
               isLoading={isSaving}
               loadingText={tAdmin("dialog.saving")}
               size="sm"
-              className="px-5 text-xs"
             >
               {tAdmin("dialog.save")}
-            </AppButton>
+            </AppDialogActionButton>
           </AppDialogFooter>
         </AppDialogContent>
       </AppDialog>

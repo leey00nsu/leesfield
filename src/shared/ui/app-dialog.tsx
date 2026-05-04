@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
+import { AppButton } from "@/shared/ui/app-button";
 import {
   Dialog,
   DialogClose,
@@ -14,6 +15,7 @@ import {
 type AppDialogSize = "sm" | "md" | "lg" | "xl";
 type AppDialogSurface = "default" | "media";
 type AppDialogPadding = "default" | "none";
+type AppDialogButtonProps = ComponentProps<typeof AppButton>;
 
 const appDialogSizeClassNames: Record<AppDialogSize, string> = {
   sm: "max-w-xl",
@@ -128,5 +130,71 @@ export function AppDialogClose({
 }: ComponentProps<typeof DialogClose>) {
   return (
     <DialogClose data-app-dialog-close="" className={cn(className)} {...props} />
+  );
+}
+
+export function AppDialogIconButton({
+  className,
+  variant = "surface",
+  size = "icon-sm",
+  ...props
+}: AppDialogButtonProps) {
+  return (
+    <AppButton
+      data-app-dialog-icon-button=""
+      variant={variant}
+      size={size}
+      className={cn("shrink-0", className)}
+      {...props}
+    />
+  );
+}
+
+export function AppDialogCancelButton({
+  className,
+  variant = "surface",
+  size = "md",
+  ...props
+}: AppDialogButtonProps) {
+  return (
+    <AppButton
+      data-app-dialog-cancel-button=""
+      variant={variant}
+      size={size}
+      className={cn("px-5 font-semibold", className)}
+      {...props}
+    />
+  );
+}
+
+export function AppDialogActionButton({
+  className,
+  size = "md",
+  ...props
+}: AppDialogButtonProps) {
+  return (
+    <AppButton
+      data-app-dialog-action-button=""
+      size={size}
+      className={cn("px-5 font-semibold", className)}
+      {...props}
+    />
+  );
+}
+
+export function AppDialogDangerButton({
+  className,
+  variant = "danger",
+  size = "md",
+  ...props
+}: AppDialogButtonProps) {
+  return (
+    <AppButton
+      data-app-dialog-danger-button=""
+      variant={variant}
+      size={size}
+      className={cn("px-5 font-semibold", className)}
+      {...props}
+    />
   );
 }

@@ -1,12 +1,15 @@
 import { X } from "lucide-react";
 import type { ApiKeyView } from "@/features/api-key-management/hook/use-api-key-management";
-import { cn } from "@/shared/lib/utils";
-import { AppButton } from "@/shared/ui/app-button";
 import {
   AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
   AppDialogClose,
   AppDialogContent,
+  AppDialogDangerButton,
   AppDialogDescription,
+  AppDialogFooter,
+  AppDialogIconButton,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { AppInput } from "@/shared/ui/app-input";
@@ -61,14 +64,12 @@ export function ApiKeyEditModal({
             </p>
           </div>
           <AppDialogClose asChild>
-            <AppButton
+            <AppDialogIconButton
               type="button"
-              variant="ghost"
-              className="rounded-full border border-white/10 p-2 text-white/46 transition-colors hover:border-white/20 hover:bg-white/6 hover:text-white"
               aria-label={t("close")}
             >
               <X className="h-4 w-4" />
-            </AppButton>
+            </AppDialogIconButton>
           </AppDialogClose>
         </div>
         <div className="mt-6 space-y-3">
@@ -83,47 +84,36 @@ export function ApiKeyEditModal({
           />
           {error ? <p className="text-xs text-red-300">{error}</p> : null}
         </div>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppButton
+        <AppDialogFooter className="justify-between">
+          <AppDialogDangerButton
             type="button"
             onClick={onRevoke}
             disabled={apiKey.status === "revoked" || isRevoking}
-            variant="danger"
-            className={cn(
-              "flex h-11 items-center justify-center rounded-full border border-red-500/60 px-6 text-sm font-semibold text-white",
-              "bg-red-500 transition-colors hover:bg-red-500 hover:text-white",
-              "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-red-500",
-            )}
+            className="sm:mr-auto"
           >
             {apiKey.status === "revoked"
               ? t("revoked")
               : isRevoking
                 ? t("revoking")
                 : t("revoke")}
-          </AppButton>
+          </AppDialogDangerButton>
           <div className="flex gap-2">
             <AppDialogClose asChild>
-              <AppButton
+              <AppDialogCancelButton
                 type="button"
-                variant="ghost"
-                className="h-11 rounded-full border border-white/10 px-5 text-sm font-semibold text-white/70 transition-colors hover:bg-white/6 hover:text-white"
               >
                 {t("cancel")}
-              </AppButton>
+              </AppDialogCancelButton>
             </AppDialogClose>
-            <AppButton
+            <AppDialogActionButton
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className={cn(
-                "h-11 rounded-full bg-primary px-5 text-sm font-semibold text-black transition-colors hover:bg-primary hover:text-black",
-                "disabled:cursor-not-allowed disabled:opacity-60",
-              )}
             >
               {isSaving ? t("saving") : t("save")}
-            </AppButton>
+            </AppDialogActionButton>
           </div>
-        </div>
+        </AppDialogFooter>
       </AppDialogContent>
     </AppDialog>
   );

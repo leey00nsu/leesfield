@@ -4,11 +4,14 @@ import { useState } from "react";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
   AppDialogClose,
   AppDialogContent,
   AppDialogDescription,
   AppDialogFooter,
   AppDialogHeader,
+  AppDialogIconButton,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { AppInput } from "@/shared/ui/app-input";
@@ -40,9 +43,9 @@ export const ModelDialog: Story = {
               <AppDialogTitle>Leesfield Video</AppDialogTitle>
             </div>
             <AppDialogClose asChild>
-              <AppButton variant="surface" size="icon-sm" aria-label="Close">
+              <AppDialogIconButton aria-label="Close">
                 <X className="h-4 w-4" />
-              </AppButton>
+              </AppDialogIconButton>
             </AppDialogClose>
           </AppDialogHeader>
           <AppFormField>
@@ -50,8 +53,8 @@ export const ModelDialog: Story = {
             <AppInput id="dialog-model-key" defaultValue="leesfield-video" />
           </AppFormField>
           <AppDialogFooter>
-            <AppButton variant="surface">Cancel</AppButton>
-            <AppButton>Save</AppButton>
+            <AppDialogCancelButton>Cancel</AppDialogCancelButton>
+            <AppDialogActionButton>Save</AppDialogActionButton>
           </AppDialogFooter>
         </AppDialogContent>
       </AppDialog>
@@ -76,8 +79,8 @@ export const MediaDialog: Story = {
                 </div>
               </AppDialogHeader>
               <AppDialogFooter className="justify-start">
-                <AppButton variant="surface">Cancel</AppButton>
-                <AppButton>Sign in</AppButton>
+                <AppDialogCancelButton>Cancel</AppDialogCancelButton>
+                <AppDialogActionButton>Sign in</AppDialogActionButton>
               </AppDialogFooter>
             </div>
             <div className="hidden border-l border-white/10 bg-primary/10 sm:block" />

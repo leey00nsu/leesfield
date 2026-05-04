@@ -190,8 +190,36 @@ describe("app-* design wrapper boundaries", () => {
     expect(appDialog).toContain("size?: AppDialogSize");
     expect(appDialog).toContain("surface?: AppDialogSurface");
     expect(appDialog).toContain("padding?: AppDialogPadding");
+    expect(appDialog).toContain("AppDialogActionButton");
+    expect(appDialog).toContain("AppDialogCancelButton");
+    expect(appDialog).toContain("AppDialogDangerButton");
+    expect(appDialog).toContain("AppDialogIconButton");
     expect(offenders).toEqual([]);
     expect(directRoleDialogOffenders).toEqual([]);
+  });
+
+  it("keeps feature dialog footer actions behind AppDialog action buttons", () => {
+    const apiKeyModal = readFileSync(
+      join(sourceRoot, "features/api-key-management/ui/api-key-edit-modal.tsx"),
+      "utf8",
+    );
+    const modelScreen = readFileSync(
+      join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
+      "utf8",
+    );
+
+    expect(apiKeyModal).toContain("AppDialogActionButton");
+    expect(apiKeyModal).toContain("AppDialogCancelButton");
+    expect(apiKeyModal).toContain("AppDialogDangerButton");
+    expect(apiKeyModal).toContain("AppDialogIconButton");
+    expect(apiKeyModal).not.toContain("rounded-full border border-white/10");
+    expect(apiKeyModal).not.toContain("hover:bg-white/6");
+    expect(apiKeyModal).not.toContain("hover:bg-primary");
+
+    expect(modelScreen).toContain("AppDialogActionButton");
+    expect(modelScreen).toContain("AppDialogCancelButton");
+    expect(modelScreen).toContain("AppDialogDangerButton");
+    expect(modelScreen).toContain("AppDialogIconButton");
   });
 
   it("keeps model management modal surfaces behind app wrappers", () => {
