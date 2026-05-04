@@ -129,6 +129,27 @@ describe("app-* design wrapper boundaries", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("keeps search fields on the shared AppInput surface", () => {
+    const appInput = readFileSync(
+      join(sourceRoot, "shared/ui/app-input.tsx"),
+      "utf8",
+    );
+    const appFilterToolbar = readFileSync(
+      join(sourceRoot, "shared/ui/app-filter-toolbar.tsx"),
+      "utf8",
+    );
+    const apiDocsSidebar = readFileSync(
+      join(sourceRoot, "widgets/api-docs/ui/api-docs-sidebar.tsx"),
+      "utf8",
+    );
+
+    expect(appInput).toContain("appInputSurfaceClassName");
+    expect(appFilterToolbar).toContain("appInputSurfaceClassName");
+    expect(apiDocsSidebar).not.toMatch(
+      /<AppSearchField[^>]*(containerClassName|className)=/,
+    );
+  });
+
   it("keeps model management modal surfaces behind app wrappers", () => {
     const modelScreen = readFileSync(
       join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
