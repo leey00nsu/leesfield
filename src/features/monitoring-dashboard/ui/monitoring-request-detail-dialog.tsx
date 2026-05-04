@@ -191,12 +191,12 @@ export function MonitoringRequestDetailDialog({
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent className="w-[calc(100%-2rem)] max-w-4xl rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
+      <AppDialogContent size="lg">
         <AppDialogHeader className="gap-2">
-          <AppDialogDescription className="text-xs font-mono uppercase tracking-widest text-gray-500">
+          <AppDialogDescription>
             {t("requests.detailSubtitle")}
           </AppDialogDescription>
-          <AppDialogTitle className="text-xl font-bold text-white">
+          <AppDialogTitle className="mt-0">
             {t("requests.detailTitle")}
           </AppDialogTitle>
         </AppDialogHeader>

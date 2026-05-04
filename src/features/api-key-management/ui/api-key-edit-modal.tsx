@@ -47,13 +47,13 @@ export function ApiKeyEditModal({
       open={open}
       onOpenChange={(nextOpen) => (!nextOpen ? onClose() : undefined)}
     >
-      <AppDialogContent className="w-[calc(100%-2rem)] max-w-xl rounded-[1.5rem] border-white/10 bg-[#0b0d0e] p-6 text-white shadow-[0_34px_120px_rgba(0,0,0,0.65)]">
+      <AppDialogContent size="sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <AppDialogDescription className="text-[11px] font-black uppercase tracking-[0.24em] text-primary">
+            <AppDialogDescription>
               {t("editTitle")}
             </AppDialogDescription>
-            <AppDialogTitle className="mt-2 text-xl font-semibold text-white">
+            <AppDialogTitle>
               {apiKey.label}
             </AppDialogTitle>
             <p className="mt-2 rounded-xl border border-white/10 bg-black/28 px-3 py-2 font-mono text-xs text-white/44">

@@ -58,3 +58,32 @@ export const ModelDialog: Story = {
     );
   },
 };
+
+export const MediaDialog: Story = {
+  render: function MediaDialogStory() {
+    const [open, setOpen] = useState(true);
+
+    return (
+      <AppDialog open={open} onOpenChange={setOpen}>
+        <AppButton onClick={() => setOpen(true)}>Open media dialog</AppButton>
+        <AppDialogContent surface="media" padding="none">
+          <div className="grid min-h-80 sm:grid-cols-[1fr_18rem]">
+            <div className="flex flex-col justify-center p-8">
+              <AppDialogHeader>
+                <div>
+                  <AppDialogDescription>AUTH GATE</AppDialogDescription>
+                  <AppDialogTitle>Continue with leesfield</AppDialogTitle>
+                </div>
+              </AppDialogHeader>
+              <AppDialogFooter className="justify-start">
+                <AppButton variant="surface">Cancel</AppButton>
+                <AppButton>Sign in</AppButton>
+              </AppDialogFooter>
+            </div>
+            <div className="hidden border-l border-white/10 bg-primary/10 sm:block" />
+          </div>
+        </AppDialogContent>
+      </AppDialog>
+    );
+  },
+};

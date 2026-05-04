@@ -155,6 +155,45 @@ describe("app-* design wrapper boundaries", () => {
     );
   });
 
+  it("keeps modal surfaces behind AppDialog variants", () => {
+    const offenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      if (relativePath.endsWith("src/shared/ui/app-dialog.tsx")) return [];
+      if (relativePath.endsWith("src/shared/ui/app-dialog.stories.tsx")) return [];
+
+      const contents = readFileSync(filePath, "utf8");
+      const localSurfaceOverride =
+        /<AppDialogContent[^>]*className=["'][^"']*(?:max-w-|rounded-|border-|bg-|shadow-|p-\d|p-0)/.test(
+          contents,
+        );
+      return localSurfaceOverride ? [relativePath] : [];
+    });
+
+    const appDialog = readFileSync(
+      join(sourceRoot, "shared/ui/app-dialog.tsx"),
+      "utf8",
+    );
+    const allowedDirectRoleDialogs = [
+      "src/shared/ui/generation-model-section.tsx",
+      "src/screens/generation-history/ui/generation-history-screen.tsx",
+    ];
+    const directRoleDialogOffenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      if (relativePath.endsWith("src/shared/ui/app-wrapper-boundary.test.ts")) {
+        return [];
+      }
+      const contents = readFileSync(filePath, "utf8");
+      if (!contents.includes('role="dialog"')) return [];
+      return allowedDirectRoleDialogs.includes(relativePath) ? [] : [relativePath];
+    });
+
+    expect(appDialog).toContain("size?: AppDialogSize");
+    expect(appDialog).toContain("surface?: AppDialogSurface");
+    expect(appDialog).toContain("padding?: AppDialogPadding");
+    expect(offenders).toEqual([]);
+    expect(directRoleDialogOffenders).toEqual([]);
+  });
+
   it("keeps model management modal surfaces behind app wrappers", () => {
     const modelScreen = readFileSync(
       join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),

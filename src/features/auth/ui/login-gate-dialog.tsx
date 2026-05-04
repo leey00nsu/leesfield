@@ -36,7 +36,7 @@ export function LoginGateDialog({
 }: LoginGateDialogProps) {
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent className="w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] p-0 text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]">
+      <AppDialogContent surface="media" padding="none">
         <AppDialogClose asChild>
           <AppButton
             type="button"
