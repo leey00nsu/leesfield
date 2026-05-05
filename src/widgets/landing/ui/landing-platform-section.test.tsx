@@ -108,6 +108,12 @@ describe("LandingPlatformSection", () => {
     expect(screen.getAllByText("GPT Image 2").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Wan 2.2 (HF Space)").length).toBeGreaterThan(0);
     expect(screen.queryByText(/Leesfield V2/i)).not.toBeInTheDocument();
+    const heading = screen.getByRole("heading", {
+      name: "Docs, models, and workflows curated for teams.",
+    });
+    expect(heading).toHaveClass("mt-7");
+    expect(heading).toHaveClass("max-w-[11ch]");
+    expect(heading).toHaveClass("leading-[0.95]");
 
     expect(
       screen.getByRole("img", { name: "Monitoring requests trend" }),

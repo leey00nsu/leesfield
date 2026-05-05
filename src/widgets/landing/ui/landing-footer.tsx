@@ -25,10 +25,7 @@ const groups = [
   {
     title: "Social",
     links: [
-      ["X", "https://x.com"],
-      ["GitHub", "https://github.com"],
-      ["Discord", "https://discord.com"],
-      ["LinkedIn", "https://linkedin.com"],
+      ["GitHub", "https://github.com/leey00nsu/leesfield"],
     ],
   },
 ];

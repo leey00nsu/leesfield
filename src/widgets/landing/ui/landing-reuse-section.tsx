@@ -43,9 +43,6 @@ export function LandingReuseSection() {
               <p className="mt-4 text-sm leading-6 text-white/68">
                 {t("prompt.body")}
               </p>
-              <span className="mt-4 inline-flex rounded-full bg-primary px-3 py-1 text-xs font-bold text-black">
-                v2
-              </span>
             </AppCard>
           </LandingReveal>
 
@@ -75,7 +72,7 @@ export function LandingReuseSection() {
 
         <LandingReveal delay={0.12} y={16}>
           <AppEyebrow>{t("eyebrow")}</AppEyebrow>
-          <AppHeading className="mt-7 max-w-[10.75ch] text-[clamp(2.45rem,4.6vw,5.2rem)]">
+          <AppHeading as="h2" size="section" className="mt-7 max-w-[11ch] leading-[0.95]">
             {t("title")}
           </AppHeading>
           <p className="mt-8 max-w-xl text-base leading-7 text-white/72 md:text-lg">

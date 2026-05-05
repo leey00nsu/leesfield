@@ -35,5 +35,18 @@ describe("LandingReuseSection", () => {
     expect(historyCta).toHaveAttribute("href", "/history");
     expect(historyCta).toHaveClass("bg-primary");
     expect(historyCta).not.toHaveClass("bg-white");
+    const heading = screen.getByRole("heading", {
+      name: "Results you can reuse.",
+    });
+    expect(heading).toHaveClass("mt-7");
+    expect(heading).toHaveClass("max-w-[11ch]");
+    expect(heading).toHaveClass("leading-[0.95]");
+    expect(
+      screen.getByText(
+        "Reflective editorial portrait beside a dim studio mirror, soft fabric detail, cinematic shadow.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("v2")).not.toBeInTheDocument();
+    expect(screen.queryByText(/hiking in the mountains/i)).not.toBeInTheDocument();
   });
 });

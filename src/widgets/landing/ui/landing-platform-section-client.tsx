@@ -90,10 +90,10 @@ export function LandingPlatformClientSection({
       <div className="mx-auto grid w-full max-w-[1450px] items-center gap-12 lg:grid-cols-[0.4fr_0.6fr]">
         <LandingReveal y={16} testId="landing-platform-copy">
           <AppEyebrow>{t("eyebrow")}</AppEyebrow>
-          <AppHeading as="h2" size="section" className="mt-6">
+          <AppHeading as="h2" size="section" className="mt-7 max-w-[11ch] leading-[0.95]">
             {t("title")}
           </AppHeading>
-          <p className="mt-7 max-w-xl text-base leading-7 text-white/68">
+          <p className="mt-8 max-w-xl text-base leading-7 text-white/68 md:text-lg">
             {t("description")}
           </p>
           <AppButton
