@@ -46,7 +46,7 @@ export function AppLabel({
   );
 }
 
-type AppTextareaSurface = "default" | "profile" | "transparent";
+type AppTextareaSurface = "default" | "transparent";
 type AppTextareaProps = ComponentProps<typeof Textarea> & {
   surface?: AppTextareaSurface;
 };
@@ -54,8 +54,6 @@ type AppTextareaProps = ComponentProps<typeof Textarea> & {
 const appTextareaSurfaceClassNames: Record<AppTextareaSurface, string> = {
   default:
     "rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary",
-  profile:
-    "rounded-lg border-white/10 bg-surface-lighter px-4 py-3 text-sm font-mono text-white focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
   transparent:
     "border-none bg-transparent px-5 pb-9 pt-5 text-base text-white placeholder:text-gray-500 focus-visible:ring-0",
 };

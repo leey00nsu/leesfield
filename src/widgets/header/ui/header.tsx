@@ -14,15 +14,9 @@ import {
   LogIn,
   Menu,
   LogOut,
-  User,
 } from "lucide-react";
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
-import {
-  AppAvatar,
-  AppAvatarFallback,
-  AppAvatarImage,
-} from "@/shared/ui/app-avatar";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { AppButton } from "@/shared/ui/app-button";
 import {
@@ -39,7 +33,6 @@ type HeaderProps = {
   variant?: "public" | "dashboard";
   isAuthenticated?: boolean;
   userEmail?: string | null;
-  userAvatarUrl?: string | null;
 };
 
 const headerIcons: Record<string, typeof ImageIcon> = {
@@ -53,28 +46,13 @@ const headerIcons: Record<string, typeof ImageIcon> = {
   "/api-docs": BookOpen,
 };
 
-function getInitials(email?: string | null) {
-  if (!email) return "";
-  const namePart = email.split("@")[0]?.trim();
-  if (!namePart) return "";
-  const segments = namePart.split(/[._-]+/).filter(Boolean);
-  if (segments.length >= 2) {
-    return `${segments[0][0] ?? ""}${segments[1][0] ?? ""}`.toUpperCase();
-  }
-  return namePart.slice(0, 2).toUpperCase();
-}
-
 export function Header({
   variant = "dashboard",
   isAuthenticated = false,
-  userEmail = null,
-  userAvatarUrl,
 }: HeaderProps) {
-  const initials = getInitials(userEmail);
   const tHeader = useTranslations("header");
   const tBrand = useTranslations("common.brand");
   const tNav = useTranslations("nav");
-  const tCommonLabels = useTranslations("common.labels");
   const publicNav = dashboardNavigation.filter((item) =>
     ["/image", "/video", "/audio", "/history", "/model", "/monitoring", "/api-docs"].includes(
       item.href,
@@ -100,22 +78,27 @@ export function Header({
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
-          <Link
-            href={isAuthenticated ? "/profile" : "/login"}
-            className="hidden text-sm font-medium text-white/78 transition-colors hover:text-white sm:inline-flex"
-          >
-            {isAuthenticated ? tHeader("profile") : tHeader("login")}
-          </Link>
-          <AppButton
-            asChild
-            size="md"
-            className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
-          >
-            <Link href={isAuthenticated ? "/image" : "/login"}>
-              {tHeader("dashboard")}
-            </Link>
-          </AppButton>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          {isAuthenticated ? (
+            <form action={logoutAction}>
+              <AppButton
+                type="submit"
+                size="md"
+                className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+              >
+                {tHeader("logout")}
+              </AppButton>
+            </form>
+          ) : (
+            <AppButton
+              asChild
+              size="md"
+              className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+            >
+              <Link href="/login">{tHeader("login")}</Link>
+            </AppButton>
+          )}
         </div>
       </header>
     );
@@ -185,16 +168,6 @@ export function Header({
                 })}
                 <AppDropdownMenuSeparator className="bg-white/10" />
                 <AppDropdownMenuItem asChild>
-                  <Link
-                    href="/profile"
-                    className="flex items-center gap-3 text-sm text-gray-200"
-                  >
-                    <User className="h-4 w-4 text-primary" />
-                    {tHeader("profile")}
-                  </Link>
-                </AppDropdownMenuItem>
-                <AppDropdownMenuSeparator className="bg-white/10" />
-                <AppDropdownMenuItem asChild>
                   <form action={logoutAction} className="w-full">
                     <AppButton
                       type="submit"
@@ -222,47 +195,22 @@ export function Header({
         </AppDropdownMenu>
         <LanguageSwitcher />
         {isAuthenticated ? (
-          <Link href="/profile" className="flex items-center">
-            <AppAvatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
-              {userAvatarUrl ? (
-                <AppAvatarImage
-                  src={userAvatarUrl}
-                  alt={userEmail ?? tCommonLabels("user")}
-                />
-              ) : null}
-              <AppAvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
-                {initials || <User className="h-4 w-4" />}
-              </AppAvatarFallback>
-            </AppAvatar>
-          </Link>
-        ) : (
-          <Link href="/login" className="flex items-center">
-            <AppAvatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
-              <AppAvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
-                <User className="h-4 w-4" />
-              </AppAvatarFallback>
-            </AppAvatar>
-          </Link>
-        )}
-        {isAuthenticated ? (
           <form action={logoutAction} className="hidden lg:flex">
             <AppButton
               type="submit"
-              variant="surface"
-              className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
+              className="h-10 gap-2 rounded-full px-5 text-sm font-bold"
             >
-              <LogOut className="h-4 w-4 text-primary" />
+              <LogOut className="h-4 w-4" />
               {tHeader("logout")}
             </AppButton>
           </form>
         ) : (
           <AppButton
             asChild
-            variant="surface"
-            className="hidden h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary lg:flex"
+            className="hidden h-10 gap-2 rounded-full px-5 text-sm font-bold lg:flex"
           >
             <Link href="/login">
-              <LogIn className="h-4 w-4 text-primary" />
+              <LogIn className="h-4 w-4" />
               {tHeader("login")}
             </Link>
           </AppButton>

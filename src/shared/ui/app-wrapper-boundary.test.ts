@@ -239,10 +239,6 @@ describe("app-* design wrapper boundaries", () => {
       join(sourceRoot, "features/auth/login/ui/login-form.tsx"),
       "utf8",
     );
-    const profileForm = readFileSync(
-      join(sourceRoot, "features/user-profile/ui/profile-form.tsx"),
-      "utf8",
-    );
     const appButton = readFileSync(
       join(sourceRoot, "shared/ui/app-button.tsx"),
       "utf8",
@@ -265,8 +261,9 @@ describe("app-* design wrapper boundaries", () => {
     expect(appInput).toContain('type AppInputSurface = "default"');
     expect(appInput).toContain('"toolbar"');
     expect(appInput).toContain('"auth"');
-    expect(appInput).toContain('"profile"');
+    expect(appInput).not.toContain('"profile"');
     expect(appFormControl).toContain('type AppTextareaSurface = "default"');
+    expect(appFormControl).not.toContain('"profile"');
     expect(appSelect).toContain("AppSelectTriggerSurface");
 
     expect(loginGate).toContain("AppDialogActionButton");
@@ -287,9 +284,6 @@ describe("app-* design wrapper boundaries", () => {
     expect(loginForm).toContain('variant="auth"');
     expect(loginForm).not.toContain("bg-[#111417]");
     expect(loginForm).not.toContain("bg-[#22262c]");
-
-    expect(profileForm).toContain('surface="profile"');
-    expect(profileForm).not.toContain("bg-surface-lighter px-4 py-3");
   });
 
   it("keeps model management modal surfaces behind app wrappers", () => {

@@ -40,11 +40,6 @@ export const InputAndSearch: Story = {
         inputSize="lg"
         defaultValue="creator@leesfield.local"
       />
-      <AppInput
-        aria-label="Profile input"
-        surface="profile"
-        defaultValue="leesfield"
-      />
       <AppSearchField
         aria-label="Search"
         placeholder="Search by prompt, model, or tags..."

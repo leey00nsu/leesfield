@@ -2,7 +2,6 @@
   "header": {
     "login": "로그인",
     "logout": "로그아웃",
-    "profile": "프로필",
     "menu": "메뉴",
     "language": "언어",
     "dashboard": "대시보드로 이동"
@@ -1020,54 +1019,5 @@
   "dashboard": {
     "title": "대시보드",
     "description": "생성 페이지와 관리 기능을 준비 중입니다."
-  },
-  "profile": {
-    "title": {
-      "leading": "사용자",
-      "accent": "프로필"
-    },
-    "subtitle": "프로필 정보를 관리하세요",
-    "summary": {
-      "changeAvatar": "아바타 변경",
-      "badges": {
-        "creator": "크리에이터",
-        "proMember": "프로 멤버"
-      },
-      "stats": {
-        "generations": "생성",
-        "credits": "크레딧"
-      }
-    },
-    "form": {
-      "title": "개인 정보",
-      "firstName": "이름",
-      "lastName": "성",
-      "email": "이메일",
-      "username": "사용자명",
-      "bio": "소개",
-      "characters": "{count}/{max}자",
-      "placeholders": {
-        "notSet": "미설정",
-        "email": "admin@example.com",
-        "username": "admin",
-        "bio": "자신을 소개해주세요..."
-      }
-    },
-    "headerActions": {
-      "saveChanges": "변경사항 저장"
-    },
-    "subscription": {
-      "title": "구독",
-      "manage": "관리",
-      "plan": "무료 플랜",
-      "price": "₩0/월",
-      "badge": "무료",
-      "noRenewal": "자동 갱신 없음",
-      "upgrade": "플랜 업그레이드"
-    },
-    "notifications": {
-      "title": "알림",
-      "generationComplete": "생성 완료"
-    }
   }
 }

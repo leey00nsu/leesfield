@@ -45,14 +45,6 @@ export const Controls: Story = {
         <AppLabel htmlFor="app-form-json">Configuration</AppLabel>
         <AppTextarea id="app-form-json" defaultValue={'{\n  "steps": 28\n}'} />
       </AppFormField>
-      <AppFormField>
-        <AppLabel htmlFor="app-form-profile">Profile bio</AppLabel>
-        <AppTextarea
-          id="app-form-profile"
-          surface="profile"
-          defaultValue="A compact project form surface."
-        />
-      </AppFormField>
       <div className="flex gap-6">
         <AppCheckbox label="Active" defaultChecked />
         <AppCheckbox label="Default" />

@@ -2,7 +2,6 @@
   "header": {
     "login": "Log in",
     "logout": "Log out",
-    "profile": "Profile",
     "menu": "Menu",
     "language": "Language",
     "dashboard": "Go to dashboard"
@@ -1020,54 +1019,5 @@
   "dashboard": {
     "title": "Dashboard",
     "description": "Generation pages and management tools are in progress."
-  },
-  "profile": {
-    "title": {
-      "leading": "User",
-      "accent": "Profile"
-    },
-    "subtitle": "Manage your profile details",
-    "summary": {
-      "changeAvatar": "Change Avatar",
-      "badges": {
-        "creator": "Creator",
-        "proMember": "Pro Member"
-      },
-      "stats": {
-        "generations": "Generations",
-        "credits": "Credits"
-      }
-    },
-    "form": {
-      "title": "Personal Information",
-      "firstName": "First Name",
-      "lastName": "Last Name",
-      "email": "Email Address",
-      "username": "Username",
-      "bio": "Bio",
-      "characters": "{count}/{max} CHARACTERS",
-      "placeholders": {
-        "notSet": "Not set",
-        "email": "admin@example.com",
-        "username": "admin",
-        "bio": "Tell us about yourself..."
-      }
-    },
-    "headerActions": {
-      "saveChanges": "Save Changes"
-    },
-    "subscription": {
-      "title": "Subscription",
-      "manage": "Manage",
-      "plan": "Free Plan",
-      "price": "$0/month",
-      "badge": "Free",
-      "noRenewal": "NO RENEWAL",
-      "upgrade": "Upgrade Plan"
-    },
-    "notifications": {
-      "title": "Notifications",
-      "generationComplete": "Generation Complete"
-    }
   }
 }
