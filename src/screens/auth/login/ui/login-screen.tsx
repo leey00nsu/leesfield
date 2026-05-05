@@ -53,10 +53,6 @@ export async function LoginScreen({ returnTo = "/" }: LoginScreenProps) {
               <div className="mt-10 w-full">
                 <LoginForm returnTo={returnTo} />
               </div>
-
-              <p className="mt-10 w-full max-w-full whitespace-normal break-words text-xs leading-5 text-gray-600 sm:max-w-sm">
-                {tLogin("terms")}
-              </p>
             </div>
           </div>
 

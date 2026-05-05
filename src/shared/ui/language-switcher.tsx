@@ -54,7 +54,7 @@ export function LanguageSwitcher() {
         align="end"
         className="w-44 border-white/10 bg-background-dark text-white"
       >
-        <AppDropdownMenuLabel className="font-display text-white">
+        <AppDropdownMenuLabel className="font-sans text-white">
           {t("language")}
         </AppDropdownMenuLabel>
         <AppDropdownMenuSeparator className="bg-white/10" />
