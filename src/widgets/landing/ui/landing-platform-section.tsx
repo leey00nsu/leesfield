@@ -1,15 +1,10 @@
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
-import { parseMonitoringQuery } from "@/server/monitoring/monitoring-query";
-import { getMonitoringOverview } from "@/server/monitoring/overview";
-import { getMonitoringStats } from "@/server/monitoring/stats";
-import { getMonitoringTop } from "@/server/monitoring/top";
 import { modelCatalog as fallbackModelCatalog } from "@/features/model-management/model/model-catalog";
 import {
   LandingPlatformClientSection,
   type LandingPlatformModel,
   type LandingPlatformMonitoringData,
-  type LandingPlatformUsageItem,
 } from "@/widgets/landing/ui/landing-platform-section-client";
 
 const MODEL_ASSETS = [
@@ -19,7 +14,25 @@ const MODEL_ASSETS = [
   "/assets/creative-studio/mirror-portrait.jpg",
 ];
 
-const USAGE_COLORS = ["#d4f032", "#f5f2df", "#9e8cff", "#6ee7b7"];
+const SHOWCASE_MONITORING_DATA: LandingPlatformMonitoringData = {
+  totalCount: 12486,
+  successRate: 97.8,
+  trend: [
+    { day: "04/24", requests: 920, errors: 18 },
+    { day: "04/25", requests: 1240, errors: 19 },
+    { day: "04/26", requests: 1168, errors: 21 },
+    { day: "04/27", requests: 1492, errors: 22 },
+    { day: "04/28", requests: 1860, errors: 31 },
+    { day: "04/29", requests: 1735, errors: 24 },
+    { day: "04/30", requests: 2110, errors: 27 },
+  ],
+  usage: [
+    { name: "Image", value: 42, total: 5244, color: "#d4f032" },
+    { name: "Video", value: 28, total: 3496, color: "#f5f2df" },
+    { name: "Audio", value: 19, total: 2372, color: "#9e8cff" },
+    { name: "API", value: 11, total: 1374, color: "#6ee7b7" },
+  ],
+};
 
 type FallbackCatalogItem = (typeof fallbackModelCatalog)[number];
 
@@ -76,82 +89,14 @@ function selectFeaturedModels(catalog: LandingPlatformModel[]) {
   ).slice(0, 3);
 }
 
-function formatChartDay(day: string) {
-  const [, month, date] = day.split("-");
-  return month && date ? `${month}/${date}` : day;
-}
-
-function toUsageData(
-  models: Awaited<ReturnType<typeof getMonitoringTop>>["models"],
-  catalog: LandingPlatformModel[],
-): LandingPlatformUsageItem[] {
-  const labelByKey = new Map(catalog.map((model) => [model.key, model.label]));
-  const total = models.reduce((sum, model) => sum + model.total, 0);
-
-  if (total <= 0) {
-    return [];
-  }
-
-  return models
-    .filter((model) => model.total > 0)
-    .slice(0, 4)
-    .map((model, index) => ({
-      name: labelByKey.get(model.key) ?? model.label,
-      value: Math.round((model.total / total) * 100),
-      total: model.total,
-      color: USAGE_COLORS[index] ?? USAGE_COLORS[USAGE_COLORS.length - 1],
-    }));
-}
-
-async function loadMonitoringData(
-  catalog: LandingPlatformModel[],
-): Promise<LandingPlatformMonitoringData> {
-  const emptyData = {
-    totalCount: 0,
-    successRate: null,
-    trend: [],
-    usage: [],
-  };
-
-  try {
-    const query = parseMonitoringQuery(new URLSearchParams(), {
-      defaultDays: 7,
-      defaultLimit: 50,
-      defaultMetric: "requests",
-    });
-    const [overview, stats, top] = await Promise.all([
-      getMonitoringOverview(query),
-      getMonitoringStats(query),
-      getMonitoringTop(query, 4),
-    ]);
-
-    return {
-      totalCount: overview.totalCount,
-      successRate:
-        overview.totalCount > 0
-          ? Number(((1 - overview.errorRate) * 100).toFixed(1))
-          : null,
-      trend: stats.map((row) => ({
-        day: formatChartDay(row.day),
-        requests: row.total,
-        errors: row.failed,
-      })),
-      usage: toUsageData(top.models, catalog),
-    };
-  } catch {
-    return emptyData;
-  }
-}
-
 export async function LandingPlatformSection() {
   const modelCatalog = await loadModelCatalog();
   const featuredModels = selectFeaturedModels(modelCatalog);
-  const monitoring = await loadMonitoringData(modelCatalog);
 
   return (
     <LandingPlatformClientSection
       featuredModels={featuredModels}
-      monitoring={monitoring}
+      monitoring={SHOWCASE_MONITORING_DATA}
     />
   );
 }
