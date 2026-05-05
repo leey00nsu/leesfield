@@ -39,7 +39,7 @@ export function AppCalendar({ className, classNames, ...props }: AppCalendarProp
         weekday:
           "w-9 rounded-md text-[0.68rem] font-semibold uppercase tracking-widest text-white/38",
         day: "relative p-0 text-center text-sm text-white/82 focus-within:relative focus-within:z-20",
-        selected: "rounded-md bg-primary text-primary-content",
+        selected: "rounded-md !bg-primary !text-black [&_button]:!text-black",
         today: "rounded-md bg-white/10 text-white",
         outside:
           "text-white/24 data-[selected]:bg-primary/10 data-[selected]:text-primary-content/70",

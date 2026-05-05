@@ -331,4 +331,15 @@ describe("app-* design wrapper boundaries", () => {
     expect(modelScreen).toContain("@/shared/ui/app-input");
     expect(modelScreen).toContain("@/shared/ui/app-form-control");
   });
+
+  it("keeps selected calendar dates readable on the primary surface", () => {
+    const appCalendar = readFileSync(
+      join(sourceRoot, "shared/ui/app-calendar.tsx"),
+      "utf8",
+    );
+
+    expect(appCalendar).toContain("data-app-calendar");
+    expect(appCalendar).toContain("!bg-primary");
+    expect(appCalendar).toContain("[&_button]:!text-black");
+  });
 });
