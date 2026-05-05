@@ -28,6 +28,32 @@ vi.mock("@paper-design/shaders-react", () => ({
   ),
 }));
 
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({
+      animate,
+      children,
+      initial,
+      transition,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & {
+      animate?: unknown;
+      initial?: unknown;
+      transition?: unknown;
+    }) => (
+      <div
+        {...props}
+        data-motion-animate={JSON.stringify(animate)}
+        data-motion-initial={JSON.stringify(initial)}
+        data-motion-transition={JSON.stringify(transition)}
+      >
+        {children}
+      </div>
+    ),
+  },
+  useReducedMotion: () => false,
+}));
+
 describe("LandingHero", () => {
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
@@ -35,24 +61,32 @@ describe("LandingHero", () => {
     const panel = screen.getByRole("region", { name: "생성 패널" });
     expect(panel).toBeInTheDocument();
     expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
+    expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-form-shader");
     expect(panel).toHaveClass("bg-[#07090a]");
-    const reveal = screen.getByTestId("landing-hero-preview-reveal");
+    const formMotion = screen.getByTestId("landing-hero-form-motion");
     const shaderPanel = screen.getByTestId("warp-shader-panel");
     const formSurface = screen.getByTestId("landing-hero-form-surface");
-    expect(reveal).toHaveClass("animate-in");
-    expect(reveal).toHaveClass("fade-in");
-    expect(reveal).toHaveClass("fill-mode-forwards");
-    expect(reveal).toHaveClass("duration-1000");
-    expect(reveal).toHaveClass("delay-150");
-    expect(reveal).toHaveClass("motion-reduce:animate-none");
-    expect(reveal).toContainElement(shaderPanel);
-    expect(reveal).toContainElement(formSurface);
-    expect(reveal.firstElementChild).toHaveAttribute(
-      "data-layer",
-      "hero-form-shader",
+    expect(formMotion).toHaveClass("relative");
+    expect(formMotion).toContainElement(formSurface);
+    expect(formMotion).not.toContainElement(shaderPanel);
+    expect(formMotion).toHaveAttribute(
+      "data-motion-initial",
+      JSON.stringify({ opacity: 0 }),
     );
-    expect(shaderPanel).not.toHaveClass("animate-in");
-    expect(shaderPanel).not.toHaveClass("fade-in");
+    expect(formMotion).toHaveAttribute(
+      "data-motion-animate",
+      JSON.stringify({ opacity: 1 }),
+    );
+    expect(formMotion).toHaveAttribute(
+      "data-motion-transition",
+      JSON.stringify({
+        delay: 0.18,
+        duration: 0.72,
+        ease: [0.22, 1, 0.36, 1],
+      }),
+    );
+    expect(shaderPanel).toHaveClass("animate-in");
+    expect(shaderPanel).toHaveClass("fade-in");
     expect(
       formSurface,
     ).toHaveClass("relative");
@@ -112,22 +146,27 @@ describe("LandingHero", () => {
     );
   });
 
-  it("smoothly fades the full preview in after client-side navigation", () => {
+  it("keeps the original shader placement while motion fades the form after client-side navigation", () => {
     const firstRender = renderWithIntl(<LandingHero />);
     firstRender.unmount();
     renderWithIntl(<LandingHero />);
 
-    const reveal = screen.getByTestId("landing-hero-preview-reveal");
+    const formMotion = screen.getByTestId("landing-hero-form-motion");
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(reveal).toHaveClass("animate-in");
-    expect(reveal).toHaveClass("fade-in");
-    expect(reveal).toHaveClass("fill-mode-forwards");
-    expect(reveal).toHaveClass("duration-1000");
-    expect(reveal).toContainElement(panel);
-    expect(reveal).toContainElement(screen.getByTestId("landing-hero-form-surface"));
+    expect(formMotion).toHaveAttribute(
+      "data-motion-initial",
+      JSON.stringify({ opacity: 0 }),
+    );
+    expect(formMotion).toHaveAttribute(
+      "data-motion-animate",
+      JSON.stringify({ opacity: 1 }),
+    );
+    expect(formMotion).toContainElement(screen.getByTestId("landing-hero-form-surface"));
+    expect(formMotion).not.toContainElement(panel);
     expect(panel).toHaveClass("bg-[#07090a]");
-    expect(panel).not.toHaveClass("animate-in");
-    expect(panel).not.toHaveClass("fade-in");
+    expect(panel).toHaveClass("animate-in");
+    expect(panel).toHaveClass("fade-in");
+    expect(panel.parentElement).toHaveAttribute("data-layer", "hero-form-shader");
     expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
     expect(screen.getByTestId("warp-shader-scrim")).toHaveClass(
       "bg-[#07090a]/35",
