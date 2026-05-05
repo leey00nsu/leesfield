@@ -66,8 +66,13 @@ export function LandingHero() {
         <div
           role="region"
           aria-label={t("preview.label")}
-          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
+          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
+          <LandingHeroMotionLayer
+            testId="landing-hero-preview-border-motion"
+            className="pointer-events-none absolute inset-0 rounded-[1.5rem] border border-white/10"
+          />
+
           <LandingHeroMotionLayer
             data-layer="hero-form-shader"
             testId="landing-hero-shader-motion"

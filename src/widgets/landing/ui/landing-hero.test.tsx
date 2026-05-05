@@ -62,12 +62,23 @@ describe("LandingHero", () => {
     expect(panel).toBeInTheDocument();
     expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
     expect(panel).toHaveClass("bg-[#07090a]");
+    expect(panel).not.toHaveClass("border");
+    expect(panel).not.toHaveClass("border-white/10");
+    const previewBorderMotion = screen.getByTestId(
+      "landing-hero-preview-border-motion",
+    );
     const shaderMotion = screen.getByTestId("landing-hero-shader-motion");
     const borderMotion = screen.getByTestId("landing-hero-form-border-motion");
     const formMotion = screen.getByTestId("landing-hero-form-motion");
     const shaderPanel = screen.getByTestId("warp-shader-panel");
     const formSurface = screen.getByTestId("landing-hero-form-surface");
-    expect(panel.firstElementChild).toBe(shaderMotion);
+    expect(panel.firstElementChild).toBe(previewBorderMotion);
+    expect(previewBorderMotion).toHaveClass("pointer-events-none");
+    expect(previewBorderMotion).toHaveClass("absolute");
+    expect(previewBorderMotion).toHaveClass("inset-0");
+    expect(previewBorderMotion).toHaveClass("rounded-[1.5rem]");
+    expect(previewBorderMotion).toHaveClass("border");
+    expect(previewBorderMotion).toHaveClass("border-white/10");
     expect(shaderMotion).toHaveAttribute("data-layer", "hero-form-shader");
     expect(shaderMotion).toHaveClass("absolute");
     expect(shaderMotion).toHaveClass("inset-0");
@@ -88,7 +99,12 @@ describe("LandingHero", () => {
     expect(formSurface).not.toHaveAttribute("data-motion-initial");
     expect(formSurface).not.toHaveAttribute("data-motion-animate");
     expect(formSurface).not.toHaveAttribute("data-motion-transition");
-    for (const layer of [shaderMotion, borderMotion, formMotion]) {
+    for (const layer of [
+      previewBorderMotion,
+      shaderMotion,
+      borderMotion,
+      formMotion,
+    ]) {
       expect(layer).toHaveAttribute(
         "data-motion-initial",
         JSON.stringify({ opacity: 0 }),
@@ -172,10 +188,17 @@ describe("LandingHero", () => {
     firstRender.unmount();
     renderWithIntl(<LandingHero />);
 
+    const previewBorderMotion = screen.getByTestId(
+      "landing-hero-preview-border-motion",
+    );
     const shaderMotion = screen.getByTestId("landing-hero-shader-motion");
     const borderMotion = screen.getByTestId("landing-hero-form-border-motion");
     const formMotion = screen.getByTestId("landing-hero-form-motion");
     const panel = screen.getByTestId("warp-shader-panel");
+    expect(previewBorderMotion).toHaveAttribute(
+      "data-motion-initial",
+      formMotion.getAttribute("data-motion-initial"),
+    );
     expect(shaderMotion).toHaveAttribute(
       "data-motion-initial",
       formMotion.getAttribute("data-motion-initial"),
@@ -188,11 +211,19 @@ describe("LandingHero", () => {
       "data-motion-animate",
       formMotion.getAttribute("data-motion-animate"),
     );
+    expect(previewBorderMotion).toHaveAttribute(
+      "data-motion-animate",
+      formMotion.getAttribute("data-motion-animate"),
+    );
     expect(borderMotion).toHaveAttribute(
       "data-motion-animate",
       formMotion.getAttribute("data-motion-animate"),
     );
     expect(shaderMotion).toHaveAttribute(
+      "data-motion-transition",
+      formMotion.getAttribute("data-motion-transition"),
+    );
+    expect(previewBorderMotion).toHaveAttribute(
       "data-motion-transition",
       formMotion.getAttribute("data-motion-transition"),
     );
