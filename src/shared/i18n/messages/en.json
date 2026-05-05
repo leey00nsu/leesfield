@@ -113,25 +113,25 @@
     },
     "workflow": {
       "eyebrow": "SYSTEM OVERVIEW",
-      "title": "A workflow built for shipping.",
-      "description": "leesfield unifies generation, review, reuse, and delivery so teams can move from idea to shipped work with clarity and speed.",
+      "title": "A workflow built for controlled generation.",
+      "description": "leesfield keeps prompts, models, results, monitoring, and API surfaces in one workflow for image, video, and audio generation.",
       "items": {
         "generate": {
           "title": "Generate",
-          "description": "Create on-brand content in seconds."
+          "description": "Create images, videos, and audio from one shared prompt workflow."
         },
         "review": {
           "title": "Review",
-          "description": "Collaborate, annotate, and approve with context."
+          "description": "Open past generations with their request details, settings, and results."
         },
-        "reuse": {
-          "title": "Reuse",
-          "description": "Tap into assets, templates, and past work."
+        "monitor": {
+          "title": "Monitor",
+          "description": "Track request volume, success rate, latency, and model usage from one dashboard."
         }
         ,
-        "deliver": {
-          "title": "Deliver",
-          "description": "Export, publish, and ship with confidence."
+        "integrate": {
+          "title": "Integrate",
+          "description": "Use API docs, model controls, and keys to connect generation to your product."
         }
       }
     },

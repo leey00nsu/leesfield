@@ -8,12 +8,20 @@ describe("LandingCoreFeaturesSection", () => {
     renderWithIntl(<LandingCoreFeaturesSection />);
 
     expect(
-      screen.getByRole("heading", { name: "A workflow built for shipping." }),
+      screen.getByRole("heading", {
+        name: "A workflow built for controlled generation.",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText("Generate")).toBeInTheDocument();
     expect(screen.getByText("Review")).toBeInTheDocument();
-    expect(screen.getByText("Reuse")).toBeInTheDocument();
-    expect(screen.getByText("Deliver")).toBeInTheDocument();
+    expect(screen.getByText("Monitor")).toBeInTheDocument();
+    expect(screen.getByText("Integrate")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Monitor/i }),
+    ).toHaveAttribute("href", "/monitoring");
+    expect(screen.getByText("Image / Video / Audio usage")).toBeInTheDocument();
+    expect(screen.getByText("/v2/image/generate")).toBeInTheDocument();
+    expect(screen.queryByText("Export project")).not.toBeInTheDocument();
     expect(screen.queryByText(/components\/ui/)).not.toBeInTheDocument();
   });
 });

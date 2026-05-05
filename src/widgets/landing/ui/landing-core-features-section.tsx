@@ -1,9 +1,9 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  ChartNoAxesCombined,
+  Code2,
   Eye,
-  Layers3,
-  Send,
   Sparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -13,8 +13,8 @@ import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 const workflowItems = [
   { key: "generate", icon: Sparkles, href: "/image" },
   { key: "review", icon: Eye, href: "/history" },
-  { key: "reuse", icon: Layers3, href: "/history" },
-  { key: "deliver", icon: Send, href: "/api-docs" },
+  { key: "monitor", icon: ChartNoAxesCombined, href: "/monitoring" },
+  { key: "integrate", icon: Code2, href: "/api-docs" },
 ] as const;
 
 export function LandingCoreFeaturesSection() {
@@ -40,21 +40,21 @@ export function LandingCoreFeaturesSection() {
               <AppCard
                 key={item.key}
                 variant="editorial"
-                className="group min-h-[24rem] rounded-[1.35rem] p-0 transition-transform duration-300 hover:-translate-y-1"
+                className="group min-h-[34rem] rounded-[1.35rem] p-0 transition-transform duration-300 hover:-translate-y-1"
               >
-                <Link href={item.href} className="flex min-h-[24rem] flex-col p-6">
+                <Link href={item.href} className="flex min-h-[34rem] flex-col p-6">
                   <div className="flex items-center gap-3 text-primary">
                     <Icon className="h-6 w-6" />
                     <span className="font-semibold">{t(`items.${item.key}.title`)}</span>
                   </div>
-                  <div className="mt-8 flex-1 rounded-xl border border-white/10 bg-black/18 p-4">
+                  <div className="mt-8 h-56 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/18 p-4">
                     <MiniWorkflowPreview itemKey={item.key} />
                   </div>
-                  <div className="mt-8 border-t border-primary/55 pt-6">
+                  <div className="mt-8 flex flex-1 flex-col border-t border-primary/55 pt-6">
                     <p className="max-w-xs text-base leading-7 text-white/78">
                       {t(`items.${item.key}.description`)}
                     </p>
-                    <span className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">
+                    <span className="mt-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">
                       <ArrowRight className="h-5 w-5" />
                     </span>
                   </div>
@@ -71,55 +71,76 @@ export function LandingCoreFeaturesSection() {
 function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
   if (itemKey === "review") {
     return (
-      <div className="grid h-full grid-cols-2 gap-2">
-        {["mirror-portrait.jpg", "studio-vocalist.jpg", "audio-console.jpg", "film-production.jpg"].map(
-          (asset) => (
-            <div
-              key={asset}
-              className="rounded-lg bg-cover bg-center"
-              style={{
-                backgroundImage: `url(/assets/creative-studio/${asset})`,
-              }}
-            />
-          ),
-        )}
-      </div>
-    );
-  }
-
-  if (itemKey === "reuse") {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-2">
-          <div className="flex aspect-square items-center justify-center rounded-lg bg-primary text-sm font-bold text-black">
-            Aa
-          </div>
-          <div className="rounded-lg bg-white/8" />
-          <div className="rounded-lg bg-[url('/assets/creative-studio/mirror-portrait.jpg')] bg-cover bg-center" />
-          <div className="rounded-lg bg-[url('/assets/creative-studio/blue-mosaic.jpg')] bg-cover bg-center" />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="h-12 rounded-lg bg-white/10" />
-          <div className="h-12 rounded-lg bg-white/10" />
-          <div className="h-12 rounded-lg bg-white/10" />
+      <div className="grid h-full grid-cols-6 grid-rows-4 gap-2">
+        <HistoryGridTile
+          asset="mirror-portrait.jpg"
+          className="col-span-3 row-span-2"
+        />
+        <HistoryGridTile
+          asset="studio-vocalist.jpg"
+          className="col-span-3 row-span-1"
+        />
+        <HistoryGridTile
+          asset="audio-console.jpg"
+          className="col-span-2 row-span-2"
+        />
+        <HistoryGridTile
+          asset="film-production.jpg"
+          className="col-span-4 row-span-2"
+        />
+        <div className="col-span-2 row-span-1 rounded-lg border border-primary/45 bg-primary/12 px-3 py-2 text-xs font-medium text-primary">
+          Succeeded
         </div>
       </div>
     );
   }
 
-  if (itemKey === "deliver") {
+  if (itemKey === "monitor") {
     return (
-      <div className="space-y-4 text-sm text-white/62">
-        {["Web 1920 x 1080", "Social 1080 x 1080", "Presentation 16:9"].map(
-          (label) => (
-            <div key={label} className="flex justify-between border-b border-white/8 pb-3">
-              <span>{label.split(" ")[0]}</span>
-              <span>{label.replace(label.split(" ")[0], "").trim()}</span>
-            </div>
-          ),
-        )}
-        <div className="rounded-lg bg-primary py-3 text-center font-semibold text-black">
-          Export project
+      <div className="flex h-full flex-col justify-between">
+        <div className="grid grid-cols-3 gap-2 text-xs text-white/56">
+          <MetricPreview label="Success" value="99.2%" />
+          <MetricPreview label="Jobs" value="432" />
+          <MetricPreview label="Latency" value="1.2s" />
+        </div>
+        <div className="flex h-20 items-end gap-1.5">
+          {[32, 46, 40, 58, 44, 52, 66, 49, 62, 72, 56, 68, 60, 76].map(
+            (height, index) => (
+              <span
+                key={`${height}-${index}`}
+                className="flex-1 rounded-t bg-primary/80"
+                style={{ height: `${height}%` }}
+              />
+            ),
+          )}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/62">
+          <span>Image / Video / Audio usage</span>
+          <span className="text-primary">Live</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (itemKey === "integrate") {
+    return (
+      <div className="flex h-full flex-col text-sm text-white/62">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="rounded-md bg-primary/15 px-2 py-1 font-semibold text-primary">
+            POST
+          </span>
+          <span>/v2/image/generate</span>
+        </div>
+        <div className="mt-4 flex-1 rounded-lg border border-white/8 bg-black/30 p-3 font-mono text-xs leading-6 text-white/58">
+          <p>{'{"model": "gpt-image-2",'}</p>
+          <p>{'"prompt": "studio product shot",'}</p>
+          <p>{'"aspect_ratio": "16:9"}'}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <span className="rounded-lg bg-white/8 px-3 py-2 text-center">API keys</span>
+          <span className="rounded-lg bg-primary py-2 text-center font-semibold text-black">
+            Docs
+          </span>
         </div>
       </div>
     );
@@ -138,6 +159,32 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
         <div className="h-12 rounded-lg bg-white/8" />
       </div>
       <div className="mx-auto mt-5 h-10 w-36 rounded-lg bg-primary" />
+    </div>
+  );
+}
+
+function HistoryGridTile({
+  asset,
+  className,
+}: {
+  asset: string;
+  className: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg bg-cover bg-center ${className}`}
+      style={{
+        backgroundImage: `url(/assets/creative-studio/${asset})`,
+      }}
+    />
+  );
+}
+
+function MetricPreview({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/8 bg-white/[0.04] p-2">
+      <p>{label}</p>
+      <p className="mt-1 font-medium text-white">{value}</p>
     </div>
   );
 }
