@@ -72,8 +72,13 @@ describe("LandingHero", () => {
     expect(shaderMotion).toHaveClass("inset-0");
     expect(formMotion).toHaveClass("relative");
     expect(shaderMotion).toContainElement(shaderPanel);
-    expect(formMotion).toContainElement(formSurface);
+    expect(formSurface).toContainElement(formMotion);
+    expect(formMotion).not.toContainElement(formSurface);
+    expect(formMotion).toContainElement(screen.getByTestId("shared-prompt-form-surface"));
     expect(formMotion).not.toContainElement(shaderPanel);
+    expect(formSurface).not.toHaveAttribute("data-motion-initial");
+    expect(formSurface).not.toHaveAttribute("data-motion-animate");
+    expect(formSurface).not.toHaveAttribute("data-motion-transition");
     for (const layer of [shaderMotion, formMotion]) {
       expect(layer).toHaveAttribute(
         "data-motion-initial",
@@ -153,7 +158,7 @@ describe("LandingHero", () => {
     );
   });
 
-  it("keeps the original shader placement while motion fades the form after client-side navigation", () => {
+  it("keeps the blur surface stable while motion fades inner content after client-side navigation", () => {
     const firstRender = renderWithIntl(<LandingHero />);
     firstRender.unmount();
     renderWithIntl(<LandingHero />);
@@ -161,11 +166,28 @@ describe("LandingHero", () => {
     const shaderMotion = screen.getByTestId("landing-hero-shader-motion");
     const formMotion = screen.getByTestId("landing-hero-form-motion");
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(shaderMotion).toHaveAttribute("data-motion-initial", formMotion.getAttribute("data-motion-initial"));
-    expect(shaderMotion).toHaveAttribute("data-motion-animate", formMotion.getAttribute("data-motion-animate"));
-    expect(shaderMotion).toHaveAttribute("data-motion-transition", formMotion.getAttribute("data-motion-transition"));
+    expect(shaderMotion).toHaveAttribute(
+      "data-motion-initial",
+      formMotion.getAttribute("data-motion-initial"),
+    );
+    expect(shaderMotion).toHaveAttribute(
+      "data-motion-animate",
+      formMotion.getAttribute("data-motion-animate"),
+    );
+    expect(shaderMotion).toHaveAttribute(
+      "data-motion-transition",
+      formMotion.getAttribute("data-motion-transition"),
+    );
     expect(shaderMotion).toContainElement(panel);
-    expect(formMotion).toContainElement(screen.getByTestId("landing-hero-form-surface"));
+    expect(screen.getByTestId("landing-hero-form-surface")).toContainElement(
+      formMotion,
+    );
+    expect(formMotion).toContainElement(
+      screen.getByTestId("shared-prompt-form-surface"),
+    );
+    expect(formMotion).not.toContainElement(
+      screen.getByTestId("landing-hero-form-surface"),
+    );
     expect(formMotion).not.toContainElement(panel);
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(panel).not.toHaveClass("animate-in");

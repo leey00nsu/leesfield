@@ -12,6 +12,7 @@ interface GenerationPromptFieldProps {
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
   promptMeta?: ReactNode;
+  contentWrapper?: (children: ReactNode) => ReactNode;
   className?: string;
   ariaLabel?: string;
   testId?: string;
@@ -55,6 +56,7 @@ export function GenerationPromptField({
   footerLeft,
   footerRight,
   promptMeta,
+  contentWrapper,
   className,
   ariaLabel,
   testId,
@@ -69,6 +71,7 @@ export function GenerationPromptField({
       footerLeft={footerLeft}
       footerRight={footerRight}
       promptMeta={promptMeta}
+      contentWrapper={contentWrapper}
       className={className}
       ariaLabel={ariaLabel}
       testId={testId}

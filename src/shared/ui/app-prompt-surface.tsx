@@ -21,6 +21,7 @@ interface AppPromptFieldProps {
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
   promptMeta?: ReactNode;
+  contentWrapper?: (children: ReactNode) => ReactNode;
   className?: string;
   ariaLabel?: string;
   testId?: string;
@@ -85,11 +86,24 @@ export function AppPromptField({
   footerLeft,
   footerRight,
   promptMeta,
+  contentWrapper,
   className,
   ariaLabel,
   testId,
   surface = "default",
 }: AppPromptFieldProps) {
+  const content = (
+    <AppPromptSurface
+      textarea={textarea}
+      attachments={attachments}
+      header={header}
+      footer={footer}
+      footerLeft={footerLeft}
+      footerRight={footerRight}
+      promptMeta={promptMeta}
+    />
+  );
+
   return (
     <AppCard
       variant="editorial-flat"
@@ -104,15 +118,7 @@ export function AppPromptField({
         className,
       )}
     >
-      <AppPromptSurface
-        textarea={textarea}
-        attachments={attachments}
-        header={header}
-        footer={footer}
-        footerLeft={footerLeft}
-        footerRight={footerRight}
-        promptMeta={promptMeta}
-      />
+      {contentWrapper ? contentWrapper(content) : content}
     </AppCard>
   );
 }

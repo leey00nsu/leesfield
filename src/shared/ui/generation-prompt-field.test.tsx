@@ -37,4 +37,24 @@ describe("GenerationPromptField", () => {
     expect(surface).not.toHaveClass("bg-creative-surface");
     expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0 chars");
   });
+
+  it("can wrap the inner prompt content without wrapping the outer prompt field surface", () => {
+    renderWithIntl(
+      <GenerationPromptField
+        testId="prompt-field"
+        textarea={<textarea aria-label="Prompt" />}
+        contentWrapper={(children) => (
+          <div data-testid="prompt-content-wrapper">{children}</div>
+        )}
+      />,
+    );
+
+    const field = screen.getByTestId("prompt-field");
+    const wrapper = screen.getByTestId("prompt-content-wrapper");
+    const surface = screen.getByTestId("shared-prompt-form-surface");
+
+    expect(field).not.toBe(wrapper);
+    expect(field).toContainElement(wrapper);
+    expect(wrapper).toContainElement(surface);
+  });
 });
