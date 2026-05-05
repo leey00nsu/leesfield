@@ -163,7 +163,8 @@ beforeEach(() => {
 });
 
 describe("MonitoringDashboardScreen", () => {
-  it("운영 대시보드 카드와 최근 작업 영역을 표시한다", () => {
+  it("운영 대시보드 카드와 최근 작업 영역을 표시한다", async () => {
+    const user = userEvent.setup();
     const { container } = renderWithIntl(<MonitoringDashboardScreen />);
 
     expect(screen.getByText("성공률")).toBeInTheDocument();
@@ -181,6 +182,9 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.getByRole("button", { name: "비디오" })).toBeInTheDocument();
     expect(screen.getByLabelText("시작일")).toBeInTheDocument();
     expect(screen.getByLabelText("종료일")).toBeInTheDocument();
+    expect(container.querySelector('input[type="date"]')).toBeNull();
+    await user.click(screen.getByLabelText("시작일"));
+    expect(document.querySelector("[data-app-calendar]")).toBeTruthy();
     expect(screen.getByLabelText("상태")).toBeInTheDocument();
     expect(screen.getByLabelText("모델")).toBeInTheDocument();
     expect(screen.getByLabelText("API 키")).toBeInTheDocument();

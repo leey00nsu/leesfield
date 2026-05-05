@@ -8,8 +8,6 @@ import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monit
 import {
   createRangeFromDays,
   endOfDay,
-  formatDateInputValue,
-  parseDateInputValue,
   startOfDay,
 } from "@/features/monitoring-dashboard/lib/format";
 import type {
@@ -29,7 +27,6 @@ import {
   AppFilterToggle,
   AppFilterToolbar,
 } from "@/shared/ui/app-filter-toolbar";
-import { AppInput } from "@/shared/ui/app-input";
 import {
   AppSelectContent,
   AppSelectItem,
@@ -37,6 +34,7 @@ import {
   AppSelectTrigger,
   AppSelectValue,
 } from "@/shared/ui/app-select";
+import { AppDatePicker } from "@/shared/ui/app-calendar";
 
 const DEFAULT_REQUEST_LIMIT = 50;
 const statusFilters: MonitoringStatusFilter[] = [
@@ -124,16 +122,12 @@ export function MonitoringDashboardScreen() {
     setApiKeyId(value === "all" ? null : value);
     resetToFirstPage();
   };
-  const handleFromChange = (value: string) => {
-    const parsed = parseDateInputValue(value);
-    if (!parsed) return;
-    setFrom(startOfDay(parsed));
+  const handleFromChange = (value: Date) => {
+    setFrom(startOfDay(value));
     resetToFirstPage();
   };
-  const handleToChange = (value: string) => {
-    const parsed = parseDateInputValue(value);
-    if (!parsed) return;
-    setTo(endOfDay(parsed));
+  const handleToChange = (value: Date) => {
+    setTo(endOfDay(value));
     resetToFirstPage();
   };
 
@@ -159,21 +153,15 @@ export function MonitoringDashboardScreen() {
           </AppFilterGroup>
 
           <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(8rem,0.7fr)_minmax(8rem,0.7fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
-            <AppInput
-              type="date"
-              surface="toolbar"
-              inputSize="lg"
+            <AppDatePicker
               aria-label={t("filters.from")}
-              value={formatDateInputValue(from)}
-              onChange={(event) => handleFromChange(event.target.value)}
+              value={from}
+              onChange={handleFromChange}
             />
-            <AppInput
-              type="date"
-              surface="toolbar"
-              inputSize="lg"
+            <AppDatePicker
               aria-label={t("filters.to")}
-              value={formatDateInputValue(to)}
-              onChange={(event) => handleToChange(event.target.value)}
+              value={to}
+              onChange={handleToChange}
             />
             <AppSelectRoot
               value={status}
