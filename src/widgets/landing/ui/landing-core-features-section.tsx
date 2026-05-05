@@ -73,16 +73,14 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
     return (
       <div
         data-testid="landing-review-skeleton-grid"
-        className="grid h-full grid-cols-6 grid-rows-5 gap-2"
+        className="grid h-full grid-cols-6 grid-rows-6 gap-2"
       >
         <SkeletonGridTile className="col-span-3 row-span-3" />
         <SkeletonGridTile className="col-span-3 row-span-2" />
         <SkeletonGridTile className="col-span-2 row-span-2" />
+        <SkeletonGridTile className="col-span-2 row-span-3" />
         <SkeletonGridTile className="col-span-2 row-span-2" />
-        <SkeletonGridTile className="col-span-2 row-span-1" />
-        <div className="col-span-2 row-span-1 flex items-center justify-center rounded-lg border border-primary/45 bg-primary/12 px-3 text-xs font-medium text-primary">
-          Succeeded
-        </div>
+        <SkeletonGridTile className="col-span-2 row-span-2" />
       </div>
     );
   }
