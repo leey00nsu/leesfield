@@ -91,149 +91,78 @@
   "landing": {
     "hero": {
       "secondaryCta": "API 문서",
-      "headline": "무엇이든 생성하세요. 이미지, 비디오, 오디오를 하나의 플랫폼에서.",
-      "headlineFirst": "무엇이든 생성하세요.",
-      "headlineSecond": "이미지, 비디오, 오디오를 하나의 플랫폼에서.",
-      "subhead": "창작자와 개발자를 위한 생성 워크플로우.",
+      "headline": "Generate anything. One platform for image, video, and audio.",
+      "headlineFirst": "Generate anything.",
+      "headlineSecond": "One platform for image, video, and audio.",
+      "subhead": "Built for creators and developers who ship.",
       "tabs": {
-        "image": "이미지",
-        "video": "비디오",
-        "audio": "오디오"
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
       },
       "preview": {
         "label": "생성 패널",
         "promptLabel": "프롬프트",
-        "placeholder": "만들고 싶은 것을 입력하세요...",
-        "modelLabel": "모델",
+        "placeholder": "Describe what you want to create...",
+        "modelLabel": "Model",
         "model": "GPT Image 2",
-        "aspectLabel": "비율",
+        "aspectLabel": "Aspect ratio",
         "aspect": "16:9",
-        "generate": "생성"
+        "generate": "Generate"
       }
     },
     "workflow": {
-      "eyebrow": "시스템 개요",
-      "title": "제어 가능한 생성을 위한 워크플로우.",
-      "description": "프롬프트, 모델, 결과, 모니터링, API를 하나의 생성 흐름으로 관리합니다.",
+      "eyebrow": "SYSTEM OVERVIEW",
+      "title": "A workflow built for controlled generation.",
+      "description": "leesfield keeps prompts, models, results, monitoring, and API surfaces in one workflow for image, video, and audio generation.",
       "items": {
         "generate": {
-          "title": "생성",
-          "description": "하나의 프롬프트 흐름에서 이미지, 비디오, 오디오를 만듭니다."
+          "title": "Generate",
+          "description": "Create images, videos, and audio from one shared prompt workflow."
         },
         "review": {
-          "title": "검토",
-          "description": "이전 생성 결과와 요청 정보, 설정을 함께 확인합니다."
+          "title": "Review",
+          "description": "Open past generations with their request details, settings, and results."
         },
         "monitor": {
-          "title": "모니터링",
-          "description": "요청 수, 성공률, 지연 시간, 모델 사용량을 한 화면에서 확인합니다."
+          "title": "Monitor",
+          "description": "Track request volume, success rate, latency, and model usage from one dashboard."
         }
         ,
         "integrate": {
-          "title": "연동",
-          "description": "API 문서, 모델 제어, 키 관리를 통해 제품에 생성을 연결합니다."
+          "title": "Integrate",
+          "description": "Use API docs, model controls, and keys to connect generation to your product."
         }
-      },
-      "preview": {
-        "success": "성공률",
-        "jobs": "작업",
-        "latency": "지연 시간",
-        "usage": "이미지 / 비디오 / 오디오 사용량",
-        "live": "실시간",
-        "apiKeys": "API 키",
-        "docs": "문서",
-        "image": "이미지",
-        "video": "비디오",
-        "audio": "오디오"
       }
     },
     "reuse": {
-      "eyebrow": "기능",
-      "title": "다시 활용할 수 있는 결과.",
-      "description": "생성 결과, 프롬프트, 설정을 한곳에 모아 다시 열고 비교하며 이어서 작업할 수 있습니다.",
-      "cta": "히스토리 보기",
-      "badge": "생성",
-      "imageAlt": "스튜디오 인물 미리보기",
+      "eyebrow": "FEATURE",
+      "title": "Results you can reuse.",
+      "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
+      "cta": "Explore history",
+      "badge": "Generation",
+      "imageAlt": "Studio portrait preview",
       "prompt": {
-        "title": "프롬프트",
-        "body": "골든아워 산길을 걷는 인물, 자연스러운 포트레이트, 35mm 필름 룩."
+        "title": "Prompt",
+        "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."
       },
       "settings": {
-        "title": "설정",
-        "model": "모델",
-        "aspect": "비율",
-        "style": "스타일",
-        "cinematic": "시네마틱"
+        "title": "Settings"
       }
     },
     "platform": {
-      "eyebrow": "개발자 워크플로우",
-      "title": "문서, 모델, 워크플로우를 한곳에서.",
-      "description": "API 문서, 모델 목록, 모니터링, 운영 워크플로우를 창작자와 개발자가 함께 사용할 수 있도록 정리했습니다.",
-      "cta": "플랫폼 둘러보기",
-      "cards": {
-        "docs": "문서",
-        "apiReference": "API 레퍼런스",
-        "generateImage": "이미지 생성",
-        "generateImageDescription": "텍스트로 고품질 이미지를 생성합니다.",
-        "modelCatalog": "모델 목록",
-        "monitoring": "모니터링",
-        "viewAll": "전체 보기",
-        "requests": "요청 수",
-        "successRate": "성공률",
-        "noData": "데이터 없음",
-        "monitoringTrend": "모니터링 요청 추이",
-        "usageByModel": "모델별 사용량",
-        "usageDistribution": "모델별 사용량 분포",
-        "noRequests": "요청 없음",
-        "workflow": "워크플로우",
-        "tooltipRequests": "요청 수",
-        "tooltipErrors": "오류",
-        "modalities": {
-          "image": "이미지",
-          "video": "비디오",
-          "audio": "오디오"
-        },
-        "steps": {
-          "input": {
-            "label": "입력",
-            "detail": "업로드 또는 텍스트"
-          },
-          "generate": {
-            "label": "생성",
-            "detail": "선택한 모델"
-          },
-          "review": {
-            "label": "검토",
-            "detail": "결과 확인"
-          },
-          "deploy": {
-            "label": "연동",
-            "detail": "운영 환경"
-          }
-        }
-      }
+      "eyebrow": "DEVELOPER WORKFLOW",
+      "title": "Docs, models, and workflows curated for teams.",
+      "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
+      "cta": "Explore platform"
     },
     "techCloud": {
-      "title": "기술 스택"
+      "title": "Tech Stacks"
     },
     "cta": {
-      "title": "leesfield로 디자인하세요",
+      "title": "Design with leesfield",
       "description": "",
-      "button": "지금 시작하기"
-    },
-    "footer": {
-      "product": "제품",
-      "platform": "플랫폼",
-      "social": "소셜",
-      "image": "이미지",
-      "video": "비디오",
-      "audio": "오디오",
-      "history": "히스토리",
-      "models": "모델",
-      "monitoring": "모니터링",
-      "apiDocs": "API 문서",
-      "apiKeys": "API 키"
+      "button": "Get started now"
     }
   },
   "auth": {
@@ -388,8 +317,8 @@
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewFilmAlt": "촬영 현장 사진",
       "previewEyebrow": "IMAGE STUDIO",
-      "previewTitle": "정밀하게 이미지를 생성하세요.",
-      "previewDescription": "아이디어를 입력하고 설정을 선택한 뒤 원하는 결과를 생성하세요.",
+      "previewTitle": "Create images with control.",
+      "previewDescription": "Describe your idea. Choose your settings. Generate with precision.",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -405,8 +334,8 @@
       "previewPortraitAlt": "시네마틱 인물 프레임",
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewEyebrow": "VIDEO STUDIO",
-      "previewTitle": "움직임을 정밀하게 생성하세요.",
-      "previewDescription": "아이디어를 입력하면 카메라와 움직임을 생성 흐름에 맞춰 만듭니다.",
+      "previewTitle": "Create motion with control.",
+      "previewDescription": "Describe your idea. We'll handle the camera, the movement, and the magic.",
       "mode": {
         "imageToVideo": "이미지 → 비디오",
         "imageRequired": "이미지 필요",
@@ -427,25 +356,10 @@
       "referenceTextLabel": "샘플 문장",
       "referenceTextPlaceholder": "",
       "speedLabel": "속도",
-      "fields": {
-        "modeChoice": "모드",
-        "language": "언어",
-        "speaker": "화자",
-        "streamMode": "실시간 출력",
-        "referencePreset": "음성 샘플",
-        "customInstruction": "메모",
-        "voiceInstruction": "음성 스타일",
-        "xvecOnly": "음성 매칭",
-        "chunkSize": "디테일",
-        "temperature": "변주",
-        "topK": "명료도",
-        "repetitionPenalty": "반복 억제",
-        "inputAudio": "샘플 오디오"
-      },
       "previewTextureAlt": "오디오 콘솔 사진",
       "previewEyebrow": "AUDIO STUDIO",
-      "previewTitle": "사운드를 정밀하게 생성하세요.",
-      "previewDescription": "필요한 소리를 입력하고 설정을 조정해 바로 사용할 수 있는 오디오를 생성하세요.",
+      "previewTitle": "Shape sound with control.",
+      "previewDescription": "Describe the sound you need. Fine-tune the settings. Generate production-ready audio.",
       "seedPlaceholder": "선택 사항"
     },
     "errors": {
@@ -512,7 +426,7 @@
     },
     "hero": {
       "eyebrow": "HISTORY STUDIO",
-      "title": "다시 활용할 수 있는 결과.",
+      "title": "Results you can reuse.",
       "description": "생성한 이미지, 비디오, 오디오 결과를 빠르게 찾고 다시 사용할 수 있습니다. 형식과 상태로 걸러낸 뒤 필요한 프롬프트를 바로 열어보세요."
     },
     "filters": {
@@ -525,9 +439,9 @@
     "previewAlt": "생성 결과 미리보기",
     "inputImageAlt": "입력 이미지",
     "floatingDock": {
-      "placeholder": "상상한 장면을 입력하세요",
+      "placeholder": "Describe the scene you imagine",
       "model": "FLUX.2 Klein 9B",
-      "generate": "생성"
+      "generate": "Generate"
     },
     "empty": {
       "title": "히스토리가 없습니다",
@@ -553,27 +467,27 @@
     },
     "detail": {
       "title": "결과 상세",
-      "author": "작성자",
+      "author": "Author",
       "tabsAriaLabel": "결과 상세 섹션",
-      "tabPrompt": "프롬프트",
-      "tabSettings": "설정",
-      "tabMetadata": "메타데이터",
-      "tabHistory": "기록",
-      "prompt": "프롬프트",
-      "fullPrompt": "전체 프롬프트",
+      "tabPrompt": "Prompt",
+      "tabSettings": "Settings",
+      "tabMetadata": "Metadata",
+      "tabHistory": "History",
+      "prompt": "PROMPT",
+      "fullPrompt": "Full prompt",
       "showMore": "더 보기",
       "showLess": "접기",
-      "information": "정보",
-      "model": "모델",
-      "type": "유형",
-      "status": "상태",
-      "date": "날짜",
+      "information": "INFORMATION",
+      "model": "Model",
+      "type": "Type",
+      "status": "Status",
+      "date": "Date",
       "requestId": "요청 ID",
       "requestedAt": "요청 시간",
       "completedAt": "완료 시간",
       "duration": "소요 시간",
       "progress": "진행률",
-      "assets": "자산",
+      "assets": "ASSETS",
       "inputImage": "입력 이미지",
       "inputAudio": "입력 오디오",
       "resultImage": "결과 이미지",
@@ -587,13 +501,13 @@
       "noResultAsset": "결과 없음"
     },
     "detailActions": {
-      "recreate": "다시 생성",
-      "video": "비디오",
-      "download": "다운로드",
-      "upscale": "업스케일",
-      "edit": "편집",
-      "copy": "복사",
-      "close": "닫기"
+      "recreate": "Recreate",
+      "video": "Video",
+      "download": "Download",
+      "upscale": "Upscale",
+      "edit": "Edit",
+      "copy": "Copy",
+      "close": "Close"
     },
     "deleteDialog": {
       "title": "히스토리 삭제",

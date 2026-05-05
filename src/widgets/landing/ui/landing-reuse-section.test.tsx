@@ -31,7 +31,7 @@ describe("LandingReuseSection", () => {
     expect(container).not.toHaveTextContent(reusableReferencePattern);
     expect(screen.queryByAltText(referenceImagePattern)).not.toBeInTheDocument();
 
-    const historyCta = screen.getByRole("link", { name: "히스토리 보기" });
+    const historyCta = screen.getByRole("link", { name: "Explore history" });
     expect(historyCta).toHaveAttribute("href", "/history");
     expect(historyCta).toHaveClass("bg-primary");
     expect(historyCta).not.toHaveClass("bg-white");

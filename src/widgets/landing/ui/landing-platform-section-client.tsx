@@ -120,8 +120,6 @@ export function LandingPlatformClientSection({
 }
 
 function DocsCard({ model }: { model: LandingPlatformModel }) {
-  const t = useTranslations("landing.platform.cards");
-
   return (
     <AppCard
       data-testid="landing-docs-card"
@@ -131,15 +129,15 @@ function DocsCard({ model }: { model: LandingPlatformModel }) {
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
           <Code2 className="h-5 w-5 text-primary" />
-          {t("docs")}
+          Docs
         </p>
         <Link href="/api-docs" className="text-sm text-primary">
-          {t("apiReference")}
+          API Reference
         </Link>
       </div>
-      <p className="mt-7 text-base text-white">{t("generateImage")}</p>
+      <p className="mt-7 text-base text-white">Generate image</p>
       <p className="mt-2 text-sm text-white/62">
-        {t("generateImageDescription")}
+        Create high-quality images from text.
       </p>
       <pre className="mt-5 overflow-hidden rounded-lg border border-white/10 bg-black/25 p-4 text-xs leading-6 text-white/68">
 {`POST /v2/image/generate
@@ -160,27 +158,15 @@ function ModelCatalogCard({
 }: {
   featuredModels: LandingPlatformModel[];
 }) {
-  const t = useTranslations("landing.platform.cards");
-  const getModalityLabel = (modality: LandingPlatformModel["modality"]) => {
-    switch (modality) {
-      case "Image":
-        return t("modalities.image");
-      case "Video":
-        return t("modalities.video");
-      case "Audio":
-        return t("modalities.audio");
-    }
-  };
-
   return (
     <AppCard variant="editorial" radius="md" padding="md" className="md:min-h-72">
       <div className="flex items-center justify-between gap-4">
         <p className="flex items-center gap-3 font-medium text-white">
           <Box className="h-5 w-5 text-primary" />
-          {t("modelCatalog")}
+          Model catalog
         </p>
         <Link href="/model" className="text-sm text-primary">
-          {t("viewAll")}
+          View all
         </Link>
       </div>
       <div className="mt-6 space-y-4">
@@ -199,7 +185,7 @@ function ModelCatalogCard({
               <p className="font-medium text-white">{model.label}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="inline-flex rounded-md bg-white/8 px-2 py-1 text-xs text-white/72">
-                  {getModalityLabel(model.modality)}
+                  {model.modality}
                 </span>
                 <span className="inline-flex rounded-md bg-primary/12 px-2 py-1 text-xs text-primary">
                   {model.vendor}
@@ -218,38 +204,36 @@ function MonitoringCard({
 }: {
   monitoring: LandingPlatformMonitoringData;
 }) {
-  const t = useTranslations("landing.platform.cards");
-
   return (
     <AppCard variant="editorial" radius="md" padding="md">
       <p className="flex items-center justify-between font-medium text-white">
         <span className="flex items-center gap-3">
           <ChartNoAxesCombined className="h-5 w-5 text-primary" />
-          {t("monitoring")}
+          Monitoring
         </span>
         <Link href="/monitoring" className="text-sm text-primary">
-          {t("viewAll")}
+          View all
         </Link>
       </p>
       <div className="mt-6 grid grid-cols-2 gap-5">
         <div>
-          <p className="text-sm text-white/56">{t("requests")}</p>
+          <p className="text-sm text-white/56">Requests</p>
           <p className="mt-2 text-2xl font-medium text-white">
             {formatCompact(monitoring.totalCount)}
           </p>
         </div>
         <div>
-          <p className="text-sm text-white/56">{t("successRate")}</p>
+          <p className="text-sm text-white/56">Success rate</p>
           <p className="mt-2 text-2xl font-medium text-white">
             {monitoring.successRate === null
-              ? t("noData")
+              ? "No data"
               : `${monitoring.successRate}%`}
           </p>
         </div>
       </div>
       <AppChartContainer
         role="img"
-        aria-label={t("monitoringTrend")}
+        aria-label="Monitoring requests trend"
         className="mt-6"
         height={128}
       >
@@ -280,12 +264,12 @@ function MonitoringCard({
                   label={String(label)}
                   rows={[
                     {
-                      label: t("tooltipRequests"),
+                      label: "Requests",
                       value: datum.requests.toLocaleString(),
                       color: "#d4f032",
                     },
                     {
-                      label: t("tooltipErrors"),
+                      label: "Errors",
                       value: datum.errors.toLocaleString(),
                       color: "#9e8cff",
                     },
@@ -319,16 +303,15 @@ function UsageCard({
 }: {
   monitoring: LandingPlatformMonitoringData;
 }) {
-  const t = useTranslations("landing.platform.cards");
   const usageData = monitoring.usage;
 
   return (
     <AppCard variant="editorial" radius="md" padding="md">
-      <p className="font-medium text-white">{t("usageByModel")}</p>
+      <p className="font-medium text-white">Usage by model</p>
       <div className="mt-6 grid items-center gap-5 sm:grid-cols-[9rem_1fr] md:grid-cols-1 xl:grid-cols-[9rem_1fr]">
         <AppChartContainer
           role="img"
-          aria-label={t("usageDistribution")}
+          aria-label="Usage by model distribution"
           className="mx-auto w-36 border-0 bg-transparent p-0"
           height={144}
         >
@@ -375,7 +358,7 @@ function UsageCard({
         </AppChartContainer>
         <div className="space-y-3 text-sm text-white/62">
           {usageData.length === 0 ? (
-            <p>{t("noRequests")}</p>
+            <p>No requests</p>
           ) : (
             usageData.map((item) => (
               <div key={item.name} className="flex items-center justify-between gap-4">
@@ -397,17 +380,16 @@ function UsageCard({
 }
 
 function WorkflowCard() {
-  const t = useTranslations("landing.platform.cards");
   const steps = [
-    { label: t("steps.input.label"), detail: t("steps.input.detail") },
-    { label: t("steps.generate.label"), detail: t("steps.generate.detail") },
-    { label: t("steps.review.label"), detail: t("steps.review.detail") },
-    { label: t("steps.deploy.label"), detail: t("steps.deploy.detail") },
+    { label: "Input", detail: "Upload or text" },
+    { label: "Generate", detail: "Selected model" },
+    { label: "Review", detail: "Approve output" },
+    { label: "Deploy", detail: "Production" },
   ];
 
   return (
     <AppCard variant="editorial" radius="md" padding="md" className="md:col-span-2">
-      <p className="font-medium text-white">{t("workflow")}</p>
+      <p className="font-medium text-white">Workflow</p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => (
           <div key={step.label} className="relative flex items-center gap-3">

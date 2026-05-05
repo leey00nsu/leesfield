@@ -456,31 +456,31 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       case "seed":
         return tLabels("seed");
       case "modeChoice":
-        return tAudio("fields.modeChoice");
+        return "Mode";
       case "language":
-        return tAudio("fields.language");
+        return "Language";
       case "speaker":
-        return tAudio("fields.speaker");
+        return "Speaker";
       case "streamMode":
-        return tAudio("fields.streamMode");
+        return "Live output";
       case "referencePreset":
-        return tAudio("fields.referencePreset");
+        return "Voice sample";
       case "customInstruction":
-        return tAudio("fields.customInstruction");
+        return "Notes";
       case "voiceInstruction":
-        return tAudio("fields.voiceInstruction");
+        return "Voice style";
       case "xvecOnly":
-        return tAudio("fields.xvecOnly");
+        return "Voice match";
       case "chunkSize":
-        return tAudio("fields.chunkSize");
+        return "Detail";
       case "temperature":
-        return tAudio("fields.temperature");
+        return "Variation";
       case "topK":
-        return tAudio("fields.topK");
+        return "Clarity";
       case "repetitionPenalty":
-        return tAudio("fields.repetitionPenalty");
+        return "Repetition";
       case "inputAudio":
-        return tAudio("fields.inputAudio");
+        return "Sample audio";
       default:
         return typeof config?.label === "string" && config.label.trim()
           ? config.label

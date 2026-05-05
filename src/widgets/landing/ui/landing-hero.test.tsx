@@ -68,7 +68,7 @@ describe("LandingHero", () => {
     expect(screen.queryByText("Monitor and optimize")).not.toBeInTheDocument();
 
     const headline = screen.getByRole("heading", {
-      name: "무엇이든 생성하세요. 이미지, 비디오, 오디오를 하나의 플랫폼에서.",
+      name: "Generate anything. One platform for image, video, and audio.",
     });
     expect(headline).toBeInTheDocument();
     expect(headline).toHaveClass("text-[clamp(2.15rem,3.55vw,3.85rem)]");
@@ -76,9 +76,9 @@ describe("LandingHero", () => {
     expect(headline.querySelector("span.block")).toHaveClass("sm:whitespace-nowrap");
     expect(headline.querySelector(".lf-text-generate-word")).toBeInTheDocument();
 
-    const imageLink = screen.getByRole("link", { name: "이미지" });
-    const videoLink = screen.getByRole("link", { name: "비디오" });
-    const audioLink = screen.getByRole("link", { name: "오디오" });
+    const imageLink = screen.getByRole("link", { name: "Image" });
+    const videoLink = screen.getByRole("link", { name: "Video" });
+    const audioLink = screen.getByRole("link", { name: "Audio" });
 
     expect(imageLink).toHaveAttribute("href", "/image");
     expect(videoLink).toHaveAttribute("href", "/video");
@@ -92,7 +92,7 @@ describe("LandingHero", () => {
     expect(screen.getByRole("textbox", { name: "프롬프트" })).toHaveAttribute(
       "readonly",
     );
-    expect(screen.getByRole("link", { name: /생성/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Generate/ })).toHaveAttribute(
       "href",
       "/image",
     );

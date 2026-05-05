@@ -264,7 +264,7 @@ describe("AudioGenerationForm", () => {
     expect(dock).toHaveTextContent("설정");
     expect(dock).toHaveTextContent("1x");
     expect(within(dock).queryByRole("slider")).toBeNull();
-    expect(within(dock).queryByLabelText("샘플 오디오")).toBeNull();
+    expect(within(dock).queryByLabelText("Sample audio")).toBeNull();
     expect(
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");
@@ -283,19 +283,19 @@ describe("AudioGenerationForm", () => {
 
     expect(screen.getByText("AUDIO STUDIO")).not.toBeNull();
     expect(
-      screen.getByRole("heading", { name: "사운드를 정밀하게 생성하세요." }),
+      screen.getByRole("heading", { name: "Shape sound with control." }),
     ).not.toBeNull();
     expect(
-      screen.getByText("필요한 소리를 입력하고 설정을 조정해 바로 사용할 수 있는 오디오를 생성하세요."),
+      screen.getByText("Describe the sound you need. Fine-tune the settings. Generate production-ready audio."),
     ).not.toBeNull();
     const resultFrame = screen.getByTestId("generation-canvas");
     expect(resultFrame).toHaveClass("rounded-[1.75rem]");
     expect(resultFrame).toHaveClass("max-w-6xl");
     expect(resultFrame).not.toHaveClass("bg-[#07090a]");
     expect(
-      screen
-        .getByRole("heading", { name: "사운드를 정밀하게 생성하세요." })
-        .closest("[data-testid='generation-canvas']"),
+      screen.getByRole("heading", { name: "Shape sound with control." }).closest(
+        "[data-testid='generation-canvas']",
+      ),
     ).toBeNull();
     expect(screen.queryByAltText("오디오 콘솔 사진")).toBeNull();
     expect(screen.queryByText("VOICE TAKE")).toBeNull();
@@ -513,7 +513,7 @@ describe("AudioGenerationForm", () => {
     );
     await user.click(screen.getByRole("button", { name: /설정/i }));
     await user.upload(
-      await screen.findByLabelText("샘플 오디오"),
+      await screen.findByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
@@ -569,11 +569,11 @@ describe("AudioGenerationForm", () => {
     await screen.findByRole("button", { name: /Qwen 3\.5 TTS Mode/i });
     await user.click(screen.getByRole("button", { name: /설정/i }));
 
-    expect(screen.getAllByText("모드").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("언어").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("화자").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mode").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Language").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Speaker").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("combobox", { name: "화자" }),
+      screen.getByRole("combobox", { name: "Speaker" }),
     ).toHaveTextContent("Vivian - Chinese - Bright young female");
     expect(screen.getByText("추가 조정")).not.toBeNull();
     expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
@@ -587,7 +587,7 @@ describe("AudioGenerationForm", () => {
       { target: { value: "hello qwen" } },
     );
     await user.upload(
-      screen.getByLabelText("샘플 오디오"),
+      screen.getByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),

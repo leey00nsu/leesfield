@@ -110,21 +110,21 @@ describe("LandingPlatformSection", () => {
     expect(screen.queryByText(/Leesfield V2/i)).not.toBeInTheDocument();
 
     expect(
-      screen.getByRole("img", { name: "모니터링 요청 추이" }),
+      screen.getByRole("img", { name: "Monitoring requests trend" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "모델별 사용량 분포" }),
+      screen.getByRole("img", { name: "Usage by model distribution" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Live")).not.toBeInTheDocument();
     expect(
       screen
-        .getAllByRole("link", { name: "전체 보기" })
+        .getAllByRole("link", { name: "View all" })
         .some((link) => link.getAttribute("href") === "/monitoring"),
     ).toBe(true);
 
-    expect(screen.getByText("검토")).toBeInTheDocument();
-    expect(screen.getByText("생성")).toBeInTheDocument();
-    expect(screen.getByText("연동")).toBeInTheDocument();
+    expect(screen.getByText("Review")).toBeInTheDocument();
+    expect(screen.getByText("Generate")).toBeInTheDocument();
+    expect(screen.getByText("Deploy")).toBeInTheDocument();
 
     const docsCard = screen.getByTestId("landing-docs-card");
     expect(docsCard).toHaveAttribute("data-app-card");
