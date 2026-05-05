@@ -188,33 +188,40 @@ function StatCard({
 }
 
 function UsagePieChart({
-  total,
-  failed,
+  usageByType,
   totalLabel,
-  successfulLabel,
-  failedLabel,
+  labels,
 }: {
-  total: number;
-  failed: number;
+  usageByType: MonitoringOverview["usageByType"];
   totalLabel: string;
-  successfulLabel: string;
-  failedLabel: string;
+  labels: Record<keyof MonitoringOverview["usageByType"], string>;
 }) {
-  const safeTotal = Math.max(0, total);
-  const safeFailed = Math.max(0, Math.min(failed, safeTotal));
-  const successful = Math.max(0, safeTotal - safeFailed);
+  const safeTotal = Object.values(usageByType).reduce(
+    (sum, value) => sum + Math.max(0, value),
+    0,
+  );
   const chartData: UsageSlice[] =
     safeTotal > 0
       ? [
           {
-            name: successfulLabel,
-            value: successful,
+            name: labels.image,
+            value: usageByType.image,
             color: "#d4f032",
           },
           {
-            name: failedLabel,
-            value: safeFailed,
+            name: labels.video,
+            value: usageByType.video,
+            color: "rgba(255,255,255,0.72)",
+          },
+          {
+            name: labels.audio,
+            value: usageByType.audio,
             color: "rgba(255,255,255,0.22)",
+          },
+          {
+            name: labels.other,
+            value: usageByType.other,
+            color: "rgba(255,255,255,0.12)",
           },
         ]
       : [
@@ -296,8 +303,12 @@ export function MonitoringKpiCards({
   const avgLatency = data ? formatDuration(data.avgLatencyMs) : "-";
   const successRateValue = data ? Math.max(0, 1 - data.errorRate) : 0;
   const successRate = data ? formatPercent(successRateValue) : "-";
-  const failedCount = data?.failedCount ?? 0;
-  const rawTotalCount = data?.totalCount ?? 0;
+  const usageByType = data?.usageByType ?? {
+    image: 0,
+    video: 0,
+    audio: 0,
+    other: 0,
+  };
   const formatDay = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -372,11 +383,14 @@ export function MonitoringKpiCards({
         icon={Activity}
         visual={
           <UsagePieChart
-            total={rawTotalCount}
-            failed={failedCount}
+            usageByType={usageByType}
             totalLabel={t("kpi.total")}
-            successfulLabel={t("kpi.successful")}
-            failedLabel={t("kpi.failed")}
+            labels={{
+              image: t("filters.type.image"),
+              video: t("filters.type.video"),
+              audio: t("filters.type.audio"),
+              other: t("kpi.other"),
+            }}
           />
         }
         footnote={

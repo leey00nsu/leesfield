@@ -547,7 +547,8 @@
       "live": "실시간",
       "usageFootnote": "선택한 기간 기준 사용량",
       "successful": "성공",
-      "failed": "실패"
+      "failed": "실패",
+      "other": "기타"
     },
     "statuses": {
       "pending": "대기",

@@ -50,6 +50,12 @@ beforeEach(() => {
       errorRate: 0.0058,
       avgLatencyMs: 320,
       p95LatencyMs: 920,
+      usageByType: {
+        image: 4080,
+        video: 1700,
+        audio: 1020,
+        other: 0,
+      },
     },
     isLoading: false,
     error: null,
@@ -200,8 +206,10 @@ describe("MonitoringDashboardScreen", () => {
       container.querySelectorAll("[data-monitoring-kpi-chart]"),
     ).toHaveLength(3);
     expect(container.querySelector("[data-monitoring-usage-pie]")).toBeTruthy();
-    expect(screen.getByText("성공")).toBeInTheDocument();
-    expect(screen.getByText("실패")).toBeInTheDocument();
+    expect(screen.getAllByText("이미지").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("비디오").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("오디오").length).toBeGreaterThan(1);
+    expect(screen.getByText("기타")).toBeInTheDocument();
   });
 
   it("필터 변경을 monitoring query에 반영한다", async () => {

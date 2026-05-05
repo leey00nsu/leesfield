@@ -40,6 +40,12 @@ describe("/api/monitoring/overview", () => {
       errorRate: 0,
       avgLatencyMs: 1000,
       p95LatencyMs: 2000,
+      usageByType: {
+        image: 3,
+        video: 1,
+        audio: 1,
+        other: 0,
+      },
     });
 
     const request = new Request(

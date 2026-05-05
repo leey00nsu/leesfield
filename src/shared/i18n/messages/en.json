@@ -547,7 +547,8 @@
       "live": "Live",
       "usageFootnote": "Usage in selected range",
       "successful": "Successful",
-      "failed": "Failed"
+      "failed": "Failed",
+      "other": "Other"
     },
     "statuses": {
       "pending": "Pending",
