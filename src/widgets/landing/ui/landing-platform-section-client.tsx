@@ -30,6 +30,7 @@ import {
   AppChartContainer,
   AppChartTooltipContent,
 } from "@/shared/ui/app-chart";
+import { LandingReveal } from "./landing-motion";
 
 export type LandingPlatformModel = {
   key: string;
@@ -87,7 +88,7 @@ export function LandingPlatformClientSection({
   return (
     <section className="px-6 py-16 sm:px-10 lg:py-24">
       <div className="mx-auto grid w-full max-w-[1450px] items-center gap-12 lg:grid-cols-[0.4fr_0.6fr]">
-        <div>
+        <LandingReveal y={16} testId="landing-platform-copy">
           <AppEyebrow>{t("eyebrow")}</AppEyebrow>
           <AppHeading as="h2" size="section" className="mt-6">
             {t("title")}
@@ -105,14 +106,24 @@ export function LandingPlatformClientSection({
               <ArrowRight className="h-5 w-5" />
             </Link>
           </AppButton>
-        </div>
+        </LandingReveal>
 
         <div className="grid gap-5 md:grid-cols-2">
-          <DocsCard model={docsModel} />
-          <ModelCatalogCard featuredModels={featuredModels} />
-          <MonitoringCard monitoring={monitoring} />
-          <UsageCard monitoring={monitoring} />
-          <WorkflowCard />
+          <LandingReveal delay={0.04} className="h-full">
+            <DocsCard model={docsModel} />
+          </LandingReveal>
+          <LandingReveal delay={0.1} className="h-full">
+            <ModelCatalogCard featuredModels={featuredModels} />
+          </LandingReveal>
+          <LandingReveal delay={0.16} className="h-full">
+            <MonitoringCard monitoring={monitoring} />
+          </LandingReveal>
+          <LandingReveal delay={0.22} className="h-full">
+            <UsageCard monitoring={monitoring} />
+          </LandingReveal>
+          <LandingReveal delay={0.28} className="md:col-span-2">
+            <WorkflowCard />
+          </LandingReveal>
         </div>
       </div>
     </section>
@@ -388,11 +399,16 @@ function WorkflowCard() {
   ];
 
   return (
-    <AppCard variant="editorial" radius="md" padding="md" className="md:col-span-2">
+    <AppCard variant="editorial" radius="md" padding="md">
       <p className="font-medium text-white">Workflow</p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step.label} className="relative flex items-center gap-3">
+          <LandingReveal
+            key={step.label}
+            className="relative flex items-center gap-3"
+            delay={index * 0.045}
+            y={10}
+          >
             <div className="flex min-h-16 flex-1 items-center gap-3 rounded-lg border border-white/10 bg-black/18 p-4">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/12 text-primary">
                 {index < steps.length - 1 ? (
@@ -413,7 +429,7 @@ function WorkflowCard() {
             {index < steps.length - 1 ? (
               <span className="hidden h-px w-5 bg-primary/70 xl:block" />
             ) : null}
-          </div>
+          </LandingReveal>
         ))}
       </div>
     </AppCard>
