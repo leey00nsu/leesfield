@@ -133,6 +133,18 @@
           "title": "Integrate",
           "description": "Use API docs, model controls, and keys to connect generation to your product."
         }
+      },
+      "preview": {
+        "success": "Success",
+        "jobs": "Jobs",
+        "latency": "Latency",
+        "usage": "Image / Video / Audio usage",
+        "live": "Live",
+        "apiKeys": "API keys",
+        "docs": "Docs",
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
       }
     },
     "reuse": {
@@ -147,14 +159,60 @@
         "body": "Woman hiking in the mountains at golden hour, candid portrait, 35mm film look."
       },
       "settings": {
-        "title": "Settings"
+        "title": "Settings",
+        "model": "Model",
+        "aspect": "Aspect",
+        "style": "Style",
+        "cinematic": "Cinematic"
       }
     },
     "platform": {
       "eyebrow": "DEVELOPER WORKFLOW",
       "title": "Docs, models, and workflows curated for teams.",
       "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
-      "cta": "Explore platform"
+      "cta": "Explore platform",
+      "cards": {
+        "docs": "Docs",
+        "apiReference": "API Reference",
+        "generateImage": "Generate image",
+        "generateImageDescription": "Create high-quality images from text.",
+        "modelCatalog": "Model catalog",
+        "monitoring": "Monitoring",
+        "viewAll": "View all",
+        "requests": "Requests",
+        "successRate": "Success rate",
+        "noData": "No data",
+        "monitoringTrend": "Monitoring requests trend",
+        "usageByModel": "Usage by model",
+        "usageDistribution": "Usage by model distribution",
+        "noRequests": "No requests",
+        "workflow": "Workflow",
+        "tooltipRequests": "Requests",
+        "tooltipErrors": "Errors",
+        "modalities": {
+          "image": "Image",
+          "video": "Video",
+          "audio": "Audio"
+        },
+        "steps": {
+          "input": {
+            "label": "Input",
+            "detail": "Upload or text"
+          },
+          "generate": {
+            "label": "Generate",
+            "detail": "Selected model"
+          },
+          "review": {
+            "label": "Review",
+            "detail": "Approve output"
+          },
+          "deploy": {
+            "label": "Deploy",
+            "detail": "Production"
+          }
+        }
+      }
     },
     "techCloud": {
       "title": "Tech Stacks"
@@ -163,6 +221,19 @@
       "title": "Design with leesfield",
       "description": "",
       "button": "Get started now"
+    },
+    "footer": {
+      "product": "Product",
+      "platform": "Platform",
+      "social": "Social",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio",
+      "history": "History",
+      "models": "Models",
+      "monitoring": "Monitoring",
+      "apiDocs": "API Docs",
+      "apiKeys": "API Keys"
     }
   },
   "auth": {
@@ -356,6 +427,21 @@
       "referenceTextLabel": "Sample line",
       "referenceTextPlaceholder": "",
       "speedLabel": "Speed",
+      "fields": {
+        "modeChoice": "Mode",
+        "language": "Language",
+        "speaker": "Speaker",
+        "streamMode": "Live output",
+        "referencePreset": "Voice sample",
+        "customInstruction": "Notes",
+        "voiceInstruction": "Voice style",
+        "xvecOnly": "Voice match",
+        "chunkSize": "Detail",
+        "temperature": "Variation",
+        "topK": "Clarity",
+        "repetitionPenalty": "Repetition",
+        "inputAudio": "Sample audio"
+      },
       "previewTextureAlt": "Audio console photo",
       "previewEyebrow": "AUDIO STUDIO",
       "previewTitle": "Shape sound with control.",

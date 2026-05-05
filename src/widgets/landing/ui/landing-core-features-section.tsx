@@ -69,6 +69,8 @@ export function LandingCoreFeaturesSection() {
 }
 
 function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
+  const t = useTranslations("landing.workflow.preview");
+
   if (itemKey === "review") {
     return (
       <div
@@ -89,9 +91,9 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
     return (
       <div className="flex h-full flex-col justify-between">
         <div className="grid grid-cols-3 gap-2 text-xs text-white/56">
-          <MetricPreview label="Success" value="99.2%" />
-          <MetricPreview label="Jobs" value="432" />
-          <MetricPreview label="Latency" value="1.2s" />
+          <MetricPreview label={t("success")} value="99.2%" />
+          <MetricPreview label={t("jobs")} value="432" />
+          <MetricPreview label={t("latency")} value="1.2s" />
         </div>
         <div className="flex h-20 items-end gap-1.5">
           {[32, 46, 40, 58, 44, 52, 66, 49, 62, 72, 56, 68, 60, 76].map(
@@ -105,8 +107,8 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
           )}
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/62">
-          <span>Image / Video / Audio usage</span>
-          <span className="text-primary">Live</span>
+          <span>{t("usage")}</span>
+          <span className="text-primary">{t("live")}</span>
         </div>
       </div>
     );
@@ -127,9 +129,11 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
           <p>{'"aspect_ratio": "16:9"}'}</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <span className="rounded-lg bg-white/8 px-3 py-2 text-center">API keys</span>
+          <span className="rounded-lg bg-white/8 px-3 py-2 text-center">
+            {t("apiKeys")}
+          </span>
           <span className="rounded-lg bg-primary py-2 text-center font-semibold text-black">
-            Docs
+            {t("docs")}
           </span>
         </div>
       </div>
@@ -139,9 +143,11 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
   return (
     <div className="flex h-full flex-col">
       <div className="grid grid-cols-3 border-b border-white/10 text-center text-xs text-white/70">
-        <span className="border-b border-primary py-2 text-primary">Image</span>
-        <span className="py-2">Video</span>
-        <span className="py-2">Audio</span>
+        <span className="border-b border-primary py-2 text-primary">
+          {t("image")}
+        </span>
+        <span className="py-2">{t("video")}</span>
+        <span className="py-2">{t("audio")}</span>
       </div>
       <div className="mt-3 h-24 rounded-lg bg-white/8" />
       <div className="mt-3 grid grid-cols-2 gap-2">

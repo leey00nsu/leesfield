@@ -1,28 +1,29 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { AppCard } from "@/shared/ui/app-card";
 
 const groups = [
   {
-    title: "Product",
+    titleKey: "product",
     links: [
-      ["Image", "/image"],
-      ["Video", "/video"],
-      ["Audio", "/audio"],
-      ["History", "/history"],
+      ["image", "/image"],
+      ["video", "/video"],
+      ["audio", "/audio"],
+      ["history", "/history"],
     ],
   },
   {
-    title: "Platform",
+    titleKey: "platform",
     links: [
-      ["Models", "/model"],
-      ["Monitoring", "/monitoring"],
-      ["API Docs", "/api-docs"],
-      ["API Keys", "/api-key"],
+      ["models", "/model"],
+      ["monitoring", "/monitoring"],
+      ["apiDocs", "/api-docs"],
+      ["apiKeys", "/api-key"],
     ],
   },
   {
-    title: "Social",
+    titleKey: "social",
     links: [
       ["X", "https://x.com"],
       ["GitHub", "https://github.com"],
@@ -33,6 +34,8 @@ const groups = [
 ];
 
 export function LandingFooter() {
+  const t = useTranslations("landing.footer");
+
   return (
     <footer className="px-6 pb-12 pt-8 sm:px-10">
       <AppCard variant="editorial" className="mx-auto max-w-[1500px] rounded-[1.6rem] p-8 md:p-14">
@@ -41,18 +44,23 @@ export function LandingFooter() {
             <AppBrandLogo size="lg" textClassName="text-2xl" />
           </Link>
           {groups.map((group) => (
-            <div key={group.title}>
+            <div key={group.titleKey}>
               <h2 className="text-sm uppercase tracking-[0.16em] text-white/44">
-                {group.title}
+                {t(group.titleKey)}
               </h2>
               <ul className="mt-7 space-y-5">
-                {group.links.map(([label, href]) => (
-                  <li key={label}>
+                {group.links.map(([labelKey, href]) => (
+                  <li key={labelKey}>
                     <Link
                       href={href}
                       className="text-lg text-white/82 transition-colors hover:text-white"
                     >
-                      {label}
+                      {labelKey === "X" ||
+                      labelKey === "GitHub" ||
+                      labelKey === "Discord" ||
+                      labelKey === "LinkedIn"
+                        ? labelKey
+                        : t(labelKey)}
                     </Link>
                   </li>
                 ))}

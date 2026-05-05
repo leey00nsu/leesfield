@@ -43,12 +43,12 @@ export function LandingReuseSection() {
               {t("settings.title")}
             </p>
             <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-              <dt className="text-white/54">Model</dt>
+              <dt className="text-white/54">{t("settings.model")}</dt>
               <dd className="text-right text-white">GPT Image 2</dd>
-              <dt className="text-white/54">Aspect</dt>
+              <dt className="text-white/54">{t("settings.aspect")}</dt>
               <dd className="text-right text-white">16:9</dd>
-              <dt className="text-white/54">Style</dt>
-              <dd className="text-right text-white">Cinematic</dd>
+              <dt className="text-white/54">{t("settings.style")}</dt>
+              <dd className="text-right text-white">{t("settings.cinematic")}</dd>
             </dl>
           </AppCard>
 
