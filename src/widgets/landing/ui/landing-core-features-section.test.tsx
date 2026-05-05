@@ -19,6 +19,7 @@ describe("LandingCoreFeaturesSection", () => {
     expect(
       screen.getByRole("link", { name: /Monitor/i }),
     ).toHaveAttribute("href", "/monitoring");
+    expect(screen.getByTestId("landing-review-skeleton-grid")).toBeInTheDocument();
     expect(screen.getByText("Image / Video / Audio usage")).toBeInTheDocument();
     expect(screen.getByText("/v2/image/generate")).toBeInTheDocument();
     expect(screen.queryByText("Export project")).not.toBeInTheDocument();

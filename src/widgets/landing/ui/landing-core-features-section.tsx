@@ -71,24 +71,16 @@ export function LandingCoreFeaturesSection() {
 function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
   if (itemKey === "review") {
     return (
-      <div className="grid h-full grid-cols-6 grid-rows-4 gap-2">
-        <HistoryGridTile
-          asset="mirror-portrait.jpg"
-          className="col-span-3 row-span-2"
-        />
-        <HistoryGridTile
-          asset="studio-vocalist.jpg"
-          className="col-span-3 row-span-1"
-        />
-        <HistoryGridTile
-          asset="audio-console.jpg"
-          className="col-span-2 row-span-2"
-        />
-        <HistoryGridTile
-          asset="film-production.jpg"
-          className="col-span-4 row-span-2"
-        />
-        <div className="col-span-2 row-span-1 rounded-lg border border-primary/45 bg-primary/12 px-3 py-2 text-xs font-medium text-primary">
+      <div
+        data-testid="landing-review-skeleton-grid"
+        className="grid h-full grid-cols-6 grid-rows-5 gap-2"
+      >
+        <SkeletonGridTile className="col-span-3 row-span-3" />
+        <SkeletonGridTile className="col-span-3 row-span-2" />
+        <SkeletonGridTile className="col-span-2 row-span-2" />
+        <SkeletonGridTile className="col-span-2 row-span-2" />
+        <SkeletonGridTile className="col-span-2 row-span-1" />
+        <div className="col-span-2 row-span-1 flex items-center justify-center rounded-lg border border-primary/45 bg-primary/12 px-3 text-xs font-medium text-primary">
           Succeeded
         </div>
       </div>
@@ -163,28 +155,19 @@ function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
   );
 }
 
-function HistoryGridTile({
-  asset,
-  className,
-}: {
-  asset: string;
-  className: string;
-}) {
-  return (
-    <div
-      className={`rounded-lg bg-cover bg-center ${className}`}
-      style={{
-        backgroundImage: `url(/assets/creative-studio/${asset})`,
-      }}
-    />
-  );
-}
-
 function MetricPreview({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/8 bg-white/[0.04] p-2">
       <p>{label}</p>
       <p className="mt-1 font-medium text-white">{value}</p>
     </div>
+  );
+}
+
+function SkeletonGridTile({ className }: { className: string }) {
+  return (
+    <div
+      className={`rounded-lg border border-white/8 bg-white/[0.075] ${className}`}
+    />
   );
 }
