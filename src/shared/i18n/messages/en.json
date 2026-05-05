@@ -13,7 +13,6 @@
     "audio": "Audio",
     "history": "History",
     "monitoring": "Monitoring",
-    "monitoringQueue": "Monitoring",
     "model": "Model",
     "apiKey": "API keys",
     "apiDocs": "API docs"
@@ -532,21 +531,6 @@
       "unknownDate": "Unknown"
     }
   },
-  "monitoringQueue": {
-    "title": {
-      "leading": "Queue",
-      "accent": "Monitoring"
-    },
-    "subtitle": "Track model-level queue activity",
-    "lastUpdated": "Last updated",
-    "pending": "Pending",
-    "processing": "Processing",
-    "error": "Failed to load queue status.",
-    "empty": {
-      "title": "No queue activity",
-      "default": "There are no pending or processing jobs."
-    }
-  },
   "monitoringDashboard": {
     "title": {
       "leading": "Model",
@@ -567,6 +551,29 @@
       "processing": "Processing",
       "completed": "Completed",
       "failed": "Failed"
+    },
+    "filters": {
+      "from": "Start date",
+      "to": "End date",
+      "status": "Status",
+      "model": "Model",
+      "apiKey": "API key",
+      "allModels": "All models",
+      "allApiKeys": "All keys",
+      "uiRequests": "UI requests",
+      "type": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "statuses": {
+        "all": "All statuses",
+        "active": "Active",
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed"
+      }
     },
     "stats": {
       "title": "Traffic & Errors",

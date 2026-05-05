@@ -120,7 +120,15 @@ beforeEach(() => {
     error: null,
   });
   mockUseMonitoringApiKeys.mockReturnValue({
-    data: { items: [] },
+    data: {
+      items: [
+        {
+          id: "key-1",
+          maskedKey: "lf_live_1234",
+          status: "active",
+        },
+      ],
+    },
     isLoading: false,
     error: null,
   });
@@ -163,16 +171,53 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.queryByText("성공 비율")).not.toBeInTheDocument();
     expect(screen.queryByText("Top N 지표")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("검색...")).not.toBeInTheDocument();
-    expect(screen.queryByText("전체 모델")).not.toBeInTheDocument();
-    expect(screen.queryByText("전체 키")).not.toBeInTheDocument();
-    expect(screen.queryByText("기간")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이미지" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "비디오" })).toBeInTheDocument();
+    expect(screen.getByLabelText("시작일")).toBeInTheDocument();
+    expect(screen.getByLabelText("종료일")).toBeInTheDocument();
+    expect(screen.getByLabelText("상태")).toBeInTheDocument();
+    expect(screen.getByLabelText("모델")).toBeInTheDocument();
+    expect(screen.getByLabelText("API 키")).toBeInTheDocument();
     expect(mockUseMonitoringTop).not.toHaveBeenCalled();
-    expect(mockUseMonitoringApiKeys).not.toHaveBeenCalled();
-    expect(mockUseRuntimeModelCatalog).not.toHaveBeenCalled();
+    expect(mockUseMonitoringApiKeys).toHaveBeenCalled();
+    expect(mockUseRuntimeModelCatalog).toHaveBeenCalled();
+    expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "all",
+        status: "all",
+        model: null,
+        apiKeyId: null,
+      }),
+    );
     expect(screen.queryByText("서비스 상태")).not.toBeInTheDocument();
     expect(screen.queryByText("알림")).not.toBeInTheDocument();
     expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();
     expect(screen.queryByText("스토리지 상태")).not.toBeInTheDocument();
+  });
+
+  it("필터 변경을 monitoring query에 반영한다", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<MonitoringDashboardScreen />);
+
+    await user.click(screen.getByRole("button", { name: "이미지" }));
+
+    await waitFor(() => {
+      expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: "image",
+          status: "all",
+        }),
+      );
+    });
+    expect(mockUseMonitoringRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "image",
+      }),
+      expect.objectContaining({
+        limit: 50,
+        offset: 0,
+      }),
+    );
   });
 
   it("최근 작업을 클릭하면 요청 상세를 연다", async () => {
