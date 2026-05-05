@@ -23,6 +23,7 @@ describe("GenerationPromptField", () => {
     expect(dock).toHaveAttribute("data-app-prompt-field");
     expect(dock).toHaveAttribute("data-app-card");
     expect(dock).toHaveAttribute("data-variant", "editorial-flat");
+    expect(dock).toHaveAttribute("data-surface", "default");
     expect(dock).toHaveClass("rounded-[1.35rem]");
     expect(dock).toHaveClass("border-0");
     expect(dock.className).toContain("bg-[#0b0d0e]");

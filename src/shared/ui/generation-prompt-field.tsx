@@ -15,6 +15,7 @@ interface GenerationPromptFieldProps {
   className?: string;
   ariaLabel?: string;
   testId?: string;
+  surface?: "default" | "hero";
 }
 
 interface GenerationPromptSurfaceProps {
@@ -57,6 +58,7 @@ export function GenerationPromptField({
   className,
   ariaLabel,
   testId,
+  surface,
 }: GenerationPromptFieldProps) {
   return (
     <AppPromptField
@@ -70,6 +72,7 @@ export function GenerationPromptField({
       className={className}
       ariaLabel={ariaLabel}
       testId={testId}
+      surface={surface}
     />
   );
 }

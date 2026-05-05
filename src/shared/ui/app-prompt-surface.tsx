@@ -24,7 +24,17 @@ interface AppPromptFieldProps {
   className?: string;
   ariaLabel?: string;
   testId?: string;
+  surface?: "default" | "hero";
 }
+
+const appPromptFieldSurfaceClassNames: Record<
+  NonNullable<AppPromptFieldProps["surface"]>,
+  string
+> = {
+  default: "border-0 bg-[#0b0d0e] shadow-none",
+  hero:
+    "border border-white/12 bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl",
+};
 
 export function AppPromptSurface({
   textarea,
@@ -78,16 +88,19 @@ export function AppPromptField({
   className,
   ariaLabel,
   testId,
+  surface = "default",
 }: AppPromptFieldProps) {
   return (
     <AppCard
       variant="editorial-flat"
       data-app-prompt-field=""
+      data-surface={surface}
       data-testid={testId}
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
       className={cn(
-        "relative rounded-[1.35rem] border-0 p-4 shadow-none",
+        "relative rounded-[1.35rem] p-4",
+        appPromptFieldSurfaceClassNames[surface],
         className,
       )}
     >

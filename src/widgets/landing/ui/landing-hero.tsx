@@ -73,6 +73,7 @@ export function LandingHero() {
 
           <GenerationPromptField
             testId="landing-hero-form-surface"
+            surface="hero"
             className="relative mx-auto max-w-4xl rounded-[1.05rem] p-3 sm:p-4"
             header={
               <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">

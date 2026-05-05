@@ -38,3 +38,11 @@ export const Field: Story = {
     ),
   },
 };
+
+export const HeroField: Story = {
+  args: {
+    ...Field.args,
+    ariaLabel: "Hero prompt field",
+    surface: "hero",
+  },
+};

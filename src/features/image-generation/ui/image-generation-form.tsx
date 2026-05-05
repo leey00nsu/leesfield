@@ -489,6 +489,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                     <AppFormItem className="flex-1">
                       <GenerationPromptField
                         ariaLabel={tGeneration("promptDock.label")}
+                        surface="hero"
                         className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                         textarea={
                           <AppFormControl>

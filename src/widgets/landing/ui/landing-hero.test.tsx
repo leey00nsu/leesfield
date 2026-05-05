@@ -48,6 +48,15 @@ describe("LandingHero", () => {
     expect(
       screen.getByTestId("landing-hero-form-surface"),
     ).toHaveAttribute("data-variant", "editorial-flat");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveAttribute("data-surface", "hero");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveClass("bg-black/24");
+    expect(
+      screen.getByTestId("landing-hero-form-surface"),
+    ).toHaveClass("backdrop-blur-xl");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
     );

@@ -246,7 +246,9 @@ describe("AudioGenerationForm", () => {
       "data-variant",
       "prompt",
     );
-    expect(dock.className).toContain("bg-[#0b0d0e]");
+    expect(dock).toHaveAttribute("data-surface", "hero");
+    expect(dock).toHaveClass("bg-black/24");
+    expect(dock).toHaveClass("backdrop-blur-xl");
     expect(dock.className).not.toContain("gradient");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
