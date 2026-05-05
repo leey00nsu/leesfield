@@ -19,7 +19,6 @@ export async function LoginScreen() {
           className="object-cover opacity-10 blur-sm"
         />
         <div className="absolute inset-0 bg-[#07090b]/82" />
-        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(205,255,0,0.12),transparent_60%)]" />
       </div>
       <Header variant="public" />
 
@@ -66,7 +65,7 @@ export async function LoginScreen() {
               sizes="(min-width: 1024px) 44rem, 0vw"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.76),transparent_48%),linear-gradient(to_right,rgba(18,22,25,0.18),transparent_42%)]" />
+            <div className="absolute inset-0 bg-black/54" />
             <div className="absolute bottom-6 left-6 right-6">
               <div className="mb-4 flex flex-wrap gap-2">
                 <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-black text-black">

@@ -555,7 +555,7 @@ function HistoryDetailOverlay({
         data-testid="history-detail-preview-backdrop"
         role="presentation"
         onClick={onClose}
-        className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(212,240,50,0.055),transparent_42%),#050606] p-6"
+        className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[#050606] p-6"
       >
         {previewUrl ? (
           hydratedItem.type === "video" ? (

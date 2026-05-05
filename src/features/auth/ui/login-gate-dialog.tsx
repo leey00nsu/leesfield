@@ -94,7 +94,7 @@ export function LoginGateDialog({
               sizes="18rem"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.72),transparent_58%)]" />
+            <div className="absolute inset-0 bg-black/52" />
             <div className="absolute bottom-4 left-4 right-4">
               <span className="rounded-lg bg-primary px-2.5 py-1 text-xs font-black text-black">
                 LEESFIELD
