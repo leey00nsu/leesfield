@@ -223,10 +223,6 @@ describe("app-* design wrapper boundaries", () => {
   });
 
   it("keeps repeated form and action surfaces behind app wrapper variants", () => {
-    const loginGate = readFileSync(
-      join(sourceRoot, "features/auth/ui/login-gate-dialog.tsx"),
-      "utf8",
-    );
     const apiKeyToolbar = readFileSync(
       join(sourceRoot, "features/api-key-management/ui/api-key-toolbar.tsx"),
       "utf8",
@@ -265,12 +261,6 @@ describe("app-* design wrapper boundaries", () => {
     expect(appFormControl).toContain('type AppTextareaSurface = "default"');
     expect(appFormControl).not.toContain('"profile"');
     expect(appSelect).toContain("AppSelectTriggerSurface");
-
-    expect(loginGate).toContain("AppDialogActionButton");
-    expect(loginGate).toContain("AppDialogCancelButton");
-    expect(loginGate).toContain("AppDialogIconButton");
-    expect(loginGate).not.toContain("bg-white/[0.04]");
-    expect(loginGate).not.toContain("bg-black/35");
 
     expect(apiKeyToolbar).toContain('surface="toolbar"');
     expect(apiKeyToolbar).toContain('size="toolbar"');

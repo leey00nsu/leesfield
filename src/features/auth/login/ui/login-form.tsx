@@ -19,12 +19,17 @@ import {
 } from "@/shared/ui/app-form";
 import { AppInput } from "@/shared/ui/app-input";
 import { useTranslations } from "next-intl";
+import { sanitizeLoginReturnTo } from "@/features/auth/lib/login-redirect";
 
 const initialState = {
   errorCode: undefined,
 };
 
-export function LoginForm() {
+type LoginFormProps = {
+  returnTo?: string;
+};
+
+export function LoginForm({ returnTo = "/" }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialState,
@@ -53,6 +58,7 @@ export function LoginForm() {
     const formData = new FormData();
     formData.set("email", values.email);
     formData.set("password", values.password);
+    formData.set("returnTo", sanitizeLoginReturnTo(returnTo));
     startTransition(() => {
       formAction(formData);
     });

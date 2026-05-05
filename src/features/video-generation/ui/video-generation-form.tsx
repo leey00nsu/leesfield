@@ -11,14 +11,14 @@ import {
   Video,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import {
   createVideoGenerationSchema,
@@ -32,7 +32,7 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
-import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   AppForm,
   AppFormControl,
@@ -68,12 +68,13 @@ const studioResultFrameClass =
 
 export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const tGeneration = useTranslations("generation");
   const tVideo = useTranslations("generation.video");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
   const tValidation = useTranslations("generation.validation.video");
-  const tLoginGate = useTranslations("auth.loginGate");
   const isGuest = !isAuthenticated;
   const { videoModels: runtimeVideoModels, isLoading: isModelLoading } =
     useRuntimeModelCatalog({ enabled: !isGuest });
@@ -118,12 +119,16 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     defaultValues: videoGenerationDefaults,
     mode: "onChange",
   });
-  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
-
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   const modelFromQuery = searchParams?.get("model") ?? "";
   const initImageFromQuery = searchParams?.get("initImage") ?? "";
   const hasInjectedInitImageRef = useRef(false);
+  const handleLoginRedirect = useCallback(() => {
+    const queryString = searchParams.toString();
+    const returnTo = `${pathname}${queryString ? `?${queryString}` : ""}`;
+    router.push(buildLoginHref(returnTo));
+  }, [pathname, router, searchParams]);
+
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -287,7 +292,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
-      setIsLoginGateOpen(true);
+      handleLoginRedirect();
       return;
     }
     if (isModelLoading || !hasModels) {
@@ -533,7 +538,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                         onClick={
                           isAuthenticated
                             ? undefined
-                            : () => setIsLoginGateOpen(true)
+                            : handleLoginRedirect
                         }
                       >
                         {isGenerating
@@ -557,14 +562,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
           />
         </div>
       </form>
-      <LoginGateDialog
-        open={isLoginGateOpen}
-        onOpenChange={setIsLoginGateOpen}
-        title={tLoginGate("title")}
-        description={tLoginGate("description")}
-        actionLabel={tLoginGate("action")}
-        cancelLabel={tLoginGate("cancel")}
-      />
     </AppForm>
   );
 }

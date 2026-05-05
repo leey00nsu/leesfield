@@ -5,7 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { AppHeading } from "@/shared/ui/app-typography";
 
-export async function LoginScreen() {
+type LoginScreenProps = {
+  returnTo?: string;
+};
+
+export async function LoginScreen({ returnTo = "/" }: LoginScreenProps) {
   const tLogin = await getTranslations("auth.login");
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#07090b] text-white">
@@ -47,7 +51,7 @@ export async function LoginScreen() {
               </p>
 
               <div className="mt-10 w-full">
-                <LoginForm />
+                <LoginForm returnTo={returnTo} />
               </div>
 
               <p className="mt-10 w-full max-w-full whitespace-normal break-words text-xs leading-5 text-gray-600 sm:max-w-sm">

@@ -208,12 +208,6 @@
         "email": "Please enter a valid email.",
         "password": "Please enter a password."
       }
-    },
-    "loginGate": {
-      "title": "Login required",
-      "description": "",
-      "action": "Log in",
-      "cancel": "Not now"
     }
   },
   "generation": {

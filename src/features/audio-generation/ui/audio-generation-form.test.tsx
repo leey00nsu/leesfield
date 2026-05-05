@@ -6,10 +6,14 @@ import { renderWithIntl } from "@/test-utils/intl";
 import type { RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
 
 const navigationMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  pathname: "/audio",
   searchParams: new URLSearchParams(),
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => navigationMocks.pathname,
+  useRouter: () => ({ push: navigationMocks.push }),
   useSearchParams: () => navigationMocks.searchParams,
 }));
 
@@ -156,6 +160,8 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
 
 describe("AudioGenerationForm", () => {
   beforeEach(() => {
+    navigationMocks.push.mockReset();
+    navigationMocks.pathname = "/audio";
     navigationMocks.searchParams = new URLSearchParams();
     mockUseAudioGeneration.mockReset();
     vi.stubGlobal(
@@ -357,7 +363,7 @@ describe("AudioGenerationForm", () => {
     expect(container.querySelector('a[title="다운로드"]')).toBeNull();
   });
 
-  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+  it("비로그인 상태에서 로그인 페이지로 이동한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -374,7 +380,9 @@ describe("AudioGenerationForm", () => {
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
-    expect(await screen.findByText("로그인이 필요합니다")).not.toBeNull();
+    expect(navigationMocks.push).toHaveBeenCalledWith(
+      "/login?returnTo=%2Faudio",
+    );
   });
 
   it("정상 입력이면 생성 요청을 시작한다", async () => {

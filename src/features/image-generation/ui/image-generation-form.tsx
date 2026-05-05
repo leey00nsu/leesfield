@@ -5,10 +5,9 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type FormEvent,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -39,7 +38,7 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
-import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   imageGenerationDefaults,
   createImageGenerationSchema,
@@ -76,12 +75,13 @@ const studioResultFrameClass =
 
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const tGeneration = useTranslations("generation");
   const tImage = useTranslations("generation.image");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
   const tValidation = useTranslations("generation.validation.image");
-  const tLoginGate = useTranslations("auth.loginGate");
   const isGuest = !isAuthenticated;
   const { imageModels: runtimeImageModels, isLoading: isModelLoading } =
     useRuntimeModelCatalog({ enabled: !isGuest });
@@ -126,8 +126,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
-  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
-
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   const modelFromQuery = searchParams?.get("model") ?? "";
   const initImagesFromQuery = useMemo(
@@ -137,6 +135,12 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         .filter((value) => value.length > 0),
     [searchParams],
   );
+  const handleLoginRedirect = useCallback(() => {
+    const queryString = searchParams.toString();
+    const returnTo = `${pathname}${queryString ? `?${queryString}` : ""}`;
+    router.push(buildLoginHref(returnTo));
+  }, [pathname, router, searchParams]);
+
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -391,7 +395,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
-      setIsLoginGateOpen(true);
+      handleLoginRedirect();
       return;
     }
     if (isModelLoading || !hasModels) {
@@ -889,7 +893,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                               onClick={
                                 isAuthenticated
                                   ? undefined
-                                  : () => setIsLoginGateOpen(true)
+                                  : handleLoginRedirect
                               }
                             >
                               {isGenerating
@@ -917,14 +921,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
           </div>
         </div>
       </form>
-      <LoginGateDialog
-        open={isLoginGateOpen}
-        onOpenChange={setIsLoginGateOpen}
-        title={tLoginGate("title")}
-        description={tLoginGate("description")}
-        actionLabel={tLoginGate("action")}
-        cancelLabel={tLoginGate("cancel")}
-      />
     </AppForm>
   );
 }

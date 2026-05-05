@@ -10,10 +10,14 @@ import {
 } from "@/test-utils/fixtures/runtime-model-catalog";
 
 const navigationMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  pathname: "/video",
   searchParams: new URLSearchParams(),
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => navigationMocks.pathname,
+  useRouter: () => ({ push: navigationMocks.push }),
   useSearchParams: () => navigationMocks.searchParams,
 }));
 
@@ -44,6 +48,8 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
 
 describe("VideoGenerationForm", () => {
   beforeEach(() => {
+    navigationMocks.push.mockReset();
+    navigationMocks.pathname = "/video";
     navigationMocks.searchParams = new URLSearchParams();
     startGenerationMock.mockClear();
     resetMock.mockClear();
@@ -255,7 +261,7 @@ describe("VideoGenerationForm", () => {
     expect(uploadButton).toBeInTheDocument();
   });
 
-  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+  it("비로그인 상태에서 로그인 페이지로 이동한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated={false} />);
 
     expect(
@@ -265,9 +271,9 @@ describe("VideoGenerationForm", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "생성" }));
 
-    expect(
-      await screen.findByText("로그인이 필요합니다"),
-    ).toBeInTheDocument();
+    expect(navigationMocks.push).toHaveBeenCalledWith(
+      "/login?returnTo=%2Fvideo",
+    );
     expect(startGenerationMock).not.toHaveBeenCalled();
   });
 });

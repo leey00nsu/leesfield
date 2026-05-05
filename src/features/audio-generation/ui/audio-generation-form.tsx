@@ -8,14 +8,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import {
   audioGenerationDefaults,
@@ -29,7 +29,7 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
-import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   AppForm,
   AppFormControl,
@@ -116,13 +116,13 @@ const studioResultFrameClass =
 
 export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const tGeneration = useTranslations("generation");
   const tAudio = useTranslations("generation.audio");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
   const tValidation = useTranslations("generation.validation.audio");
-  const tLoginGate = useTranslations("auth.loginGate");
-
   const isGuest = !isAuthenticated;
   const { audioModels: runtimeAudioModels, isLoading: isModelLoading } =
     useRuntimeModelCatalog({ enabled: !isGuest });
@@ -169,10 +169,14 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     defaultValues: audioGenerationDefaults,
     mode: "onChange",
   });
-  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
-
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   const modelFromQuery = searchParams?.get("model") ?? "";
+  const handleLoginRedirect = useCallback(() => {
+    const queryString = searchParams.toString();
+    const returnTo = `${pathname}${queryString ? `?${queryString}` : ""}`;
+    router.push(buildLoginHref(returnTo));
+  }, [pathname, router, searchParams]);
+
   const referenceTextFromQuery = searchParams?.get("referenceText") ?? "";
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
@@ -362,7 +366,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
-      setIsLoginGateOpen(true);
+      handleLoginRedirect();
       return;
     }
     if (isModelLoading || !hasModels) {
@@ -927,7 +931,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                         onClick={
                           isAuthenticated
                             ? undefined
-                            : () => setIsLoginGateOpen(true)
+                            : handleLoginRedirect
                         }
                       >
                         {isGenerating
@@ -944,14 +948,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           />
         </div>
       </form>
-      <LoginGateDialog
-        open={isLoginGateOpen}
-        onOpenChange={setIsLoginGateOpen}
-        title={tLoginGate("title")}
-        description={tLoginGate("description")}
-        actionLabel={tLoginGate("action")}
-        cancelLabel={tLoginGate("cancel")}
-      />
     </AppForm>
   );
 }
