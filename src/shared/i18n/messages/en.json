@@ -544,7 +544,8 @@
       "active": "Active Tasks",
       "avgLatency": "Latency",
       "total": "Requests",
-      "live": "Live"
+      "live": "Live",
+      "usageFootnote": "Usage in selected range"
     },
     "statuses": {
       "pending": "Pending",

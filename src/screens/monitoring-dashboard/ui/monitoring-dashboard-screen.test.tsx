@@ -158,7 +158,7 @@ beforeEach(() => {
 
 describe("MonitoringDashboardScreen", () => {
   it("운영 대시보드 카드와 최근 작업 영역을 표시한다", () => {
-    renderWithIntl(<MonitoringDashboardScreen />);
+    const { container } = renderWithIntl(<MonitoringDashboardScreen />);
 
     expect(screen.getByText("성공률")).toBeInTheDocument();
     expect(screen.getByText("활성 작업")).toBeInTheDocument();
@@ -193,6 +193,12 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.queryByText("알림")).not.toBeInTheDocument();
     expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();
     expect(screen.queryByText("스토리지 상태")).not.toBeInTheDocument();
+    expect(screen.getByText("선택한 기간 기준 사용량")).toBeInTheDocument();
+    expect(screen.getByText("99.42%")).toHaveClass("font-sans");
+    expect(screen.getByText("99.42%")).not.toHaveClass("font-serif");
+    expect(
+      container.querySelectorAll("[data-monitoring-kpi-chart]"),
+    ).toHaveLength(4);
   });
 
   it("필터 변경을 monitoring query에 반영한다", async () => {

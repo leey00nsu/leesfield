@@ -544,7 +544,8 @@
       "active": "활성 작업",
       "avgLatency": "지연 시간",
       "total": "요청 수",
-      "live": "실시간"
+      "live": "실시간",
+      "usageFootnote": "선택한 기간 기준 사용량"
     },
     "statuses": {
       "pending": "대기",
