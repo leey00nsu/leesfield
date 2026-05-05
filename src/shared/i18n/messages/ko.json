@@ -545,7 +545,9 @@
       "avgLatency": "지연 시간",
       "total": "요청 수",
       "live": "실시간",
-      "usageFootnote": "선택한 기간 기준 사용량"
+      "usageFootnote": "선택한 기간 기준 사용량",
+      "successful": "성공",
+      "failed": "실패"
     },
     "statuses": {
       "pending": "대기",

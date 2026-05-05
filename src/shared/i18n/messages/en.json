@@ -545,7 +545,9 @@
       "avgLatency": "Latency",
       "total": "Requests",
       "live": "Live",
-      "usageFootnote": "Usage in selected range"
+      "usageFootnote": "Usage in selected range",
+      "successful": "Successful",
+      "failed": "Failed"
     },
     "statuses": {
       "pending": "Pending",

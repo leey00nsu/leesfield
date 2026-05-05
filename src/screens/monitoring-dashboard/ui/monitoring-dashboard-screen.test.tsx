@@ -198,7 +198,10 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.getByText("99.42%")).not.toHaveClass("font-serif");
     expect(
       container.querySelectorAll("[data-monitoring-kpi-chart]"),
-    ).toHaveLength(4);
+    ).toHaveLength(3);
+    expect(container.querySelector("[data-monitoring-usage-pie]")).toBeTruthy();
+    expect(screen.getByText("성공")).toBeInTheDocument();
+    expect(screen.getByText("실패")).toBeInTheDocument();
   });
 
   it("필터 변경을 monitoring query에 반영한다", async () => {

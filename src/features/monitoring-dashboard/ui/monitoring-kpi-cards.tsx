@@ -4,7 +4,11 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Cell,
+  Label,
   Line,
+  Pie,
+  PieChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -38,6 +42,12 @@ const cardValue =
 type KpiChartDatum = {
   day: string;
   value: number;
+};
+
+type UsageSlice = {
+  name: string;
+  value: number;
+  color: string;
 };
 
 function KpiChart({
@@ -177,6 +187,102 @@ function StatCard({
   );
 }
 
+function UsagePieChart({
+  total,
+  failed,
+  totalLabel,
+  successfulLabel,
+  failedLabel,
+}: {
+  total: number;
+  failed: number;
+  totalLabel: string;
+  successfulLabel: string;
+  failedLabel: string;
+}) {
+  const safeTotal = Math.max(0, total);
+  const safeFailed = Math.max(0, Math.min(failed, safeTotal));
+  const successful = Math.max(0, safeTotal - safeFailed);
+  const chartData: UsageSlice[] =
+    safeTotal > 0
+      ? [
+          {
+            name: successfulLabel,
+            value: successful,
+            color: "#d4f032",
+          },
+          {
+            name: failedLabel,
+            value: safeFailed,
+            color: "rgba(255,255,255,0.22)",
+          },
+        ]
+      : [
+          {
+            name: totalLabel,
+            value: 1,
+            color: "rgba(255,255,255,0.14)",
+          },
+        ];
+
+  return (
+    <div
+      className="grid min-h-[8.25rem] grid-cols-[8.25rem_minmax(0,1fr)] items-center gap-4"
+      data-monitoring-usage-pie=""
+    >
+      <AppChartContainer
+        aria-label={`${totalLabel} chart`}
+        className="h-[8.25rem] w-[8.25rem] border-0 bg-transparent p-0"
+        height={132}
+      >
+        <PieChart>
+          <Pie
+            data={chartData}
+            dataKey="value"
+            innerRadius={42}
+            outerRadius={60}
+            paddingAngle={safeTotal > 0 ? 2 : 0}
+            stroke="rgba(0,0,0,0.24)"
+            strokeWidth={2}
+            isAnimationActive={false}
+          >
+            {chartData.map((entry) => (
+              <Cell key={entry.name} fill={entry.color} />
+            ))}
+            <Label
+              value={formatCompactNumber(safeTotal)}
+              position="center"
+              fill="#ffffff"
+              fontSize={18}
+              fontWeight={600}
+            />
+          </Pie>
+        </PieChart>
+      </AppChartContainer>
+      <div className="space-y-2 text-xs font-medium text-white/58">
+        {chartData.map((item) => {
+          const percent =
+            safeTotal > 0 ? Math.round((item.value / safeTotal) * 100) : 0;
+          return (
+            <div key={item.name} className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="truncate">{item.name}</span>
+              </span>
+              <span className="font-mono text-[0.7rem] text-white/70">
+                {percent}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function MonitoringKpiCards({
   data,
   stats = [],
@@ -190,6 +296,8 @@ export function MonitoringKpiCards({
   const avgLatency = data ? formatDuration(data.avgLatencyMs) : "-";
   const successRateValue = data ? Math.max(0, 1 - data.errorRate) : 0;
   const successRate = data ? formatPercent(successRateValue) : "-";
+  const failedCount = data?.failedCount ?? 0;
+  const rawTotalCount = data?.totalCount ?? 0;
   const formatDay = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -263,12 +371,12 @@ export function MonitoringKpiCards({
         value={isLoading ? "..." : totalCount}
         icon={Activity}
         visual={
-          <KpiChart
-            data={totalData}
-            label={t("kpi.total")}
-            chartId="kpi-total"
-            formatDay={formatDay}
-            formatValue={formatCompactNumber}
+          <UsagePieChart
+            total={rawTotalCount}
+            failed={failedCount}
+            totalLabel={t("kpi.total")}
+            successfulLabel={t("kpi.successful")}
+            failedLabel={t("kpi.failed")}
           />
         }
         footnote={
