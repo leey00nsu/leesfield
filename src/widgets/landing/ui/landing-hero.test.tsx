@@ -35,27 +35,41 @@ describe("LandingHero", () => {
     const panel = screen.getByRole("region", { name: "생성 패널" });
     expect(panel).toBeInTheDocument();
     expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
-    expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-form-shader");
-    expect(screen.getByTestId("warp-shader-panel")).toHaveClass("animate-in");
-    expect(screen.getByTestId("warp-shader-panel")).toHaveClass("fade-in");
     expect(panel).toHaveClass("bg-[#07090a]");
+    const reveal = screen.getByTestId("landing-hero-preview-reveal");
+    const shaderPanel = screen.getByTestId("warp-shader-panel");
+    const formSurface = screen.getByTestId("landing-hero-form-surface");
+    expect(reveal).toHaveClass("animate-in");
+    expect(reveal).toHaveClass("fade-in");
+    expect(reveal).toHaveClass("fill-mode-forwards");
+    expect(reveal).toHaveClass("duration-1000");
+    expect(reveal).toHaveClass("delay-150");
+    expect(reveal).toHaveClass("motion-reduce:animate-none");
+    expect(reveal).toContainElement(shaderPanel);
+    expect(reveal).toContainElement(formSurface);
+    expect(reveal.firstElementChild).toHaveAttribute(
+      "data-layer",
+      "hero-form-shader",
+    );
+    expect(shaderPanel).not.toHaveClass("animate-in");
+    expect(shaderPanel).not.toHaveClass("fade-in");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveClass("relative");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveAttribute("data-app-card");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveAttribute("data-variant", "editorial-flat");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveAttribute("data-surface", "hero");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveClass("bg-black/24");
     expect(
-      screen.getByTestId("landing-hero-form-surface"),
+      formSurface,
     ).toHaveClass("backdrop-blur-xl");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
       "bg-black/18",
@@ -98,17 +112,22 @@ describe("LandingHero", () => {
     );
   });
 
-  it("smoothly fades the shader in after client-side navigation", () => {
+  it("smoothly fades the full preview in after client-side navigation", () => {
     const firstRender = renderWithIntl(<LandingHero />);
     firstRender.unmount();
     renderWithIntl(<LandingHero />);
 
+    const reveal = screen.getByTestId("landing-hero-preview-reveal");
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(panel).toHaveClass("animate-in");
-    expect(panel).toHaveClass("fade-in");
-    expect(panel).toHaveClass("fill-mode-forwards");
-    expect(panel).toHaveClass("duration-1000");
+    expect(reveal).toHaveClass("animate-in");
+    expect(reveal).toHaveClass("fade-in");
+    expect(reveal).toHaveClass("fill-mode-forwards");
+    expect(reveal).toHaveClass("duration-1000");
+    expect(reveal).toContainElement(panel);
+    expect(reveal).toContainElement(screen.getByTestId("landing-hero-form-surface"));
     expect(panel).toHaveClass("bg-[#07090a]");
+    expect(panel).not.toHaveClass("animate-in");
+    expect(panel).not.toHaveClass("fade-in");
     expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
     expect(screen.getByTestId("warp-shader-scrim")).toHaveClass(
       "bg-[#07090a]/35",

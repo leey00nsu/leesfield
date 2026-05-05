@@ -67,87 +67,92 @@ export function LandingHero() {
           aria-label={t("preview.label")}
           className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
-          <div data-layer="hero-form-shader" className="absolute inset-0">
-            <WarpShaderPanel className="absolute inset-0" fadeIn />
-          </div>
+          <div
+            data-testid="landing-hero-preview-reveal"
+            className="relative animate-in fade-in fill-mode-forwards opacity-100 delay-150 duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+          >
+            <div data-layer="hero-form-shader" className="absolute inset-0">
+              <WarpShaderPanel className="absolute inset-0" />
+            </div>
 
-          <GenerationPromptField
-            testId="landing-hero-form-surface"
-            surface="hero"
-            className="relative mx-auto max-w-4xl rounded-[1.05rem] p-3 sm:p-4"
-            header={
-              <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
-                {generationTabs.map((tab, index) => (
+            <GenerationPromptField
+              testId="landing-hero-form-surface"
+              surface="hero"
+              className="relative mx-auto max-w-4xl rounded-[1.05rem] p-3 sm:p-4"
+              header={
+                <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
+                  {generationTabs.map((tab, index) => (
+                    <Link
+                      key={tab}
+                      href={`/${tab === "image" ? "image" : tab}`}
+                      className="relative py-4 text-white/80 transition-colors hover:text-white"
+                    >
+                      {t(`tabs.${tab}`)}
+                      {index === 0 ? (
+                        <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-full max-w-[15rem] bg-primary" />
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              }
+              textarea={
+                <>
+                  <label htmlFor="landing-prompt-preview" className="sr-only">
+                    {t("preview.promptLabel")}
+                  </label>
+                  <textarea
+                    id="landing-prompt-preview"
+                    readOnly
+                    aria-label={t("preview.promptLabel")}
+                    placeholder={t("preview.placeholder")}
+                    className="h-24 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
+                  />
+                </>
+              }
+              footer={
+                <div className="grid gap-3 border-t border-white/12 p-3 lg:grid-cols-[1fr_1fr_0.62fr]">
                   <Link
-                    key={tab}
-                    href={`/${tab === "image" ? "image" : tab}`}
-                    className="relative py-4 text-white/80 transition-colors hover:text-white"
+                    href="/model"
+                    className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
                   >
-                    {t(`tabs.${tab}`)}
-                    {index === 0 ? (
-                      <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-full max-w-[15rem] bg-primary" />
-                    ) : null}
+                    <span className="min-w-0">
+                      <span className="block text-xs text-white/46">
+                        {t("preview.modelLabel")}
+                      </span>
+                      <span className="block truncate text-sm font-medium text-white">
+                        {t("preview.model")}
+                      </span>
+                    </span>
+                    <ChevronDown className="h-5 w-5 text-white/62" />
                   </Link>
-                ))}
-              </div>
-            }
-            textarea={
-              <>
-                <label htmlFor="landing-prompt-preview" className="sr-only">
-                  {t("preview.promptLabel")}
-                </label>
-                <textarea
-                  id="landing-prompt-preview"
-                  readOnly
-                  aria-label={t("preview.promptLabel")}
-                  placeholder={t("preview.placeholder")}
-                  className="h-24 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
-                />
-              </>
-            }
-            footer={
-              <div className="grid gap-3 border-t border-white/12 p-3 lg:grid-cols-[1fr_1fr_0.62fr]">
-                <Link
-                  href="/model"
-                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs text-white/46">
-                      {t("preview.modelLabel")}
+                  <Link
+                    href="/image"
+                    className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs text-white/46">
+                        {t("preview.aspectLabel")}
+                      </span>
+                      <span className="block truncate text-sm font-medium text-white">
+                        {t("preview.aspect")}
+                      </span>
                     </span>
-                    <span className="block truncate text-sm font-medium text-white">
-                      {t("preview.model")}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-5 w-5 text-white/62" />
-                </Link>
-                <Link
-                  href="/image"
-                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs text-white/46">
-                      {t("preview.aspectLabel")}
-                    </span>
-                    <span className="block truncate text-sm font-medium text-white">
-                      {t("preview.aspect")}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-5 w-5 text-white/62" />
-                </Link>
-                <AppButton
-                  asChild
-                  size="lg"
-                  className="h-full min-h-14 rounded-xl text-sm"
-                >
-                  <Link href="/image">
-                    {t("preview.generate")}
-                    <ArrowRight className="h-5 w-5" />
+                    <ChevronDown className="h-5 w-5 text-white/62" />
                   </Link>
-                </AppButton>
-              </div>
-            }
-          />
+                  <AppButton
+                    asChild
+                    size="lg"
+                    className="h-full min-h-14 rounded-xl text-sm"
+                  >
+                    <Link href="/image">
+                      {t("preview.generate")}
+                      <ArrowRight className="h-5 w-5" />
+                    </Link>
+                  </AppButton>
+                </div>
+              }
+            />
+          </div>
         </div>
       </div>
     </section>
