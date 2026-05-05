@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/shared/lib/utils";
 
 type LandingHeroMotionLayerProps = {
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
   "data-layer"?: string;
   testId: string;

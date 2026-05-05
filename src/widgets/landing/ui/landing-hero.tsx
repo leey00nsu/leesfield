@@ -79,11 +79,17 @@ export function LandingHero() {
           <GenerationPromptField
             testId="landing-hero-form-surface"
             surface="hero"
-            className="relative mx-auto max-w-4xl rounded-[1.05rem] p-3 sm:p-4"
+            className="relative mx-auto max-w-4xl rounded-[1.05rem] border-0 p-3 sm:p-4"
             contentWrapper={(children) => (
-              <LandingHeroMotionLayer testId="landing-hero-form-motion">
-                {children}
-              </LandingHeroMotionLayer>
+              <>
+                <LandingHeroMotionLayer
+                  testId="landing-hero-form-border-motion"
+                  className="pointer-events-none absolute inset-0 rounded-[1.05rem] border border-white/12"
+                />
+                <LandingHeroMotionLayer testId="landing-hero-form-motion">
+                  {children}
+                </LandingHeroMotionLayer>
+              </>
             )}
             header={
               <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
