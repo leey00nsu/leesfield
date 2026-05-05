@@ -28,7 +28,7 @@ vi.mock("@paper-design/shaders-react", () => ({
   ),
 }));
 
-vi.mock("framer-motion", () => ({
+vi.mock("motion/react", () => ({
   motion: {
     div: ({
       animate,
@@ -61,32 +61,39 @@ describe("LandingHero", () => {
     const panel = screen.getByRole("region", { name: "생성 패널" });
     expect(panel).toBeInTheDocument();
     expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
-    expect(panel.firstElementChild).toHaveAttribute("data-layer", "hero-form-shader");
     expect(panel).toHaveClass("bg-[#07090a]");
+    const shaderMotion = screen.getByTestId("landing-hero-shader-motion");
     const formMotion = screen.getByTestId("landing-hero-form-motion");
     const shaderPanel = screen.getByTestId("warp-shader-panel");
     const formSurface = screen.getByTestId("landing-hero-form-surface");
+    expect(panel.firstElementChild).toBe(shaderMotion);
+    expect(shaderMotion).toHaveAttribute("data-layer", "hero-form-shader");
+    expect(shaderMotion).toHaveClass("absolute");
+    expect(shaderMotion).toHaveClass("inset-0");
     expect(formMotion).toHaveClass("relative");
+    expect(shaderMotion).toContainElement(shaderPanel);
     expect(formMotion).toContainElement(formSurface);
     expect(formMotion).not.toContainElement(shaderPanel);
-    expect(formMotion).toHaveAttribute(
-      "data-motion-initial",
-      JSON.stringify({ opacity: 0 }),
-    );
-    expect(formMotion).toHaveAttribute(
-      "data-motion-animate",
-      JSON.stringify({ opacity: 1 }),
-    );
-    expect(formMotion).toHaveAttribute(
-      "data-motion-transition",
-      JSON.stringify({
-        delay: 0.18,
-        duration: 0.72,
-        ease: [0.22, 1, 0.36, 1],
-      }),
-    );
-    expect(shaderPanel).toHaveClass("animate-in");
-    expect(shaderPanel).toHaveClass("fade-in");
+    for (const layer of [shaderMotion, formMotion]) {
+      expect(layer).toHaveAttribute(
+        "data-motion-initial",
+        JSON.stringify({ opacity: 0 }),
+      );
+      expect(layer).toHaveAttribute(
+        "data-motion-animate",
+        JSON.stringify({ opacity: 1 }),
+      );
+      expect(layer).toHaveAttribute(
+        "data-motion-transition",
+        JSON.stringify({
+          delay: 0.18,
+          duration: 0.72,
+          ease: [0.22, 1, 0.36, 1],
+        }),
+      );
+    }
+    expect(shaderPanel).not.toHaveClass("animate-in");
+    expect(shaderPanel).not.toHaveClass("fade-in");
     expect(
       formSurface,
     ).toHaveClass("relative");
@@ -151,22 +158,19 @@ describe("LandingHero", () => {
     firstRender.unmount();
     renderWithIntl(<LandingHero />);
 
+    const shaderMotion = screen.getByTestId("landing-hero-shader-motion");
     const formMotion = screen.getByTestId("landing-hero-form-motion");
     const panel = screen.getByTestId("warp-shader-panel");
-    expect(formMotion).toHaveAttribute(
-      "data-motion-initial",
-      JSON.stringify({ opacity: 0 }),
-    );
-    expect(formMotion).toHaveAttribute(
-      "data-motion-animate",
-      JSON.stringify({ opacity: 1 }),
-    );
+    expect(shaderMotion).toHaveAttribute("data-motion-initial", formMotion.getAttribute("data-motion-initial"));
+    expect(shaderMotion).toHaveAttribute("data-motion-animate", formMotion.getAttribute("data-motion-animate"));
+    expect(shaderMotion).toHaveAttribute("data-motion-transition", formMotion.getAttribute("data-motion-transition"));
+    expect(shaderMotion).toContainElement(panel);
     expect(formMotion).toContainElement(screen.getByTestId("landing-hero-form-surface"));
     expect(formMotion).not.toContainElement(panel);
     expect(panel).toHaveClass("bg-[#07090a]");
-    expect(panel).toHaveClass("animate-in");
-    expect(panel).toHaveClass("fade-in");
-    expect(panel.parentElement).toHaveAttribute("data-layer", "hero-form-shader");
+    expect(panel).not.toHaveClass("animate-in");
+    expect(panel).not.toHaveClass("fade-in");
+    expect(panel.parentElement).toBe(shaderMotion);
     expect(screen.getByTestId("warp-shader-layer")).toHaveClass("opacity-100");
     expect(screen.getByTestId("warp-shader-scrim")).toHaveClass(
       "bg-[#07090a]/35",

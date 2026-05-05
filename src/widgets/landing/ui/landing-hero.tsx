@@ -6,7 +6,7 @@ import { AppButton } from "@/shared/ui/app-button";
 import { AppHeading } from "@/shared/ui/app-typography";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
-import { LandingHeroFormMotion } from "./landing-hero-form-motion";
+import { LandingHeroMotionLayer } from "./landing-hero-form-motion";
 
 const generationTabs = ["image", "video", "audio"] as const;
 
@@ -68,11 +68,15 @@ export function LandingHero() {
           aria-label={t("preview.label")}
           className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07090a] p-6 sm:p-8 lg:p-10"
         >
-          <div data-layer="hero-form-shader" className="absolute inset-0">
-            <WarpShaderPanel className="absolute inset-0" fadeIn />
-          </div>
+          <LandingHeroMotionLayer
+            data-layer="hero-form-shader"
+            testId="landing-hero-shader-motion"
+            className="absolute inset-0"
+          >
+            <WarpShaderPanel className="absolute inset-0" />
+          </LandingHeroMotionLayer>
 
-          <LandingHeroFormMotion>
+          <LandingHeroMotionLayer testId="landing-hero-form-motion">
             <GenerationPromptField
               testId="landing-hero-form-surface"
               surface="hero"
@@ -150,7 +154,7 @@ export function LandingHero() {
                 </div>
               }
             />
-          </LandingHeroFormMotion>
+          </LandingHeroMotionLayer>
         </div>
       </div>
     </section>
