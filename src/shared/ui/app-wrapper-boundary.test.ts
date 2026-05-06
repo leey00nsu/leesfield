@@ -36,6 +36,7 @@ const rawUiModules = [
   "label",
   "popover",
   "select",
+  "skeleton",
   "textarea",
 ];
 const rawUiImportPattern = new RegExp(
@@ -325,5 +326,28 @@ describe("app-* design wrapper boundaries", () => {
     expect(appCalendar).toContain("data-app-calendar");
     expect(appCalendar).toContain("!bg-primary");
     expect(appCalendar).toContain("[&_button]:!text-black");
+  });
+
+  it("keeps skeleton placeholders behind AppSkeleton outside the base layer", () => {
+    const offenders = sourceFiles.flatMap((filePath) => {
+      const relativePath = relative(process.cwd(), filePath);
+      if (
+        relativePath.endsWith("src/shared/ui/app-wrapper-boundary.test.ts") ||
+        relativePath.endsWith("src/shared/ui/skeleton.tsx") ||
+        relativePath.endsWith("src/shared/ui/app-skeleton.tsx")
+      ) {
+        return [];
+      }
+
+      const contents = readFileSync(filePath, "utf8");
+      return contents.includes('@/shared/ui/skeleton') ? [relativePath] : [];
+    });
+    const appSkeleton = readFileSync(
+      join(sourceRoot, "shared/ui/app-skeleton.tsx"),
+      "utf8",
+    );
+
+    expect(appSkeleton).toContain("data-app-skeleton");
+    expect(offenders).toEqual([]);
   });
 });

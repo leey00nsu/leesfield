@@ -16,8 +16,8 @@ import type {
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
 import { AppBadge } from "@/shared/ui/app-badge";
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { cn } from "@/shared/lib/utils";
-import { Skeleton } from "@/shared/ui/skeleton";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
@@ -191,8 +191,9 @@ export function HistoryItemSkeleton({ className }: { className?: string } = {}) 
         data-testid="history-item-skeleton-media"
         className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]"
       >
-        <Skeleton
+        <AppSkeleton
           data-testid="history-item-skeleton-media-fill"
+          surface="media"
           className="absolute inset-0 rounded-none bg-white/10"
         />
       </div>
