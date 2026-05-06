@@ -142,6 +142,15 @@ describe("GenerationHistoryScreen", () => {
 
     expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
+    expect(screen.getByTestId("history-filter-trailing-controls")).toHaveClass(
+      "sm:items-center",
+      "lg:ml-auto",
+      "lg:w-[43rem]",
+      "lg:flex-none",
+    );
+    expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toHaveClass(
+      "h-14",
+    );
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
     expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
 

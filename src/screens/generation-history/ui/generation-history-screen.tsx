@@ -191,7 +191,10 @@ export function GenerationHistoryScreen() {
             </AppFilterToggle>
           </AppFilterGroup>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-3xl">
+          <div
+            data-testid="history-filter-trailing-controls"
+            className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:ml-auto lg:w-[43rem] lg:flex-none"
+          >
             <AppSearchField
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
@@ -202,7 +205,7 @@ export function GenerationHistoryScreen() {
               value={sort}
               onValueChange={(value) => setSort(value as GenerationHistorySort)}
               ariaLabel={tHistory("filters.sort")}
-              className="sm:w-[12rem] sm:flex-none"
+              className="h-14 sm:w-[12rem] sm:flex-none"
               options={[
                 { value: "date_desc", label: tCommonLabels("dateDesc") },
                 { value: "date_asc", label: tCommonLabels("dateAsc") },
