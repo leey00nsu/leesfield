@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Badge } from "@/shared/ui/badge";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 
 const errorCards = [
   {
@@ -34,44 +35,45 @@ export function ApiDocsErrorSection() {
 }`;
 
   return (
-    <section id="errors" className="flex flex-col gap-8 scroll-mt-32">
-      <div className="flex flex-col gap-2">
-        <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
-          <AlertTriangle className="h-5 w-5 text-primary" />
-          {t("title")}
-        </h2>
-        <p className="text-gray-400 leading-relaxed max-w-2xl">
-          {t("description")}
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {errorCards.map((card) => (
-          <div
-            key={card.status}
-            className="rounded-2xl border border-white/5 bg-surface-dark p-5"
-          >
-            <div className="flex items-center gap-3">
-              <Badge variant="muted" size="md" className="px-2.5 py-1 text-gray-300">
-                {card.status}
-              </Badge>
-              <h3 className="text-sm font-bold text-white">
-                {t(`cards.${card.key}.title`)}
-              </h3>
+    <section id="errors" className="scroll-mt-32">
+      <AppDocsSectionCard
+        title={
+          <span className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-primary" />
+            {t("title")}
+          </span>
+        }
+        description={t("description")}
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {errorCards.map((card) => (
+            <div
+              key={card.status}
+              className="rounded-2xl border border-white/8 bg-black/18 p-5"
+            >
+              <div className="flex items-center gap-3">
+                <AppBadge variant="muted" size="md">
+                  {card.status}
+                </AppBadge>
+                <h3 className="text-sm font-bold text-white">
+                  {t(`cards.${card.key}.title`)}
+                </h3>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-white/58">
+                {t(`cards.${card.key}.description`)}
+              </p>
             </div>
-            <p className="mt-3 text-sm text-gray-400">
-              {t(`cards.${card.key}.description`)}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div className="rounded-2xl border border-white/5 bg-black/60 p-6">
-        <p className="text-xs font-mono uppercase tracking-wider text-gray-500">
-          {t("exampleTitle")}
-        </p>
-        <pre className="mt-3 overflow-x-auto text-sm text-gray-300">
-          {errorResponseSnippet}
-        </pre>
-      </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-2xl border border-white/8 bg-black/58 p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/38">
+            {t("exampleTitle")}
+          </p>
+          <pre className="mt-3 overflow-x-auto text-sm text-white/76">
+            {errorResponseSnippet}
+          </pre>
+        </div>
+      </AppDocsSectionCard>
     </section>
   );
 }

@@ -12,10 +12,14 @@ vi.mock("@/features/auth/login/api/login-action", () => ({
 }));
 
 describe("LoginForm", () => {
+  beforeEach(() => {
+    mockLoginAction.mockClear();
+  });
+
   it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
     const user = userEvent.setup();
 
-    renderWithIntl(<LoginForm />);
+    renderWithIntl(<LoginForm returnTo="/image?prompt=studio" />);
 
     await user.click(screen.getByRole("button", { name: "로그인" }));
 
@@ -30,7 +34,7 @@ describe("LoginForm", () => {
   it("로그인 실패 시 서버 오류 메시지를 표시한다", async () => {
     const user = userEvent.setup();
 
-    renderWithIntl(<LoginForm />);
+    renderWithIntl(<LoginForm returnTo="/image?prompt=studio" />);
 
     await user.type(
       screen.getByPlaceholderText("아이디 입력..."),
@@ -40,6 +44,10 @@ describe("LoginForm", () => {
 
     await user.click(screen.getByRole("button", { name: "로그인" }));
 
+    const submittedData = (
+      mockLoginAction.mock.calls as unknown as Array<[unknown, FormData]>
+    )[0]?.[1];
+    expect(submittedData.get("returnTo")).toBe("/image?prompt=studio");
     expect(
       await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다."),
     ).toBeInTheDocument();

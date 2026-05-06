@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -15,27 +14,25 @@ import {
   LogIn,
   Menu,
   LogOut,
-  User,
 } from "lucide-react";
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
-import { Button } from "@/shared/ui/button";
+import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { AppButton } from "@/shared/ui/app-button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/ui/dropdown-menu";
+  AppDropdownMenu,
+  AppDropdownMenuContent,
+  AppDropdownMenuItem,
+  AppDropdownMenuLabel,
+  AppDropdownMenuSeparator,
+  AppDropdownMenuTrigger,
+} from "@/shared/ui/app-dropdown-menu";
 import { LanguageSwitcher } from "@/shared/ui/language-switcher";
 
 type HeaderProps = {
   variant?: "public" | "dashboard";
   isAuthenticated?: boolean;
   userEmail?: string | null;
-  userAvatarUrl?: string | null;
 };
 
 const headerIcons: Record<string, typeof ImageIcon> = {
@@ -49,66 +46,92 @@ const headerIcons: Record<string, typeof ImageIcon> = {
   "/api-docs": BookOpen,
 };
 
-function getInitials(email?: string | null) {
-  if (!email) return "";
-  const namePart = email.split("@")[0]?.trim();
-  if (!namePart) return "";
-  const segments = namePart.split(/[._-]+/).filter(Boolean);
-  if (segments.length >= 2) {
-    return `${segments[0][0] ?? ""}${segments[1][0] ?? ""}`.toUpperCase();
-  }
-  return namePart.slice(0, 2).toUpperCase();
-}
-
 export function Header({
+  variant = "dashboard",
   isAuthenticated = false,
-  userEmail = null,
-  userAvatarUrl,
 }: HeaderProps) {
-  const initials = getInitials(userEmail);
   const tHeader = useTranslations("header");
   const tBrand = useTranslations("common.brand");
   const tNav = useTranslations("nav");
-  const tCommonLabels = useTranslations("common.labels");
+  const publicNav = dashboardNavigation.filter((item) =>
+    ["/image", "/video", "/audio", "/history", "/model", "/monitoring", "/api-docs"].includes(
+      item.href,
+    ),
+  );
 
-  return (
-    <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-white/10 bg-background-dark/80 px-6 py-3 backdrop-blur-md">
-      <Link href="/" className="flex items-center gap-3">
-        <Image
-          src="/logo.webp"
-          alt={tBrand("name")}
-          width={36}
-          height={36}
-          className="h-9 w-auto object-contain"
-          priority
-        />
-        <h2 className="font-display text-lg font-bold leading-tight tracking-[-0.015em] text-white">
-          {tBrand("name")}
-        </h2>
-      </Link>
+  if (variant === "public") {
+    return (
+      <header className="relative z-30 mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-6 sm:px-10">
+        <Link href="/" className="flex items-center gap-3">
+          <AppBrandLogo label={tBrand("name")} priority />
+        </Link>
 
-      <nav className="hidden items-center gap-1 rounded-full border border-white/5 bg-surface-dark p-1 lg:flex">
-        {dashboardNavigation.map((item) => {
-          const Icon = headerIcons[item.href] ?? ImageIcon;
-
-          return (
+        <nav className="hidden items-center gap-8 lg:flex">
+          {publicNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              aria-label={tNav(item.key)}
-              className="flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white xl:px-4"
+              className="text-sm font-medium text-white/78 transition-colors hover:text-white"
             >
-              <Icon className="h-4 w-4" />
-              <span className="hidden xl:inline">{tNav(item.key)}</span>
+              {tNav(item.key)}
             </Link>
-          );
-        })}
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          {isAuthenticated ? (
+            <form action={logoutAction}>
+              <AppButton
+                type="submit"
+                size="md"
+                className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+              >
+                {tHeader("logout")}
+              </AppButton>
+            </form>
+          ) : (
+            <AppButton
+              asChild
+              size="md"
+              className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+            >
+              <Link href="/login">{tHeader("login")}</Link>
+            </AppButton>
+          )}
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-background-dark/78 px-6 py-5 backdrop-blur-md sm:px-10">
+      <Link href="/" className="flex items-center gap-3">
+        <AppBrandLogo
+          label={tBrand("name")}
+          size="sm"
+          priority
+          textClassName="text-xl leading-tight"
+        />
+      </Link>
+
+      <nav className="hidden items-center gap-8 lg:flex">
+        {publicNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-label={tNav(item.key)}
+            className="text-sm font-medium text-white/72 transition-colors hover:text-white"
+          >
+            <span className="hidden xl:inline">{tNav(item.key)}</span>
+          </Link>
+        ))}
       </nav>
 
       <div className="flex items-center gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
+        <AppDropdownMenu>
+          <AppDropdownMenuTrigger asChild>
+            <AppButton
               type="button"
               variant="ghost"
               size="icon"
@@ -116,23 +139,23 @@ export function Header({
               aria-label={tHeader("menu")}
             >
               <Menu className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
+            </AppButton>
+          </AppDropdownMenuTrigger>
+          <AppDropdownMenuContent
             align="start"
             className="w-64 border-white/10 bg-background-dark text-white"
           >
-            <DropdownMenuLabel className="font-display text-white">
+            <AppDropdownMenuLabel className="font-display text-white">
               {tBrand("name")}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-white/10" />
+            </AppDropdownMenuLabel>
+            <AppDropdownMenuSeparator className="bg-white/10" />
             {isAuthenticated ? (
               <>
                 {dashboardNavigation.map((item) => {
                   const Icon = headerIcons[item.href] ?? ImageIcon;
 
                   return (
-                    <DropdownMenuItem key={item.href} asChild>
+                    <AppDropdownMenuItem key={item.href} asChild>
                       <Link
                         href={item.href}
                         className="flex items-center gap-3 text-sm text-gray-200"
@@ -140,35 +163,25 @@ export function Header({
                         <Icon className="h-4 w-4 text-primary" />
                         {tNav(item.key)}
                       </Link>
-                    </DropdownMenuItem>
+                    </AppDropdownMenuItem>
                   );
                 })}
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/profile"
-                    className="flex items-center gap-3 text-sm text-gray-200"
-                  >
-                    <User className="h-4 w-4 text-primary" />
-                    {tHeader("profile")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem asChild>
+                <AppDropdownMenuSeparator className="bg-white/10" />
+                <AppDropdownMenuItem asChild>
                   <form action={logoutAction} className="w-full">
-                    <Button
+                    <AppButton
                       type="submit"
                       variant="ghost"
                       className="w-full justify-start gap-3 text-left text-sm text-gray-200 hover:bg-white/10 hover:text-white"
                     >
                       <LogOut className="h-4 w-4" />
                       {tHeader("logout")}
-                    </Button>
+                    </AppButton>
                   </form>
-                </DropdownMenuItem>
+                </AppDropdownMenuItem>
               </>
             ) : (
-              <DropdownMenuItem asChild>
+              <AppDropdownMenuItem asChild>
                 <Link
                   href="/login"
                   className="flex items-center gap-3 text-sm text-gray-200"
@@ -176,56 +189,31 @@ export function Header({
                   <LogIn className="h-4 w-4 text-primary" />
                   {tHeader("login")}
                 </Link>
-              </DropdownMenuItem>
+              </AppDropdownMenuItem>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </AppDropdownMenuContent>
+        </AppDropdownMenu>
         <LanguageSwitcher />
         {isAuthenticated ? (
-          <Link href="/profile" className="flex items-center">
-            <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
-              {userAvatarUrl ? (
-                <AvatarImage
-                  src={userAvatarUrl}
-                  alt={userEmail ?? tCommonLabels("user")}
-                />
-              ) : null}
-              <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
-                {initials || <User className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        ) : (
-          <Link href="/login" className="flex items-center">
-            <Avatar className="size-9 ring-2 ring-white/10 transition-all hover:ring-primary">
-              <AvatarFallback className="flex items-center justify-center bg-surface-lighter text-[10px] font-bold text-white">
-                <User className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        )}
-        {isAuthenticated ? (
           <form action={logoutAction} className="hidden lg:flex">
-            <Button
+            <AppButton
               type="submit"
-              variant="outline"
-              className="h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary"
+              className="h-10 gap-2 rounded-full px-5 text-sm font-bold"
             >
-              <LogOut className="h-4 w-4 text-primary" />
+              <LogOut className="h-4 w-4" />
               {tHeader("logout")}
-            </Button>
+            </AppButton>
           </form>
         ) : (
-          <Button
+          <AppButton
             asChild
-            variant="outline"
-            className="hidden h-10 gap-2 rounded-full border-white/10 bg-surface-lighter px-5 text-sm font-bold text-white ring-2 ring-white/10 transition-all hover:border-primary/50 hover:bg-white/5 hover:ring-primary lg:flex"
+            className="hidden h-10 gap-2 rounded-full px-5 text-sm font-bold lg:flex"
           >
             <Link href="/login">
-              <LogIn className="h-4 w-4 text-primary" />
+              <LogIn className="h-4 w-4" />
               {tHeader("login")}
             </Link>
-          </Button>
+          </AppButton>
         )}
       </div>
     </header>

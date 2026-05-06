@@ -1,32 +1,81 @@
 import type { ReactNode } from "react";
-import { cn } from "@/shared/lib/utils";
+import {
+  AppPromptField,
+  AppPromptSurface,
+} from "@/shared/ui/app-prompt-surface";
 
 interface GenerationPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
+  promptMeta?: ReactNode;
+  contentWrapper?: (children: ReactNode) => ReactNode;
   className?: string;
+  ariaLabel?: string;
+  testId?: string;
+  surface?: "default" | "hero";
+}
+
+interface GenerationPromptSurfaceProps {
+  textarea: ReactNode;
+  attachments?: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
+  footerLeft?: ReactNode;
+  footerRight?: ReactNode;
+}
+
+export function GenerationPromptSurface({
+  textarea,
+  attachments,
+  header,
+  footer,
+  footerLeft,
+  footerRight,
+}: GenerationPromptSurfaceProps) {
+  return (
+    <AppPromptSurface
+      textarea={textarea}
+      attachments={attachments}
+      header={header}
+      footer={footer}
+      footerLeft={footerLeft}
+      footerRight={footerRight}
+    />
+  );
 }
 
 export function GenerationPromptField({
   textarea,
   attachments,
+  header,
+  footer,
   footerLeft,
   footerRight,
+  promptMeta,
+  contentWrapper,
   className,
+  ariaLabel,
+  testId,
+  surface,
 }: GenerationPromptFieldProps) {
   return (
-    <div className={cn("group relative", className)}>
-      <div className="absolute -inset-0.5 rounded-xl bg-linear-to-r from-primary/30 to-accent-purple/30 opacity-20 blur transition duration-500 group-focus-within:opacity-100" />
-      <div className="relative rounded-xl border border-white/10 bg-surface-dark transition-colors focus-within:border-primary/50">
-        {textarea}
-        {attachments}
-        <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
-          <div className="flex items-center gap-2">{footerLeft}</div>
-          {footerRight}
-        </div>
-      </div>
-    </div>
+    <AppPromptField
+      textarea={textarea}
+      attachments={attachments}
+      header={header}
+      footer={footer}
+      footerLeft={footerLeft}
+      footerRight={footerRight}
+      promptMeta={promptMeta}
+      contentWrapper={contentWrapper}
+      className={className}
+      ariaLabel={ariaLabel}
+      testId={testId}
+      surface={surface}
+    />
   );
 }

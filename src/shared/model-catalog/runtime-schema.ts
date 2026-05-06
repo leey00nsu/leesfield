@@ -363,10 +363,10 @@ export function createRuntimeAudioSchema(
   const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const labels = {
     speed: t ? t("labels.speed") : "속도",
-    chunkSize: "Chunk Size",
-    temperature: "Temperature",
-    topK: "Top K",
-    repetitionPenalty: "Repetition Penalty",
+    chunkSize: "Detail",
+    temperature: "Variation",
+    topK: "Clarity",
+    repetitionPenalty: "Repetition",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
     t

@@ -1,66 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   AudioLines,
   CheckCircle2,
   Clock,
-  Copy,
-  Download,
   Image as ImageIcon,
   Loader2,
-  Maximize2,
-  RotateCcw,
-  Trash2,
   Video,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
-import { deleteHistoryItem } from "@/features/generation-history/api/history-delete-api";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
-import { Badge } from "@/shared/ui/badge";
-import { Skeleton } from "@/shared/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/shared/ui/tooltip";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/shared/ui/alert-dialog";
-import type {
-  MonitoringRequestDetail,
-  MonitoringRequestItem,
-} from "@/features/monitoring-dashboard/model/types";
-import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
-import { toast } from "sonner";
 
 const statusConfig: Record<
   GenerationHistoryStatus,
   { className: string; icon: typeof Clock; spin?: boolean }
 > = {
   pending: {
-    className: "border-amber-400/70 bg-amber-400 text-black",
+    className: "border-amber-300/70 bg-amber-300 text-black",
     icon: Clock,
   },
   processing: {
-    className: "border-sky-400/70 bg-sky-400 text-black",
+    className: "border-sky-300/70 bg-sky-300 text-black",
     icon: Loader2,
     spin: true,
   },
@@ -69,74 +37,41 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   failed: {
-    className: "border-red-400/70 bg-red-400 text-black",
+    className: "border-red-300/70 bg-red-300 text-black",
     icon: AlertTriangle,
   },
 };
 
 const typeConfig = {
-  image: {
-    className: "border-white/10 bg-black/80 text-primary",
-    icon: ImageIcon,
-  },
-  video: {
-    className: "border-white/10 bg-black/80 text-accent-purple",
-    icon: Video,
-  },
-  audio: {
-    className: "border-white/10 bg-black/80 text-sky-300",
-    icon: AudioLines,
-  },
+  image: { icon: ImageIcon },
+  video: { icon: Video },
+  audio: { icon: AudioLines },
 };
 
 export function HistoryItem({
   item,
-  onDeleted,
+  onSelect,
+  className,
 }: {
   item: GenerationHistoryItem;
   onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
+  onSelect?: (item: GenerationHistoryItem) => void;
+  className?: string;
 }) {
-  const router = useRouter();
   const locale = useLocale();
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
   const tStates = useTranslations("history.states");
   const tActions = useTranslations("history.actions");
-  const tCommonActions = useTranslations("common.actions");
   const tHistory = useTranslations("history");
-  const tDeleteDialog = useTranslations("history.deleteDialog");
-  const tToasts = useTranslations("history.toasts");
-  const [isCopied, setIsCopied] = useState(false);
-  const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string | null>(null);
-  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const status = statusConfig[item.status];
   const type = typeConfig[item.type];
   const StatusIcon = status.icon;
   const TypeIcon = type.icon;
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
-  const inputImages = item.inputImages ?? [];
-  const hasInputImages = inputImages.length > 0;
-  const showActions = item.status === "completed";
   const isVideo = item.type === "video";
   const isAudio = item.type === "audio";
-  const canDelete = item.status === "completed" || item.status === "failed";
-  const canShowViewMore = item.prompt.trim().length > 0;
-  const usesImagePreview = !isVideo && !isAudio;
-  const isPreviewLoaded =
-    !!previewUrl && usesImagePreview && loadedPreviewUrl === previewUrl;
-  const isPreviewFailed =
-    !!previewUrl && usesImagePreview && failedPreviewUrl === previewUrl;
-  const shouldShowPreviewSkeleton =
-    !!previewUrl && usesImagePreview && !isPreviewLoaded && !isPreviewFailed;
-  const downloadUrl =
-    item.type === "image" && item.resultUrl
-      ? `/api/image-generation/${item.id}/download?index=0`
-      : item.type === "audio" && item.resultUrl
-        ? `/api/audio-generation/${item.id}/download?index=0`
-      : item.resultUrl;
-  const copyLabel = isCopied ? tCommonActions("copied") : tActions("copyPrompt");
+
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
@@ -146,588 +81,121 @@ export function HistoryItem({
       }),
     [locale],
   );
-  const formatDate = (value: string) => {
-    const date = new Date(value);
+  const formattedDate = useMemo(() => {
+    const date = new Date(item.createdAt);
     if (Number.isNaN(date.getTime())) return tStates("unknownDate");
     return dateFormatter.format(date);
-  };
-
-  const timeZone = useMemo(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-    [],
-  );
-  const monitoringRequest = useMemo<MonitoringRequestItem>(
-    () => ({
-      id: item.id,
-      type: item.type,
-      status: item.status,
-      model: item.model ?? null,
-      createdAt: item.createdAt,
-      durationMs: null,
-      apiKeyLabel: "-",
-    }),
-    [item.createdAt, item.id, item.model, item.status, item.type],
-  );
-  const monitoringDetailOverride = useMemo<MonitoringRequestDetail>(
-    () => {
-      const inputImages = item.inputImages ?? [];
-      const assets =
-        item.type === "video"
-          ? item.resultUrl
-            ? [
-                {
-                  url: item.resultUrl,
-                  width: null,
-                  height: null,
-                  durationSec: null,
-                },
-              ]
-            : []
-          : item.type === "audio"
-            ? item.resultUrl
-              ? [
-                  {
-                    url: item.resultUrl,
-                    width: null,
-                    height: null,
-                    durationSec: null,
-                  },
-                ]
-              : []
-          : item.resultUrl
-            ? [
-                {
-                  url: item.resultUrl,
-                  width: null,
-                  height: null,
-                  durationSec: null,
-                },
-              ]
-            : item.thumbnailUrl
-              ? [
-                  {
-                    url: item.thumbnailUrl,
-                    width: null,
-                    height: null,
-                    durationSec: null,
-                  },
-                ]
-              : [];
-
-      return {
-        id: item.id,
-        type: item.type,
-        status: item.status,
-        model: item.model ?? null,
-        prompt: item.prompt,
-        createdAt: item.createdAt,
-        updatedAt: item.createdAt,
-        durationMs: null,
-        progress: null,
-        errorMessage: item.status === "completed" ? null : (item.errorMessage ?? null),
-        warningMessage:
-          item.status === "completed" ? (item.errorMessage ?? null) : null,
-        inputImages,
-        inputAudios: item.inputAudios ?? [],
-        referenceText: item.referenceText ?? null,
-        assets,
-      };
-    },
-    [
-      item.createdAt,
-      item.errorMessage,
-      item.id,
-      item.inputAudios,
-      item.inputImages,
-      item.model,
-      item.prompt,
-      item.referenceText,
-      item.resultUrl,
-      item.status,
-      item.thumbnailUrl,
-      item.type,
-    ],
-  );
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteHistoryItem({ id: item.id, type: item.type }),
-    onSuccess: () => {
-      toast.success(tToasts("deleteSuccess"));
-      onDeleted?.({ id: item.id, type: item.type });
-      setIsDeleteDialogOpen(false);
-    },
-    onError: () => {
-      toast.error(tToasts("deleteError"));
-    },
-  });
-
-  const handleReusePrompt = () => {
-    const target =
-      item.type === "video"
-        ? "/video"
-        : item.type === "audio"
-          ? "/audio"
-          : "/image";
-    const trimmedPrompt = item.prompt.trim();
-    if (!trimmedPrompt) return;
-
-    const params = new URLSearchParams();
-    params.set("prompt", trimmedPrompt);
-
-    const model = item.model?.trim();
-    if (model) {
-      params.set("model", model);
-    }
-
-    if (item.type === "video") {
-      const initImage = item.inputImages?.[0]?.trim();
-      if (initImage) {
-        params.set("initImage", initImage);
-      }
-    } else if (item.type === "image") {
-      const initImages = (item.inputImages ?? [])
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-      initImages.forEach((value) => {
-        params.append("initImage", value);
-      });
-    } else if (item.type === "audio") {
-      const referenceText = item.referenceText?.trim();
-      if (referenceText) {
-        params.set("referenceText", referenceText);
-      }
-    }
-
-    router.push(`${target}?${params.toString()}`);
-  };
-
-  const handleCopyPrompt = async () => {
-    const text = item.prompt.trim();
-    if (!text) return;
-    const successMessage = tCommonActions("copied");
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setIsCopied(true);
-      toast.success(successMessage);
-      return;
-    } catch {
-      // fallback below
-    }
-
-    try {
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      try {
-        textarea.select();
-        const copied = document.execCommand("copy");
-        if (!copied) {
-          setIsCopied(false);
-          return;
-        }
-        setIsCopied(true);
-        toast.success(successMessage);
-      } finally {
-        document.body.removeChild(textarea);
-      }
-    } catch {
-      setIsCopied(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isCopied) return;
-    const timer = window.setTimeout(() => setIsCopied(false), 1500);
-    return () => window.clearTimeout(timer);
-  }, [isCopied]);
+  }, [dateFormatter, item.createdAt, tStates]);
 
   return (
-    <article className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg transition-all hover:border-primary/50">
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black">
+    <article
+      className={cn(
+        "group relative break-inside-avoid overflow-hidden rounded-none bg-black",
+        className,
+      )}
+    >
+      <div className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]">
         {previewUrl ? (
           isVideo ? (
             <video
               src={previewUrl}
-              className="h-full w-full object-contain"
-              controls
+              className="h-full w-full object-cover"
               muted
               loop
               playsInline
               preload="metadata"
             />
           ) : isAudio ? (
-            <div className="flex h-full items-center justify-center bg-black p-4">
-              <audio controls className="w-full max-w-[18rem]" preload="metadata" src={previewUrl} />
+            <div className="flex h-full items-center justify-center bg-[#0b0d0e]">
+              <AudioLines className="h-12 w-12 text-primary" />
             </div>
           ) : (
-            <>
-              {shouldShowPreviewSkeleton ? (
-                <Skeleton className="absolute inset-0 rounded-none bg-white/10" />
-              ) : null}
-
-              {isPreviewFailed ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black">
-                  <ImageIcon className="h-9 w-9 text-gray-600" aria-hidden="true" />
-                  <span className="sr-only">{tHistory("previewAlt")}</span>
-                </div>
-              ) : (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewUrl}
-                    alt={tHistory("previewAlt")}
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    onLoad={() => {
-                      setLoadedPreviewUrl(previewUrl);
-                      setFailedPreviewUrl(null);
-                    }}
-                    onError={() => setFailedPreviewUrl(previewUrl)}
-                    className={cn(
-                      "h-full w-full object-contain transition-opacity duration-200",
-                      isPreviewLoaded ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </>
-              )}
-            </>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt={tHistory("previewAlt")}
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035] group-focus-within:scale-[1.035]"
+            />
           )
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle,#333_1px,transparent_1px)] opacity-30" />
+          <div className="absolute inset-0 bg-white/[0.045]" />
         )}
 
-        <Badge
-          variant="outline"
-          className={cn(
-            "absolute left-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            type.className
-          )}
-        >
-          <TypeIcon className="h-3.5 w-3.5" />
-          {tTypes(item.type)}
-        </Badge>
-        <Badge
-          variant="outline"
-          className={cn(
-            "absolute right-3 top-3 gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-widest",
-            status.className
-          )}
-        >
-          <StatusIcon
-            className={cn("h-3.5 w-3.5", status.spin && "animate-spin")}
-          />
-          {tStatuses(item.status)}
-        </Badge>
+        <div className="absolute inset-0 bg-black/58 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
-        {item.status === "failed" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 px-4 text-center">
-            <AlertTriangle className="h-6 w-6 text-red-300" />
-            <p className="text-xs font-mono uppercase tracking-widest text-red-200">
+        <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+          <AppBadge variant="overlay" className="gap-1.5 backdrop-blur">
+            <TypeIcon className="h-3 w-3" />
+            {tTypes(item.type)}
+          </AppBadge>
+          <AppBadge
+            className={cn(
+              "gap-1.5 rounded-full px-2 py-1 text-[10px] font-black uppercase",
+              status.className,
+            )}
+          >
+            <StatusIcon className={cn("h-3 w-3", status.spin && "animate-spin")} />
+            {tStatuses(item.status)}
+          </AppBadge>
+        </div>
+
+        <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+          {item.model ? (
+            <AppBadge variant="overlay" className="max-w-full truncate normal-case tracking-normal backdrop-blur">
+              {item.model}
+            </AppBadge>
+          ) : null}
+          <AppBadge variant="overlay" className="normal-case tracking-normal backdrop-blur">
+            {formattedDate}
+          </AppBadge>
+        </div>
+
+        {item.status === "failed" ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/45 px-4 text-center">
+            <AlertTriangle className="h-7 w-7 text-red-200" />
+            <span className="text-xs font-bold uppercase text-red-100">
               {tStates("failed")}
-            </p>
-            {item.errorMessage ? (
-              <p className="text-xs text-red-200/80">{item.errorMessage}</p>
-            ) : null}
-          </div>
-        )}
-
-        {(item.status === "pending" || item.status === "processing") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-200">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              {tStates("generating")}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
-        <p className="min-h-[4.5rem] line-clamp-3 text-sm font-medium leading-relaxed text-gray-300 group-hover:text-white">
-          {item.prompt}
-        </p>
-        {canShowViewMore ? (
-          <>
-            <Button
-              type="button"
-              variant="link"
-              onClick={() => setIsPromptDialogOpen(true)}
-              className="h-auto self-end p-0 text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-primary"
-            >
-              {tActions("viewFullPrompt")}
-            </Button>
-            <MonitoringRequestDetailDialog
-              open={isPromptDialogOpen}
-              onOpenChange={(openValue) => setIsPromptDialogOpen(openValue)}
-              request={monitoringRequest}
-              timeZone={timeZone}
-              detailOverride={monitoringDetailOverride}
-            />
-          </>
-        ) : null}
-        {hasInputImages ? (
-          <div className="flex flex-wrap gap-2">
-            {inputImages.map((url, index) => (
-              <div
-                key={`${item.id}-input-${index}`}
-                className="h-12 w-12 overflow-hidden rounded-lg border border-white/10 bg-black/40"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt={tHistory("inputImageAlt")}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {showActions ? (
-          <TooltipProvider>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              {downloadUrl ? (
-                <Button
-                  asChild
-                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black shadow-[0_10px_24px_rgba(212,240,50,0.18)] transition-all hover:bg-primary-dark hover:shadow-[0_14px_28px_rgba(212,240,50,0.28)]"
-                >
-                  <a
-                    href={downloadUrl}
-                    download={item.type === "image" ? undefined : true}
-                    aria-label={tCommonActions("download")}
-                  >
-                    <Download className="h-4 w-4" />
-                    {tCommonActions("download")}
-                  </a>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  disabled
-                  className="h-10 rounded-full bg-primary px-4 text-[11px] font-black uppercase tracking-[0.18em] text-black"
-                >
-                  <Download className="h-4 w-4" />
-                  {tCommonActions("download")}
-                </Button>
-              )}
-              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/35 p-1.5 backdrop-blur-md">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleReusePrompt}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-gray-300 hover:bg-white/10 hover:text-white"
-                      aria-label={tActions("reusePrompt")}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{tActions("reusePrompt")}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={handleCopyPrompt}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-gray-300 hover:bg-white/10 hover:text-white"
-                      aria-label={copyLabel}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{copyLabel}</TooltipContent>
-                </Tooltip>
-                {item.resultUrl ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href={item.resultUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
-                        aria-label={tCommonActions("open")}
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>{tCommonActions("open")}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Button
-                    type="button"
-                    disabled
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full text-gray-300 opacity-40"
-                    aria-label={tCommonActions("open")}
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </TooltipProvider>
-        ) : null}
-        <div className="flex items-center justify-between border-t border-white/5 pt-4">
-          <div className="flex items-center gap-3">
-            {item.model ? (
-              <Badge variant="primary" className="px-2 py-0.5">
-                {item.model}
-              </Badge>
-            ) : null}
-            <span className="text-[10px] font-mono text-gray-500">
-              {formatDate(item.createdAt)}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <TypeIcon className="h-4 w-4 text-gray-600" />
-            <AlertDialog
-              open={isDeleteDialogOpen}
-              onOpenChange={(next) => {
-                if (deleteMutation.isPending) return;
-                setIsDeleteDialogOpen(next);
-              }}
-            >
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!canDelete || deleteMutation.isPending}
-                  className={cn(
-                    "h-8 w-8 rounded-full border border-transparent text-gray-500 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white",
-                    canDelete && "hover:text-red-300"
-                  )}
-                  aria-label={tCommonActions("remove")}
-                  title={
-                    canDelete
-                      ? tCommonActions("remove")
-                      : tStates("generating")
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{tDeleteDialog("title")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {tDeleteDialog("description")}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deleteMutation.isPending}>
-                    {tCommonActions("cancel")}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    disabled={deleteMutation.isPending}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      if (!canDelete) return;
-                      deleteMutation.mutate();
-                    }}
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                  >
-                    {tDeleteDialog("confirm")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+        ) : null}
+
+        {item.status === "pending" || item.status === "processing" ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>
-        </div>
+        ) : null}
+
+        {onSelect ? (
+          <button
+            type="button"
+            aria-label={tActions("viewDetail", { prompt: item.prompt })}
+            onClick={() => onSelect(item)}
+            className="absolute inset-0 z-10 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/80"
+          />
+        ) : null}
       </div>
     </article>
   );
 }
 
-export function HistoryItemSkeleton() {
+export function HistoryItemSkeleton({ className }: { className?: string } = {}) {
   return (
     <article
       data-testid="history-item-skeleton"
-      className="group relative break-inside-avoid overflow-hidden rounded-xl border border-white/5 bg-surface-dark shadow-lg"
+      className={cn("break-inside-avoid overflow-hidden bg-black", className)}
     >
       <div
         data-testid="history-item-skeleton-media"
-        className="relative aspect-[4/5] w-full overflow-hidden rounded-t-xl bg-black"
+        className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]"
       >
-        <Skeleton
+        <AppSkeleton
           data-testid="history-item-skeleton-media-fill"
+          surface="media"
           className="absolute inset-0 rounded-none bg-white/10"
         />
-        <div className="absolute inset-0 bg-linear-to-br from-white/10 via-white/5 to-transparent" />
-        <Skeleton
-          data-testid="history-item-skeleton-badge-type"
-          className="absolute left-3 top-3 h-6 w-16 rounded-md bg-white/15"
-        />
-        <Skeleton
-          data-testid="history-item-skeleton-badge-status"
-          className="absolute right-3 top-3 h-6 w-20 rounded-md bg-white/15"
-        />
-      </div>
-      <div className="flex flex-col gap-3 border-t border-white/5 bg-surface-dark p-4 transition-colors group-hover:bg-surface-lighter">
-        <div
-          data-testid="history-item-skeleton-prompt"
-          className="flex min-h-[4.5rem] flex-col gap-2"
-        >
-          <Skeleton
-            data-testid="history-item-skeleton-prompt-line-1"
-            className="h-4 w-full rounded-full bg-white/10"
-          />
-          <Skeleton
-            data-testid="history-item-skeleton-prompt-line-2"
-            className="h-4 w-11/12 rounded-full bg-white/10"
-          />
-          <Skeleton
-            data-testid="history-item-skeleton-prompt-line-3"
-            className="h-4 w-3/4 rounded-full bg-white/10"
-          />
-        </div>
-        <Skeleton
-          data-testid="history-item-skeleton-view-more"
-          className="ml-auto h-4 w-16 rounded-full bg-white/10"
-        />
-        <div data-testid="history-item-skeleton-input-images" className="flex gap-2">
-          <Skeleton
-            data-testid="history-item-skeleton-input-image-1"
-            className="h-12 w-12 rounded-lg bg-white/10"
-          />
-          <Skeleton
-            data-testid="history-item-skeleton-input-image-2"
-            className="h-12 w-12 rounded-lg bg-white/10"
-          />
-        </div>
-        <div
-          data-testid="history-item-skeleton-footer"
-          className="flex items-center justify-between border-t border-white/5 pt-3"
-        >
-          <div data-testid="history-item-skeleton-meta" className="flex items-center gap-3">
-            <Skeleton
-              data-testid="history-item-skeleton-meta-model"
-              className="h-5 w-24 rounded-full bg-primary/20"
-            />
-            <Skeleton
-              data-testid="history-item-skeleton-meta-date"
-              className="h-3 w-16 rounded-full bg-white/10"
-            />
-          </div>
-          <div data-testid="history-item-skeleton-actions" className="flex items-center gap-2">
-            <Skeleton
-              data-testid="history-item-skeleton-action-1"
-              className="h-8 w-8 rounded-lg bg-white/10"
-            />
-            <Skeleton
-              data-testid="history-item-skeleton-action-2"
-              className="h-8 w-8 rounded-lg bg-white/10"
-            />
-          </div>
-        </div>
       </div>
     </article>
   );

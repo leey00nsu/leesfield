@@ -1,3 +1,5 @@
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -52,7 +54,7 @@ afterEach(() => {
 });
 
 describe("HistoryList", () => {
-  it("keeps history columns top-aligned so video cards do not leave empty gaps", () => {
+  it("uses varied masonry tile sizes instead of uniform cards", () => {
     mockMatchMedia({ isMdUp: true, isXlUp: false });
 
     const items = Array.from({ length: 3 }, (_, index) => ({
@@ -67,39 +69,116 @@ describe("HistoryList", () => {
       errorMessage: null,
     }));
 
-    const { container } = renderWithIntl(<HistoryList items={items} />);
-    const wrapper = container.firstElementChild;
+    renderWithIntl(<HistoryList items={items} />);
+    const wrapper = screen.getByTestId("history-gallery-grid");
 
-    Array.from(wrapper?.children ?? []).forEach((column) => {
-      expect(column).toHaveClass("self-start");
-      expect(column).toHaveClass("content-start");
-    });
+    expect(wrapper).toHaveClass("auto-rows-[7rem]");
+    expect(wrapper.children[0]).toHaveClass("md:col-span-2");
+    expect(wrapper.children[0]).toHaveClass("md:row-span-5");
+    expect(wrapper.children[1]).toHaveClass("row-span-2");
+    expect(wrapper.children[2]).toHaveClass("row-span-3");
+  });
+
+  it("renders all statuses in one gallery grid without separate activity sections", () => {
+    mockMatchMedia({ isMdUp: false, isXlUp: false });
+
+    renderWithIntl(
+      <HistoryList
+        items={[
+          {
+            id: "failed-1",
+            type: "image",
+            status: "failed",
+            prompt: "failed prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: null,
+            thumbnailUrl: null,
+            errorMessage: "boom",
+          },
+          {
+            id: "completed-1",
+            type: "image",
+            status: "completed",
+            prompt: "completed prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: "https://example.com/result.png",
+            thumbnailUrl: "https://example.com/thumb.png",
+            errorMessage: null,
+          },
+          {
+            id: "processing-1",
+            type: "video",
+            status: "processing",
+            prompt: "processing prompt",
+            model: null,
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: null,
+            thumbnailUrl: null,
+            errorMessage: null,
+          },
+        ]}
+      />,
+    );
+
+    const gallery = screen.getByTestId("history-gallery-grid");
+
+    expect(gallery).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "결과 갤러리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "상태 활동" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("이미지").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("실패").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("처리중").length).toBeGreaterThan(0);
+  });
+
+  it("notifies the parent when a completed result preview is selected", async () => {
+    mockMatchMedia({ isMdUp: false, isXlUp: false });
+    const onSelectItem = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <HistoryList
+        items={[
+          {
+            id: "completed-1",
+            type: "image",
+            status: "completed",
+            prompt: "detail prompt",
+            model: "flux2-klein-9b",
+            createdAt: "2026-02-03T00:00:00.000Z",
+            resultUrl: "https://example.com/result.png",
+            thumbnailUrl: "https://example.com/thumb.png",
+            errorMessage: null,
+          },
+        ]}
+        onSelectItem={onSelectItem}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /결과 상세 보기: detail prompt/ }),
+    );
+
+    expect(onSelectItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "completed-1" }),
+    );
   });
 
   it.each([
     {
       name: "small viewport",
       media: { isMdUp: false, isXlUp: false },
-      expectedColumns: 2,
-      expectedItemsPerColumn: [5, 4],
     },
     {
       name: "medium viewport",
       media: { isMdUp: true, isXlUp: false },
-      expectedColumns: 3,
-      expectedItemsPerColumn: [3, 3, 3],
     },
     {
       name: "xl viewport",
       media: { isMdUp: true, isXlUp: true },
-      expectedColumns: 4,
-      expectedItemsPerColumn: [3, 2, 2, 2],
     },
-  ])("uses responsive skeleton columns for $name", ({
-    media,
-    expectedColumns,
-    expectedItemsPerColumn,
-  }) => {
+  ])("uses responsive masonry skeleton grid for $name", ({ media }) => {
     mockMatchMedia(media);
 
     const { container } = renderWithIntl(<HistoryList items={[]} isLoading />);
@@ -108,15 +187,12 @@ describe("HistoryList", () => {
     expect(wrapper).toBeTruthy();
     expect(wrapper).toHaveClass("grid");
     expect(wrapper).toHaveClass("grid-cols-2");
-    expect(wrapper).toHaveClass("md:grid-cols-3");
-    expect(wrapper).toHaveClass("xl:grid-cols-4");
+    expect(wrapper).toHaveClass("md:grid-cols-4");
+    expect(wrapper).toHaveClass("xl:grid-cols-6");
     expect(wrapper).not.toHaveClass("columns-1");
 
-    expect(wrapper?.children.length).toBe(expectedColumns);
-    Array.from(wrapper?.children ?? []).forEach((column, index) => {
-      expect(column).toHaveClass("grid");
-      expect(column).not.toHaveClass("hidden");
-      expect(column.children.length).toBe(expectedItemsPerColumn[index]);
-    });
+    expect(wrapper?.children.length).toBe(12);
+    expect(wrapper?.children[0]).toHaveClass("md:col-span-2");
+    expect(wrapper?.children[2]).toHaveClass("row-span-3");
   });
 });

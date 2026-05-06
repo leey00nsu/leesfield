@@ -2,9 +2,9 @@
   "header": {
     "login": "Log in",
     "logout": "Log out",
-    "profile": "Profile",
     "menu": "Menu",
-    "language": "Language"
+    "language": "Language",
+    "dashboard": "Go to dashboard"
   },
   "nav": {
     "image": "Image",
@@ -12,7 +12,6 @@
     "audio": "Audio",
     "history": "History",
     "monitoring": "Monitoring",
-    "monitoringQueue": "Monitoring",
     "model": "Model",
     "apiKey": "API keys",
     "apiDocs": "API docs"
@@ -41,7 +40,7 @@
     },
     "labels": {
       "filterOptions": "Filter options",
-      "searchPlaceholder": "SEARCH_DATABASE...",
+      "searchPlaceholder": "Search history...",
       "all": "All",
       "images": "Images",
       "videos": "Videos",
@@ -51,16 +50,22 @@
       "dateDesc": "Newest",
       "dateAsc": "Oldest",
       "ready": "Ready",
-      "chars": "{count} CHARS",
-      "outputSize": "Output_Size",
+      "chars": "{count} chars",
+      "outputSize": "Output size",
       "width": "Width",
       "height": "Height",
       "steps": "Steps",
-      "guidanceScale": "Guidance_Scale",
+      "imageCount": "Images",
+      "guidanceScale": "Guidance",
+      "settings": "Settings",
+      "moreControls": "More controls",
       "modeChoice": "Mode",
-      "promptUpsampling": "Prompt_Upsampling",
+      "promptUpsampling": "Prompt boost",
       "seed": "Seed",
-      "durationSec": "Duration_Sec",
+      "decrease": "Decrease",
+      "increase": "Increase",
+      "randomize": "Randomize",
+      "durationSec": "Duration",
       "range": "Range: {min} ~ {max}px",
       "required": "Required",
       "enabled": "Enabled",
@@ -85,76 +90,79 @@
   },
   "landing": {
     "hero": {
-      "status": "AI generation platform",
-      "primaryCta": "Start generating",
-      "secondaryCta": "API Docs",
-      "description": "leesfield is an AI generation platform for creators, helping you deliver results quickly with a streamlined workflow and model selection."
-    },
-    "features": {
-      "title": "Core features",
-      "cards": {
-        "generation": {
-          "title": "Image & video generation",
-          "description": "Generate images and videos from the dashboard and review results quickly."
-        },
-        "history": {
-          "title": "Generation history",
-          "description": "Keep all prompts and settings to return to results anytime."
-        },
-        "model": {
-          "title": "Model management",
-          "description": "Switch image/video models to match the task and get the best results."
-        },
-        "api": {
-          "title": "Developer API",
-          "description": "Automate workflows and integrate generation into your services with REST APIs."
-        }
+      "secondaryCta": "API docs",
+      "headline": "Generate anything. One platform for image, video, and audio.",
+      "headlineFirst": "Generate anything.",
+      "headlineSecond": "One platform for image, video, and audio.",
+      "subhead": "Built for creators and developers who ship.",
+      "tabs": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "preview": {
+        "label": "Generation panel",
+        "promptLabel": "Prompt",
+        "placeholder": "Describe what you want to create...",
+        "modelLabel": "Model",
+        "model": "GPT Image 2",
+        "aspectLabel": "Aspect ratio",
+        "aspect": "16:9",
+        "generate": "Generate"
       }
     },
-    "techStack": {
-      "title": "Tech stack",
-      "description": "Built with Next.js (App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest, and more.",
+    "workflow": {
+      "eyebrow": "SYSTEM OVERVIEW",
+      "title": "A workflow built for controlled generation.",
+      "description": "leesfield keeps prompts, models, results, monitoring, and API surfaces in one workflow for image, video, and audio generation.",
       "items": {
-        "nextjs": {
-          "label": "NEXT.JS",
-          "description": "Frontend Framework"
+        "generate": {
+          "title": "Generate",
+          "description": "Create images, videos, and audio from one shared prompt workflow."
         },
-        "typescript": {
-          "label": "TYPESCRIPT",
-          "description": "Language"
+        "review": {
+          "title": "Review",
+          "description": "Open past generations with their request details, settings, and results."
         },
-        "prisma": {
-          "label": "PRISMA",
-          "description": "ORM"
-        },
-        "tailwind": {
-          "label": "TAILWIND",
-          "description": "Styling (+ shadcn/ui)"
+        "monitor": {
+          "title": "Monitor",
+          "description": "Track request volume, success rate, latency, and model usage from one dashboard."
+        }
+        ,
+        "integrate": {
+          "title": "Integrate",
+          "description": "Use API docs, model controls, and keys to connect generation to your product."
         }
       }
     },
-    "why": {
-      "title": "Why leesfield",
-      "description": "An open-source, portfolio-focused project designed around real implementations: dashboard UX, OpenAPI docs, model catalog/management, and an extensible adapter architecture.",
-      "cards": {
-        "openapi": {
-          "title": "OpenAPI-first docs",
-          "description": "Docs are available via /api-docs (UI) and /api/openapi (JSON), making integration and validation straightforward."
-        },
-        "adapters": {
-          "title": "Extensible adapter design",
-          "description": "Generation calls and storage uploads are decoupled, so providers and storage backends can be swapped or extended."
-        },
-        "dashboard": {
-          "title": "Dashboard-centric workflow",
-          "description": "Manage image/video generation, history, and model catalog/monitoring in one place."
-        }
+    "reuse": {
+      "eyebrow": "FEATURE",
+      "title": "Results you can reuse.",
+      "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
+      "cta": "Explore history",
+      "badge": "Generation",
+      "imageAlt": "Studio portrait preview",
+      "prompt": {
+        "title": "Prompt",
+        "body": "Reflective editorial portrait beside a dim studio mirror, soft fabric detail, cinematic shadow."
+      },
+      "settings": {
+        "title": "Settings"
       }
+    },
+    "platform": {
+      "eyebrow": "DEVELOPER WORKFLOW",
+      "title": "Docs, models, and workflows curated for teams.",
+      "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
+      "cta": "Explore platform"
+    },
+    "techCloud": {
+      "title": "Tech Stacks"
     },
     "cta": {
-      "title": "Start with leesfield today",
-      "description": "Experience powerful generation models and an intuitive workflow in one place.",
-      "button": "Go to dashboard"
+      "title": "Design with leesfield",
+      "description": "",
+      "button": "Get started now"
     }
   },
   "auth": {
@@ -163,14 +171,33 @@
         "leading": "User",
         "accent": "Login"
       },
-      "subtitle": "AUTHENTICATION REQUIRED",
+      "panelLabel": "Login",
+      "headline": "Log in to leesfield",
+      "subtitle": "Use your account to keep creating images, videos, and audio.",
+      "preview": {
+        "imageAlt": "Creative studio login preview",
+        "title": "LEESFIELD STUDIO",
+        "description": "",
+        "badges": {
+          "unlimited": "Private workspace",
+          "quality": "Saved history",
+          "prompt": "Saved work"
+        },
+        "tabs": {
+          "image": "Image",
+          "video": "Video",
+          "audio": "Audio",
+          "api": "API"
+        }
+      },
       "form": {
         "emailLabel": "Username or Email",
-        "emailPlaceholder": "ENTER_ID...",
+        "emailPlaceholder": "Enter email",
         "passwordLabel": "Password",
-        "submit": "Authenticate",
-        "submitting": "Authenticating...",
-  "errors": {
+        "passwordPlaceholder": "••••••••",
+        "submit": "Log in",
+        "submitting": "Logging in...",
+        "errors": {
           "invalidCredentials": "Email or password is incorrect.",
           "serverConfig": "Server configuration is required.",
           "unknown": "Login failed."
@@ -180,23 +207,31 @@
         "email": "Please enter a valid email.",
         "password": "Please enter a password."
       }
-    },
-    "loginGate": {
-      "title": "Login required",
-      "description": "Log in to continue your generation.",
-      "action": "Log in",
-      "cancel": "Not now"
     }
   },
   "generation": {
-    "modelSelect": "Select_Model",
+    "modelSelect": "Select model",
+    "modelPicker": {
+      "searchPlaceholder": "Search models...",
+      "featured": "Featured models",
+      "all": "All models",
+      "selected": "Selected",
+      "default": "default",
+      "new": "NEW",
+      "premium": "PREMIUM",
+      "empty": "No models found."
+    },
+    "promptDock": {
+      "label": "Creation input"
+    },
     "modelLoading": "Loading models...",
-    "noModels": "No models are registered. Add a model in the admin page.",
-    "modelLoginRequired": "Log in to view the model list.",
+    "noModels": "No generation model is available right now.",
+    "modelUnavailable": "No model available",
+    "modelLoginRequired": "Log in to start creating.",
     "settings": "Settings",
     "canvas": {
-      "emptyTitle": "Canvas Empty",
-      "emptyDescription": "Configure your prompt below to start generating",
+      "emptyTitle": "Ready when you are",
+      "emptyDescription": "",
       "generating": "Generating...",
       "failedTitle": "Generation failed",
       "failedDescription": "Please try again later."
@@ -205,17 +240,84 @@
       "gridDisabled": "Grid (disabled)",
       "fullScreenDisabled": "Full Screen (disabled)"
     },
+    "presets": {
+      "hint": "Apply",
+      "image": {
+        "title": "Image starters",
+        "ariaLabel": "Image starters",
+        "editorial-cut": {
+          "label": "Editorial cut",
+          "description": "A portrait cut with fabric and studio lighting.",
+          "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
+        },
+        "product-shadow": {
+          "label": "Product shadow",
+          "description": "Emphasizes crisp product form and grounded shadows.",
+          "prompt": "minimal product photo on a tinted dark surface, clean shadow, premium material detail"
+        },
+        "storyboard-frame": {
+          "label": "Storyboard frame",
+          "description": "A scene composition that can continue into video.",
+          "prompt": "cinematic storyboard frame, wide angle composition, clear subject motion cue"
+        }
+      },
+      "video": {
+        "title": "Video starters",
+        "ariaLabel": "Video starters",
+        "product-orbit": {
+          "label": "Product orbit",
+          "description": "A short, smooth move around a hero product.",
+          "prompt": "slow orbit camera move around a premium product, soft reflections, controlled studio light"
+        },
+        "street-pan": {
+          "label": "Street pan",
+          "description": "A lateral move across an atmospheric city scene.",
+          "prompt": "smooth lateral pan through a neon city street, rain reflections, cinematic pacing"
+        },
+        "macro-motion": {
+          "label": "Macro motion",
+          "description": "A close-up reveal for texture and material detail.",
+          "prompt": "macro close-up motion over textured material, shallow depth of field, slow reveal"
+        }
+      },
+      "audio": {
+        "title": "Audio starters",
+        "ariaLabel": "Audio starters",
+        "warm-voiceover": {
+          "label": "Warm voiceover",
+          "description": "A steady narration for a short intro video.",
+          "prompt": "A calm, warm voiceover introducing a creative AI studio in one concise sentence."
+        },
+        "product-tagline": {
+          "label": "Product tagline",
+          "description": "A short voice line for a product teaser.",
+          "prompt": "A confident product tagline with a polished launch trailer tone."
+        },
+        "ambient-intro": {
+          "label": "Ambient intro",
+          "description": "A calm audio direction for the opening screen.",
+          "prompt": "A soft ambient intro with minimal spoken words and a cinematic opening mood."
+        }
+      }
+    },
     "image": {
       "title": {
         "leading": "Image",
         "accent": "Generation"
       },
-      "subtitle": "Make images in one click",
-      "promptPlaceholder": "Describe your imagination in detail...",
+      "subtitle": "Create images",
+      "promptPlaceholder": "",
       "uploadReference": "Upload Reference Image",
       "uploadUnsupported": "This model does not support image input.",
       "initImageAlt": "Init image preview",
       "generatedImageAlt": "Generated image {index}",
+      "previewPortraitAlt": "Dark portrait reference",
+      "previewStudioAlt": "Studio portrait photo",
+      "previewTextureAlt": "Audio console photo",
+      "previewFilmAlt": "Film production photo",
+      "previewEyebrow": "IMAGE STUDIO",
+      "previewTitle": "Create images with control.",
+      "previewDescription": "Describe your idea. Choose your settings. Generate with precision.",
       "seedPlaceholder": "-1 (Random)"
     },
     "video": {
@@ -223,30 +325,40 @@
         "leading": "Video",
         "accent": "Generation"
       },
-      "subtitle": "Make videos in one click",
-      "promptPlaceholder": "Describe the video you want to generate in detail...",
+      "subtitle": "Create a short scene",
+      "promptPlaceholder": "",
       "uploadReference": "Upload Reference Image",
       "initImageAlt": "Init image preview",
+      "previewFilmAlt": "Film production photo",
+      "previewPortraitAlt": "Cinematic portrait frame",
+      "previewTextureAlt": "Audio console photo",
+      "previewEyebrow": "VIDEO STUDIO",
+      "previewTitle": "Create motion with control.",
+      "previewDescription": "Describe your idea. We'll handle the camera, the movement, and the magic.",
       "mode": {
         "imageToVideo": "IMAGE TO VIDEO",
         "imageRequired": "IMAGE REQUIRED",
         "textOnly": "TEXT ONLY"
       },
-      "sizeNotice": "This space does not support changing resolution or aspect ratio. If an image is provided, its aspect ratio is used; text-only uses the default resolution."
+      "sizeNotice": "Size changes are not available for this selection."
     },
     "audio": {
       "title": {
         "leading": "Audio",
         "accent": "Generation"
       },
-      "subtitle": "Generate speech from text",
-      "promptPlaceholder": "Describe or paste the text you want spoken...",
+      "subtitle": "Create a voice take",
+      "promptPlaceholder": "",
       "voiceLabel": "Voice",
       "voiceUnset": "Default voice",
       "voicePlaceholder": "e.g. alloy",
-      "referenceTextLabel": "Reference Text",
-      "referenceTextPlaceholder": "Enter the transcript for the reference audio...",
+      "referenceTextLabel": "Sample line",
+      "referenceTextPlaceholder": "",
       "speedLabel": "Speed",
+      "previewTextureAlt": "Audio console photo",
+      "previewEyebrow": "AUDIO STUDIO",
+      "previewTitle": "Shape sound with control.",
+      "previewDescription": "Describe the sound you need. Fine-tune the settings. Generate production-ready audio.",
       "seedPlaceholder": "Optional"
     },
     "errors": {
@@ -311,10 +423,25 @@
       "leading": "Generation",
       "accent": "History"
     },
+    "hero": {
+      "eyebrow": "HISTORY STUDIO",
+      "title": "Results you can reuse.",
+      "description": "Search every generated image, video, and audio result. Filter by format or outcome, then reopen the exact prompt when you need it."
+    },
+    "filters": {
+      "search": "Search history",
+      "searchPlaceholder": "Search by prompt, model, or tags...",
+      "sort": "Sort history"
+    },
     "subtitle": "Find your generations fast",
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
     "inputImageAlt": "Input image",
+    "floatingDock": {
+      "placeholder": "Describe the scene you imagine",
+      "model": "FLUX.2 Klein 9B",
+      "generate": "Generate"
+    },
     "empty": {
       "title": "History Empty",
       "default": "No history yet.",
@@ -335,7 +462,51 @@
     "actions": {
       "reusePrompt": "Reuse Prompt",
       "copyPrompt": "Copy Prompt",
-      "viewFullPrompt": "View more"
+      "viewDetail": "Open result detail: {prompt}"
+    },
+    "detail": {
+      "title": "Result detail",
+      "author": "Author",
+      "tabsAriaLabel": "Result detail sections",
+      "tabPrompt": "Prompt",
+      "tabSettings": "Settings",
+      "tabMetadata": "Metadata",
+      "tabHistory": "History",
+      "prompt": "PROMPT",
+      "fullPrompt": "Full prompt",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "information": "INFORMATION",
+      "model": "Model",
+      "type": "Type",
+      "status": "Status",
+      "date": "Date",
+      "requestId": "Request ID",
+      "requestedAt": "Requested",
+      "completedAt": "Completed",
+      "duration": "Duration",
+      "progress": "Progress",
+      "assets": "ASSETS",
+      "inputImage": "Input image",
+      "inputAudio": "Input audio",
+      "resultImage": "Result image",
+      "resultVideo": "Result video",
+      "resultAudio": "Result audio",
+      "referenceText": "Reference text",
+      "errorMessage": "Error message",
+      "warningMessage": "Warning message",
+      "openAsset": "Open",
+      "noInputAsset": "No input asset",
+      "noResultAsset": "No result yet"
+    },
+    "detailActions": {
+      "recreate": "Recreate",
+      "video": "Video",
+      "download": "Download",
+      "upscale": "Upscale",
+      "edit": "Edit",
+      "copy": "Copy",
+      "close": "Close"
     },
     "deleteDialog": {
       "title": "Delete history item",
@@ -352,21 +523,6 @@
       "unknownDate": "Unknown"
     }
   },
-  "monitoringQueue": {
-    "title": {
-      "leading": "Queue",
-      "accent": "Monitoring"
-    },
-    "subtitle": "Track model-level queue activity",
-    "lastUpdated": "Last updated",
-    "pending": "Pending",
-    "processing": "Processing",
-    "error": "Failed to load queue status.",
-    "empty": {
-      "title": "No queue activity",
-      "default": "There are no pending or processing jobs."
-    }
-  },
   "monitoringDashboard": {
     "title": {
       "leading": "Model",
@@ -376,29 +532,44 @@
     "lastUpdated": "Last updated",
     "updating": "Streaming",
     "kpi": {
+      "successRate": "Success rate",
       "active": "Active Tasks",
-      "avgLatency": "Avg. Latency",
+      "avgLatency": "Latency",
       "total": "Requests",
-      "errorRate": "Error Rate",
       "live": "Live",
-      "avgLabel": "AVG",
-      "range": "Range",
-      "errorLabel": "Stable"
-    },
-    "filters": {
-      "statusAll": "All",
-      "statusActive": "Active",
-      "modelAll": "All models",
-      "apiKeyAll": "All keys",
-      "apiKeyUi": "UI requests",
-      "range": "Range",
-      "month": "Month"
+      "usageFootnote": "Usage in selected range",
+      "successful": "Successful",
+      "failed": "Failed",
+      "other": "Other"
     },
     "statuses": {
       "pending": "Pending",
       "processing": "Processing",
       "completed": "Completed",
       "failed": "Failed"
+    },
+    "filters": {
+      "from": "Start date",
+      "to": "End date",
+      "status": "Status",
+      "model": "Model",
+      "apiKey": "API key",
+      "allModels": "All models",
+      "allApiKeys": "All keys",
+      "uiRequests": "UI requests",
+      "type": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "statuses": {
+        "all": "All statuses",
+        "active": "Active",
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed"
+      }
     },
     "stats": {
       "title": "Traffic & Errors",
@@ -408,21 +579,8 @@
       "totalLabel": "Requests",
       "errorLabel": "Error rate"
     },
-    "top": {
-      "title": "Top N Signals",
-      "subtitle": "Most active models and keys",
-      "metric": {
-        "requests": "Requests",
-        "errors": "Errors",
-        "latency": "Latency"
-      },
-      "models": "Top Models",
-      "apiKeys": "Top API Keys",
-      "caption": "Ranked by selected metric",
-      "empty": "No ranking data."
-    },
     "requests": {
-      "title": "Live Request Feed",
+      "title": "Recent jobs",
       "subtitle": "Realtime inference logs",
       "updating": "Updating",
       "updated": "Updated {time}",
@@ -449,10 +607,17 @@
       "detailWarning": "Warning",
       "detailFetchError": "Failed to load request detail.",
       "detailClose": "Close",
+      "type": {
+        "image": "Image Generation",
+        "video": "Video Render",
+        "audio": "Audio Job"
+      },
       "columns": {
+        "job": "Job",
         "apiKey": "API Key",
         "model": "Model",
         "timestamp": "Timestamp",
+        "started": "Started",
         "duration": "Duration",
         "status": "Status"
       },
@@ -474,7 +639,14 @@
     "empty": {
       "title": "Models Empty",
       "default": "No models available.",
-      "search": "No results found."
+      "search": "No results found.",
+      "listLabel": "Model list"
+    },
+    "sort": {
+      "label": "Sort models",
+      "latest": "Latest first",
+      "name": "Name",
+      "type": "Type"
     },
     "card": {
       "type": {
@@ -484,6 +656,8 @@
       },
       "default": "DEFAULT",
       "inactive": "INACTIVE",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
       "edit": "EDIT",
       "meta": {
         "provider": "PROVIDER",
@@ -494,7 +668,84 @@
         "input": "INPUT",
         "mode": "MODE",
         "modality": "MODALITY",
-        "duration": "DURATION"
+        "duration": "DURATION",
+        "updated": "Updated",
+        "defaultValue": "Default"
+      }
+    },
+    "outcome": {
+      "labels": {
+        "bestFor": "Best for",
+        "strengths": "Strengths",
+        "style": "Result tone",
+        "technical": "Technical info",
+        "key": "Key"
+      },
+      "profiles": {
+        "imageRapid": {
+          "bestFor": "Fast image drafts",
+          "style": "Crisp prompt-led cut",
+          "strengths": {
+            "speed": "Short iteration loops",
+            "composition": "Clear composition"
+          }
+        },
+        "imageEditorial": {
+          "bestFor": "Editorial and reference images",
+          "style": "Precise portrait/product cut",
+          "strengths": {
+            "reference": "Reference image support",
+            "detail": "Material and lighting detail"
+          }
+        },
+        "imagePrecise": {
+          "bestFor": "Precise image creation/editing",
+          "style": "Clean instruction-led output",
+          "strengths": {
+            "instruction": "Keeps complex instructions",
+            "editing": "Reference-based edits"
+          }
+        },
+        "imageDefault": {
+          "bestFor": "Fast image drafts",
+          "style": "Crisp prompt-led cut",
+          "strengths": {
+            "speed": "Short iteration loops",
+            "composition": "Clear composition"
+          }
+        },
+        "videoCinematic": {
+          "bestFor": "Product motion and short cuts",
+          "style": "Smooth camera motion",
+          "strengths": {
+            "motion": "Short clip motion",
+            "reference": "Image-based starts"
+          }
+        },
+        "videoDefault": {
+          "bestFor": "Video drafts",
+          "style": "Short motion clip",
+          "strengths": {
+            "motion": "Short clip motion",
+            "pacing": "Concise cut structure"
+          }
+        },
+        "audioVoiceover": {
+          "bestFor": "Voiceover and short narration",
+          "style": "Warm voice tone",
+          "strengths": {
+            "voice": "Clear voice synthesis",
+            "pacing": "Short copy delivery"
+          }
+        },
+        "audioDefault": {
+          "bestFor": "Audio drafts",
+          "style": "Concise speech output",
+          "strengths": {
+            "voice": "Clear voice synthesis",
+            "pacing": "Short copy delivery"
+          }
+        }
       }
     },
     "modality": {
@@ -657,7 +908,10 @@
       }
     },
     "sidebar": {
+      "reference": "API Reference",
       "label": "API Reference {version}",
+      "searchPlaceholder": "Search endpoints...",
+      "noResults": "No results found.",
       "general": "General",
       "endpoints": "Endpoints",
       "nav": {
@@ -758,54 +1012,5 @@
   "dashboard": {
     "title": "Dashboard",
     "description": "Generation pages and management tools are in progress."
-  },
-  "profile": {
-    "title": {
-      "leading": "User",
-      "accent": "Profile"
-    },
-    "subtitle": "Manage your profile details",
-    "summary": {
-      "changeAvatar": "Change Avatar",
-      "badges": {
-        "creator": "Creator",
-        "proMember": "Pro Member"
-      },
-      "stats": {
-        "generations": "Generations",
-        "credits": "Credits"
-      }
-    },
-    "form": {
-      "title": "Personal Information",
-      "firstName": "First Name",
-      "lastName": "Last Name",
-      "email": "Email Address",
-      "username": "Username",
-      "bio": "Bio",
-      "characters": "{count}/{max} CHARACTERS",
-      "placeholders": {
-        "notSet": "Not set",
-        "email": "admin@example.com",
-        "username": "admin",
-        "bio": "Tell us about yourself..."
-      }
-    },
-    "headerActions": {
-      "saveChanges": "Save Changes"
-    },
-    "subscription": {
-      "title": "Subscription",
-      "manage": "Manage",
-      "plan": "Free Plan",
-      "price": "$0/month",
-      "badge": "Free",
-      "noRenewal": "NO RENEWAL",
-      "upgrade": "Upgrade Plan"
-    },
-    "notifications": {
-      "title": "Notifications",
-      "generationComplete": "Generation Complete"
-    }
   }
 }

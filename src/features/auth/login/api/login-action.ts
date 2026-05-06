@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
+import { sanitizeLoginReturnTo } from "@/features/auth/lib/login-redirect";
 import { loginSchema } from "@/features/auth/login/model/login-schema";
 import { decodeBase64UrlHash } from "@/server/auth/password-hash";
 import { getSession } from "@/server/auth/session";
@@ -22,6 +23,7 @@ export async function loginAction(
     email: formData.get("email"),
     password: formData.get("password"),
   };
+  const returnTo = sanitizeLoginReturnTo(formData.get("returnTo"));
 
   const parsed = loginSchema.safeParse(data);
 
@@ -61,5 +63,5 @@ export async function loginAction(
   session.adminEmail = parsed.data.email;
   await session.save();
 
-  redirect("/");
+  redirect(returnTo);
 }

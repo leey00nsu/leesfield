@@ -2,9 +2,9 @@
   "header": {
     "login": "로그인",
     "logout": "로그아웃",
-    "profile": "프로필",
     "menu": "메뉴",
-    "language": "언어"
+    "language": "언어",
+    "dashboard": "대시보드로 이동"
   },
   "nav": {
     "image": "이미지",
@@ -12,7 +12,6 @@
     "audio": "오디오",
     "history": "히스토리",
     "monitoring": "모니터링",
-    "monitoringQueue": "모니터링",
     "model": "모델",
     "apiKey": "API 키",
     "apiDocs": "API 문서"
@@ -56,10 +55,16 @@
       "width": "너비",
       "height": "높이",
       "steps": "스텝",
+      "imageCount": "이미지 수",
       "guidanceScale": "가이던스",
+      "settings": "설정",
+      "moreControls": "추가 조정",
       "modeChoice": "모드",
-      "promptUpsampling": "프롬프트 업샘플링",
+      "promptUpsampling": "프롬프트 보강",
       "seed": "시드",
+      "decrease": "줄이기",
+      "increase": "늘리기",
+      "randomize": "랜덤",
       "durationSec": "재생시간",
       "range": "범위: {min} ~ {max}px",
       "required": "필수",
@@ -85,76 +90,79 @@
   },
   "landing": {
     "hero": {
-      "status": "AI 생성 플랫폼",
-      "primaryCta": "생성 시작",
       "secondaryCta": "API 문서",
-      "description": "leesfield는 창작을 위한 AI 생성 플랫폼으로, 간결한 워크플로우와 모델 선택을 통해 결과를 빠르게 완성합니다."
-    },
-    "features": {
-      "title": "핵심 기능",
-      "cards": {
-        "generation": {
-          "title": "이미지/비디오 생성",
-          "description": "대시보드에서 이미지/비디오를 생성하고 결과를 빠르게 확인할 수 있습니다."
-        },
-        "history": {
-          "title": "생성 히스토리",
-          "description": "모든 프롬프트와 설정을 보관해 언제든 동일한 결과로 되돌릴 수 있습니다."
-        },
-        "model": {
-          "title": "모델 관리",
-          "description": "이미지/비디오 모델을 상황에 맞게 전환하고 최적의 결과를 얻습니다."
-        },
-        "api": {
-          "title": "개발자 API",
-          "description": "REST API로 워크플로우를 자동화하고 자체 서비스에 생성 기능을 통합합니다."
-        }
+      "headline": "Generate anything. One platform for image, video, and audio.",
+      "headlineFirst": "Generate anything.",
+      "headlineSecond": "One platform for image, video, and audio.",
+      "subhead": "Built for creators and developers who ship.",
+      "tabs": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "preview": {
+        "label": "생성 패널",
+        "promptLabel": "프롬프트",
+        "placeholder": "Describe what you want to create...",
+        "modelLabel": "Model",
+        "model": "GPT Image 2",
+        "aspectLabel": "Aspect ratio",
+        "aspect": "16:9",
+        "generate": "Generate"
       }
     },
-    "techStack": {
-      "title": "기술 스택",
-      "description": "이 프로젝트는 Next.js(App Router), TypeScript, Tailwind CSS/shadcn/ui, Prisma/PostgreSQL, Vitest 등으로 구성되어 있습니다.",
+    "workflow": {
+      "eyebrow": "SYSTEM OVERVIEW",
+      "title": "A workflow built for controlled generation.",
+      "description": "leesfield keeps prompts, models, results, monitoring, and API surfaces in one workflow for image, video, and audio generation.",
       "items": {
-        "nextjs": {
-          "label": "NEXT.JS",
-          "description": "Frontend Framework"
+        "generate": {
+          "title": "Generate",
+          "description": "Create images, videos, and audio from one shared prompt workflow."
         },
-        "typescript": {
-          "label": "TYPESCRIPT",
-          "description": "Language"
+        "review": {
+          "title": "Review",
+          "description": "Open past generations with their request details, settings, and results."
         },
-        "prisma": {
-          "label": "PRISMA",
-          "description": "ORM"
-        },
-        "tailwind": {
-          "label": "TAILWIND",
-          "description": "Styling (+ shadcn/ui)"
+        "monitor": {
+          "title": "Monitor",
+          "description": "Track request volume, success rate, latency, and model usage from one dashboard."
+        }
+        ,
+        "integrate": {
+          "title": "Integrate",
+          "description": "Use API docs, model controls, and keys to connect generation to your product."
         }
       }
     },
-    "why": {
-      "title": "왜 leesfield인가",
-      "description": "대시보드 UX, OpenAPI 문서, 모델 카탈로그/관리, 어댑터 기반 확장 구조 등 실제 구현된 기능을 중심으로 설계된 오픈소스 프로젝트입니다.",
-      "cards": {
-        "openapi": {
-          "title": "OpenAPI 기반 API 문서",
-          "description": "/api-docs(UI)와 /api/openapi(JSON)로 문서가 제공되어 통합/검증이 쉽습니다."
-        },
-        "adapters": {
-          "title": "어댑터 기반 확장 구조",
-          "description": "생성 호출과 스토리지 업로드를 분리해, API 프로바이더 / 스토리지 교체 및 확장이 용이합니다."
-        },
-        "dashboard": {
-          "title": "대시보드 중심 워크플로우",
-          "description": "이미지/비디오 생성, 히스토리, 모델 관리/모니터링을 한 곳에서 다룹니다."
-        }
+    "reuse": {
+      "eyebrow": "FEATURE",
+      "title": "Results you can reuse.",
+      "description": "Keep generations, prompts, and settings together in one place so your team can revisit, compare, and iterate without starting over.",
+      "cta": "Explore history",
+      "badge": "Generation",
+      "imageAlt": "Studio portrait preview",
+      "prompt": {
+        "title": "Prompt",
+        "body": "Reflective editorial portrait beside a dim studio mirror, soft fabric detail, cinematic shadow."
+      },
+      "settings": {
+        "title": "Settings"
       }
+    },
+    "platform": {
+      "eyebrow": "DEVELOPER WORKFLOW",
+      "title": "Docs, models, and workflows curated for teams.",
+      "description": "Everything you need in one place: API docs, model catalog, monitoring, and production-ready workflows built for creators and developers.",
+      "cta": "Explore platform"
+    },
+    "techCloud": {
+      "title": "Tech Stacks"
     },
     "cta": {
-      "title": "지금 바로 leesfield로 시작하세요",
-      "description": "강력한 생성 모델과 직관적인 워크플로우를 한 번에 경험할 수 있습니다.",
-      "button": "대시보드로 이동"
+      "title": "Design with leesfield",
+      "description": "",
+      "button": "Get started now"
     }
   },
   "auth": {
@@ -163,14 +171,33 @@
         "leading": "사용자",
         "accent": "로그인"
       },
-      "subtitle": "인증이 필요합니다",
+      "panelLabel": "로그인",
+      "headline": "leesfield에 로그인",
+      "subtitle": "계정으로 계속해서 이미지, 비디오, 오디오 작업을 이어가세요.",
+      "preview": {
+        "imageAlt": "크리에이티브 스튜디오 로그인 미리보기",
+        "title": "LEESFIELD STUDIO",
+        "description": "",
+        "badges": {
+          "unlimited": "Private workspace",
+          "quality": "Saved history",
+          "prompt": "Saved work"
+        },
+        "tabs": {
+          "image": "Image",
+          "video": "Video",
+          "audio": "Audio",
+          "api": "API"
+        }
+      },
       "form": {
         "emailLabel": "아이디 또는 이메일",
         "emailPlaceholder": "아이디 입력...",
         "passwordLabel": "비밀번호",
+        "passwordPlaceholder": "••••••••",
         "submit": "로그인",
         "submitting": "로그인 중...",
-  "errors": {
+        "errors": {
           "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
           "serverConfig": "서버 설정이 필요합니다.",
           "unknown": "로그인에 실패했습니다."
@@ -180,23 +207,31 @@
         "email": "올바른 이메일을 입력해주세요.",
         "password": "비밀번호를 입력해주세요."
       }
-    },
-    "loginGate": {
-      "title": "로그인이 필요합니다",
-      "description": "생성을 진행하려면 로그인하세요.",
-      "action": "로그인",
-      "cancel": "나중에"
     }
   },
   "generation": {
     "modelSelect": "모델 선택",
+    "modelPicker": {
+      "searchPlaceholder": "모델 검색...",
+      "featured": "추천 모델",
+      "all": "전체 모델",
+      "selected": "선택됨",
+      "default": "default",
+      "new": "NEW",
+      "premium": "PREMIUM",
+      "empty": "검색 결과가 없습니다."
+    },
+    "promptDock": {
+      "label": "작업 입력"
+    },
     "modelLoading": "모델을 불러오는 중입니다...",
-    "noModels": "등록된 모델이 없습니다. 관리자에서 모델을 추가하세요.",
-    "modelLoginRequired": "로그인하여 모델 목록을 확인하세요.",
+    "noModels": "지금 사용할 수 있는 생성 모델이 없습니다.",
+    "modelUnavailable": "선택 가능한 모델 없음",
+    "modelLoginRequired": "로그인하면 바로 만들 수 있습니다.",
     "settings": "설정",
     "canvas": {
-      "emptyTitle": "캔버스 비어 있음",
-      "emptyDescription": "아래에서 프롬프트를 입력해 생성을 시작하세요.",
+      "emptyTitle": "준비 완료",
+      "emptyDescription": "",
       "generating": "생성 중...",
       "failedTitle": "생성에 실패했습니다",
       "failedDescription": "잠시 후 다시 시도해주세요."
@@ -205,17 +240,84 @@
       "gridDisabled": "그리드 (비활성)",
       "fullScreenDisabled": "전체 화면 (비활성)"
     },
+    "presets": {
+      "hint": "적용",
+      "image": {
+        "title": "이미지 시작점",
+        "ariaLabel": "이미지 시작점",
+        "editorial-cut": {
+          "label": "에디토리얼 컷",
+          "description": "인물, 패브릭, 조명을 한 번에 잡는 컷",
+          "prompt": "high contrast editorial portrait, reflective fabric, precise studio lighting"
+        },
+        "product-shadow": {
+          "label": "제품 섀도우",
+          "description": "선명한 제품 형태와 바닥 그림자를 강조",
+          "prompt": "minimal product photo on a tinted dark surface, clean shadow, premium material detail"
+        },
+        "storyboard-frame": {
+          "label": "스토리보드 프레임",
+          "description": "영상으로 이어갈 수 있는 장면 구도",
+          "prompt": "cinematic storyboard frame, wide angle composition, clear subject motion cue"
+        }
+      },
+      "video": {
+        "title": "비디오 시작점",
+        "ariaLabel": "비디오 시작점",
+        "product-orbit": {
+          "label": "제품 오빗",
+          "description": "제품 주변을 부드럽게 도는 짧은 무빙",
+          "prompt": "slow orbit camera move around a premium product, soft reflections, controlled studio light"
+        },
+        "street-pan": {
+          "label": "스트리트 팬",
+          "description": "도시 장면을 좌우로 훑는 모션",
+          "prompt": "smooth lateral pan through a neon city street, rain reflections, cinematic pacing"
+        },
+        "macro-motion": {
+          "label": "매크로 모션",
+          "description": "소재와 질감을 가까이 보여주는 클로즈업",
+          "prompt": "macro close-up motion over textured material, shallow depth of field, slow reveal"
+        }
+      },
+      "audio": {
+        "title": "오디오 시작점",
+        "ariaLabel": "오디오 시작점",
+        "warm-voiceover": {
+          "label": "따뜻한 보이스오버",
+          "description": "짧은 소개 영상에 맞는 안정적인 내레이션",
+          "prompt": "A calm, warm voiceover introducing a creative AI studio in one concise sentence."
+        },
+        "product-tagline": {
+          "label": "제품 태그라인",
+          "description": "제품 티저에 붙일 짧은 음성 카피",
+          "prompt": "A confident product tagline with a polished launch trailer tone."
+        },
+        "ambient-intro": {
+          "label": "앰비언트 인트로",
+          "description": "시작 화면에 어울리는 차분한 오디오 지시문",
+          "prompt": "A soft ambient intro with minimal spoken words and a cinematic opening mood."
+        }
+      }
+    },
     "image": {
       "title": {
         "leading": "이미지",
         "accent": "생성"
       },
-      "subtitle": "원클릭 이미지 생성",
-      "promptPlaceholder": "상세하게 프롬프트를 입력하세요...",
+      "subtitle": "이미지 만들기",
+      "promptPlaceholder": "",
       "uploadReference": "레퍼런스 이미지 업로드",
       "uploadUnsupported": "이미지 입력을 지원하지 않는 모델입니다.",
       "initImageAlt": "입력 이미지 미리보기",
       "generatedImageAlt": "생성된 이미지 {index}",
+      "previewPortraitAlt": "어두운 톤의 인물 레퍼런스",
+      "previewStudioAlt": "스튜디오 인물 사진",
+      "previewTextureAlt": "오디오 콘솔 사진",
+      "previewFilmAlt": "촬영 현장 사진",
+      "previewEyebrow": "IMAGE STUDIO",
+      "previewTitle": "Create images with control.",
+      "previewDescription": "Describe your idea. Choose your settings. Generate with precision.",
       "seedPlaceholder": "-1 (랜덤)"
     },
     "video": {
@@ -223,30 +325,40 @@
         "leading": "비디오",
         "accent": "생성"
       },
-      "subtitle": "원클릭 비디오 생성",
-      "promptPlaceholder": "생성할 비디오를 자세히 설명하세요...",
+      "subtitle": "짧은 장면 만들기",
+      "promptPlaceholder": "",
       "uploadReference": "레퍼런스 이미지 업로드",
       "initImageAlt": "입력 이미지 미리보기",
+      "previewFilmAlt": "촬영 현장 사진",
+      "previewPortraitAlt": "시네마틱 인물 프레임",
+      "previewTextureAlt": "오디오 콘솔 사진",
+      "previewEyebrow": "VIDEO STUDIO",
+      "previewTitle": "Create motion with control.",
+      "previewDescription": "Describe your idea. We'll handle the camera, the movement, and the magic.",
       "mode": {
         "imageToVideo": "이미지 → 비디오",
         "imageRequired": "이미지 필요",
         "textOnly": "텍스트 전용"
       },
-      "sizeNotice": "이 스페이스는 해상도/비율 변경을 지원하지 않습니다. 이미지 입력이 있으면 그 비율을 참고하며, 텍스트 전용은 기본 해상도로 생성됩니다."
+      "sizeNotice": "현재 선택에서는 크기 변경을 사용할 수 없습니다."
     },
     "audio": {
       "title": {
         "leading": "오디오",
         "accent": "생성"
       },
-      "subtitle": "텍스트로 음성을 생성합니다",
-      "promptPlaceholder": "생성할 음성 내용을 자연스럽게 입력하세요...",
+      "subtitle": "목소리 만들기",
+      "promptPlaceholder": "",
       "voiceLabel": "보이스",
       "voiceUnset": "기본 보이스",
       "voicePlaceholder": "예: alloy",
-      "referenceTextLabel": "레퍼런스 텍스트",
-      "referenceTextPlaceholder": "레퍼런스 오디오의 텍스트를 입력하세요...",
+      "referenceTextLabel": "샘플 문장",
+      "referenceTextPlaceholder": "",
       "speedLabel": "속도",
+      "previewTextureAlt": "오디오 콘솔 사진",
+      "previewEyebrow": "AUDIO STUDIO",
+      "previewTitle": "Shape sound with control.",
+      "previewDescription": "Describe the sound you need. Fine-tune the settings. Generate production-ready audio.",
       "seedPlaceholder": "선택 사항"
     },
     "errors": {
@@ -311,10 +423,25 @@
       "leading": "생성",
       "accent": "히스토리"
     },
+    "hero": {
+      "eyebrow": "HISTORY STUDIO",
+      "title": "Results you can reuse.",
+      "description": "생성한 이미지, 비디오, 오디오 결과를 빠르게 찾고 다시 사용할 수 있습니다. 형식과 상태로 걸러낸 뒤 필요한 프롬프트를 바로 열어보세요."
+    },
+    "filters": {
+      "search": "히스토리 검색",
+      "searchPlaceholder": "프롬프트, 모델, 태그 검색...",
+      "sort": "히스토리 정렬"
+    },
     "subtitle": "생성 기록을 빠르게 찾아보세요",
     "error": "히스토리를 불러오지 못했습니다.",
     "previewAlt": "생성 결과 미리보기",
     "inputImageAlt": "입력 이미지",
+    "floatingDock": {
+      "placeholder": "Describe the scene you imagine",
+      "model": "FLUX.2 Klein 9B",
+      "generate": "Generate"
+    },
     "empty": {
       "title": "히스토리가 없습니다",
       "default": "히스토리가 비어 있습니다.",
@@ -335,7 +462,51 @@
     "actions": {
       "reusePrompt": "프롬프트 재사용",
       "copyPrompt": "프롬프트 복사",
-      "viewFullPrompt": "더보기"
+      "viewDetail": "결과 상세 보기: {prompt}"
+    },
+    "detail": {
+      "title": "결과 상세",
+      "author": "Author",
+      "tabsAriaLabel": "결과 상세 섹션",
+      "tabPrompt": "Prompt",
+      "tabSettings": "Settings",
+      "tabMetadata": "Metadata",
+      "tabHistory": "History",
+      "prompt": "PROMPT",
+      "fullPrompt": "Full prompt",
+      "showMore": "더 보기",
+      "showLess": "접기",
+      "information": "INFORMATION",
+      "model": "Model",
+      "type": "Type",
+      "status": "Status",
+      "date": "Date",
+      "requestId": "요청 ID",
+      "requestedAt": "요청 시간",
+      "completedAt": "완료 시간",
+      "duration": "소요 시간",
+      "progress": "진행률",
+      "assets": "ASSETS",
+      "inputImage": "입력 이미지",
+      "inputAudio": "입력 오디오",
+      "resultImage": "결과 이미지",
+      "resultVideo": "결과 비디오",
+      "resultAudio": "결과 오디오",
+      "referenceText": "참조 텍스트",
+      "errorMessage": "오류 메시지",
+      "warningMessage": "경고 메시지",
+      "openAsset": "열기",
+      "noInputAsset": "입력 자산 없음",
+      "noResultAsset": "결과 없음"
+    },
+    "detailActions": {
+      "recreate": "Recreate",
+      "video": "Video",
+      "download": "Download",
+      "upscale": "Upscale",
+      "edit": "Edit",
+      "copy": "Copy",
+      "close": "Close"
     },
     "deleteDialog": {
       "title": "히스토리 삭제",
@@ -352,21 +523,6 @@
       "unknownDate": "알 수 없음"
     }
   },
-  "monitoringQueue": {
-    "title": {
-      "leading": "큐",
-      "accent": "모니터링"
-    },
-    "subtitle": "모델별 큐 상태를 확인하세요",
-    "lastUpdated": "마지막 갱신",
-    "pending": "대기",
-    "processing": "처리 중",
-    "error": "큐 상태를 불러오지 못했습니다.",
-    "empty": {
-      "title": "큐 활동 없음",
-      "default": "대기 또는 처리 중인 작업이 없습니다."
-    }
-  },
   "monitoringDashboard": {
     "title": {
       "leading": "모델",
@@ -376,29 +532,44 @@
     "lastUpdated": "마지막 갱신",
     "updating": "스트리밍",
     "kpi": {
+      "successRate": "성공률",
       "active": "활성 작업",
-      "avgLatency": "평균 지연",
+      "avgLatency": "지연 시간",
       "total": "요청 수",
-      "errorRate": "오류율",
       "live": "실시간",
-      "avgLabel": "평균",
-      "range": "기간",
-      "errorLabel": "안정"
-    },
-    "filters": {
-      "statusAll": "전체",
-      "statusActive": "진행 중",
-      "modelAll": "전체 모델",
-      "apiKeyAll": "전체 키",
-      "apiKeyUi": "UI 요청",
-      "range": "기간",
-      "month": "월 선택"
+      "usageFootnote": "선택한 기간 기준 사용량",
+      "successful": "성공",
+      "failed": "실패",
+      "other": "기타"
     },
     "statuses": {
       "pending": "대기",
       "processing": "처리 중",
       "completed": "완료",
       "failed": "실패"
+    },
+    "filters": {
+      "from": "시작일",
+      "to": "종료일",
+      "status": "상태",
+      "model": "모델",
+      "apiKey": "API 키",
+      "allModels": "전체 모델",
+      "allApiKeys": "전체 키",
+      "uiRequests": "UI 요청",
+      "type": {
+        "image": "이미지",
+        "video": "비디오",
+        "audio": "오디오"
+      },
+      "statuses": {
+        "all": "전체 상태",
+        "active": "활성",
+        "pending": "대기",
+        "processing": "처리 중",
+        "completed": "완료",
+        "failed": "실패"
+      }
     },
     "stats": {
       "title": "트래픽 & 오류",
@@ -408,21 +579,8 @@
       "totalLabel": "요청 수",
       "errorLabel": "오류율"
     },
-    "top": {
-      "title": "Top N 지표",
-      "subtitle": "활성 모델/키 순위",
-      "metric": {
-        "requests": "요청 수",
-        "errors": "오류 수",
-        "latency": "지연"
-      },
-      "models": "모델 Top",
-      "apiKeys": "API Key Top",
-      "caption": "선택한 지표 기준",
-      "empty": "표시할 랭킹이 없습니다."
-    },
     "requests": {
-      "title": "실시간 요청 로그",
+      "title": "최근 작업",
       "subtitle": "실시간 추론 로그",
       "updating": "업데이트 중",
       "updated": "{time} 업데이트",
@@ -449,10 +607,17 @@
       "detailWarning": "경고",
       "detailFetchError": "요청 상세를 불러오지 못했습니다.",
       "detailClose": "닫기",
+      "type": {
+        "image": "이미지 생성",
+        "video": "비디오 렌더",
+        "audio": "오디오 작업"
+      },
       "columns": {
+        "job": "작업",
         "apiKey": "API 키",
         "model": "모델",
         "timestamp": "시간",
+        "started": "시작",
         "duration": "소요 시간",
         "status": "상태"
       },
@@ -474,7 +639,14 @@
     "empty": {
       "title": "모델이 없습니다",
       "default": "모델 카탈로그가 비어 있습니다.",
-      "search": "검색 결과가 없습니다."
+      "search": "검색 결과가 없습니다.",
+      "listLabel": "모델 목록"
+    },
+    "sort": {
+      "label": "모델 정렬",
+      "latest": "최신순",
+      "name": "이름순",
+      "type": "유형순"
     },
     "card": {
       "type": {
@@ -484,6 +656,8 @@
       },
       "default": "기본",
       "inactive": "비활성",
+      "enabled": "활성",
+      "disabled": "비활성",
       "edit": "수정",
       "meta": {
         "provider": "제공자",
@@ -494,7 +668,84 @@
         "input": "입력",
         "mode": "모드",
         "modality": "모달리티",
-        "duration": "길이"
+        "duration": "길이",
+        "updated": "업데이트",
+        "defaultValue": "기본값"
+      }
+    },
+    "outcome": {
+      "labels": {
+        "bestFor": "추천 용도",
+        "strengths": "강점",
+        "style": "결과 톤",
+        "technical": "기술 정보",
+        "key": "키"
+      },
+      "profiles": {
+        "imageRapid": {
+          "bestFor": "빠른 이미지 초안",
+          "style": "선명한 프롬프트 기반 컷",
+          "strengths": {
+            "speed": "짧은 반복 실험",
+            "composition": "명확한 구도"
+          }
+        },
+        "imageEditorial": {
+          "bestFor": "에디토리얼·레퍼런스 이미지",
+          "style": "정교한 인물/제품 컷",
+          "strengths": {
+            "reference": "이미지 레퍼런스 활용",
+            "detail": "소재와 조명 디테일"
+          }
+        },
+        "imagePrecise": {
+          "bestFor": "정확한 이미지 생성/수정",
+          "style": "깔끔한 지시 기반 결과",
+          "strengths": {
+            "instruction": "복잡한 지시 유지",
+            "editing": "레퍼런스 기반 수정"
+          }
+        },
+        "imageDefault": {
+          "bestFor": "빠른 이미지 초안",
+          "style": "선명한 프롬프트 기반 컷",
+          "strengths": {
+            "speed": "짧은 반복 실험",
+            "composition": "명확한 구도"
+          }
+        },
+        "videoCinematic": {
+          "bestFor": "제품 무빙과 짧은 컷",
+          "style": "부드러운 카메라 모션",
+          "strengths": {
+            "motion": "짧은 클립 모션",
+            "reference": "이미지 기반 시작"
+          }
+        },
+        "videoDefault": {
+          "bestFor": "비디오 초안 제작",
+          "style": "짧은 모션 클립",
+          "strengths": {
+            "motion": "짧은 클립 모션",
+            "pacing": "간결한 컷 구성"
+          }
+        },
+        "audioVoiceover": {
+          "bestFor": "보이스오버와 짧은 내레이션",
+          "style": "따뜻한 음성 톤",
+          "strengths": {
+            "voice": "명료한 음성 합성",
+            "pacing": "짧은 카피 전달"
+          }
+        },
+        "audioDefault": {
+          "bestFor": "오디오 초안 제작",
+          "style": "간결한 음성 결과",
+          "strengths": {
+            "voice": "명료한 음성 합성",
+            "pacing": "짧은 카피 전달"
+          }
+        }
       }
     },
     "modality": {
@@ -657,7 +908,10 @@
       }
     },
     "sidebar": {
+      "reference": "API 레퍼런스",
       "label": "API 레퍼런스 {version}",
+      "searchPlaceholder": "엔드포인트 검색...",
+      "noResults": "검색 결과가 없습니다.",
       "general": "일반",
       "endpoints": "엔드포인트",
       "nav": {
@@ -758,54 +1012,5 @@
   "dashboard": {
     "title": "대시보드",
     "description": "생성 페이지와 관리 기능을 준비 중입니다."
-  },
-  "profile": {
-    "title": {
-      "leading": "사용자",
-      "accent": "프로필"
-    },
-    "subtitle": "프로필 정보를 관리하세요",
-    "summary": {
-      "changeAvatar": "아바타 변경",
-      "badges": {
-        "creator": "크리에이터",
-        "proMember": "프로 멤버"
-      },
-      "stats": {
-        "generations": "생성",
-        "credits": "크레딧"
-      }
-    },
-    "form": {
-      "title": "개인 정보",
-      "firstName": "이름",
-      "lastName": "성",
-      "email": "이메일",
-      "username": "사용자명",
-      "bio": "소개",
-      "characters": "{count}/{max}자",
-      "placeholders": {
-        "notSet": "미설정",
-        "email": "admin@example.com",
-        "username": "admin",
-        "bio": "자신을 소개해주세요..."
-      }
-    },
-    "headerActions": {
-      "saveChanges": "변경사항 저장"
-    },
-    "subscription": {
-      "title": "구독",
-      "manage": "관리",
-      "plan": "무료 플랜",
-      "price": "₩0/월",
-      "badge": "무료",
-      "noRenewal": "자동 갱신 없음",
-      "upgrade": "플랜 업그레이드"
-    },
-    "notifications": {
-      "title": "알림",
-      "generationComplete": "생성 완료"
-    }
   }
 }

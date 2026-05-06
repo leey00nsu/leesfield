@@ -1,3 +1,4 @@
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ModelList } from "@/features/model-management/ui/model-list";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
@@ -22,16 +23,56 @@ const modelItemFixture: ModelCatalogItem = {
 };
 
 describe("ModelList", () => {
-  it("uses grid layout for model cards", () => {
+  it("uses an app-styled compact row list", () => {
     const { container } = renderWithIntl(<ModelList items={[modelItemFixture]} />);
 
     const wrapper = container.firstElementChild;
     expect(wrapper).toBeTruthy();
     const className = wrapper?.getAttribute("class") ?? "";
-    expect(className).toContain("grid");
-    expect(className).toContain("grid-cols-1");
-    expect(className).toContain("sm:grid-cols-2");
-    expect(className).toContain("xl:grid-cols-3");
-    expect(className).not.toContain("columns-1");
+    expect(wrapper).toHaveAttribute("data-app-card");
+    expect(wrapper).toHaveAttribute("role", "list");
+    expect(className).toContain("rounded-[1.1rem]");
+    expect(className).not.toContain("grid-cols-1");
+    expect(container.querySelector("[data-model-row]")).toBeTruthy();
+    expect(container.querySelector("[data-model-row] img")).toBeNull();
+    expect(container.querySelector("[data-model-type-icon]")).toBeTruthy();
+    expect(container.querySelector("[data-model-type-icon]")).toHaveClass(
+      "border-white/10",
+      "bg-white/[0.035]",
+    );
+    expect(container.querySelector("[data-model-type-icon]")).not.toHaveClass(
+      "border-primary/18",
+      "bg-primary/[0.055]",
+    );
+  });
+
+  it("shows compact model metadata and status", () => {
+    renderWithIntl(<ModelList items={[modelItemFixture]} />);
+
+    expect(screen.getByText("Test Model")).toBeInTheDocument();
+    expect(screen.getByText("HUGGINGFACE")).toBeInTheDocument();
+    expect(screen.getByText("이미지")).toBeInTheDocument();
+    expect(screen.getByText("T2I")).toBeInTheDocument();
+    expect(screen.getByText("활성")).toBeInTheDocument();
+    expect(screen.queryByText("업데이트")).not.toBeInTheDocument();
+    expect(screen.queryByText("기본값")).not.toBeInTheDocument();
+    expect(screen.queryByText("1024:1024")).not.toBeInTheDocument();
+    expect(screen.queryByText("10 steps")).not.toBeInTheDocument();
+  });
+
+  it("uses an even selected border for the default model row", () => {
+    const { container } = renderWithIntl(
+      <ModelList items={[{ ...modelItemFixture, isDefault: true }]} />,
+    );
+
+    const row = container.querySelector("[data-model-row]");
+    expect(row).toHaveClass("!border-primary/70");
+    expect(row).toHaveClass("ring-1");
+    expect(row).toHaveClass("ring-primary/35");
+    expect(screen.getByText("기본")).toHaveClass(
+      "rounded",
+      "bg-primary",
+      "text-black",
+    );
   });
 });

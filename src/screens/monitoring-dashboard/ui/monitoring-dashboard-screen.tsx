@@ -1,56 +1,84 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PageHeader, PageHeaderSearchInput } from "@/shared/ui/page-header";
-import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
-import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
-import {
-  MonitoringFilters,
-  type MonitoringFilterApiKey,
-  type MonitoringFilterModel,
-} from "@/features/monitoring-dashboard/ui/monitoring-filters";
 import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitoring-kpi-cards";
 import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
 import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
-import { MonitoringTopList } from "@/features/monitoring-dashboard/ui/monitoring-top-list";
-import { createRangeFromDays } from "@/features/monitoring-dashboard/lib/format";
+import {
+  createRangeFromDays,
+  endOfDay,
+  startOfDay,
+} from "@/features/monitoring-dashboard/lib/format";
 import type {
   MonitoringFilters as MonitoringFiltersState,
-  MonitoringMetric,
   MonitoringStatusFilter,
   MonitoringType,
 } from "@/features/monitoring-dashboard/model/types";
 import {
-  useMonitoringApiKeys,
   useMonitoringOverview,
+  useMonitoringApiKeys,
   useMonitoringRequests,
   useMonitoringStats,
-  useMonitoringTop,
 } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
+import {
+  AppFilterGroup,
+  AppFilterToggle,
+  AppFilterToolbar,
+} from "@/shared/ui/app-filter-toolbar";
+import {
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+  AppSelectValue,
+} from "@/shared/ui/app-select";
+import { AppDatePicker } from "@/shared/ui/app-calendar";
 
 const DEFAULT_REQUEST_LIMIT = 50;
-const TOP_LIMIT = 5;
+const statusFilters: MonitoringStatusFilter[] = [
+  "all",
+  "active",
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+];
 
 export function MonitoringDashboardScreen() {
   const t = useTranslations("monitoringDashboard");
   const tCommonLabels = useTranslations("common.labels");
 
+  const initialRange = useMemo(() => createRangeFromDays(7), []);
   const [type, setType] = useState<MonitoringType>("all");
   const [status, setStatus] = useState<MonitoringStatusFilter>("all");
   const [model, setModel] = useState<string | null>(null);
   const [apiKeyId, setApiKeyId] = useState<string | null>(null);
-  const [range, setRange] = useState(() => createRangeFromDays(7));
-  const [metric, setMetric] = useState<MonitoringMetric>("requests");
-  const [searchInput, setSearchInput] = useState("");
+  const [from, setFrom] = useState(initialRange.from);
+  const [to, setTo] = useState(initialRange.to);
   const [requestLimit, setRequestLimit] = useState(DEFAULT_REQUEST_LIMIT);
   const [requestOffset, setRequestOffset] = useState(0);
+  const runtimeCatalog = useRuntimeModelCatalog();
+  const apiKeysQuery = useMonitoringApiKeys();
 
-  const debouncedQuery = useDebouncedValue(searchInput, 350).trim();
   const tz = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC",
     [],
   );
+  const modelOptions = useMemo(
+    () =>
+      runtimeCatalog.items
+        .filter((item) => item.isActive)
+        .map((item) => ({
+          key: item.key,
+          label: item.label,
+          type: item.type,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [runtimeCatalog.items],
+  );
+  const apiKeyOptions = apiKeysQuery.data?.items ?? [];
 
   const filters: MonitoringFiltersState = useMemo(
     () => ({
@@ -58,138 +86,181 @@ export function MonitoringDashboardScreen() {
       status,
       model,
       apiKeyId,
-      query: debouncedQuery.length ? debouncedQuery : null,
-      from: range.from,
-      to: range.to,
+      query: null,
+      from,
+      to,
       tz,
     }),
-    [apiKeyId, debouncedQuery, model, range.from, range.to, status, type, tz],
+    [apiKeyId, from, model, status, to, type, tz],
   );
 
   const overviewQuery = useMonitoringOverview(filters);
   const statsQuery = useMonitoringStats(filters);
-  useEffect(() => {
-    setRequestOffset(0);
-  }, [
-    type,
-    status,
-    model,
-    apiKeyId,
-    range.from.getTime(),
-    range.to.getTime(),
-    debouncedQuery,
-  ]);
 
   const requestsQuery = useMonitoringRequests(filters, {
     limit: requestLimit,
     offset: requestOffset,
   });
-  const topQuery = useMonitoringTop(filters, metric, TOP_LIMIT);
-  const apiKeysQuery = useMonitoringApiKeys();
-  const modelCatalog = useRuntimeModelCatalog();
-
-  const models = useMemo<MonitoringFilterModel[]>(
-    () =>
-      modelCatalog.items
-        .filter((item) => (type === "all" ? true : item.type === type))
-        .map((item) => ({
-          key: item.key,
-          label: item.label,
-          type: item.type,
-        })),
-    [modelCatalog.items, type],
-  );
-
-  const apiKeys = useMemo<MonitoringFilterApiKey[]>(
-    () =>
-      (apiKeysQuery.data?.items ?? []).map((item) => ({
-        id: item.id,
-        maskedKey: item.maskedKey,
-        status: item.status,
-      })),
-    [apiKeysQuery.data?.items],
-  );
 
   const updatedAt = requestsQuery.data?.updatedAt ?? null;
   const requestsError = requestsQuery.error ? t("requests.error") : null;
+  const stats = statsQuery.data?.items ?? [];
+  const resetToFirstPage = () => setRequestOffset(0);
+  const handleTypeChange = (nextType: MonitoringType) => {
+    setType(nextType);
+    resetToFirstPage();
+  };
+  const handleStatusChange = (nextStatus: MonitoringStatusFilter) => {
+    setStatus(nextStatus);
+    resetToFirstPage();
+  };
+  const handleModelChange = (value: string) => {
+    setModel(value === "all" ? null : value);
+    resetToFirstPage();
+  };
+  const handleApiKeyChange = (value: string) => {
+    setApiKeyId(value === "all" ? null : value);
+    resetToFirstPage();
+  };
+  const handleFromChange = (value: Date) => {
+    setFrom(startOfDay(value));
+    resetToFirstPage();
+  };
+  const handleToChange = (value: Date) => {
+    setTo(endOfDay(value));
+    resetToFirstPage();
+  };
 
   return (
-    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <PageHeader
-        title={
-          <>
-            <span className="text-white">{t("title.leading")}</span>{" "}
-            <span className="text-primary">{t("title.accent")}</span>
-          </>
-        }
-        subtitle={t("subtitle")}
-        rightSlot={
-          <div className="flex flex-col gap-3">
-            <PageHeaderSearchInput
-              value={searchInput}
-              onChange={setSearchInput}
-              placeholder={tCommonLabels("searchPlaceholder")}
-              showFilterButton={false}
-            />
-            <div className="rounded-2xl border border-white/10 bg-surface-dark px-4 py-3 text-xs font-mono text-gray-400">
-              <div className="uppercase tracking-widest text-gray-500">
-                {t("lastUpdated")}
-              </div>
-              <div className="text-sm font-semibold text-white">
-                {updatedAt ? new Date(updatedAt).toLocaleString() : t("updating")}
-              </div>
-            </div>
-          </div>
-        }
-        rightSlotClassName="md:w-[340px]"
-      >
-        <MonitoringFilters
-          filters={filters}
-          onTypeChange={setType}
-          onStatusChange={setStatus}
-          onModelChange={setModel}
-          onApiKeyChange={setApiKeyId}
-          onRangeChange={setRange}
-          onQuickRange={(days) => setRange(createRangeFromDays(days))}
-          models={models}
-          apiKeys={apiKeys}
-        />
-      </PageHeader>
+    <div className="overflow-x-hidden pb-20 pt-4 sm:pt-6">
+      <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-4 px-4 sm:px-6 lg:px-8">
+        <AppFilterToolbar>
+          <AppFilterGroup>
+            {(["all", "image", "video", "audio"] as MonitoringType[]).map(
+              (item) => (
+                <AppFilterToggle
+                  key={item}
+                  active={type === item}
+                  aria-pressed={type === item}
+                  onClick={() => handleTypeChange(item)}
+                >
+                  {item === "all"
+                    ? tCommonLabels("all")
+                    : t(`filters.type.${item}`)}
+                </AppFilterToggle>
+              ),
+            )}
+          </AppFilterGroup>
 
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(8rem,0.7fr)_minmax(8rem,0.7fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
+            <AppDatePicker
+              aria-label={t("filters.from")}
+              value={from}
+              onChange={handleFromChange}
+            />
+            <AppDatePicker
+              aria-label={t("filters.to")}
+              value={to}
+              onChange={handleToChange}
+            />
+            <AppSelectRoot
+              value={status}
+              onValueChange={(value) =>
+                handleStatusChange(value as MonitoringStatusFilter)
+              }
+            >
+              <AppSelectTrigger
+                surface="toolbar"
+                triggerSize="md"
+                aria-label={t("filters.status")}
+                className="h-14 rounded-[1.5rem]"
+              >
+                <AppSelectValue placeholder={t("filters.status")} />
+              </AppSelectTrigger>
+              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+                {statusFilters.map((item) => (
+                  <AppSelectItem key={item} value={item}>
+                    {t(`filters.statuses.${item}`)}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </AppSelectRoot>
+            <AppSelectRoot
+              value={model ?? "all"}
+              onValueChange={handleModelChange}
+            >
+              <AppSelectTrigger
+                surface="toolbar"
+                triggerSize="md"
+                aria-label={t("filters.model")}
+                className="h-14 rounded-[1.5rem]"
+              >
+                <AppSelectValue placeholder={t("filters.model")} />
+              </AppSelectTrigger>
+              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+                <AppSelectItem value="all">
+                  {t("filters.allModels")}
+                </AppSelectItem>
+                {modelOptions.map((item) => (
+                  <AppSelectItem key={item.key} value={item.key}>
+                    {item.label} · {t(`filters.type.${item.type}`)}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </AppSelectRoot>
+            <AppSelectRoot
+              value={apiKeyId ?? "all"}
+              onValueChange={handleApiKeyChange}
+            >
+              <AppSelectTrigger
+                surface="toolbar"
+                triggerSize="md"
+                aria-label={t("filters.apiKey")}
+                className="h-14 rounded-[1.5rem]"
+              >
+                <AppSelectValue placeholder={t("filters.apiKey")} />
+              </AppSelectTrigger>
+              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+                <AppSelectItem value="all">
+                  {t("filters.allApiKeys")}
+                </AppSelectItem>
+                <AppSelectItem value="ui">
+                  {t("filters.uiRequests")}
+                </AppSelectItem>
+                {apiKeyOptions.map((item) => (
+                  <AppSelectItem key={item.id} value={item.id}>
+                    {item.maskedKey}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </AppSelectRoot>
+          </div>
+        </AppFilterToolbar>
+
         <MonitoringKpiCards
           data={overviewQuery.data ?? null}
+          stats={stats}
           isLoading={overviewQuery.isLoading}
         />
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <MonitoringStatsChart
-            data={statsQuery.data?.items ?? []}
-            isLoading={statsQuery.isLoading}
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(24rem,0.75fr)]">
+          <MonitoringRequestTable
+            items={requestsQuery.data?.items ?? []}
+            total={requestsQuery.data?.total ?? 0}
+            limit={requestsQuery.data?.limit ?? requestLimit}
+            offset={requestsQuery.data?.offset ?? requestOffset}
+            onLimitChange={(nextLimit) => {
+              setRequestLimit(nextLimit);
+              setRequestOffset(0);
+            }}
+            onOffsetChange={setRequestOffset}
+            isLoading={requestsQuery.isLoading}
+            error={requestsError}
+            updatedAt={updatedAt}
+            timeZone={filters.tz}
           />
-          <MonitoringTopList
-            data={topQuery.data ?? null}
-            isLoading={topQuery.isLoading}
-            metric={metric}
-            onMetricChange={setMetric}
-          />
+          <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
         </div>
-
-        <MonitoringRequestTable
-          items={requestsQuery.data?.items ?? []}
-          total={requestsQuery.data?.total ?? 0}
-          limit={requestsQuery.data?.limit ?? requestLimit}
-          offset={requestsQuery.data?.offset ?? requestOffset}
-          onLimitChange={(nextLimit) => {
-            setRequestLimit(nextLimit);
-            setRequestOffset(0);
-          }}
-          onOffsetChange={setRequestOffset}
-          isLoading={requestsQuery.isLoading}
-          error={requestsError}
-          updatedAt={updatedAt}
-          timeZone={filters.tz}
-        />
       </div>
     </div>
   );

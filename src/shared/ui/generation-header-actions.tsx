@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 
 interface GenerationHeaderAction {
   label: string;
@@ -22,7 +22,7 @@ export function GenerationHeaderActions({
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {actions.map((action) => (
-        <Button
+        <AppButton
           key={action.label}
           type="button"
           variant="surface"
@@ -34,7 +34,7 @@ export function GenerationHeaderActions({
         >
           {action.icon}
           {action.label}
-        </Button>
+        </AppButton>
       ))}
     </div>
   );

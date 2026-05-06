@@ -4,11 +4,10 @@ import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
 import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
 import { ApiKeyToolbar } from "@/features/api-key-management/ui/api-key-toolbar";
 import { useApiKeyManagement } from "@/features/api-key-management/hook/use-api-key-management";
-import {
-  PageHeader,
-  PageHeaderSearchInput,
-} from "@/shared/ui/page-header";
-import { Button } from "@/shared/ui/button";
+import { AppCard } from "@/shared/ui/app-card";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppFilterToolbar } from "@/shared/ui/app-filter-toolbar";
+import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 
 export function ApiKeyManagementWidget() {
@@ -16,81 +15,80 @@ export function ApiKeyManagementWidget() {
   const t = useTranslations("apiKey");
   const tCommonLabels = useTranslations("common.labels");
   const tCommonActions = useTranslations("common.actions");
+  const handleCopyPendingKey = async () => {
+    const copied = await pending.copy();
+    if (copied) appToast.copied(tCommonActions("copied"));
+  };
 
   return (
-    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <PageHeader
-        title={
-          <>
-            <span className="text-white">{t("title.leading")}</span>{" "}
-            <span className="text-primary">{t("title.accent")}</span>
-          </>
-        }
-        subtitle={t("subtitle")}
-        rightSlot={
-          <PageHeaderSearchInput
-            value={filters.searchInput}
-            onChange={filters.setSearchInput}
-            placeholder={tCommonLabels("searchPlaceholder")}
-            filterButtonLabel={tCommonLabels("filterOptions")}
-          />
-        }
-      >
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 overflow-x-hidden px-4 pb-20 pt-6 sm:px-6 lg:px-8">
+      <AppFilterToolbar>
         <ApiKeyToolbar
           filter={filters.filter}
           onFilterChange={filters.setFilter}
+          searchInput={filters.searchInput}
+          onSearchInputChange={filters.setSearchInput}
+          searchPlaceholder={tCommonLabels("searchPlaceholder")}
           newKeyLabel={issue.newKeyLabel}
           onNewKeyLabelChange={issue.setNewKeyLabel}
           onGenerate={issue.handleIssueKey}
           isIssuing={issue.isIssuing}
         />
-      </PageHeader>
+      </AppFilterToolbar>
 
-      <div className="mx-auto w-full max-w-[1600px]">
+      <div className="w-full">
         {pending.pendingKey ? (
-          <div className="mb-6 rounded-2xl border border-primary/30 bg-primary/10 px-6 py-5 text-sm text-primary">
+          <AppCard
+            variant="plain"
+            className="mb-5 rounded-[1.5rem] border-primary/30 bg-primary/8 px-5 py-5 text-sm text-primary shadow-[0_22px_80px_rgba(0,0,0,0.28)]"
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-mono uppercase tracking-widest text-primary/80">
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-primary/80">
                   {t("pending.title")}
                 </p>
                 <p className="mt-1 text-base font-bold text-white">
                   {pending.pendingKey.label}
                 </p>
-                <p className="mt-2 font-mono text-xs text-primary/90">
+                <p className="mt-2 break-all rounded-2xl border border-primary/18 bg-black/25 px-4 py-3 font-mono text-xs text-primary/90">
                   {pending.pendingKey.apiKey}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
+                <AppButton
                   type="button"
-                  onClick={pending.copy}
-                  variant="ghost"
-                  className="rounded-full border border-primary/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+                  onClick={handleCopyPendingKey}
+                  variant="primary"
+                  size="pill-sm"
+                  className="font-semibold"
                 >
                   {pending.pendingCopied
                     ? t("pending.copied")
                     : t("pending.copy")}
-                </Button>
-                <Button
+                </AppButton>
+                <AppButton
                   type="button"
                   onClick={pending.dismiss}
-                  variant="ghost"
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
+                  variant="surface"
+                  size="pill-sm"
+                  className="font-semibold"
                 >
                   {tCommonActions("dismiss")}
-                </Button>
+                </AppButton>
               </div>
             </div>
             <p className="mt-3 text-xs text-primary/70">
               {t("pending.note")}
             </p>
-          </div>
+          </AppCard>
         ) : null}
         {list.error ? (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
+          <AppCard
+            variant="plain"
+            className="mb-5 rounded-[1.5rem] border-red-500/20 bg-red-500/8 px-5 py-4 text-sm text-red-200"
+          >
             {t("list.error")}
-          </div>
+          </AppCard>
         ) : null}
         <ApiKeyList
           items={list.filteredKeys.map((item) => ({

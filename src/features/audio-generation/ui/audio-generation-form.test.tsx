@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
@@ -6,10 +6,14 @@ import { renderWithIntl } from "@/test-utils/intl";
 import type { RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
 
 const navigationMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  pathname: "/audio",
   searchParams: new URLSearchParams(),
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => navigationMocks.pathname,
+  useRouter: () => ({ push: navigationMocks.push }),
   useSearchParams: () => navigationMocks.searchParams,
 }));
 
@@ -60,7 +64,7 @@ const qwenModeModelFixture: RuntimeAudioModel = {
     prompt: { ui: "textarea", required: true },
     modeChoice: {
       ui: "select",
-      label: "Generation Mode",
+      label: "Mode",
       options: [
         { label: "Voice Clone", value: "voice_clone" },
         { label: "Custom Speaker", value: "custom" },
@@ -88,12 +92,12 @@ const qwenModeModelFixture: RuntimeAudioModel = {
     },
     streamMode: {
       ui: "toggle",
-      label: "Streaming",
+      label: "Live output",
       default: true,
     },
     inputAudio: {
       ui: "upload",
-      label: "Reference Audio",
+      label: "Sample audio",
       required: true,
     },
     referenceText: {
@@ -103,11 +107,11 @@ const qwenModeModelFixture: RuntimeAudioModel = {
     },
     customInstruction: {
       ui: "textarea",
-      label: "Custom Instruction",
+      label: "Notes",
     },
     voiceInstruction: {
       ui: "textarea",
-      label: "Voice Instruction",
+      label: "Voice style",
     },
     temperature: {
       ui: "range",
@@ -119,7 +123,7 @@ const qwenModeModelFixture: RuntimeAudioModel = {
     },
     topK: {
       ui: "range",
-      label: "Top K",
+      label: "Clarity",
       min: 1,
       max: 100,
       step: 1,
@@ -127,7 +131,7 @@ const qwenModeModelFixture: RuntimeAudioModel = {
     },
     repetitionPenalty: {
       ui: "range",
-      label: "Repetition Penalty",
+      label: "Repetition",
       min: 1,
       max: 2,
       step: 0.1,
@@ -148,8 +152,16 @@ async function waitForModels() {
   await screen.findByRole("button", { name: /Qwen 3\.5 TTS/i });
 }
 
+async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    await screen.findByRole("button", { name: /Qwen 3\.5 TTS|Bark TTS/i }),
+  );
+}
+
 describe("AudioGenerationForm", () => {
   beforeEach(() => {
+    navigationMocks.push.mockReset();
+    navigationMocks.pathname = "/audio";
     navigationMocks.searchParams = new URLSearchParams();
     mockUseAudioGeneration.mockReset();
     vi.stubGlobal(
@@ -185,6 +197,108 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
     ).not.toBeNull();
+  });
+
+  it("does not render the old preset strip and still submits through the dock", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(
+      screen.queryByRole("button", { name: /따뜻한 보이스오버/ }),
+    ).toBeNull();
+    await user.type(
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
+      "A calm, warm voiceover introducing a creative AI studio.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    expect(startGeneration).toHaveBeenCalledTimes(1);
+    expect(startGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "A calm, warm voiceover introducing a creative AI studio.",
+        model: "qwen-tts",
+      }),
+    );
+  });
+
+  it("renders the shared creation input with audio-specific control chips", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    const dock = screen.getByRole("region", {
+      name: "작업 입력",
+    });
+
+    expect(dock).toHaveAttribute("data-app-prompt-field");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveAttribute(
+      "data-variant",
+      "prompt",
+    );
+    expect(dock).toHaveAttribute("data-surface", "hero");
+    expect(dock).toHaveClass("bg-black/24");
+    expect(dock).toHaveClass("backdrop-blur-xl");
+    expect(dock.className).not.toContain("gradient");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
+      "bg-black/18",
+    );
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(dock).toHaveTextContent("모델 선택");
+    expect(dock).toHaveTextContent("설정");
+    expect(dock).toHaveTextContent("1x");
+    expect(within(dock).queryByRole("slider")).toBeNull();
+    expect(within(dock).queryByLabelText("Sample audio")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
+  });
+
+  it("renders a text-first audio studio preview without mock media cards", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.getByText("AUDIO STUDIO")).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Shape sound with control." }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Describe the sound you need. Fine-tune the settings. Generate production-ready audio."),
+    ).not.toBeNull();
+    const resultFrame = screen.getByTestId("generation-canvas");
+    expect(resultFrame).toHaveClass("rounded-[1.75rem]");
+    expect(resultFrame).toHaveClass("max-w-6xl");
+    expect(resultFrame).not.toHaveClass("bg-[#07090a]");
+    expect(
+      screen.getByRole("heading", { name: "Shape sound with control." }).closest(
+        "[data-testid='generation-canvas']",
+      ),
+    ).toBeNull();
+    expect(screen.queryByAltText("오디오 콘솔 사진")).toBeNull();
+    expect(screen.queryByText("VOICE TAKE")).toBeNull();
   });
 
   it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
@@ -249,7 +363,7 @@ describe("AudioGenerationForm", () => {
     expect(container.querySelector('a[title="다운로드"]')).toBeNull();
   });
 
-  it("비로그인 상태에서 로그인 게이트를 표시한다", async () => {
+  it("비로그인 상태에서 로그인 페이지로 이동한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -261,12 +375,14 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated={false} />);
 
     expect(
-      await screen.findByText("로그인하여 모델 목록을 확인하세요."),
+      await screen.findByText("로그인하면 바로 만들 수 있습니다."),
     ).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: "생성" }));
 
-    expect(await screen.findByText("로그인이 필요합니다")).not.toBeNull();
+    expect(navigationMocks.push).toHaveBeenCalledWith(
+      "/login?returnTo=%2Faudio",
+    );
   });
 
   it("정상 입력이면 생성 요청을 시작한다", async () => {
@@ -282,7 +398,9 @@ describe("AudioGenerationForm", () => {
     await waitForModels();
 
     await user.type(
-      screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       "hello audio",
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -333,7 +451,8 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await waitForModels();
 
-    await user.click(screen.getByRole("button", { name: /Bark TTS/i }));
+    await openModelPicker(user);
+    await user.click(await screen.findByRole("button", { name: /Bark TTS/i }));
 
     expect(reset).toHaveBeenCalledTimes(1);
   });
@@ -383,21 +502,24 @@ describe("AudioGenerationForm", () => {
     vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
 
     const user = userEvent.setup();
-    const { container } = renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await screen.findByRole("button", { name: /Qwen TTS Clone/i });
 
     await user.type(
-      screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       "hello clone",
     );
+    await user.click(screen.getByRole("button", { name: /설정/i }));
     await user.upload(
-      screen.getByLabelText("Reference Audio"),
+      await screen.findByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
     );
     await user.type(
-      screen.getByPlaceholderText("레퍼런스 오디오의 텍스트를 입력하세요..."),
+      screen.getByRole("textbox", { name: "샘플 문장" }),
       "reference words",
     );
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -411,8 +533,6 @@ describe("AudioGenerationForm", () => {
         }),
       );
     });
-
-    expect(container.querySelector("audio")).not.toBeNull();
   });
 
   it("mode 기반 TTS 모델이면 speaker/language/advanced 필드를 렌더링하고 기본값을 제출한다", async () => {
@@ -447,29 +567,33 @@ describe("AudioGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await screen.findByRole("button", { name: /Qwen 3\.5 TTS Mode/i });
+    await user.click(screen.getByRole("button", { name: /설정/i }));
 
-    expect(screen.getAllByText("Generation Mode").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mode").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Language").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Speaker").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("combobox", { name: "Speaker" }),
     ).toHaveTextContent("Vivian - Chinese - Bright young female");
-    expect(screen.getByText("Temperature")).not.toBeNull();
-    expect(screen.getByText("Top K")).not.toBeNull();
-    expect(screen.getByText("Repetition Penalty")).not.toBeNull();
+    expect(screen.getByText("추가 조정")).not.toBeNull();
+    expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
+    expect(screen.queryByText("Top K")).not.toBeInTheDocument();
+    expect(screen.queryByText("Repetition Penalty")).not.toBeInTheDocument();
 
     fireEvent.change(
-      screen.getByPlaceholderText("생성할 음성 내용을 자연스럽게 입력하세요..."),
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
       { target: { value: "hello qwen" } },
     );
     await user.upload(
-      screen.getByLabelText("Reference Audio"),
+      screen.getByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
     );
     fireEvent.change(
-      screen.getByPlaceholderText("레퍼런스 오디오의 텍스트를 입력하세요..."),
+      screen.getByRole("textbox", { name: "샘플 문장" }),
       { target: { value: "reference transcript" } },
     );
     await user.click(screen.getByRole("button", { name: "생성" }));

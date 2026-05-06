@@ -12,14 +12,15 @@ import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+  AppSelectContent,
+  AppSelectItem,
+  AppSelectRoot,
+  AppSelectTrigger,
+  AppSelectValue,
+} from "@/shared/ui/app-select";
 
 interface MonitoringRequestTableProps {
   items: MonitoringRequestItem[];
@@ -63,12 +64,15 @@ export function MonitoringRequestTable({
       return formatter.format(parsed);
     };
   }, [locale, timeZone]);
-  const statusLabels: Record<string, string> = {
-    pending: t("statuses.pending"),
-    processing: t("statuses.processing"),
-    completed: t("statuses.completed"),
-    failed: t("statuses.failed"),
-  };
+  const statusLabels = useMemo<Record<string, string>>(
+    () => ({
+      pending: t("statuses.pending"),
+      processing: t("statuses.processing"),
+      completed: t("statuses.completed"),
+      failed: t("statuses.failed"),
+    }),
+    [t],
+  );
   const pageSizeOptions = useMemo(
     () =>
       Array.from(new Set([20, 50, 100, limit]))
@@ -106,10 +110,17 @@ export function MonitoringRequestTable({
   const columns = useMemo<ColumnDef<MonitoringRequestItem>[]>(
     () => [
       {
-        id: "apiKey",
-        header: t("requests.columns.apiKey"),
+        id: "job",
+        header: t("requests.columns.job"),
         cell: ({ row }) => (
-          <span className="text-gray-400">{row.original.apiKeyLabel}</span>
+          <div className="min-w-0">
+            <div className="font-semibold text-white">
+              {t(`requests.type.${row.original.type}`)}
+            </div>
+            <div className="mt-1 truncate text-xs text-white/38">
+              {row.original.apiKeyLabel}
+            </div>
+          </div>
         ),
       },
       {
@@ -126,7 +137,7 @@ export function MonitoringRequestTable({
       },
       {
         id: "timestamp",
-        header: t("requests.columns.timestamp"),
+        header: t("requests.columns.started"),
         cell: ({ row }) => (
           <span className="text-gray-500">
             {formatDateTime(row.original.createdAt)}
@@ -165,6 +176,15 @@ export function MonitoringRequestTable({
           );
         },
       },
+      {
+        id: "open",
+        header: "",
+        cell: () => (
+          <div className="flex justify-end text-white/35 transition-colors group-hover:text-primary">
+            <ChevronRight className="h-5 w-5" />
+          </div>
+        ),
+      },
     ],
     [formatDateTime, statusLabels, t],
   );
@@ -184,13 +204,13 @@ export function MonitoringRequestTable({
   });
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-dark/80 p-6 shadow-2xl">
+    <AppCard variant="editorial-flat" radius="lg" padding="lg">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-lg font-semibold text-white">
+          <div className="text-xl font-semibold text-white">
             {t("requests.title")}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono uppercase tracking-widest text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white/38">
             <span>{t("requests.subtitle")}</span>
             <span>
               {t("requests.pagination.range", {
@@ -213,14 +233,31 @@ export function MonitoringRequestTable({
             {error}
           </div>
         ) : isLoading ? (
-          <div className="h-48 rounded-xl border border-white/10 bg-background-dark/50" />
+          <div
+            data-testid="monitoring-request-table-skeleton"
+            className="grid gap-2 rounded-xl border border-white/10 bg-background-dark/50 p-3"
+          >
+            {Array.from({ length: 5 }, (_, index) => (
+              <div
+                key={index}
+                className="grid min-w-[720px] grid-cols-[1.35fr_1fr_1fr_0.75fr_0.85fr_2rem] items-center gap-4 rounded-lg border border-white/[0.045] px-3 py-3"
+              >
+                <span className="h-4 rounded-full bg-white/10" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-6 rounded-full bg-white/10" />
+                <span className="h-4 rounded-full bg-white/8" />
+              </div>
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-background-dark/50 text-sm text-gray-400">
             {t("requests.empty")}
           </div>
         ) : (
           <>
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr
@@ -230,7 +267,11 @@ export function MonitoringRequestTable({
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className={cn("px-4 py-3", header.id === "status" && "text-right")}
+                        className={cn(
+                          "px-4 py-3",
+                          header.id === "status" && "text-right",
+                          header.id === "open" && "w-12 text-right",
+                        )}
                       >
                         {header.isPlaceholder
                           ? null
@@ -247,7 +288,7 @@ export function MonitoringRequestTable({
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="group cursor-pointer transition-colors hover:bg-white/5 focus-within:bg-white/5"
+                    className="group cursor-pointer transition-colors hover:bg-white/[0.045] focus-within:bg-white/[0.045]"
                     role="button"
                     tabIndex={0}
                     onClick={() => handleOpenDetail(row.original)}
@@ -272,21 +313,24 @@ export function MonitoringRequestTable({
                 <span className="font-mono uppercase tracking-widest">
                   {t("requests.pagination.rowsPerPage")}
                 </span>
-                <Select value={String(limit)} onValueChange={handleLimitChange}>
-                  <SelectTrigger className="h-8 w-[92px] border-white/10 bg-background-dark/50 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+                <AppSelectRoot value={String(limit)} onValueChange={handleLimitChange}>
+                  <AppSelectTrigger
+                    triggerSize="sm"
+                    className="w-[92px] text-xs"
+                  >
+                    <AppSelectValue />
+                  </AppSelectTrigger>
+                  <AppSelectContent>
                     {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={String(option)}>
+                      <AppSelectItem key={option} value={String(option)}>
                         {option}
-                      </SelectItem>
+                      </AppSelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </AppSelectContent>
+                </AppSelectRoot>
               </div>
               <div className="flex items-center gap-2">
-                <Button
+                <AppButton
                   type="button"
                   size="sm"
                   variant="surface"
@@ -295,14 +339,14 @@ export function MonitoringRequestTable({
                   aria-label={t("requests.pagination.previous")}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </Button>
+                </AppButton>
                 <div className="min-w-[84px] text-center text-xs font-mono text-gray-400">
                   {t("requests.pagination.page", {
                     current: safeCurrentPage,
                     total: safePageCount,
                   })}
                 </div>
-                <Button
+                <AppButton
                   type="button"
                   size="sm"
                   variant="surface"
@@ -311,7 +355,7 @@ export function MonitoringRequestTable({
                   aria-label={t("requests.pagination.next")}
                 >
                   <ChevronRight className="h-4 w-4" />
-                </Button>
+                </AppButton>
               </div>
             </div>
           </>
@@ -323,6 +367,6 @@ export function MonitoringRequestTable({
         request={selected}
         timeZone={timeZone}
       />
-    </div>
+    </AppCard>
   );
 }

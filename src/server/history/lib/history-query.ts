@@ -169,3 +169,14 @@ export function extractReferenceText(params: unknown): string | null {
     ? record.referenceText.trim()
     : null;
 }
+
+const FINISHED_STATUSES = new Set(["completed", "failed"]);
+
+export function toHistoryDurationMs(
+  createdAt: Date,
+  updatedAt: Date,
+  status: string,
+) {
+  if (!FINISHED_STATUSES.has(status)) return null;
+  return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+}

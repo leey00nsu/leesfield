@@ -1,16 +1,20 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, vi } from "vitest";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 import { Header } from "@/widgets/header/ui/header";
 import { renderWithIntl } from "@/test-utils/intl";
 
 vi.mock("next/image", () => ({
-  default: ({
-    priority: _priority,
-    ...props
-  }: React.ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) => (
-    <img {...props} alt={props.alt ?? ""} />
-  ),
+  default: (
+    props: React.ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean },
+  ) => {
+    const imageProps = { ...props };
+    delete imageProps.priority;
+
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img {...imageProps} alt={imageProps.alt ?? ""} />;
+  },
 }));
 
 vi.mock("@/features/auth/logout/api/logout-action", () => ({
@@ -28,6 +32,37 @@ describe("Header", () => {
     );
 
     expect(container.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(0);
+  });
+
+  it("브랜드 로고 이미지를 rounded icon으로 표시한다", () => {
+    const { container } = renderWithIntl(
+      <Header isAuthenticated userEmail="admin@example.com" />,
+    );
+
+    const logoImage = container.querySelector('img[src="/logo.webp"]');
+    expect(logoImage?.parentElement).toHaveClass("rounded-xl");
+  });
+
+  it("public header navigation uses the sans font tone", () => {
+    renderWithIntl(<Header variant="public" />);
+
+    const desktopNav = screen.getByRole("navigation");
+    const imageLink = within(desktopNav).getByRole("link", { name: "이미지" });
+
+    expect(imageLink).toHaveClass("font-medium");
+    expect(imageLink).not.toHaveClass(["lf", "serif"].join("-"));
+  });
+
+  it("public header uses language switcher plus the emphasized login action", () => {
+    renderWithIntl(<Header variant="public" />);
+
+    expect(screen.getByTestId("language-switcher")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.queryByText("대시보드로 이동")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "프로필" })).not.toBeInTheDocument();
   });
 
   it("desktop nav 링크는 xl 미만 숨김용 라벨 wrapper와 접근성 이름을 가진다", () => {
@@ -58,5 +93,22 @@ describe("Header", () => {
     const dropdownAudioLink = audioLinks[audioLinks.length - 1];
     expect(dropdownAudioLink).toHaveTextContent("오디오");
     expect(dropdownAudioLink.querySelector("span")).toBeNull();
+  });
+
+  it("authenticated header removes profile links and exposes logout as the primary action", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithIntl(
+      <Header isAuthenticated userEmail="admin@example.com" />,
+    );
+
+    expect(container.querySelector('a[href="/profile"]')).toBeNull();
+    expect(screen.getByTestId("language-switcher")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /메뉴/i }));
+
+    expect(container.ownerDocument.querySelector('a[href="/profile"]')).toBeNull();
+    expect(screen.queryByText("프로필")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
   });
 });

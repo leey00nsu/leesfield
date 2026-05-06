@@ -2,8 +2,15 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import {
+  AppDialog,
+  AppDialogClose,
+  AppDialogContent,
+  AppDialogDescription,
+  AppDialogHeader,
+  AppDialogTitle,
+} from "@/shared/ui/app-dialog";
 import { cn } from "@/shared/lib/utils";
 import type { MonitoringRequestDetail, MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
@@ -183,16 +190,16 @@ export function MonitoringRequestDetailDialog({
   const inputLabels = detail ? resolveInputLabels(detail, t) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-4xl rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
-        <DialogHeader className="gap-2">
-          <DialogDescription className="text-xs font-mono uppercase tracking-widest text-gray-500">
+    <AppDialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent size="lg">
+        <AppDialogHeader className="gap-2">
+          <AppDialogDescription>
             {t("requests.detailSubtitle")}
-          </DialogDescription>
-          <DialogTitle className="text-xl font-bold text-white">
+          </AppDialogDescription>
+          <AppDialogTitle className="mt-0">
             {t("requests.detailTitle")}
-          </DialogTitle>
-        </DialogHeader>
+          </AppDialogTitle>
+        </AppDialogHeader>
 
         {shouldFetchDetail && detailQuery.isLoading && !detail ? (
           <div
@@ -369,13 +376,13 @@ export function MonitoringRequestDetailDialog({
         ) : null}
 
         <div className="mt-6 flex justify-end">
-          <DialogClose asChild>
-            <Button type="button" variant="surface">
+          <AppDialogClose asChild>
+            <AppButton type="button" variant="surface">
               {t("requests.detailClose")}
-            </Button>
-          </DialogClose>
+            </AppButton>
+          </AppDialogClose>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AppDialogContent>
+    </AppDialog>
   );
 }

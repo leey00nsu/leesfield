@@ -41,14 +41,20 @@ describe("getMonitoringOverview", () => {
   it("활성/요청/오류율 지표를 계산한다", async () => {
     (prisma.imageGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(2);
     (prisma.videoGeneration.count as ReturnType<typeof vi.fn>).mockResolvedValue(3);
-    (prisma.$queryRaw as ReturnType<typeof vi.fn>).mockResolvedValue([
-      {
-        total: 10,
-        failed: 2,
-        avg_ms: 1200,
-        p95_ms: 2400,
-      },
-    ]);
+    (prisma.$queryRaw as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([
+        {
+          total: 10,
+          failed: 2,
+          avg_ms: 1200,
+          p95_ms: 2400,
+        },
+      ])
+      .mockResolvedValueOnce([
+        { type: "image", total: 6 },
+        { type: "video", total: 3 },
+        { type: "audio", total: 1 },
+      ]);
 
     const result = await getMonitoringOverview(baseQuery);
 
@@ -58,5 +64,11 @@ describe("getMonitoringOverview", () => {
     expect(result.errorRate).toBeCloseTo(0.2, 4);
     expect(result.avgLatencyMs).toBe(1200);
     expect(result.p95LatencyMs).toBe(2400);
+    expect(result.usageByType).toEqual({
+      image: 6,
+      video: 3,
+      audio: 1,
+      other: 0,
+    });
   });
 });

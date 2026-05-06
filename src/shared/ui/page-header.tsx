@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -90,28 +91,15 @@ export function PageHeaderSearchInput({
     filterButtonLabel ?? tLabels("filterOptions");
 
   return (
-    <div
-      className={cn(
-        "group relative flex h-12 w-full items-center overflow-hidden rounded-xl border border-white/10 bg-surface-dark shadow-inner transition-all focus-within:border-primary",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-center pl-4 text-gray-500">
-        <Search className="h-5 w-5" />
-      </div>
-      <input
-        type="text"
-        placeholder={resolvedPlaceholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          "w-full border-none bg-transparent px-3 text-sm font-mono text-white placeholder:text-gray-600 focus:outline-none focus:ring-0",
-          inputClassName,
-        )}
-      />
-      {showFilterButton ? (
-        <div className="pr-2">
-          <Button
+    <AppSearchField
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={resolvedPlaceholder}
+      containerClassName={cn("w-full", className)}
+      className={inputClassName}
+      trailing={
+        showFilterButton ? (
+          <AppButton
             type="button"
             variant="ghost"
             size="icon-sm"
@@ -120,9 +108,9 @@ export function PageHeaderSearchInput({
             aria-label={resolvedFilterButtonLabel}
           >
             <SlidersHorizontal className="h-5 w-5" />
-          </Button>
-        </div>
-      ) : null}
-    </div>
+          </AppButton>
+        ) : null
+      }
+    />
   );
 }

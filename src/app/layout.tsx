@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Nanum_Myeongjo } from "next/font/google";
 import localFont from "next/font/local";
 import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "@/app/providers";
@@ -10,6 +11,14 @@ const pretendard = localFont({
   display: "swap",
   weight: "45 920",
   fallback: ["Noto Sans KR", "Noto Sans", "sans-serif"],
+});
+
+const nanumMyeongjo = Nanum_Myeongjo({
+  variable: "--font-heading",
+  display: "swap",
+  weight: ["400", "700", "800"],
+  subsets: ["latin"],
+  fallback: ["Georgia", "Times New Roman", "serif"],
 });
 
 export const metadata: Metadata = {
@@ -63,7 +72,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className="dark">
-      <body className={`${pretendard.variable} antialiased`}>
+      <body className={`${pretendard.variable} ${nanumMyeongjo.variable} antialiased`}>
         <Providers locale={locale} messages={messages} timeZone={timeZone}>
           {children}
         </Providers>

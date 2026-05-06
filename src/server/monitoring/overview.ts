@@ -20,6 +20,12 @@ export type MonitoringOverview = {
   errorRate: number;
   avgLatencyMs: number | null;
   p95LatencyMs: number | null;
+  usageByType: {
+    image: number;
+    video: number;
+    audio: number;
+    other: number;
+  };
 };
 
 type MetricRow = {
@@ -27,6 +33,11 @@ type MetricRow = {
   failed: number | bigint;
   avg_ms: number | null;
   p95_ms: number | null;
+};
+
+type UsageRow = {
+  type: "image" | "video" | "audio" | "other";
+  total: number | bigint;
 };
 
 function toNumber(value: number | bigint) {
@@ -127,12 +138,72 @@ async function getMetrics(query: MonitoringQuery) {
   return rows[0];
 }
 
+function buildUsageSelect(
+  table: "ImageGeneration" | "VideoGeneration" | "AudioGeneration",
+  type: "image" | "video" | "audio",
+  where: Prisma.Sql,
+) {
+  const tableName = Prisma.raw(`"${table}"`);
+  return Prisma.sql`
+    SELECT ${type}::text as "type"
+    FROM ${tableName}
+    ${where}
+  `;
+}
+
+async function getUsageByType(query: MonitoringQuery) {
+  const filters = {
+    statuses: query.statuses,
+    model: query.model,
+    apiKey: query.apiKey,
+    from: query.from,
+    to: query.to,
+  };
+  const where = buildRawWhere(filters, {
+    includeDate: true,
+    includeStatus: true,
+  });
+  const imageSelect = buildUsageSelect("ImageGeneration", "image", where);
+  const videoSelect = buildUsageSelect("VideoGeneration", "video", where);
+  const audioSelect = buildUsageSelect("AudioGeneration", "audio", where);
+  const baseQuery =
+    query.type === "image"
+      ? imageSelect
+      : query.type === "video"
+        ? videoSelect
+        : query.type === "audio"
+          ? audioSelect
+          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
+
+  const rows = await prisma.$queryRaw<UsageRow[]>`
+    SELECT "type", COUNT(*)::int as total
+    FROM (
+      ${baseQuery}
+    ) as base
+    GROUP BY "type"
+  `;
+
+  const usageByType = {
+    image: 0,
+    video: 0,
+    audio: 0,
+    other: 0,
+  };
+
+  for (const row of rows) {
+    usageByType[row.type] = toNumber(row.total);
+  }
+
+  return usageByType;
+}
+
 export async function getMonitoringOverview(
   query: MonitoringQuery,
 ): Promise<MonitoringOverview> {
-  const [activeCount, metrics] = await Promise.all([
+  const [activeCount, metrics, usageByType] = await Promise.all([
     getActiveCount(query),
     getMetrics(query),
+    getUsageByType(query),
   ]);
 
   const totalCount = metrics ? toNumber(metrics.total) : 0;
@@ -147,5 +218,6 @@ export async function getMonitoringOverview(
     errorRate: calcErrorRate(totalCount, failedCount),
     avgLatencyMs,
     p95LatencyMs,
+    usageByType,
   };
 }

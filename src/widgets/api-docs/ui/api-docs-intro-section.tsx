@@ -1,11 +1,6 @@
-import { BookOpen, ShieldCheck, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
-
-const highlightCards = [
-  { key: "latency", icon: Zap },
-  { key: "security", icon: ShieldCheck },
-  { key: "restful", icon: BookOpen },
-];
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 
 interface ApiDocsIntroSectionProps {
   introTitle: string;
@@ -18,44 +13,48 @@ export function ApiDocsIntroSection({
   introDescription,
   apiVersion,
 }: ApiDocsIntroSectionProps) {
-  const tTitle = useTranslations("apiDocs.title");
-  const tHighlights = useTranslations("apiDocs.intro.highlights");
+  const tSidebar = useTranslations("apiDocs.sidebar");
+  const apiBaseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+    "<API_BASE_URL>";
 
   return (
-    <section id="introduction" className="flex flex-col gap-6 scroll-mt-32">
-      <div>
-        <h2 className="text-4xl font-black uppercase leading-tight tracking-[-0.033em] text-white sm:text-5xl">
-          <span className="text-white">{tTitle("leading")}</span>{" "}
-          <span className="text-primary">{tTitle("accent")}</span>
-        </h2>
-        <p className="mt-2 text-xs font-mono uppercase tracking-widest text-gray-500">
-          {introTitle} · {apiVersion}
-        </p>
-        <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-3xl">
-          {introDescription}
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {highlightCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.key}
-              className="rounded-2xl border border-white/5 bg-surface-dark p-5 transition-colors hover:border-primary/30"
-            >
-              <div className="mb-3 text-primary">
-                <Icon className="h-6 w-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">
-                {tHighlights(`${card.key}.title`)}
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {tHighlights(`${card.key}.description`)}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+    <section id="introduction" className="scroll-mt-32">
+      <AppDocsSectionCard
+        eyebrow={<AppBadge variant="primary">API</AppBadge>}
+        title={introTitle}
+        description={introDescription}
+        action={
+          <AppBadge variant="muted" size="md">
+            {apiVersion}
+          </AppBadge>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+              Base URL
+            </p>
+            <p className="mt-2 break-all font-mono text-sm text-white/78">
+              {apiBaseUrl}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+              {tSidebar("general")}
+            </p>
+            <p className="mt-2 text-sm text-white/70">
+              {tSidebar("nav.authentication")}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+              Version
+            </p>
+            <p className="mt-2 text-sm text-white/70">{apiVersion}</p>
+          </div>
+        </div>
+      </AppDocsSectionCard>
     </section>
   );
 }

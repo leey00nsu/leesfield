@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Video,
+  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -18,50 +19,61 @@ import {
   type ModelCatalogItem,
 } from "@/features/model-management/model/model-catalog";
 import { ModelList } from "@/features/model-management/ui/model-list";
-import { Button } from "@/shared/ui/button";
-import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/ui/alert-dialog";
+  AppConfirmDialog,
+  AppConfirmDialogAction,
+  AppConfirmDialogCancel,
+  AppConfirmDialogContent,
+  AppConfirmDialogDescription,
+  AppConfirmDialogFooter,
+  AppConfirmDialogHeader,
+  AppConfirmDialogTitle,
+} from "@/shared/ui/app-confirm-dialog";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/shared/ui/dialog";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
+  AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
+  AppDialogClose,
+  AppDialogContent,
+  AppDialogDangerButton,
+  AppDialogDescription,
+  AppDialogFooter,
+  AppDialogHeader,
+  AppDialogIconButton,
+  AppDialogTitle,
+} from "@/shared/ui/app-dialog";
 import {
-  PageHeader,
-  PageHeaderSearchInput,
-} from "@/shared/ui/page-header";
-import { Textarea } from "@/shared/ui/textarea";
+  AppCheckbox,
+  AppFormField,
+  AppLabel,
+  AppSelect,
+  AppTextarea,
+} from "@/shared/ui/app-form-control";
+import { AppInput } from "@/shared/ui/app-input";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
-  DashboardFilterBar,
-  DashboardFilterDivider,
-  DashboardFilterToggle,
-} from "@/shared/ui/dashboard-filter-bar";
+  AppFilterGroup,
+  AppFilterToolbar,
+  AppFilterToggle,
+  AppSearchField,
+  AppSortSelect,
+} from "@/shared/ui/app-filter-toolbar";
+import { AppCard } from "@/shared/ui/app-card";
 
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
 type ModelType = "image" | "video" | "audio";
 type VendorOption = "HUGGINGFACE" | "API";
+type ModelSortOption = "latest" | "name" | "type";
 
 const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
   { value: "HUGGINGFACE" },
   { value: "API", disabled: true },
 ];
+
+const modelSortOptions: ModelSortOption[] = ["latest", "name", "type"];
 
 type AdminModelRecord = {
   id: string;
@@ -254,6 +266,8 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
     provider: record.provider,
     isActive: record.isActive,
     isDefault: record.isDefault,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   };
   const meta = record.meta ?? {};
 
@@ -302,12 +316,38 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
   };
 }
 
+function getModelTimestamp(item: ModelCatalogItem) {
+  const time = new Date(item.updatedAt ?? item.createdAt ?? "").getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortModelCatalogItems(
+  items: ModelCatalogItem[],
+  sort: ModelSortOption,
+) {
+  return [...items].sort((a, b) => {
+    if (sort === "latest") {
+      return getModelTimestamp(b) - getModelTimestamp(a);
+    }
+
+    if (sort === "type") {
+      return (
+        a.type.localeCompare(b.type) ||
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+      );
+    }
+
+    return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+  });
+}
+
 export function ModelManagementScreen() {
   const tModel = useTranslations("model");
   const tAdmin = useTranslations("model.admin");
   const tCommonLabels = useTranslations("common.labels");
   const [type, setType] = useState<ModelCatalogFilterType>("all");
   const [searchInput, setSearchInput] = useState("");
+  const [sort, setSort] = useState<ModelSortOption>("latest");
   const [records, setRecords] = useState<AdminModelRecord[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -343,8 +383,8 @@ export function ModelManagementScreen() {
   );
 
   const filteredModels = useMemo(
-    () => filterModelCatalog(displayItems, { type, query }),
-    [displayItems, query, type],
+    () => sortModelCatalogItems(filterModelCatalog(displayItems, { type, query }), sort),
+    [displayItems, query, sort, type],
   );
 
   const loadModels = useCallback(async () => {
@@ -468,7 +508,7 @@ export function ModelManagementScreen() {
     });
   };
 
-  const parseJson = (value: string, field: keyof JsonErrors) => {
+  const parseJson = (value: string) => {
     try {
       const parsed = JSON.parse(value);
       return { parsed, error: null } as const;
@@ -484,12 +524,9 @@ export function ModelManagementScreen() {
     }
 
     setDeleteError(null);
-    const providerConfigResult = parseJson(
-      draft.providerConfigText,
-      "providerConfig",
-    );
-    const parametersResult = parseJson(draft.parametersText, "parameters");
-    const metaResult = parseJson(draft.metaText, "meta");
+    const providerConfigResult = parseJson(draft.providerConfigText);
+    const parametersResult = parseJson(draft.parametersText);
+    const metaResult = parseJson(draft.metaText);
 
     const nextJsonErrors: JsonErrors = {
       providerConfig: providerConfigResult.error ?? undefined,
@@ -682,22 +719,30 @@ export function ModelManagementScreen() {
   const content = (() => {
     if (loadState === "loading") {
       return (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+        <AppCard
+          variant="editorial-flat"
+          radius="lg"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
+        >
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
             {tAdmin("status.loading")}
           </p>
-        </div>
+        </AppCard>
       );
     }
 
     if (loadState === "error") {
       return (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-surface-dark px-6 text-center shadow-lg">
+        <AppCard
+          variant="editorial-flat"
+          radius="lg"
+          className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
+        >
           <p className="text-xs font-mono uppercase tracking-widest text-red-300">
             {loadError ?? tAdmin("errors.load")}
           </p>
-        </div>
+        </AppCard>
       );
     }
 
@@ -711,113 +756,114 @@ export function ModelManagementScreen() {
   })();
 
   return (
-    <div className="flex flex-col gap-8 pb-20 overflow-x-hidden">
-      <PageHeader
-        title={
-          <>
-            <span className="text-white">{tModel("title.leading")}</span>{" "}
-            <span className="text-primary">{tModel("title.accent")}</span>
-          </>
-        }
-        subtitle={tModel("subtitle")}
-        rightSlot={
-          <PageHeaderSearchInput
-            value={searchInput}
-            onChange={setSearchInput}
-            placeholder={tCommonLabels("searchPlaceholder")}
-            filterButtonLabel={tCommonLabels("filterOptions")}
-          />
-        }
-      >
-        <DashboardFilterBar>
-          <DashboardFilterToggle
-            onClick={() => setType("all")}
-            aria-pressed={type === "all"}
-            active={type === "all"}
-            icon={<Grid2X2 className="h-4 w-4" />}
-          >
-            {tCommonLabels("all")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("image")}
-            aria-pressed={type === "image"}
-            active={type === "image"}
-            icon={<ImageIcon className="h-4 w-4" />}
-          >
-            {tCommonLabels("images")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("video")}
-            aria-pressed={type === "video"}
-            active={type === "video"}
-            icon={<Video className="h-4 w-4" />}
-          >
-            {tCommonLabels("videos")}
-          </DashboardFilterToggle>
-          <DashboardFilterToggle
-            onClick={() => setType("audio")}
-            aria-pressed={type === "audio"}
-            active={type === "audio"}
-            icon={<AudioLines className="h-4 w-4" />}
-          >
-            {tCommonLabels("audios")}
-          </DashboardFilterToggle>
-          <DashboardFilterDivider />
-          <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
-            {tCommonLabels("total", { total: filteredModels.length })}
-          </span>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Button
+    <div className="overflow-x-hidden pb-20 pt-4 sm:pt-6">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 sm:px-6 lg:px-8">
+        <AppFilterToolbar>
+          <AppFilterGroup>
+            <AppFilterToggle
+              onClick={() => setType("all")}
+              aria-pressed={type === "all"}
+              active={type === "all"}
+              icon={<Grid2X2 className="h-4 w-4" />}
+            >
+              {tCommonLabels("all")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("image")}
+              aria-pressed={type === "image"}
+              active={type === "image"}
+              icon={<ImageIcon className="h-4 w-4" />}
+            >
+              {tCommonLabels("images")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("video")}
+              aria-pressed={type === "video"}
+              active={type === "video"}
+              icon={<Video className="h-4 w-4" />}
+            >
+              {tCommonLabels("videos")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => setType("audio")}
+              aria-pressed={type === "audio"}
+              active={type === "audio"}
+              icon={<AudioLines className="h-4 w-4" />}
+            >
+              {tCommonLabels("audios")}
+            </AppFilterToggle>
+          </AppFilterGroup>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap lg:max-w-none lg:flex-[1_1_34rem]">
+            <AppSearchField
+              aria-label={tCommonLabels("searchPlaceholder")}
+              containerClassName="sm:min-w-[18rem] sm:flex-[1_1_18rem]"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder={tCommonLabels("searchPlaceholder")}
+            />
+            <AppSortSelect
+              value={sort}
+              onValueChange={(value) => setSort(value as ModelSortOption)}
+              ariaLabel={tModel("sort.label")}
+              className="w-full sm:w-[12rem]"
+              options={modelSortOptions.map((option) => ({
+                value: option,
+                label: tModel(`sort.${option}`),
+              }))}
+            />
+            <AppButton
               type="button"
               variant="surface"
-              size="sm"
+              size="md"
               isLoading={loadState === "loading"}
               loadingText={tAdmin("toolbar.reloading")}
               onClick={loadModels}
+              className="shrink-0 rounded-xl"
             >
               <RefreshCw className="h-4 w-4" />
               {tAdmin("toolbar.reload")}
-            </Button>
-            <DashboardCtaButton
+            </AppButton>
+            <AppButton
               type="button"
+              size="md"
               onClick={openCreateDialog}
+              className="shrink-0 rounded-xl"
             >
               <Plus className="h-4 w-4" />
               {tAdmin("toolbar.create")}
-            </DashboardCtaButton>
+            </AppButton>
           </div>
-        </DashboardFilterBar>
-      </PageHeader>
+        </AppFilterToolbar>
 
-      <div className="mx-auto w-full max-w-[1600px]">{content}</div>
+        {content}
+      </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : undefined)}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-3xl rounded-2xl border-white/10 bg-surface-dark p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4">
+      <AppDialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : undefined)}>
+        <AppDialogContent>
+          <AppDialogHeader>
             <div>
-              <DialogDescription className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <AppDialogDescription>
                 {dialogMode === "create"
                   ? tAdmin("dialog.createTitle")
                   : tAdmin("dialog.editTitle")}
-              </DialogDescription>
-              <DialogTitle className="mt-2 text-xl font-bold text-white">
+              </AppDialogDescription>
+              <AppDialogTitle>
                 {draft.label || draft.key || tAdmin("dialog.untitled")}
-              </DialogTitle>
+              </AppDialogTitle>
               <p className="mt-1 text-xs font-mono text-gray-500">
                 {draft.key ? `#${draft.key}` : tAdmin("dialog.helper")}
               </p>
             </div>
-            <DialogClose asChild>
-              <Button
+            <AppDialogClose asChild>
+              <AppDialogIconButton
                 type="button"
-                variant="ghost"
-                className="rounded-lg border border-white/10 p-2 text-gray-400 transition-colors hover:border-white/30 hover:text-white"
                 aria-label={tAdmin("dialog.close")}
               >
-                ✕
-              </Button>
-            </DialogClose>
-          </div>
+                <X className="h-4 w-4" />
+              </AppDialogIconButton>
+            </AppDialogClose>
+          </AppDialogHeader>
 
           <div className="mt-6 space-y-6">
             {dialogMode === "create" ? (
@@ -825,7 +871,7 @@ export function ModelManagementScreen() {
                 <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
                   {tAdmin("vendor.title")}
                 </div>
-                <DashboardFilterBar className="mt-3 gap-2">
+                <AppFilterGroup className="mt-3 gap-2">
                   {vendorOptions.map((option) => {
                     const labelKey =
                       option.value === "HUGGINGFACE"
@@ -833,7 +879,7 @@ export function ModelManagementScreen() {
                         : "vendor.api";
                     const isActive = isHuggingFaceVendor && option.value === "HUGGINGFACE";
                     return (
-                      <DashboardFilterToggle
+                      <AppFilterToggle
                         key={option.value}
                         onClick={() => handleVendorSelect(option.value)}
                         aria-pressed={isActive}
@@ -842,10 +888,10 @@ export function ModelManagementScreen() {
                         className="disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {tAdmin(labelKey)}
-                      </DashboardFilterToggle>
+                      </AppFilterToggle>
                     );
                   })}
-                </DashboardFilterBar>
+                </AppFilterGroup>
                 <p className="mt-2 text-xs text-gray-500">
                   {tAdmin("vendor.description")}
                 </p>
@@ -859,26 +905,24 @@ export function ModelManagementScreen() {
                       {tAdmin("import.description")}
                     </p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                      <AppFormField>
+                        <AppLabel>
                           {tAdmin("import.spaceUrl")}
-                        </Label>
-                        <Input
+                        </AppLabel>
+                        <AppInput
                           value={importUrl}
                           onChange={(event) => setImportUrl(event.target.value)}
                           placeholder="https://huggingface.co/spaces/owner/space"
-                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                      </AppFormField>
+                      <AppFormField>
+                        <AppLabel>
                           {tAdmin("import.apiName")}
-                        </Label>
-                        <Input
+                        </AppLabel>
+                        <AppInput
                           value={importApiName}
                           onChange={(event) => setImportApiName(event.target.value)}
                           placeholder="/predict"
-                          className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                           list="model-import-api-names"
                         />
                         {importOptions.length > 0 ? (
@@ -888,10 +932,10 @@ export function ModelManagementScreen() {
                             ))}
                           </datalist>
                         ) : null}
-                      </div>
+                      </AppFormField>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <Button
+                      <AppButton
                         type="button"
                         variant="surface"
                         size="sm"
@@ -900,7 +944,7 @@ export function ModelManagementScreen() {
                         onClick={handleImport}
                       >
                         {tAdmin("import.action")}
-                      </Button>
+                      </AppButton>
                       {importError ? (
                         <span className="text-xs text-red-300">{importError}</span>
                       ) : null}
@@ -917,218 +961,203 @@ export function ModelManagementScreen() {
               </div>
             ) : null}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label
+              <AppFormField>
+                <AppLabel
                   htmlFor="model-type"
-                  className="text-xs font-mono uppercase tracking-widest text-gray-500"
                 >
                   {tAdmin("fields.type")}
-                </Label>
-                <select
+                </AppLabel>
+                <AppSelect
                   id="model-type"
                   value={draft.type}
-                  onChange={(event) => updateType(event.target.value as ModelType)}
+                  onValueChange={(value) => updateType(value as ModelType)}
                   disabled={dialogMode === "edit"}
-                  className="h-11 w-full rounded-xl border border-white/10 bg-surface-lighter px-3 text-sm text-white focus:border-primary focus:outline-none"
-                >
-                  <option value="image">{tCommonLabels("images")}</option>
-                  <option value="video">{tCommonLabels("videos")}</option>
-                  <option value="audio">{tCommonLabels("audios")}</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  ariaLabel={tAdmin("fields.type")}
+                  options={[
+                    { value: "image", label: tCommonLabels("images") },
+                    { value: "video", label: tCommonLabels("videos") },
+                    { value: "audio", label: tCommonLabels("audios") },
+                  ]}
+                />
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.key")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.key}
                   disabled={dialogMode === "edit"}
                   onChange={(event) => updateDraft({ key: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.label")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.label}
                   onChange={(event) => updateDraft({ label: event.target.value })}
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.vendor")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.vendor}
                   disabled
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              </AppFormField>
+              <AppFormField>
+                <AppLabel>
                   {tAdmin("fields.provider")}
-                </Label>
-                <Input
+                </AppLabel>
+                <AppInput
                   value={draft.provider}
                   disabled
-                  className="h-11 w-full rounded-xl border-white/10 bg-black/40 px-4 text-sm text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
-              </div>
+              </AppFormField>
             </div>
 
             <div className="flex flex-wrap items-center gap-6">
-              <label className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={draft.isActive}
-                  onChange={(event) =>
-                    updateDraft({ isActive: event.target.checked })
-                  }
-                  className="h-4 w-4 accent-primary"
-                />
-                {tAdmin("fields.isActive")}
-              </label>
-              <label className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={draft.isDefault}
-                  onChange={(event) =>
-                    updateDraft({ isDefault: event.target.checked })
-                  }
-                  className="h-4 w-4 accent-primary"
-                />
-                {tAdmin("fields.isDefault")}
-              </label>
+              <AppCheckbox
+                label={tAdmin("fields.isActive")}
+                checked={draft.isActive}
+                onChange={(event) =>
+                  updateDraft({ isActive: event.target.checked })
+                }
+              />
+              <AppCheckbox
+                label={tAdmin("fields.isDefault")}
+                checked={draft.isDefault}
+                onChange={(event) =>
+                  updateDraft({ isDefault: event.target.checked })
+                }
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.providerConfig")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.providerConfigText}
                 onChange={(event) =>
                   updateDraft({ providerConfigText: event.target.value })
                 }
-                className="min-h-[140px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[140px]"
               />
               {jsonErrors.providerConfig ? (
                 <p className="text-xs text-red-300">
                   {jsonErrors.providerConfig}
                 </p>
               ) : null}
-            </div>
+            </AppFormField>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.parameters")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.parametersText}
                 onChange={(event) =>
                   updateDraft({ parametersText: event.target.value })
                 }
-                className="min-h-[180px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[180px]"
               />
               {jsonErrors.parameters ? (
                 <p className="text-xs text-red-300">
                   {jsonErrors.parameters}
                 </p>
               ) : null}
-            </div>
+            </AppFormField>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-mono uppercase tracking-widest text-gray-500">
+            <AppFormField>
+              <AppLabel>
                 {tAdmin("fields.meta")}
-              </Label>
-              <Textarea
+              </AppLabel>
+              <AppTextarea
                 value={draft.metaText}
                 onChange={(event) =>
                   updateDraft({ metaText: event.target.value })
                 }
-                className="min-h-[160px] w-full rounded-xl border-white/10 bg-black/40 px-4 py-3 font-mono text-xs text-white focus-visible:border-primary"
+                className="min-h-[160px]"
               />
               {jsonErrors.meta ? (
                 <p className="text-xs text-red-300">{jsonErrors.meta}</p>
               ) : null}
-            </div>
+            </AppFormField>
             {deleteError || saveError ? (
               <p className="text-xs text-red-300">{deleteError ?? saveError}</p>
             ) : null}
           </div>
 
-          <DialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <AppDialogFooter>
             {dialogMode === "edit" ? (
-              <Button
+              <AppDialogDangerButton
                 type="button"
-                variant="destructive"
+                size="sm"
                 onClick={handleDelete}
                 isLoading={isDeleting}
                 loadingText={tAdmin("dialog.deleting")}
-                className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider sm:mr-auto"
+                className="sm:mr-auto"
               >
                 {tAdmin("dialog.delete")}
-              </Button>
+              </AppDialogDangerButton>
             ) : null}
-            <Button
+            <AppDialogCancelButton
               type="button"
-              variant="ghost"
-              className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10"
+              size="sm"
               onClick={closeDialog}
             >
               {tAdmin("dialog.cancel")}
-            </Button>
-            <DashboardCtaButton
+            </AppDialogCancelButton>
+            <AppDialogActionButton
               type="button"
               onClick={handleSave}
               isLoading={isSaving}
               loadingText={tAdmin("dialog.saving")}
               size="sm"
-              className="px-5 text-xs"
             >
               {tAdmin("dialog.save")}
-            </DashboardCtaButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <AlertDialog
+            </AppDialogActionButton>
+          </AppDialogFooter>
+        </AppDialogContent>
+      </AppDialog>
+      <AppConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           if (!isDeleting) setDeleteDialogOpen(open);
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-bold text-white">
+        <AppConfirmDialogContent>
+          <AppConfirmDialogHeader>
+            <AppConfirmDialogTitle>
               {tAdmin("dialog.deleteTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-gray-300">
+            </AppConfirmDialogTitle>
+            <AppConfirmDialogDescription>
               {tAdmin("dialog.deleteConfirm", { key: draft.key })}
-            </AlertDialogDescription>
+            </AppConfirmDialogDescription>
             <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
               {tAdmin("dialog.deleteDescription")}
             </p>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel className="rounded-full border border-white/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-gray-300 transition-colors hover:bg-white/10">
+          </AppConfirmDialogHeader>
+          <AppConfirmDialogFooter>
+            <AppConfirmDialogCancel>
               {tAdmin("dialog.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </AppConfirmDialogCancel>
+            <AppConfirmDialogAction
               disabled={isDeleting}
               onClick={() => {
                 setDeleteDialogOpen(false);
                 void performDelete();
               }}
-              className="rounded-full bg-destructive px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-destructive/90"
             >
               {tAdmin("dialog.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </AppConfirmDialogAction>
+          </AppConfirmDialogFooter>
+        </AppConfirmDialogContent>
+      </AppConfirmDialog>
     </div>
   );
 }

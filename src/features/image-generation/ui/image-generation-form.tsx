@@ -5,40 +5,40 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type FormEvent,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dice5,
   Download,
   ExternalLink,
-  Grid2x2,
-  Image as ImageIcon,
   ImagePlus,
+  Layers,
   Maximize2,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from "lucide-react";
-import { Button } from "@/shared/ui/button";
+import { AppButton } from "@/shared/ui/app-button";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/shared/ui/form";
-import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
+  AppForm,
+  AppFormControl,
+  AppFormControllerField,
+  AppFormItem,
+  AppFormLabel,
+  AppFormMessage,
+} from "@/shared/ui/app-form";
+import { AppInput } from "@/shared/ui/app-input";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 import { cn } from "@/shared/lib/utils";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
-import { GenerationSettingsPanel } from "@/shared/ui/generation-settings-panel";
-import { LoginGateDialog } from "@/features/auth/ui/login-gate-dialog";
+import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   imageGenerationDefaults,
   createImageGenerationSchema,
@@ -66,15 +66,22 @@ type ImageGenerationFormProps = {
   isAuthenticated: boolean;
 };
 
+const dockChipClass =
+  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
+const studioPreviewShellClass =
+  "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
+const studioResultFrameClass =
+  "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
+
 export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const tGeneration = useTranslations("generation");
   const tImage = useTranslations("generation.image");
   const tActions = useTranslations("common.actions");
   const tLabels = useTranslations("common.labels");
-  const tGenerationActions = useTranslations("generation.actions");
   const tValidation = useTranslations("generation.validation.image");
-  const tLoginGate = useTranslations("auth.loginGate");
   const isGuest = !isAuthenticated;
   const { imageModels: runtimeImageModels, isLoading: isModelLoading } =
     useRuntimeModelCatalog({ enabled: !isGuest });
@@ -119,8 +126,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     defaultValues: imageGenerationDefaults,
     mode: "onChange",
   });
-  const [isLoginGateOpen, setIsLoginGateOpen] = useState(false);
-
   const promptFromQuery = searchParams?.get("prompt") ?? "";
   const modelFromQuery = searchParams?.get("model") ?? "";
   const initImagesFromQuery = useMemo(
@@ -130,6 +135,12 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
         .filter((value) => value.length > 0),
     [searchParams],
   );
+  const handleLoginRedirect = useCallback(() => {
+    const queryString = searchParams.toString();
+    const returnTo = `${pathname}${queryString ? `?${queryString}` : ""}`;
+    router.push(buildLoginHref(returnTo));
+  }, [pathname, router, searchParams]);
+
   useEffect(() => {
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
@@ -159,6 +170,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const height =
     useWatch({ control: form.control, name: "height" }) ??
     imageGenerationDefaults.height;
+  const imageCount =
+    useWatch({ control: form.control, name: "imageCount" }) ??
+    imageGenerationDefaults.imageCount;
   const steps =
     useWatch({ control: form.control, name: "steps" }) ??
     imageGenerationDefaults.steps;
@@ -181,6 +195,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const widthRange = getRuntimeImageParamRange(activeRuntimeModel, "width");
   const heightRange = getRuntimeImageParamRange(activeRuntimeModel, "height");
   const stepsRange = getRuntimeImageParamRange(activeRuntimeModel, "steps");
+  const imageCountRange = getRuntimeImageParamRange(
+    activeRuntimeModel,
+    "imageCount",
+  );
   const guidanceRange = getRuntimeImageParamRange(
     activeRuntimeModel,
     "guidanceScale",
@@ -218,13 +236,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const showPromptUpsampling =
     Boolean(promptUpsamplingConfig) && promptUpsamplingConfig?.ui !== "hidden";
   const showSeed = Boolean(seedConfig) && seedConfig?.ui !== "hidden";
-  const showSettingsPanel =
-    showSizeControls ||
-    showModeChoice ||
-    showSteps ||
-    showGuidanceScale ||
-    showPromptUpsampling ||
-    showSeed;
   const maxInputImages = resolveRuntimeImageMaxInputImages(activeRuntimeModel);
   const prevModeChoiceRef = useRef<string | null>(null);
   const hasInjectedInitImagesRef = useRef(false);
@@ -242,7 +253,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     handleFileChange: handleImageSelection,
     replaceImages: replaceInitImages,
     removeImage: handleRemoveInitImage,
-    reset: resetInitImagePreviews,
   } = useImageInitPreviews({
     maxInputImages,
     onChange: handleInitImagesChange,
@@ -360,6 +370,21 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     });
   };
 
+  const handleImageCountStep = (direction: 1 | -1) => {
+    if (isGenerating) return;
+    const nextValue = Math.min(
+      imageCountRange.max,
+      Math.max(
+        imageCountRange.min,
+        imageCount + direction * Math.max(imageCountRange.step, 1),
+      ),
+    );
+    form.setValue("imageCount", nextValue, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   const resultsGridClass =
     resultImages.length <= 1
       ? "grid-cols-1"
@@ -367,26 +392,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
       ? "grid-cols-2"
       : "grid-cols-2 lg:grid-cols-3";
 
-  const resetDefaults: ImageGenerationFormValues = (() => {
-    const model = runtimeModelMap.get(defaultModelKey);
-    if (!model) return imageGenerationDefaults;
-    const defaults = resolveRuntimeImageDefaults(model);
-    return {
-      ...imageGenerationDefaults,
-      model: defaultModelKey,
-      width: defaults.width,
-      height: defaults.height,
-      steps: defaults.steps,
-      guidanceScale: defaults.guidanceScale,
-      modeChoice: defaults.modeChoice,
-      promptUpsampling: defaults.promptUpsampling,
-    };
-  })();
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
-      setIsLoginGateOpen(true);
+      handleLoginRedirect();
       return;
     }
     if (isModelLoading || !hasModels) {
@@ -396,142 +405,82 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
 
     void form.handleSubmit((values) => startGeneration(values))(event);
   };
-
   return (
-    <Form {...form}>
+    <AppForm {...form}>
       <form
-        className="flex flex-col gap-8"
+        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
         onSubmit={handleFormSubmit}
       >
-        {!isGuest && (
-          <GenerationModelSection
-            items={modelOptions}
-            activeId={activeModel}
-            onSelect={handleSelectModel}
-            action={
-              <Button
-                type="button"
-                variant="link"
-                disabled
-                aria-disabled="true"
-                className="h-auto p-0 text-xs font-bold uppercase text-primary hover:underline"
-                title={tActions("comingSoon")}
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6">
+            <div className={studioPreviewShellClass}>
+              <GenerationStudioIntro
+                eyebrow={tImage("previewEyebrow")}
+                title={tImage("previewTitle")}
+                description={tImage("previewDescription")}
+              />
+              <GenerationCanvas
+                isGenerating={isGenerating}
+                status={state.status}
+                errorMessage={state.errorMessage}
+                className={studioResultFrameClass}
               >
-                {tActions("viewAllModels")}
-              </Button>
-            }
-          />
-        )}
-        {isGuest && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoginRequired")}
-          </div>
-        )}
-        {!isGuest && isModelLoading && (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
-            {tGeneration("modelLoading")}
-          </div>
-        )}
-        {!isGuest && !isModelLoading && !hasModels && (
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {tGeneration("noModels")}
-          </div>
-        )}
+                {hasResults ? (
+                  <div
+                    className={cn(
+                      "relative z-10 grid h-full w-full gap-3 p-4",
+                      resultsGridClass
+                    )}
+                  >
+                    {resultImages.map((image, index) => {
+                      const downloadUrl = state.requestId
+                        ? `/api/image-generation/${state.requestId}/download?index=${index}`
+                        : image.url;
 
-        <div className="flex flex-col gap-8 xl:flex-row">
-          <div className="flex flex-1 flex-col gap-6">
-            <GenerationCanvas
-              actions={
-                <>
-                <Button
-                  type="button"
-                  variant="surface"
-                  size="icon"
-                  disabled
-                  aria-disabled="true"
-                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title={tGenerationActions("gridDisabled")}
-                >
-                  <Grid2x2 className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="surface"
-                  size="icon"
-                  disabled
-                  aria-disabled="true"
-                  className="border-white/10 bg-surface-dark/80 text-gray-400 hover:border-white/30 hover:text-white"
-                  title={tGenerationActions("fullScreenDisabled")}
-                >
-                  <Maximize2 className="h-5 w-5" />
-                </Button>
-                </>
-              }
-              isGenerating={isGenerating}
-              status={state.status}
-              errorMessage={state.errorMessage}
-            >
-              {hasResults ? (
-                <div
-                  className={cn(
-                    "relative z-10 grid h-full w-full gap-3 p-4",
-                    resultsGridClass
-                  )}
-                >
-                  {resultImages.map((image, index) => {
-                    const downloadUrl = state.requestId
-                      ? `/api/image-generation/${state.requestId}/download?index=${index}`
-                      : image.url;
-
-                    return (
-                      <div
-                        key={`${image.url}-${index}`}
-                        className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={image.url}
-                          alt={tImage("generatedImageAlt", { index: index + 1 })}
-                          className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
-                        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
-                          <a
-                            href={image.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title={tActions("open")}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                          <a
-                            href={downloadUrl}
-                            download
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                            title={tActions("download")}
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
+                      return (
+                        <div
+                          key={`${image.url}-${index}`}
+                          className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt={tImage("generatedImageAlt", { index: index + 1 })}
+                            className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
+                          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
+                            <AppButton asChild variant="surface" size="icon-sm">
+                              <a
+                                href={image.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={tActions("open")}
+                                aria-label={tActions("open")}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </AppButton>
+                            <AppButton asChild variant="surface" size="icon-sm">
+                              <a
+                                href={downloadUrl}
+                                download
+                                title={tActions("download")}
+                                aria-label={tActions("download")}
+                              >
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </AppButton>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="z-10 flex flex-col items-center px-6 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-surface-dark shadow-[0_0_30px_rgba(212,240,50,0.05)]">
-                    <ImageIcon className="h-8 w-8 text-gray-600" />
+                      );
+                    })}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-300">
-                    {tGeneration("canvas.emptyTitle")}
-                  </h3>
-                  <p className="mt-1 text-sm font-mono text-gray-600">
-                    {tGeneration("canvas.emptyDescription")}
-                  </p>
-                </div>
-              )}
-            </GenerationCanvas>
+                ) : (
+                  <div aria-hidden="true" className="h-full w-full" />
+                )}
+              </GenerationCanvas>
+            </div>
 
             {hasResults && state.errorMessage && (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -540,22 +489,28 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
             )}
 
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 lg:flex-row">
-                <FormField
+              <div className="flex flex-col gap-4">
+                <AppFormControllerField
                   control={form.control}
                   name="prompt"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <AppFormItem className="flex-1">
                       <GenerationPromptField
+                        ariaLabel={tGeneration("promptDock.label")}
+                        surface="hero"
+                        className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                         textarea={
-                          <FormControl>
-                            <Textarea
-                              placeholder={tImage("promptPlaceholder")}
-                              className="min-h-[120px] border-none bg-transparent px-4 py-4 text-white placeholder:text-gray-600 focus-visible:ring-0"
+                          <AppFormControl>
+                            <AppTextarea
+                              surface="transparent"
+                              className="min-h-[104px]"
                               {...field}
                             />
-                          </FormControl>
+                          </AppFormControl>
                         }
+                        promptMeta={tLabels("chars", {
+                          count: promptValue.length,
+                        })}
                         attachments={
                           initImagePreviews.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
@@ -570,47 +525,387 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                     alt={tImage("initImageAlt")}
                                     className="h-full w-full object-cover"
                                   />
-                                  <Button
+                                  <AppButton
                                     type="button"
-                                    onClick={() =>
-                                      handleRemoveInitImage(item.id)
-                                    }
+                                    onClick={() => handleRemoveInitImage(item.id)}
                                     variant="ghost"
                                     size="icon-sm"
                                     className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
                                     title={tActions("remove")}
                                   >
                                     <X className="h-3 w-3" />
-                                  </Button>
+                                  </AppButton>
                                 </div>
                               ))}
                             </div>
                           ) : null
                         }
                         footerLeft={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={handleOpenImagePicker}
-                            disabled={
-                              !canUploadImages ||
-                              initImagePreviews.length >= maxInputImages
-                            }
-                            className="text-gray-500 hover:bg-white/5 hover:text-white"
-                            title={
-                              canUploadImages
-                                ? tImage("uploadReference")
-                                : tImage("uploadUnsupported")
-                            }
-                          >
-                            <ImagePlus className="h-5 w-5" />
-                          </Button>
+                          <>
+                            <AppButton
+                              type="button"
+                              variant="surface"
+                              size="icon"
+                              onClick={handleOpenImagePicker}
+                              disabled={
+                                !canUploadImages ||
+                                initImagePreviews.length >= maxInputImages
+                              }
+                              className="h-12 w-12 rounded-xl border-primary/20 bg-black/16 text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
+                              title={
+                                canUploadImages
+                                  ? tImage("uploadReference")
+                                  : tImage("uploadUnsupported")
+                              }
+                            >
+                              <ImagePlus className="h-5 w-5" />
+                            </AppButton>
+                            {!isGuest && hasModels ? (
+                              <GenerationModelSection
+                                modality="image"
+                                items={modelOptions}
+                                activeId={activeModel}
+                                onSelect={handleSelectModel}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className={cn(
+                                  dockChipClass,
+                                  "min-w-[13rem] max-w-[13rem] cursor-not-allowed justify-between opacity-70",
+                                )}
+                              >
+                                <span className="min-w-0 flex flex-col items-start leading-tight">
+                                  <span className="text-[10px] font-semibold uppercase text-white/42">
+                                    {tGeneration("modelSelect")}
+                                  </span>
+                                  <span className="max-w-[13rem] truncate font-medium">
+                                    {isModelLoading
+                                      ? tGeneration("modelLoading")
+                                      : isGuest
+                                        ? tGeneration("modelLoginRequired")
+                                        : tGeneration("modelUnavailable")}
+                                  </span>
+                                </span>
+                              </button>
+                            )}
+                            {showSizeControls ? (
+                              <GenerationSettingsPopover
+                                label={tLabels("outputSize")}
+                                summary={`${width} × ${height}`}
+                                icon={<Maximize2 className="h-4 w-4" />}
+                              >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  {widthConfig?.ui !== "hidden" ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="width"
+                                      render={({ field }) => (
+                                        <AppFormItem>
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
+                                            {tLabels("width")}
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <AppInput
+                                              type="number"
+                                              min={widthRange.min}
+                                              max={widthRange.max}
+                                              step={widthRange.step}
+                                              value={field.value}
+                                              onChange={(event) =>
+                                                field.onChange(Number(event.target.value))
+                                              }
+                                              className="h-11 border-white/10 bg-black/30 text-white"
+                                            />
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                  {heightConfig?.ui !== "hidden" ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="height"
+                                      render={({ field }) => (
+                                        <AppFormItem>
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
+                                            {tLabels("height")}
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <AppInput
+                                              type="number"
+                                              min={heightRange.min}
+                                              max={heightRange.max}
+                                              step={heightRange.step}
+                                              value={field.value}
+                                              onChange={(event) =>
+                                                field.onChange(Number(event.target.value))
+                                              }
+                                              className="h-11 border-white/10 bg-black/30 text-white"
+                                            />
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                </div>
+                              </GenerationSettingsPopover>
+                            ) : null}
+                            <GenerationSettingsPopover
+                              label={tLabels("imageCount")}
+                              summary={`${imageCount}`}
+                              icon={<Layers className="h-4 w-4" />}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm font-semibold text-gray-300">
+                                  {tLabels("imageCount")}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <AppButton
+                                    type="button"
+                                    variant="surface"
+                                    size="icon-sm"
+                                    onClick={() => handleImageCountStep(-1)}
+                                    disabled={
+                                      imageCount <= imageCountRange.min ||
+                                      isGenerating
+                                    }
+                                    aria-label={tLabels("decrease")}
+                                  >
+                                    -
+                                  </AppButton>
+                                  <span className="min-w-8 text-center text-lg font-black text-white">
+                                    {imageCount}
+                                  </span>
+                                  <AppButton
+                                    type="button"
+                                    variant="surface"
+                                    size="icon-sm"
+                                    onClick={() => handleImageCountStep(1)}
+                                    disabled={
+                                      imageCount >= imageCountRange.max ||
+                                      isGenerating
+                                    }
+                                    aria-label={tLabels("increase")}
+                                  >
+                                    +
+                                  </AppButton>
+                                </div>
+                              </div>
+                            </GenerationSettingsPopover>
+                            {showModeChoice ||
+                            showSteps ||
+                            showGuidanceScale ||
+                            showPromptUpsampling ||
+                            showSeed ? (
+                              <GenerationSettingsPopover
+                                label={tLabels("settings")}
+                                summary={
+                                  showSteps
+                                    ? `${tLabels("steps")} ${steps}`
+                                    : tLabels("settings")
+                                }
+                                icon={<SlidersHorizontal className="h-4 w-4" />}
+                              >
+                                <div className="flex flex-col gap-5">
+                                  {showModeChoice ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="modeChoice"
+                                      render={({ field }) => (
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
+                                            {tLabels("modeChoice")}
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <select
+                                              value={field.value ?? ""}
+                                              onChange={field.onChange}
+                                              className="h-11 rounded-xl border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white"
+                                            >
+                                              {modeOptions.map((option) => {
+                                                const optionValue = String(
+                                                  getRuntimeParameterOptionValue(option),
+                                                );
+                                                return (
+                                                  <option
+                                                    key={optionValue}
+                                                    value={optionValue}
+                                                  >
+                                                    {getRuntimeParameterOptionLabel(option)}
+                                                  </option>
+                                                );
+                                              })}
+                                            </select>
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                  {showSteps ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="steps"
+                                      render={({ field }) => (
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <div className="flex items-center justify-between">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
+                                              {tLabels("steps")}
+                                            </AppFormLabel>
+                                            <span className="text-sm font-bold text-white">
+                                              {steps}
+                                            </span>
+                                          </div>
+                                          <AppFormControl>
+                                            <input
+                                              type="range"
+                                              min={stepsRange.min}
+                                              max={stepsRange.max}
+                                              step={stepsRange.step}
+                                              value={field.value}
+                                              onChange={(event) =>
+                                                field.onChange(
+                                                  Number(event.target.value),
+                                                )
+                                              }
+                                              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
+                                            />
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                  {showGuidanceScale ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="guidanceScale"
+                                      render={({ field }) => (
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <div className="flex items-center justify-between">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
+                                              {tLabels("guidanceScale")}
+                                            </AppFormLabel>
+                                            <span className="text-sm font-bold text-white">
+                                              {guidanceScale}
+                                            </span>
+                                          </div>
+                                          <AppFormControl>
+                                            <input
+                                              type="range"
+                                              min={guidanceRange.min}
+                                              max={guidanceRange.max}
+                                              step={guidanceRange.step}
+                                              value={field.value ?? guidanceScale}
+                                              onChange={(event) =>
+                                                field.onChange(
+                                                  Number(event.target.value),
+                                                )
+                                              }
+                                              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
+                                            />
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                  {showPromptUpsampling ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="promptUpsampling"
+                                      render={({ field }) => {
+                                        const isEnabled = Boolean(field.value);
+                                        return (
+                                          <AppFormItem className="flex items-center justify-between gap-3">
+                                            <AppFormLabel className="text-xs font-bold text-gray-500">
+                                              {tLabels("promptUpsampling")}
+                                            </AppFormLabel>
+                                            <AppFormControl>
+                                              <AppButton
+                                                type="button"
+                                                variant={
+                                                  isEnabled ? "primary" : "surface"
+                                                }
+                                                size="sm"
+                                                onClick={() =>
+                                                  field.onChange(!isEnabled)
+                                                }
+                                                className={cn(
+                                                  "text-xs font-bold",
+                                                  isEnabled
+                                                    ? "text-black"
+                                                    : "text-gray-300",
+                                                )}
+                                                aria-pressed={isEnabled}
+                                              >
+                                                {isEnabled
+                                                  ? tLabels("enabled")
+                                                  : tLabels("disabled")}
+                                              </AppButton>
+                                            </AppFormControl>
+                                          </AppFormItem>
+                                        );
+                                      }}
+                                    />
+                                  ) : null}
+                                  {showSeed ? (
+                                    <AppFormControllerField
+                                      control={form.control}
+                                      name="seed"
+                                      render={({ field }) => (
+                                        <AppFormItem className="flex flex-col gap-2">
+                                          <AppFormLabel className="text-xs font-bold text-gray-500">
+                                            {tLabels("seed")}
+                                          </AppFormLabel>
+                                          <AppFormControl>
+                                            <div className="flex items-center gap-2">
+                                              <AppInput
+                                                placeholder={tImage("seedPlaceholder")}
+                                                {...field}
+                                              />
+                                              <AppButton
+                                                type="button"
+                                                variant="surface"
+                                                size="icon"
+                                                onClick={handleRandomizeSeed}
+                                                disabled={isGenerating}
+                                                aria-label={tLabels("randomize")}
+                                              >
+                                                <Dice5 className="h-4 w-4" />
+                                              </AppButton>
+                                            </div>
+                                          </AppFormControl>
+                                        </AppFormItem>
+                                      )}
+                                    />
+                                  ) : null}
+                                </div>
+                              </GenerationSettingsPopover>
+                            ) : null}
+                          </>
                         }
                         footerRight={
-                          <span className="text-[10px] font-mono text-gray-600">
-                            {tLabels("chars", { count: promptValue.length })}
-                          </span>
+                          <>
+                            <AppButton
+                              type={isAuthenticated ? "submit" : "button"}
+                              size="xl"
+                              disabled={
+                                isGenerating ||
+                                (isAuthenticated && (isModelLoading || !hasModels))
+                              }
+                              className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                              onClick={
+                                isAuthenticated
+                                  ? undefined
+                                  : handleLoginRedirect
+                              }
+                            >
+                              {isGenerating
+                                ? tActions("generating")
+                                : tActions("generate")}
+                              <Sparkles className="h-5 w-5" />
+                            </AppButton>
+                          </>
                         }
                       />
                       <input
@@ -621,306 +916,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         className="hidden"
                         onChange={handleImageSelection}
                       />
-                      <FormMessage className="text-xs text-red-400" />
-                    </FormItem>
+                      <AppFormMessage className="text-xs text-red-400" />
+                    </AppFormItem>
                   )}
                 />
-
-                <Button
-                  type={isAuthenticated ? "submit" : "button"}
-                  variant="hero"
-                  size="hero"
-                  disabled={
-                    isGenerating ||
-                    (isAuthenticated && (isModelLoading || !hasModels))
-                  }
-                  className="flex-col"
-                  onClick={
-                    isAuthenticated
-                      ? undefined
-                      : () => setIsLoginGateOpen(true)
-                  }
-                >
-                  <Sparkles className="h-7 w-7" />
-                  {isGenerating ? tActions("generating") : tActions("generate")}
-                </Button>
               </div>
             </div>
           </div>
-
-          {showSettingsPanel && (
-            <GenerationSettingsPanel
-              onReset={() => {
-                form.reset(resetDefaults);
-                resetInitImagePreviews();
-                reset();
-              }}
-            >
-              <div className="flex flex-col gap-8">
-                {showSizeControls && (
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                      {tLabels("outputSize")}
-                    </span>
-                    <div className="grid grid-cols-2 gap-3">
-                      {widthConfig?.ui !== "hidden" && (
-                        <FormField
-                          control={form.control}
-                          name="width"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col gap-2">
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                                {tLabels("width")}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={widthRange.min}
-                                  max={widthRange.max}
-                                  step={widthRange.step}
-                                  value={field.value}
-                                  onChange={(event) =>
-                                    field.onChange(Number(event.target.value))
-                                  }
-                                  className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                      {heightConfig?.ui !== "hidden" && (
-                        <FormField
-                          control={form.control}
-                          name="height"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col gap-2">
-                              <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                                {tLabels("height")}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={heightRange.min}
-                                  max={heightRange.max}
-                                  step={heightRange.step}
-                                  value={field.value}
-                                  onChange={(event) =>
-                                    field.onChange(Number(event.target.value))
-                                  }
-                                  className="h-10 border-white/10 bg-surface-lighter font-mono text-sm text-white"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between px-1 text-xs text-gray-500">
-                      <span>
-                        {tLabels("range", {
-                          min: widthRange.min,
-                          max: widthRange.max,
-                        })}
-                      </span>
-                      <span className="text-white">
-                        {width} × {height}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-              <div className="h-px bg-white/5" />
-
-              <div className="flex flex-col gap-6">
-                {showModeChoice && (
-                  <FormField
-                    control={form.control}
-                    name="modeChoice"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3">
-                        <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                          {tLabels("modeChoice")}
-                        </FormLabel>
-                        <FormControl>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {modeOptions.map((option) => {
-                              const optionValue = String(
-                                getRuntimeParameterOptionValue(option),
-                              );
-                              const isActive = field.value === optionValue;
-                              return (
-                                <Button
-                                  key={optionValue}
-                                  type="button"
-                                  variant={isActive ? "default" : "surface"}
-                                  size="sm"
-                                  aria-pressed={isActive}
-                                  onClick={() => field.onChange(optionValue)}
-                                  className={cn(
-                                    "h-auto justify-start whitespace-normal text-xs font-semibold",
-                                    isActive ? "text-black" : "text-gray-300",
-                                  )}
-                                >
-                                  {getRuntimeParameterOptionLabel(option)}
-                                </Button>
-                              );
-                            })}
-                          </div>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {showSteps && (
-                  <FormField
-                    control={form.control}
-                    name="steps"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                            {tLabels("steps")}
-                          </FormLabel>
-                          <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                            {steps}
-                          </span>
-                        </div>
-                        <FormControl>
-                          <input
-                            type="range"
-                            min={stepsRange.min}
-                            max={stepsRange.max}
-                            step={stepsRange.step}
-                            value={field.value}
-                            onChange={(event) =>
-                              field.onChange(Number(event.target.value))
-                            }
-                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {showGuidanceScale && (
-                  <FormField
-                    control={form.control}
-                    name="guidanceScale"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                            {tLabels("guidanceScale")}
-                          </FormLabel>
-                          <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                            {guidanceScale}
-                          </span>
-                        </div>
-                        <FormControl>
-                          <input
-                            type="range"
-                            min={guidanceRange.min}
-                            max={guidanceRange.max}
-                            step={guidanceRange.step}
-                            value={field.value ?? guidanceScale}
-                            onChange={(event) =>
-                              field.onChange(Number(event.target.value))
-                            }
-                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter disabled:cursor-not-allowed disabled:opacity-50"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {showPromptUpsampling && (
-                  <FormField
-                    control={form.control}
-                    name="promptUpsampling"
-                    render={({ field }) => {
-                      const isEnabled = Boolean(field.value);
-                      return (
-                        <FormItem className="flex items-center justify-between gap-4">
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                            {tLabels("promptUpsampling")}
-                          </FormLabel>
-                          <FormControl>
-                            <Button
-                              type="button"
-                              variant={isEnabled ? "default" : "surface"}
-                              size="sm"
-                              aria-pressed={isEnabled}
-                              onClick={() => field.onChange(!isEnabled)}
-                              className={cn(
-                                "h-8 px-3 text-xs font-bold uppercase tracking-wider",
-                                isEnabled ? "text-black" : "text-gray-300",
-                              )}
-                            >
-                              {isEnabled
-                                ? tLabels("enabled")
-                                : tLabels("disabled")}
-                            </Button>
-                          </FormControl>
-                        </FormItem>
-                      );
-                    }}
-                  />
-                )}
-              </div>
-
-              <div className="h-px bg-white/5" />
-
-                {showSeed && (
-                  <div className="flex flex-col gap-4">
-                    <FormField
-                      control={form.control}
-                      name="seed"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col gap-2">
-                          <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                            {tLabels("seed")}
-                          </FormLabel>
-                          <FormControl>
-                            <div className="flex gap-2">
-                              <Input
-                                className="h-10 flex-1 border-white/10 bg-surface-lighter font-mono text-sm text-white placeholder:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder={tImage("seedPlaceholder")}
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="surface"
-                                size="icon-sm"
-                                onClick={handleRandomizeSeed}
-                                disabled={isGenerating}
-                                className="border-white/10 bg-surface-lighter text-gray-200 hover:border-primary hover:text-primary disabled:hover:border-white/10 disabled:hover:text-gray-500"
-                              >
-                                <Dice5 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-              </div>
-            </GenerationSettingsPanel>
-          )}
         </div>
       </form>
-      <LoginGateDialog
-        open={isLoginGateOpen}
-        onOpenChange={setIsLoginGateOpen}
-        title={tLoginGate("title")}
-        description={tLoginGate("description")}
-        actionLabel={tLoginGate("action")}
-        cancelLabel={tLoginGate("cancel")}
-      />
-    </Form>
+    </AppForm>
   );
 }

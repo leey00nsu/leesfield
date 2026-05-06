@@ -1,16 +1,20 @@
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
 import type { ApiKeyStatusFilter } from "@/features/api-key-management/hook/use-api-key-management";
 import {
-  DashboardFilterBar,
-  DashboardFilterToggle,
-} from "@/shared/ui/dashboard-filter-bar";
-import { DashboardCtaButton } from "@/shared/ui/dashboard-cta-button";
-import { Input } from "@/shared/ui/input";
+  AppFilterGroup,
+  AppFilterToggle,
+  AppSearchField,
+} from "@/shared/ui/app-filter-toolbar";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppInput } from "@/shared/ui/app-input";
 import { useTranslations } from "next-intl";
 
 type ApiKeyToolbarProps = {
   filter: ApiKeyStatusFilter;
   onFilterChange: (value: ApiKeyStatusFilter) => void;
+  searchInput: string;
+  onSearchInputChange: (value: string) => void;
+  searchPlaceholder: string;
   newKeyLabel: string;
   onNewKeyLabelChange: (value: string) => void;
   onGenerate: () => void;
@@ -20,6 +24,9 @@ type ApiKeyToolbarProps = {
 export function ApiKeyToolbar({
   filter,
   onFilterChange,
+  searchInput,
+  onSearchInputChange,
+  searchPlaceholder,
   newKeyLabel,
   onNewKeyLabelChange,
   onGenerate,
@@ -28,50 +35,61 @@ export function ApiKeyToolbar({
   const t = useTranslations("apiKey.toolbar");
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <DashboardFilterBar className="gap-2">
-        <DashboardFilterToggle
+    <>
+      <AppFilterGroup>
+        <AppFilterToggle
           onClick={() => onFilterChange("all")}
           aria-pressed={filter === "all"}
           active={filter === "all"}
           icon={<KeyRound className="h-4 w-4" />}
         >
           {t("allKeys")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
+        </AppFilterToggle>
+        <AppFilterToggle
           onClick={() => onFilterChange("active")}
           aria-pressed={filter === "active"}
           active={filter === "active"}
           icon={<ShieldCheck className="h-4 w-4" />}
         >
           {t("active")}
-        </DashboardFilterToggle>
-        <DashboardFilterToggle
+        </AppFilterToggle>
+        <AppFilterToggle
           onClick={() => onFilterChange("revoked")}
           aria-pressed={filter === "revoked"}
           active={filter === "revoked"}
           icon={<Slash className="h-4 w-4" />}
         >
           {t("revoked")}
-        </DashboardFilterToggle>
-      </DashboardFilterBar>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
+        </AppFilterToggle>
+      </AppFilterGroup>
+      <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+        <AppSearchField
+          value={searchInput}
+          onChange={(event) => onSearchInputChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          containerClassName="lg:max-w-md lg:flex-[1_1_20rem]"
+        />
+        <AppInput
           type="text"
           value={newKeyLabel}
           onChange={(event) => onNewKeyLabelChange(event.target.value)}
           placeholder={t("newKeyPlaceholder")}
-          className="h-10 min-w-[220px] rounded-full border-white/10 bg-surface-dark px-4 text-xs font-mono uppercase tracking-wider text-white placeholder:text-gray-600 focus-visible:border-primary focus-visible:ring-0"
+          surface="toolbar"
+          inputSize="lg"
+          className="min-w-0 lg:w-64"
         />
-        <DashboardCtaButton
+        <AppButton
           type="button"
           onClick={onGenerate}
           disabled={isIssuing}
+          size="toolbar"
+          className="font-semibold"
         >
           <Plus className="h-5 w-5" />
           {isIssuing ? t("generating") : t("generate")}
-        </DashboardCtaButton>
+        </AppButton>
       </div>
-    </div>
+    </>
   );
 }

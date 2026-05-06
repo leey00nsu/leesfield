@@ -1,9 +1,10 @@
 import { Header } from "@/widgets/header/ui/header";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
-import { LandingFeaturesSection } from "@/widgets/landing/ui/landing-features-section";
-import { LandingTechStackSection } from "@/widgets/landing/ui/landing-tech-stack-section";
-import { LandingWhySection } from "@/widgets/landing/ui/landing-why-section";
+import { LandingCoreFeaturesSection } from "@/widgets/landing/ui/landing-core-features-section";
+import { LandingReuseSection } from "@/widgets/landing/ui/landing-reuse-section";
+import { LandingPlatformSection } from "@/widgets/landing/ui/landing-platform-section";
 import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
+import { LandingFooter } from "@/widgets/landing/ui/landing-footer";
 
 interface LandingWidgetProps {
   isAuthenticated: boolean;
@@ -24,15 +25,12 @@ export function LandingWidget({
 
       <main className="flex flex-col">
         <LandingHero />
-        <section className="px-6 pb-20 pt-12 sm:px-10">
-          <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-16">
-            <LandingFeaturesSection />
-            <LandingTechStackSection />
-            <LandingWhySection />
-            <LandingCtaSection />
-          </div>
-        </section>
+        <LandingCoreFeaturesSection />
+        <LandingReuseSection />
+        <LandingPlatformSection />
+        <LandingCtaSection />
       </main>
+      <LandingFooter />
     </div>
   );
 }

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
+import { Check, Copy } from "lucide-react";
+import { AppBadge } from "@/shared/ui/app-badge";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 import { cn } from "@/shared/lib/utils";
+import { copyTextToClipboard } from "@/shared/lib/clipboard";
+import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 import {
   buildExampleFromSchema,
@@ -39,9 +43,20 @@ function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-function getPrimaryResponse(responses: ApiOperation["responses"]) {
-  const success = responses.find((response) => response.status.startsWith("2"));
-  return success ?? responses[0] ?? null;
+function getResponsePayload(
+  response: ApiOperation["responses"][number],
+  openApiDocument: OpenApiDocument | null,
+  exampleStrings: ExampleStrings,
+) {
+  return (
+    response.example ??
+    buildExampleFromSchema(
+      response.schema,
+      openApiDocument,
+      undefined,
+      exampleStrings,
+    )
+  );
 }
 
 interface ApiDocsEndpointsSectionProps {
@@ -81,25 +96,11 @@ export function ApiDocsEndpointsSection({
 
   const handleCopySnippet = async (operationId: string, snippet: string) => {
     if (!snippet.trim()) return;
-    try {
-      await navigator.clipboard.writeText(snippet);
+    const copied = await copyTextToClipboard(snippet);
+    if (copied) {
       setCopiedOperationId(operationId);
-      return;
-    } catch {
-      // fallback below
-    }
-
-    try {
-      const textarea = document.createElement("textarea");
-      textarea.value = snippet;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopiedOperationId(operationId);
-    } catch {
+      appToast.copied(tSnippets("copied"));
+    } else {
       setCopiedOperationId(null);
     }
   };
@@ -113,47 +114,37 @@ export function ApiDocsEndpointsSection({
           ? tNav(tagIdMap[section.title])
           : section.title;
         return (
-          <section
-            key={section.id}
-            id={section.id}
-            className="flex flex-col gap-8 scroll-mt-32"
-          >
-            <div className="flex items-center gap-4">
-              <h2 className="flex items-center gap-3 text-2xl font-bold text-white tracking-tight">
-                <Icon className="h-5 w-5 text-primary" />
-                {sectionTitle}
-              </h2>
-              <Badge
-                variant={isVideo ? "primary" : "muted"}
-                className={cn(
-                  "rounded px-2 py-0.5 text-[10px]",
-                  isVideo
-                    ? "bg-primary text-black"
-                    : "border border-white/5 bg-white/10 text-gray-400",
-                )}
-              >
-                {isVideo
-                  ? tCommonLabels("beta")
-                  : tCommonLabels("version", { version: apiVersion })}
-              </Badge>
-            </div>
-
-            <div className="flex flex-col gap-10">
-              {section.operations.map((operation) => {
+          <section key={section.id} id={section.id} className="scroll-mt-32">
+            <AppDocsSectionCard
+              eyebrow={<AppBadge variant="muted">{section.id}</AppBadge>}
+              title={
+                <span className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-primary" />
+                  {sectionTitle}
+                </span>
+              }
+              action={
+                <AppBadge
+                  variant={isVideo ? "primary" : "muted"}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px]",
+                    isVideo
+                      ? "bg-primary text-black"
+                      : "border border-white/5 bg-white/10 text-gray-400",
+                  )}
+                >
+                  {isVideo
+                    ? tCommonLabels("beta")
+                    : tCommonLabels("version", { version: apiVersion })}
+                </AppBadge>
+              }
+            >
+              <div className="flex flex-col gap-10">
+                {section.operations.map((operation) => {
                 const request = operation.request;
-                const primaryResponse = getPrimaryResponse(operation.responses);
                 const requestExample = request?.schema
                   ? buildExampleFromSchema(
                       request.schema,
-                      openApiDocument,
-                      undefined,
-                      exampleStrings,
-                    )
-                  : null;
-                const responseExample = primaryResponse
-                  ? primaryResponse.example ??
-                    buildExampleFromSchema(
-                      primaryResponse.schema,
                       openApiDocument,
                       undefined,
                       exampleStrings,
@@ -179,11 +170,15 @@ export function ApiDocsEndpointsSection({
                   fileFields,
                 });
 
-                return (
-                  <div key={operation.id} className="flex flex-col gap-6">
+                  return (
+                    <div
+                      key={operation.id}
+                      id={operation.id}
+                      className="scroll-mt-32 flex flex-col gap-6"
+                    >
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-3">
-                        <Badge
+                        <AppBadge
                           variant="muted"
                           size="md"
                           className={cn(
@@ -193,7 +188,7 @@ export function ApiDocsEndpointsSection({
                           )}
                         >
                           {operation.method}
-                        </Badge>
+                        </AppBadge>
                         <code className="font-mono text-lg text-white">
                           {operation.path}
                         </code>
@@ -205,7 +200,7 @@ export function ApiDocsEndpointsSection({
                       ) : null}
                     </div>
 
-                    <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
+                    <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
                       <div className="flex flex-col gap-4 border-b border-white/5 bg-black px-4 py-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
@@ -223,17 +218,12 @@ export function ApiDocsEndpointsSection({
                             {orderedLanguages.map((language) => {
                               const isActive = language === selectedLanguage;
                               return (
-                                <Button
+                                <AppButton
                                   key={language}
                                   type="button"
-                                  size="sm"
-                                  variant={isActive ? "default" : "ghost"}
-                                  className={cn(
-                                    "h-7 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider",
-                                    isActive
-                                      ? "bg-primary text-black"
-                                      : "border border-white/10 text-gray-300 hover:bg-white/5",
-                                  )}
+                                  size="pill-sm"
+                                  variant={isActive ? "primary" : "tab"}
+                                  className="font-bold uppercase tracking-wider"
                                   aria-pressed={isActive}
                                   onClick={() =>
                                     setSnippetLanguagesById((prev) => ({
@@ -243,33 +233,38 @@ export function ApiDocsEndpointsSection({
                                   }
                                 >
                                   {tSnippets(`languages.${language}`)}
-                                </Button>
+                                </AppButton>
                               );
                             })}
                           </div>
-                          <Button
+                          <AppButton
                             type="button"
-                            size="sm"
+                            size="pill-sm"
                             variant="surface"
-                            className="h-7 rounded-full border-white/10 px-3 text-[11px] font-bold uppercase tracking-wider"
+                            className="text-xs font-semibold"
                             onClick={() =>
                               handleCopySnippet(operation.id, snippet)
                             }
                           >
+                            {copiedOperationId === operation.id ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
                             {copiedOperationId === operation.id
                               ? tSnippets("copied")
                               : tSnippets("copy")}
-                          </Button>
+                          </AppButton>
                         </div>
                       </div>
-                      <pre className="overflow-x-auto p-6 text-sm text-gray-300">
+                      <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
                         {snippet}
                       </pre>
                     </div>
 
                     {request?.properties?.length ? (
-                      <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
-                        <div className="border-b border-white/5 bg-white/5 px-6 py-4">
+                      <div className="rounded-2xl border border-white/8 bg-transparent shadow-none">
+                        <div className="border-b border-white/8 px-6 py-4">
                           <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
                             {tEndpoints("requestParams")}
                           </span>
@@ -285,26 +280,26 @@ export function ApiDocsEndpointsSection({
                                   <code className="font-mono font-bold text-primary">
                                     {param.name}
                                   </code>
-                                  <Badge
+                                  <AppBadge
                                     variant="muted"
                                     className="rounded bg-white/10 px-2 py-0.5 font-mono uppercase text-gray-400"
                                   >
                                     {param.typeLabel}
-                                  </Badge>
+                                  </AppBadge>
                                 </div>
-                                <Badge
+                                <AppBadge
                                   variant="muted"
                                   className={cn(
-                                    "text-[10px] font-bold uppercase tracking-wider",
+                                    "w-fit self-start rounded-full bg-transparent px-2.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider",
                                     param.required
-                                      ? "text-destructive"
-                                      : "text-gray-500",
+                                      ? "border border-destructive/25 text-destructive"
+                                      : "border border-white/12 text-gray-500",
                                   )}
                                 >
                                   {param.required
                                     ? tEndpoints("required")
                                     : tEndpoints("optional")}
-                                </Badge>
+                                </AppBadge>
                               </div>
                               <div className="flex flex-col gap-2">
                                 {param.description ? (
@@ -320,88 +315,69 @@ export function ApiDocsEndpointsSection({
                     ) : null}
 
                     {requestExample ? (
-                      <div className="rounded-2xl border border-white/5 bg-black shadow-lg">
+                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
                         <div className="flex items-center justify-between border-b border-white/5 bg-black px-4 py-2">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
                             {tEndpoints("requestExample")}
                           </span>
                         </div>
-                        <pre className="overflow-x-auto p-6 text-sm text-gray-300">
+                        <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
                           {formatJson(requestExample)}
                         </pre>
                       </div>
                     ) : null}
 
-                    {primaryResponse ? (
-                      <div className="rounded-2xl border border-white/5 bg-surface-dark shadow-lg">
-                        <div className="flex items-center justify-between border-b border-white/5 bg-surface-lighter px-4 py-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            {tEndpoints("responseExample")}
-                          </span>
-                          <Badge
-                            variant="primary"
-                            className="px-2 py-0.5 text-[10px] font-mono"
-                          >
-                            {primaryResponse.status}
-                          </Badge>
-                        </div>
-                        <pre className="overflow-x-auto p-6 text-sm text-gray-300">
-                          {formatJson(
-                            responseExample ?? {
-                              message:
-                                primaryResponse.description ??
-                                tEndpoints("responseFallback"),
-                            },
-                          )}
-                        </pre>
-                      </div>
-                    ) : null}
-
-                    {operation.responses.length > 1 ? (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {operation.responses
-                          .filter((response) => response !== primaryResponse)
-                          .map((response) => {
-                            const responsePayload =
-                              response.example ??
-                              buildExampleFromSchema(
-                                response.schema,
-                                openApiDocument,
-                                undefined,
-                                exampleStrings,
-                              );
+                    {operation.responses.length ? (
+                      <div className="flex flex-col gap-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          {tEndpoints("responseExample")}
+                        </span>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {operation.responses.map((response) => {
+                            const responsePayload = getResponsePayload(
+                              response,
+                              openApiDocument,
+                              exampleStrings,
+                            );
                             return (
                               <div
                                 key={response.status}
+                                data-testid="api-response-card"
                                 className="rounded-xl border border-white/5 bg-surface-dark p-4"
                               >
                                 <div className="flex items-center gap-3">
-                                  <Badge
+                                  <AppBadge
                                     variant="muted"
                                     size="md"
                                     className="px-2.5 py-1 text-gray-300"
                                   >
                                     {response.status}
-                                  </Badge>
+                                  </AppBadge>
                                   <span className="text-sm font-semibold text-white">
                                     {response.description ??
                                       tEndpoints("response")}
                                   </span>
                                 </div>
-                                {responsePayload ? (
-                                  <pre className="mt-3 max-h-48 overflow-x-auto text-xs text-gray-400">
-                                    {formatJson(responsePayload)}
-                                  </pre>
-                                ) : null}
+                                <pre className="app-scrollbar mt-3 max-h-48 overflow-auto text-xs text-gray-400">
+                                  {formatJson(
+                                    responsePayload ?? {
+                                      message:
+                                        response.description ??
+                                        tEndpoints("responseFallback"),
+                                    },
+                                  )}
+                                </pre>
                               </div>
                             );
                           })}
+                        </div>
                       </div>
                     ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </AppDocsSectionCard>
           </section>
         );
       })}

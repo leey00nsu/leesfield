@@ -17,6 +17,12 @@ export type MonitoringOverview = {
   errorRate: number;
   avgLatencyMs: number | null;
   p95LatencyMs: number | null;
+  usageByType: {
+    image: number;
+    video: number;
+    audio: number;
+    other: number;
+  };
 };
 
 export type MonitoringStatsRow = {

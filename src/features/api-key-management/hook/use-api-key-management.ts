@@ -6,6 +6,7 @@ import {
   useApiKeys,
   type ApiKeyView,
 } from "@/features/api-key-management/hook/use-api-keys";
+import { copyTextToClipboard } from "@/shared/lib/clipboard";
 
 type ApiKeyStatusFilter = "all" | "active" | "revoked";
 
@@ -206,21 +207,9 @@ export function useApiKeyManagement() {
 
   const handleCopyPendingKey = async () => {
     if (!state.pendingKey?.apiKey) return;
-    try {
-      await navigator.clipboard.writeText(state.pendingKey.apiKey);
-    } catch {
-      // Clipboard API가 실패하는 환경을 대비한 textarea 폴백.
-      const textarea = document.createElement("textarea");
-      textarea.value = state.pendingKey.apiKey;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    }
-
-    actions.markCopied();
+    const copied = await copyTextToClipboard(state.pendingKey.apiKey);
+    if (copied) actions.markCopied();
+    return copied;
   };
 
   const dismissPendingKey = () => {

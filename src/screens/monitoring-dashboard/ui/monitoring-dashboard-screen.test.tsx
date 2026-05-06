@@ -1,0 +1,280 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { MonitoringDashboardScreen } from "@/screens/monitoring-dashboard/ui/monitoring-dashboard-screen";
+import { renderWithIntl } from "@/test-utils/intl";
+
+const mockUseMonitoringOverview = vi.hoisted(() => vi.fn());
+const mockUseMonitoringStats = vi.hoisted(() => vi.fn());
+const mockUseMonitoringRequests = vi.hoisted(() => vi.fn());
+const mockUseMonitoringTop = vi.hoisted(() => vi.fn());
+const mockUseMonitoringApiKeys = vi.hoisted(() => vi.fn());
+const mockUseMonitoringRequestDetail = vi.hoisted(() => vi.fn());
+const mockUseRuntimeModelCatalog = vi.hoisted(() => vi.fn());
+
+vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => ({
+  useMonitoringOverview: mockUseMonitoringOverview,
+  useMonitoringStats: mockUseMonitoringStats,
+  useMonitoringRequests: mockUseMonitoringRequests,
+  useMonitoringTop: mockUseMonitoringTop,
+  useMonitoringApiKeys: mockUseMonitoringApiKeys,
+  useMonitoringRequestDetail: mockUseMonitoringRequestDetail,
+}));
+
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
+  useRuntimeModelCatalog: mockUseRuntimeModelCatalog,
+}));
+
+beforeAll(() => {
+  const elementProto = HTMLElement.prototype as HTMLElement & {
+    hasPointerCapture?: (pointerId: number) => boolean;
+    setPointerCapture?: (pointerId: number) => void;
+    releasePointerCapture?: (pointerId: number) => void;
+  };
+  const nodeProto = Element.prototype as Element & {
+    scrollIntoView?: (arg?: boolean | ScrollIntoViewOptions) => void;
+  };
+
+  elementProto.hasPointerCapture ??= () => false;
+  elementProto.setPointerCapture ??= () => {};
+  elementProto.releasePointerCapture ??= () => {};
+  nodeProto.scrollIntoView ??= () => {};
+});
+
+beforeEach(() => {
+  mockUseMonitoringOverview.mockReturnValue({
+    data: {
+      activeCount: 12,
+      totalCount: 6800,
+      failedCount: 8,
+      errorRate: 0.0058,
+      avgLatencyMs: 320,
+      p95LatencyMs: 920,
+      usageByType: {
+        image: 4080,
+        video: 1700,
+        audio: 1020,
+        other: 0,
+      },
+    },
+    isLoading: false,
+    error: null,
+  });
+  mockUseMonitoringStats.mockReturnValue({
+    data: {
+      items: [
+        {
+          day: "2026-04-28",
+          total: 120,
+          failed: 1,
+          errorRate: 0.004,
+          avgLatencyMs: 280,
+          p95LatencyMs: 820,
+        },
+        {
+          day: "2026-04-29",
+          total: 180,
+          failed: 2,
+          errorRate: 0.006,
+          avgLatencyMs: 320,
+          p95LatencyMs: 920,
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  });
+  mockUseMonitoringRequests.mockReturnValue({
+    data: {
+      updatedAt: "2026-04-30T06:00:00.000Z",
+      total: 1,
+      limit: 50,
+      offset: 0,
+      items: [
+        {
+          id: "req-1",
+          type: "image",
+          status: "completed",
+          model: "Flux Pro 1.1",
+          createdAt: "2026-04-30T05:58:00.000Z",
+          durationMs: 18_000,
+          apiKeyLabel: "UI request",
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  });
+  mockUseMonitoringTop.mockReturnValue({
+    data: {
+      metric: "requests",
+      limit: 5,
+      models: [
+        {
+          key: "flux",
+          label: "Flux Pro 1.1",
+          total: 120,
+          failed: 1,
+          errorRate: 0.004,
+          avgLatencyMs: 320,
+          p95LatencyMs: 920,
+        },
+      ],
+      apiKeys: [],
+    },
+    isLoading: false,
+    error: null,
+  });
+  mockUseMonitoringApiKeys.mockReturnValue({
+    data: {
+      items: [
+        {
+          id: "key-1",
+          maskedKey: "lf_live_1234",
+          status: "active",
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  });
+  mockUseRuntimeModelCatalog.mockReturnValue({
+    items: [
+      {
+        key: "flux",
+        label: "Flux Pro 1.1",
+        type: "image",
+        vendor: "flux",
+        provider: "internal",
+        parameters: {},
+        meta: {},
+        isActive: true,
+        isDefault: true,
+      },
+    ],
+    isLoading: false,
+    error: null,
+  });
+  mockUseMonitoringRequestDetail.mockReturnValue({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+});
+
+describe("MonitoringDashboardScreen", () => {
+  it("운영 대시보드 카드와 최근 작업 영역을 표시한다", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithIntl(<MonitoringDashboardScreen />);
+
+    expect(screen.getByText("성공률")).toBeInTheDocument();
+    expect(screen.getByText("활성 작업")).toBeInTheDocument();
+    expect(screen.getAllByText("요청 수").length).toBeGreaterThan(0);
+    expect(screen.getByText("최근 작업")).toBeInTheDocument();
+    expect(screen.getByText("트래픽 & 오류")).toBeInTheDocument();
+    expect(screen.queryByText("주의")).not.toBeInTheDocument();
+    expect(screen.queryByText("기간 내")).not.toBeInTheDocument();
+    expect(screen.queryByText("평균")).not.toBeInTheDocument();
+    expect(screen.queryByText("성공 비율")).not.toBeInTheDocument();
+    expect(screen.queryByText("Top N 지표")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("검색...")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이미지" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "비디오" })).toBeInTheDocument();
+    expect(screen.getByLabelText("시작일")).toBeInTheDocument();
+    expect(screen.getByLabelText("종료일")).toBeInTheDocument();
+    expect(container.querySelector('input[type="date"]')).toBeNull();
+    await user.click(screen.getByLabelText("시작일"));
+    expect(document.querySelector("[data-app-calendar]")).toBeTruthy();
+    expect(screen.getByLabelText("상태")).toBeInTheDocument();
+    expect(screen.getByLabelText("모델")).toBeInTheDocument();
+    expect(screen.getByLabelText("API 키")).toBeInTheDocument();
+    expect(mockUseMonitoringTop).not.toHaveBeenCalled();
+    expect(mockUseMonitoringApiKeys).toHaveBeenCalled();
+    expect(mockUseRuntimeModelCatalog).toHaveBeenCalled();
+    expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "all",
+        status: "all",
+        model: null,
+        apiKeyId: null,
+      }),
+    );
+    expect(screen.queryByText("서비스 상태")).not.toBeInTheDocument();
+    expect(screen.queryByText("알림")).not.toBeInTheDocument();
+    expect(screen.queryByText("모델 상태")).not.toBeInTheDocument();
+    expect(screen.queryByText("스토리지 상태")).not.toBeInTheDocument();
+    expect(screen.getByText("선택한 기간 기준 사용량")).toBeInTheDocument();
+    expect(screen.getByText("99.42%")).toHaveClass("font-sans");
+    expect(screen.getByText("99.42%")).not.toHaveClass("font-serif");
+    expect(
+      container.querySelectorAll("[data-monitoring-kpi-chart]"),
+    ).toHaveLength(3);
+    expect(container.querySelector("[data-monitoring-usage-pie]")).toBeTruthy();
+    expect(screen.getAllByText("이미지").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("비디오").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("오디오").length).toBeGreaterThan(1);
+    expect(screen.getByText("기타")).toBeInTheDocument();
+  });
+
+  it("필터 변경을 monitoring query에 반영한다", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<MonitoringDashboardScreen />);
+
+    await user.click(screen.getByRole("button", { name: "이미지" }));
+
+    await waitFor(() => {
+      expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: "image",
+          status: "all",
+        }),
+      );
+    });
+    expect(mockUseMonitoringRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "image",
+      }),
+      expect.objectContaining({
+        limit: 50,
+        offset: 0,
+      }),
+    );
+  });
+
+  it("최근 작업을 클릭하면 요청 상세를 연다", async () => {
+    const user = userEvent.setup();
+    mockUseMonitoringRequestDetail.mockImplementation(
+      (_type: "image" | "video" | null, requestId: string | null) => ({
+        data: requestId
+          ? {
+              id: "req-1",
+              type: "image",
+              status: "completed",
+              model: "Flux Pro 1.1",
+              prompt: "A cinematic product shot",
+              createdAt: "2026-04-30T05:58:00.000Z",
+              updatedAt: "2026-04-30T05:58:18.000Z",
+              durationMs: 18_000,
+              progress: 100,
+              errorMessage: null,
+              warningMessage: null,
+              inputImages: [],
+              inputAudios: [],
+              referenceText: null,
+              assets: [],
+            }
+          : null,
+        isLoading: false,
+        error: null,
+      }),
+    );
+
+    renderWithIntl(<MonitoringDashboardScreen />);
+
+    await user.click(within(screen.getByRole("table")).getByText("Flux Pro 1.1"));
+
+    await waitFor(() => {
+      expect(screen.getByText("요청 상세")).toBeInTheDocument();
+    });
+  });
+});
