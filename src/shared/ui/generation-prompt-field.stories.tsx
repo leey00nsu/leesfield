@@ -6,6 +6,8 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 
+type PromptPreviewModality = "image" | "video" | "audio";
+
 const imageModels = [
   {
     id: "gpt-image-2",
@@ -32,16 +34,56 @@ const imageModels = [
   modalities: string[];
 }>;
 
-function PromptFieldPreview() {
+const modalityCopy: Record<
+  PromptPreviewModality,
+  { label: string; prompt: string; count: string; summary: string }
+> = {
+  image: {
+    label: "Describe the image you want to generate...",
+    prompt:
+      "A reflective product study on a black glass table, lime rim light, editorial composition.",
+    count: "118자",
+    summary: "16:9",
+  },
+  video: {
+    label: "Describe the motion, camera, and scene...",
+    prompt:
+      "A slow dolly shot through a midnight studio, soft practical lights, controlled motion.",
+    count: "104자",
+    summary: "5s",
+  },
+  audio: {
+    label: "Describe the voice, rhythm, or sound...",
+    prompt:
+      "A calm Korean narration with a warm studio tone, precise pacing, production-ready finish.",
+    count: "96자",
+    summary: "Vivian",
+  },
+};
+
+function PromptFieldPreview({
+  modality = "image",
+  surface = "default",
+  disabled = false,
+  generating = false,
+}: {
+  modality?: PromptPreviewModality;
+  surface?: "default" | "hero";
+  disabled?: boolean;
+  generating?: boolean;
+}) {
   const [modelId, setModelId] = useState<(typeof imageModels)[number]["id"]>(
     "gpt-image-2",
   );
+  const copy = modalityCopy[modality];
 
   return (
     <div className="min-h-screen bg-background px-6 py-12">
       <div className="mx-auto max-w-5xl">
         <GenerationPromptField
           ariaLabel="Storybook generation prompt"
+          surface={surface}
+          promptMeta={copy.count}
           textarea={
             <>
               <label htmlFor="storybook-prompt" className="sr-only">
@@ -49,9 +91,10 @@ function PromptFieldPreview() {
               </label>
               <textarea
                 id="storybook-prompt"
+                disabled={disabled || generating}
                 className="h-28 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
-                placeholder="Describe the image, video, or audio you want to generate..."
-                defaultValue="A reflective product study on a black glass table, lime rim light, editorial composition."
+                placeholder={copy.label}
+                defaultValue={copy.prompt}
               />
             </>
           }
@@ -65,7 +108,7 @@ function PromptFieldPreview() {
               />
               <GenerationSettingsPopover
                 label="설정"
-                summary="16:9"
+                summary={copy.summary}
                 icon={<SlidersHorizontal className="h-4 w-4 text-white/62" />}
               >
                 <div className="space-y-4 text-sm text-white/72">
@@ -93,13 +136,13 @@ function PromptFieldPreview() {
           }
           footerRight={
             <>
-              <span className="hidden text-xs text-white/42 sm:inline">118자</span>
               <AppButton
                 type="button"
                 size="lg"
+                disabled={disabled || generating}
                 className="h-12 rounded-xl px-8 normal-case tracking-normal"
               >
-                생성
+                {generating ? "생성 중" : "생성"}
                 <Sparkles className="h-4 w-4" />
               </AppButton>
             </>
@@ -113,6 +156,24 @@ function PromptFieldPreview() {
 const meta = {
   title: "Project Design/Generation/PromptField",
   component: PromptFieldPreview,
+  args: {
+    modality: "image",
+    surface: "default",
+    disabled: false,
+    generating: false,
+  },
+  argTypes: {
+    modality: {
+      control: "select",
+      options: ["image", "video", "audio"],
+    },
+    surface: {
+      control: "select",
+      options: ["default", "hero"],
+    },
+    disabled: { control: "boolean" },
+    generating: { control: "boolean" },
+  },
 } satisfies Meta<typeof PromptFieldPreview>;
 
 export default meta;
@@ -120,3 +181,21 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ImagePrompt: Story = {};
+
+export const HeroPrompt: Story = {
+  args: {
+    surface: "hero",
+  },
+};
+
+export const VideoPrompt: Story = {
+  args: {
+    modality: "video",
+  },
+};
+
+export const AudioPrompt: Story = {
+  args: {
+    modality: "audio",
+  },
+};
