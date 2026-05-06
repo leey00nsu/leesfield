@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
 import {
@@ -13,6 +13,7 @@ import {
   type ApiDocsNavItem,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
 import { AppCard } from "@/shared/ui/app-card";
+import { AppButton } from "@/shared/ui/app-button";
 import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 import { cn } from "@/shared/lib/utils";
 
@@ -36,6 +37,7 @@ export function ApiDocsSidebar({
   const t = useTranslations("apiDocs.sidebar");
   const tNav = useTranslations("apiDocs.sidebar.nav");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const generalItems: ApiDocsNavItem[] = useMemo(
     () =>
       generalNavItems.map((item) => ({
@@ -138,84 +140,111 @@ export function ApiDocsSidebar({
         className="flex rounded-[1.25rem] border-white/10 bg-[#0b0d0e] p-4 lg:hidden"
       >
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white">
-              {t("reference")}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-white">
+                {t("reference")}
+              </div>
+              <div className="mt-1 text-[11px] text-white/38">{apiVersion}</div>
             </div>
-            <div className="mt-1 text-[11px] text-white/38">{apiVersion}</div>
+            <AppButton
+              type="button"
+              variant="surface"
+              size="icon-sm"
+              aria-label={t("reference")}
+              aria-expanded={mobileNavOpen}
+              aria-controls="api-docs-mobile-navigation"
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              {mobileNavOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+            </AppButton>
           </div>
-          <AppSearchField
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("searchPlaceholder")}
-          />
-          <nav
-            aria-label={t("reference")}
-            className="app-scrollbar flex gap-2 overflow-x-auto pb-1"
-          >
-            {filteredGeneralItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSectionId === item.id;
-              return (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className={cn(
-                    "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors",
-                    isActive
-                      ? "border-primary/35 bg-primary/10 text-primary"
-                      : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </a>
-              );
-            })}
-            {filteredEndpointItems.flatMap((item) => {
-              const Icon = item.icon;
-              const isActive =
-                activeSectionId === item.id ||
-                item.operations.some(
-                  (operation) => operation.id === activeSectionId,
-                );
-              return [
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className={cn(
-                    "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors",
-                    isActive
-                      ? "border-primary/35 bg-primary/10 text-primary"
-                      : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </a>,
-                ...item.operations.map((operation) => (
-                  <a
-                    key={operation.id}
-                    href={`#${operation.id}`}
-                    className={cn(
-                      "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 font-mono text-xs transition-colors",
-                      activeSectionId === operation.id
-                        ? "border-primary/35 bg-primary/10 text-primary"
-                        : "border-white/10 bg-black/16 text-white/50 hover:bg-white/[0.04] hover:text-white",
-                    )}
-                  >
-                    <span className="font-bold uppercase">{operation.method}</span>
-                    <span>{operation.path}</span>
-                  </a>
-                )),
-              ];
-            })}
-            {!filteredGeneralItems.length && !filteredEndpointItems.length ? (
-              <span className="inline-flex h-10 shrink-0 items-center rounded-full border border-white/10 px-3 text-sm text-white/36">
-                {t("noResults")}
-              </span>
-            ) : null}
-          </nav>
+          {mobileNavOpen ? (
+            <div id="api-docs-mobile-navigation" className="grid gap-3">
+              <AppSearchField
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("searchPlaceholder")}
+              />
+              <nav
+                aria-label={t("reference")}
+                className="app-scrollbar flex max-h-[22rem] flex-col gap-2 overflow-y-auto pr-1"
+              >
+                {filteredGeneralItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeSectionId === item.id;
+                  return (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      className={cn(
+                        "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                        isActive
+                          ? "border-primary/35 bg-primary/10 text-primary"
+                          : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                      )}
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </a>
+                  );
+                })}
+                {filteredEndpointItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive =
+                    activeSectionId === item.id ||
+                    item.operations.some(
+                      (operation) => operation.id === activeSectionId,
+                    );
+                  return (
+                    <div key={item.id} className="grid gap-1">
+                      <a
+                        href={`#${item.id}`}
+                        className={cn(
+                          "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                          isActive
+                            ? "border-primary/35 bg-primary/10 text-primary"
+                            : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                        )}
+                        onClick={() => setMobileNavOpen(false)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </a>
+                      {item.operations.map((operation) => (
+                        <a
+                          key={operation.id}
+                          href={`#${operation.id}`}
+                          className={cn(
+                            "ml-4 inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 font-mono text-xs transition-colors",
+                            activeSectionId === operation.id
+                              ? "border-primary/35 bg-primary/10 text-primary"
+                              : "border-white/10 bg-black/16 text-white/50 hover:bg-white/[0.04] hover:text-white",
+                          )}
+                          onClick={() => setMobileNavOpen(false)}
+                        >
+                          <span className="font-bold uppercase">
+                            {operation.method}
+                          </span>
+                          <span className="min-w-0 truncate">{operation.path}</span>
+                        </a>
+                      ))}
+                    </div>
+                  );
+                })}
+                {!filteredGeneralItems.length && !filteredEndpointItems.length ? (
+                  <span className="inline-flex min-h-10 items-center rounded-xl border border-white/10 px-3 text-sm text-white/36">
+                    {t("noResults")}
+                  </span>
+                ) : null}
+              </nav>
+            </div>
+          ) : null}
         </div>
       </AppCard>
 

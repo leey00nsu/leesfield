@@ -1,4 +1,5 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithIntl } from "@/test-utils/intl";
 import { getOpenApiDocument } from "@/features/api-docs/model/openapi";
 import { ApiDocsWidget } from "@/widgets/api-docs/ui/api-docs-widget";
@@ -11,7 +12,8 @@ describe("ApiDocsWidget", () => {
     }
   });
 
-  it("API 문서 주요 섹션이 렌더링된다", () => {
+  it("API 문서 주요 섹션이 렌더링된다", async () => {
+    const user = userEvent.setup();
     const openApiDocument = getOpenApiDocument();
 
     const { container } = renderWithIntl(
@@ -35,7 +37,17 @@ describe("ApiDocsWidget", () => {
         .length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByRole("navigation", { name: "API 레퍼런스" }),
+      screen.queryByRole("navigation", { name: "API 레퍼런스" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "API 레퍼런스" }));
+
+    const mobileNavigation = screen.getByRole("navigation", { name: "API 레퍼런스" });
+    expect(mobileNavigation).toBeInTheDocument();
+    expect(
+      within(mobileNavigation.parentElement ?? mobileNavigation).getByPlaceholderText(
+        "엔드포인트 검색...",
+      ),
     ).toBeInTheDocument();
   });
 });
