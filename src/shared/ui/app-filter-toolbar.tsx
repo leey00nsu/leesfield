@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
+import { appInputShellClassName } from "@/shared/ui/app-input";
 import { Input } from "@/shared/ui/input";
 import {
   AppSelectContent,
@@ -90,7 +91,10 @@ type AppSearchFieldProps = Omit<ComponentProps<typeof Input>, "size"> & {
 };
 
 export const appSearchFieldSurfaceClassName =
-  "flex h-14 w-full min-w-0 items-center gap-4 rounded-[1.5rem] border border-white/10 bg-black/45 px-5 text-white shadow-xs transition-colors focus-within:border-primary";
+  cn(
+    appInputShellClassName,
+    "flex w-full min-w-0 items-center gap-4 px-5 focus-within:border-primary",
+  );
 
 export function AppSearchField({
   className,

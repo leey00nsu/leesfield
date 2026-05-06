@@ -145,7 +145,9 @@ describe("app-* design wrapper boundaries", () => {
     );
 
     expect(appInput).toContain("appInputSurfaceClassName");
+    expect(appInput).toContain("appInputShellClassName");
     expect(appFilterToolbar).toContain("appSearchFieldSurfaceClassName");
+    expect(appFilterToolbar).toContain("appInputShellClassName");
     expect(appFilterToolbar).toContain("data-app-search-surface");
     expect(appFilterToolbar).toContain("data-app-search-input");
     expect(appFilterToolbar).toContain("dark:bg-transparent");

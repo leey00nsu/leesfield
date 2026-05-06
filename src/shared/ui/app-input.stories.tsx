@@ -32,7 +32,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   render: (args) => (
-    <div className="w-[320px] rounded-2xl border border-white/10 bg-surface-dark p-5">
+    <div className="w-[340px] rounded-2xl border border-white/10 bg-surface-dark p-5">
       <AppInput {...args} />
     </div>
   ),
@@ -40,25 +40,23 @@ export const Default: Story = {
 
 export const InputAndSearch: Story = {
   render: () => (
-    <div className="grid w-[360px] gap-4 rounded-2xl border border-white/10 bg-surface-dark p-5">
+    <div className="grid w-[390px] gap-4 rounded-2xl border border-white/10 bg-surface-dark p-5">
       <AppInput aria-label="Model name" defaultValue="Leesfield Video" />
       <AppInput
         aria-label="Toolbar input"
         surface="toolbar"
-        inputSize="lg"
         defaultValue="Production API key"
       />
       <AppInput
         aria-label="Auth input"
         surface="auth"
-        inputSize="lg"
         defaultValue="creator@leesfield.local"
       />
       <AppSearchField
         aria-label="Search"
         placeholder="Search by prompt, model, or tags..."
       />
-      <div className="w-60">
+      <div className="w-[17rem]">
         <AppSearchField
           aria-label="Narrow search"
           placeholder="Search endpoints..."

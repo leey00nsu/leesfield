@@ -11,21 +11,24 @@ type AppInputProps = Omit<ComponentProps<typeof Input>, "size"> & {
   inputSize?: AppInputSize;
 };
 
+export const appInputShellClassName =
+  "h-14 rounded-[1.5rem] border border-white/10 bg-black/45 text-white shadow-xs transition-colors focus-visible:border-primary focus-visible:ring-0";
+
 export const appInputSurfaceClassName =
-  "w-full border border-white/10 text-white focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full disabled:cursor-not-allowed disabled:opacity-60";
 
 const appInputSurfaceClassNames: Record<AppInputSurface, string> = {
-  default: "rounded-xl bg-black/40 px-4 text-sm",
+  default: "px-5 text-sm placeholder:text-white/38",
   toolbar:
-    "rounded-[1.5rem] bg-black/45 px-5 font-mono text-sm placeholder:text-white/38 focus-visible:ring-0",
+    "px-5 font-mono text-sm placeholder:text-white/38",
   auth:
-    "rounded-xl border-white/12 bg-[#111417] px-5 text-base placeholder:text-gray-500 focus-visible:ring-primary/70",
+    "px-5 text-base placeholder:text-white/38",
   transparent:
     "rounded-none border-0 bg-transparent shadow-none focus-visible:border-transparent focus-visible:ring-0",
 };
 
 const appInputSizeClassNames: Record<AppInputSize, string> = {
-  md: "h-11",
+  md: "h-14",
   lg: "h-14",
 };
 
@@ -41,6 +44,7 @@ export function AppInput({
       data-surface={surface}
       className={cn(
         appInputSurfaceClassName,
+        surface === "transparent" ? null : appInputShellClassName,
         appInputSizeClassNames[inputSize],
         appInputSurfaceClassNames[surface],
         className,
