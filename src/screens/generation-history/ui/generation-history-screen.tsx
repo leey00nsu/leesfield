@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AudioLines,
   Copy,
@@ -297,6 +297,7 @@ function HistoryDetailOverlay({
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
   const detailQuery = useMonitoringRequestDetail(item.type, item.id, true);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const detail = detailQuery.data ?? null;
   const hydratedItem = hydrateHistoryItem(item, detail);
   const previewUrl = hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl;
@@ -348,6 +349,24 @@ function HistoryDetailOverlay({
   const resultUrl = hydratedItem.resultUrl ?? null;
   const thumbnailUrl = hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl ?? null;
   const warningMessage = detail?.warningMessage ?? null;
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
 
   const settingsRows = [
     { label: tHistory("detail.model"), value: formatFallback(hydratedItem.model) },
@@ -546,9 +565,11 @@ function HistoryDetailOverlay({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={tHistory("detail.title")}
+      tabIndex={-1}
       className="fixed inset-0 z-50 grid bg-black/88 text-white lg:grid-cols-[1fr_25rem]"
     >
       <div

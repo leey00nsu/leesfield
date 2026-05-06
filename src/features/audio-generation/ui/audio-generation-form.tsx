@@ -810,24 +810,28 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                         : ""}
                     </div>
                     <div className="flex items-center gap-2">
-                      <a
-                        href={audio.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                        title={tActions("open")}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                      {downloadUrl ? (
+                      <AppButton asChild variant="surface" size="icon-sm">
                         <a
-                          href={downloadUrl}
-                          download
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                          title={tActions("download")}
+                          href={audio.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={tActions("open")}
+                          aria-label={tActions("open")}
                         >
-                          <Download className="h-4 w-4" />
+                          <ExternalLink className="h-4 w-4" />
                         </a>
+                      </AppButton>
+                      {downloadUrl ? (
+                        <AppButton asChild variant="surface" size="icon-sm">
+                          <a
+                            href={downloadUrl}
+                            download
+                            title={tActions("download")}
+                            aria-label={tActions("download")}
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </AppButton>
                       ) : null}
                     </div>
                   </div>

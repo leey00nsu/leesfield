@@ -169,4 +169,30 @@ describe("MonitoringRequestTable", () => {
       expect(screen.getByText("요청 상세")).toBeInTheDocument();
     });
   });
+
+  it("로딩 중에는 빈 박스 대신 요청 테이블 skeleton 행을 표시한다", () => {
+    mockUseMonitoringRequestDetail.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+
+    renderWithIntl(
+      <MonitoringRequestTable
+        items={[]}
+        total={120}
+        limit={20}
+        offset={0}
+        onLimitChange={vi.fn()}
+        onOffsetChange={vi.fn()}
+        isLoading={true}
+        error={null}
+        updatedAt={null}
+        timeZone="UTC"
+      />,
+    );
+
+    expect(screen.getByTestId("monitoring-request-table-skeleton")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
 });

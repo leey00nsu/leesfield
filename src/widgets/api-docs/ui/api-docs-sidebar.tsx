@@ -82,7 +82,7 @@ export function ApiDocsSidebar({
     return endpointItems
       .map((item) => {
         const sectionMatches =
-        item.label.toLowerCase().includes(normalizedQuery) ||
+          item.label.toLowerCase().includes(normalizedQuery) ||
           item.id.toLowerCase().includes(normalizedQuery);
         const operations = item.operations.filter(
           (operation) =>
@@ -132,7 +132,94 @@ export function ApiDocsSidebar({
   };
 
   return (
-    <aside className="hidden w-72 shrink-0 lg:flex">
+    <>
+      <AppCard
+        variant="plain"
+        className="flex rounded-[1.25rem] border-white/10 bg-[#0b0d0e] p-4 lg:hidden"
+      >
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-white">
+              {t("reference")}
+            </div>
+            <div className="mt-1 text-[11px] text-white/38">{apiVersion}</div>
+          </div>
+          <AppSearchField
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+          />
+          <nav
+            aria-label={t("reference")}
+            className="app-scrollbar flex gap-2 overflow-x-auto pb-1"
+          >
+            {filteredGeneralItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSectionId === item.id;
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className={cn(
+                    "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors",
+                    isActive
+                      ? "border-primary/35 bg-primary/10 text-primary"
+                      : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </a>
+              );
+            })}
+            {filteredEndpointItems.flatMap((item) => {
+              const Icon = item.icon;
+              const isActive =
+                activeSectionId === item.id ||
+                item.operations.some(
+                  (operation) => operation.id === activeSectionId,
+                );
+              return [
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className={cn(
+                    "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors",
+                    isActive
+                      ? "border-primary/35 bg-primary/10 text-primary"
+                      : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </a>,
+                ...item.operations.map((operation) => (
+                  <a
+                    key={operation.id}
+                    href={`#${operation.id}`}
+                    className={cn(
+                      "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 font-mono text-xs transition-colors",
+                      activeSectionId === operation.id
+                        ? "border-primary/35 bg-primary/10 text-primary"
+                        : "border-white/10 bg-black/16 text-white/50 hover:bg-white/[0.04] hover:text-white",
+                    )}
+                  >
+                    <span className="font-bold uppercase">{operation.method}</span>
+                    <span>{operation.path}</span>
+                  </a>
+                )),
+              ];
+            })}
+            {!filteredGeneralItems.length && !filteredEndpointItems.length ? (
+              <span className="inline-flex h-10 shrink-0 items-center rounded-full border border-white/10 px-3 text-sm text-white/36">
+                {t("noResults")}
+              </span>
+            ) : null}
+          </nav>
+        </div>
+      </AppCard>
+
+      <aside className="hidden w-72 shrink-0 lg:flex">
       <AppCard
         variant="plain"
         className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.25rem] border-white/10 bg-[#0b0d0e] p-4"
@@ -269,6 +356,7 @@ export function ApiDocsSidebar({
           </div>
         </nav>
       </AppCard>
-    </aside>
+      </aside>
+    </>
   );
 }

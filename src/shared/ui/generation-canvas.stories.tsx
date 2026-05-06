@@ -32,7 +32,7 @@ const meta = {
     hasContent: true,
     actions,
     children: (
-      <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_50%_20%,rgba(212,240,50,0.18),transparent_30%),linear-gradient(135deg,#20251c,#080908)]">
+      <div className="grid h-full w-full place-items-center bg-[#111417]">
         <div className="rounded-full border border-primary/30 bg-black/28 px-5 py-2 text-sm font-semibold text-white/78">
           Generated result preview
         </div>

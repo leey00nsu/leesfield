@@ -450,23 +450,27 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                           />
                           <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
                           <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
-                            <a
-                              href={image.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                              title={tActions("open")}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                            <a
-                              href={downloadUrl}
-                              download
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                              title={tActions("download")}
-                            >
-                              <Download className="h-4 w-4" />
-                            </a>
+                            <AppButton asChild variant="surface" size="icon-sm">
+                              <a
+                                href={image.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={tActions("open")}
+                                aria-label={tActions("open")}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </AppButton>
+                            <AppButton asChild variant="surface" size="icon-sm">
+                              <a
+                                href={downloadUrl}
+                                download
+                                title={tActions("download")}
+                                aria-label={tActions("download")}
+                              >
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </AppButton>
                           </div>
                         </div>
                       );

@@ -207,7 +207,7 @@ export function MonitoringRequestTable({
     <AppCard variant="editorial-flat" radius="lg" padding="lg">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-              <div className="text-xl font-semibold text-white">
+          <div className="text-xl font-semibold text-white">
             {t("requests.title")}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white/38">
@@ -222,7 +222,7 @@ export function MonitoringRequestTable({
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-primary">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           {updatedAt ? t("requests.updated", { time: formatDateTime(updatedAt) }) : t("requests.updating")}
         </div>
       </div>
@@ -233,7 +233,24 @@ export function MonitoringRequestTable({
             {error}
           </div>
         ) : isLoading ? (
-          <div className="h-48 rounded-xl border border-white/10 bg-background-dark/50" />
+          <div
+            data-testid="monitoring-request-table-skeleton"
+            className="grid gap-2 rounded-xl border border-white/10 bg-background-dark/50 p-3"
+          >
+            {Array.from({ length: 5 }, (_, index) => (
+              <div
+                key={index}
+                className="grid min-w-[720px] grid-cols-[1.35fr_1fr_1fr_0.75fr_0.85fr_2rem] items-center gap-4 rounded-lg border border-white/[0.045] px-3 py-3"
+              >
+                <span className="h-4 rounded-full bg-white/10" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-4 rounded-full bg-white/8" />
+                <span className="h-6 rounded-full bg-white/10" />
+                <span className="h-4 rounded-full bg-white/8" />
+              </div>
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-background-dark/50 text-sm text-gray-400">
             {t("requests.empty")}

@@ -31,7 +31,11 @@ describe("ApiDocsWidget", () => {
     expect(container.querySelector("[data-app-badge]")).toBeTruthy();
     expect(container.querySelector(".sticky")).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: /POST\/api\/external\/image-generation/i }),
-    ).toBeTruthy();
+      screen.getAllByRole("link", { name: /POST\/api\/external\/image-generation/i })
+        .length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("navigation", { name: "API 레퍼런스" }),
+    ).toBeInTheDocument();
   });
 });

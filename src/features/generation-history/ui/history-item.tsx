@@ -106,7 +106,7 @@ export function HistoryItem({
               preload="metadata"
             />
           ) : isAudio ? (
-            <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_50%_42%,rgba(212,240,50,0.2),transparent_34%),#090b0d]">
+            <div className="flex h-full items-center justify-center bg-[#0b0d0e]">
               <AudioLines className="h-12 w-12 text-primary" />
             </div>
           ) : (
@@ -121,10 +121,10 @@ export function HistoryItem({
             />
           )
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle,#343a3d_1px,transparent_1px)] bg-[length:18px_18px] opacity-30" />
+          <div className="absolute inset-0 bg-white/[0.045]" />
         )}
 
-        <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
+        <div className="absolute inset-0 bg-black/58 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
           <AppBadge variant="overlay" className="gap-1.5 backdrop-blur">

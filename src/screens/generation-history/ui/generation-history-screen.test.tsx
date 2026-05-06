@@ -274,6 +274,32 @@ describe("GenerationHistoryScreen", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("locks body scroll while detail overlay is open and closes on Escape", () => {
+    useGenerationHistoryListMock.mockReturnValue({
+      items: [detailFixture],
+      total: 1,
+      isLoading: false,
+      error: null,
+      sentinelRef: { current: null },
+      removeItem: vi.fn(),
+    });
+    document.body.style.overflow = "";
+
+    renderWithIntl(<GenerationHistoryScreen />);
+
+    fireEvent.click(screen.getByTestId("history-list"));
+
+    expect(screen.getByRole("dialog", { name: "결과 상세" })).toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("dialog", { name: "결과 상세" }),
+    ).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+  });
+
   it("hydrates missing rail metadata from the canonical request detail response", () => {
     const staleListItem = {
       ...detailFixture,

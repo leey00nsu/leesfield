@@ -32,15 +32,15 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
               apiVersion={apiVersion}
             />
 
-            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-white/10" />
 
             <ApiDocsAuthSection />
 
-            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-white/10" />
 
             <ApiDocsErrorSection />
 
-            <div className="h-px bg-linear-to-r from-white/10 to-transparent" />
+            <div className="h-px bg-white/10" />
 
             {apiSections.length ? (
               <ApiDocsEndpointsSection

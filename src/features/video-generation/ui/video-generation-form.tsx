@@ -347,23 +347,27 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                 {primaryVideo.height ?? "--"}
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={primaryVideo.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                  title={tActions("open")}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-                <a
-                  href={primaryVideo.url}
-                  download
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-surface-dark/80 text-gray-200 transition-colors hover:border-primary hover:text-white"
-                  title={tActions("download")}
-                >
-                  <Download className="h-4 w-4" />
-                </a>
+                <AppButton asChild variant="surface" size="icon-sm">
+                  <a
+                    href={primaryVideo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={tActions("open")}
+                    aria-label={tActions("open")}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </AppButton>
+                <AppButton asChild variant="surface" size="icon-sm">
+                  <a
+                    href={primaryVideo.url}
+                    download
+                    title={tActions("download")}
+                    aria-label={tActions("download")}
+                  >
+                    <Download className="h-4 w-4" />
+                  </a>
+                </AppButton>
               </div>
             </div>
           ) : null}
