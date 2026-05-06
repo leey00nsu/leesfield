@@ -200,6 +200,7 @@ export function GenerationHistoryScreen() {
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder={tHistory("filters.searchPlaceholder")}
               aria-label={tHistory("filters.search")}
+              containerClassName="sm:flex-1"
             />
             <AppSortSelect
               value={sort}

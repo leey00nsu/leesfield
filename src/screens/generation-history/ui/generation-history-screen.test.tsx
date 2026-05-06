@@ -141,6 +141,11 @@ describe("GenerationHistoryScreen", () => {
     renderWithIntl(<GenerationHistoryScreen />);
 
     expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색...")).toBeInTheDocument();
+    expect(
+      screen
+        .getByPlaceholderText("프롬프트, 모델, 태그 검색...")
+        .closest("[data-app-search-field]"),
+    ).toHaveClass("sm:flex-1");
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
     expect(screen.getByTestId("history-filter-trailing-controls")).toHaveClass(
       "sm:items-center",
