@@ -8,9 +8,79 @@ import {
   AppSortSelect,
 } from "@/shared/ui/app-filter-toolbar";
 
+type AppFilterToolbarPreviewProps = {
+  active: "all" | "image" | "video" | "audio";
+  search: boolean;
+  sort: boolean;
+  wrapWidth: "wide" | "narrow";
+};
+
+function AppFilterToolbarPreview({
+  active,
+  search,
+  sort,
+  wrapWidth,
+}: AppFilterToolbarPreviewProps) {
+  return (
+    <div className={wrapWidth === "narrow" ? "max-w-2xl" : "max-w-7xl"}>
+      <AppFilterToolbar>
+        <AppFilterGroup>
+          <AppFilterToggle active={active === "all"} icon={<Grid2X2 className="h-4 w-4" />}>
+            All
+          </AppFilterToggle>
+          <AppFilterToggle active={active === "image"} icon={<ImageIcon className="h-4 w-4" />}>
+            Image
+          </AppFilterToggle>
+          <AppFilterToggle active={active === "video"} icon={<Video className="h-4 w-4" />}>
+            Video
+          </AppFilterToggle>
+          <AppFilterToggle active={active === "audio"} icon={<AudioLines className="h-4 w-4" />}>
+            Audio
+          </AppFilterToggle>
+        </AppFilterGroup>
+        {search || sort ? (
+          <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:ml-auto lg:w-[43rem] lg:flex-none">
+            {search ? (
+              <AppSearchField
+                containerClassName="sm:flex-1"
+                placeholder="Search by prompt, model, or tags..."
+                aria-label="Search history"
+              />
+            ) : null}
+            {sort ? (
+              <AppSortSelect
+                className="h-14 sm:w-[12rem] sm:flex-none"
+                value="date_desc"
+                onValueChange={() => {}}
+                ariaLabel="Sort history"
+                options={[
+                  { value: "date_desc", label: "Newest" },
+                  { value: "date_asc", label: "Oldest" },
+                ]}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </AppFilterToolbar>
+    </div>
+  );
+}
+
 const meta = {
   title: "Project Design/App/AppFilterToolbar",
-  component: AppFilterToolbar,
+  component: AppFilterToolbarPreview,
+  args: {
+    active: "all",
+    search: true,
+    sort: true,
+    wrapWidth: "wide",
+  },
+  argTypes: {
+    active: { control: "select", options: ["all", "image", "video", "audio"] },
+    search: { control: "boolean" },
+    sort: { control: "boolean" },
+    wrapWidth: { control: "select", options: ["wide", "narrow"] },
+  },
   decorators: [
     (Story) => (
       <div className="min-h-screen bg-background-dark p-8 text-white">
@@ -18,11 +88,15 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof AppFilterToolbar>;
+} satisfies Meta<typeof AppFilterToolbarPreview>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+export const Playground: Story = {
+  render: (args) => <AppFilterToolbarPreview {...args} />,
+};
 
 export const HistoryControls: Story = {
   render: () => (

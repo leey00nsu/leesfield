@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppDialog,
@@ -17,17 +17,99 @@ import {
 import { AppInput } from "@/shared/ui/app-input";
 import { AppFormField, AppLabel } from "@/shared/ui/app-form-control";
 
+type AppDialogPreviewProps = {
+  defaultOpen: boolean;
+  surface: "default" | "media";
+  size: "sm" | "md" | "lg" | "xl";
+  padding: "default" | "none";
+  title: string;
+  description: string;
+  showFooter: boolean;
+};
+
+function AppDialogPreview({
+  defaultOpen,
+  surface,
+  size,
+  padding,
+  title,
+  description,
+  showFooter,
+}: AppDialogPreviewProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen]);
+
+  const content = (
+    <>
+      <AppDialogHeader>
+        <div>
+          <AppDialogDescription>{description}</AppDialogDescription>
+          <AppDialogTitle>{title}</AppDialogTitle>
+        </div>
+        <AppDialogClose asChild>
+          <AppDialogIconButton aria-label="Close">
+            <X className="h-4 w-4" />
+          </AppDialogIconButton>
+        </AppDialogClose>
+      </AppDialogHeader>
+      <AppFormField className={padding === "none" ? "px-6 pb-6" : undefined}>
+        <AppLabel htmlFor="dialog-model-key">Model key</AppLabel>
+        <AppInput id="dialog-model-key" defaultValue="leesfield-video" />
+      </AppFormField>
+      {showFooter ? (
+        <AppDialogFooter className={padding === "none" ? "px-6 pb-6" : undefined}>
+          <AppDialogCancelButton>Cancel</AppDialogCancelButton>
+          <AppDialogActionButton>Save</AppDialogActionButton>
+        </AppDialogFooter>
+      ) : null}
+    </>
+  );
+
+  return (
+    <AppDialog open={open} onOpenChange={setOpen}>
+      <AppButton onClick={() => setOpen(true)}>Open dialog</AppButton>
+      <AppDialogContent surface={surface} size={size} padding={padding}>
+        {padding === "none" ? <div className="p-6">{content}</div> : content}
+      </AppDialogContent>
+    </AppDialog>
+  );
+}
+
 const meta = {
   title: "Project Design/App/AppDialog",
-  component: AppDialogContent,
+  component: AppDialogPreview,
+  args: {
+    defaultOpen: true,
+    surface: "default",
+    size: "md",
+    padding: "default",
+    title: "Leesfield Video",
+    description: "MODEL DETAIL",
+    showFooter: true,
+  },
+  argTypes: {
+    defaultOpen: { control: "boolean" },
+    surface: { control: "select", options: ["default", "media"] },
+    size: { control: "select", options: ["sm", "md", "lg", "xl"] },
+    padding: { control: "select", options: ["default", "none"] },
+    title: { control: "text" },
+    description: { control: "text" },
+    showFooter: { control: "boolean" },
+  },
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof AppDialogContent>;
+} satisfies Meta<typeof AppDialogPreview>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+export const Playground: Story = {
+  render: (args) => <AppDialogPreview {...args} />,
+};
 
 export const ModelDialog: Story = {
   render: function ModelDialogStory() {

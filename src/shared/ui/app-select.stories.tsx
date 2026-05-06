@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useEffect, useState } from "react";
 import {
   AppSelectContent,
   AppSelectItem,
@@ -7,21 +8,33 @@ import {
   AppSelectValue,
 } from "@/shared/ui/app-select";
 
-const meta = {
-  title: "Project Design/App/AppSelect",
-  component: AppSelectPreview,
-  parameters: { layout: "centered" },
-} satisfies Meta<typeof AppSelectPreview>;
+type AppSelectPreviewProps = {
+  value: "image" | "video" | "audio";
+  surface: "default" | "toolbar";
+  triggerSize: "sm" | "md";
+  disabled: boolean;
+};
 
-export default meta;
+function AppSelectPreview({
+  value,
+  surface,
+  triggerSize,
+  disabled,
+}: AppSelectPreviewProps) {
+  const [selectedValue, setSelectedValue] = useState<string>(value);
 
-type Story = StoryObj<typeof meta>;
+  useEffect(() => {
+    setSelectedValue(value);
+  }, [value]);
 
-function AppSelectPreview() {
   return (
     <div className="w-[280px]">
-      <AppSelectRoot defaultValue="image">
-        <AppSelectTrigger>
+      <AppSelectRoot value={selectedValue} onValueChange={setSelectedValue}>
+        <AppSelectTrigger
+          surface={surface}
+          triggerSize={triggerSize}
+          disabled={disabled}
+        >
           <AppSelectValue />
         </AppSelectTrigger>
         <AppSelectContent>
@@ -34,31 +47,51 @@ function AppSelectPreview() {
   );
 }
 
-export const Default: Story = {};
+const meta = {
+  title: "Project Design/App/AppSelect",
+  component: AppSelectPreview,
+  args: {
+    value: "image",
+    surface: "default",
+    triggerSize: "md",
+    disabled: false,
+  },
+  argTypes: {
+    value: { control: "select", options: ["image", "video", "audio"] },
+    surface: { control: "select", options: ["default", "toolbar"] },
+    triggerSize: { control: "select", options: ["sm", "md"] },
+    disabled: { control: "boolean" },
+  },
+  parameters: { layout: "centered" },
+} satisfies Meta<typeof AppSelectPreview>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Playground: Story = {};
 
 export const Surfaces: Story = {
   render: () => (
     <div className="grid w-[280px] gap-3">
-      <AppSelectRoot defaultValue="image">
-        <AppSelectTrigger>
-          <AppSelectValue />
-        </AppSelectTrigger>
-        <AppSelectContent>
-          <AppSelectItem value="image">Image</AppSelectItem>
-          <AppSelectItem value="video">Video</AppSelectItem>
-          <AppSelectItem value="audio">Audio</AppSelectItem>
-        </AppSelectContent>
-      </AppSelectRoot>
-      <AppSelectRoot defaultValue="video">
-        <AppSelectTrigger surface="toolbar">
-          <AppSelectValue />
-        </AppSelectTrigger>
-        <AppSelectContent>
-          <AppSelectItem value="image">Image</AppSelectItem>
-          <AppSelectItem value="video">Video</AppSelectItem>
-          <AppSelectItem value="audio">Audio</AppSelectItem>
-        </AppSelectContent>
-      </AppSelectRoot>
+      <AppSelectPreview
+        value="image"
+        surface="default"
+        triggerSize="md"
+        disabled={false}
+      />
+      <AppSelectPreview
+        value="video"
+        surface="toolbar"
+        triggerSize="md"
+        disabled={false}
+      />
+      <AppSelectPreview
+        value="audio"
+        surface="default"
+        triggerSize="sm"
+        disabled={false}
+      />
     </div>
   ),
 };
