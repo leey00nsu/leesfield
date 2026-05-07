@@ -1,4 +1,6 @@
-![leesfield logo](public/logo.webp)
+<p align="center">
+  <img src="public/apple-touch-icon.png" alt="leesfield rounded favicon" width="96" height="96">
+</p>
 
 <h1 align="center">
   <strong>leesfield</strong>
@@ -26,6 +28,7 @@
 ## 목차
 
 - [Quick Start](#quick-start)
+- [스크린샷](#스크린샷)
 - [주요 기능](#주요-기능)
 - [기술 스택](#기술-스택)
 - [설치 및 설정](#설치-및-설정)
@@ -52,6 +55,16 @@ pnpm db:prepare
 # 4. 개발 서버 실행
 pnpm dev
 ```
+
+## 스크린샷
+
+### 랜딩 페이지
+
+![leesfield landing page](public/screenshots/landing.png)
+
+### 이미지 생성 페이지
+
+![leesfield image generation page](public/screenshots/image-generation.png)
 
 ## 주요 기능
 
