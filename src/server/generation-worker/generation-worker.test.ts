@@ -155,6 +155,15 @@ describe("generation worker", () => {
               order: 20,
             },
           },
+          "hf:use_xvector_only": {
+            ui: "toggle",
+            binding: {
+              source: "hf_space",
+              parameterName: "use_xvector_only",
+              valueType: "boolean",
+              order: 21,
+            },
+          },
         },
         concurrentLimit: 1,
         supportsInputAudio: true,

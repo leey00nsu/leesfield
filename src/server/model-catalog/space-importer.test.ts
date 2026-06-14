@@ -84,6 +84,8 @@ describe("importModelDraftFromSpace", () => {
       ],
       binding: { parameterName: "model_size", valueType: "string" },
     });
+    expect(result.draft.parameters.referenceText.ui).toBe("textarea");
+    expect(result.draft.parameters.prompt.ui).toBe("textarea");
   });
 
   it("오디오 생성 endpoint가 여러 개면 run_generation을 우선 선택하고 reference 입력 계약을 반영한다", async () => {

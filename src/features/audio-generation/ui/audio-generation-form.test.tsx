@@ -172,6 +172,21 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         order: 1,
       },
     },
+    "hf:quality_level": {
+      ui: "select",
+      label: "Quality Level",
+      options: [
+        { label: "Fast", value: 1 },
+        { label: "High", value: 2 },
+      ],
+      default: 2,
+      binding: {
+        source: "hf_space",
+        parameterName: "quality_level",
+        valueType: "number",
+        order: 2,
+      },
+    },
     "hf:use_xvector_only": {
       ui: "toggle",
       label: "Use x-vector only",
@@ -180,7 +195,7 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         source: "hf_space",
         parameterName: "use_xvector_only",
         valueType: "boolean",
-        order: 2,
+        order: 3,
       },
     },
     "hf:reference_sample": {
@@ -191,7 +206,7 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         source: "hf_space",
         parameterName: "reference_sample",
         valueType: "file",
-        order: 3,
+        order: 4,
       },
     },
     "hf:temperature": {
@@ -205,7 +220,7 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         source: "hf_space",
         parameterName: "temperature",
         valueType: "number",
-        order: 4,
+        order: 5,
       },
     },
     "hf:style_prompt": {
@@ -216,7 +231,7 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         source: "hf_space",
         parameterName: "style_prompt",
         valueType: "string",
-        order: 5,
+        order: 6,
       },
     },
   },
@@ -740,6 +755,9 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("combobox", { name: "Model Size" }),
     ).toHaveTextContent("1.7B");
+    Element.prototype.scrollIntoView = vi.fn();
+    screen.getByRole("combobox", { name: "Quality Level" }).focus();
+    await user.keyboard("{ArrowDown}{Home}{Enter}");
     expect(
       screen.getByRole("button", { name: "Use x-vector only" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -763,6 +781,7 @@ describe("AudioGenerationForm", () => {
           prompt: "clone this voice",
           dynamicParams: {
             "hf:model_size": "1.7B",
+            "hf:quality_level": 1,
             "hf:use_xvector_only": true,
             "hf:reference_sample": fileReaderResult,
             "hf:temperature": 0.7,

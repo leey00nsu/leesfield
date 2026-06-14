@@ -485,6 +485,10 @@ export async function importModelDraftFromSpace(
         choices:
           (componentProps.choices as RuntimeParameterOptionInput[]) ??
           (componentProps.options as RuntimeParameterOptionInput[]),
+        lines:
+          typeof componentProps.lines === "number"
+            ? componentProps.lines
+            : undefined,
       };
     }),
   );
@@ -499,12 +503,12 @@ export async function importModelDraftFromSpace(
     const descriptorEntry = Object.entries(descriptorResult.parameters).find(
       ([, config]) => config.binding.order === index,
     );
-    const paramKey = descriptorEntry?.[0];
 
-    if (!paramKey) {
+    if (!descriptorEntry) {
       warnings.push(`UNMAPPED_PARAM:${label}`);
       return;
     }
+    const [paramKey, descriptorConfig] = descriptorEntry;
 
     if (paramKey === "durationSec" || paramKey === "fps" || paramKey === "resolution" || paramKey === "aspectRatio") {
       hasVideoParam = true;
@@ -525,12 +529,12 @@ export async function importModelDraftFromSpace(
 
     parameters[paramKey] = {
       ...buildParamConfig(
-      componentType,
-      componentProps,
-      label,
-      paramInfo?.parameter_default,
+        componentType,
+        componentProps,
+        label,
+        paramInfo?.parameter_default,
       ),
-      binding: descriptorEntry[1].binding,
+      ...descriptorConfig,
     };
   });
 

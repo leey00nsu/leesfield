@@ -22,11 +22,12 @@ export type HfEndpointParameter = {
   parameter_has_default?: boolean;
   parameter_default?: unknown;
   choices?: RuntimeParameterOptionInput[];
+  lines?: number;
   hidden?: boolean;
 };
 
 export type HfParameterConfig = {
-  ui: "input" | "textarea" | "select" | "toggle" | "upload";
+  ui: "input" | "textarea" | "select" | "toggle" | "upload" | "range";
   label?: string;
   required?: boolean;
   default?: string | number | boolean;
@@ -80,7 +81,7 @@ function resolveCanonicalKey(parameter: HfEndpointParameter) {
   if (target.includes("target text") || target.includes("prompt")) {
     return "prompt";
   }
-  if (target.trim() === "text text" || target.startsWith("text ")) {
+  if (target.trim() === "text text") {
     return "prompt";
   }
   if (target.includes("language")) return "language";
@@ -140,10 +141,15 @@ function resolveUi(
   const component = parameter.component?.toLowerCase() ?? "";
   if (valueType === "file") return "upload";
   if (valueType === "boolean") return "toggle";
+  if (component.includes("slider")) return "range";
   if (options.length || component.includes("dropdown") || component.includes("radio")) {
     return "select";
   }
-  if (component.includes("textbox") && normalizeLookup(parameter).includes("text")) {
+  if (
+    component.includes("textbox") &&
+    (parameter.lines !== undefined && parameter.lines > 1 ||
+      normalizeLookup(parameter).includes("text"))
+  ) {
     return "textarea";
   }
   return "input";

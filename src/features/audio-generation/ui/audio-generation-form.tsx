@@ -888,7 +888,13 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
               </AppFormLabel>
               <AppSelectRoot
                 value={field.value === undefined ? "" : String(field.value)}
-                onValueChange={field.onChange}
+                onValueChange={(nextValue) =>
+                  field.onChange(
+                    config.binding?.valueType === "number"
+                      ? Number(nextValue)
+                      : nextValue,
+                  )
+                }
               >
                 <AppFormControl>
                   <AppSelectTrigger surface="toolbar" aria-label={label}>

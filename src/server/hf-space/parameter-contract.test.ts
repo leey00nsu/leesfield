@@ -114,6 +114,27 @@ describe("buildHfParameterDescriptors", () => {
     });
   });
 
+  it("Text로 시작하는 비표준 필드를 prompt로 오인하지 않는다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "text_editor",
+        label: "Text Editor",
+        component: "Textbox",
+      },
+    ]);
+
+    expect(result.parameters.prompt).toBeUndefined();
+    expect(result.parameters["hf:text_editor"]).toMatchObject({
+      label: "Text Editor",
+      binding: {
+        parameterName: "text_editor",
+      },
+    });
+    expect(
+      result.parameters["hf:text_editor"].binding,
+    ).not.toHaveProperty("canonicalKey");
+  });
+
   it("hidden/state 파라미터는 노출하지 않는다", () => {
     const result = buildHfParameterDescriptors([
       {
