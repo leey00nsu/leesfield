@@ -2,6 +2,66 @@ import { describe, expect, it } from "vitest";
 import { modelCatalogInputSchema, modelCatalogSchema } from "@/server/model-catalog/catalog-schema";
 
 describe("model-catalog option normalization", () => {
+  it("HF parameter binding을 검증하고 generic parameter metadata를 보존한다", () => {
+    const base = {
+      type: "audio",
+      key: "dynamic-qwen",
+      label: "Dynamic Qwen",
+      vendor: "HUGGINGFACE",
+      provider: "hf_space",
+      providerConfig: {
+        space_id: "Qwen/Qwen3-TTS",
+        api_name: "/generate_voice_clone",
+      },
+      parameters: {
+        prompt: { ui: "textarea", required: true },
+        "hf:model_size": {
+          ui: "select",
+          options: ["0.6B", "1.7B"],
+          default: "1.7B",
+          binding: {
+            source: "hf_space",
+            parameterName: "model_size",
+            valueType: "string",
+            order: 5,
+          },
+        },
+      },
+      meta: {
+        model_id: "Qwen/Qwen3-TTS",
+        default_speed: 1,
+        supports_input_audio: true,
+      },
+    };
+
+    const parsed = modelCatalogInputSchema.safeParse(base);
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === "audio") {
+      expect(parsed.data.parameters["hf:model_size"].binding).toEqual({
+        source: "hf_space",
+        parameterName: "model_size",
+        valueType: "string",
+        order: 5,
+      });
+    }
+
+    const invalid = modelCatalogInputSchema.safeParse({
+      ...base,
+      parameters: {
+        ...base.parameters,
+        "hf:model_size": {
+          ...base.parameters["hf:model_size"],
+          binding: {
+            source: "hf_space",
+            parameterName: "model_size",
+            valueType: "object",
+            order: 5,
+          },
+        },
+      },
+    });
+    expect(invalid.success).toBe(false);
+  });
   it("image 모델은 codex_cli provider config를 허용한다", () => {
     const parsed = modelCatalogInputSchema.safeParse({
       type: "image",

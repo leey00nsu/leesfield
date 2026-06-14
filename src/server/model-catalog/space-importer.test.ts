@@ -14,6 +14,78 @@ describe("importModelDraftFromSpace", () => {
     vi.clearAllMocks();
   });
 
+  it("미지의 Qwen voice clone 파라미터를 원래 API binding과 함께 보존한다", async () => {
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/generate_voice_clone": {
+            parameters: [
+              { parameter_name: "ref_audio", label: "Reference Audio", parameter_has_default: false },
+              { parameter_name: "ref_text", label: "Reference Text", parameter_has_default: false },
+              { parameter_name: "target_text", label: "Target Text", parameter_has_default: false },
+              { parameter_name: "use_xvector_only", label: "Use x-vector only", parameter_default: false },
+              { parameter_name: "model_size", label: "Model Size", parameter_default: "1.7B" },
+            ],
+          },
+        },
+      }),
+      config: {
+        space_id: "Qwen/Qwen3-TTS",
+        title: "Qwen3 TTS",
+        components: [
+          { id: 1, type: "audio", props: { label: "Reference Audio" } },
+          { id: 2, type: "textbox", props: { label: "Reference Text", lines: 2 } },
+          { id: 3, type: "textbox", props: { label: "Target Text", lines: 4 } },
+          { id: 4, type: "checkbox", props: { label: "Use x-vector only", value: false } },
+          {
+            id: 5,
+            type: "dropdown",
+            props: { label: "Model Size", choices: ["0.6B", "1.7B"], value: "1.7B" },
+          },
+          { id: 6, type: "audio", props: { label: "Generated Audio" } },
+        ],
+        dependencies: [
+          {
+            api_name: "/generate_voice_clone",
+            inputs: [1, 2, 3, 4, 5],
+            outputs: [6],
+          },
+        ],
+      },
+    });
+
+    const { importModelDraftFromSpace } = await import(
+      "@/server/model-catalog/space-importer"
+    );
+    const result = await importModelDraftFromSpace({
+      spaceUrl: "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      apiName: "/generate_voice_clone",
+    });
+
+    expect(result.draft.parameters.inputAudio.binding).toMatchObject({
+      parameterName: "ref_audio",
+      canonicalKey: "inputAudio",
+    });
+    expect(result.draft.parameters.prompt.binding).toMatchObject({
+      parameterName: "target_text",
+      canonicalKey: "prompt",
+    });
+    expect(result.draft.parameters["hf:use_xvector_only"]).toMatchObject({
+      ui: "toggle",
+      default: false,
+      binding: { parameterName: "use_xvector_only", valueType: "boolean" },
+    });
+    expect(result.draft.parameters["hf:model_size"]).toMatchObject({
+      ui: "select",
+      default: "1.7B",
+      options: [
+        { label: "0.6B", value: "0.6B" },
+        { label: "1.7B", value: "1.7B" },
+      ],
+      binding: { parameterName: "model_size", valueType: "string" },
+    });
+  });
+
   it("오디오 생성 endpoint가 여러 개면 run_generation을 우선 선택하고 reference 입력 계약을 반영한다", async () => {
     mockConnect.mockResolvedValue({
       view_api: vi.fn().mockResolvedValue({
