@@ -6,6 +6,7 @@ import type {
 } from "@/shared/model-catalog/runtime-utils";
 import {
   getRuntimeAudioParamConfig,
+  getRuntimeAudioDynamicParameters,
   getRuntimeAudioParamRange,
   getRuntimeImageParamConfig,
   getRuntimeImageParamRange,
@@ -407,6 +408,9 @@ export function createRuntimeAudioSchema(
     temperature: z.number().optional(),
     topK: z.number().optional(),
     repetitionPenalty: z.number().optional(),
+    dynamicParams: z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .optional(),
   });
 
   return schema.superRefine((data, ctx) => {
@@ -523,5 +527,82 @@ export function createRuntimeAudioSchema(
       data.repetitionPenalty,
       labels.repetitionPenalty,
     );
+
+    // Keep these dynamic binding rules in sync with server generation validation.
+    const dynamicParams = data.dynamicParams ?? {};
+    const dynamicParameters = getRuntimeAudioDynamicParameters(model);
+    const allowedKeys = new Set(dynamicParameters.map(({ key }) => key));
+    for (const key of Object.keys(dynamicParams)) {
+      if (!allowedKeys.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicParams", key],
+          message: "지원하지 않는 동적 파라미터입니다.",
+        });
+      }
+    }
+    for (const { key, config, binding } of dynamicParameters) {
+      const value = dynamicParams[key];
+      if (config.required && value === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicParams", key],
+          message: "필수 동적 파라미터입니다.",
+        });
+        continue;
+      }
+      if (value === undefined) continue;
+      const actualType = typeof value;
+      const typeMatches =
+        binding.valueType === "file"
+          ? actualType === "string"
+          : binding.valueType === actualType;
+      if (!typeMatches) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicParams", key],
+          message: "동적 파라미터 타입이 올바르지 않습니다.",
+        });
+        continue;
+      }
+      if (typeof value === "number") {
+        const min = typeof config.min === "number" ? config.min : undefined;
+        const max = typeof config.max === "number" ? config.max : undefined;
+        const step = typeof config.step === "number" ? config.step : undefined;
+        if (
+          (min !== undefined && value < min) ||
+          (max !== undefined && value > max)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["dynamicParams", key],
+            message: "동적 파라미터 범위가 올바르지 않습니다.",
+          });
+          continue;
+        }
+        if (step !== undefined && step > 0) {
+          const quotient = (value - (min ?? 0)) / step;
+          if (Math.abs(quotient - Math.round(quotient)) > 1e-6) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["dynamicParams", key],
+              message: "동적 파라미터 입력 단위가 올바르지 않습니다.",
+            });
+            continue;
+          }
+        }
+      }
+      if (
+        config.options?.length &&
+        (typeof value === "string" || typeof value === "number") &&
+        !hasRuntimeParameterOption(config.options, value)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicParams", key],
+          message: unsupportedSelection,
+        });
+      }
+    }
   });
 }

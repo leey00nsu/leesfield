@@ -156,6 +156,183 @@ describe("hfSpaceAudioAdapter", () => {
     });
   });
 
+  it("generic binding을 원래 parameter_name과 Gradio file 값으로 복원한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-dynamic-1",
+        type: "audio",
+        key: "qwen-dynamic-clone",
+        label: "Qwen Dynamic Clone",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "Qwen/Qwen3-TTS-dynamic-test",
+          api_name: "/generate_voice_clone",
+          timeout_ms: 120000,
+        },
+        parameters: {
+          prompt: { ui: "textarea", required: true },
+          "hf:model_size": {
+            ui: "select",
+            binding: {
+              source: "hf_space",
+              parameterName: "model_size",
+              valueType: "string",
+              order: 1,
+            },
+          },
+          "hf:reference_sample": {
+            ui: "upload",
+            required: true,
+            binding: {
+              source: "hf_space",
+              parameterName: "reference_sample",
+              valueType: "file",
+              order: 2,
+            },
+          },
+        },
+        meta: {
+          model_id: "Qwen/Qwen3-TTS-dynamic-test",
+          default_speed: 1,
+          concurrent_limit: 1,
+          supports_input_audio: true,
+        },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+
+    const predict = vi.fn().mockResolvedValue({
+      data: [{ path: "/file=/tmp/generated.wav" }],
+    });
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/generate_voice_clone": {
+            parameters: [
+              { parameter_name: "target_text", label: "Target Text" },
+              { parameter_name: "model_size", label: "Model Size" },
+              {
+                parameter_name: "reference_sample",
+                label: "Reference Sample",
+              },
+            ],
+          },
+        },
+      }),
+      predict,
+      config: {
+        components: [{ id: 1, type: "audio" }],
+        dependencies: [
+          { api_name: "/generate_voice_clone", outputs: [1] },
+        ],
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ stage: "RUNNING" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({ "content-type": "audio/wav" }),
+          arrayBuffer: async () => Uint8Array.from([82, 73, 70, 70]).buffer,
+        }),
+    );
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    await hfSpaceAudioAdapter.generate({
+      prompt: "hello dynamic",
+      model: "qwen-dynamic-clone",
+      speed: 1,
+      dynamicParams: {
+        "hf:model_size": "1.7B",
+        "hf:reference_sample": "data:audio/wav;base64,UklGRg==",
+      },
+    });
+
+    expect(predict).toHaveBeenCalledWith("/generate_voice_clone", {
+      target_text: "hello dynamic",
+      model_size: "1.7B",
+      reference_sample: expect.objectContaining({ mockedFile: expect.any(Blob) }),
+    });
+  });
+
+  it("저장된 generic binding이 endpoint에서 사라지면 parameter drift로 진단한다", async () => {
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "audio-drift-1",
+        type: "audio",
+        key: "qwen-dynamic-drift",
+        label: "Qwen Dynamic Drift",
+        vendor: "HUGGINGFACE",
+        provider: "hf_space",
+        providerConfig: {
+          space_id: "Qwen/Qwen3-TTS-drift-test",
+          api_name: "/generate_voice_clone",
+        },
+        parameters: {
+          "hf:model_size": {
+            ui: "select",
+            binding: {
+              source: "hf_space",
+              parameterName: "model_size",
+              valueType: "string",
+              order: 1,
+            },
+          },
+        },
+        meta: { default_speed: 1 },
+        isActive: true,
+        isDefault: true,
+      },
+    ]);
+    const predict = vi.fn();
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({
+        named_endpoints: {
+          "/generate_voice_clone": {
+            parameters: [{ parameter_name: "target_text", label: "Text" }],
+          },
+        },
+      }),
+      predict,
+      config: {
+        components: [],
+        dependencies: [{ api_name: "/generate_voice_clone", outputs: [] }],
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ stage: "RUNNING" }),
+      }),
+    );
+
+    const { hfSpaceAudioAdapter } = await import(
+      "@/server/audio-generation/adapters/hf-space-adapter"
+    );
+
+    await expect(
+      hfSpaceAudioAdapter.generate({
+        prompt: "hello",
+        model: "qwen-dynamic-drift",
+        speed: 1,
+        dynamicParams: { "hf:model_size": "1.7B" },
+      }),
+    ).rejects.toThrow("HF_SPACE_PARAMETER_INVALID");
+    expect(predict).not.toHaveBeenCalled();
+  });
+
   it("quota/sleep 오류를 사용자 친화적으로 매핑한다", async () => {
     const { hfSpaceAudioAdapter } = await import(
       "@/server/audio-generation/adapters/hf-space-adapter"

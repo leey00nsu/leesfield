@@ -17,6 +17,19 @@ import { validateAudioGenerationPayload } from "@/server/model-catalog/generatio
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function getDynamicParams(formData: FormData) {
+  const value = getString(formData, "dynamicParams");
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function POST(request: Request) {
   const session = await getSession();
 
@@ -50,6 +63,7 @@ export async function POST(request: Request) {
           temperature: getNumber(formData, "temperature"),
           topK: getNumber(formData, "topK"),
           repetitionPenalty: getNumber(formData, "repetitionPenalty"),
+          dynamicParams: getDynamicParams(formData),
         }))
         .catch(() => null)
     : await request.json().catch(() => null);

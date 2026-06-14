@@ -56,6 +56,7 @@ import {
 } from "@/shared/model-catalog/parameter-options";
 import {
   getRuntimeAudioParamConfig,
+  getRuntimeAudioDynamicParameters,
   getRuntimeAudioParamRange,
   resolveRuntimeAudioDefaults,
   resolveRuntimeAudioSupportsInputAudio,
@@ -68,7 +69,10 @@ type AudioGenerationFormProps = {
   isAuthenticated: boolean;
 };
 
-type AudioFieldName = Exclude<keyof AudioGenerationFormValues, "prompt" | "model">;
+type AudioFieldName = Exclude<
+  keyof AudioGenerationFormValues,
+  "prompt" | "model" | "dynamicParams"
+>;
 
 const audioFieldOrder: Record<AudioFieldName, number> = {
   modeChoice: 10,
@@ -259,6 +263,10 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   const primaryParameterKeys = parameterKeys.filter(
     (key) => !advancedAudioFields.has(key),
   );
+  const dynamicParameters = useMemo(
+    () => getRuntimeAudioDynamicParameters(activeRuntimeModel),
+    [activeRuntimeModel],
+  );
   const advancedParameterKeys = parameterKeys.filter((key) =>
     advancedAudioFields.has(key) && visibleAdvancedAudioFields.has(key),
   );
@@ -269,6 +277,13 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
       if (!config?.required) return false;
       const value = formValues?.[key];
+      if (typeof value === "string") return !value.trim();
+      if (typeof value === "number") return !Number.isFinite(value);
+      return value === undefined || value === null;
+    }) &&
+    !dynamicParameters.some(({ key, config }) => {
+      if (!config.required) return false;
+      const value = formValues?.dynamicParams?.[key];
       if (typeof value === "string") return !value.trim();
       if (typeof value === "number") return !Number.isFinite(value);
       return value === undefined || value === null;
@@ -287,6 +302,17 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     const defaults = resolveRuntimeAudioDefaults(model);
     const currentValues = form.getValues();
     const supportsInputAudio = resolveRuntimeAudioSupportsInputAudio(model);
+    const dynamicParams: NonNullable<
+      AudioGenerationFormValues["dynamicParams"]
+    > = {};
+    for (const { key, config } of getRuntimeAudioDynamicParameters(model)) {
+      const currentValue = currentValues.dynamicParams?.[key];
+      if (currentValue !== undefined) {
+        dynamicParams[key] = currentValue;
+      } else if (config.default !== undefined) {
+        dynamicParams[key] = config.default;
+      }
+    }
 
     form.reset({
       ...audioGenerationDefaults,
@@ -312,6 +338,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       temperature: defaults.temperature,
       topK: defaults.topK,
       repetitionPenalty: defaults.repetitionPenalty,
+      dynamicParams,
     });
 
     if (!supportsInputAudio) {
@@ -752,6 +779,240 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     );
   };
 
+  const renderDynamicAudioField = (
+    key: string,
+    config: (typeof dynamicParameters)[number]["config"],
+  ) => {
+    const fieldName = `dynamicParams.${key}` as const;
+    const label =
+      typeof config.label === "string" && config.label.trim()
+        ? config.label
+        : key;
+
+    if (config.ui === "range") {
+      const min = typeof config.min === "number" ? config.min : 0;
+      const max = typeof config.max === "number" ? config.max : 100;
+      const step = typeof config.step === "number" ? config.step : 1;
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => {
+            const value =
+              typeof field.value === "number"
+                ? field.value
+                : typeof config.default === "number"
+                  ? config.default
+                  : min;
+            return (
+              <AppFormItem className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                    {label}
+                  </AppFormLabel>
+                  <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                    {value}
+                  </span>
+                </div>
+                <AppFormControl>
+                  <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={value}
+                    aria-label={label}
+                    onChange={(event) =>
+                      field.onChange(Number(event.target.value))
+                    }
+                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                  />
+                </AppFormControl>
+                <AppFormMessage className="text-xs text-red-400" />
+              </AppFormItem>
+            );
+          }}
+        />
+      );
+    }
+
+    if (config.ui === "upload") {
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => (
+            <AppFormItem className="flex flex-col gap-3">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                {label}
+              </AppFormLabel>
+              <AppFormControl>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  aria-label={label}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (typeof reader.result === "string") {
+                        field.onChange(reader.result);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                    event.target.value = "";
+                  }}
+                  className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                />
+              </AppFormControl>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
+          )}
+        />
+      );
+    }
+
+    if (config.ui === "select") {
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => (
+            <AppFormItem className="flex flex-col gap-2">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                {label}
+              </AppFormLabel>
+              <AppSelectRoot
+                value={field.value === undefined ? "" : String(field.value)}
+                onValueChange={(nextValue) =>
+                  field.onChange(
+                    config.binding?.valueType === "number"
+                      ? Number(nextValue)
+                      : nextValue,
+                  )
+                }
+              >
+                <AppFormControl>
+                  <AppSelectTrigger surface="toolbar" aria-label={label}>
+                    <AppSelectValue placeholder={label} />
+                  </AppSelectTrigger>
+                </AppFormControl>
+                <AppSelectContent>
+                  {(config.options ?? []).map((option) => (
+                    <AppSelectItem
+                      key={String(getRuntimeParameterOptionValue(option))}
+                      value={String(getRuntimeParameterOptionValue(option))}
+                    >
+                      {getRuntimeParameterOptionLabel(option)}
+                    </AppSelectItem>
+                  ))}
+                </AppSelectContent>
+              </AppSelectRoot>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
+          )}
+        />
+      );
+    }
+
+    if (config.ui === "toggle") {
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => {
+            const isEnabled = field.value === true;
+            return (
+              <AppFormItem className="flex items-center justify-between gap-4">
+                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                  {label}
+                </AppFormLabel>
+                <AppFormControl>
+                  <AppButton
+                    type="button"
+                    variant={isEnabled ? "primary" : "surface"}
+                    size="sm"
+                    aria-label={label}
+                    aria-pressed={isEnabled}
+                    onClick={() => field.onChange(!isEnabled)}
+                  >
+                    {isEnabled ? "On" : "Off"}
+                  </AppButton>
+                </AppFormControl>
+              </AppFormItem>
+            );
+          }}
+        />
+      );
+    }
+
+    if (config.ui === "textarea") {
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => (
+            <AppFormItem className="flex flex-col gap-2">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                {label}
+              </AppFormLabel>
+              <AppFormControl>
+                <AppTextarea
+                  value={typeof field.value === "string" ? field.value : ""}
+                  aria-label={label}
+                  onChange={field.onChange}
+                  className="min-h-[96px]"
+                />
+              </AppFormControl>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
+          )}
+        />
+      );
+    }
+
+    return (
+      <AppFormControllerField
+        key={`${activeModel}-${key}`}
+        control={form.control}
+        name={fieldName}
+        render={({ field }) => (
+          <AppFormItem className="flex flex-col gap-2">
+            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              {label}
+            </AppFormLabel>
+            <AppFormControl>
+              <AppInput
+                value={
+                  typeof field.value === "string" ||
+                  typeof field.value === "number"
+                    ? field.value
+                    : ""
+                }
+                type={config.binding?.valueType === "number" ? "number" : "text"}
+                aria-label={label}
+                onChange={(event) =>
+                  field.onChange(
+                    config.binding?.valueType === "number"
+                      ? Number(event.target.value)
+                      : event.target.value,
+                  )
+                }
+              />
+            </AppFormControl>
+            <AppFormMessage className="text-xs text-red-400" />
+          </AppFormItem>
+        )}
+      />
+    );
+  };
+
   return (
     <AppForm {...form}>
       <form
@@ -906,6 +1167,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       >
                         <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
                           {primaryParameterKeys.map((key) => renderAudioField(key))}
+                          {dynamicParameters.map(({ key, config }) =>
+                            renderDynamicAudioField(key, config),
+                          )}
                           {advancedParameterKeys.length > 0 ? (
                             <>
                               <div className="h-px bg-white/5" />

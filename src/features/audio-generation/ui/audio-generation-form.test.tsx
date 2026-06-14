@@ -148,6 +148,100 @@ const qwenModeModelFixture: RuntimeAudioModel = {
   isDefault: true,
 };
 
+const dynamicParameterModelFixture: RuntimeAudioModel = {
+  type: "audio",
+  key: "qwen-dynamic-clone",
+  label: "Qwen Dynamic Clone",
+  vendor: "HF Space",
+  provider: "huggingface-space",
+  providerConfig: {},
+  parameters: {
+    prompt: { ui: "textarea", required: true },
+    "hf:model_size": {
+      ui: "select",
+      label: "Model Size",
+      options: [
+        { label: "0.6B", value: "0.6B" },
+        { label: "1.7B", value: "1.7B" },
+      ],
+      default: "1.7B",
+      binding: {
+        source: "hf_space",
+        parameterName: "model_size",
+        valueType: "string",
+        order: 1,
+      },
+    },
+    "hf:quality_level": {
+      ui: "select",
+      label: "Quality Level",
+      options: [
+        { label: "Fast", value: 1 },
+        { label: "High", value: 2 },
+      ],
+      default: 2,
+      binding: {
+        source: "hf_space",
+        parameterName: "quality_level",
+        valueType: "number",
+        order: 2,
+      },
+    },
+    "hf:use_xvector_only": {
+      ui: "toggle",
+      label: "Use x-vector only",
+      default: true,
+      binding: {
+        source: "hf_space",
+        parameterName: "use_xvector_only",
+        valueType: "boolean",
+        order: 3,
+      },
+    },
+    "hf:reference_sample": {
+      ui: "upload",
+      label: "Reference Sample",
+      required: true,
+      binding: {
+        source: "hf_space",
+        parameterName: "reference_sample",
+        valueType: "file",
+        order: 4,
+      },
+    },
+    "hf:temperature": {
+      ui: "range",
+      label: "Temperature",
+      min: 0.1,
+      max: 1,
+      step: 0.1,
+      default: 0.7,
+      binding: {
+        source: "hf_space",
+        parameterName: "temperature",
+        valueType: "number",
+        order: 5,
+      },
+    },
+    "hf:style_prompt": {
+      ui: "textarea",
+      label: "Style Prompt",
+      default: "Warm narration",
+      binding: {
+        source: "hf_space",
+        parameterName: "style_prompt",
+        valueType: "string",
+        order: 6,
+      },
+    },
+  },
+  meta: {
+    supports_input_audio: true,
+  },
+  isActive: true,
+  isDefault: true,
+};
+
 async function waitForModels() {
   await screen.findByRole("button", { name: /Qwen 3\.5 TTS/i });
 }
@@ -616,4 +710,85 @@ describe("AudioGenerationForm", () => {
       );
     });
   }, 15_000);
+
+  it("HF binding 기반 동적 필드를 렌더링하고 dynamicParams로 제출한다", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ items: [dynamicParameterModelFixture] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const fileReaderResult = "data:audio/wav;base64,ZHluYW1pYw==";
+    class MockFileReader {
+      result: string | ArrayBuffer | null = null;
+      onload: null | (() => void) = null;
+      readAsDataURL() {
+        this.result = fileReaderResult;
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+
+    const user = userEvent.setup();
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await screen.findByRole("button", { name: /Qwen Dynamic Clone/i });
+
+    await user.type(
+      within(screen.getByRole("region", { name: "작업 입력" })).getByRole(
+        "textbox",
+      ),
+      "clone this voice",
+    );
+    await user.click(screen.getByRole("button", { name: /설정/i }));
+
+    expect(
+      screen.getByRole("combobox", { name: "Model Size" }),
+    ).toHaveTextContent("1.7B");
+    Element.prototype.scrollIntoView = vi.fn();
+    screen.getByRole("combobox", { name: "Quality Level" }).focus();
+    await user.keyboard("{ArrowDown}{Home}{Enter}");
+    expect(
+      screen.getByRole("button", { name: "Use x-vector only" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("slider", { name: "Temperature" }),
+    ).toHaveValue("0.7");
+    expect(screen.getByRole("textbox", { name: "Style Prompt" }).tagName).toBe(
+      "TEXTAREA",
+    );
+    await user.upload(
+      screen.getByLabelText("Reference Sample"),
+      new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
+        type: "audio/wav",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "생성" }));
+
+    await waitFor(() => {
+      expect(startGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: "clone this voice",
+          dynamicParams: {
+            "hf:model_size": "1.7B",
+            "hf:quality_level": 1,
+            "hf:use_xvector_only": true,
+            "hf:reference_sample": fileReaderResult,
+            "hf:temperature": 0.7,
+            "hf:style_prompt": "Warm narration",
+          },
+        }),
+      );
+    });
+  });
 });

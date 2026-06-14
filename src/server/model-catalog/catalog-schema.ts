@@ -30,6 +30,16 @@ const parameterOptionInputSchema = z.union([
   parameterOptionSchema,
 ]);
 
+const hfParameterBindingSchema = z
+  .object({
+    source: z.literal("hf_space"),
+    parameterName: z.string().min(1),
+    valueType: z.enum(["string", "number", "boolean", "file"]),
+    canonicalKey: z.string().min(1).optional(),
+    order: z.number().int().nonnegative(),
+  })
+  .strict();
+
 const parameterSchema = z
   .object({
     ui: z.enum(parameterUiOptions),
@@ -40,6 +50,7 @@ const parameterSchema = z
     step: z.number().optional(),
     default: z.union([z.string(), z.number(), z.boolean()]).optional(),
     options: z.array(parameterOptionInputSchema).optional(),
+    binding: hfParameterBindingSchema.optional(),
   })
   .passthrough();
 
@@ -92,7 +103,7 @@ const audioParametersSchema = z
     topK: parameterSchema.optional(),
     repetitionPenalty: parameterSchema.optional(),
   })
-  .passthrough();
+  .catchall(parameterSchema);
 
 const hfSpaceConfigSchema = z
   .object({

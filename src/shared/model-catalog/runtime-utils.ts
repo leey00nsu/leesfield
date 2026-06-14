@@ -9,6 +9,14 @@ export type RuntimeModelType = "image" | "video" | "audio";
 
 export type RuntimeParameterValue = string | number | boolean;
 
+export type RuntimeHfParameterBinding = {
+  source: "hf_space";
+  parameterName: string;
+  valueType: "string" | "number" | "boolean" | "file";
+  canonicalKey?: string;
+  order: number;
+};
+
 export type RuntimeParameterConfig = {
   ui?: string;
   label?: string;
@@ -18,14 +26,21 @@ export type RuntimeParameterConfig = {
   step?: number;
   default?: RuntimeParameterValue;
   options?: RuntimeParameterOptionInput[];
+  binding?: RuntimeHfParameterBinding;
   [key: string]: unknown;
 };
 
-export type NormalizedRuntimeParameterConfig = Omit<
-  RuntimeParameterConfig,
-  "options"
-> & {
+export type NormalizedRuntimeParameterConfig = {
+  ui?: string;
+  label?: string;
+  required?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: RuntimeParameterValue;
   options?: RuntimeParameterOption[];
+  binding?: RuntimeHfParameterBinding;
+  [key: string]: unknown;
 };
 
 export type RuntimeImageParameterKey =
@@ -331,6 +346,27 @@ export function getRuntimeAudioParamConfig(
   key: RuntimeAudioParameterKey,
 ) {
   return resolveParamConfig(model?.parameters, key);
+}
+
+export function getRuntimeAudioDynamicParameters(
+  model: RuntimeAudioModel | undefined,
+) {
+  return Object.entries(model?.parameters ?? {})
+    .flatMap(([key, value]) => {
+      const config = resolveParamConfig({ [key]: value }, key);
+      const binding = config?.binding;
+      if (
+        !config ||
+        binding?.source !== "hf_space" ||
+        typeof binding.parameterName !== "string" ||
+        binding.canonicalKey ||
+        config.ui === "hidden"
+      ) {
+        return [];
+      }
+      return [{ key, config, binding }];
+    })
+    .sort((left, right) => left.binding.order - right.binding.order);
 }
 
 export function getRuntimeAudioParamRange(

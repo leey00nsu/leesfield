@@ -182,4 +182,36 @@ describe("POST /api/audio-generation", () => {
       }),
     );
   });
+
+  it("multipart dynamicParams JSON을 object로 파싱한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockValidatePayload.mockResolvedValue({
+      success: false,
+      error: { flatten: () => ({}) },
+    });
+    const formData = new FormData();
+    formData.set("prompt", "hello");
+    formData.set("model", "qwen-dynamic");
+    formData.set(
+      "dynamicParams",
+      JSON.stringify({ "hf:model_size": "1.7B", "hf:use_xvector_only": false }),
+    );
+
+    await POST(new Request("http://localhost/api/audio-generation", {
+      method: "POST",
+      body: formData,
+    }));
+
+    expect(mockValidatePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dynamicParams: {
+          "hf:model_size": "1.7B",
+          "hf:use_xvector_only": false,
+        },
+      }),
+    );
+  });
 });

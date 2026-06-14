@@ -25,6 +25,9 @@ const audioGenerationBaseSchema = z.object({
   temperature: z.number().optional(),
   topK: z.number().optional(),
   repetitionPenalty: z.number().optional(),
+  dynamicParams: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional(),
 });
 
 export const audioGenerationOpenApiSchema = audioGenerationBaseSchema;
@@ -96,4 +99,5 @@ export const audioGenerationDefaults: AudioGenerationFormValues = {
   temperature: undefined,
   topK: undefined,
   repetitionPenalty: undefined,
+  dynamicParams: {},
 };

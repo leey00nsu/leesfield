@@ -3,6 +3,10 @@ import {
   scoreEndpointCandidate,
 } from "@/server/hf-space/endpoint-scoring";
 import {
+  buildHfParameterDescriptors,
+  type HfParameterBinding,
+} from "@/server/hf-space/parameter-contract";
+import {
   normalizeRuntimeParameterOptions,
   type RuntimeParameterOptionInput,
 } from "@/shared/model-catalog/parameter-options";
@@ -23,6 +27,7 @@ type ParameterConfig = {
   step?: number;
   default?: string | number | boolean;
   options?: RuntimeParameterOptionInput[];
+  binding?: HfParameterBinding;
 };
 
 type DraftPayload = {
@@ -49,7 +54,11 @@ type ImportResult = {
 type EndpointParameter = {
   parameter_name?: string;
   label?: string;
+  parameter_has_default?: boolean;
   parameter_default?: unknown;
+  component?: string;
+  python_type?: { type?: string } | string;
+  hidden?: boolean;
 };
 
 type EndpointInfo = {
@@ -453,6 +462,37 @@ export async function importModelDraftFromSpace(
   let hasImageInput = false;
   let hasAudioInput = false;
   let inputImagesFormat: "file_array" | "gallery" = "file_array";
+  const descriptorResult = buildHfParameterDescriptors(
+    (endpoint.parameters ?? []).map((paramInfo, index) => {
+      const component = inputComponents[index];
+      const componentProps = (component?.props ?? {}) as Record<string, unknown>;
+      return {
+        ...paramInfo,
+        component: resolveComponentType(component, paramInfo.component),
+        label:
+          resolveComponentLabel(componentProps) ||
+          paramInfo.label ||
+          paramInfo.parameter_name,
+        parameter_has_default:
+          paramInfo.parameter_has_default ??
+          (paramInfo.parameter_default !== undefined ||
+            componentProps.value !== undefined ||
+            componentProps.default !== undefined),
+        parameter_default:
+          componentProps.value ??
+          componentProps.default ??
+          paramInfo.parameter_default,
+        choices:
+          (componentProps.choices as RuntimeParameterOptionInput[]) ??
+          (componentProps.options as RuntimeParameterOptionInput[]),
+        lines:
+          typeof componentProps.lines === "number"
+            ? componentProps.lines
+            : undefined,
+      };
+    }),
+  );
+  warnings.push(...descriptorResult.warnings);
 
   inputComponents.forEach((component, index) => {
     if (!component) return;
@@ -460,12 +500,15 @@ export async function importModelDraftFromSpace(
     const componentType = resolveComponentType(component);
     const paramInfo = endpoint.parameters?.[index];
     const label = resolveComponentLabel(componentProps) || paramInfo?.label || paramInfo?.parameter_name || "parameter";
-    const paramKey = resolveParamKey(label, paramInfo?.parameter_name, componentType);
+    const descriptorEntry = Object.entries(descriptorResult.parameters).find(
+      ([, config]) => config.binding.order === index,
+    );
 
-    if (!paramKey) {
+    if (!descriptorEntry) {
       warnings.push(`UNMAPPED_PARAM:${label}`);
       return;
     }
+    const [paramKey, descriptorConfig] = descriptorEntry;
 
     if (paramKey === "durationSec" || paramKey === "fps" || paramKey === "resolution" || paramKey === "aspectRatio") {
       hasVideoParam = true;
@@ -484,12 +527,15 @@ export async function importModelDraftFromSpace(
       hasAudioInput = true;
     }
 
-    parameters[paramKey] = buildParamConfig(
-      componentType,
-      componentProps,
-      label,
-      paramInfo?.parameter_default,
-    );
+    parameters[paramKey] = {
+      ...buildParamConfig(
+        componentType,
+        componentProps,
+        label,
+        paramInfo?.parameter_default,
+      ),
+      ...descriptorConfig,
+    };
   });
 
   outputComponents.forEach((component) => {
