@@ -93,6 +93,32 @@ describe("requestAudioGeneration", () => {
     expect(body.get("repetitionPenalty")).toBe("1.1");
   });
 
+  it("dynamicParams를 JSON field로 직렬화한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ requestId: "req-dynamic", status: "pending", progress: 0 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestAudioGeneration({
+      prompt: "hello",
+      model: "qwen-dynamic",
+      dynamicParams: {
+        "hf:model_size": "1.7B",
+        "hf:use_xvector_only": false,
+      },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = init.body as FormData;
+    expect(body.get("dynamicParams")).toBe(
+      JSON.stringify({
+        "hf:model_size": "1.7B",
+        "hf:use_xvector_only": false,
+      }),
+    );
+  });
+
   it("실패 응답이면 에러를 그대로 노출한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

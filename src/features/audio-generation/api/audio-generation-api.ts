@@ -37,6 +37,10 @@ export async function requestAudioGeneration(
 ): Promise<AudioGenerationResponse> {
   const formData = new FormData();
   Object.entries(payload).forEach(([key, value]) => {
+    if (key === "dynamicParams" && value && typeof value === "object") {
+      formData.append(key, JSON.stringify(value));
+      return;
+    }
     appendIfPresent(formData, key, value);
   });
 
