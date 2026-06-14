@@ -45,6 +45,24 @@ describe("validateAudioGenerationPayload dynamicParams", () => {
               order: 6,
             },
           },
+          "hf:reference_audio": {
+            ui: "upload",
+            binding: {
+              source: "hf_space",
+              parameterName: "reference_audio",
+              valueType: "file",
+              order: 7,
+            },
+          },
+          "hf:use_xvector_only": {
+            ui: "toggle",
+            binding: {
+              source: "hf_space",
+              parameterName: "use_xvector_only",
+              valueType: "boolean",
+              order: 8,
+            },
+          },
         },
         meta: { model_id: "Qwen/Qwen3-TTS", default_speed: 1 },
         isActive: true,
@@ -108,5 +126,45 @@ describe("validateAudioGenerationPayload dynamicParams", () => {
 
     expect(outOfRange.success).toBe(false);
     expect(invalidStep.success).toBe(false);
+  });
+
+  it("동적 file과 boolean 타입을 검증한다", async () => {
+    const { validateAudioGenerationPayload } = await import(
+      "@/server/model-catalog/generation-validation"
+    );
+    const valid = await validateAudioGenerationPayload({
+      prompt: "hello",
+      model: "qwen-dynamic",
+      dynamicParams: {
+        "hf:model_size": "1.7B",
+        "hf:reference_audio": "data:audio/wav;base64,UklGRg==",
+        "hf:use_xvector_only": true,
+      },
+    });
+    const invalid = await validateAudioGenerationPayload({
+      prompt: "hello",
+      model: "qwen-dynamic",
+      dynamicParams: {
+        "hf:model_size": "1.7B",
+        "hf:reference_audio": true,
+        "hf:use_xvector_only": "true",
+      },
+    });
+
+    expect(valid.success).toBe(true);
+    expect(invalid.success).toBe(false);
+  });
+
+  it("required 동적 파라미터 누락을 거부한다", async () => {
+    const { validateAudioGenerationPayload } = await import(
+      "@/server/model-catalog/generation-validation"
+    );
+    const result = await validateAudioGenerationPayload({
+      prompt: "hello",
+      model: "qwen-dynamic",
+      dynamicParams: {},
+    });
+
+    expect(result.success).toBe(false);
   });
 });

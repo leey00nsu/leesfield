@@ -613,6 +613,7 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
       labels.repetitionPenalty,
     );
 
+    // Keep these dynamic binding rules in sync with the shared runtime schema.
     const dynamicParams = data.dynamicParams ?? {};
     const dynamicConfigs = Object.entries(parameters).filter(([, value]) => {
       const config = value as ParameterConfig;

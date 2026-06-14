@@ -528,6 +528,7 @@ export function createRuntimeAudioSchema(
       labels.repetitionPenalty,
     );
 
+    // Keep these dynamic binding rules in sync with server generation validation.
     const dynamicParams = data.dynamicParams ?? {};
     const dynamicParameters = getRuntimeAudioDynamicParameters(model);
     const allowedKeys = new Set(dynamicParameters.map(({ key }) => key));
