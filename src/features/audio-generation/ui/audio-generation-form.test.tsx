@@ -208,6 +208,17 @@ const dynamicParameterModelFixture: RuntimeAudioModel = {
         order: 4,
       },
     },
+    "hf:style_prompt": {
+      ui: "textarea",
+      label: "Style Prompt",
+      default: "Warm narration",
+      binding: {
+        source: "hf_space",
+        parameterName: "style_prompt",
+        valueType: "string",
+        order: 5,
+      },
+    },
   },
   meta: {
     supports_input_audio: true,
@@ -735,6 +746,9 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("slider", { name: "Temperature" }),
     ).toHaveValue("0.7");
+    expect(screen.getByRole("textbox", { name: "Style Prompt" }).tagName).toBe(
+      "TEXTAREA",
+    );
     await user.upload(
       screen.getByLabelText("Reference Sample"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
@@ -752,6 +766,7 @@ describe("AudioGenerationForm", () => {
             "hf:use_xvector_only": true,
             "hf:reference_sample": fileReaderResult,
             "hf:temperature": 0.7,
+            "hf:style_prompt": "Warm narration",
           },
         }),
       );

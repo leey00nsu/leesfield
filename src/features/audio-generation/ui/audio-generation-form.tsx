@@ -945,6 +945,32 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       );
     }
 
+    if (config.ui === "textarea") {
+      return (
+        <AppFormControllerField
+          key={`${activeModel}-${key}`}
+          control={form.control}
+          name={fieldName}
+          render={({ field }) => (
+            <AppFormItem className="flex flex-col gap-2">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                {label}
+              </AppFormLabel>
+              <AppFormControl>
+                <AppTextarea
+                  value={typeof field.value === "string" ? field.value : ""}
+                  aria-label={label}
+                  onChange={field.onChange}
+                  className="min-h-[96px]"
+                />
+              </AppFormControl>
+              <AppFormMessage className="text-xs text-red-400" />
+            </AppFormItem>
+          )}
+        />
+      );
+    }
+
     return (
       <AppFormControllerField
         key={`${activeModel}-${key}`}
