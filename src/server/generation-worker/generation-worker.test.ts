@@ -146,6 +146,15 @@ describe("generation worker", () => {
           },
           customInstruction: { ui: "textarea" },
           voiceInstruction: { ui: "textarea" },
+          "hf:model_size": {
+            ui: "select",
+            binding: {
+              source: "hf_space",
+              parameterName: "model_size",
+              valueType: "string",
+              order: 20,
+            },
+          },
         },
         concurrentLimit: 1,
         supportsInputAudio: true,
@@ -321,6 +330,10 @@ describe("generation worker", () => {
         temperature: 0.9,
         topK: 50,
         repetitionPenalty: 1.05,
+        dynamicParams: {
+          "hf:model_size": "1.7B",
+          "hf:use_xvector_only": true,
+        },
       },
     };
 
@@ -353,6 +366,10 @@ describe("generation worker", () => {
         temperature: 0.9,
         topK: 50,
         repetitionPenalty: 1.05,
+        dynamicParams: {
+          "hf:model_size": "1.7B",
+          "hf:use_xvector_only": true,
+        },
       }),
       "aud-mode-request-id",
     );

@@ -269,6 +269,19 @@ function buildAudioPayload(
     typeof params.speaker === "string" &&
     Boolean(params.speaker.trim()) &&
     submittedVoice === defaults.voice;
+  const dynamicParams =
+    params.dynamicParams &&
+    typeof params.dynamicParams === "object" &&
+    !Array.isArray(params.dynamicParams)
+      ? Object.fromEntries(
+          Object.entries(params.dynamicParams).filter(
+            ([, value]) =>
+              typeof value === "string" ||
+              typeof value === "number" ||
+              typeof value === "boolean",
+          ),
+        )
+      : {};
 
   return {
     prompt: record.prompt,
@@ -337,6 +350,7 @@ function buildAudioPayload(
       typeof params.repetitionPenalty === "number"
         ? params.repetitionPenalty
         : undefined,
+    dynamicParams,
   };
 }
 

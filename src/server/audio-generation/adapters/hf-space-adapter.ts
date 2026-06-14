@@ -10,6 +10,7 @@ import { scoreEndpointCandidate } from "@/server/hf-space/endpoint-scoring";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { AudioModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import {
+  getRuntimeAudioDynamicParameters,
   getRuntimeAudioParamRange,
   resolveRuntimeAudioDefaults,
   type RuntimeAudioModel,
@@ -554,14 +555,61 @@ function resolveParamValue(
   return parameter.parameter_default;
 }
 
+function resolveDynamicBindingValues(
+  model: RuntimeAudioModel,
+  payload: AudioGenerationFormValues,
+) {
+  const parameters = getRuntimeAudioDynamicParameters(model);
+  const parametersByKey = new Map(
+    parameters.map((parameter) => [parameter.key, parameter]),
+  );
+  const values = new Map<string, unknown>();
+
+  for (const [key, value] of Object.entries(payload.dynamicParams ?? {})) {
+    const parameter = parametersByKey.get(key);
+    if (!parameter) {
+      throw new Error("HF_SPACE_PARAMETER_INVALID");
+    }
+    const resolvedValue =
+      parameter.binding.valueType === "file"
+        ? typeof value === "string" && value
+          ? toGradioInputAudio(value)
+          : undefined
+        : value;
+    if (resolvedValue === undefined) {
+      throw new Error("HF_SPACE_PARAMETER_INVALID");
+    }
+    values.set(
+      parameter.binding.parameterName.trim().toLowerCase(),
+      resolvedValue,
+    );
+  }
+
+  for (const parameter of parameters) {
+    if (
+      parameter.config.required &&
+      !Object.prototype.hasOwnProperty.call(
+        payload.dynamicParams ?? {},
+        parameter.key,
+      )
+    ) {
+      throw new Error("HF_SPACE_PARAMETER_INVALID");
+    }
+  }
+
+  return values;
+}
+
 function buildRequestPayload(
   apiInfo: ViewApiResponse | null,
   apiName: string,
   payload: AudioGenerationFormValues,
+  model: RuntimeAudioModel,
   defaults: ReturnType<typeof resolveRuntimeAudioDefaults>,
   speed: number,
   seed: { seedValue: number; randomize: boolean },
 ) {
+  const dynamicBindingValues = resolveDynamicBindingValues(model, payload);
   const endpoint = getEndpointInfoFromSnapshot(apiInfo, apiName);
   const parameters =
     endpoint?.parameters?.filter(
@@ -638,22 +686,43 @@ function buildRequestPayload(
     if (!seed.randomize) {
       fallbackPayload.seed = seed.seedValue;
     }
+    for (const parameter of getRuntimeAudioDynamicParameters(model)) {
+      const value = dynamicBindingValues.get(
+        parameter.binding.parameterName.trim().toLowerCase(),
+      );
+      if (value !== undefined) {
+        fallbackPayload[parameter.binding.parameterName] = value;
+      }
+    }
 
     return fallbackPayload;
   }
 
   const requestPayload: Record<string, unknown> = {};
+  const endpointParameterNames = new Set(
+    parameters.map((parameter) =>
+      resolveRequestParameterKey(parameter).trim().toLowerCase(),
+    ),
+  );
+  for (const parameterName of dynamicBindingValues.keys()) {
+    if (!endpointParameterNames.has(parameterName)) {
+      throw new Error("HF_SPACE_PARAMETER_INVALID");
+    }
+  }
 
   parameters.forEach((parameter) => {
     const key = resolveRequestParameterKey(parameter);
+    const dynamicValue = dynamicBindingValues.get(key.trim().toLowerCase());
 
-    requestPayload[key] = resolveParamValue(
-      parameter,
-      payload,
-      defaults,
-      speed,
-      seed,
-    );
+    requestPayload[key] =
+      dynamicValue ??
+      resolveParamValue(
+        parameter,
+        payload,
+        defaults,
+        speed,
+        seed,
+      );
   });
 
   return requestPayload;
@@ -713,7 +782,7 @@ async function fetchAudioDataUrl(
       buffer,
     });
     return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch (error) {
+  } catch {
     if (controller.signal.aborted) {
       throw new Error("HF_SPACE_AUDIO_FETCH_TIMEOUT");
     }
@@ -871,14 +940,30 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
     let lastRetryableError: Error | null = null;
 
     for (const apiName of apiCandidates) {
-      const requestPayload = buildRequestPayload(
-        apiInfo,
-        apiName,
-        payload,
-        defaults,
-        speed,
-        seed,
-      );
+      let requestPayload: Record<string, unknown>;
+      try {
+        requestPayload = buildRequestPayload(
+          apiInfo,
+          apiName,
+          payload,
+          model,
+          defaults,
+          speed,
+          seed,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "HF_SPACE_PARAMETER_INVALID"
+        ) {
+          lastRetryableError = keepMoreSpecificRetryableError(
+            lastRetryableError,
+            error.message,
+          );
+          continue;
+        }
+        throw error;
+      }
 
       const predictPromise = client.predict(apiName, requestPayload);
 
