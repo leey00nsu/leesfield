@@ -56,51 +56,116 @@ const canonicalKeys = new Set([
   "repetitionPenalty",
 ]);
 
-function normalizeLookup(parameter: HfEndpointParameter) {
-  return `${parameter.parameter_name ?? ""} ${parameter.label ?? ""}`
+function normalizeSignal(value: string | undefined) {
+  return (value ?? "")
+    .trim()
     .toLowerCase()
-    .replace(/[_-]+/g, " ");
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
 }
 
-function resolveCanonicalKey(parameter: HfEndpointParameter) {
-  const target = normalizeLookup(parameter);
-  const parameterName = parameter.parameter_name?.trim().toLowerCase() ?? "";
-  if (
-    target.includes("reference transcript") ||
-    target.includes("reference text") ||
-    target.includes("ref text")
-  ) {
+function normalizePrimaryLabel(label: string | undefined) {
+  return normalizeSignal(label?.replace(/\([^)]*\)/g, " "));
+}
+
+function matchCanonicalSignal(signal: string) {
+  if (/^(ref|reference) (text|transcript)( path)?$/.test(signal)) {
     return "referenceText";
   }
-  if (
-    target.includes("reference audio") ||
-    target.includes("ref audio")
-  ) {
+  if (/^(ref|reference|input) audio( path)?$/.test(signal)) {
     return "inputAudio";
   }
-  if (target.includes("target text") || target.includes("prompt")) {
+  if (signal === "target text" || signal === "prompt" || signal === "text") {
     return "prompt";
   }
-  if (target.trim() === "text text") {
-    return "prompt";
+  if (signal === "language") return "language";
+  if (signal === "stream mode" || signal === "streaming") return "streamMode";
+  if (signal === "reference preset" || signal === "ref preset") {
+    return "referencePreset";
   }
-  if (target.includes("language")) return "language";
-  if (target.includes("stream mode") || target.includes("streaming")) {
-    return "streamMode";
+  if (signal === "custom instruction" || signal === "custom instruct") {
+    return "customInstruction";
   }
-  if (target.includes("reference preset")) return "referencePreset";
-  if (target.includes("custom instruction")) return "customInstruction";
-  if (target.includes("voice instruction")) return "voiceInstruction";
-  if (parameterName === "xvec_only") return "xvecOnly";
-  if (target.includes("chunk size")) return "chunkSize";
-  if (target.includes("temperature")) return "temperature";
-  if (target.includes("top k")) return "topK";
-  if (target.includes("repetition penalty")) return "repetitionPenalty";
-  if (target.includes("speaker")) return "speaker";
-  if (target.trim() === "voice voice") return "voice";
-  if (target.includes("speed")) return "speed";
-  if (target.includes("generation mode")) return "modeChoice";
-  if (target.includes("seed")) return "seed";
+  if (signal === "voice instruction" || signal === "voice instruct") {
+    return "voiceInstruction";
+  }
+  if (signal === "xvec only") return "xvecOnly";
+  if (signal === "chunk size") return "chunkSize";
+  if (signal === "temperature") return "temperature";
+  if (signal === "top k") return "topK";
+  if (signal === "repetition penalty") return "repetitionPenalty";
+  if (signal === "speaker") return "speaker";
+  if (signal === "voice") return "voice";
+  if (signal === "speed") return "speed";
+  if (signal === "generation mode" || signal === "mode") return "modeChoice";
+  if (signal === "seed") return "seed";
+  return null;
+}
+
+function isCanonicalTypeCompatible(
+  canonicalKey: string,
+  valueType: HfParameterValueType,
+  options: RuntimeParameterOption[],
+) {
+  if (canonicalKey === "inputAudio") return valueType === "file";
+  if (
+    canonicalKey === "prompt" ||
+    canonicalKey === "referenceText" ||
+    canonicalKey === "customInstruction" ||
+    canonicalKey === "voiceInstruction"
+  ) {
+    return valueType === "string" && options.length === 0;
+  }
+  if (
+    canonicalKey === "language" ||
+    canonicalKey === "modeChoice" ||
+    canonicalKey === "referencePreset" ||
+    canonicalKey === "speaker"
+  ) {
+    return valueType === "string" && options.length > 0;
+  }
+  if (canonicalKey === "voice") return valueType === "string";
+  if (canonicalKey === "seed") {
+    return valueType === "string" || valueType === "number";
+  }
+  if (canonicalKey === "streamMode" || canonicalKey === "xvecOnly") {
+    return valueType === "boolean";
+  }
+  if (
+    canonicalKey === "speed" ||
+    canonicalKey === "chunkSize" ||
+    canonicalKey === "temperature" ||
+    canonicalKey === "topK" ||
+    canonicalKey === "repetitionPenalty"
+  ) {
+    return valueType === "number";
+  }
+  return true;
+}
+
+function resolveCanonicalKey(
+  parameter: HfEndpointParameter,
+  valueType: HfParameterValueType,
+  options: RuntimeParameterOption[],
+) {
+  const nameMatch = matchCanonicalSignal(
+    normalizeSignal(parameter.parameter_name),
+  );
+  if (nameMatch) {
+    return isCanonicalTypeCompatible(nameMatch, valueType, options)
+      ? nameMatch
+      : null;
+  }
+
+  const labelMatch = matchCanonicalSignal(
+    normalizePrimaryLabel(parameter.label),
+  );
+  if (
+    labelMatch &&
+    isCanonicalTypeCompatible(labelMatch, valueType, options)
+  ) {
+    return labelMatch;
+  }
   return null;
 }
 
@@ -139,6 +204,10 @@ function resolveUi(
   options: RuntimeParameterOption[],
 ): HfParameterConfig["ui"] {
   const component = parameter.component?.toLowerCase() ?? "";
+  const signalTokens =
+    `${normalizeSignal(parameter.parameter_name)} ${normalizeSignal(parameter.label)}`.split(
+      " ",
+    );
   if (valueType === "file") return "upload";
   if (valueType === "boolean") return "toggle";
   if (component.includes("slider")) return "range";
@@ -148,7 +217,7 @@ function resolveUi(
   if (
     component.includes("textbox") &&
     (parameter.lines !== undefined && parameter.lines > 1 ||
-      normalizeLookup(parameter).includes("text"))
+      signalTokens.includes("text"))
   ) {
     return "textarea";
   }
@@ -176,18 +245,30 @@ export function buildHfParameterDescriptors(
       return;
     }
 
-    const canonicalKey = resolveCanonicalKey(parameter);
-    const catalogKey =
-      canonicalKey && canonicalKeys.has(canonicalKey)
-        ? canonicalKey
-        : `hf:${parameterName}`;
+    const options = normalizeRuntimeParameterOptions(parameter.choices) ?? [];
+    const valueType = resolveValueType(parameter);
+    const matchedCanonicalKey = resolveCanonicalKey(
+      parameter,
+      valueType,
+      options,
+    );
+    let canonicalKey =
+      matchedCanonicalKey && canonicalKeys.has(matchedCanonicalKey)
+        ? matchedCanonicalKey
+        : null;
+    let catalogKey = canonicalKey ?? `hf:${parameterName}`;
+    if (canonicalKey && result[catalogKey]) {
+      warnings.push(
+        `PARAMETER_CANONICAL_FALLBACK:${canonicalKey}:${parameterName}`,
+      );
+      canonicalKey = null;
+      catalogKey = `hf:${parameterName}`;
+    }
     if (result[catalogKey]) {
       warnings.push(`PARAMETER_KEY_COLLISION:${catalogKey}`);
       return;
     }
 
-    const options = normalizeRuntimeParameterOptions(parameter.choices) ?? [];
-    const valueType = resolveValueType(parameter);
     const config: HfParameterConfig = {
       ui: resolveUi(parameter, valueType, options),
       label: parameter.label?.trim() || parameterName,

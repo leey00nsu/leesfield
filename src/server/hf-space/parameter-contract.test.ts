@@ -32,7 +32,8 @@ describe("buildHfParameterDescriptors", () => {
       },
       {
         parameter_name: "use_xvector_only",
-        label: "Use x-vector only",
+        label:
+          "Use x-vector only (No reference text needed, but lower quality)",
         component: "Checkbox",
         parameter_has_default: true,
         parameter_default: false,
@@ -88,6 +89,169 @@ describe("buildHfParameterDescriptors", () => {
         order: 5,
       },
     });
+  });
+
+  it("label 설명의 canonical 키워드가 component 타입과 모순되면 generic으로 유지한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "enable_prompt_cleanup",
+        label: "Disable prompt cleanup",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+      {
+        parameter_name: "audio_quality",
+        label: "Reference audio quality",
+        component: "Slider",
+        parameter_default: 0.8,
+      },
+      {
+        parameter_name: "language_notes",
+        label: "Language-specific instructions",
+        component: "Textbox",
+        parameter_default: "",
+      },
+      {
+        parameter_name: "context_window",
+        label: "Context window",
+        component: "Textbox",
+        parameter_default: "",
+      },
+    ]);
+
+    expect(result.parameters.prompt).toBeUndefined();
+    expect(result.parameters.inputAudio).toBeUndefined();
+    expect(result.parameters.language).toBeUndefined();
+    expect(result.parameters["hf:enable_prompt_cleanup"].binding).toMatchObject({
+      parameterName: "enable_prompt_cleanup",
+      valueType: "boolean",
+    });
+    expect(result.parameters["hf:audio_quality"].binding).toMatchObject({
+      parameterName: "audio_quality",
+      valueType: "number",
+    });
+    expect(result.parameters["hf:language_notes"].binding).toMatchObject({
+      parameterName: "language_notes",
+      valueType: "string",
+    });
+    expect(result.parameters["hf:context_window"]).toMatchObject({
+      ui: "input",
+      binding: {
+        parameterName: "context_window",
+        valueType: "string",
+      },
+    });
+  });
+
+  it("타입과 모순되는 직접 name 후보를 label로 다른 canonical field에 재매칭하지 않는다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "ref_audio",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+      {
+        parameter_name: "voice",
+        label: "Voice",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+      {
+        parameter_name: "seed",
+        label: "Seed",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+    ]);
+
+    expect(result.parameters.inputAudio).toBeUndefined();
+    expect(result.parameters.referenceText).toBeUndefined();
+    expect(result.parameters.voice).toBeUndefined();
+    expect(result.parameters.seed).toBeUndefined();
+    expect(result.parameters["hf:ref_audio"].binding).toMatchObject({
+      parameterName: "ref_audio",
+      valueType: "string",
+    });
+    expect(result.parameters["hf:voice"].binding).toMatchObject({
+      parameterName: "voice",
+      valueType: "boolean",
+    });
+    expect(result.parameters["hf:seed"].binding).toMatchObject({
+      parameterName: "seed",
+      valueType: "boolean",
+    });
+  });
+
+  it("모호한 parameter name은 호환 가능한 명확한 label로 canonical 매칭한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "field_1",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+    ]);
+
+    expect(result.parameters.referenceText.binding).toMatchObject({
+      parameterName: "field_1",
+      canonicalKey: "referenceText",
+      valueType: "string",
+    });
+  });
+
+  it("canonical key가 충돌하면 후속 파라미터를 generic binding으로 보존한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "ref_text",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+      {
+        parameter_name: "transcript_copy",
+        label: "Reference Text",
+        component: "Textbox",
+        parameter_default: "fallback",
+      },
+    ]);
+
+    expect(result.parameters.referenceText.binding.parameterName).toBe(
+      "ref_text",
+    );
+    expect(result.parameters["hf:transcript_copy"]).toMatchObject({
+      default: "fallback",
+      binding: {
+        parameterName: "transcript_copy",
+        valueType: "string",
+        order: 1,
+      },
+    });
+    expect(
+      result.parameters["hf:transcript_copy"].binding,
+    ).not.toHaveProperty("canonicalKey");
+    expect(result.warnings).toContain(
+      "PARAMETER_CANONICAL_FALLBACK:referenceText:transcript_copy",
+    );
+  });
+
+  it("generic key 자체가 충돌하면 기존 값을 덮어쓰지 않는다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "fidelity_profile",
+        label: "First Profile",
+        component: "Textbox",
+        parameter_default: "first",
+      },
+      {
+        parameter_name: "fidelity_profile",
+        label: "Second Profile",
+        component: "Textbox",
+        parameter_default: "second",
+      },
+    ]);
+
+    expect(result.parameters["hf:fidelity_profile"].default).toBe("first");
+    expect(result.warnings).toContain(
+      "PARAMETER_KEY_COLLISION:hf:fidelity_profile",
+    );
   });
 
   it("이름 의미가 불명확한 공개 파라미터를 generic key로 유지한다", () => {
