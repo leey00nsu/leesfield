@@ -44,7 +44,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       data-slot="select-content"
       className={cn(
-        "relative z-50 min-w-[8rem] overflow-hidden rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-lg",
+        "relative z-[100] min-w-[8rem] overflow-hidden rounded-xl border border-white/10 bg-popover text-popover-foreground shadow-lg",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
