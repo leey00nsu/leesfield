@@ -261,6 +261,23 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
   );
 }
 
+function getLabelElement(label: string) {
+  const element = screen.getByText(label);
+  const labelElement = element.closest("label");
+  expect(labelElement).not.toBeNull();
+  return labelElement!;
+}
+
+function expectLabelToBeRequired(label: string) {
+  const marker = within(getLabelElement(label)).getByText("*");
+  expect(marker).toHaveAttribute("aria-hidden", "true");
+  expect(marker).toHaveClass("text-red-400");
+}
+
+function expectLabelNotToBeRequired(label: string) {
+  expect(within(getLabelElement(label)).queryByText("*")).toBeNull();
+}
+
 describe("AudioGenerationForm", () => {
   beforeEach(() => {
     navigationMocks.push.mockReset();
@@ -416,6 +433,7 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("slider", { name: "Playback Rate" }),
     ).toBeInTheDocument();
+    expectLabelNotToBeRequired("Playback Rate");
     expect(screen.queryByText("속도")).not.toBeInTheDocument();
   });
 
@@ -628,6 +646,8 @@ describe("AudioGenerationForm", () => {
       "hello clone",
     );
     await user.click(screen.getByRole("button", { name: /설정/i }));
+    expectLabelToBeRequired("Sample audio");
+    expectLabelToBeRequired("샘플 문장");
     await user.upload(
       await screen.findByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
@@ -777,6 +797,8 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("combobox", { name: "Model Size" }),
     ).toHaveTextContent("1.7B");
+    expectLabelNotToBeRequired("Model Size");
+    expectLabelToBeRequired("Reference Sample");
     Element.prototype.scrollIntoView = vi.fn();
     screen.getByRole("combobox", { name: "Quality Level" }).focus();
     await user.keyboard("{ArrowDown}{Home}{Enter}");

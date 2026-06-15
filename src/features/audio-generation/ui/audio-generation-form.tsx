@@ -117,6 +117,25 @@ const studioPreviewShellClass =
 const studioResultFrameClass =
   "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
+function RequiredFieldLabel({
+  label,
+  required,
+}: {
+  label: string;
+  required: boolean;
+}) {
+  return (
+    <>
+      <span>{label}</span>
+      {required ? (
+        <span aria-hidden="true" className="ml-1 text-red-400">
+          *
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -552,6 +571,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
     if (!config || config.ui === "hidden") return null;
     const label = getFieldLabel(key);
+    const isRequired = config.required === true;
 
     if (key === "inputAudio") {
       return (
@@ -562,7 +582,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={() => (
             <AppFormItem className="flex flex-col gap-3">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
                 <input
@@ -619,7 +639,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   <>
               <div className="flex items-center justify-between">
                 <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  {label}
+                  <RequiredFieldLabel label={label} required={isRequired} />
                 </AppFormLabel>
                 <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
                   {effectiveValue}
@@ -656,7 +676,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppSelectRoot
                 value={
@@ -705,7 +725,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             return (
               <AppFormItem className="flex items-center justify-between gap-4">
                 <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  {label}
+                  <RequiredFieldLabel label={label} required={isRequired} />
                 </AppFormLabel>
                 <AppFormControl>
                   <AppButton
@@ -738,7 +758,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
                 <AppTextarea
@@ -763,7 +783,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
         render={({ field }) => (
           <AppFormItem className="flex flex-col gap-2">
             <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-              {label}
+              <RequiredFieldLabel label={label} required={isRequired} />
             </AppFormLabel>
             <AppFormControl>
               <AppInput
@@ -785,6 +805,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   ) => {
     const fieldName = `dynamicParams.${key}` as const;
     const label = resolveRuntimeParameterLabel(config, key);
+    const isRequired = config.required === true;
 
     if (config.ui === "range") {
       const min = typeof config.min === "number" ? config.min : 0;
@@ -806,7 +827,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
               <AppFormItem className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                    {label}
+                    <RequiredFieldLabel label={label} required={isRequired} />
                   </AppFormLabel>
                   <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
                     {value}
@@ -843,7 +864,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-3">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
                 <input
@@ -881,7 +902,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppSelectRoot
                 value={field.value === undefined ? "" : String(field.value)}
@@ -927,7 +948,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             return (
               <AppFormItem className="flex items-center justify-between gap-4">
                 <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  {label}
+                  <RequiredFieldLabel label={label} required={isRequired} />
                 </AppFormLabel>
                 <AppFormControl>
                   <AppButton
@@ -957,7 +978,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                {label}
+                <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
                 <AppTextarea
@@ -982,7 +1003,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
         render={({ field }) => (
           <AppFormItem className="flex flex-col gap-2">
             <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-              {label}
+              <RequiredFieldLabel label={label} required={isRequired} />
             </AppFormLabel>
             <AppFormControl>
               <AppInput
