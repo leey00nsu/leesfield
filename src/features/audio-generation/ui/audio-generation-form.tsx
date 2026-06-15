@@ -1053,7 +1053,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           <AppFormControllerField
             control={form.control}
             name="prompt"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <AppFormItem className="flex-1">
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
@@ -1069,9 +1069,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
-                  feedback={
+                  feedback={fieldState.error ? (
                     <AppFormMessage className="text-xs text-red-400" />
-                  }
+                  ) : undefined}
                   footerLeft={
                     <>
                       {!isGuest && hasModels ? (

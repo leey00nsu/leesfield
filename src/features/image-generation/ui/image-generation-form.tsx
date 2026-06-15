@@ -493,7 +493,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                 <AppFormControllerField
                   control={form.control}
                   name="prompt"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <AppFormItem className="flex-1">
                       <GenerationPromptField
                         ariaLabel={tGeneration("promptDock.label")}
@@ -511,9 +511,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         promptMeta={tLabels("chars", {
                           count: promptValue.length,
                         })}
-                        feedback={
+                        feedback={fieldState.error ? (
                           <AppFormMessage className="text-xs text-red-400" />
-                        }
+                        ) : undefined}
                         attachments={
                           initImagePreviews.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">

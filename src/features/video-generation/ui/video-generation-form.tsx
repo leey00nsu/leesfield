@@ -375,7 +375,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
           <AppFormControllerField
             control={form.control}
             name="prompt"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <AppFormItem className="flex-1">
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
@@ -391,9 +391,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                     </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
-                  feedback={
+                  feedback={fieldState.error ? (
                     <AppFormMessage className="text-xs text-red-400" />
-                  }
+                  ) : undefined}
                   attachments={
                     initImageValue ? (
                       <div className="flex flex-wrap gap-2 px-4 pb-3">

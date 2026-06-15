@@ -210,15 +210,19 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
+    expect(screen.queryByTestId("shared-prompt-feedback")).toBeNull();
+
     const dock = screen.getByRole("region", { name: "작업 입력" });
     const form = dock.closest("form");
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
 
     const message = await screen.findByText("프롬프트를 입력해주세요.");
+    const feedback = screen.getByTestId("shared-prompt-feedback");
     expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
-      message,
+      feedback,
     );
+    expect(feedback).toContainElement(message);
     expect(startGenerationMock).not.toHaveBeenCalled();
   });
 
