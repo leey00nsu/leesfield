@@ -23,7 +23,17 @@ describe("importModelDraftFromSpace", () => {
               { parameter_name: "ref_audio", label: "Reference Audio", parameter_has_default: false },
               { parameter_name: "ref_text", label: "Reference Text", parameter_has_default: false },
               { parameter_name: "target_text", label: "Target Text", parameter_has_default: false },
-              { parameter_name: "use_xvector_only", label: "Use x-vector only", parameter_default: false },
+              {
+                parameter_name: "language",
+                label: "Language",
+                parameter_default: "Auto",
+              },
+              {
+                parameter_name: "use_xvector_only",
+                label:
+                  "Use x-vector only (No reference text needed, but lower quality)",
+                parameter_default: false,
+              },
               { parameter_name: "model_size", label: "Model Size", parameter_default: "1.7B" },
             ],
           },
@@ -36,19 +46,36 @@ describe("importModelDraftFromSpace", () => {
           { id: 1, type: "audio", props: { label: "Reference Audio" } },
           { id: 2, type: "textbox", props: { label: "Reference Text", lines: 2 } },
           { id: 3, type: "textbox", props: { label: "Target Text", lines: 4 } },
-          { id: 4, type: "checkbox", props: { label: "Use x-vector only", value: false } },
+          {
+            id: 4,
+            type: "dropdown",
+            props: {
+              label: "Language",
+              choices: ["Auto", "Korean"],
+              value: "Auto",
+            },
+          },
           {
             id: 5,
+            type: "checkbox",
+            props: {
+              label:
+                "Use x-vector only (No reference text needed, but lower quality)",
+              value: false,
+            },
+          },
+          {
+            id: 6,
             type: "dropdown",
             props: { label: "Model Size", choices: ["0.6B", "1.7B"], value: "1.7B" },
           },
-          { id: 6, type: "audio", props: { label: "Generated Audio" } },
+          { id: 7, type: "audio", props: { label: "Generated Audio" } },
         ],
         dependencies: [
           {
             api_name: "/generate_voice_clone",
-            inputs: [1, 2, 3, 4, 5],
-            outputs: [6],
+            inputs: [1, 2, 3, 4, 5, 6],
+            outputs: [7],
           },
         ],
       },
@@ -70,10 +97,23 @@ describe("importModelDraftFromSpace", () => {
       parameterName: "target_text",
       canonicalKey: "prompt",
     });
+    expect(result.draft.parameters.language).toMatchObject({
+      ui: "select",
+      default: "Auto",
+      binding: {
+        parameterName: "language",
+        canonicalKey: "language",
+        order: 3,
+      },
+    });
     expect(result.draft.parameters["hf:use_xvector_only"]).toMatchObject({
       ui: "toggle",
       default: false,
-      binding: { parameterName: "use_xvector_only", valueType: "boolean" },
+      binding: {
+        parameterName: "use_xvector_only",
+        valueType: "boolean",
+        order: 4,
+      },
     });
     expect(result.draft.parameters["hf:model_size"]).toMatchObject({
       ui: "select",
@@ -82,8 +122,30 @@ describe("importModelDraftFromSpace", () => {
         { label: "0.6B", value: "0.6B" },
         { label: "1.7B", value: "1.7B" },
       ],
-      binding: { parameterName: "model_size", valueType: "string" },
+      binding: {
+        parameterName: "model_size",
+        valueType: "string",
+        order: 5,
+      },
     });
+    expect(Object.keys(result.draft.parameters)).toEqual(
+      expect.arrayContaining([
+        "inputAudio",
+        "referenceText",
+        "prompt",
+        "language",
+        "hf:use_xvector_only",
+        "hf:model_size",
+      ]),
+    );
+    expect(result.warnings).not.toContain(
+      "PARAMETER_KEY_COLLISION:referenceText",
+    );
+    expect(
+      result.warnings.some((warning) =>
+        warning.startsWith("UNMAPPED_PARAM:Use x-vector only"),
+      ),
+    ).toBe(false);
     expect(result.draft.parameters.referenceText.ui).toBe("textarea");
     expect(result.draft.parameters.prompt.ui).toBe("textarea");
   });
