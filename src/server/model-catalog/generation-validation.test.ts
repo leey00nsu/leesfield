@@ -19,6 +19,20 @@ describe("validateAudioGenerationPayload dynamicParams", () => {
         providerConfig: { space_id: "Qwen/Qwen3-TTS", api_name: "/generate_voice_clone" },
         parameters: {
           prompt: { ui: "textarea", required: true },
+          speed: {
+            ui: "range",
+            label: "Playback Rate",
+            min: 0.25,
+            max: 4,
+            step: 0.05,
+            binding: {
+              source: "hf_space",
+              parameterName: "speed",
+              valueType: "number",
+              canonicalKey: "speed",
+              order: 4,
+            },
+          },
           "hf:model_size": {
             ui: "select",
             required: true,
@@ -83,6 +97,27 @@ describe("validateAudioGenerationPayload dynamicParams", () => {
       dynamicParams: { "hf:model_size": "1.7B" },
     });
     expect(result.success).toBe(true);
+  });
+
+  it("HF-bound canonical step 오류에 provider label을 사용한다", async () => {
+    const { validateAudioGenerationPayload } = await import(
+      "@/server/model-catalog/generation-validation"
+    );
+    const result = await validateAudioGenerationPayload(
+      {
+        prompt: "hello",
+        model: "qwen-dynamic",
+        speed: 1.025,
+      },
+      (key, values) =>
+        key === "step" ? `${values?.label} step ${values?.step}` : key,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error("Expected HF-bound speed step validation to fail");
+    }
+    expect(result.error.issues[0]?.message).toBe("Playback Rate step 0.05");
   });
 
   it("unknown key와 지원하지 않는 option을 거부한다", async () => {

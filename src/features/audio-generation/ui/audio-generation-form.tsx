@@ -56,6 +56,7 @@ import {
   getRuntimeAudioParamConfig,
   getRuntimeAudioDynamicParameters,
   getRuntimeAudioParamRange,
+  resolveRuntimeParameterLabel,
   resolveRuntimeAudioDefaults,
   resolveRuntimeAudioSupportsInputAudio,
   resolveRuntimeDefaultModelKey,
@@ -471,46 +472,47 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const getFieldLabel = (key: AudioFieldName) => {
     const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
-    switch (key) {
-      case "voice":
-        return tAudio("voiceLabel");
-      case "referenceText":
-        return tAudio("referenceTextLabel");
-      case "speed":
-        return tAudio("speedLabel");
-      case "seed":
-        return tLabels("seed");
-      case "modeChoice":
-        return "Mode";
-      case "language":
-        return "Language";
-      case "speaker":
-        return "Speaker";
-      case "streamMode":
-        return "Live output";
-      case "referencePreset":
-        return "Voice sample";
-      case "customInstruction":
-        return "Notes";
-      case "voiceInstruction":
-        return "Voice style";
-      case "xvecOnly":
-        return "Voice match";
-      case "chunkSize":
-        return "Detail";
-      case "temperature":
-        return "Variation";
-      case "topK":
-        return "Clarity";
-      case "repetitionPenalty":
-        return "Repetition";
-      case "inputAudio":
-        return "Sample audio";
-      default:
-        return typeof config?.label === "string" && config.label.trim()
-          ? config.label
-          : key;
-    }
+    const fallback = (() => {
+      switch (key) {
+        case "voice":
+          return tAudio("voiceLabel");
+        case "referenceText":
+          return tAudio("referenceTextLabel");
+        case "speed":
+          return tAudio("speedLabel");
+        case "seed":
+          return tLabels("seed");
+        case "modeChoice":
+          return "Mode";
+        case "language":
+          return "Language";
+        case "speaker":
+          return "Speaker";
+        case "streamMode":
+          return "Live output";
+        case "referencePreset":
+          return "Voice sample";
+        case "customInstruction":
+          return "Notes";
+        case "voiceInstruction":
+          return "Voice style";
+        case "xvecOnly":
+          return "Voice match";
+        case "chunkSize":
+          return "Detail";
+        case "temperature":
+          return "Variation";
+        case "topK":
+          return "Clarity";
+        case "repetitionPenalty":
+          return "Repetition";
+        case "inputAudio":
+          return "Sample audio";
+        default:
+          return key;
+      }
+    })();
+    return resolveRuntimeParameterLabel(config, fallback);
   };
 
   const getFieldTextareaPlaceholder = () => "";
@@ -782,10 +784,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     config: (typeof dynamicParameters)[number]["config"],
   ) => {
     const fieldName = `dynamicParams.${key}` as const;
-    const label =
-      typeof config.label === "string" && config.label.trim()
-        ? config.label
-        : key;
+    const label = resolveRuntimeParameterLabel(config, key);
 
     if (config.ui === "range") {
       const min = typeof config.min === "number" ? config.min : 0;

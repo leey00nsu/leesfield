@@ -409,6 +409,7 @@
         "invalidModel": "Unsupported model.",
         "noModels": "No audio models are registered.",
         "range": "{label} must be between {min} and {max}.",
+        "step": "{label} must be in increments of {step}.",
         "unsupportedVoice": "Unsupported voice.",
         "inputAudioUnsupported": "The selected model does not support audio input.",
         "referenceTextRequired": "Please enter the reference text.",

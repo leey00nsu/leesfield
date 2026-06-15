@@ -36,10 +36,19 @@ const runtimeAudioModelsFixture: RuntimeAudioModel[] = [
         default: "alloy",
       },
       speed: {
+        ui: "range",
+        label: "Playback Rate",
         min: 0.25,
         max: 4,
         step: 0.05,
         default: 1,
+        binding: {
+          source: "hf_space",
+          parameterName: "speed",
+          valueType: "number",
+          canonicalKey: "speed",
+          order: 1,
+        },
       },
       seed: {
         ui: "text",
@@ -390,6 +399,24 @@ describe("AudioGenerationForm", () => {
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
+  });
+
+  it("HF-bound canonical 필드는 provider label을 그대로 표시한다", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+    await user.click(screen.getByRole("button", { name: /설정/i }));
+
+    expect(
+      screen.getByRole("slider", { name: "Playback Rate" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("속도")).not.toBeInTheDocument();
   });
 
   it("renders a text-first audio studio preview without mock media cards", async () => {

@@ -30,6 +30,33 @@ export type RuntimeParameterConfig = {
   [key: string]: unknown;
 };
 
+type RuntimeParameterLabelConfig = {
+  label?: unknown;
+  binding?: {
+    source?: unknown;
+    parameterName?: unknown;
+  };
+};
+
+export function resolveRuntimeParameterLabel(
+  config: RuntimeParameterLabelConfig | undefined,
+  fallback: string,
+) {
+  if (config?.binding?.source !== "hf_space") {
+    return fallback;
+  }
+  if (typeof config.label === "string" && config.label.trim()) {
+    return config.label;
+  }
+  if (
+    typeof config.binding.parameterName === "string" &&
+    config.binding.parameterName.trim()
+  ) {
+    return config.binding.parameterName;
+  }
+  return fallback;
+}
+
 export type NormalizedRuntimeParameterConfig = {
   ui?: string;
   label?: string;
