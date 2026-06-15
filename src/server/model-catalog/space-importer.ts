@@ -575,7 +575,7 @@ export async function importModelDraftFromSpace(
       ? { ...FALLBACK_IMAGE_PARAMETERS, ...parameters }
       : modelType === "video"
         ? { ...FALLBACK_VIDEO_PARAMETERS, ...parameters }
-        : { ...FALLBACK_AUDIO_PARAMETERS, ...parameters };
+        : parameters;
 
   const width = resolveNumber(
     getDefaultFromParam(normalizedParameters.width),
