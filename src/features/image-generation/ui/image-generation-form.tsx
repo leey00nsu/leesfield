@@ -511,6 +511,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         promptMeta={tLabels("chars", {
                           count: promptValue.length,
                         })}
+                        feedback={
+                          <AppFormMessage className="text-xs text-red-400" />
+                        }
                         attachments={
                           initImagePreviews.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pb-3">
@@ -916,7 +919,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         className="hidden"
                         onChange={handleImageSelection}
                       />
-                      <AppFormMessage className="text-xs text-red-400" />
                     </AppFormItem>
                   )}
                 />

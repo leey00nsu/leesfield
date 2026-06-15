@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
 import { renderWithIntl } from "@/test-utils/intl";
 import type { RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
@@ -325,6 +325,29 @@ describe("AudioGenerationForm", () => {
         model: "qwen-tts",
       }),
     );
+  });
+
+  it("빈 prompt 오류를 공통 입력 dock 내부에 표시한다", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    const dock = screen.getByRole("region", { name: "작업 입력" });
+    const form = dock.closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+
+    const message = await screen.findByText("프롬프트를 입력해주세요.");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
+      message,
+    );
+    expect(startGeneration).not.toHaveBeenCalled();
   });
 
   it("renders the shared creation input with audio-specific control chips", async () => {

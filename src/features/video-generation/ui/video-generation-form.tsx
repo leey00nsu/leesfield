@@ -391,6 +391,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                     </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
+                  feedback={
+                    <AppFormMessage className="text-xs text-red-400" />
+                  }
                   attachments={
                     initImageValue ? (
                       <div className="flex flex-wrap gap-2 px-4 pb-3">
@@ -560,7 +563,6 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   className="hidden"
                   onChange={handleImageSelection}
                 />
-                <AppFormMessage className="text-xs text-red-400" />
               </AppFormItem>
             )}
           />

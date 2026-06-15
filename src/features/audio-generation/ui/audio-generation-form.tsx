@@ -1120,6 +1120,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     </AppFormControl>
                   }
                   promptMeta={tLabels("chars", { count: promptValue.length })}
+                  feedback={
+                    <AppFormMessage className="text-xs text-red-400" />
+                  }
                   footerLeft={
                     <>
                       {!isGuest && hasModels ? (
@@ -1210,7 +1213,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     </>
                   }
                 />
-                <AppFormMessage className="text-xs text-red-400" />
               </AppFormItem>
             )}
           />

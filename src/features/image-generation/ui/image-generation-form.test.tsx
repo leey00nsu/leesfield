@@ -213,6 +213,9 @@ describe("ImageGenerationForm", () => {
     expect(
       await screen.findByText("프롬프트를 입력해주세요."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("shared-prompt-form-surface"),
+    ).toContainElement(screen.getByText("프롬프트를 입력해주세요."));
     expect(startGeneration).not.toHaveBeenCalled();
   });
 

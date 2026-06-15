@@ -57,4 +57,29 @@ describe("GenerationPromptField", () => {
     expect(field).toContainElement(wrapper);
     expect(wrapper).toContainElement(surface);
   });
+
+  it("renders feedback between the prompt textarea and footer controls", () => {
+    renderWithIntl(
+      <GenerationPromptField
+        textarea={<textarea aria-label="Prompt" />}
+        feedback={<p role="alert">Prompt is required</p>}
+        footerLeft={<button type="button">Model</button>}
+      />,
+    );
+
+    const surface = screen.getByTestId("shared-prompt-form-surface");
+    const textarea = screen.getByRole("textbox", { name: "Prompt" });
+    const feedback = screen.getByRole("alert");
+    const footerControl = screen.getByRole("button", { name: "Model" });
+
+    expect(surface).toContainElement(feedback);
+    expect(
+      textarea.compareDocumentPosition(feedback) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      feedback.compareDocumentPosition(footerControl) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

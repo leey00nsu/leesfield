@@ -6,6 +6,7 @@ interface AppPromptSurfaceProps {
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
+  feedback?: ReactNode;
   footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
@@ -17,6 +18,7 @@ interface AppPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
+  feedback?: ReactNode;
   footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
@@ -41,6 +43,7 @@ export function AppPromptSurface({
   textarea,
   attachments,
   header,
+  feedback,
   footer,
   footerLeft,
   footerRight,
@@ -66,6 +69,14 @@ export function AppPromptSurface({
         ) : null}
       </div>
       {attachments}
+      {feedback ? (
+        <div
+          data-testid="shared-prompt-feedback"
+          className="border-t border-white/8 px-4 py-2"
+        >
+          {feedback}
+        </div>
+      ) : null}
       {footer ?? (
         <div className="flex flex-col gap-3 border-t border-white/12 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -82,6 +93,7 @@ export function AppPromptField({
   textarea,
   attachments,
   header,
+  feedback,
   footer,
   footerLeft,
   footerRight,
@@ -97,6 +109,7 @@ export function AppPromptField({
       textarea={textarea}
       attachments={attachments}
       header={header}
+      feedback={feedback}
       footer={footer}
       footerLeft={footerLeft}
       footerRight={footerRight}
