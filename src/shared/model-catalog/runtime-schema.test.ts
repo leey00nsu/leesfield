@@ -29,6 +29,41 @@ const model: RuntimeAudioModel = {
 };
 
 describe("createRuntimeAudioSchema dynamicParams", () => {
+  it("HF-bound canonical step 오류에 provider label을 사용한다", () => {
+    const providerModel: RuntimeAudioModel = {
+      ...model,
+      parameters: {
+        ...model.parameters,
+        speed: {
+          ui: "range",
+          label: "Playback Rate",
+          min: 0.25,
+          max: 4,
+          step: 0.05,
+          binding: {
+            source: "hf_space",
+            parameterName: "speed",
+            valueType: "number",
+            canonicalKey: "speed",
+            order: 0,
+          },
+        },
+      },
+    };
+    const t = (key: string, values?: Record<string, string | number | Date>) =>
+      key === "step"
+        ? `${values?.label} step ${values?.step}`
+        : key;
+    const result = createRuntimeAudioSchema([providerModel], t).safeParse({
+      prompt: "hello",
+      model: providerModel.key,
+      speed: 1.025,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("Playback Rate step 0.05");
+  });
+
   it("동적 number의 range와 step을 검증한다", () => {
     const schema = createRuntimeAudioSchema([model]);
 

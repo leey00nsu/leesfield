@@ -138,6 +138,9 @@ describe("importModelDraftFromSpace", () => {
         "hf:model_size",
       ]),
     );
+    expect(Object.keys(result.draft.parameters)).not.toEqual(
+      expect.arrayContaining(["speed", "seed"]),
+    );
     expect(result.warnings).not.toContain(
       "PARAMETER_KEY_COLLISION:referenceText",
     );
@@ -220,6 +223,8 @@ describe("importModelDraftFromSpace", () => {
     expect(result.draft.providerConfig.api_name).toBe("/run_generation");
     expect(result.draft.meta.supports_input_audio).toBe(true);
     expect(result.draft.parameters.voice).toBeUndefined();
+    expect(result.draft.parameters.speed).toBeUndefined();
+    expect(result.draft.parameters.seed).toBeUndefined();
     expect(result.draft.parameters.inputAudio).toMatchObject({
       ui: "upload",
     });

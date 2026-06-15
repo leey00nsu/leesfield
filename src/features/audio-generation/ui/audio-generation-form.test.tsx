@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioGenerationForm } from "@/features/audio-generation/ui/audio-generation-form";
 import { renderWithIntl } from "@/test-utils/intl";
 import type { RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
@@ -36,10 +36,19 @@ const runtimeAudioModelsFixture: RuntimeAudioModel[] = [
         default: "alloy",
       },
       speed: {
+        ui: "range",
+        label: "Playback Rate",
         min: 0.25,
         max: 4,
         step: 0.05,
         default: 1,
+        binding: {
+          source: "hf_space",
+          parameterName: "speed",
+          valueType: "number",
+          canonicalKey: "speed",
+          order: 1,
+        },
       },
       seed: {
         ui: "text",
@@ -252,6 +261,23 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
   );
 }
 
+function getLabelElement(label: string) {
+  const element = screen.getByText(label);
+  const labelElement = element.closest("label");
+  expect(labelElement).not.toBeNull();
+  return labelElement!;
+}
+
+function expectLabelToBeRequired(label: string) {
+  const marker = within(getLabelElement(label)).getByText("*");
+  expect(marker).toHaveAttribute("aria-hidden", "true");
+  expect(marker).toHaveClass("text-red-400");
+}
+
+function expectLabelNotToBeRequired(label: string) {
+  expect(within(getLabelElement(label)).queryByText("*")).toBeNull();
+}
+
 describe("AudioGenerationForm", () => {
   beforeEach(() => {
     navigationMocks.push.mockReset();
@@ -327,6 +353,33 @@ describe("AudioGenerationForm", () => {
     );
   });
 
+  it("빈 prompt 오류를 공통 입력 dock 내부에 표시한다", async () => {
+    const startGeneration = vi.fn();
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration,
+      reset: vi.fn(),
+    });
+
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.queryByTestId("shared-prompt-feedback")).toBeNull();
+
+    const dock = screen.getByRole("region", { name: "작업 입력" });
+    const form = dock.closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+
+    const message = await screen.findByText("프롬프트를 입력해주세요.");
+    const feedback = screen.getByTestId("shared-prompt-feedback");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
+      feedback,
+    );
+    expect(feedback).toContainElement(message);
+    expect(startGeneration).not.toHaveBeenCalled();
+  });
+
   it("renders the shared creation input with audio-specific control chips", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
@@ -365,6 +418,25 @@ describe("AudioGenerationForm", () => {
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
+  it("HF-bound canonical 필드는 provider label을 그대로 표시한다", async () => {
+    mockUseAudioGeneration.mockReturnValue({
+      state: { status: "idle", progress: 0 },
+      startGeneration: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderWithIntl(<AudioGenerationForm isAuthenticated />);
+    await waitForModels();
+    await user.click(screen.getByRole("button", { name: /설정/i }));
+
+    expect(
+      screen.getByRole("slider", { name: "Playback Rate" }),
+    ).toBeInTheDocument();
+    expectLabelNotToBeRequired("Playback Rate");
+    expect(screen.queryByText("속도")).not.toBeInTheDocument();
+  });
+
   it("renders a text-first audio studio preview without mock media cards", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
@@ -395,7 +467,7 @@ describe("AudioGenerationForm", () => {
     expect(screen.queryByText("VOICE TAKE")).toBeNull();
   });
 
-  it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
+  it("완료된 결과는 메인 오디오 플레이어만 표시한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: {
         status: "completed",
@@ -420,40 +492,8 @@ describe("AudioGenerationForm", () => {
     await waitForModels();
 
     expect(container.querySelector("audio")).not.toBeNull();
-    expect(screen.getByText(/#1/i)).not.toBeNull();
-    const openLink = container.querySelector('a[title="열기"]');
-    const downloadLink = container.querySelector('a[title="다운로드"]');
-
-    expect(openLink?.getAttribute("href")).toBe("https://example.com/generated.mp3");
-    expect(downloadLink?.getAttribute("href")).toBe(
-      "/api/audio-generation/request-id/download?index=0",
-    );
-  });
-
-  it("requestId가 없으면 다운로드 링크를 직접 자산 URL로 노출하지 않는다", async () => {
-    mockUseAudioGeneration.mockReturnValue({
-      state: {
-        status: "completed",
-        progress: 100,
-        result: {
-          audios: [
-            {
-              url: "https://example.com/generated.mp3",
-              durationSec: 7,
-            },
-          ],
-        },
-      },
-      startGeneration: vi.fn(),
-      reset: vi.fn(),
-    });
-
-    const { container } = renderWithIntl(
-      <AudioGenerationForm isAuthenticated />,
-    );
-    await waitForModels();
-
-    expect(container.querySelector('a[title="열기"]')).not.toBeNull();
+    expect(screen.queryByText(/#1/i)).not.toBeInTheDocument();
+    expect(container.querySelector('a[title="열기"]')).toBeNull();
     expect(container.querySelector('a[title="다운로드"]')).toBeNull();
   });
 
@@ -606,6 +646,8 @@ describe("AudioGenerationForm", () => {
       "hello clone",
     );
     await user.click(screen.getByRole("button", { name: /설정/i }));
+    expectLabelToBeRequired("Sample audio");
+    expectLabelToBeRequired("샘플 문장");
     await user.upload(
       await screen.findByLabelText("Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
@@ -755,6 +797,8 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("combobox", { name: "Model Size" }),
     ).toHaveTextContent("1.7B");
+    expectLabelNotToBeRequired("Model Size");
+    expectLabelToBeRequired("Reference Sample");
     Element.prototype.scrollIntoView = vi.fn();
     screen.getByRole("combobox", { name: "Quality Level" }).focus();
     await user.keyboard("{ArrowDown}{Home}{Enter}");

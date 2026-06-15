@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { hasRuntimeParameterOption } from "@/shared/model-catalog/parameter-options";
+import { resolveRuntimeParameterLabel } from "@/shared/model-catalog/runtime-utils";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
@@ -27,6 +28,7 @@ type NumericRange = {
 
 type ParameterConfig = {
   ui?: unknown;
+  label?: unknown;
   min?: unknown;
   max?: unknown;
   step?: unknown;
@@ -505,11 +507,15 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     );
 
     if (typeof data.speed === "number") {
+      const speedLabel = resolveRuntimeParameterLabel(
+        getParamConfig(parameters, "speed"),
+        labels.speed,
+      );
       if (data.speed < speedRange.min || data.speed > speedRange.max) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["speed"],
-          message: rangeMessage(labels.speed, speedRange.min, speedRange.max),
+          message: rangeMessage(speedLabel, speedRange.min, speedRange.max),
         });
       } else if (speedRange.step > 0) {
         const offset = data.speed - speedRange.min;
@@ -518,7 +524,7 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["speed"],
-            message: stepMessage(labels.speed, speedRange.step),
+            message: stepMessage(speedLabel, speedRange.step),
           });
         }
       }
@@ -570,9 +576,13 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     const validateNumeric = (
       key: "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
       value: number | undefined,
-      label: string,
+      fallbackLabel: string,
     ) => {
       if (typeof value !== "number") return;
+      const label = resolveRuntimeParameterLabel(
+        getParamConfig(parameters, key),
+        fallbackLabel,
+      );
       const range = resolveRange(
         getParamConfig(parameters, key),
         key === "chunkSize"

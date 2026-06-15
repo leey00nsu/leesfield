@@ -208,11 +208,20 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
     await waitForModels();
 
+    expect(screen.queryByTestId("shared-prompt-feedback")).toBeNull();
+
     await user.click(screen.getByRole("button", { name: "생성" }));
 
     expect(
       await screen.findByText("프롬프트를 입력해주세요."),
     ).toBeInTheDocument();
+    const feedback = screen.getByTestId("shared-prompt-feedback");
+    expect(
+      screen.getByTestId("shared-prompt-form-surface"),
+    ).toContainElement(feedback);
+    expect(feedback).toContainElement(
+      screen.getByText("프롬프트를 입력해주세요."),
+    );
     expect(startGeneration).not.toHaveBeenCalled();
   });
 

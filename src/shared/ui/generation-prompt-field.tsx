@@ -8,6 +8,7 @@ interface GenerationPromptFieldProps {
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
+  feedback?: ReactNode;
   footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
@@ -23,6 +24,7 @@ interface GenerationPromptSurfaceProps {
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
+  feedback?: ReactNode;
   footer?: ReactNode;
   footerLeft?: ReactNode;
   footerRight?: ReactNode;
@@ -32,6 +34,7 @@ export function GenerationPromptSurface({
   textarea,
   attachments,
   header,
+  feedback,
   footer,
   footerLeft,
   footerRight,
@@ -41,6 +44,7 @@ export function GenerationPromptSurface({
       textarea={textarea}
       attachments={attachments}
       header={header}
+      feedback={feedback}
       footer={footer}
       footerLeft={footerLeft}
       footerRight={footerRight}
@@ -52,6 +56,7 @@ export function GenerationPromptField({
   textarea,
   attachments,
   header,
+  feedback,
   footer,
   footerLeft,
   footerRight,
@@ -67,6 +72,7 @@ export function GenerationPromptField({
       textarea={textarea}
       attachments={attachments}
       header={header}
+      feedback={feedback}
       footer={footer}
       footerLeft={footerLeft}
       footerRight={footerRight}

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
@@ -204,6 +204,26 @@ describe("VideoGenerationForm", () => {
         initImage: "data:image/png;base64,AAAA",
       }),
     );
+  });
+
+  it("빈 prompt 오류를 공통 입력 dock 내부에 표시한다", async () => {
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+
+    expect(screen.queryByTestId("shared-prompt-feedback")).toBeNull();
+
+    const dock = screen.getByRole("region", { name: "작업 입력" });
+    const form = dock.closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+
+    const message = await screen.findByText("프롬프트를 입력해주세요.");
+    const feedback = screen.getByTestId("shared-prompt-feedback");
+    expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
+      feedback,
+    );
+    expect(feedback).toContainElement(message);
+    expect(startGenerationMock).not.toHaveBeenCalled();
   });
 
   it("모델 카드에서 기술 배지와 설명을 제거하고 기본 모델만 표시한다", async () => {

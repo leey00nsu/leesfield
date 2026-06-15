@@ -12,6 +12,7 @@ import {
   getRuntimeImageParamRange,
   getRuntimeVideoParamConfig,
   getRuntimeVideoParamRange,
+  resolveRuntimeParameterLabel,
   resolveRuntimeAudioSupportsInputAudio,
   resolveRuntimeImageMaxInputImages,
   resolveRuntimeVideoSupportsInitImage,
@@ -425,12 +426,16 @@ export function createRuntimeAudioSchema(
     }
 
     if (typeof data.speed === "number") {
+      const speedLabel = resolveRuntimeParameterLabel(
+        getRuntimeAudioParamConfig(model, "speed"),
+        labels.speed,
+      );
       const speedRange = getRuntimeAudioParamRange(model, "speed");
       if (data.speed < speedRange.min || data.speed > speedRange.max) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["speed"],
-          message: rangeMessage(labels.speed, speedRange.min, speedRange.max),
+          message: rangeMessage(speedLabel, speedRange.min, speedRange.max),
         });
       } else if (speedRange.step > 0) {
         const offset = data.speed - speedRange.min;
@@ -439,7 +444,7 @@ export function createRuntimeAudioSchema(
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["speed"],
-            message: stepMessage(labels.speed, speedRange.step),
+            message: stepMessage(speedLabel, speedRange.step),
           });
         }
       }
@@ -494,9 +499,13 @@ export function createRuntimeAudioSchema(
     const validateNumeric = (
       key: "chunkSize" | "temperature" | "topK" | "repetitionPenalty",
       value: number | undefined,
-      label: string,
+      fallbackLabel: string,
     ) => {
       if (typeof value !== "number") return;
+      const label = resolveRuntimeParameterLabel(
+        getRuntimeAudioParamConfig(model, key),
+        fallbackLabel,
+      );
       const range = getRuntimeAudioParamRange(model, key);
       if (value < range.min || value > range.max) {
         ctx.addIssue({
