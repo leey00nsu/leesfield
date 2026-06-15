@@ -124,6 +124,10 @@ function isCanonicalTypeCompatible(
   ) {
     return valueType === "string" && options.length > 0;
   }
+  if (canonicalKey === "voice") return valueType === "string";
+  if (canonicalKey === "seed") {
+    return valueType === "string" || valueType === "number";
+  }
   if (canonicalKey === "streamMode" || canonicalKey === "xvecOnly") {
     return valueType === "boolean";
   }
@@ -147,11 +151,10 @@ function resolveCanonicalKey(
   const nameMatch = matchCanonicalSignal(
     normalizeSignal(parameter.parameter_name),
   );
-  if (
-    nameMatch &&
-    isCanonicalTypeCompatible(nameMatch, valueType, options)
-  ) {
-    return nameMatch;
+  if (nameMatch) {
+    return isCanonicalTypeCompatible(nameMatch, valueType, options)
+      ? nameMatch
+      : null;
   }
 
   const labelMatch = matchCanonicalSignal(

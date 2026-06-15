@@ -130,6 +130,45 @@ describe("buildHfParameterDescriptors", () => {
     });
   });
 
+  it("타입과 모순되는 직접 name 후보를 label로 다른 canonical field에 재매칭하지 않는다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "ref_audio",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+      {
+        parameter_name: "voice",
+        label: "Voice",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+      {
+        parameter_name: "seed",
+        label: "Seed",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+    ]);
+
+    expect(result.parameters.inputAudio).toBeUndefined();
+    expect(result.parameters.referenceText).toBeUndefined();
+    expect(result.parameters.voice).toBeUndefined();
+    expect(result.parameters.seed).toBeUndefined();
+    expect(result.parameters["hf:ref_audio"].binding).toMatchObject({
+      parameterName: "ref_audio",
+      valueType: "string",
+    });
+    expect(result.parameters["hf:voice"].binding).toMatchObject({
+      parameterName: "voice",
+      valueType: "boolean",
+    });
+    expect(result.parameters["hf:seed"].binding).toMatchObject({
+      parameterName: "seed",
+      valueType: "boolean",
+    });
+  });
+
   it("모호한 parameter name은 호환 가능한 명확한 label로 canonical 매칭한다", () => {
     const result = buildHfParameterDescriptors([
       {
