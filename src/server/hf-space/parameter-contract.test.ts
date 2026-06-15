@@ -32,7 +32,8 @@ describe("buildHfParameterDescriptors", () => {
       },
       {
         parameter_name: "use_xvector_only",
-        label: "Use x-vector only",
+        label:
+          "Use x-vector only (No reference text needed, but lower quality)",
         component: "Checkbox",
         parameter_has_default: true,
         parameter_default: false,
@@ -87,6 +88,61 @@ describe("buildHfParameterDescriptors", () => {
         valueType: "string",
         order: 5,
       },
+    });
+  });
+
+  it("label 설명의 canonical 키워드가 component 타입과 모순되면 generic으로 유지한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "enable_prompt_cleanup",
+        label: "Disable prompt cleanup",
+        component: "Checkbox",
+        parameter_default: false,
+      },
+      {
+        parameter_name: "audio_quality",
+        label: "Reference audio quality",
+        component: "Slider",
+        parameter_default: 0.8,
+      },
+      {
+        parameter_name: "language_notes",
+        label: "Language-specific instructions",
+        component: "Textbox",
+        parameter_default: "",
+      },
+    ]);
+
+    expect(result.parameters.prompt).toBeUndefined();
+    expect(result.parameters.inputAudio).toBeUndefined();
+    expect(result.parameters.language).toBeUndefined();
+    expect(result.parameters["hf:enable_prompt_cleanup"].binding).toMatchObject({
+      parameterName: "enable_prompt_cleanup",
+      valueType: "boolean",
+    });
+    expect(result.parameters["hf:audio_quality"].binding).toMatchObject({
+      parameterName: "audio_quality",
+      valueType: "number",
+    });
+    expect(result.parameters["hf:language_notes"].binding).toMatchObject({
+      parameterName: "language_notes",
+      valueType: "string",
+    });
+  });
+
+  it("모호한 parameter name은 호환 가능한 명확한 label로 canonical 매칭한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "field_1",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+    ]);
+
+    expect(result.parameters.referenceText.binding).toMatchObject({
+      parameterName: "field_1",
+      canonicalKey: "referenceText",
+      valueType: "string",
     });
   });
 
