@@ -418,7 +418,7 @@ describe("AudioGenerationForm", () => {
     expect(screen.queryByText("VOICE TAKE")).toBeNull();
   });
 
-  it("완료된 결과 오디오 플레이어와 액션을 표시한다", async () => {
+  it("완료된 결과는 메인 오디오 플레이어만 표시한다", async () => {
     mockUseAudioGeneration.mockReturnValue({
       state: {
         status: "completed",
@@ -443,40 +443,8 @@ describe("AudioGenerationForm", () => {
     await waitForModels();
 
     expect(container.querySelector("audio")).not.toBeNull();
-    expect(screen.getByText(/#1/i)).not.toBeNull();
-    const openLink = container.querySelector('a[title="열기"]');
-    const downloadLink = container.querySelector('a[title="다운로드"]');
-
-    expect(openLink?.getAttribute("href")).toBe("https://example.com/generated.mp3");
-    expect(downloadLink?.getAttribute("href")).toBe(
-      "/api/audio-generation/request-id/download?index=0",
-    );
-  });
-
-  it("requestId가 없으면 다운로드 링크를 직접 자산 URL로 노출하지 않는다", async () => {
-    mockUseAudioGeneration.mockReturnValue({
-      state: {
-        status: "completed",
-        progress: 100,
-        result: {
-          audios: [
-            {
-              url: "https://example.com/generated.mp3",
-              durationSec: 7,
-            },
-          ],
-        },
-      },
-      startGeneration: vi.fn(),
-      reset: vi.fn(),
-    });
-
-    const { container } = renderWithIntl(
-      <AudioGenerationForm isAuthenticated />,
-    );
-    await waitForModels();
-
-    expect(container.querySelector('a[title="열기"]')).not.toBeNull();
+    expect(screen.queryByText(/#1/i)).not.toBeInTheDocument();
+    expect(container.querySelector('a[title="열기"]')).toBeNull();
     expect(container.querySelector('a[title="다운로드"]')).toBeNull();
   });
 

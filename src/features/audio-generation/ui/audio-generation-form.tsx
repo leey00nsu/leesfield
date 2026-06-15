@@ -2,8 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Download,
-  ExternalLink,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -1049,55 +1047,6 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           {hasResults && state.errorMessage ? (
             <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               {state.errorMessage}
-            </div>
-          ) : null}
-
-          {hasResults && resultAudios.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {resultAudios.map((audio, index) => {
-                const downloadUrl = state.requestId
-                  ? `/api/audio-generation/${state.requestId}/download?index=${index}`
-                  : null;
-
-                return (
-                  <div
-                    key={`${audio.url}-${index}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-surface-dark/60 px-3 py-2"
-                  >
-                    <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-                      #{index + 1}
-                      {typeof audio.durationSec === "number"
-                        ? ` • ${audio.durationSec}s`
-                        : ""}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <AppButton asChild variant="surface" size="icon-sm">
-                        <a
-                          href={audio.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          title={tActions("open")}
-                          aria-label={tActions("open")}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </AppButton>
-                      {downloadUrl ? (
-                        <AppButton asChild variant="surface" size="icon-sm">
-                          <a
-                            href={downloadUrl}
-                            download
-                            title={tActions("download")}
-                            aria-label={tActions("download")}
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </AppButton>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           ) : null}
 
