@@ -204,6 +204,10 @@ function resolveUi(
   options: RuntimeParameterOption[],
 ): HfParameterConfig["ui"] {
   const component = parameter.component?.toLowerCase() ?? "";
+  const signalTokens =
+    `${normalizeSignal(parameter.parameter_name)} ${normalizeSignal(parameter.label)}`.split(
+      " ",
+    );
   if (valueType === "file") return "upload";
   if (valueType === "boolean") return "toggle";
   if (component.includes("slider")) return "range";
@@ -213,7 +217,7 @@ function resolveUi(
   if (
     component.includes("textbox") &&
     (parameter.lines !== undefined && parameter.lines > 1 ||
-      `${normalizeSignal(parameter.parameter_name)} ${normalizeSignal(parameter.label)}`.includes("text"))
+      signalTokens.includes("text"))
   ) {
     return "textarea";
   }

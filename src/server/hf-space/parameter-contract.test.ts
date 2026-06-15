@@ -111,6 +111,12 @@ describe("buildHfParameterDescriptors", () => {
         component: "Textbox",
         parameter_default: "",
       },
+      {
+        parameter_name: "context_window",
+        label: "Context window",
+        component: "Textbox",
+        parameter_default: "",
+      },
     ]);
 
     expect(result.parameters.prompt).toBeUndefined();
@@ -127,6 +133,13 @@ describe("buildHfParameterDescriptors", () => {
     expect(result.parameters["hf:language_notes"].binding).toMatchObject({
       parameterName: "language_notes",
       valueType: "string",
+    });
+    expect(result.parameters["hf:context_window"]).toMatchObject({
+      ui: "input",
+      binding: {
+        parameterName: "context_window",
+        valueType: "string",
+      },
     });
   });
 

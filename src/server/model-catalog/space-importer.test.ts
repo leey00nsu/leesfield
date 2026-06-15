@@ -146,6 +146,11 @@ describe("importModelDraftFromSpace", () => {
         warning.startsWith("UNMAPPED_PARAM:Use x-vector only"),
       ),
     ).toBe(false);
+    expect(
+      result.warnings.some((warning) =>
+        warning.startsWith("PARAMETER_CANONICAL_FALLBACK:"),
+      ),
+    ).toBe(false);
     expect(result.draft.parameters.referenceText.ui).toBe("textarea");
     expect(result.draft.parameters.prompt.ui).toBe("textarea");
   });
