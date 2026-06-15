@@ -146,6 +146,62 @@ describe("buildHfParameterDescriptors", () => {
     });
   });
 
+  it("canonical key가 충돌하면 후속 파라미터를 generic binding으로 보존한다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "ref_text",
+        label: "Reference Text",
+        component: "Textbox",
+      },
+      {
+        parameter_name: "transcript_copy",
+        label: "Reference Text",
+        component: "Textbox",
+        parameter_default: "fallback",
+      },
+    ]);
+
+    expect(result.parameters.referenceText.binding.parameterName).toBe(
+      "ref_text",
+    );
+    expect(result.parameters["hf:transcript_copy"]).toMatchObject({
+      default: "fallback",
+      binding: {
+        parameterName: "transcript_copy",
+        valueType: "string",
+        order: 1,
+      },
+    });
+    expect(
+      result.parameters["hf:transcript_copy"].binding,
+    ).not.toHaveProperty("canonicalKey");
+    expect(result.warnings).toContain(
+      "PARAMETER_CANONICAL_FALLBACK:referenceText:transcript_copy",
+    );
+  });
+
+  it("generic key 자체가 충돌하면 기존 값을 덮어쓰지 않는다", () => {
+    const result = buildHfParameterDescriptors([
+      {
+        parameter_name: "fidelity_profile",
+        label: "First Profile",
+        component: "Textbox",
+        parameter_default: "first",
+      },
+      {
+        parameter_name: "fidelity_profile",
+        label: "Second Profile",
+        component: "Textbox",
+        parameter_default: "second",
+      },
+    ]);
+
+    expect(result.parameters["hf:fidelity_profile"].default).toBe("first");
+    expect(result.warnings).toContain(
+      "PARAMETER_KEY_COLLISION:hf:fidelity_profile",
+    );
+  });
+
   it("이름 의미가 불명확한 공개 파라미터를 generic key로 유지한다", () => {
     const result = buildHfParameterDescriptors([
       {

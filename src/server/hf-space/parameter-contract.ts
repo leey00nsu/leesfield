@@ -240,11 +240,23 @@ export function buildHfParameterDescriptors(
 
     const options = normalizeRuntimeParameterOptions(parameter.choices) ?? [];
     const valueType = resolveValueType(parameter);
-    const canonicalKey = resolveCanonicalKey(parameter, valueType, options);
-    const catalogKey =
-      canonicalKey && canonicalKeys.has(canonicalKey)
-        ? canonicalKey
-        : `hf:${parameterName}`;
+    const matchedCanonicalKey = resolveCanonicalKey(
+      parameter,
+      valueType,
+      options,
+    );
+    let canonicalKey =
+      matchedCanonicalKey && canonicalKeys.has(matchedCanonicalKey)
+        ? matchedCanonicalKey
+        : null;
+    let catalogKey = canonicalKey ?? `hf:${parameterName}`;
+    if (canonicalKey && result[catalogKey]) {
+      warnings.push(
+        `PARAMETER_CANONICAL_FALLBACK:${canonicalKey}:${parameterName}`,
+      );
+      canonicalKey = null;
+      catalogKey = `hf:${parameterName}`;
+    }
     if (result[catalogKey]) {
       warnings.push(`PARAMETER_KEY_COLLISION:${catalogKey}`);
       return;
