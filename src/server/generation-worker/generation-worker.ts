@@ -36,6 +36,15 @@ const ERROR_IMAGE_GENERATION_FAILED = "이미지 생성에 실패했습니다.";
 const ERROR_VIDEO_GENERATION_FAILED = "비디오 생성에 실패했습니다.";
 const WORKER_INSTANCE_TOKEN = Symbol("generation-worker-instance");
 
+function isMissingGenerationRecord(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2025"
+  );
+}
+
 type WorkerGlobal = typeof globalThis & {
   __generationWorkerStarted?: boolean;
   __generationWorkerRunning?: boolean;
@@ -508,12 +517,19 @@ async function handleImageRecord(record: {
       );
     }
   } catch (error) {
-    await updateImageGenerationStatus(
-      record.id,
-      "failed",
-      0,
-      error instanceof Error ? error.message : ERROR_IMAGE_GENERATION_FAILED,
-    );
+    if (isMissingGenerationRecord(error)) return;
+
+    try {
+      await updateImageGenerationStatus(
+        record.id,
+        "failed",
+        0,
+        error instanceof Error ? error.message : ERROR_IMAGE_GENERATION_FAILED,
+      );
+    } catch (statusError) {
+      if (isMissingGenerationRecord(statusError)) return;
+      throw statusError;
+    }
   }
 }
 

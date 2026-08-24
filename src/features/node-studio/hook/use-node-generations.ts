@@ -9,10 +9,18 @@ import {
   NodeGenerationApiError,
 } from "../api/node-generation-api";
 import type { NodeGenerationDto } from "../model/node-generation-types";
+import {
+  useGenerationEventChannelState,
+  type GenerationEventChannelState,
+} from "../model/generation-event-channel-context";
+
+const FALLBACK_POLL_INTERVAL_MS = 2_000;
+const CONNECTED_SAFETY_POLL_INTERVAL_MS = 15_000;
 
 export const nodeGenerationKeys = {
+  graph: (graphId: string) => ["node-generations", graphId] as const,
   list: (graphId: string, nodeId: string) =>
-    ["node-generations", graphId, nodeId] as const,
+    [...nodeGenerationKeys.graph(graphId), nodeId] as const,
 };
 
 export function shouldPollNodeGenerations(
@@ -22,17 +30,28 @@ export function shouldPollNodeGenerations(
   return status === "pending" || status === "processing";
 }
 
+export function nodeGenerationRefetchInterval(
+  generations: readonly NodeGenerationDto[] | undefined,
+  eventChannelState: GenerationEventChannelState,
+) {
+  if (!shouldPollNodeGenerations(generations)) return false;
+  return eventChannelState === "connected"
+    ? CONNECTED_SAFETY_POLL_INTERVAL_MS
+    : FALLBACK_POLL_INTERVAL_MS;
+}
+
 export function useNodeGenerations(
   graphId: string | null,
   nodeId: string | null,
 ) {
+  const eventChannelState = useGenerationEventChannelState();
   return useQuery({
     queryKey: nodeGenerationKeys.list(graphId ?? "none", nodeId ?? "none"),
     queryFn: ({ signal }) =>
       listNodeGenerations(graphId as string, nodeId as string, signal),
     enabled: Boolean(graphId && nodeId),
     refetchInterval: (query) =>
-      shouldPollNodeGenerations(query.state.data) ? 2_000 : false,
+      nodeGenerationRefetchInterval(query.state.data, eventChannelState),
   });
 }
 

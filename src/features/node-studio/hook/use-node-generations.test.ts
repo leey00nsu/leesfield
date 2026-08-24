@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import {
+  nodeGenerationRefetchInterval,
   shouldPollNodeGenerations,
   useExecuteNodeGeneration,
 } from "./use-node-generations";
@@ -37,6 +38,18 @@ describe("shouldPollNodeGenerations", () => {
 
   it("does not poll an empty Node history", () => {
     expect(shouldPollNodeGenerations([])).toBe(false);
+  });
+
+  it("uses safety polling while connected and fast polling in fallback", () => {
+    expect(nodeGenerationRefetchInterval([generation("processing")], "connected")).toBe(
+      15_000,
+    );
+    expect(nodeGenerationRefetchInterval([generation("processing")], "fallback")).toBe(
+      2_000,
+    );
+    expect(nodeGenerationRefetchInterval([generation("completed")], "connected")).toBe(
+      false,
+    );
   });
 });
 

@@ -20,6 +20,7 @@ import { AppCard } from "@/shared/ui/app-card";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 
 import { useGraphAutosave, type GraphDraft, type GraphAutosaveStatus } from "../hook/use-graph-autosave";
+import { GenerationEventChannelProvider } from "../hook/use-generation-event-channel";
 import type { GenerationGraphSnapshotDto, UpdateGenerationGraphDto } from "../model/graph-types";
 import { GraphSaveStatus } from "./graph-save-status";
 import { NodeStudio } from "./node-studio";
@@ -121,15 +122,17 @@ export function NodeStudioWorkspace({
         </div>
       </AppCard>
 
-      <NodeStudio
-        graph={{ ...graph, title }}
-        onDraftChange={handleCanvasDraft}
-        prepareImageNodeExecution={async () => {
-          const saved = await autosave.saveNow();
-          return saved.version;
-        }}
-        catalog={nodeCatalog}
-      />
+      <GenerationEventChannelProvider graphId={graph.id}>
+        <NodeStudio
+          graph={{ ...graph, title }}
+          onDraftChange={handleCanvasDraft}
+          prepareImageNodeExecution={async () => {
+            const saved = await autosave.saveNow();
+            return saved.version;
+          }}
+          catalog={nodeCatalog}
+        />
+      </GenerationEventChannelProvider>
 
       <AppConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AppConfirmDialogContent>

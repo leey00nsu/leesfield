@@ -427,6 +427,50 @@ describe("generation worker", () => {
     expect(saveImageGenerationResult).not.toHaveBeenCalled();
   });
 
+  it("treats a deleted claimed Image Generation as a canceled job", async () => {
+    const mockRecord = {
+      id: "deleted-image-id",
+      requestId: "deleted-image-request-id",
+      prompt: "hello",
+      requestParams: {
+        model: "z-image-turbo",
+        width: 512,
+        height: 512,
+        steps: 5,
+        imageCount: 1,
+        seed: "",
+      },
+      imageCount: 1,
+      steps: 5,
+      seed: null,
+      progress: 0,
+    };
+
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.imageGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { images: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+    (updateImageGenerationStatus as ReturnType<typeof vi.fn>).mockRejectedValue({
+      code: "P2025",
+    });
+
+    await expect(processImageJobs()).resolves.toBeUndefined();
+    expect(updateImageGenerationStatus).toHaveBeenCalledWith(
+      "deleted-image-id",
+      "completed",
+      100,
+      undefined,
+    );
+  });
+
   it("processVideoJobs updates status when completed with skipDbSave", async () => {
     const mockRecord = {
       id: "vid-db-id",
