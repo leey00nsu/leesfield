@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "client"
 }
 
@@ -46,59 +46,126 @@ enum ModelCatalogType {
   audio
 }
 
+enum GenerationGraphNodeType {
+  imageGeneration
+}
+
+enum GenerationGraphEdgeKind {
+  primary
+  reference
+}
+
 model ImageGeneration {
-  id             String                 @id @default(cuid())
-  requestId      String                 @unique
-  ownerEmail     String?
-  apiKeyId       String?
-  apiKey         ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  prompt         String
-  requestParams  Json?
-  modelKey       String?
-  aspectRatio    String
-  imageCount     Int
-  steps          Int
-  seed           String?
-  status         ImageGenerationStatus
-  progress       Int
-  errorMessage   String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  images         ImageGenerationImage[]
+  id            String                 @id @default(cuid())
+  requestId     String                 @unique
+  ownerEmail    String?
+  apiKeyId      String?
+  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  prompt        String
+  requestParams Json?
+  modelKey      String?
+  aspectRatio   String
+  imageCount    Int
+  steps         Int
+  seed          String?
+  status        ImageGenerationStatus
+  progress      Int
+  errorMessage  String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  images        ImageGenerationImage[]
+  graphNodeId   String?
+  graphNode     GenerationGraphNode?   @relation("GraphNodeGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
+  @@index([graphNodeId, createdAt])
 }
 
 model ImageGenerationImage {
-  id           String          @id @default(cuid())
-  generationId String
-  url          String
-  width        Int?
-  height       Int?
-  createdAt    DateTime        @default(now())
-  generation   ImageGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(cuid())
+  generationId         String
+  url                  String
+  width                Int?
+  height               Int?
+  createdAt            DateTime              @default(now())
+  generation           ImageGeneration       @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  selectedByGraphNodes GenerationGraphNode[] @relation("GraphNodeSelectedOutput")
 
   @@index([generationId])
 }
 
+model GenerationGraph {
+  id         String                @id @default(cuid())
+  ownerEmail String
+  title      String
+  version    Int                   @default(1)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  nodes      GenerationGraphNode[]
+  edges      GenerationGraphEdge[]
+
+  @@index([ownerEmail, updatedAt])
+}
+
+model GenerationGraphNode {
+  id                    String                  @id
+  graphId               String
+  type                  GenerationGraphNodeType
+  x                     Float
+  y                     Float
+  configVersion         Int
+  config                Json
+  selectedOutputImageId String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  graph                 GenerationGraph         @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  selectedOutputImage   ImageGenerationImage?   @relation("GraphNodeSelectedOutput", fields: [selectedOutputImageId], references: [id], onDelete: SetNull)
+  generations           ImageGeneration[]       @relation("GraphNodeGenerations")
+  outgoingEdges         GenerationGraphEdge[]   @relation("GraphEdgeSource")
+  incomingEdges         GenerationGraphEdge[]   @relation("GraphEdgeTarget")
+
+  @@index([graphId])
+  @@index([selectedOutputImageId])
+}
+
+model GenerationGraphEdge {
+  id           String                  @id
+  graphId      String
+  sourceNodeId String
+  targetNodeId String
+  kind         GenerationGraphEdgeKind
+  sourceHandle String?
+  targetHandle String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  graph        GenerationGraph         @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  sourceNode   GenerationGraphNode     @relation("GraphEdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   GenerationGraphNode     @relation("GraphEdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([graphId, sourceNodeId, targetNodeId, kind, sourceHandle, targetHandle])
+  @@index([graphId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+}
+
 model VideoGeneration {
-  id            String               @id @default(cuid())
-  requestId     String               @unique
+  id            String                 @id @default(cuid())
+  requestId     String                 @unique
   ownerEmail    String?
   apiKeyId      String?
-  apiKey        ApiKey?              @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   prompt        String
   requestParams Json?
   modelKey      String?
   status        VideoGenerationStatus
   progress      Int
   errorMessage  String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
   videos        VideoGenerationVideo[]
 
   @@index([ownerEmail])
@@ -122,19 +189,19 @@ model VideoGenerationVideo {
 }
 
 model AudioGeneration {
-  id            String                @id @default(cuid())
-  requestId     String                @unique
+  id            String                 @id @default(cuid())
+  requestId     String                 @unique
   ownerEmail    String?
   apiKeyId      String?
-  apiKey        ApiKey?               @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   prompt        String
   requestParams Json?
   modelKey      String?
   status        AudioGenerationStatus
   progress      Int
   errorMessage  String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
   audios        AudioGenerationAudio[]
 
   @@index([ownerEmail])
@@ -175,16 +242,16 @@ model ModelCatalog {
 }
 
 model ApiKey {
-  id         String       @id @default(cuid())
-  ownerEmail String
-  label      String
-  keyHash    String       @unique
-  maskedKey  String
-  status     ApiKeyStatus @default(active)
-  lastUsedAt DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id               String            @id @default(cuid())
+  ownerEmail       String
+  label            String
+  keyHash          String            @unique
+  maskedKey        String
+  status           ApiKeyStatus      @default(active)
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   imageGenerations ImageGeneration[]
   videoGenerations VideoGeneration[]
   audioGenerations AudioGeneration[]
