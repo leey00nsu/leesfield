@@ -1,13 +1,8 @@
-import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type {
   ImageGenerationResponse,
   ImageGenerationStatus,
 } from "@/features/image-generation/model/image-generation-types";
-import { uploadInputImages } from "@/server/shared/input-image-uploader";
-import {
-  createImageGenerationRecord,
-  getImageGenerationByRequestId,
-} from "@/server/image-generation/image-generation-repository";
+import { getImageGenerationByRequestId } from "@/server/image-generation/image-generation-repository";
 
 export type ImageGenerationRecord = {
   id: string;
@@ -38,39 +33,6 @@ function mapRecord(
     progress: record.progress,
     result,
     errorMessage: record.errorMessage ?? undefined,
-  };
-}
-
-export async function createMockGenerationWithLimit(
-  payload: ImageGenerationFormValues,
-  ownerEmail: string,
-  apiKeyId: string | null = null,
-) {
-  const requestId = crypto.randomUUID();
-  const initImages = (payload.initImages ?? [])
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-  const resolvedInitImages =
-    initImages.length > 0
-      ? await uploadInputImages(requestId, initImages)
-      : [];
-  const resolvedPayload = {
-    ...payload,
-    initImages: resolvedInitImages,
-  };
-  const record = await createImageGenerationRecord(
-    requestId,
-    resolvedPayload,
-    ownerEmail,
-    apiKeyId,
-  );
-  return {
-    record: {
-      id: record.requestId,
-      status: record.status,
-      progress: record.progress,
-    } satisfies ImageGenerationRecord,
-    latest: null,
   };
 }
 

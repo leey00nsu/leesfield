@@ -1,11 +1,10 @@
 import { getSession } from "@/server/auth/session";
-import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
+import { submitImageGeneration } from "@/server/image-generation/image-generation-submission";
 import {
   buildErrorResponse,
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
 } from "@/server/http/response";
-import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { validateImageGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
   INPUT_IMAGE_INVALID,
@@ -31,11 +30,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    startGenerationWorker();
-    const { record } = await createMockGenerationWithLimit(
-      parsed.data,
-      session.adminEmail,
-    );
+    const { record } = await submitImageGeneration({
+      payload: parsed.data,
+      ownerEmail: session.adminEmail,
+    });
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {

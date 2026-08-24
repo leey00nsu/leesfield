@@ -2,8 +2,7 @@ import { imageGenerationDefaults } from "@/features/image-generation/model/image
 import { POST } from "@/app/api/image-generation/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
-const mockCreateWithLimit = vi.hoisted(() => vi.fn());
-const mockStartWorker = vi.hoisted(() => vi.fn());
+const mockSubmitImageGeneration = vi.hoisted(() => vi.fn());
 const mockValidatePayload = vi.hoisted(() => vi.fn());
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -11,12 +10,8 @@ vi.mock("@/server/auth/session", () => ({
   getSession: mockGetSession,
 }));
 
-vi.mock("@/server/image-generation/image-generation-store", () => ({
-  createMockGenerationWithLimit: mockCreateWithLimit,
-}));
-
-vi.mock("@/server/generation-worker/generation-worker", () => ({
-  startGenerationWorker: mockStartWorker,
+vi.mock("@/server/image-generation/image-generation-submission", () => ({
+  submitImageGeneration: mockSubmitImageGeneration,
 }));
 
 vi.mock("@/server/model-catalog/generation-validation", () => ({
@@ -27,8 +22,7 @@ describe("POST /api/image-generation", () => {
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetSession.mockReset();
-    mockCreateWithLimit.mockReset();
-    mockStartWorker.mockReset();
+    mockSubmitImageGeneration.mockReset();
     mockValidatePayload.mockReset();
   });
 
@@ -87,7 +81,7 @@ describe("POST /api/image-generation", () => {
         prompt: "hello",
       },
     });
-    mockCreateWithLimit.mockResolvedValue({
+    mockSubmitImageGeneration.mockResolvedValue({
       record: { id: "request-id", status: "pending", progress: 0 },
       latest: null,
     });
@@ -108,6 +102,13 @@ describe("POST /api/image-generation", () => {
     expect(payload.requestId).toBe("request-id");
     expect(payload.status).toBe("pending");
     expect(payload.progress).toBe(0);
+    expect(mockSubmitImageGeneration).toHaveBeenCalledWith({
+      payload: {
+        ...imageGenerationDefaults,
+        prompt: "hello",
+      },
+      ownerEmail: "admin@example.com",
+    });
   });
 
   it("입력 이미지 저장소가 없으면 400을 반환한다", async () => {
@@ -124,7 +125,7 @@ describe("POST /api/image-generation", () => {
         initImages: ["data:image/png;base64,AAAA"],
       },
     });
-    mockCreateWithLimit.mockRejectedValue(
+    mockSubmitImageGeneration.mockRejectedValue(
       new Error("IMAGE_INPUT_STORAGE_REQUIRED"),
     );
 
@@ -158,7 +159,7 @@ describe("POST /api/image-generation", () => {
         prompt: "hello",
       },
     });
-    mockCreateWithLimit.mockRejectedValue(new Error("db fail"));
+    mockSubmitImageGeneration.mockRejectedValue(new Error("db fail"));
 
     const request = new Request("http://localhost/api/image-generation", {
       method: "POST",

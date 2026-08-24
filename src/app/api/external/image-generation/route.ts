@@ -1,11 +1,10 @@
-import { createMockGenerationWithLimit } from "@/server/image-generation/image-generation-store";
+import { submitImageGeneration } from "@/server/image-generation/image-generation-submission";
 import { requireApiKey } from "@/server/auth/api-key-guard";
 import {
   buildErrorResponse,
   buildGenerationSuccessResponse,
   buildInvalidRequestResponse,
 } from "@/server/http/response";
-import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { validateImageGenerationPayload } from "@/server/model-catalog/generation-validation";
 import {
   FILE_TOO_LARGE_ERROR,
@@ -67,12 +66,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    startGenerationWorker();
-    const { record } = await createMockGenerationWithLimit(
-      parsed.data,
-      auth.ownerEmail,
-      auth.apiKeyId,
-    );
+    const { record } = await submitImageGeneration({
+      payload: parsed.data,
+      ownerEmail: auth.ownerEmail,
+      apiKeyId: auth.apiKeyId,
+    });
 
     return buildGenerationSuccessResponse(record);
   } catch (error) {
