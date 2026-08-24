@@ -28,3 +28,40 @@ export class NodeGenerationConfigError extends Error {
     this.name = "NodeGenerationConfigError";
   }
 }
+
+export type NodeInputResolutionDetails = {
+  edgeId: string;
+  sourceNodeId: string;
+};
+
+export class NodeInputSelectionRequiredError extends Error {
+  constructor(public readonly details: NodeInputResolutionDetails) {
+    super("NODE_INPUT_SELECTION_REQUIRED");
+    this.name = "NodeInputSelectionRequiredError";
+  }
+}
+
+export class NodeInputInvalidError extends Error {
+  constructor(public readonly details: NodeInputResolutionDetails) {
+    super("NODE_INPUT_INVALID");
+    this.name = "NodeInputInvalidError";
+  }
+}
+
+export class NodeInputUnsupportedError extends Error {
+  constructor(
+    public readonly details: { limit: 0; count: number },
+  ) {
+    super("NODE_INPUT_UNSUPPORTED");
+    this.name = "NodeInputUnsupportedError";
+  }
+}
+
+export class NodeInputLimitExceededError extends Error {
+  constructor(
+    public readonly details: { limit: number; count: number },
+  ) {
+    super("NODE_INPUT_LIMIT_EXCEEDED");
+    this.name = "NodeInputLimitExceededError";
+  }
+}

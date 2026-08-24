@@ -1038,6 +1038,14 @@
       "primary": "Primary",
       "reference": "Reference"
     },
+    "input": {
+      "title": "Connected input readiness",
+      "none": "Not connected",
+      "connected": "{count} connected",
+      "ready": "{ready}/{connected} ready",
+      "selectionRequired": "Choose {count} output(s)",
+      "summary": "Inputs {ready}/{connected} ready · {resolved} distinct"
+    },
     "node": {
       "imageGeneration": "Image Generation",
       "shellDescription": "Configuration and execution are coming next",
@@ -1077,6 +1085,10 @@
       "saveError": "The graph could not be saved, so the node was not run.",
       "activeError": "This node is already generating.",
       "configError": "Check the current node configuration.",
+      "inputSelectionRequired": "Choose an output on the connected source node, then run again.",
+      "inputInvalid": "The selected source output cannot be used. Run the source node again or choose another output.",
+      "inputUnsupported": "The selected model does not support image inputs. Disconnect the input or choose another model.",
+      "inputLimitExceeded": "The selected model supports up to {limit} image inputs. Disconnect some inputs.",
       "submitError": "Could not submit the image generation request."
     },
     "empty": {

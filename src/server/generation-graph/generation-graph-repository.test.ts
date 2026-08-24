@@ -168,4 +168,16 @@ describe("generationGraphRepository", () => {
       generationGraphRepository.remove("owner@example.com", "graph_other"),
     ).rejects.toBeInstanceOf(GenerationGraphNotFoundError);
   });
+
+  it("deletes only the owned Graph root so Generation preservation follows SetNull relations", async () => {
+    mocks.prisma.generationGraph.deleteMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      generationGraphRepository.remove("owner@example.com", "graph_1"),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.prisma.generationGraph.deleteMany).toHaveBeenCalledWith({
+      where: { id: "graph_1", ownerEmail: "owner@example.com" },
+    });
+  });
 });

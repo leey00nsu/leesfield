@@ -109,8 +109,16 @@ export function ImageNodeExecution({
     } catch (error) {
       const code =
         error instanceof NodeGenerationApiError ? error.code : error instanceof Error ? error.message : "UNKNOWN_ERROR";
+      const inputLimit =
+        error instanceof NodeGenerationApiError &&
+        typeof error.details === "object" &&
+        error.details !== null &&
+        "limit" in error.details &&
+        typeof error.details.limit === "number"
+          ? error.details.limit
+          : 0;
       setLocalError(
-        code === "GRAPH_AUTOSAVE_CONFLICT"
+        code === "GRAPH_AUTOSAVE_CONFLICT" || code === "GRAPH_VERSION_CONFLICT"
           ? t("execution.saveConflict")
           : code === "GRAPH_AUTOSAVE_ERROR"
             ? t("execution.saveError")
@@ -118,6 +126,14 @@ export function ImageNodeExecution({
               ? t("execution.activeError")
               : code === "NODE_CONFIG_INVALID"
                 ? t("execution.configError")
+                : code === "NODE_INPUT_SELECTION_REQUIRED"
+                  ? t("execution.inputSelectionRequired")
+                  : code === "NODE_INPUT_INVALID"
+                    ? t("execution.inputInvalid")
+                    : code === "NODE_INPUT_UNSUPPORTED"
+                      ? t("execution.inputUnsupported")
+                      : code === "NODE_INPUT_LIMIT_EXCEEDED"
+                        ? t("execution.inputLimitExceeded", { limit: inputLimit })
                 : t("execution.submitError"),
       );
     }

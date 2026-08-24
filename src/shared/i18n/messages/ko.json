@@ -1038,6 +1038,14 @@
       "primary": "Primary",
       "reference": "Reference"
     },
+    "input": {
+      "title": "연결 입력 준비 상태",
+      "none": "연결 없음",
+      "connected": "{count}개 연결",
+      "ready": "{ready}/{connected}개 준비됨",
+      "selectionRequired": "{count}개 결과 선택 필요",
+      "summary": "입력 {ready}/{connected}개 준비 · 실제 {resolved}개"
+    },
     "node": {
       "imageGeneration": "이미지 생성",
       "shellDescription": "설정과 실행 기능은 다음 단계에서 제공됩니다",
@@ -1077,6 +1085,10 @@
       "saveError": "Graph 저장에 실패해 실행하지 않았습니다.",
       "activeError": "이 노드는 이미 생성 중입니다.",
       "configError": "현재 노드 설정을 확인해 주세요.",
+      "inputSelectionRequired": "연결된 source 노드에서 사용할 결과를 선택한 뒤 다시 실행하세요.",
+      "inputInvalid": "선택된 source 결과를 사용할 수 없습니다. source 노드를 다시 실행하거나 다른 결과를 선택하세요.",
+      "inputUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다. 입력 연결을 해제하거나 다른 모델을 선택하세요.",
+      "inputLimitExceeded": "선택한 모델은 이미지 입력을 최대 {limit}개까지 지원합니다. 일부 연결을 해제하세요.",
       "submitError": "이미지 생성 요청을 제출하지 못했습니다."
     },
     "empty": {

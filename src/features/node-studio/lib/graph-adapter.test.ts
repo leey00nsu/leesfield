@@ -65,4 +65,52 @@ describe("graph adapter", () => {
       },
     });
   });
+
+  it("restores persisted Edge and selected output readiness after reload", () => {
+    const reloadedGraph: GenerationGraphSnapshotDto = {
+      ...graph,
+      nodes: [
+        {
+          ...graph.nodes[0],
+          selectedOutputImageId: "image-selected",
+        },
+        {
+          ...graph.nodes[0],
+          id: "node_2",
+          position: { x: 300, y: 20 },
+        },
+      ],
+      edges: [
+        {
+          ...graph.edges[0],
+          sourceNodeId: "node_1",
+          targetNodeId: "node_2",
+          kind: "primary",
+          targetHandle: "primary",
+        },
+      ],
+    };
+
+    const flow = graphSnapshotToFlow(reloadedGraph);
+
+    expect(flow.nodes[0]?.data.selectedOutputImageId).toBe("image-selected");
+    expect(flow.edges[0]).toMatchObject({
+      source: "node_1",
+      target: "node_2",
+      data: { kind: "primary" },
+    });
+    expect(
+      flowToUpdateGraph(
+        reloadedGraph.title,
+        reloadedGraph.version,
+        flow.nodes,
+        flow.edges,
+      ),
+    ).toEqual({
+      title: reloadedGraph.title,
+      expectedVersion: reloadedGraph.version,
+      nodes: reloadedGraph.nodes,
+      edges: reloadedGraph.edges,
+    });
+  });
 });

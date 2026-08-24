@@ -16,7 +16,10 @@ import {
   NodeGenerationConfigError,
   NodeGenerationInputError,
   NodeGenerationVersionConflictError,
+  NodeInputLimitExceededError,
+  NodeInputUnsupportedError,
 } from "./node-generation-errors";
+import { resolveNodeInputs } from "./node-input-resolution";
 import {
   nodeGenerationRepository,
   type NodeGenerationRepository,
@@ -46,6 +49,7 @@ function parseNodeConfig(config: unknown) {
 
 export function imageNodeConfigToGenerationPayload(
   config: ImageGenerationConfigV1,
+  initImages: string[] = [],
 ) {
   const parameters = config.parameters;
   return {
@@ -59,8 +63,27 @@ export function imageNodeConfigToGenerationPayload(
     guidanceScale: parameters.guidanceScale,
     promptUpsampling: parameters.promptUpsampling,
     seed: parameters.seed,
-    initImages: [],
+    initImages,
   };
+}
+
+function mapInputCapabilityError(error: ZodError) {
+  const issue = Array.isArray(error.issues)
+    ? error.issues.find((candidate) => candidate.path[0] === "initImages")
+    : undefined;
+  const params = issue && "params" in issue
+    ? issue.params as Record<string, unknown> | undefined
+    : undefined;
+  const count = typeof params?.count === "number" ? params.count : 0;
+  const limit = typeof params?.limit === "number" ? params.limit : 0;
+
+  if (params?.nodeInputReason === "unsupported") {
+    return new NodeInputUnsupportedError({ limit: 0, count });
+  }
+  if (params?.nodeInputReason === "limit_exceeded") {
+    return new NodeInputLimitExceededError({ limit, count });
+  }
+  return null;
 }
 
 export function createNodeGenerationService(
@@ -85,9 +108,15 @@ export function createNodeGenerationService(
       }
 
       const config = parseNodeConfig(node.config);
-      const candidate = imageNodeConfigToGenerationPayload(config);
+      const resolvedInputs = resolveNodeInputs(ownerEmail, node.incomingEdges);
+      const candidate = imageNodeConfigToGenerationPayload(
+        config,
+        resolvedInputs.map((input) => input.url),
+      );
       const validated = await validatePayload(candidate);
       if (!validated.success) {
+        const inputError = mapInputCapabilityError(validated.error);
+        if (inputError) throw inputError;
         throw new NodeGenerationConfigError(validated.error.flatten());
       }
 

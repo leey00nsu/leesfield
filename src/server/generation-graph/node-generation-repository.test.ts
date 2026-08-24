@@ -17,6 +17,7 @@ describe("nodeGenerationRepository", () => {
       configVersion: 1,
       config: { prompt: "hello", modelKey: "model-a", parameters: {} },
       graph: { version: 4 },
+      incomingEdges: [],
     });
     mocks.imageGeneration.findMany.mockResolvedValue([]);
   });
@@ -35,6 +36,23 @@ describe("nodeGenerationRepository", () => {
           graphId: "graph-1",
           graph: { ownerEmail: "owner@example.com" },
         },
+      }),
+    );
+    expect(mocks.generationGraphNode.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          incomingEdges: expect.objectContaining({
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            select: expect.objectContaining({
+              sourceNode: expect.objectContaining({
+                select: expect.objectContaining({
+                  selectedOutputImageId: true,
+                  selectedOutputImage: expect.any(Object),
+                }),
+              }),
+            }),
+          }),
+        }),
       }),
     );
   });

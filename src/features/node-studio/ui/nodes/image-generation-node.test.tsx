@@ -3,11 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 
 const commands = vi.hoisted(() => ({ duplicate: vi.fn(), remove: vi.fn() }));
 
+const inputReadiness = {
+  primary: { connectedCount: 1, readyCount: 1, missingCount: 0 },
+  reference: { connectedCount: 1, readyCount: 0, missingCount: 1 },
+  connectedCount: 2,
+  readyCount: 1,
+  missingCount: 1,
+  resolvedCount: 1,
+};
+
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 vi.mock("../../model/node-authoring-context", () => ({
   useNodeAuthoring: () => ({
     duplicateImageNode: commands.duplicate,
     deleteImageNode: commands.remove,
+    getImageNodeInputReadiness: () => inputReadiness,
   }),
 }));
 vi.mock("./image-node-authoring-form", () => ({
@@ -52,6 +62,7 @@ describe("ImageGenerationNode", () => {
     expect(screen.queryByTestId("node-toolbar")).not.toBeInTheDocument();
     expect(screen.getByText("a quiet lake")).toBeInTheDocument();
     expect(screen.getByText("node-execution-compact")).toBeInTheDocument();
+    expect(screen.getByLabelText("input.summary")).toBeInTheDocument();
     expect(screen.getByTestId("handle-primary")).toBeInTheDocument();
   });
 
@@ -61,6 +72,15 @@ describe("ImageGenerationNode", () => {
     expect(screen.getByTestId("node-toolbar")).toBeInTheDocument();
     expect(screen.getByText("node-authoring-form")).toBeInTheDocument();
     expect(screen.getByText("node-execution-expanded")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "input.title" })).toHaveAttribute(
+      "aria-describedby",
+      "node-input-summary",
+    );
+    expect(screen.getByText("input.selectionRequired")).toBeInTheDocument();
+    expect(screen.getByText("input.summary")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "actions.duplicateNode" }));
     fireEvent.click(screen.getByRole("button", { name: "actions.deleteNode" }));

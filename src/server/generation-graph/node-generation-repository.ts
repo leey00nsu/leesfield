@@ -19,6 +19,34 @@ async function getOwnedNode(
       configVersion: true,
       config: true,
       graph: { select: { version: true } },
+      incomingEdges: {
+        select: {
+          id: true,
+          kind: true,
+          createdAt: true,
+          sourceNodeId: true,
+          sourceNode: {
+            select: {
+              id: true,
+              selectedOutputImageId: true,
+              selectedOutputImage: {
+                select: {
+                  id: true,
+                  url: true,
+                  generation: {
+                    select: {
+                      ownerEmail: true,
+                      graphNodeId: true,
+                      status: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      },
     },
   });
   if (!node) throw new NodeGenerationNotFoundError();

@@ -71,12 +71,22 @@ const populatedGraph: GenerationGraphSnapshotDto = {
   ],
 };
 
+const readyInputGraph: GenerationGraphSnapshotDto = {
+  ...populatedGraph,
+  nodes: populatedGraph.nodes.map((node) =>
+    node.id === "hero-image"
+      ? { ...node, selectedOutputImageId: "storybook-image" }
+      : node,
+  ),
+};
+
 type NodeStudioShowcaseProps = {
   populated: boolean;
   status: GraphAutosaveStatus;
   narrow?: boolean;
   catalogError?: boolean;
   executionStatus?: NodeGenerationStatus;
+  inputReady?: boolean;
 };
 
 function NodeStudioShowcase({
@@ -85,6 +95,7 @@ function NodeStudioShowcase({
   narrow,
   catalogError,
   executionStatus,
+  inputReady,
 }: NodeStudioShowcaseProps) {
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -125,7 +136,7 @@ function NodeStudioShowcase({
         />
       </div>
       <NodeStudio
-        graph={populated ? populatedGraph : emptyGraph}
+        graph={populated ? (inputReady ? readyInputGraph : populatedGraph) : emptyGraph}
         onDraftChange={() => undefined}
         catalog={{
           imageModels: catalogError ? [] : runtimeImageModelsFixture,
@@ -166,6 +177,14 @@ export const SelectedAuthoring: Story = {
   args: { populated: true, status: "saved" },
   play: async ({ canvasElement }) => {
     await selectFirstNode(canvasElement);
+  },
+};
+
+export const InputReadiness: Story = {
+  args: { populated: true, status: "saved", inputReady: true },
+  play: async ({ canvasElement }) => {
+    const nodes = canvasElement.querySelectorAll<HTMLElement>(".react-flow__node");
+    if (nodes[1]) await userEvent.click(nodes[1]);
   },
 };
 

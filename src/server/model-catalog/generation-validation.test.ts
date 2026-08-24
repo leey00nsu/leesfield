@@ -203,3 +203,85 @@ describe("validateAudioGenerationPayload dynamicParams", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("validateImageGenerationPayload input capability metadata", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockGetModelCatalog.mockResolvedValue([
+      {
+        id: "image-1",
+        type: "image",
+        key: "image-model",
+        label: "Image Model",
+        vendor: "OPENAI",
+        provider: "codex_cli",
+        providerConfig: { command: "codex" },
+        parameters: {
+          width: { min: 512, max: 1024, step: 512, default: 1024 },
+          height: { min: 512, max: 1024, step: 512, default: 1024 },
+          steps: { min: 1, max: 10, step: 1, default: 1 },
+          imageCount: { min: 1, max: 1, step: 1, default: 1 },
+        },
+        meta: {
+          default_width: 1024,
+          default_height: 1024,
+          default_steps: 1,
+          concurrent_limit: 1,
+          max_input_images: 0,
+        },
+        isActive: true,
+        isDefault: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+  });
+
+  const payload = {
+    prompt: "hello",
+    model: "image-model",
+    width: 1024,
+    height: 1024,
+    steps: 1,
+    imageCount: 1,
+    initImages: ["https://assets.example.com/input.png"],
+  };
+
+  it("marks unsupported image input without parsing its message", async () => {
+    const { validateImageGenerationPayload } = await import(
+      "@/server/model-catalog/generation-validation"
+    );
+    const result = await validateImageGenerationPayload(payload);
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected validation to fail");
+    expect(result.error.issues[0]).toMatchObject({
+      path: ["initImages"],
+      params: { nodeInputReason: "unsupported", limit: 0, count: 1 },
+    });
+  });
+
+  it("marks a distinct input limit overflow with count and limit", async () => {
+    const catalog = await mockGetModelCatalog();
+    mockGetModelCatalog.mockResolvedValue([
+      { ...catalog[0], meta: { ...catalog[0].meta, max_input_images: 1 } },
+    ]);
+    const { validateImageGenerationPayload } = await import(
+      "@/server/model-catalog/generation-validation"
+    );
+    const result = await validateImageGenerationPayload({
+      ...payload,
+      initImages: [
+        "https://assets.example.com/one.png",
+        "https://assets.example.com/two.png",
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected validation to fail");
+    expect(result.error.issues[0]).toMatchObject({
+      path: ["initImages"],
+      params: { nodeInputReason: "limit_exceeded", limit: 1, count: 2 },
+    });
+  });
+});

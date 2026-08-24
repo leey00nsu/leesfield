@@ -150,6 +150,40 @@ describe("GraphAutosaveController", () => {
     await expect(completion).resolves.toEqual({ status: "saved", version: 2 });
   });
 
+  it("flushes the latest Edge snapshot before execution and returns its new version", async () => {
+    const save = vi.fn().mockResolvedValue(graph(5));
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 4,
+      initialDraft: baseDraft,
+      save,
+    });
+    const edgeDraft: GraphDraft = {
+      ...baseDraft,
+      edges: [
+        {
+          id: "edge-primary",
+          sourceNodeId: "source",
+          targetNodeId: "target",
+          kind: "primary",
+          sourceHandle: "output",
+          targetHandle: "primary",
+        },
+      ],
+    };
+
+    controller.update(edgeDraft);
+    const completion = controller.saveNow();
+    await flushPromises();
+
+    expect(save).toHaveBeenCalledWith(
+      "graph_1",
+      { ...edgeDraft, expectedVersion: 4 },
+      expect.any(AbortSignal),
+    );
+    await expect(completion).resolves.toEqual({ status: "saved", version: 5 });
+  });
+
   it("saveNow waits for the in-flight save and its latest queued revision", async () => {
     const first = deferred<GenerationGraphSnapshotDto>();
     const second = deferred<GenerationGraphSnapshotDto>();

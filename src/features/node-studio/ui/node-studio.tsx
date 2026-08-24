@@ -31,6 +31,10 @@ import {
   replaceImageNodeSelectedOutput,
 } from "../lib/image-node-config";
 import { nodeRegistry, nodeTypes } from "../model/node-registry";
+import {
+  emptyImageNodeInputReadiness,
+  resolveImageNodeInputReadiness,
+} from "../model/node-input-readiness";
 import { NodeStudioToolbar, type NodeStudioToolMode } from "./node-studio-toolbar";
 
 type NodeStudioProps = {
@@ -192,11 +196,24 @@ export function NodeStudio({
     [publish],
   );
 
+  const inputReadinessByNodeId = useMemo(
+    () =>
+      new Map(
+        nodes.map((node) => [
+          node.id,
+          resolveImageNodeInputReadiness(node.id, nodes, edges),
+        ]),
+      ),
+    [edges, nodes],
+  );
+
   const authoringContext = useMemo(
     () => ({
       ...catalog,
       graphId: graph.id,
       prepareImageNodeExecution,
+      getImageNodeInputReadiness: (nodeId: string) =>
+        inputReadinessByNodeId.get(nodeId) ?? emptyImageNodeInputReadiness(),
       selectImageNodeOutput,
       updateImageNodeConfig,
       duplicateImageNode: handleDuplicateImageNode,
@@ -207,6 +224,7 @@ export function NodeStudio({
       graph.id,
       handleDeleteImageNode,
       handleDuplicateImageNode,
+      inputReadinessByNodeId,
       prepareImageNodeExecution,
       selectImageNodeOutput,
       updateImageNodeConfig,

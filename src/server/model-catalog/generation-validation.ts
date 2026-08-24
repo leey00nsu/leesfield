@@ -258,6 +258,7 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
         code: z.ZodIssueCode.custom,
         path: ["initImages"],
         message: initImageUnsupported,
+        params: { nodeInputReason: "unsupported", limit: 0, count },
       });
       return;
     }
@@ -266,6 +267,11 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
         code: z.ZodIssueCode.custom,
         path: ["initImages"],
         message: maxInputImagesMessage(maxInputImages),
+        params: {
+          nodeInputReason: "limit_exceeded",
+          limit: maxInputImages,
+          count,
+        },
       });
     }
   });

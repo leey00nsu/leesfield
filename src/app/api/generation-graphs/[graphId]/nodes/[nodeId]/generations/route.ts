@@ -4,6 +4,10 @@ import {
   NodeGenerationInputError,
   NodeGenerationNotFoundError,
   NodeGenerationVersionConflictError,
+  NodeInputInvalidError,
+  NodeInputLimitExceededError,
+  NodeInputSelectionRequiredError,
+  NodeInputUnsupportedError,
 } from "@/server/generation-graph/node-generation-errors";
 import { nodeGenerationService } from "@/server/generation-graph/node-generation-service";
 import { ImageGenerationActiveNodeError } from "@/server/image-generation/image-generation-submission";
@@ -32,6 +36,17 @@ function knownErrorResponse(error: unknown) {
   if (error instanceof NodeGenerationConfigError) {
     return jsonWithNoStore(
       { message: "NODE_CONFIG_INVALID", errors: error.details },
+      { status: 400 },
+    );
+  }
+  if (
+    error instanceof NodeInputSelectionRequiredError ||
+    error instanceof NodeInputInvalidError ||
+    error instanceof NodeInputUnsupportedError ||
+    error instanceof NodeInputLimitExceededError
+  ) {
+    return jsonWithNoStore(
+      { message: error.message, errors: error.details },
       { status: 400 },
     );
   }

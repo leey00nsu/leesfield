@@ -3,6 +3,10 @@ import {
   NodeGenerationConfigError,
   NodeGenerationNotFoundError,
   NodeGenerationVersionConflictError,
+  NodeInputInvalidError,
+  NodeInputLimitExceededError,
+  NodeInputSelectionRequiredError,
+  NodeInputUnsupportedError,
 } from "@/server/generation-graph/node-generation-errors";
 import { ImageGenerationActiveNodeError } from "@/server/image-generation/image-generation-submission";
 
@@ -66,6 +70,26 @@ describe("node generation route", () => {
     [new NodeGenerationVersionConflictError(), 409, "GRAPH_VERSION_CONFLICT"],
     [new ImageGenerationActiveNodeError(), 409, "NODE_GENERATION_ACTIVE"],
     [new NodeGenerationConfigError({ model: ["inactive"] }), 400, "NODE_CONFIG_INVALID"],
+    [
+      new NodeInputSelectionRequiredError({ edgeId: "edge-1", sourceNodeId: "source-1" }),
+      400,
+      "NODE_INPUT_SELECTION_REQUIRED",
+    ],
+    [
+      new NodeInputInvalidError({ edgeId: "edge-1", sourceNodeId: "source-1" }),
+      400,
+      "NODE_INPUT_INVALID",
+    ],
+    [
+      new NodeInputUnsupportedError({ limit: 0, count: 1 }),
+      400,
+      "NODE_INPUT_UNSUPPORTED",
+    ],
+    [
+      new NodeInputLimitExceededError({ limit: 1, count: 2 }),
+      400,
+      "NODE_INPUT_LIMIT_EXCEEDED",
+    ],
   ])("maps known execution errors", async (error, status, message) => {
     mockExecute.mockRejectedValue(error);
     const response = await POST(
@@ -77,6 +101,27 @@ describe("node generation route", () => {
     );
     expect(response.status).toBe(status);
     expect((await response.json()).message).toBe(message);
+  });
+
+  it("returns typed Edge input details without exposing arbitrary data", async () => {
+    mockExecute.mockRejectedValue(
+      new NodeInputSelectionRequiredError({
+        edgeId: "edge-1",
+        sourceNodeId: "source-1",
+      }),
+    );
+    const response = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({ expectedGraphVersion: 4 }),
+      }),
+      context,
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      message: "NODE_INPUT_SELECTION_REQUIRED",
+      errors: { edgeId: "edge-1", sourceNodeId: "source-1" },
+    });
   });
 
   it("returns owner-scoped generation DTOs", async () => {

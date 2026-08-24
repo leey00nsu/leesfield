@@ -5,6 +5,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import type { RuntimeImageModel } from "@/shared/model-catalog/runtime-utils";
 
 import type { ImageGenerationNodeConfigDto } from "./graph-types";
+import type { ImageNodeInputReadiness } from "./node-input-readiness";
 
 export type NodeAuthoringCatalogState = {
   imageModels: readonly RuntimeImageModel[];
@@ -16,6 +17,7 @@ export type NodeAuthoringCatalogState = {
 type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   graphId: string;
   prepareImageNodeExecution: () => Promise<number>;
+  getImageNodeInputReadiness: (nodeId: string) => ImageNodeInputReadiness;
   selectImageNodeOutput: (
     nodeId: string,
     selectedOutputImageId: string,

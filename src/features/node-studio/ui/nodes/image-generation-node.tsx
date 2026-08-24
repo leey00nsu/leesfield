@@ -13,11 +13,17 @@ import type { ImageGenerationFlowNode } from "../../model/flow-types";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
 import { ImageNodeAuthoringForm } from "./image-node-authoring-form";
 import { ImageNodeExecution } from "./image-node-execution";
+import { ImageNodeInputReadinessView } from "./image-node-input-readiness";
 
 export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data, selected }: NodeProps<ImageGenerationFlowNode>) {
   const t = useTranslations("nodeStudio");
-  const { duplicateImageNode, deleteImageNode } = useNodeAuthoring();
+  const {
+    duplicateImageNode,
+    deleteImageNode,
+    getImageNodeInputReadiness,
+  } = useNodeAuthoring();
   const promptSummary = data.config.prompt.trim();
+  const inputReadiness = getImageNodeInputReadiness(id);
 
   return (
     <TooltipProvider>
@@ -66,16 +72,7 @@ export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data,
 
         {selected ? (
           <div className="mt-5 grid gap-4">
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
-                <span className="block text-white/45">{t("edge.primary")}</span>
-                <span className="mt-0.5 block font-semibold text-primary">{t("node.inputReady")}</span>
-              </div>
-              <div className="rounded-xl border border-white/12 bg-white/[0.035] px-3 py-2.5">
-                <span className="block text-white/45">{t("edge.reference")}</span>
-                <span className="mt-0.5 block font-semibold text-white/70">{t("node.inputReady")}</span>
-              </div>
-            </div>
+            <ImageNodeInputReadinessView readiness={inputReadiness} />
             <ImageNodeAuthoringForm nodeId={id} config={data.config} />
             <ImageNodeExecution
               nodeId={id}
@@ -87,6 +84,7 @@ export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data,
         ) : (
           <>
             <p className="mt-4 line-clamp-2 min-h-10 text-xs leading-5 text-white/45">{promptSummary || t("node.promptEmpty")}</p>
+            <ImageNodeInputReadinessView readiness={inputReadiness} compact />
             <ImageNodeExecution
               nodeId={id}
               config={data.config}

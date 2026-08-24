@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 
 import { renderWithIntl } from "@/test-utils/intl";
 
+import { NodeGenerationApiError } from "../../api/node-generation-api";
+
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
   selectOutput: vi.fn(),
@@ -136,6 +138,47 @@ describe("ImageNodeExecution", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("provider failed");
     await user.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(mocks.prepare).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      "NODE_INPUT_SELECTION_REQUIRED",
+      {},
+      "연결된 source 노드에서 사용할 결과를 선택한 뒤 다시 실행하세요.",
+    ],
+    [
+      "NODE_INPUT_INVALID",
+      {},
+      "선택된 source 결과를 사용할 수 없습니다. source 노드를 다시 실행하거나 다른 결과를 선택하세요.",
+    ],
+    [
+      "NODE_INPUT_UNSUPPORTED",
+      { limit: 0, count: 1 },
+      "선택한 모델은 이미지 입력을 지원하지 않습니다. 입력 연결을 해제하거나 다른 모델을 선택하세요.",
+    ],
+    [
+      "NODE_INPUT_LIMIT_EXCEEDED",
+      { limit: 2, count: 3 },
+      "선택한 모델은 이미지 입력을 최대 2개까지 지원합니다. 일부 연결을 해제하세요.",
+    ],
+    [
+      "GRAPH_VERSION_CONFLICT",
+      undefined,
+      "서버에 최신 Graph가 있습니다. 다시 불러온 뒤 실행하세요.",
+    ],
+  ])("maps %s to a recoverable action", async (code, details, message) => {
+    const user = userEvent.setup();
+    mocks.mutate.mockRejectedValueOnce(
+      new NodeGenerationApiError(400, code, details),
+    );
+    renderWithIntl(
+      <ImageNodeExecution nodeId="node-1" config={config} selectedOutputImageId={null} expanded />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "실행" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
   });
 
   it("keeps compact status and result accessible on a collapsed Node", () => {
