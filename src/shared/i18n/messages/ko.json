@@ -8,6 +8,7 @@
   },
   "nav": {
     "image": "이미지",
+    "nodeStudio": "노드 스튜디오",
     "video": "비디오",
     "audio": "오디오",
     "history": "히스토리",
@@ -1008,6 +1009,79 @@
       "loadingSchema": "OpenAPI 스키마를 불러오는 중입니다.",
       "schemaError": "OpenAPI 스키마를 불러오지 못했습니다.",
       "missingEndpoints": "OpenAPI 스키마를 불러오지 못해 엔드포인트 정보를 표시할 수 없습니다."
+    }
+  },
+  "nodeStudio": {
+    "eyebrow": "비주얼 워크플로 편집기",
+    "title": "노드 스튜디오",
+    "description": "이미지 생성 노드를 배치하고 워크플로를 Graph로 안전하게 저장하세요.",
+    "actions": {
+      "addImageNode": "이미지 노드 추가",
+      "fitView": "전체 보기",
+      "deleteNode": "노드 삭제",
+      "retry": "다시 시도",
+      "reloadLatest": "최신 버전 불러오기",
+      "createGraph": "Graph 생성",
+      "deleteGraph": "Graph 삭제",
+      "cancel": "취소"
+    },
+    "edge": {
+      "primaryTarget": "Primary 입력",
+      "referenceTarget": "Reference 입력",
+      "outputSource": "이미지 출력",
+      "primary": "Primary",
+      "reference": "Reference"
+    },
+    "node": {
+      "imageGeneration": "이미지 생성",
+      "shellDescription": "설정과 실행 기능은 다음 단계에서 제공됩니다",
+      "target": "입력"
+    },
+    "empty": {
+      "title": "이미지 노드로 시작하세요",
+      "description": "노드를 추가하고 Canvas에서 이동한 뒤 다른 노드의 입력에 연결할 수 있습니다."
+    },
+    "validation": {
+      "DUPLICATE_NODE_ID": "같은 ID의 노드가 이미 있습니다.",
+      "DUPLICATE_EDGE_ID": "같은 ID의 연결이 이미 있습니다.",
+      "EDGE_ENDPOINT_NOT_FOUND": "출력을 올바른 입력 핸들에 연결하세요.",
+      "SELF_EDGE": "노드는 자기 자신에 연결할 수 없습니다.",
+      "DUPLICATE_EDGE": "같은 연결이 이미 있습니다.",
+      "PRIMARY_INPUT_LIMIT_EXCEEDED": "노드마다 Primary 입력은 하나만 연결할 수 있습니다.",
+      "GRAPH_CYCLE": "이 연결은 순환 구조를 만듭니다.",
+      "UNKNOWN": "유효하지 않은 연결입니다."
+    },
+    "graph": {
+      "selector": "Graph 선택",
+      "none": "Graph 없음",
+      "createPlaceholder": "새 Graph 이름",
+      "title": "Graph 이름",
+      "emptyTitle": "첫 Graph를 만들어 보세요",
+      "emptyDescription": "위에서 이름을 입력하면 저장 가능한 Node Studio 작업 공간이 열립니다."
+    },
+    "save": {
+      "saved": "저장됨",
+      "dirty": "저장되지 않은 변경",
+      "saving": "저장 중",
+      "error": "저장에 실패했습니다. 로컬 편집 내용은 유지됩니다.",
+      "conflict": "서버에 더 최신 버전이 있습니다. 로컬 편집 내용은 덮어쓰지 않았습니다."
+    },
+    "confirm": {
+      "deleteTitle": "이 Graph를 삭제할까요?",
+      "deleteDescription": "Graph와 모든 노드·연결이 영구적으로 삭제됩니다.",
+      "reloadTitle": "로컬 변경을 버리고 다시 불러올까요?",
+      "reloadDescription": "서버의 최신 snapshot이 현재 로컬 Canvas를 대체합니다.",
+      "switchDescription": "이 Graph에 저장 실패 또는 충돌 상태의 로컬 편집이 있습니다. 버리고 다른 Graph로 이동할까요?"
+    },
+    "loading": {
+      "graphs": "Graph 목록을 불러오는 중입니다...",
+      "graph": "Graph를 불러오는 중입니다..."
+    },
+    "errors": {
+      "list": "Graph 목록을 불러오지 못했습니다.",
+      "load": "이 Graph를 불러오지 못했습니다.",
+      "create": "Graph를 만들지 못했습니다. 다시 시도해 주세요.",
+      "delete": "Graph를 삭제하지 못했습니다. 다시 시도해 주세요."
     }
   },
   "dashboard": {

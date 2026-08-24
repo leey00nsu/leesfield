@@ -1,7 +1,13 @@
-import type {
-  GenerationGraphEdgeInput,
-  GenerationGraphNodeInput,
-} from "./generation-graph-contract";
+export type GraphStructureNode = { id: string };
+
+export type GraphStructureEdge = {
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  kind: "primary" | "reference";
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+};
 
 export type GraphStructureIssueCode =
   | "DUPLICATE_NODE_ID"
@@ -19,8 +25,8 @@ export type GraphStructureIssue = {
 };
 
 type GraphStructure = {
-  nodes: GenerationGraphNodeInput[];
-  edges: GenerationGraphEdgeInput[];
+  nodes: GraphStructureNode[];
+  edges: GraphStructureEdge[];
 };
 
 function collectDuplicateIds(
@@ -42,17 +48,17 @@ function collectDuplicateIds(
   return issues;
 }
 
-function edgeIdentity(edge: GenerationGraphEdgeInput) {
+function edgeIdentity(edge: GraphStructureEdge) {
   return JSON.stringify([
     edge.sourceNodeId,
     edge.targetNodeId,
     edge.kind,
-    edge.sourceHandle,
-    edge.targetHandle,
+    edge.sourceHandle ?? null,
+    edge.targetHandle ?? null,
   ]);
 }
 
-function containsCycle(nodeIds: Set<string>, edges: GenerationGraphEdgeInput[]) {
+function containsCycle(nodeIds: Set<string>, edges: GraphStructureEdge[]) {
   const indegree = new Map([...nodeIds].map((id) => [id, 0]));
   const adjacency = new Map([...nodeIds].map((id) => [id, [] as string[]]));
 
@@ -94,9 +100,7 @@ export function validateGraphStructure({ nodes, edges }: GraphStructure): GraphS
   const primaryTargets = new Map<string, number>();
 
   for (const edge of edges) {
-    const sourceExists = nodeIds.has(edge.sourceNodeId);
-    const targetExists = nodeIds.has(edge.targetNodeId);
-    if (!sourceExists || !targetExists) {
+    if (!nodeIds.has(edge.sourceNodeId) || !nodeIds.has(edge.targetNodeId)) {
       issues.push({ code: "EDGE_ENDPOINT_NOT_FOUND", edgeId: edge.id });
     }
     if (edge.sourceNodeId === edge.targetNodeId) {
@@ -122,9 +126,6 @@ export function validateGraphStructure({ nodes, edges }: GraphStructure): GraphS
     }
   }
 
-  if (containsCycle(nodeIds, edges)) {
-    issues.push({ code: "GRAPH_CYCLE" });
-  }
-
+  if (containsCycle(nodeIds, edges)) issues.push({ code: "GRAPH_CYCLE" });
   return issues;
 }

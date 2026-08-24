@@ -1,5 +1,6 @@
 export const dashboardNavigation = [
   { key: "image", href: "/image" },
+  { key: "nodeStudio", href: "/node-studio" },
   { key: "video", href: "/video" },
   { key: "audio", href: "/audio" },
   { key: "history", href: "/history" },

@@ -14,6 +14,7 @@ import {
   LogIn,
   Menu,
   LogOut,
+  Workflow,
 } from "lucide-react";
 import { logoutAction } from "@/features/auth/logout/api/logout-action";
 import { dashboardNavigation } from "@/shared/config/navigation";
@@ -37,6 +38,7 @@ type HeaderProps = {
 
 const headerIcons: Record<string, typeof ImageIcon> = {
   "/image": ImageIcon,
+  "/node-studio": Workflow,
   "/video": Clapperboard,
   "/audio": AudioLines,
   "/history": History,
@@ -54,9 +56,28 @@ export function Header({
   const tBrand = useTranslations("common.brand");
   const tNav = useTranslations("nav");
   const publicNav = dashboardNavigation.filter((item) =>
-    ["/image", "/video", "/audio", "/history", "/model", "/monitoring", "/api-docs"].includes(
-      item.href,
-    ),
+    [
+      "/image",
+      "/node-studio",
+      "/video",
+      "/audio",
+      "/history",
+      "/model",
+      "/monitoring",
+      "/api-docs",
+    ].includes(item.href) && (item.href !== "/node-studio" || isAuthenticated),
+  );
+  const dashboardPrimaryNav = dashboardNavigation.filter((item) =>
+    [
+      "/image",
+      "/node-studio",
+      "/video",
+      "/audio",
+      "/history",
+      "/model",
+      "/monitoring",
+      "/api-docs",
+    ].includes(item.href),
   );
 
   if (variant === "public") {
@@ -81,15 +102,28 @@ export function Header({
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           {isAuthenticated ? (
-            <form action={logoutAction}>
+            <>
               <AppButton
-                type="submit"
+                asChild
+                variant="surface"
                 size="md"
-                className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+                className="h-11 rounded-full px-4 text-sm normal-case tracking-normal lg:hidden"
               >
-                {tHeader("logout")}
+                <Link href="/node-studio" aria-label={tNav("nodeStudio")}>
+                  <Workflow className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">{tNav("nodeStudio")}</span>
+                </Link>
               </AppButton>
-            </form>
+              <form action={logoutAction}>
+                <AppButton
+                  type="submit"
+                  size="md"
+                  className="h-11 rounded-full px-6 text-sm normal-case tracking-normal"
+                >
+                  {tHeader("logout")}
+                </AppButton>
+              </form>
+            </>
           ) : (
             <AppButton
               asChild
@@ -116,7 +150,7 @@ export function Header({
       </Link>
 
       <nav className="hidden items-center gap-8 lg:flex">
-        {publicNav.map((item) => (
+        {dashboardPrimaryNav.map((item) => (
           <Link
             key={item.href}
             href={item.href}

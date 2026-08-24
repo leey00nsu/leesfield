@@ -1,4 +1,4 @@
-import type { GraphStructureIssue } from "./generation-graph-validation";
+import type { GraphStructureIssue } from "@/shared/generation-graph/graph-validation";
 
 export class GenerationGraphNotFoundError extends Error {
   constructor() {

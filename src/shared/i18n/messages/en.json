@@ -8,6 +8,7 @@
   },
   "nav": {
     "image": "Image",
+    "nodeStudio": "Node Studio",
     "video": "Video",
     "audio": "Audio",
     "history": "History",
@@ -1008,6 +1009,79 @@
       "loadingSchema": "Loading OpenAPI schema...",
       "schemaError": "Failed to load OpenAPI schema.",
       "missingEndpoints": "Unable to load OpenAPI schema, cannot display endpoint details."
+    }
+  },
+  "nodeStudio": {
+    "eyebrow": "Visual workflow editor",
+    "title": "Node Studio",
+    "description": "Arrange image generation nodes and save your workflow as a graph.",
+    "actions": {
+      "addImageNode": "Add image node",
+      "fitView": "Fit view",
+      "deleteNode": "Delete node",
+      "retry": "Retry",
+      "reloadLatest": "Reload latest",
+      "createGraph": "Create graph",
+      "deleteGraph": "Delete graph",
+      "cancel": "Cancel"
+    },
+    "edge": {
+      "primaryTarget": "Primary input",
+      "referenceTarget": "Reference input",
+      "outputSource": "Image output",
+      "primary": "Primary",
+      "reference": "Reference"
+    },
+    "node": {
+      "imageGeneration": "Image Generation",
+      "shellDescription": "Configuration and execution are coming next",
+      "target": "Input"
+    },
+    "empty": {
+      "title": "Start with an image node",
+      "description": "Add a node, move it on the canvas, and connect its output to another node."
+    },
+    "validation": {
+      "DUPLICATE_NODE_ID": "A node with this ID already exists.",
+      "DUPLICATE_EDGE_ID": "An edge with this ID already exists.",
+      "EDGE_ENDPOINT_NOT_FOUND": "Connect an output to a valid input handle.",
+      "SELF_EDGE": "A node cannot connect to itself.",
+      "DUPLICATE_EDGE": "This connection already exists.",
+      "PRIMARY_INPUT_LIMIT_EXCEEDED": "A node can have only one primary input.",
+      "GRAPH_CYCLE": "This connection would create a cycle.",
+      "UNKNOWN": "This connection is not valid."
+    },
+    "graph": {
+      "selector": "Select graph",
+      "none": "No graphs",
+      "createPlaceholder": "New graph title",
+      "title": "Graph title",
+      "emptyTitle": "Create your first graph",
+      "emptyDescription": "Name a graph above to open a persistent Node Studio workspace."
+    },
+    "save": {
+      "saved": "Saved",
+      "dirty": "Unsaved changes",
+      "saving": "Saving",
+      "error": "Save failed. Your local edits are still here.",
+      "conflict": "A newer server version exists. Your local edits have not been overwritten."
+    },
+    "confirm": {
+      "deleteTitle": "Delete this graph?",
+      "deleteDescription": "This permanently deletes the graph and its nodes and edges.",
+      "reloadTitle": "Discard local edits and reload?",
+      "reloadDescription": "The latest server snapshot will replace the current local canvas.",
+      "switchDescription": "This graph has unsaved or conflicted local edits. Discard them and switch graphs?"
+    },
+    "loading": {
+      "graphs": "Loading graphs...",
+      "graph": "Loading graph..."
+    },
+    "errors": {
+      "list": "Could not load your graphs.",
+      "load": "Could not load this graph.",
+      "create": "Could not create the graph. Try again.",
+      "delete": "Could not delete the graph. Try again."
     }
   },
   "dashboard": {

@@ -9,7 +9,7 @@ import {
   generationGraphRepository,
   type GenerationGraphRepository,
 } from "./generation-graph-repository";
-import { validateGraphStructure } from "./generation-graph-validation";
+import { validateGraphStructure } from "@/shared/generation-graph/graph-validation";
 
 function parseInput<T>(parse: () => T): T {
   try {
