@@ -24,6 +24,7 @@ export default async function ProtectedLayout({
       }
     >
       <Header
+        variant="public"
         isAuthenticated={session.isLoggedIn}
         userEmail={session.adminEmail}
       />

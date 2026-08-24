@@ -128,6 +128,19 @@ pnpm gen:admin-password-hash
 
 출력된 값은 base64url 형태이므로 그대로 `.env`에 넣으면 됩니다.
 
+### 로컬 개발 로그인 우회
+
+UI를 빠르게 확인할 때 `.env.local`에 아래 값을 추가하면 로그인 화면 없이
+관리자 세션으로 접근할 수 있습니다.
+
+```dotenv
+DEV_AUTH_BYPASS=true
+```
+
+우회 계정은 `DEV_AUTH_BYPASS_EMAIL`, `ADMIN_EMAIL`, `dev@localhost` 순서로
+결정됩니다. 이 기능은 `NODE_ENV=development`에서만 동작하며 운영 환경에서는
+플래그가 설정되어 있어도 비활성화됩니다.
+
 ### 2) 로컬 DB 실행 (PostgreSQL)
 
 ```bash

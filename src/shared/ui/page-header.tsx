@@ -28,6 +28,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
+      data-app-page-header=""
       className={cn(
         "-mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10",
         sticky ? "sticky top-0 z-20" : "relative z-10",

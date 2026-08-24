@@ -24,7 +24,8 @@ interface GenerationModelSectionProps<T extends string> {
   title?: ReactNode;
   action?: ReactNode;
   items: ReadonlyArray<GenerationModelOption<T>>;
-  activeId: T;
+  activeId: T | null;
+  selectionLabel?: ReactNode;
   defaultId?: T;
   onSelect: (id: T) => void;
   className?: string;
@@ -35,6 +36,7 @@ export function GenerationModelSection<T extends string>({
   action,
   items,
   activeId,
+  selectionLabel,
   defaultId,
   onSelect,
   className,
@@ -50,7 +52,9 @@ export function GenerationModelSection<T extends string>({
     }
   };
   const resolvedTitle = title ?? t("modelSelect");
-  const activeModel = items.find((model) => model.id === activeId) ?? items[0];
+  const activeModel = activeId
+    ? items.find((model) => model.id === activeId)
+    : undefined;
   const defaultModelId = defaultId ?? items[0]?.id;
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -137,7 +141,7 @@ export function GenerationModelSection<T extends string>({
                 {resolvedTitle}
               </span>
               <span className="max-w-[13rem] truncate font-medium">
-                {activeModel?.name ?? resolvedTitle}
+                {selectionLabel ?? activeModel?.name ?? resolvedTitle}
               </span>
             </span>
             <ChevronDown className="h-4 w-4 text-primary" />

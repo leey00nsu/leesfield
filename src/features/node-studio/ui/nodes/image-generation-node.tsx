@@ -1,82 +1,86 @@
 "use client";
 
 import { memo } from "react";
-import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react";
-import { Image as ImageIcon, Trash2 } from "lucide-react";
+import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
+import { Copy, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/shared/lib/utils";
 import { AppButton } from "@/shared/ui/app-button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import type { ImageGenerationFlowNode } from "../../model/flow-types";
+import { useNodeAuthoring } from "../../model/node-authoring-context";
+import { ImageNodeAuthoringForm } from "./image-node-authoring-form";
 
-export const ImageGenerationNode = memo(function ImageGenerationNode({
-  id,
-  selected,
-}: NodeProps<ImageGenerationFlowNode>) {
+export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data, selected }: NodeProps<ImageGenerationFlowNode>) {
   const t = useTranslations("nodeStudio");
-  const { deleteElements } = useReactFlow<ImageGenerationFlowNode>();
+  const { duplicateImageNode, deleteImageNode } = useNodeAuthoring();
+  const promptSummary = data.config.prompt.trim();
 
   return (
-    <article
-      className={`relative w-64 rounded-2xl border bg-surface-dark/96 p-4 text-white shadow-2xl ${
-        selected ? "border-primary/80 ring-2 ring-primary/20" : "border-white/12"
-      }`}
-      aria-label={t("node.imageGeneration")}
-    >
-      <Handle
-        id="primary"
-        type="target"
-        position={Position.Left}
-        className="!top-[38%] !h-3 !w-3 !border-2 !border-background-dark !bg-primary"
-        aria-label={t("edge.primaryTarget")}
-      />
-      <Handle
-        id="reference"
-        type="target"
-        position={Position.Left}
-        className="!top-[68%] !h-3 !w-3 !border-2 !border-background-dark !bg-accent-purple"
-        aria-label={t("edge.referenceTarget")}
-      />
-      <Handle
-        id="output"
-        type="source"
-        position={Position.Right}
-        className="!h-3 !w-3 !border-2 !border-background-dark !bg-white"
-        aria-label={t("edge.outputSource")}
-      />
+    <TooltipProvider>
+      <article
+        className={cn(
+          "relative rounded-[1.35rem] border bg-[#0b0d0e]/96 text-white shadow-[0_24px_90px_rgba(0,0,0,0.46)] transition-[width,border-color,box-shadow] motion-reduce:transition-none",
+          selected
+            ? "w-[min(28rem,calc(100vw-7rem))] border-primary/90 p-5 ring-2 ring-primary/20"
+            : "w-72 border-white/12 p-4",
+        )}
+        aria-label={t("node.imageGeneration")}
+        aria-current={selected ? "true" : undefined}
+      >
+        <NodeToolbar isVisible={selected} position={Position.Top} offset={12} className="nodrag nopan flex items-center gap-1 rounded-xl border border-white/10 bg-background-dark/95 p-1.5 shadow-2xl backdrop-blur-xl">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AppButton type="button" variant="ghost" size="icon-sm" aria-label={t("actions.duplicateNode")} onClick={() => duplicateImageNode(id)}>
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </AppButton>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.duplicateNode")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AppButton type="button" variant="ghost" size="icon-sm" className="text-white/55 hover:!text-red-200" aria-label={t("actions.deleteNode")} onClick={() => deleteImageNode(id)}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </AppButton>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.deleteNode")}</TooltipContent>
+          </Tooltip>
+        </NodeToolbar>
 
-      <div className="flex items-start justify-between gap-3">
+        <Handle id="primary" type="target" position={Position.Left} className="!top-[38%] !h-3 !w-3 !border-2 !border-background-dark !bg-primary" aria-label={t("edge.primaryTarget")} />
+        <Handle id="reference" type="target" position={Position.Left} className="!top-[68%] !h-3 !w-3 !border-2 !border-background-dark !bg-white/45" aria-label={t("edge.referenceTarget")} />
+        <Handle id="output" type="source" position={Position.Right} className="!h-3 !w-3 !border-2 !border-background-dark !bg-white" aria-label={t("edge.outputSource")} />
+
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
             <ImageIcon className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{t("node.imageGeneration")}</h3>
-            <p className="text-[11px] text-white/45">{t("node.shellDescription")}</p>
+            <p className="truncate text-[11px] text-white/45">{data.config.modelKey ?? t("node.modelUnselected")}</p>
           </div>
         </div>
-        <AppButton
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="nodrag nopan h-8 w-8 text-white/45 hover:!text-red-200"
-          aria-label={t("actions.deleteNode")}
-          onClick={() => void deleteElements({ nodes: [{ id }] })}
-        >
-          <Trash2 className="h-4 w-4" aria-hidden="true" />
-        </AppButton>
-      </div>
 
-      <div className="mt-4 grid gap-2 text-[11px]">
-        <div className="flex items-center justify-between rounded-xl border border-white/8 bg-black/15 px-3 py-2">
-          <span className="text-white/45">{t("edge.primary")}</span>
-          <span className="text-primary">{t("node.target")}</span>
-        </div>
-        <div className="flex items-center justify-between rounded-xl border border-white/8 bg-black/15 px-3 py-2">
-          <span className="text-white/45">{t("edge.reference")}</span>
-          <span className="text-accent-purple">{t("node.target")}</span>
-        </div>
-      </div>
-    </article>
+        {selected ? (
+          <div className="mt-5 grid gap-4">
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                <span className="block text-white/45">{t("edge.primary")}</span>
+                <span className="mt-0.5 block font-semibold text-primary">{t("node.inputReady")}</span>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-white/[0.035] px-3 py-2.5">
+                <span className="block text-white/45">{t("edge.reference")}</span>
+                <span className="mt-0.5 block font-semibold text-white/70">{t("node.inputReady")}</span>
+              </div>
+            </div>
+            <ImageNodeAuthoringForm nodeId={id} config={data.config} />
+          </div>
+        ) : (
+          <p className="mt-4 line-clamp-2 min-h-10 text-xs leading-5 text-white/45">{promptSummary || t("node.promptEmpty")}</p>
+        )}
+      </article>
+    </TooltipProvider>
   );
 });

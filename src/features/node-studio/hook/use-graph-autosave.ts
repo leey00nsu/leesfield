@@ -73,6 +73,10 @@ export class GraphAutosaveController {
 
   getSnapshot = () => this.snapshot;
 
+  start() {
+    this.stopped = false;
+  }
+
   private emit(status: GraphAutosaveStatus) {
     this.snapshot = { status, version: this.version };
     for (const listener of this.listeners) listener();
@@ -186,7 +190,10 @@ export function useGraphAutosave(options: UseGraphAutosaveOptions) {
       }),
   );
 
-  useEffect(() => () => controller.dispose(), [controller]);
+  useEffect(() => {
+    controller.start();
+    return () => controller.dispose();
+  }, [controller]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
   return {

@@ -87,6 +87,18 @@ describe("NodeStudioScreen", () => {
     mocks.remove.mockResolvedValue(undefined);
   });
 
+  it("공용 creative studio intro와 Graph control surface를 구성한다", () => {
+    renderWithIntl(<NodeStudioScreen />);
+
+    const intro = screen.getByTestId("generation-studio-intro");
+    const graphControls = screen.getByTestId("node-studio-graph-controls");
+
+    expect(intro).toContainElement(screen.getByRole("heading", { name: "Node Studio" }));
+    expect(intro).toHaveTextContent("비주얼 워크플로 편집기");
+    expect(graphControls).toContainElement(screen.getByRole("combobox", { name: "Graph 선택" }));
+    expect(graphControls).toContainElement(screen.getByRole("textbox", { name: "새 Graph 이름" }));
+  });
+
   it("목록의 첫 Graph를 복원하고 다른 Graph를 선택한다", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen />);

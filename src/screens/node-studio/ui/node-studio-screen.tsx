@@ -15,6 +15,8 @@ import type { GraphAutosaveStatus } from "@/features/node-studio/hook/use-graph-
 import { GraphSelector } from "@/features/node-studio/ui/graph-selector";
 import { NodeStudioWorkspace } from "@/features/node-studio/ui/node-studio-workspace";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppCard } from "@/shared/ui/app-card";
+import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 
 export function NodeStudioScreen() {
   const t = useTranslations("nodeStudio");
@@ -79,60 +81,75 @@ export function NodeStudioScreen() {
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-[1800px] gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{t("eyebrow")}</p>
-          <h1 className="mt-2 font-display text-4xl text-white">{t("title")}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/50">{t("description")}</p>
-        </div>
-      </header>
+    <section className="grid w-full gap-8 pb-20">
+      <GenerationStudioIntro
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
+      />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-surface-dark/60 p-3">
-        <GraphSelector
-          graphs={graphs}
-          selectedGraphId={activeGraphId}
-          disabled={busy}
-          creating={createMutation.isPending}
-          onSelect={selectGraph}
-          onCreate={(title) => void createGraph(title)}
-        />
+      <div className="mx-auto w-full max-w-6xl">
+        <AppCard
+          variant="prompt"
+          radius="xl"
+          padding="sm"
+          className="bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+          data-testid="node-studio-graph-controls"
+        >
+          <GraphSelector
+            graphs={graphs}
+            selectedGraphId={activeGraphId}
+            disabled={busy}
+            creating={createMutation.isPending}
+            onSelect={selectGraph}
+            onCreate={(title) => void createGraph(title)}
+          />
+        </AppCard>
       </div>
 
-      {lifecycleError ? (
-        <div className="rounded-2xl border border-red-300/15 bg-red-500/5 px-4 py-3 text-sm text-red-100" role="alert">
-          {lifecycleError}
-        </div>
-      ) : null}
-
-      {listQuery.isLoading ? <NodeStudioLoading label={t("loading.graphs")} /> : null}
-      {listQuery.isError ? (
-        <NodeStudioError label={t("errors.list")} onRetry={() => void listQuery.refetch()} />
-      ) : null}
-      {!listQuery.isLoading && !listQuery.isError && graphs.length === 0 ? (
-        <div className="grid min-h-[32rem] place-items-center rounded-3xl border border-dashed border-white/12 bg-surface-dark/35 p-8 text-center">
-          <div className="max-w-md">
-            <Network className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
-            <h2 className="mt-5 font-display text-3xl">{t("graph.emptyTitle")}</h2>
-            <p className="mt-3 text-sm leading-6 text-white/50">{t("graph.emptyDescription")}</p>
+      <div className="mx-auto grid w-full max-w-[1600px] gap-5">
+        {lifecycleError ? (
+          <div
+            className="rounded-2xl border border-red-300/15 bg-red-500/5 px-4 py-3 text-sm text-red-100"
+            role="alert"
+          >
+            {lifecycleError}
           </div>
-        </div>
-      ) : null}
-      {activeGraphId && detailQuery.isLoading ? <NodeStudioLoading label={t("loading.graph")} /> : null}
-      {activeGraphId && detailQuery.isError ? (
-        <NodeStudioError label={t("errors.load")} onRetry={() => void detailQuery.refetch()} />
-      ) : null}
-      {detailQuery.data ? (
-        <NodeStudioWorkspace
-          key={`${detailQuery.data.id}:${workspaceKey}`}
-          graph={detailQuery.data}
-          deleting={deleteMutation.isPending}
-          onSaved={syncCache}
-          onDelete={() => void deleteGraph()}
-          onReloadLatest={() => void reloadLatest()}
-          onStatusChange={setSaveStatus}
-        />
-      ) : null}
+        ) : null}
+
+        {listQuery.isLoading ? <NodeStudioLoading label={t("loading.graphs")} /> : null}
+        {listQuery.isError ? (
+          <NodeStudioError label={t("errors.list")} onRetry={() => void listQuery.refetch()} />
+        ) : null}
+        {!listQuery.isLoading && !listQuery.isError && graphs.length === 0 ? (
+          <div className="grid min-h-[32rem] place-items-center rounded-3xl border border-dashed border-white/12 bg-surface-dark/35 p-8 text-center">
+            <div className="max-w-md">
+              <Network className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+              <h2 className="mt-5 font-display text-3xl">{t("graph.emptyTitle")}</h2>
+              <p className="mt-3 text-sm leading-6 text-white/50">
+                {t("graph.emptyDescription")}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {activeGraphId && detailQuery.isLoading ? (
+          <NodeStudioLoading label={t("loading.graph")} />
+        ) : null}
+        {activeGraphId && detailQuery.isError ? (
+          <NodeStudioError label={t("errors.load")} onRetry={() => void detailQuery.refetch()} />
+        ) : null}
+        {detailQuery.data ? (
+          <NodeStudioWorkspace
+            key={`${detailQuery.data.id}:${workspaceKey}`}
+            graph={detailQuery.data}
+            deleting={deleteMutation.isPending}
+            onSaved={syncCache}
+            onDelete={() => void deleteGraph()}
+            onReloadLatest={() => void reloadLatest()}
+            onStatusChange={setSaveStatus}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }

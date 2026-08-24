@@ -1,8 +1,14 @@
+import { createElement, StrictMode, type ReactNode } from "react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenerationGraphApiError } from "../api/generation-graph-api";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
-import { GraphAutosaveController, type GraphDraft } from "./use-graph-autosave";
+import {
+  GraphAutosaveController,
+  type GraphDraft,
+  useGraphAutosave,
+} from "./use-graph-autosave";
 
 const baseDraft: GraphDraft = { title: "Graph", nodes: [], edges: [] };
 const graph = (version: number, title = "Graph"): GenerationGraphSnapshotDto => ({
@@ -54,6 +60,50 @@ describe("GraphAutosaveController", () => {
     );
     await flushPromises();
     expect(controller.getSnapshot()).toEqual({ status: "saved", version: 2 });
+  });
+
+  it("coalesces image node authoring edits into the latest graph snapshot", async () => {
+    const save = vi.fn().mockResolvedValue(graph(2));
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 1,
+      initialDraft: baseDraft,
+      save,
+    });
+    const nodeDraft = (prompt: string): GraphDraft => ({
+      ...baseDraft,
+      nodes: [
+        {
+          id: "node_a",
+          type: "imageGeneration",
+          position: { x: 0, y: 0 },
+          configVersion: 1,
+          config: {
+            prompt,
+            modelKey: "model/a",
+            parameters: { width: 1024, height: 1024 },
+          },
+          selectedOutputImageId: null,
+        },
+      ],
+    });
+
+    controller.update(nodeDraft("first"));
+    await vi.advanceTimersByTimeAsync(400);
+    controller.update(nodeDraft("latest"));
+    await vi.advanceTimersByTimeAsync(649);
+    expect(save).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(save).toHaveBeenCalledOnce();
+    expect(save).toHaveBeenCalledWith(
+      "graph_1",
+      expect.objectContaining({
+        nodes: [expect.objectContaining({ config: expect.objectContaining({ prompt: "latest" }) })],
+        expectedVersion: 1,
+      }),
+      expect.any(AbortSignal),
+    );
   });
 
   it("serializes an edit queued during an in-flight save", async () => {
@@ -149,5 +199,28 @@ describe("GraphAutosaveController", () => {
 
     expect(onSaved).not.toHaveBeenCalled();
     expect(controller.getSnapshot()).toEqual({ status: "saved", version: 7 });
+  });
+
+  it("React Strict Mode의 effect 재실행 후에도 autosave를 유지한다", async () => {
+    const save = vi.fn().mockResolvedValue(graph(2, "Changed"));
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StrictMode, null, children);
+    const { result } = renderHook(
+      () =>
+        useGraphAutosave({
+          graphId: "graph_1",
+          initialVersion: 1,
+          initialDraft: baseDraft,
+          save,
+        }),
+      { wrapper },
+    );
+
+    act(() => result.current.update({ ...baseDraft, title: "Changed" }));
+    await act(async () => vi.advanceTimersByTimeAsync(650));
+    await flushPromises();
+
+    expect(save).toHaveBeenCalledOnce();
+    expect(result.current).toMatchObject({ status: "saved", version: 2 });
   });
 });

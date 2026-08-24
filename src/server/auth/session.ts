@@ -1,6 +1,8 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 
+import { resolveLocalAuthBypass } from "./local-auth-bypass";
+
 export interface SessionData {
   isLoggedIn: boolean;
   adminEmail?: string;
@@ -26,5 +28,16 @@ export const sessionOptions = {
 
 export async function getSession() {
   const cookieStore = await cookies();
-  return getIronSession<SessionData>(cookieStore, sessionOptions);
+  const session = await getIronSession<SessionData>(
+    cookieStore,
+    sessionOptions,
+  );
+  const localAuthBypass = resolveLocalAuthBypass();
+
+  if (localAuthBypass) {
+    session.isLoggedIn = true;
+    session.adminEmail = localAuthBypass.adminEmail;
+  }
+
+  return session;
 }

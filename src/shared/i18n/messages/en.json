@@ -1017,6 +1017,10 @@
     "description": "Arrange image generation nodes and save your workflow as a graph.",
     "actions": {
       "addImageNode": "Add image node",
+      "canvasTools": "Canvas tools",
+      "selectTool": "Select tool",
+      "panTool": "Pan tool",
+      "duplicateNode": "Duplicate node",
       "fitView": "Fit view",
       "deleteNode": "Delete node",
       "retry": "Retry",
@@ -1035,7 +1039,20 @@
     "node": {
       "imageGeneration": "Image Generation",
       "shellDescription": "Configuration and execution are coming next",
-      "target": "Input"
+      "target": "Input",
+      "modelUnselected": "No model selected",
+      "inputReady": "Connection input",
+      "authoringReady": "Author image settings inside the selected node.",
+      "promptEmpty": "Select to configure a prompt and model.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "Describe the image you want to create...",
+      "promptChars": "{count} chars",
+      "chooseModel": "Choose a model",
+      "modelLoading": "Loading image models...",
+      "modelEmpty": "No image models are available.",
+      "modelError": "Could not load image models.",
+      "modelUnavailable": "Unavailable · {model}",
+      "invalidParameter": "Check the supported range and step."
     },
     "empty": {
       "title": "Start with an image node",

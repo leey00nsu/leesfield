@@ -56,11 +56,14 @@ import {
   getRuntimeImageParamConfig,
   getRuntimeImageParamRange,
   resolveRuntimeDefaultModelKey,
-  resolveRuntimeImageDefaults,
   resolveRuntimeImageMaxInputImages,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
 import { resolveImageModalities } from "@/shared/model-catalog/modality";
+import {
+  applyImageModeChoice,
+  resolveImageAuthoringDefaults,
+} from "@/shared/generation/image-authoring";
 
 type ImageGenerationFormProps = {
   isAuthenticated: boolean;
@@ -296,7 +299,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   useEffect(() => {
     const model = runtimeModelMap.get(activeModel);
     if (!model) return;
-    const defaults = resolveRuntimeImageDefaults(model);
+    const defaults = resolveImageAuthoringDefaults(model);
     form.setValue("steps", defaults.steps);
     form.setValue("width", defaults.width);
     form.setValue("height", defaults.height);
@@ -318,28 +321,33 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     if (prevModeChoiceRef.current === current) return;
     prevModeChoiceRef.current = current;
 
-    const normalized = current.toLowerCase();
-    const targetSteps = normalized.includes("base") ? 50 : 4;
-    const clampedSteps = Math.min(
-      stepsRange.max,
-      Math.max(stepsRange.min, targetSteps),
+    if (!activeRuntimeModel) return;
+    const currentValues = form.getValues();
+    const adjusted = applyImageModeChoice(
+      {
+        prompt: currentValues.prompt,
+        model: currentValues.model,
+        width: currentValues.width,
+        height: currentValues.height,
+        imageCount: currentValues.imageCount,
+        steps: currentValues.steps,
+        modeChoice: currentValues.modeChoice ?? "",
+        guidanceScale: currentValues.guidanceScale ?? 1,
+        promptUpsampling: currentValues.promptUpsampling ?? false,
+        seed: currentValues.seed ?? "",
+      },
+      activeRuntimeModel,
+      current,
     );
-    form.setValue("steps", clampedSteps, { shouldValidate: true });
-
-    const targetGuidance = 1;
-    const clampedGuidance = Math.min(
-      guidanceRange.max,
-      Math.max(guidanceRange.min, targetGuidance),
-    );
-    form.setValue("guidanceScale", clampedGuidance, { shouldValidate: true });
+    form.setValue("steps", adjusted.steps, { shouldValidate: true });
+    form.setValue("guidanceScale", adjusted.guidanceScale, {
+      shouldValidate: true,
+    });
   }, [
     form,
-    guidanceRange.max,
-    guidanceRange.min,
+    activeRuntimeModel,
     modeChoice,
     showModeChoice,
-    stepsRange.max,
-    stepsRange.min,
   ]);
 
   const { state, startGeneration, reset } = useImageGeneration();

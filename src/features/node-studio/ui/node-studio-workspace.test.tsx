@@ -17,6 +17,15 @@ vi.mock("../hook/use-graph-autosave", () => ({
   useGraphAutosave: mocks.useAutosave,
 }));
 
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
+  useRuntimeModelCatalog: () => ({
+    imageModels: [],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
+
 vi.mock("./node-studio", () => ({
   NodeStudio: () => <div>canvas</div>,
 }));

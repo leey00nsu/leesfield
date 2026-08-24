@@ -46,7 +46,7 @@ export function GraphSelector({
         value={selectedGraphId ?? ""}
         disabled={disabled || graphs.length === 0}
         onChange={(event) => onSelect(event.target.value)}
-        className="h-11 min-w-44 rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none focus:border-primary disabled:opacity-50"
+        className="h-12 min-w-44 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white outline-none transition-colors focus:border-primary disabled:opacity-50"
       >
         {graphs.length === 0 ? <option value="">{t("graph.none")}</option> : null}
         {graphs.map((graph) => (
@@ -63,7 +63,8 @@ export function GraphSelector({
           disabled={creating}
           placeholder={t("graph.createPlaceholder")}
           aria-label={t("graph.createPlaceholder")}
-          className="h-11 rounded-xl"
+          surface="toolbar"
+          className="h-12 rounded-xl border-white/12 bg-black/16"
           onChange={(event) => setTitle(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") submit();
@@ -72,7 +73,7 @@ export function GraphSelector({
         <AppButton
           type="button"
           size="icon"
-          className="h-11 w-11 shrink-0"
+          className="h-12 w-12 shrink-0 rounded-xl"
           disabled={creating || title.trim().length === 0}
           aria-label={t("actions.createGraph")}
           onClick={submit}

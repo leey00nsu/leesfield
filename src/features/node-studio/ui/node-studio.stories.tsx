@@ -1,4 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { userEvent } from "storybook/test";
+
+import {
+  authoringValuesToImageConfig,
+  resolveImageAuthoringDefaults,
+} from "@/shared/generation/image-authoring";
+import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 import type { GraphAutosaveStatus } from "../hook/use-graph-autosave";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
@@ -15,6 +22,15 @@ const emptyGraph: GenerationGraphSnapshotDto = {
   updatedAt: "2026-08-24T00:00:00.000Z",
 };
 
+const storyModel = runtimeImageModelsFixture[0]!;
+const storyConfig = authoringValuesToImageConfig(
+  resolveImageAuthoringDefaults(
+    storyModel,
+    "Editorial product photograph of a translucent lime glass sculpture",
+  ),
+  storyModel,
+);
+
 const populatedGraph: GenerationGraphSnapshotDto = {
   ...emptyGraph,
   nodes: [
@@ -23,7 +39,7 @@ const populatedGraph: GenerationGraphSnapshotDto = {
       type: "imageGeneration",
       position: { x: 80, y: 140 },
       configVersion: 1,
-      config: { prompt: "", modelKey: null, parameters: {} },
+      config: storyConfig,
       selectedOutputImageId: null,
     },
     {
@@ -31,7 +47,11 @@ const populatedGraph: GenerationGraphSnapshotDto = {
       type: "imageGeneration",
       position: { x: 460, y: 260 },
       configVersion: 1,
-      config: { prompt: "", modelKey: null, parameters: {} },
+      config: {
+        prompt: "A cinematic variation using the selected output",
+        modelKey: "retired/image-model",
+        parameters: { width: 1024, height: 1024 },
+      },
       selectedOutputImageId: null,
     },
   ],
@@ -51,9 +71,10 @@ type NodeStudioShowcaseProps = {
   populated: boolean;
   status: GraphAutosaveStatus;
   narrow?: boolean;
+  catalogError?: boolean;
 };
 
-function NodeStudioShowcase({ populated, status, narrow }: NodeStudioShowcaseProps) {
+function NodeStudioShowcase({ populated, status, narrow, catalogError }: NodeStudioShowcaseProps) {
   return (
     <main className={`bg-background-dark p-4 text-white sm:p-6 ${narrow ? "max-w-[390px]" : "min-w-[960px]"}`}>
       <div className="mb-3 flex justify-end">
@@ -67,6 +88,12 @@ function NodeStudioShowcase({ populated, status, narrow }: NodeStudioShowcasePro
       <NodeStudio
         graph={populated ? populatedGraph : emptyGraph}
         onDraftChange={() => undefined}
+        catalog={{
+          imageModels: catalogError ? [] : runtimeImageModelsFixture,
+          isLoading: false,
+          error: catalogError ? "MODEL_CATALOG_FETCH_FAILED" : null,
+          retry: () => undefined,
+        }}
       />
     </main>
   );
@@ -88,6 +115,53 @@ export const Empty: Story = {
 
 export const Populated: Story = {
   args: { populated: true, status: "saved" },
+};
+
+async function selectFirstNode(canvasElement: HTMLElement) {
+  const node = canvasElement.querySelector<HTMLElement>(".react-flow__node");
+  if (node) await userEvent.click(node);
+  return node;
+}
+
+export const SelectedAuthoring: Story = {
+  args: { populated: true, status: "saved" },
+  play: async ({ canvasElement }) => {
+    await selectFirstNode(canvasElement);
+  },
+};
+
+export const ModelPickerOpen: Story = {
+  args: { populated: true, status: "saved" },
+  play: async ({ canvasElement }) => {
+    const node = await selectFirstNode(canvasElement);
+    const modelPicker = node?.querySelector<HTMLElement>("button[aria-haspopup='dialog']");
+    if (modelPicker) await userEvent.click(modelPicker);
+  },
+};
+
+export const ParameterSettingsOpen: Story = {
+  args: { populated: true, status: "saved" },
+  play: async ({ canvasElement }) => {
+    const node = await selectFirstNode(canvasElement);
+    const settings = node?.querySelectorAll<HTMLElement>("button[aria-haspopup='dialog']");
+    const last = settings?.[settings.length - 1];
+    if (last) await userEvent.click(last);
+  },
+};
+
+export const CatalogError: Story = {
+  args: { populated: true, status: "error", catalogError: true },
+  play: async ({ canvasElement }) => {
+    await selectFirstNode(canvasElement);
+  },
+};
+
+export const UnavailableModelNarrow: Story = {
+  args: { populated: true, status: "saved", narrow: true },
+  play: async ({ canvasElement }) => {
+    const nodes = canvasElement.querySelectorAll<HTMLElement>(".react-flow__node");
+    if (nodes[1]) await userEvent.click(nodes[1]);
+  },
 };
 
 export const SaveError: Story = {

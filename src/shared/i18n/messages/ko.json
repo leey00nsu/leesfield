@@ -1013,10 +1013,14 @@
   },
   "nodeStudio": {
     "eyebrow": "비주얼 워크플로 편집기",
-    "title": "노드 스튜디오",
+    "title": "Node Studio",
     "description": "이미지 생성 노드를 배치하고 워크플로를 Graph로 안전하게 저장하세요.",
     "actions": {
       "addImageNode": "이미지 노드 추가",
+      "canvasTools": "Canvas 도구",
+      "selectTool": "선택 도구",
+      "panTool": "이동 도구",
+      "duplicateNode": "노드 복제",
       "fitView": "전체 보기",
       "deleteNode": "노드 삭제",
       "retry": "다시 시도",
@@ -1035,7 +1039,20 @@
     "node": {
       "imageGeneration": "이미지 생성",
       "shellDescription": "설정과 실행 기능은 다음 단계에서 제공됩니다",
-      "target": "입력"
+      "target": "입력",
+      "modelUnselected": "모델 미선택",
+      "inputReady": "연결 입력",
+      "authoringReady": "선택한 노드의 이미지 설정을 여기에서 작성합니다.",
+      "promptEmpty": "선택하여 프롬프트와 모델을 설정하세요.",
+      "promptLabel": "프롬프트",
+      "promptPlaceholder": "만들고 싶은 이미지를 설명하세요...",
+      "promptChars": "{count}자",
+      "chooseModel": "모델 선택",
+      "modelLoading": "이미지 모델을 불러오는 중입니다...",
+      "modelEmpty": "사용 가능한 이미지 모델이 없습니다.",
+      "modelError": "이미지 모델을 불러오지 못했습니다.",
+      "modelUnavailable": "사용할 수 없음 · {model}",
+      "invalidParameter": "지원 범위와 입력 단위를 확인하세요."
     },
     "empty": {
       "title": "이미지 노드로 시작하세요",

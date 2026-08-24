@@ -16,6 +16,8 @@ import {
   AppConfirmDialogTitle,
 } from "@/shared/ui/app-confirm-dialog";
 import { AppInput } from "@/shared/ui/app-input";
+import { AppCard } from "@/shared/ui/app-card";
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 
 import { useGraphAutosave, type GraphDraft, type GraphAutosaveStatus } from "../hook/use-graph-autosave";
 import type { GenerationGraphSnapshotDto, UpdateGenerationGraphDto } from "../model/graph-types";
@@ -48,6 +50,15 @@ export function NodeStudioWorkspace({
   const [title, setTitle] = useState(graph.title);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [reloadOpen, setReloadOpen] = useState(false);
+  const runtimeCatalog = useRuntimeModelCatalog();
+  const nodeCatalog = {
+    imageModels: runtimeCatalog.imageModels.filter((model) => model.isActive),
+    isLoading: runtimeCatalog.isLoading,
+    error: runtimeCatalog.error,
+    retry: () => {
+      void runtimeCatalog.refetch();
+    },
+  };
   const autosave = useGraphAutosave({
     graphId: graph.id,
     initialVersion: graph.version,
@@ -72,12 +83,18 @@ export function NodeStudioWorkspace({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <AppCard
+        variant="prompt"
+        radius="xl"
+        padding="sm"
+        className="flex flex-row flex-wrap items-center justify-between gap-3 bg-black/24 backdrop-blur-xl"
+      >
         <AppInput
           value={title}
           maxLength={120}
           aria-label={t("graph.title")}
-          className="h-11 max-w-xl rounded-xl text-base font-semibold"
+          surface="toolbar"
+          className="h-12 min-w-64 flex-1 rounded-xl border-white/12 bg-black/16 text-base font-semibold sm:max-w-xl"
           onChange={(event) => {
             const nextTitle = event.target.value;
             setTitle(nextTitle);
@@ -102,11 +119,12 @@ export function NodeStudioWorkspace({
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </AppButton>
         </div>
-      </div>
+      </AppCard>
 
       <NodeStudio
         graph={{ ...graph, title }}
         onDraftChange={handleCanvasDraft}
+        catalog={nodeCatalog}
       />
 
       <AppConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -20,17 +20,32 @@ import { useTranslations } from "next-intl";
 
 import type { GenerationGraphSnapshotDto, UpdateGenerationGraphDto } from "../model/graph-types";
 import type { GenerationGraphFlowEdge, ImageGenerationFlowNode } from "../model/flow-types";
+import type { NodeAuthoringCatalogState } from "../model/node-authoring-context";
+import { NodeAuthoringProvider } from "../model/node-authoring-context";
 import { flowToUpdateGraph, graphSnapshotToFlow } from "../lib/graph-adapter";
 import { validateFlowConnection } from "../lib/connection-validation";
+import {
+  deleteImageNode,
+  duplicateImageNode,
+  replaceImageNodeConfig,
+} from "../lib/image-node-config";
 import { nodeRegistry, nodeTypes } from "../model/node-registry";
-import { NodeStudioToolbar } from "./node-studio-toolbar";
+import { NodeStudioToolbar, type NodeStudioToolMode } from "./node-studio-toolbar";
 
 type NodeStudioProps = {
   graph: GenerationGraphSnapshotDto;
   onDraftChange: (draft: UpdateGenerationGraphDto) => void;
+  catalog?: NodeAuthoringCatalogState;
 };
 
-export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
+const emptyCatalog: NodeAuthoringCatalogState = {
+  imageModels: [],
+  isLoading: false,
+  error: null,
+  retry: () => undefined,
+};
+
+export function NodeStudio({ graph, onDraftChange, catalog = emptyCatalog }: NodeStudioProps) {
   const t = useTranslations("nodeStudio");
   const initial = graphSnapshotToFlow(graph);
   const [nodes, setNodes] = useState(initial.nodes);
@@ -38,6 +53,7 @@ export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
   const nodesRef = useRef(initial.nodes);
   const edgesRef = useRef(initial.edges);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [toolMode, setToolMode] = useState<NodeStudioToolMode>("select");
   const instanceRef = useRef<ReactFlowInstance<ImageGenerationFlowNode, GenerationGraphFlowEdge> | null>(null);
 
   const publish = useCallback(
@@ -49,24 +65,20 @@ export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
 
   const onNodesChange = useCallback(
     (changes: NodeChange<ImageGenerationFlowNode>[]) => {
-      setNodes((current) => {
-        const next = applyNodeChanges(changes, current);
-        nodesRef.current = next;
-        publish(next, edgesRef.current);
-        return next;
-      });
+      const next = applyNodeChanges(changes, nodesRef.current);
+      nodesRef.current = next;
+      setNodes(next);
+      publish(next, edgesRef.current);
     },
     [publish],
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange<GenerationGraphFlowEdge>[]) => {
-      setEdges((current) => {
-        const next = applyEdgeChanges(changes, current);
-        edgesRef.current = next;
-        publish(nodesRef.current, next);
-        return next;
-      });
+      const next = applyEdgeChanges(changes, edgesRef.current);
+      edgesRef.current = next;
+      setEdges(next);
+      publish(nodesRef.current, next);
     },
     [publish],
   );
@@ -93,7 +105,7 @@ export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
         style:
           result.kind === "primary"
             ? { stroke: "var(--primary)", strokeWidth: 2 }
-            : { stroke: "var(--accent-purple)", strokeWidth: 2, strokeDasharray: "6 5" },
+            : { stroke: "rgba(255,255,255,0.48)", strokeWidth: 2, strokeDasharray: "6 5" },
       };
       const next = addEdge(nextEdge, edges);
       edgesRef.current = next;
@@ -115,9 +127,68 @@ export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
     publish(next, edges);
   }, [edges, nodes, publish]);
 
+  const updateImageNodeConfig = useCallback(
+    (nodeId: string, config: ImageGenerationFlowNode["data"]["config"]) => {
+      const next = replaceImageNodeConfig(nodesRef.current, nodeId, config);
+      if (next === nodesRef.current) return;
+      nodesRef.current = next;
+      setNodes(next);
+      publish(next, edgesRef.current);
+    },
+    [publish],
+  );
+
+  const handleDuplicateImageNode = useCallback(
+    (nodeId: string) => {
+      const next = duplicateImageNode(
+        nodesRef.current,
+        nodeId,
+        crypto.randomUUID(),
+      );
+      if (next === nodesRef.current) return;
+      nodesRef.current = next;
+      setNodes(next);
+      publish(next, edgesRef.current);
+    },
+    [publish],
+  );
+
+  const handleDeleteImageNode = useCallback(
+    (nodeId: string) => {
+      const next = deleteImageNode(
+        nodesRef.current,
+        edgesRef.current,
+        nodeId,
+      );
+      if (next.nodes.length === nodesRef.current.length) return;
+      nodesRef.current = next.nodes;
+      edgesRef.current = next.edges;
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      publish(next.nodes, next.edges);
+    },
+    [publish],
+  );
+
+  const authoringContext = useMemo(
+    () => ({
+      ...catalog,
+      updateImageNodeConfig,
+      duplicateImageNode: handleDuplicateImageNode,
+      deleteImageNode: handleDeleteImageNode,
+    }),
+    [
+      catalog,
+      handleDeleteImageNode,
+      handleDuplicateImageNode,
+      updateImageNodeConfig,
+    ],
+  );
+
   return (
-    <section className="relative h-[calc(100dvh-10.5rem)] min-h-[34rem] overflow-hidden rounded-3xl border border-white/10 bg-creative-surface-muted">
-      <ReactFlow<ImageGenerationFlowNode, GenerationGraphFlowEdge>
+    <section className="relative h-[min(58rem,calc(100dvh-8rem))] min-h-[42rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)]">
+      <NodeAuthoringProvider value={authoringContext}>
+        <ReactFlow<ImageGenerationFlowNode, GenerationGraphFlowEdge>
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -129,20 +200,26 @@ export function NodeStudio({ graph, onDraftChange }: NodeStudioProps) {
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         deleteKeyCode={["Backspace", "Delete"]}
+        nodesDraggable={toolMode === "select"}
+        elementsSelectable={toolMode === "select"}
+        selectionOnDrag={toolMode === "select"}
+        panOnDrag={toolMode === "pan"}
         fitView
         minZoom={0.2}
         maxZoom={2}
-        className="node-studio-flow"
+        className={toolMode === "pan" ? "node-studio-flow cursor-grab active:cursor-grabbing" : "node-studio-flow"}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(255,255,255,0.12)" />
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(255,255,255,0.1)" />
         <Controls position="bottom-right" showInteractive={false} />
         <Panel position="top-left">
           <NodeStudioToolbar
+            mode={toolMode}
+            onModeChange={setToolMode}
             onAddImageNode={addImageNode}
-            onFitView={() => void instanceRef.current?.fitView({ padding: 0.2, duration: 250 })}
           />
         </Panel>
-      </ReactFlow>
+        </ReactFlow>
+      </NodeAuthoringProvider>
 
       {nodes.length === 0 ? (
         <div className="pointer-events-none absolute inset-0 grid place-items-center px-6 text-center">
