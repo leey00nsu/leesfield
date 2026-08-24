@@ -23,4 +23,23 @@ describe("generation graph migration", () => {
       'FOREIGN KEY ("graphNodeId") REFERENCES "GenerationGraphNode"("id") ON DELETE CASCADE',
     );
   });
+
+  it("allows one active generation per graph node without limiting terminal history", async () => {
+    const migration = await readFile(
+      path.join(
+        process.cwd(),
+        "prisma/migrations/20260824203000_active_node_generation/migration.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      'CREATE UNIQUE INDEX "ImageGeneration_one_active_per_graph_node"',
+    );
+    expect(migration).toContain('ON "ImageGeneration"("graphNodeId")');
+    expect(migration).toContain('WHERE "graphNodeId" IS NOT NULL');
+    expect(migration).toContain("\"status\" IN ('pending', 'processing')");
+    expect(migration).not.toContain("'completed'");
+    expect(migration).not.toContain("'failed'");
+  });
 });

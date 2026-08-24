@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shar
 import type { ImageGenerationFlowNode } from "../../model/flow-types";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
 import { ImageNodeAuthoringForm } from "./image-node-authoring-form";
+import { ImageNodeExecution } from "./image-node-execution";
 
 export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data, selected }: NodeProps<ImageGenerationFlowNode>) {
   const t = useTranslations("nodeStudio");
@@ -76,9 +77,22 @@ export const ImageGenerationNode = memo(function ImageGenerationNode({ id, data,
               </div>
             </div>
             <ImageNodeAuthoringForm nodeId={id} config={data.config} />
+            <ImageNodeExecution
+              nodeId={id}
+              config={data.config}
+              selectedOutputImageId={data.selectedOutputImageId}
+              expanded
+            />
           </div>
         ) : (
-          <p className="mt-4 line-clamp-2 min-h-10 text-xs leading-5 text-white/45">{promptSummary || t("node.promptEmpty")}</p>
+          <>
+            <p className="mt-4 line-clamp-2 min-h-10 text-xs leading-5 text-white/45">{promptSummary || t("node.promptEmpty")}</p>
+            <ImageNodeExecution
+              nodeId={id}
+              config={data.config}
+              selectedOutputImageId={data.selectedOutputImageId}
+            />
+          </>
         )}
       </article>
     </TooltipProvider>

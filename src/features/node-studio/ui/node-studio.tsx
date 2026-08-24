@@ -28,6 +28,7 @@ import {
   deleteImageNode,
   duplicateImageNode,
   replaceImageNodeConfig,
+  replaceImageNodeSelectedOutput,
 } from "../lib/image-node-config";
 import { nodeRegistry, nodeTypes } from "../model/node-registry";
 import { NodeStudioToolbar, type NodeStudioToolMode } from "./node-studio-toolbar";
@@ -35,6 +36,7 @@ import { NodeStudioToolbar, type NodeStudioToolMode } from "./node-studio-toolba
 type NodeStudioProps = {
   graph: GenerationGraphSnapshotDto;
   onDraftChange: (draft: UpdateGenerationGraphDto) => void;
+  prepareImageNodeExecution?: () => Promise<number>;
   catalog?: NodeAuthoringCatalogState;
 };
 
@@ -45,7 +47,12 @@ const emptyCatalog: NodeAuthoringCatalogState = {
   retry: () => undefined,
 };
 
-export function NodeStudio({ graph, onDraftChange, catalog = emptyCatalog }: NodeStudioProps) {
+export function NodeStudio({
+  graph,
+  onDraftChange,
+  prepareImageNodeExecution = async () => graph.version,
+  catalog = emptyCatalog,
+}: NodeStudioProps) {
   const t = useTranslations("nodeStudio");
   const initial = graphSnapshotToFlow(graph);
   const [nodes, setNodes] = useState(initial.nodes);
@@ -153,6 +160,21 @@ export function NodeStudio({ graph, onDraftChange, catalog = emptyCatalog }: Nod
     [publish],
   );
 
+  const selectImageNodeOutput = useCallback(
+    (nodeId: string, selectedOutputImageId: string) => {
+      const next = replaceImageNodeSelectedOutput(
+        nodesRef.current,
+        nodeId,
+        selectedOutputImageId,
+      );
+      if (next === nodesRef.current) return;
+      nodesRef.current = next;
+      setNodes(next);
+      publish(next, edgesRef.current);
+    },
+    [publish],
+  );
+
   const handleDeleteImageNode = useCallback(
     (nodeId: string) => {
       const next = deleteImageNode(
@@ -173,14 +195,20 @@ export function NodeStudio({ graph, onDraftChange, catalog = emptyCatalog }: Nod
   const authoringContext = useMemo(
     () => ({
       ...catalog,
+      graphId: graph.id,
+      prepareImageNodeExecution,
+      selectImageNodeOutput,
       updateImageNodeConfig,
       duplicateImageNode: handleDuplicateImageNode,
       deleteImageNode: handleDeleteImageNode,
     }),
     [
       catalog,
+      graph.id,
       handleDeleteImageNode,
       handleDuplicateImageNode,
+      prepareImageNodeExecution,
+      selectImageNodeOutput,
       updateImageNodeConfig,
     ],
   );

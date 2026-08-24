@@ -124,6 +124,10 @@ export function NodeStudioWorkspace({
       <NodeStudio
         graph={{ ...graph, title }}
         onDraftChange={handleCanvasDraft}
+        prepareImageNodeExecution={async () => {
+          const saved = await autosave.saveNow();
+          return saved.version;
+        }}
         catalog={nodeCatalog}
       />
 

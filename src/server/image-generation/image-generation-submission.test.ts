@@ -1,5 +1,10 @@
+import { Prisma } from "@prisma/client";
+
 import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
-import { submitImageGeneration } from "@/server/image-generation/image-generation-submission";
+import {
+  ImageGenerationActiveNodeError,
+  submitImageGeneration,
+} from "@/server/image-generation/image-generation-submission";
 
 const mockStartWorker = vi.hoisted(() => vi.fn());
 const mockCreateRecord = vi.hoisted(() => vi.fn());
@@ -49,6 +54,7 @@ describe("submitImageGeneration", () => {
       },
       "admin@example.com",
       null,
+      null,
     );
     expect(result).toEqual({
       record: { id: "request-id", status: "pending", progress: 0 },
@@ -87,6 +93,7 @@ describe("submitImageGeneration", () => {
       }),
       "admin@example.com",
       "api-key-id",
+      null,
     );
     expect(mockStartWorker.mock.invocationCallOrder[0]).toBeLessThan(
       mockUploadInputImages.mock.invocationCallOrder[0],
@@ -122,6 +129,63 @@ describe("submitImageGeneration", () => {
         payload: {
           ...imageGenerationDefaults,
           prompt: "hello",
+        },
+        ownerEmail: "admin@example.com",
+      }),
+    ).rejects.toBe(error);
+  });
+
+  it("Node 실행 metadata를 Generation create에 전달한다", async () => {
+    await submitImageGeneration({
+      payload: {
+        ...imageGenerationDefaults,
+        prompt: "node prompt",
+      },
+      ownerEmail: "admin@example.com",
+      graphNodeId: "node-1",
+    });
+
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ prompt: "node prompt" }),
+      "admin@example.com",
+      null,
+      "node-1",
+    );
+  });
+
+  it("Node-linked P2002를 active 실행 충돌로 변환한다", async () => {
+    mockCreateRecord.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("unique", {
+        code: "P2002",
+        clientVersion: "6.19.2",
+      }),
+    );
+
+    await expect(
+      submitImageGeneration({
+        payload: {
+          ...imageGenerationDefaults,
+          prompt: "node prompt",
+        },
+        ownerEmail: "admin@example.com",
+        graphNodeId: "node-1",
+      }),
+    ).rejects.toBeInstanceOf(ImageGenerationActiveNodeError);
+  });
+
+  it("Classic P2002는 기존 repository 오류 계약을 유지한다", async () => {
+    const error = new Prisma.PrismaClientKnownRequestError("unique", {
+      code: "P2002",
+      clientVersion: "6.19.2",
+    });
+    mockCreateRecord.mockRejectedValue(error);
+
+    await expect(
+      submitImageGeneration({
+        payload: {
+          ...imageGenerationDefaults,
+          prompt: "classic prompt",
         },
         ownerEmail: "admin@example.com",
       }),

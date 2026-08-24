@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { userEvent } from "storybook/test";
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   authoringValuesToImageConfig,
@@ -8,6 +10,8 @@ import {
 import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 import type { GraphAutosaveStatus } from "../hook/use-graph-autosave";
+import { nodeGenerationKeys } from "../hook/use-node-generations";
+import type { NodeGenerationStatus } from "../model/node-generation-types";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import { GraphSaveStatus } from "./graph-save-status";
 import { NodeStudio } from "./node-studio";
@@ -72,9 +76,44 @@ type NodeStudioShowcaseProps = {
   status: GraphAutosaveStatus;
   narrow?: boolean;
   catalogError?: boolean;
+  executionStatus?: NodeGenerationStatus;
 };
 
-function NodeStudioShowcase({ populated, status, narrow, catalogError }: NodeStudioShowcaseProps) {
+function NodeStudioShowcase({
+  populated,
+  status,
+  narrow,
+  catalogError,
+  executionStatus,
+}: NodeStudioShowcaseProps) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!executionStatus) return;
+    queryClient.setQueryData(
+      nodeGenerationKeys.list(populatedGraph.id, "hero-image"),
+      [
+        {
+          requestId: `storybook-${executionStatus}`,
+          status: executionStatus,
+          progress: executionStatus === "processing" ? 48 : executionStatus === "completed" ? 100 : 0,
+          errorMessage: executionStatus === "failed" ? "Provider가 요청을 완료하지 못했습니다." : null,
+          createdAt: "2026-08-24T00:00:00.000Z",
+          modelKey: storyModel.key,
+          images:
+            executionStatus === "completed"
+              ? [
+                  {
+                    id: "storybook-image",
+                    url: "/sample-image.png",
+                    width: 1024,
+                    height: 1024,
+                  },
+                ]
+              : [],
+        },
+      ],
+    );
+  }, [executionStatus, queryClient]);
   return (
     <main className={`bg-background-dark p-4 text-white sm:p-6 ${narrow ? "max-w-[390px]" : "min-w-[960px]"}`}>
       <div className="mb-3 flex justify-end">
@@ -170,4 +209,30 @@ export const SaveError: Story = {
 
 export const ConflictNarrow: Story = {
   args: { populated: true, status: "conflict", narrow: true },
+};
+
+export const ExecutionProcessing: Story = {
+  args: { populated: true, status: "saved", executionStatus: "processing" },
+  play: async ({ canvasElement }) => {
+    await selectFirstNode(canvasElement);
+  },
+};
+
+export const ExecutionCompleted: Story = {
+  args: { populated: true, status: "saved", executionStatus: "completed" },
+  play: async ({ canvasElement }) => {
+    await selectFirstNode(canvasElement);
+  },
+};
+
+export const ExecutionFailedNarrow: Story = {
+  args: {
+    populated: true,
+    status: "saved",
+    executionStatus: "failed",
+    narrow: true,
+  },
+  play: async ({ canvasElement }) => {
+    await selectFirstNode(canvasElement);
+  },
 };

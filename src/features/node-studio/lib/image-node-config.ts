@@ -43,6 +43,28 @@ export function replaceImageNodeConfig(
   return changed ? next : nodes;
 }
 
+export function replaceImageNodeSelectedOutput(
+  nodes: ImageGenerationFlowNode[],
+  nodeId: string,
+  selectedOutputImageId: string | null,
+) {
+  let changed = false;
+  const next = nodes.map((node) => {
+    if (
+      node.id !== nodeId ||
+      node.data.selectedOutputImageId === selectedOutputImageId
+    ) {
+      return node;
+    }
+    changed = true;
+    return {
+      ...node,
+      data: { ...node.data, selectedOutputImageId },
+    };
+  });
+  return changed ? next : nodes;
+}
+
 export function duplicateImageNode(
   nodes: ImageGenerationFlowNode[],
   nodeId: string,

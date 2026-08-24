@@ -133,6 +133,95 @@ describe("GraphAutosaveController", () => {
     );
   });
 
+  it("saveNow flushes a dirty draft immediately and returns the saved version", async () => {
+    const save = vi.fn().mockResolvedValue(graph(2, "Immediate"));
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 1,
+      initialDraft: baseDraft,
+      save,
+    });
+    controller.update({ ...baseDraft, title: "Immediate" });
+
+    const completion = controller.saveNow();
+    await flushPromises();
+
+    expect(save).toHaveBeenCalledOnce();
+    await expect(completion).resolves.toEqual({ status: "saved", version: 2 });
+  });
+
+  it("saveNow waits for the in-flight save and its latest queued revision", async () => {
+    const first = deferred<GenerationGraphSnapshotDto>();
+    const second = deferred<GenerationGraphSnapshotDto>();
+    const save = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 1,
+      initialDraft: baseDraft,
+      save,
+    });
+
+    controller.update({ ...baseDraft, title: "First" });
+    await vi.advanceTimersByTimeAsync(650);
+    controller.update({ ...baseDraft, title: "Latest" });
+    const completion = controller.saveNow();
+
+    first.resolve(graph(2, "First"));
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenCalledTimes(2);
+
+    let completed = false;
+    void completion.then(() => {
+      completed = true;
+    });
+    await flushPromises();
+    expect(completed).toBe(false);
+
+    second.resolve(graph(3, "Latest"));
+    await flushPromises();
+    await expect(completion).resolves.toEqual({ status: "saved", version: 3 });
+  });
+
+  it("saveNow rejects typed error and conflict states", async () => {
+    const save = vi
+      .fn()
+      .mockRejectedValue(new GenerationGraphApiError(409, "GRAPH_VERSION_CONFLICT"));
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 1,
+      initialDraft: baseDraft,
+      save,
+    });
+    controller.update({ ...baseDraft, title: "Conflict" });
+
+    const completion = controller.saveNow();
+    await expect(completion).rejects.toMatchObject({
+      status: "conflict",
+    });
+    await expect(controller.saveNow()).rejects.toMatchObject({
+      status: "conflict",
+    });
+  });
+
+  it("saveNow returns the current version without a request when already saved", async () => {
+    const save = vi.fn();
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 7,
+      initialDraft: baseDraft,
+      save,
+    });
+    await expect(controller.saveNow()).resolves.toEqual({
+      status: "saved",
+      version: 7,
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("retains an error until explicit retry", async () => {
     const save = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValueOnce(graph(2));
     const controller = new GraphAutosaveController({

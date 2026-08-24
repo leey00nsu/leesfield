@@ -1023,6 +1023,8 @@
       "duplicateNode": "Duplicate node",
       "fitView": "Fit view",
       "deleteNode": "Delete node",
+      "runNode": "Run",
+      "rerunNode": "Run again",
       "retry": "Retry",
       "reloadLatest": "Reload latest",
       "createGraph": "Create graph",
@@ -1053,6 +1055,29 @@
       "modelError": "Could not load image models.",
       "modelUnavailable": "Unavailable · {model}",
       "invalidParameter": "Check the supported range and step."
+    },
+    "execution": {
+      "title": "Image generation execution",
+      "status": {
+        "idle": "Ready to run",
+        "submitting": "Submitting",
+        "pending": "Queued",
+        "processing": "Generating",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "configureFirst": "Choose a prompt and model before running this node.",
+      "empty": "Run the node to see its latest result and generation history here.",
+      "latestResult": "Latest generated result",
+      "history": "{count} generations",
+      "outputs": "Choose generated output",
+      "selectOutput": "Select output {index}",
+      "loadError": "Could not load this node's generations.",
+      "saveConflict": "A newer graph exists. Reload it before running.",
+      "saveError": "The graph could not be saved, so the node was not run.",
+      "activeError": "This node is already generating.",
+      "configError": "Check the current node configuration.",
+      "submitError": "Could not submit the image generation request."
     },
     "empty": {
       "title": "Start with an image node",

@@ -112,6 +112,7 @@ vi.mock("../model/node-authoring-context", () => ({
       updateImageNodeConfig: (nodeId: string, config: unknown) => void;
       duplicateImageNode: (nodeId: string) => void;
       deleteImageNode: (nodeId: string) => void;
+      selectImageNodeOutput: (nodeId: string, imageId: string) => void;
     };
   }) => (
     <>
@@ -136,6 +137,12 @@ vi.mock("../model/node-authoring-context", () => ({
       </button>
       <button type="button" onClick={() => value.deleteImageNode("node_a")}>
         delete-node-test
+      </button>
+      <button
+        type="button"
+        onClick={() => value.selectImageNodeOutput("node_a", "image_1")}
+      >
+        select-output-test
       </button>
     </>
   ),
@@ -221,7 +228,7 @@ describe("NodeStudio", () => {
     );
   });
 
-  it("publishes config, duplicate, and delete mutations through one draft path", () => {
+  it("publishes config, output selection, duplicate, and delete mutations through one draft path", () => {
     const onDraftChange = vi.fn();
     render(<NodeStudio graph={graph} onDraftChange={onDraftChange} />);
 
@@ -232,6 +239,18 @@ describe("NodeStudio", () => {
           expect.objectContaining({
             id: "node_a",
             config: expect.objectContaining({ prompt: "updated prompt" }),
+          }),
+        ]),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "select-output-test" }));
+    expect(onDraftChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            id: "node_a",
+            selectedOutputImageId: "image_1",
           }),
         ]),
       }),

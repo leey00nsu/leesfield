@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationStatus } from "@/features/image-generation/model/image-generation-types";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
@@ -8,6 +10,7 @@ export type SubmitImageGenerationInput = {
   payload: ImageGenerationFormValues;
   ownerEmail: string;
   apiKeyId?: string | null;
+  graphNodeId?: string | null;
 };
 
 export type ImageGenerationSubmissionRecord = {
@@ -16,10 +19,27 @@ export type ImageGenerationSubmissionRecord = {
   progress: number;
 };
 
+export class ImageGenerationActiveNodeError extends Error {
+  readonly code = "NODE_GENERATION_ACTIVE";
+
+  constructor() {
+    super("NODE_GENERATION_ACTIVE");
+    this.name = "ImageGenerationActiveNodeError";
+  }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
 export async function submitImageGeneration({
   payload,
   ownerEmail,
   apiKeyId = null,
+  graphNodeId = null,
 }: SubmitImageGenerationInput) {
   startGenerationWorker();
 
@@ -31,15 +51,24 @@ export async function submitImageGeneration({
     initImages.length > 0
       ? await uploadInputImages(requestId, initImages)
       : [];
-  const record = await createImageGenerationRecord(
-    requestId,
-    {
-      ...payload,
-      initImages: resolvedInitImages,
-    },
-    ownerEmail,
-    apiKeyId,
-  );
+  let record;
+  try {
+    record = await createImageGenerationRecord(
+      requestId,
+      {
+        ...payload,
+        initImages: resolvedInitImages,
+      },
+      ownerEmail,
+      apiKeyId,
+      graphNodeId,
+    );
+  } catch (error) {
+    if (graphNodeId && isUniqueConstraintError(error)) {
+      throw new ImageGenerationActiveNodeError();
+    }
+    throw error;
+  }
 
   return {
     record: {

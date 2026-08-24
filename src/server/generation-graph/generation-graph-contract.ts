@@ -9,7 +9,7 @@ const graphIdSchema = z
 
 const optionalHandleSchema = z.string().trim().min(1).max(128).nullable().default(null);
 
-const imageGenerationConfigV1Schema = z
+export const imageGenerationConfigV1Schema = z
   .object({
     prompt: z.string().max(20_000),
     modelKey: z.string().trim().min(1).max(200).nullable(),
@@ -63,3 +63,4 @@ export type CreateGenerationGraphInput = z.infer<typeof createGenerationGraphSch
 export type GenerationGraphNodeInput = z.infer<typeof generationGraphNodeSchema>;
 export type GenerationGraphEdgeInput = z.infer<typeof generationGraphEdgeSchema>;
 export type UpdateGenerationGraphInput = z.infer<typeof updateGenerationGraphSchema>;
+export type ImageGenerationConfigV1 = z.infer<typeof imageGenerationConfigV1Schema>;

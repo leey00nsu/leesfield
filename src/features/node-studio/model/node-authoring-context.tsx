@@ -14,6 +14,12 @@ export type NodeAuthoringCatalogState = {
 };
 
 type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
+  graphId: string;
+  prepareImageNodeExecution: () => Promise<number>;
+  selectImageNodeOutput: (
+    nodeId: string,
+    selectedOutputImageId: string,
+  ) => void;
   updateImageNodeConfig: (
     nodeId: string,
     config: ImageGenerationNodeConfigDto,

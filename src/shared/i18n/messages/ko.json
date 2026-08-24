@@ -1023,6 +1023,8 @@
       "duplicateNode": "노드 복제",
       "fitView": "전체 보기",
       "deleteNode": "노드 삭제",
+      "runNode": "실행",
+      "rerunNode": "다시 실행",
       "retry": "다시 시도",
       "reloadLatest": "최신 버전 불러오기",
       "createGraph": "Graph 생성",
@@ -1053,6 +1055,29 @@
       "modelError": "이미지 모델을 불러오지 못했습니다.",
       "modelUnavailable": "사용할 수 없음 · {model}",
       "invalidParameter": "지원 범위와 입력 단위를 확인하세요."
+    },
+    "execution": {
+      "title": "이미지 생성 실행",
+      "status": {
+        "idle": "실행 대기",
+        "submitting": "제출 중",
+        "pending": "대기 중",
+        "processing": "생성 중",
+        "completed": "생성 완료",
+        "failed": "생성 실패"
+      },
+      "configureFirst": "프롬프트와 모델을 선택하면 실행할 수 있습니다.",
+      "empty": "실행하면 최신 결과와 이전 Generation을 여기에서 확인할 수 있습니다.",
+      "latestResult": "최신 생성 결과",
+      "history": "Generation 이력 {count}개",
+      "outputs": "생성 결과 선택",
+      "selectOutput": "결과 {index} 선택",
+      "loadError": "Generation 이력을 불러오지 못했습니다.",
+      "saveConflict": "서버에 최신 Graph가 있습니다. 다시 불러온 뒤 실행하세요.",
+      "saveError": "Graph 저장에 실패해 실행하지 않았습니다.",
+      "activeError": "이 노드는 이미 생성 중입니다.",
+      "configError": "현재 노드 설정을 확인해 주세요.",
+      "submitError": "이미지 생성 요청을 제출하지 못했습니다."
     },
     "empty": {
       "title": "이미지 노드로 시작하세요",

@@ -19,6 +19,13 @@ export type GraphAutosaveSnapshot = {
   version: number;
 };
 
+export class GraphAutosaveSaveError extends Error {
+  constructor(public readonly status: "error" | "conflict" | "stopped") {
+    super(`GRAPH_AUTOSAVE_${status.toUpperCase()}`);
+    this.name = "GraphAutosaveSaveError";
+  }
+}
+
 type SaveGraph = (
   graphId: string,
   draft: UpdateGenerationGraphDto,
@@ -54,6 +61,10 @@ export class GraphAutosaveController {
   private readonly save: SaveGraph;
   private readonly onSaved?: (graph: GenerationGraphSnapshotDto) => void;
   private readonly delayMs: number;
+  private waiters = new Set<{
+    resolve: (snapshot: GraphAutosaveSnapshot) => void;
+    reject: (error: GraphAutosaveSaveError) => void;
+  }>();
 
   constructor(options: GraphAutosaveControllerOptions) {
     this.graphId = options.graphId;
@@ -80,6 +91,20 @@ export class GraphAutosaveController {
   private emit(status: GraphAutosaveStatus) {
     this.snapshot = { status, version: this.version };
     for (const listener of this.listeners) listener();
+    if (status === "saved") this.resolveWaiters();
+    if (status === "error" || status === "conflict") {
+      this.rejectWaiters(new GraphAutosaveSaveError(status));
+    }
+  }
+
+  private resolveWaiters() {
+    for (const waiter of this.waiters) waiter.resolve(this.snapshot);
+    this.waiters.clear();
+  }
+
+  private rejectWaiters(error: GraphAutosaveSaveError) {
+    for (const waiter of this.waiters) waiter.reject(error);
+    this.waiters.clear();
   }
 
   private clearTimer() {
@@ -114,7 +139,27 @@ export class GraphAutosaveController {
     this.schedule(0);
   }
 
+  saveNow() {
+    if (this.stopped) {
+      return Promise.reject(new GraphAutosaveSaveError("stopped"));
+    }
+    if (this.snapshot.status === "error" || this.snapshot.status === "conflict") {
+      return Promise.reject(new GraphAutosaveSaveError(this.snapshot.status));
+    }
+    if (this.snapshot.status === "saved" && !this.inFlight) {
+      return Promise.resolve(this.snapshot);
+    }
+
+    this.clearTimer();
+    const completion = new Promise<GraphAutosaveSnapshot>((resolve, reject) => {
+      this.waiters.add({ resolve, reject });
+    });
+    if (!this.inFlight) void this.flush();
+    return completion;
+  }
+
   reset(options: { graphId: string; version: number; draft: GraphDraft }) {
+    this.rejectWaiters(new GraphAutosaveSaveError("stopped"));
     this.clearTimer();
     this.request?.abort();
     this.session += 1;
@@ -132,6 +177,7 @@ export class GraphAutosaveController {
     this.stopped = true;
     this.clearTimer();
     this.request?.abort();
+    this.rejectWaiters(new GraphAutosaveSaveError("stopped"));
     this.listeners.clear();
   }
 
@@ -200,6 +246,7 @@ export function useGraphAutosave(options: UseGraphAutosaveOptions) {
     ...state,
     update: (draft: GraphDraft) => controller.update(draft),
     retry: () => controller.retry(),
+    saveNow: () => controller.saveNow(),
     reset: (next: { graphId: string; version: number; draft: GraphDraft }) => controller.reset(next),
   };
 }

@@ -1,0 +1,72 @@
+"use client";
+
+import { useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import {
+  executeNodeGeneration,
+  listNodeGenerations,
+  NodeGenerationApiError,
+} from "../api/node-generation-api";
+import type { NodeGenerationDto } from "../model/node-generation-types";
+
+export const nodeGenerationKeys = {
+  list: (graphId: string, nodeId: string) =>
+    ["node-generations", graphId, nodeId] as const,
+};
+
+export function shouldPollNodeGenerations(
+  generations: readonly NodeGenerationDto[] | undefined,
+) {
+  const status = generations?.[0]?.status;
+  return status === "pending" || status === "processing";
+}
+
+export function useNodeGenerations(
+  graphId: string | null,
+  nodeId: string | null,
+) {
+  return useQuery({
+    queryKey: nodeGenerationKeys.list(graphId ?? "none", nodeId ?? "none"),
+    queryFn: ({ signal }) =>
+      listNodeGenerations(graphId as string, nodeId as string, signal),
+    enabled: Boolean(graphId && nodeId),
+    refetchInterval: (query) =>
+      shouldPollNodeGenerations(query.state.data) ? 2_000 : false,
+  });
+}
+
+export function useExecuteNodeGeneration() {
+  const queryClient = useQueryClient();
+  const inFlightRef = useRef(false);
+  return useMutation({
+    mutationFn: async ({
+      graphId,
+      nodeId,
+      expectedGraphVersion,
+    }: {
+      graphId: string;
+      nodeId: string;
+      expectedGraphVersion: number;
+    }) => {
+      if (inFlightRef.current) {
+        throw new NodeGenerationApiError(409, "NODE_GENERATION_ACTIVE");
+      }
+      inFlightRef.current = true;
+      try {
+        return await executeNodeGeneration(
+          graphId,
+          nodeId,
+          expectedGraphVersion,
+        );
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    onSuccess: async (_generation, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: nodeGenerationKeys.list(variables.graphId, variables.nodeId),
+      });
+    },
+  });
+}

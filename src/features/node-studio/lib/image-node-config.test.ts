@@ -5,6 +5,7 @@ import {
   deleteImageNode,
   duplicateImageNode,
   replaceImageNodeConfig,
+  replaceImageNodeSelectedOutput,
 } from "./image-node-config";
 
 const sourceNode: ImageGenerationFlowNode = {
@@ -57,6 +58,22 @@ describe("image node config mutations", () => {
     expect(duplicate.data.config.parameters.nested).not.toBe(
       sourceNode.data.config.parameters.nested,
     );
+  });
+
+  it("replaces only the selected output relation", () => {
+    const next = replaceImageNodeSelectedOutput(
+      [sourceNode],
+      "node_a",
+      "output_2",
+    );
+    expect(next[0]?.data).toEqual({
+      ...sourceNode.data,
+      selectedOutputImageId: "output_2",
+    });
+    expect(next[0]?.data.config).toBe(sourceNode.data.config);
+    expect(
+      replaceImageNodeSelectedOutput(next, "node_a", "output_2"),
+    ).toBe(next);
   });
 
   it("deletes connected edges together with the node", () => {

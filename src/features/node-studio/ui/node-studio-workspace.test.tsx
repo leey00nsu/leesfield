@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   useAutosave: vi.fn(),
   update: vi.fn(),
   retry: vi.fn(),
+  saveNow: vi.fn(),
+  nodeStudio: vi.fn(),
 }));
 
 vi.mock("../hook/use-graph-autosave", () => ({
@@ -27,7 +29,10 @@ vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
 }));
 
 vi.mock("./node-studio", () => ({
-  NodeStudio: () => <div>canvas</div>,
+  NodeStudio: (props: unknown) => {
+    mocks.nodeStudio(props);
+    return <div>canvas</div>;
+  },
 }));
 
 const graph: GenerationGraphSnapshotDto = {
@@ -48,7 +53,9 @@ describe("NodeStudioWorkspace", () => {
       version: 3,
       update: mocks.update,
       retry: mocks.retry,
+      saveNow: mocks.saveNow,
     });
+    mocks.saveNow.mockResolvedValue({ status: "saved", version: 3 });
   });
 
   it("Graph 이름 변경을 autosave draft에 반영한다", async () => {
@@ -70,6 +77,24 @@ describe("NodeStudioWorkspace", () => {
     expect(mocks.update).toHaveBeenLastCalledWith({ title: "Renamed", nodes: [], edges: [] });
   });
 
+  it("Node 실행 전에 autosave 완료 version을 제공한다", async () => {
+    renderWithIntl(
+      <NodeStudioWorkspace
+        graph={graph}
+        onSaved={vi.fn()}
+        onDelete={vi.fn()}
+        onReloadLatest={vi.fn()}
+        onStatusChange={vi.fn()}
+      />,
+    );
+
+    const props = mocks.nodeStudio.mock.lastCall?.[0] as {
+      prepareImageNodeExecution: () => Promise<number>;
+    };
+    await expect(props.prepareImageNodeExecution()).resolves.toBe(3);
+    expect(mocks.saveNow).toHaveBeenCalledOnce();
+  });
+
   it("충돌 안내를 유지하고 확인 후 최신 snapshot을 다시 불러온다", async () => {
     const user = userEvent.setup();
     const reload = vi.fn();
@@ -78,6 +103,7 @@ describe("NodeStudioWorkspace", () => {
       version: 3,
       update: mocks.update,
       retry: mocks.retry,
+      saveNow: mocks.saveNow,
     });
     renderWithIntl(
       <NodeStudioWorkspace

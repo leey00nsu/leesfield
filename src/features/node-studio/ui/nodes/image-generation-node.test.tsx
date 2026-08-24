@@ -13,6 +13,11 @@ vi.mock("../../model/node-authoring-context", () => ({
 vi.mock("./image-node-authoring-form", () => ({
   ImageNodeAuthoringForm: () => <div>node-authoring-form</div>,
 }));
+vi.mock("./image-node-execution", () => ({
+  ImageNodeExecution: ({ expanded }: { expanded?: boolean }) => (
+    <div>{expanded ? "node-execution-expanded" : "node-execution-compact"}</div>
+  ),
+}));
 vi.mock("@xyflow/react", () => ({
   Handle: ({ id }: { id: string }) => <span data-testid={`handle-${id}`} />,
   NodeToolbar: ({ children, isVisible }: { children: React.ReactNode; isVisible: boolean }) =>
@@ -46,6 +51,7 @@ describe("ImageGenerationNode", () => {
 
     expect(screen.queryByTestId("node-toolbar")).not.toBeInTheDocument();
     expect(screen.getByText("a quiet lake")).toBeInTheDocument();
+    expect(screen.getByText("node-execution-compact")).toBeInTheDocument();
     expect(screen.getByTestId("handle-primary")).toBeInTheDocument();
   });
 
@@ -54,6 +60,7 @@ describe("ImageGenerationNode", () => {
 
     expect(screen.getByTestId("node-toolbar")).toBeInTheDocument();
     expect(screen.getByText("node-authoring-form")).toBeInTheDocument();
+    expect(screen.getByText("node-execution-expanded")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "actions.duplicateNode" }));
     fireEvent.click(screen.getByRole("button", { name: "actions.deleteNode" }));
