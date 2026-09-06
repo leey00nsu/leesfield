@@ -12,7 +12,10 @@ import {
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { cn } from "@/shared/lib/utils";
-import type { MonitoringRequestDetail, MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
+import type {
+  MonitoringRequestDetail,
+  MonitoringRequestItem,
+} from "@/features/monitoring-dashboard/model/types";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
@@ -27,16 +30,10 @@ interface MonitoringRequestDetailDialogProps {
 
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-white/5 bg-background-dark/40 px-3 py-2">
-      <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
+      <span className="text-[10px] font-sans uppercase tracking-widest text-gray-500">
         {label}
       </span>
       <span className="text-sm text-white">{value ?? "-"}</span>
@@ -72,7 +69,10 @@ function mergeAssets(
 ) {
   const resolvedFetchedAssets = fetchedAssets ?? [];
   const resolvedSeedAssets = seedAssets ?? [];
-  const assetCount = Math.max(resolvedFetchedAssets.length, resolvedSeedAssets.length);
+  const assetCount = Math.max(
+    resolvedFetchedAssets.length,
+    resolvedSeedAssets.length,
+  );
 
   return Array.from({ length: assetCount }, (_, index) => {
     const fetchedAsset = resolvedFetchedAssets[index];
@@ -106,7 +106,8 @@ function mergeMonitoringDetail({
   const type = fetched?.type ?? seed?.type ?? request?.type ?? null;
   const id = fetched?.id ?? seed?.id ?? request?.id ?? null;
   const status = fetched?.status ?? seed?.status ?? request?.status ?? null;
-  const createdAt = fetched?.createdAt ?? seed?.createdAt ?? request?.createdAt ?? null;
+  const createdAt =
+    fetched?.createdAt ?? seed?.createdAt ?? request?.createdAt ?? null;
 
   if (!type || !id || !status || !createdAt) {
     return null;
@@ -125,12 +126,15 @@ function mergeMonitoringDetail({
     prompt: fetched?.prompt ?? seed?.prompt ?? "",
     createdAt,
     updatedAt: fetched?.updatedAt ?? seed?.updatedAt ?? createdAt,
-    durationMs: fetched?.durationMs ?? seed?.durationMs ?? request?.durationMs ?? null,
+    durationMs:
+      fetched?.durationMs ?? seed?.durationMs ?? request?.durationMs ?? null,
     progress: fetched?.progress ?? seed?.progress ?? null,
     errorMessage: fetched?.errorMessage ?? seed?.errorMessage ?? null,
     warningMessage: fetched?.warningMessage ?? seed?.warningMessage ?? null,
-    inputImages: fetchedInputImages.length > 0 ? fetchedInputImages : seedInputImages,
-    inputAudios: fetchedInputAudios.length > 0 ? fetchedInputAudios : seedInputAudios,
+    inputImages:
+      fetchedInputImages.length > 0 ? fetchedInputImages : seedInputImages,
+    inputAudios:
+      fetchedInputAudios.length > 0 ? fetchedInputAudios : seedInputAudios,
     referenceText: fetched?.referenceText ?? seed?.referenceText ?? null,
     assets: mergeAssets(fetched?.assets, seed?.assets),
   };
@@ -194,7 +198,7 @@ export function MonitoringRequestDetailDialog({
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent size="lg">
-        <AppDialogHeader className="gap-2">
+        <AppDialogHeader className="flex-col items-start gap-2 pr-12">
           <AppDialogDescription>
             {t("requests.detailSubtitle")}
           </AppDialogDescription>
@@ -215,9 +219,18 @@ export function MonitoringRequestDetailDialog({
         ) : detail ? (
           <div className="mt-6 flex flex-col gap-6">
             <div className="grid gap-3 md:grid-cols-3">
-              <DetailRow label={t("requests.detailRequestId")} value={detail.id} />
-              <DetailRow label={t("requests.detailModel")} value={detail.model ?? "-"} />
-              <DetailRow label={t("requests.detailType")} value={detail.type.toUpperCase()} />
+              <DetailRow
+                label={t("requests.detailRequestId")}
+                value={detail.id}
+              />
+              <DetailRow
+                label={t("requests.detailModel")}
+                value={detail.model ?? "-"}
+              />
+              <DetailRow
+                label={t("requests.detailType")}
+                value={detail.type.toUpperCase()}
+              />
               <DetailRow
                 label={t("requests.detailStarted")}
                 value={formatDateTime(detail.createdAt)}
@@ -238,7 +251,12 @@ export function MonitoringRequestDetailDialog({
                 label={t("requests.detailStatus")}
                 value={
                   status ? (
-                    <span className={cn("inline-flex items-center gap-2", status.className)}>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-2",
+                        status.className,
+                      )}
+                    >
                       {StatusIcon ? <StatusIcon className="h-4 w-4" /> : null}
                       {status.label}
                     </span>
@@ -250,7 +268,7 @@ export function MonitoringRequestDetailDialog({
             </div>
 
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                 {t("requests.detailPrompt")}
               </div>
               <div className="mt-2 whitespace-pre-wrap rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-white">
@@ -259,7 +277,7 @@ export function MonitoringRequestDetailDialog({
             </div>
 
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                 {inputLabels?.title ?? t("requests.detailInputs")}
               </div>
               {detail.inputImages.length === 0 &&
@@ -281,7 +299,9 @@ export function MonitoringRequestDetailDialog({
                         className="h-48 w-full object-contain bg-black/70"
                         loading="lazy"
                       />
-                      <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
+                      <div className="px-3 py-2 text-xs text-gray-400">
+                        #{index + 1}
+                      </div>
                     </div>
                   ))}
                   {detail.inputAudios.map((url, index) => (
@@ -292,7 +312,9 @@ export function MonitoringRequestDetailDialog({
                       <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
                         <audio controls className="w-full" src={url} />
                       </div>
-                      <div className="px-3 py-2 text-xs text-gray-400">#{index + 1}</div>
+                      <div className="px-3 py-2 text-xs text-gray-400">
+                        #{index + 1}
+                      </div>
                     </div>
                   ))}
                   {detail.referenceText ? (
@@ -305,7 +327,7 @@ export function MonitoringRequestDetailDialog({
             </div>
 
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                 {t("requests.detailResults")}
               </div>
               {detail.assets.length === 0 ? (
@@ -330,7 +352,11 @@ export function MonitoringRequestDetailDialog({
                           />
                         ) : detail.type === "audio" ? (
                           <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
-                            <audio controls className="w-full" src={asset.url} />
+                            <audio
+                              controls
+                              className="w-full"
+                              src={asset.url}
+                            />
                           </div>
                         ) : (
                           <video
@@ -355,7 +381,7 @@ export function MonitoringRequestDetailDialog({
 
             {detail.errorMessage ? (
               <div>
-                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                   {t("requests.detailError")}
                 </div>
                 <div className="mt-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -366,7 +392,7 @@ export function MonitoringRequestDetailDialog({
 
             {detail.warningMessage ? (
               <div>
-                <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                   {t("requests.detailWarning")}
                 </div>
                 <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">

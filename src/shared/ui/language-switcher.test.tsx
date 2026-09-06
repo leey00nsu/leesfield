@@ -25,7 +25,7 @@ describe("LanguageSwitcher", () => {
 
     await user.click(screen.getByRole("button", { name: "Language" }));
 
-    const label = screen.getByText("Language");
+    const label = await screen.findByText("Language");
     expect(label).toHaveClass("font-sans");
     expect(label).not.toHaveClass("font-display");
   });

@@ -157,7 +157,7 @@ describe("NodeStudioWorkspace", () => {
     mocks.saveNow.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
     const { container } = renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()}
       onReloadLatest={vi.fn()} onStatusChange={vi.fn()} onBack={onBack} />);
-    const back = screen.getByRole("button", { name: "Back to Spaces" });
+    const back = screen.getByRole("button", { name: "스페이스 목록으로" });
     expect(back.nextElementSibling).toBe(container.querySelector('[data-app-brand-logo]'));
     await user.click(back); expect(onBack).not.toHaveBeenCalled(); expect(back).toBeDisabled();
     await act(async () => { finish(); }); expect(onBack).toHaveBeenCalledOnce();
@@ -183,17 +183,17 @@ describe("NodeStudioWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Open space" }));
     await user.click(screen.getByRole("button", { name: "Graph B" }));
     expect(select).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole("alertdialog", { name: "Leave this space?" })).getByRole("button", { name: "Discard and leave" }));
+    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
     expect(select).toHaveBeenCalledExactlyOnceWith("graph-b");
   });
   it("does not discard failed saves without explicit confirmation", async () => {
     const user = userEvent.setup(); const onBack = vi.fn(); mocks.saveNow.mockRejectedValue(new Error("conflict"));
     renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()}
       onReloadLatest={vi.fn()} onStatusChange={vi.fn()} onBack={onBack} />);
-    await user.click(screen.getByRole("button", { name: "Back to Spaces" }));
+    await user.click(screen.getByRole("button", { name: "스페이스 목록으로" }));
     expect(onBack).not.toHaveBeenCalled();
-    const dialog = screen.getByRole("alertdialog", { name: "Leave this space?" });
-    await user.click(within(dialog).getByRole("button", { name: "Discard and leave" }));
+    const dialog = screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" });
+    await user.click(within(dialog).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
     expect(onBack).toHaveBeenCalledOnce();
   });
   it("requires explicit discard before creating another space after a save conflict", async () => {
@@ -205,7 +205,7 @@ describe("NodeStudioWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "New space" }));
     await user.click(within(screen.getByRole("dialog", { name: "New space" })).getByRole("button", { name: "Create" }));
     expect(create).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole("alertdialog", { name: "Leave this space?" })).getByRole("button", { name: "Discard and leave" }));
+    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
     expect(create).toHaveBeenCalledWith("Untitled Space");
   });
   it.each(["unmount", "pagehide"])("aborts only this workspace's browser operation on %s", async (event) => {
@@ -856,10 +856,10 @@ describe("NodeStudioWorkspace", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Newer version available");
+    expect(screen.getByRole("status")).toHaveTextContent("새 버전이 있습니다");
     await user.click(screen.getByRole("button", { name: "Save space" }));
     const dialog = screen.getByRole("alertdialog");
-    await user.click(within(dialog).getByRole("button", { name: "Reload" }));
+    await user.click(within(dialog).getByRole("button", { name: "다시 불러오기" }));
     expect(reload).toHaveBeenCalledOnce();
   });
 
@@ -880,7 +880,7 @@ describe("NodeStudioWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Delete space" }));
     expect(remove).not.toHaveBeenCalled();
     await user.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }),
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "삭제" }),
     );
     expect(remove).toHaveBeenCalledOnce();
   });

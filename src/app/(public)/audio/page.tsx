@@ -1,8 +1,9 @@
-import { AudioGenerationScreen } from "@/screens/audio-generation/ui/audio-generation-screen";
-import { getSession } from "@/server/auth/session";
-
-export default async function AudioGenerationPage() {
-  const session = await getSession();
-
-  return <AudioGenerationScreen isAuthenticated={session.isLoggedIn} />;
+import { redirect } from "next/navigation";
+import { generationHref } from "@/shared/lib/generation/routes";
+export default async function AudioGenerationPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  redirect(generationHref("audio", await searchParams));
 }

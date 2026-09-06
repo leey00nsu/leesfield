@@ -24,7 +24,7 @@ export function AppFilterToolbar({
     <div
       data-app-filter-toolbar=""
       className={cn(
-        "flex w-full flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-[#0b0d0e] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)] backdrop-blur-xl lg:flex-row lg:flex-wrap lg:items-center lg:justify-between",
+        "flex w-full flex-col gap-3 rounded-xl border bg-card p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between",
         className,
       )}
       {...props}
@@ -68,15 +68,9 @@ export function AppFilterToggle({
   return (
     <AppButton
       data-app-filter-toggle=""
-      variant={active ? "primary" : "surface"}
+      variant="surface"
       size="md"
-      className={cn(
-        "h-11 rounded-full px-5 text-sm font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
-        active
-          ? "ring-2 ring-primary/55"
-          : "border-white/10 bg-black/20 text-white/78",
-        className,
-      )}
+      className={cn(active && "border-data-accent/40 bg-data-accent/15 text-data-accent-foreground hover:bg-data-accent/25 hover:text-data-accent-foreground dark:border-data-accent/40 dark:bg-data-accent/15 dark:hover:bg-data-accent/25", className)}
       {...props}
     >
       {icon}
@@ -90,11 +84,10 @@ type AppSearchFieldProps = Omit<ComponentProps<typeof Input>, "size"> & {
   trailing?: ReactNode;
 };
 
-export const appSearchFieldSurfaceClassName =
-  cn(
-    appInputShellClassName,
-    "flex w-full min-w-0 items-center gap-4 px-5 focus-within:border-primary",
-  );
+export const appSearchFieldSurfaceClassName = cn(
+  appInputShellClassName,
+  "flex w-full min-w-0 items-center gap-2 px-2 focus-within:border-primary",
+);
 
 export function AppSearchField({
   className,
@@ -103,26 +96,23 @@ export function AppSearchField({
   ...props
 }: AppSearchFieldProps) {
   return (
-    <label
+    <span
       data-app-search-field=""
-      className={cn("block min-w-0", containerClassName)}
+      className={cn("relative block min-w-0", containerClassName)}
     >
-      <span
-        data-app-search-surface=""
-        className={appSearchFieldSurfaceClassName}
-      >
-        <Search className="h-6 w-6 shrink-0 text-white/38" />
-        <Input
-          data-app-search-input=""
-          className={cn(
-            "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm text-white shadow-none outline-none dark:bg-transparent placeholder:text-white/38 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-            className,
-          )}
-          {...props}
-        />
-        {trailing}
-      </span>
-    </label>
+      <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        data-app-search-input=""
+        type="search"
+        className={cn("pl-9", className)}
+        {...props}
+      />
+      {trailing ? (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2">
+          {trailing}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -153,16 +143,16 @@ export function AppSortSelect({
       <AppSelectTrigger
         data-app-sort-select=""
         aria-label={ariaLabel}
-        className={cn(
-          "h-12 w-[12rem] flex-none rounded-xl border-white/10 bg-black/22 px-4 text-sm font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:bg-black/22",
-          className,
-        )}
+        className={cn("w-[12rem] flex-none", className)}
       >
-        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-left text-white/86">
+        <span
+          aria-hidden="true"
+          className="min-w-0 flex-1 truncate text-left text-white/86"
+        >
           {selectedLabel}
         </span>
       </AppSelectTrigger>
-      <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+      <AppSelectContent className="border-white/10 bg-card text-white">
         {options.map((option) => (
           <AppSelectItem key={option.value} value={option.value}>
             {option.label}

@@ -1,14 +1,28 @@
+"use client";
+import { useLandingReducedMotion as useReducedMotion } from "./use-landing-reduced-motion";
+
+import { useVerticalMediaRail } from "@/shared/ui/generation-media-rail";
+import Image from "next/image";
+import { motion } from "motion/react";
+import { LayoutTextFlip } from "./aceternity-layout-text-flip";
+import { BrandUnplug } from "./brand-unplug";
+import models from "./landing-models.json";
+import { useState } from "react";
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppHeading } from "@/shared/ui/app-typography";
-import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
+import { LandingComposer } from "./landing-composer";
 import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 import { LandingHeroMotionLayer } from "./landing-hero-form-motion";
 
-const generationTabs = ["image", "video", "audio"] as const;
+// Models sharing a logo occupy a single slot in the logo-only flip.
+const flipModels = models.filter(
+  (model, index, all) => all.findIndex((item) => item.logo === model.logo) === index,
+);
 
 function TextGenerateLine({
   text,
@@ -35,32 +49,116 @@ function TextGenerateLine({
   );
 }
 
-export function LandingHero() {
+export function LandingHero({
+  isAuthenticated = false,
+}: {
+  isAuthenticated?: boolean;
+}) {
+  const reduced = Boolean(useReducedMotion());
+  const entry = (delay: number) => ({
+    initial: reduced ? (false as const) : { opacity: 0, y: 14 },
+    animate: { opacity: 1, y: 0 },
+    transition: {
+      delay: reduced ? 0 : delay,
+      duration: reduced ? 0 : 0.64,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  });
   const t = useTranslations("landing.hero");
+  const [media, setMedia] = useState<"image" | "video" | "audio">("image");
+  const vertical = useVerticalMediaRail();
   const headlineFirst = t("headlineFirst");
   const headlineSecond = t("headlineSecond");
   const fullHeadline = `${headlineFirst} ${headlineSecond}`;
 
   return (
-    <section className="relative overflow-hidden px-6 pb-16 pt-8 sm:px-10 lg:pb-24">
+    <section className="relative flex min-h-[calc(100svh-80px)] items-center overflow-hidden px-5 pb-20 pt-20 sm:px-10 sm:pt-24 lg:pb-28 lg:pt-32">
       <div className="relative mx-auto flex w-full max-w-[1500px] flex-col items-center">
         <div className="mx-auto max-w-6xl text-center">
+          <motion.p
+            {...entry(0)}
+            className="mx-auto mb-7 inline-flex min-h-7 items-center gap-2 rounded-full border bg-card px-3 text-[10px] text-muted-foreground"
+          >
+            <span className="rounded-full bg-data-accent/15 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.08em] text-data-accent-foreground uppercase">
+              {t("new")}
+            </span>
+            <Link href="#spaces" className="inline-flex items-center gap-2">
+              {t("announcement")}
+              <ArrowRight className="size-3" />
+            </Link>
+          </motion.p>
           <AppHeading
             as="h1"
             size="hero"
             aria-label={fullHeadline}
+            className="text-[clamp(1.65rem,4.6vw,4.4rem)] leading-[1.15]"
           >
             <span aria-hidden="true">
-              <TextGenerateLine text={headlineFirst} />
-              <TextGenerateLine
-                text={headlineSecond}
-                startIndex={headlineFirst.split(" ").length}
-              />
+              <span className="flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-5">
+                <LayoutTextFlip
+                  text={headlineFirst}
+                  words={flipModels.map((model) => model.name)}
+                  renderWord={(_name, index) => (
+                    <span className="flex size-full items-center justify-center leading-none">
+                      <Image
+                        src={flipModels[index].logo}
+                        alt={flipModels[index].organization}
+                        width={72}
+                        height={72}
+                        loading="eager"
+                        unoptimized
+                        className="size-full rounded-[0.12em] object-contain"
+                      />
+                    </span>
+                  )}
+                />
+              </span>
+              <span className="flex items-center justify-center gap-[0.16em]">
+                <TextGenerateLine
+                  text={t("headlineSecondFirst")}
+                  startIndex={3}
+                />
+                <span
+                  className="lf-text-generate-word inline-flex"
+                  style={{ "--word-index": 3 } as CSSProperties}
+                >
+                  <BrandUnplug />
+                </span>
+                <span
+                  className="lf-text-generate-word"
+                  style={{ "--word-index": 4 } as CSSProperties}
+                >
+                  <span className="lf-brand-gradient-text">
+                    {t("headlineInterface")}
+                  </span>
+                  {t("headlineSuffix")}
+                </span>
+              </span>
             </span>
           </AppHeading>
-          <p className="mt-6 text-base leading-7 text-white/68 md:text-xl">
+          <motion.p
+            {...entry(0.76)}
+            className="mt-6 whitespace-pre-line text-sm leading-7 text-white/68 md:text-lg"
+          >
             {t("subhead")}
-          </p>
+          </motion.p>
+          <motion.div
+            {...entry(0.94)}
+            className="mt-7 flex flex-wrap justify-center gap-2.5"
+          >
+            <AppButton asChild>
+              <Link href="/generate">
+                {t("primaryAction")}
+                <Sparkles className="size-4" />
+              </Link>
+            </AppButton>
+            <AppButton asChild variant="surface">
+              <Link href="#spaces">
+                {t("secondaryAction")}
+                <ArrowRight className="size-4" />
+              </Link>
+            </AppButton>
+          </motion.div>
         </div>
 
         <div
@@ -81,94 +179,21 @@ export function LandingHero() {
             <WarpShaderPanel className="absolute inset-0" />
           </LandingHeroMotionLayer>
 
-          <GenerationPromptField
-            testId="landing-hero-form-surface"
-            surface="hero"
-            className="relative mx-auto max-w-4xl rounded-[1.05rem] border-0 p-3 sm:p-4"
-            contentWrapper={(children) => (
-              <>
-                <LandingHeroMotionLayer
-                  testId="landing-hero-form-border-motion"
-                  className="pointer-events-none absolute inset-0 rounded-[1.05rem] border border-white/12"
-                />
-                <LandingHeroMotionLayer testId="landing-hero-form-motion">
-                  {children}
-                </LandingHeroMotionLayer>
-              </>
-            )}
-            header={
-              <div className="grid grid-cols-3 border-b border-white/12 text-center text-sm font-medium text-white">
-                {generationTabs.map((tab, index) => (
-                  <Link
-                    key={tab}
-                    href={`/${tab === "image" ? "image" : tab}`}
-                    className="relative py-4 text-white/80 transition-colors hover:text-white"
-                  >
-                    {t(`tabs.${tab}`)}
-                    {index === 0 ? (
-                      <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-full max-w-[15rem] bg-primary" />
-                    ) : null}
-                  </Link>
-                ))}
-              </div>
-            }
-            textarea={
-              <>
-                <label htmlFor="landing-prompt-preview" className="sr-only">
-                  {t("preview.promptLabel")}
-                </label>
-                <textarea
-                  id="landing-prompt-preview"
-                  readOnly
-                  aria-label={t("preview.promptLabel")}
-                  placeholder={t("preview.placeholder")}
-                  className="h-24 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
-                />
-              </>
-            }
-            footer={
-              <div className="grid gap-3 border-t border-white/12 p-3 lg:grid-cols-[1fr_1fr_0.62fr]">
-                <Link
-                  href="/model"
-                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs text-white/46">
-                      {t("preview.modelLabel")}
-                    </span>
-                    <span className="block truncate text-sm font-medium text-white">
-                      {t("preview.model")}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-5 w-5 text-white/62" />
-                </Link>
-                <Link
-                  href="/image"
-                  className="flex min-h-14 items-center justify-between rounded-xl border border-white/12 bg-black/16 px-4 py-3 text-left"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs text-white/46">
-                      {t("preview.aspectLabel")}
-                    </span>
-                    <span className="block truncate text-sm font-medium text-white">
-                      {t("preview.aspect")}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-5 w-5 text-white/62" />
-                </Link>
-                <AppButton
-                  asChild
-                  size="lg"
-                  className="h-full min-h-14 rounded-xl text-sm"
-                >
-                  <Link href="/image">
-                    {t("preview.generate")}
-                    <ArrowRight className="h-5 w-5" />
-                  </Link>
-                </AppButton>
-              </div>
-            }
-          />
+          <LandingHeroMotionLayer testId="landing-hero-composer-motion">
+            <TabsPrimitive.Root
+              value={media}
+              onValueChange={(value) => setMedia(value as typeof media)}
+              orientation={vertical ? "vertical" : "horizontal"}
+              data-vertical={vertical ? "" : undefined}
+              data-horizontal={!vertical ? "" : undefined}
+              className="group/tabs relative mx-auto w-full max-w-4xl"
+            >
+              <LandingComposer
+                media={media}
+                isAuthenticated={isAuthenticated}
+              />
+            </TabsPrimitive.Root>
+          </LandingHeroMotionLayer>
         </div>
       </div>
     </section>

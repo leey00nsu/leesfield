@@ -69,7 +69,10 @@ export function GenerationModelSection<T extends string>({
         .includes(normalizedQuery);
     });
   }, [items, query]);
-  const featuredItems = filteredItems.slice(0, Math.min(6, filteredItems.length));
+  const featuredItems = filteredItems.slice(
+    0,
+    Math.min(6, filteredItems.length),
+  );
   const featuredIds = new Set(featuredItems.map((model) => model.id));
   const allItems = filteredItems.filter((model) => !featuredIds.has(model.id));
   const renderDefaultBadge = (model: GenerationModelOption<T>) => {
@@ -100,7 +103,7 @@ export function GenerationModelSection<T extends string>({
         variant="ghost"
         className={cn(
           "h-auto min-h-12 w-full justify-start rounded-xl px-3 py-2.5 text-left hover:bg-white/[0.06]",
-          isActive && "bg-white/[0.07]",
+          isActive && "bg-data-accent/15 ring-1 ring-inset ring-data-accent/40 hover:bg-data-accent/25",
         )}
       >
         <span className="min-w-0 flex-1">
@@ -113,7 +116,7 @@ export function GenerationModelSection<T extends string>({
         </span>
         {isActive ? (
           <span
-            className="ml-auto flex items-center gap-1 text-xs font-bold text-primary"
+            className="ml-auto flex items-center gap-1 text-xs font-bold text-data-accent-foreground"
             aria-label={tPicker("selected")}
           >
             <Check className="h-4 w-4" />
@@ -135,14 +138,12 @@ export function GenerationModelSection<T extends string>({
             aria-haspopup="dialog"
             aria-expanded={isOpen}
             className={cn(
-              "h-12 min-w-[13rem] justify-between rounded-xl border-white/12 bg-black/16 px-3 text-white hover:!bg-black/16 hover:!text-white",
+              "min-w-0 justify-between",
               activeModel && "border-primary",
             )}
           >
             <span className="min-w-0 flex flex-col items-start leading-tight">
-              <span className="text-[10px] font-semibold uppercase text-white/42">
-                {resolvedTitle}
-              </span>
+              <span className="sr-only">{resolvedTitle}</span>
               <span className="max-w-[13rem] truncate font-medium">
                 {selectionLabel ?? activeModel?.name ?? resolvedTitle}
               </span>
@@ -156,10 +157,11 @@ export function GenerationModelSection<T extends string>({
         side="top"
         align="start"
         sideOffset={12}
-        collisionPadding={16}
         role="dialog"
-        aria-label={typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")}
-        className="z-[10001] flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border-white/12 bg-[#171b1f]/95 p-0 text-white shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
+        aria-label={
+          typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")
+        }
+        className="flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden p-0"
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">

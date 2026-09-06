@@ -24,14 +24,15 @@ const modelItemFixture: ModelCatalogItem = {
 
 describe("ModelList", () => {
   it("uses an app-styled compact row list", () => {
-    const { container } = renderWithIntl(<ModelList items={[modelItemFixture]} />);
+    const { container } = renderWithIntl(
+      <ModelList items={[modelItemFixture]} />,
+    );
 
     const wrapper = container.firstElementChild;
     expect(wrapper).toBeTruthy();
     const className = wrapper?.getAttribute("class") ?? "";
     expect(wrapper).toHaveAttribute("data-app-card");
     expect(wrapper).toHaveAttribute("role", "list");
-    expect(className).toContain("rounded-[1.1rem]");
     expect(className).not.toContain("grid-cols-1");
     expect(container.querySelector("[data-model-row]")).toBeTruthy();
     expect(container.querySelector("[data-model-row] img")).toBeNull();
@@ -60,19 +61,13 @@ describe("ModelList", () => {
     expect(screen.queryByText("10 steps")).not.toBeInTheDocument();
   });
 
-  it("uses an even selected border for the default model row", () => {
+  it("marks the default model without changing row geometry", () => {
     const { container } = renderWithIntl(
       <ModelList items={[{ ...modelItemFixture, isDefault: true }]} />,
     );
 
     const row = container.querySelector("[data-model-row]");
-    expect(row).toHaveClass("!border-primary/70");
-    expect(row).toHaveClass("ring-1");
-    expect(row).toHaveClass("ring-primary/35");
-    expect(screen.getByText("기본")).toHaveClass(
-      "rounded",
-      "bg-primary",
-      "text-black",
-    );
+    expect(row).toHaveAttribute("data-default", "true");
+    expect(screen.getByText("기본")).toBeInTheDocument();
   });
 });

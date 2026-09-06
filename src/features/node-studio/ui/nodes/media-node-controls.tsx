@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { AudioLines, Download, ExternalLink, LoaderCircle, Search, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -95,6 +97,7 @@ export function MediaInputNodeControls({
   data: NodeBananaNodeData;
   mediaType: MediaType;
 }) {
+  const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio.mediaNodes");
   const authoring = useNodeAuthoring();
   const assetsQuery = useMediaAssets(mediaType);
@@ -181,8 +184,8 @@ export function MediaInputNodeControls({
               type="button"
               disabled={!controlsWritable}
               className="grid h-7 w-7 place-items-center rounded bg-neutral-900/85 text-neutral-200 shadow hover:bg-neutral-800 disabled:opacity-40"
-              aria-label="Clear selected asset"
-              title="Clear selected asset"
+              aria-label={tc("Clear selected asset")}
+              title={tc("Clear selected asset")}
               onClick={() => selectAsset(null)}
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -216,7 +219,7 @@ export function MediaInputNodeControls({
           <input
             type="file"
             className="sr-only"
-            aria-label="Upload file"
+            aria-label={tc("Upload file")}
             accept={`${mediaType}/*`}
             disabled={!controlsWritable || upload.isPending}
             onChange={(event) => void handleUpload(event)}
@@ -244,11 +247,11 @@ export function MediaInputNodeControls({
         >
             <AppDialogHeader className="flex-row items-center border-b border-neutral-700 px-4 py-3">
               <div>
-                <AppDialogTitle className="m-0 text-sm">History assets</AppDialogTitle>
-                <AppDialogDescription className="mt-0.5 text-xs font-normal normal-case tracking-normal text-neutral-500">Choose a {mediaType} asset</AppDialogDescription>
+                <AppDialogTitle className="m-0 text-sm">{tc("History assets")}</AppDialogTitle>
+                <AppDialogDescription className="mt-0.5 text-xs font-normal normal-case tracking-normal text-neutral-500">{tc("Choose a")}{mediaType}{tc("asset")}</AppDialogDescription>
               </div>
               <AppDialogClose asChild>
-                <AppDialogIconButton type="button" aria-label="Close history" className="ml-auto border-0 text-neutral-400 hover:bg-neutral-700 hover:text-white">
+                <AppDialogIconButton type="button" aria-label={tc("Close history")} className="ml-auto border-0 text-neutral-400 hover:bg-neutral-700 hover:text-white">
                   <X className="h-4 w-4" />
                 </AppDialogIconButton>
               </AppDialogClose>
@@ -256,7 +259,7 @@ export function MediaInputNodeControls({
             <div className="border-b border-neutral-700 p-3">
               <label className="flex items-center gap-2 rounded-lg border border-neutral-600 bg-neutral-900/55 px-3">
                 <Search className="h-4 w-4 text-neutral-500" aria-hidden="true" />
-                <input autoFocus value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search history..." className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none" />
+                <input autoFocus value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder={tc("Search history...")} className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none" />
               </label>
             </div>
             <div className="grid min-h-40 flex-1 grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3">

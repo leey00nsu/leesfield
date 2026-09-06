@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { renderWithIntl as render } from "@/test-utils/intl";
+import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
@@ -25,7 +26,7 @@ function control(onSelect = vi.fn()) {
 
 function openHistory(onSelect = vi.fn()) {
   const view = render(control(onSelect));
-  fireEvent.click(screen.getByRole("button", { name: "Assets" }));
+  fireEvent.click(screen.getByRole("button", { name: "파일" }));
   return view;
 }
 
@@ -38,7 +39,7 @@ describe("NodeBananaInputHistoryControl", () => {
   it("queries each source with the input media restriction", () => {
     openHistory();
     expect(query.requested).toHaveBeenLastCalledWith("image", true, "uploads");
-    fireEvent.click(screen.getByRole("tab", { name: "Generated" }));
+    fireEvent.click(screen.getByRole("tab", { name: "생성됨" }));
     expect(query.requested).toHaveBeenLastCalledWith("image", true, "generated");
     fireEvent.click(screen.getByRole("tab", { name: "Edited" }));
     expect(query.requested).toHaveBeenLastCalledWith("image", true, "edited");
@@ -46,7 +47,7 @@ describe("NodeBananaInputHistoryControl", () => {
     expect(screen.getByRole("tab", { name: "Uploads" })).toHaveFocus();
     expect(screen.getByRole("tabpanel", { name: "Uploads" })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("tab", { name: "Uploads" }), { key: "ArrowRight" });
-    expect(screen.getByRole("tab", { name: "Generated" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "생성됨" })).toHaveFocus();
   });
 
   it("leaves a controlled picker open until the pending import owner closes it", () => {
@@ -56,22 +57,22 @@ describe("NodeBananaInputHistoryControl", () => {
     fireEvent.click(screen.getByRole("button", { name: "image/png" }));
     expect(onSelect).toHaveBeenCalledWith("asset");
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
-    expect(screen.getByRole("dialog", { name: "Assets" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "파일" })).toBeInTheDocument();
   });
 
   it("announces a failed query and retries instead of reporting empty history", () => {
     query.isError = true;
     const view = openHistory();
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not load assets. Please try again.");
+    expect(screen.getByRole("alert")).toHaveTextContent("파일을 불러오지 못했습니다. 다시 시도해 주세요.");
     expect(screen.queryByText("No assets in this category.")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(query.refetch).toHaveBeenCalledOnce();
 
     query.isFetching = true;
     query.hasNextPage = true;
     view.rerender(control());
-    expect(screen.getByRole("button", { name: "Retrying..." })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Load more" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다시 시도하는 중…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "더 불러오기" })).toBeDisabled();
     expect(screen.getByRole("alert").closest('[aria-busy="true"]')).not.toBeNull();
 
     query.isError = false;
@@ -79,7 +80,7 @@ describe("NodeBananaInputHistoryControl", () => {
     query.data = { pages: [{ items: [] }] };
     view.rerender(control());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText("No assets in this category.")).toBeInTheDocument();
+    expect(screen.getByText("이 분류에는 파일이 없습니다.")).toBeInTheDocument();
   });
 
   it("keeps previously loaded assets selectable after a refresh failure", () => {
@@ -103,7 +104,7 @@ describe("NodeBananaInputHistoryControl", () => {
     query.isLoading = true;
     query.isFetching = true;
     openHistory();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading...");
+    expect(screen.getByRole("status")).toHaveTextContent("불러오는 중…");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("No assets in this category.")).not.toBeInTheDocument();
   });

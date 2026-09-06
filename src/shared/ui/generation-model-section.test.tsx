@@ -39,22 +39,23 @@ describe("GenerationModelSection", () => {
     await user.click(trigger);
 
     const picker = screen.getByRole("dialog", { name: "모델 선택" });
-    expect(picker).toHaveClass("z-[10001]");
-    expect(screen.getByPlaceholderText("모델 검색...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("모델 검색…")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "추천 모델" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "전체 모델" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("default")).toBeInTheDocument();
-    expect(screen.queryByText("에디토리얼·레퍼런스 이미지")).not.toBeInTheDocument();
+    expect(screen.getByText("기본")).toBeInTheDocument();
+    expect(
+      screen.queryByText("에디토리얼·레퍼런스 이미지"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("정교한 인물/제품 컷")).not.toBeInTheDocument();
     expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
     expect(screen.queryByText("flux2-klein-9b")).not.toBeInTheDocument();
     expect(screen.getByLabelText("선택됨")).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText("모델 검색..."), "GPT");
+    await user.type(screen.getByPlaceholderText("모델 검색…"), "GPT");
 
     expect(screen.getByText("GPT Image 2")).toBeInTheDocument();
     expect(picker).not.toHaveTextContent("FLUX.2 Klein 9B");
@@ -87,9 +88,7 @@ describe("GenerationModelSection", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /Z-Image Turbo/i }));
-    await user.click(
-      screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /FLUX\.2 Klein 9B/i }));
 
     expect(onSelect).toHaveBeenCalledWith("flux2-klein-9b");
     expect(

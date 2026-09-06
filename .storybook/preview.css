@@ -1,0 +1,2 @@
+@font-face {font-family: Pretendard;src: url("/fonts/pretendard-variable.woff2") format("woff2");font-weight:45 920;font-display:swap;}
+:root {--font-body:Pretendard, sans-serif;--font-heading:var(--font-body);}

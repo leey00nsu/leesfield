@@ -161,13 +161,13 @@ describe("legacy Node Banana body presenters", () => {
   it("keeps the upstream operation-specific controls instead of a generic parameter form", () => {
     const probes: ReadonlyArray<[keyof typeof bodySelector, string]> = [
       ["edit.image.annotation", "button"],
-      ["edit.image.resize", '[role="group"][aria-label="Resize mode"]'],
+      ["edit.image.resize", '[role="group"][aria-label="크기 조절 방식"]'],
       ["edit.image.removeBackground", '[data-node-banana-component="OperationPreview"]'],
-      ["edit.image.splitGrid", 'input[aria-label="Rows"]'],
+      ["edit.image.splitGrid", 'input[aria-label="행"]'],
       ["edit.image.gif", '[data-node-banana-component="FrameFilmstrip"]'],
       ["edit.video.stitch", '[data-node-banana-component="ClipFilmstrip"]'],
       ["edit.video.trim", '[data-node-banana-component="TrimRange"]'],
-      ["edit.video.frameGrab", '[role="group"][aria-label="Frame position"]'],
+      ["edit.video.frameGrab", '[role="group"][aria-label="프레임 위치"]'],
       ["edit.video.easeCurve", "select"],
     ];
 
@@ -182,17 +182,17 @@ describe("legacy Node Banana body presenters", () => {
   it("keeps input, generation and output families on their actual upstream anatomy", () => {
     for (const kind of ["input.image", "input.audio", "input.video"] as const) {
       const view = renderNode(kind);
-      expect(screen.getByRole("button", { name: /assets|replace asset|히스토리 자산/i }), kind).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /assets|replace asset|히스토리 파일/i }), kind).toBeInTheDocument();
       view.unmount();
     }
 
     const prompt = renderNode("input.prompt");
-    expect(screen.getByPlaceholderText("Describe what to generate...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("만들고 싶은 것을 설명하세요…")).toBeInTheDocument();
     prompt.unmount();
 
     for (const kind of ["generate.image", "generate.audio", "generate.video"] as const) {
       const view = renderNode(kind);
-      fireEvent.click(screen.getByRole("button", { name: "Expand editor" }));
+      fireEvent.click(screen.getByRole("button", { name: "편집기 펼치기" }));
       expect(view.container.querySelector('[data-generation-section="authoring"]'), kind).not.toBeNull();
       expect(view.container.querySelector('[data-generation-section="execution"]'), kind).not.toBeNull();
       view.unmount();

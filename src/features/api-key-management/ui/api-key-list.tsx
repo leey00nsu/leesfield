@@ -4,6 +4,8 @@ import { ApiKeyCard } from "@/features/api-key-management/ui/api-key-card";
 import type { ApiKeyStatus } from "@/features/api-key-management/model/api-key-types";
 import { AppCard } from "@/shared/ui/app-card";
 
+import { AppResourceList } from "@/shared/ui/app-resource-list";
+
 type ApiKeyListItem = {
   id: string;
   name: string;
@@ -29,8 +31,9 @@ export function ApiKeyList({
   if (items.length === 0) {
     return (
       <AppCard
-        variant="plain"
-        className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-white/10 bg-[rgba(11,13,14,0.72)] px-6 text-center shadow-[0_22px_80px_rgba(0,0,0,0.22)]"
+        variant="editorial-flat"
+        radius="lg"
+        className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/35">
           <KeyRound className="h-6 w-6 text-white/38" />
@@ -46,10 +49,10 @@ export function ApiKeyList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <AppResourceList>
       {items.map((item) => (
+        <div key={item.id} role="listitem">
         <ApiKeyCard
-          key={item.id}
           name={item.name}
           maskedKey={item.maskedKey}
           status={item.status}
@@ -57,7 +60,8 @@ export function ApiKeyList({
           createdAtLabel={item.createdAtLabel}
           onEdit={item.onEdit}
         />
+        </div>
       ))}
-    </div>
+    </AppResourceList>
   );
 }

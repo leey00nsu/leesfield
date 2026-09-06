@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, Play, Square } from "lucide-react";
@@ -75,7 +77,7 @@ function GridDimensionField({
   disabled,
   onChange,
 }: {
-  label: "Rows" | "Columns";
+  label: string;
   value: number;
   disabled: boolean;
   onChange: (value: number) => void;
@@ -131,6 +133,7 @@ export function ImageOperationNodeControls({
   editorOpen?: boolean;
   onEditorOpenChange?: (open: boolean) => void;
 }) {
+  const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio");
   const authoring = useNodeAuthoring();
   const queryClient = useQueryClient();
@@ -206,7 +209,7 @@ export function ImageOperationNodeControls({
       const format = typeof parameters.format === "string" ? parameters.format : "keep";
       return (
         <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2 flex gap-1" role="group" aria-label="Resize mode">
+          <div className="col-span-2 flex gap-1" role="group" aria-label={tc("Resize mode")}>
             {(["exact", "maxEdge", "scale"] as const).map((candidate) => (
               <button
                 key={candidate}
@@ -220,41 +223,35 @@ export function ImageOperationNodeControls({
                 }`}
                 onClick={() => updateParameters({ mode: candidate })}
               >
-                {candidate === "exact" ? "Exact" : candidate === "maxEdge" ? "Max Edge" : "Scale %"}
+                {candidate === "exact" ? tc("Exact") : candidate === "maxEdge" ? tc("Max Edge") : tc("Scale %")}
               </button>
             ))}
           </div>
           {mode === "exact" ? <>
-            <Field label="Width" value={number(parameters.width, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ width: value })} />
-            <Field label="Height" value={number(parameters.height, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ height: value })} />
-            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">
-              Fit
-              <select value={typeof parameters.fit === "string" ? parameters.fit : "contain"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ fit: event.target.value })}>
-                <option value="contain">Contain</option><option value="cover">Cover</option><option value="stretch">Stretch</option>
+            <Field label={tc("Width")} value={number(parameters.width, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ width: value })} />
+            <Field label={tc("Height")} value={number(parameters.height, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ height: value })} />
+            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Fit")}<select value={typeof parameters.fit === "string" ? parameters.fit : "contain"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ fit: event.target.value })}>
+                <option value="contain">{tc("Contain")}</option><option value="cover">{tc("Cover")}</option><option value="stretch">{tc("Stretch")}</option>
               </select>
             </label>
-            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">
-              Pad color
-              <input type="text" value={typeof parameters.padColor === "string" ? parameters.padColor : "#00000000"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-black/25 px-2 text-xs normal-case tracking-normal text-white outline-none focus:border-primary/70" onChange={(event) => updateParameters({ padColor: event.target.value })} />
+            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Pad color")}<input type="text" value={typeof parameters.padColor === "string" ? parameters.padColor : "#00000000"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-black/25 px-2 text-xs normal-case tracking-normal text-white outline-none focus:border-primary/70" onChange={(event) => updateParameters({ padColor: event.target.value })} />
             </label>
           </> : null}
-          {mode === "maxEdge" ? <Field label="Max edge" value={number(parameters.maxEdge, 2048)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ maxEdge: value })} /> : null}
-          {mode === "scale" ? <Field label="Scale %" value={number(parameters.scalePct, 100)} min={1} max={800} disabled={!writable} onChange={(value) => updateParameters({ scalePct: value })} /> : null}
-          <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">
-            Format
-            <select value={format} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ format: event.target.value })}>
-              <option value="keep">Keep</option><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option>
+          {mode === "maxEdge" ? <Field label={tc("Max edge")} value={number(parameters.maxEdge, 2048)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ maxEdge: value })} /> : null}
+          {mode === "scale" ? <Field label={tc("Scale %")} value={number(parameters.scalePct, 100)} min={1} max={800} disabled={!writable} onChange={(value) => updateParameters({ scalePct: value })} /> : null}
+          <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Format")}<select value={format} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ format: event.target.value })}>
+              <option value="keep">{tc("Keep")}</option><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option>
             </select>
           </label>
-          {format === "jpeg" || format === "webp" ? <Field label="Quality" value={number(parameters.quality, 0.92)} min={0.1} max={1} step={0.05} disabled={!writable} onChange={(value) => updateParameters({ quality: value })} /> : null}
+          {format === "jpeg" || format === "webp" ? <Field label={tc("Quality")} value={number(parameters.quality, 0.92)} min={0.1} max={1} step={0.05} disabled={!writable} onChange={(value) => updateParameters({ quality: value })} /> : null}
         </div>
       );
     }
     if (kind === "edit.image.splitGrid") {
       return (
         <div className="grid grid-cols-2 gap-2">
-          <GridDimensionField label="Rows" value={number(parameters.rows, 2)} disabled={!writable} onChange={(value) => updateParameters({ rows: value })} />
-          <GridDimensionField label="Columns" value={number(parameters.cols, 2)} disabled={!writable} onChange={(value) => updateParameters({ cols: value })} />
+          <GridDimensionField label={tc("Rows")} value={number(parameters.rows, 2)} disabled={!writable} onChange={(value) => updateParameters({ rows: value })} />
+          <GridDimensionField label={tc("Columns")} value={number(parameters.cols, 2)} disabled={!writable} onChange={(value) => updateParameters({ cols: value })} />
         </div>
       );
     }
@@ -263,11 +260,11 @@ export function ImageOperationNodeControls({
       return (
         <div className="grid grid-cols-2 gap-2">
           <Field label="FPS" value={number(parameters.fps, 8)} min={1} max={60} disabled={!writable} onChange={(value) => updateParameters({ fps: value })} />
-          <Field label="Colors" value={number(parameters.colorCount, 128)} min={2} max={256} disabled={!writable} onChange={(value) => updateParameters({ colorCount: value })} />
-          <Field label="Loop count" value={number(parameters.loopCount, 0)} min={0} max={65_535} disabled={!writable} onChange={(value) => updateParameters({ loopCount: value })} />
-          <label className="flex items-center gap-2 self-end pb-2 text-[11px] text-white/60"><input type="checkbox" checked={parameters.dither === true} disabled={!writable} onChange={(event) => updateParameters({ dither: event.target.checked })} />Dither</label>
-          <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60"><input type="checkbox" checked={targetMaxBytes !== null} disabled={!writable} onChange={(event) => updateParameters({ targetMaxBytes: event.target.checked ? 128 * 1024 : null })} />Target ≤</label>
-          {targetMaxBytes !== null ? <div className="col-span-2"><Field label="Target (KB)" value={Math.round(targetMaxBytes / 1024)} min={1} max={102_400} disabled={!writable} onChange={(value) => updateParameters({ targetMaxBytes: value * 1024 })} /></div> : null}
+          <Field label={tc("Colors")} value={number(parameters.colorCount, 128)} min={2} max={256} disabled={!writable} onChange={(value) => updateParameters({ colorCount: value })} />
+          <Field label={tc("Loop count")} value={number(parameters.loopCount, 0)} min={0} max={65_535} disabled={!writable} onChange={(value) => updateParameters({ loopCount: value })} />
+          <label className="flex items-center gap-2 self-end pb-2 text-[11px] text-white/60"><input type="checkbox" checked={parameters.dither === true} disabled={!writable} onChange={(event) => updateParameters({ dither: event.target.checked })} />{tc("Dither")}</label>
+          <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60"><input type="checkbox" checked={targetMaxBytes !== null} disabled={!writable} onChange={(event) => updateParameters({ targetMaxBytes: event.target.checked ? 128 * 1024 : null })} />{tc("Target ≤")}</label>
+          {targetMaxBytes !== null ? <div className="col-span-2"><Field label={tc("Target (KB)")} value={Math.round(targetMaxBytes / 1024)} min={1} max={102_400} disabled={!writable} onChange={(value) => updateParameters({ targetMaxBytes: value * 1024 })} /></div> : null}
         </div>
       );
     }
@@ -284,13 +281,13 @@ export function ImageOperationNodeControls({
           >
             {displayUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={displayUrl} alt={annotationPreview || outputAsset ? "Annotated result" : "Annotation source"} className="absolute inset-0 h-full w-full object-contain" />
+              <img src={displayUrl} alt={annotationPreview || outputAsset ? tc("Annotated result") : tc("Annotation source")} className="absolute inset-0 h-full w-full object-contain" />
             ) : (
-              <span className="text-[10px] text-neutral-500">Connect an image</span>
+              <span className="text-[10px] text-neutral-500">{tc("Connect an image")}</span>
             )}
             {inputAsset.data?.url ? (
               <span className="relative rounded bg-black/60 px-3 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover/annotation:opacity-100 group-focus-visible/annotation:opacity-100">
-                {shapes.length > 0 ? `Edit (${shapes.length})` : "Add annotations"}
+                {shapes.length > 0 ? `Edit (${shapes.length})` : tc("Add annotations")}
               </span>
             ) : null}
           </button>
@@ -366,7 +363,7 @@ export function ImageOperationNodeControls({
             // eslint-disable-next-line @next/next/no-img-element
             <img key={query.data.id} src={query.data.url} alt={`Frame ${index + 1}`} className="aspect-square h-full shrink-0 rounded object-cover" />
           ) : null) : (
-            <span className="m-auto text-[10px] text-neutral-500">Connect image frames</span>
+            <span className="m-auto text-[10px] text-neutral-500">{tc("Connect image frames")}</span>
           )}
         </div>
       ) : null}
@@ -375,7 +372,7 @@ export function ImageOperationNodeControls({
           asset={outputAsset ?? inputAsset.data}
           expectedType="image"
           output={Boolean(outputAsset)}
-          emptyLabel={kind === "edit.image.gif" ? "Connect image frames" : "Connect an image"}
+          emptyLabel={kind === "edit.image.gif" ? tc("Connect image frames") : tc("Connect an image")}
           grid={kind === "edit.image.splitGrid" ? {
             rows: number(parameters.rows, 2),
             columns: number(parameters.cols, 2),

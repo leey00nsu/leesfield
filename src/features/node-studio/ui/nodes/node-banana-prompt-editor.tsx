@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import {
@@ -32,6 +33,7 @@ export function NodeBananaPromptEditor({
   onClose: () => void;
   onSubmit: (prompt: string) => void;
 }) {
+  const t = useTranslations("nodeStudio.host");
   const [draftState, setDraftState] = useState({ source: initialPrompt, value: initialPrompt });
   const [fontSize, setFontSize] = useState(initialFontSize);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -52,29 +54,23 @@ export function NodeBananaPromptEditor({
   };
 
   return (
-    <AppDialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
+    <AppDialog open={open} onOpenChange={(next, details) => { if (!next) { if (dirty) details.cancel(); close(); } }}>
       <AppDialogContent
         size="md"
         surface="editor"
         padding="none"
         className="flex h-[85vh] max-h-[85vh] flex-col"
-        aria-label="Edit Prompt"
+        aria-label={t("editPrompt")}
         aria-describedby={undefined}
         data-node-banana-component="PromptEditorModal"
-        onEscapeKeyDown={(event) => {
-          if (dirty) {
-            event.preventDefault();
-            setConfirmDiscard(true);
-          }
-        }}
       >
         <AppDialogHeader className="px-6 pb-4 pt-6">
-          <AppDialogTitle className="m-0 text-xl">Edit Prompt</AppDialogTitle>
+          <AppDialogTitle className="m-0 text-xl">{t("editPrompt")}</AppDialogTitle>
         </AppDialogHeader>
 
         <div className="mx-6 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-neutral-700 bg-neutral-900/30">
           <div className="flex h-12 shrink-0 items-center gap-3 border-b border-neutral-700 bg-neutral-900 px-4">
-            <label className="sr-only" htmlFor="node-banana-prompt-font-size">Font size</label>
+            <label className="sr-only" htmlFor="node-banana-prompt-font-size">{t("fontSize")}</label>
             <select
               id="node-banana-prompt-font-size"
               value={fontSize}
@@ -92,8 +88,8 @@ export function NodeBananaPromptEditor({
             autoFocus
             value={draft}
             maxLength={20_000}
-            placeholder="Describe what to generate..."
-            aria-label="Prompt"
+            placeholder={t("promptPlaceholder")}
+            aria-label={t("prompt")}
             className="nodrag nopan nowheel min-h-0 flex-1 resize-none border-0 bg-transparent p-6 leading-relaxed text-neutral-100 outline-none placeholder:text-neutral-500"
             style={{ fontSize }}
             onChange={(event) => setDraftState({ source: initialPrompt, value: event.target.value })}
@@ -101,18 +97,18 @@ export function NodeBananaPromptEditor({
         </div>
 
         <AppDialogFooter className="m-0 px-6 pb-6">
-          <AppDialogCancelButton type="button" onClick={close}>Cancel</AppDialogCancelButton>
-          <AppDialogActionButton type="button" onClick={submit}>Submit</AppDialogActionButton>
+          <AppDialogCancelButton type="button" onClick={close}>{t("cancel")}</AppDialogCancelButton>
+          <AppDialogActionButton type="button" onClick={submit}>{t("submit")}</AppDialogActionButton>
         </AppDialogFooter>
 
         {confirmDiscard ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/60">
-            <section className="relative mx-4 w-full max-w-sm rounded-lg border border-neutral-600 bg-neutral-800 p-6 shadow-xl" role="alertdialog" aria-modal="true" aria-label="Unsaved prompt changes">
-              <p className="mb-6 text-center text-neutral-100">You have unsaved changes</p>
+            <section className="relative mx-4 w-full max-w-sm rounded-lg border border-neutral-600 bg-neutral-800 p-6 shadow-xl" role="alertdialog" aria-modal="true" aria-label={t("unsavedTitle")}>
+              <p className="mb-6 text-center text-neutral-100">{t("unsaved")}</p>
               <div className="flex justify-center gap-3">
-                <AppDialogCancelButton type="button" onClick={() => setConfirmDiscard(false)}>Cancel</AppDialogCancelButton>
-                <AppDialogCancelButton type="button" onClick={() => { setConfirmDiscard(false); onClose(); }}>Discard</AppDialogCancelButton>
-                <AppDialogActionButton type="button" onClick={submit}>Submit</AppDialogActionButton>
+                <AppDialogCancelButton type="button" onClick={() => setConfirmDiscard(false)}>{t("cancel")}</AppDialogCancelButton>
+                <AppDialogCancelButton type="button" onClick={() => { setConfirmDiscard(false); onClose(); }}>{t("discard")}</AppDialogCancelButton>
+                <AppDialogActionButton type="button" onClick={submit}>{t("submit")}</AppDialogActionButton>
               </div>
             </section>
           </div>

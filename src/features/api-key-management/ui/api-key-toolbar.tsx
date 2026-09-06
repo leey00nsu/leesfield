@@ -79,7 +79,7 @@ export function ApiKeyToolbar({
           inputSize="lg"
           className="min-w-0 lg:w-64"
         />
-        <AppButton
+        <AppButton variant="brand"
           type="button"
           onClick={onGenerate}
           disabled={isIssuing}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Maximize2, MessageSquare, Minimize2, Play } from "lucide-react";
 
@@ -45,6 +46,7 @@ export function NodeBananaFloatingNodeHeader({
   runnable?: boolean;
   onRun?: () => void;
 }) {
+  const t = useTranslations("nodeStudio.host");
   const authoring = useNodeAuthoring();
   const presentation = presentationFrom(config);
   const [commentOpen, setCommentOpen] = useState(false);
@@ -95,8 +97,8 @@ export function NodeBananaFloatingNodeHeader({
           autoFocus
           value={titleDraft}
           maxLength={120}
-          aria-label="Custom title"
-          placeholder="Custom title..."
+          aria-label={t("customTitle")}
+          placeholder={t("customTitlePlaceholder")}
           className="nodrag nopan min-w-0 flex-1 bg-transparent pl-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-300 outline-none placeholder:text-neutral-500"
           onChange={(event) => setTitleDraftState({ source: customTitle, value: event.target.value })}
           onBlur={saveTitle}
@@ -112,9 +114,9 @@ export function NodeBananaFloatingNodeHeader({
         <button
           type="button"
           disabled={!writable}
-          aria-label="Click to edit title"
+          aria-label={t("editTitle")}
           className="nodrag nopan min-w-0 truncate pl-1 text-left font-semibold uppercase tracking-wide text-neutral-400 disabled:cursor-default"
-          title="Click to edit title"
+          title={t("editTitle")}
           onClick={() => {
             setTitleDraftState({ source: customTitle, value: customTitle });
             setTitleEditing(true);
@@ -139,10 +141,10 @@ export function NodeBananaFloatingNodeHeader({
                 ? "border-amber-500/50 bg-amber-600/80 text-white hover:bg-amber-500/80"
                 : "border-neutral-600 bg-neutral-700 text-neutral-400 hover:bg-neutral-600",
             )}
-            title={presentation.isOptional ? "Mark this input as required" : "Mark this input as optional"}
+            title={presentation.isOptional ? t("requiredToggle") : t("optionalToggle")}
             onClick={() => updatePresentation({ isOptional: !presentation.isOptional })}
           >
-            {presentation.isOptional ? "Optional" : "Required"}
+            {presentation.isOptional ? t("optional") : t("required")}
           </button>
         ) : null}
         <div ref={popoverRef} className="relative">
@@ -153,8 +155,8 @@ export function NodeBananaFloatingNodeHeader({
               "rounded border border-neutral-600 p-0.5 text-neutral-500 transition-colors hover:text-neutral-200",
               presentation.comment && "border-transparent text-blue-400 hover:text-blue-200",
             )}
-            aria-label={presentation.comment ? "Edit comment" : "Add comment"}
-            title={presentation.comment ? presentation.comment : "Add comment"}
+            aria-label={presentation.comment ? t("editComment") : t("addComment")}
+            title={presentation.comment ? presentation.comment : t("addComment")}
             onClick={() => {
               setComment(presentation.comment ?? "");
               setCommentOpen((open) => !open);
@@ -168,7 +170,7 @@ export function NodeBananaFloatingNodeHeader({
                 autoFocus
                 value={comment}
                 maxLength={4_000}
-                placeholder="Add a comment..."
+                placeholder={t("commentPlaceholder")}
                 className="nowheel h-20 w-full resize-none rounded border border-neutral-700 bg-neutral-900/50 p-2 text-xs text-neutral-100 outline-none focus:ring-1 focus:ring-neutral-500"
                 onChange={(event) => setComment(event.target.value)}
                 onKeyDown={(event) => {
@@ -177,8 +179,8 @@ export function NodeBananaFloatingNodeHeader({
                 }}
               />
               <div className="mt-2 flex justify-end gap-2">
-                <button type="button" className="px-2 py-1 text-xs text-neutral-400 hover:text-neutral-200" onClick={() => setCommentOpen(false)}>Cancel</button>
-                <button type="button" className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-500" onClick={saveComment}>Save</button>
+                <button type="button" className="px-2 py-1 text-xs text-neutral-400 hover:text-neutral-200" onClick={() => setCommentOpen(false)}>{t("cancel")}</button>
+                <button type="button" className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-500" onClick={saveComment}>{t("save")}</button>
               </div>
             </div>
           ) : null}
@@ -187,9 +189,9 @@ export function NodeBananaFloatingNodeHeader({
           <button
             type="button"
             className="group/expand flex items-center overflow-hidden rounded border border-neutral-600 p-0.5 text-neutral-500 transition-all duration-200 hover:pr-2 hover:text-neutral-200"
-            aria-label={expanded ? "Collapse editor" : "Expand editor"}
+            aria-label={expanded ? t("collapseEditor") : t("expandEditor")}
             aria-expanded={expanded}
-            title={expanded ? "Collapse editor" : "Expand editor"}
+            title={expanded ? t("collapseEditor") : t("expandEditor")}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -200,7 +202,7 @@ export function NodeBananaFloatingNodeHeader({
               ? <Minimize2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               : <Maximize2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
             <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-[10px] opacity-0 transition-all duration-200 group-hover/expand:ml-1 group-hover/expand:max-w-[60px] group-hover/expand:opacity-100">
-              {expanded ? "Collapse" : "Expand"}
+              {expanded ? t("collapse") : t("expand")}
             </span>
           </button>
         ) : null}
@@ -209,8 +211,8 @@ export function NodeBananaFloatingNodeHeader({
             type="button"
             disabled={!writable}
             className="group/run flex items-center overflow-hidden rounded border border-neutral-600 p-0.5 text-neutral-500 transition-all duration-200 hover:pr-2 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Run node"
-            title="Run this node"
+            aria-label={t("runNode")}
+            data-canvas-action="run" title={t("runThisNode")}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -219,7 +221,7 @@ export function NodeBananaFloatingNodeHeader({
           >
             <Play className="h-3.5 w-3.5 shrink-0" aria-hidden="true" fill="currentColor" />
             <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-[10px] opacity-0 transition-all duration-200 group-hover/run:ml-1 group-hover/run:max-w-[60px] group-hover/run:opacity-100">
-              Run node
+              {t("runNode")}
             </span>
           </button>
         ) : null}

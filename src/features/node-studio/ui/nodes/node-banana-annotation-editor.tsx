@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Arrow, Ellipse, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
@@ -67,6 +69,7 @@ function NodeBananaAnnotationEditorSession({
   onClose: () => void;
   onSave: (shapes: AnnotationShape[], preview: ImageOperationResultItem) => void;
 }) {
+  const tc = useCanvasTranslation();
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
@@ -315,20 +318,20 @@ function NodeBananaAnnotationEditorSession({
   return (
     <AppDialog open onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <AppDialogContent size="full" surface="canvas" padding="none" className="!flex h-screen min-w-0 flex-col" data-node-banana-component="AnnotationModal">
-      <AppDialogTitle className="sr-only">Annotation editor</AppDialogTitle>
-      <AppDialogDescription className="sr-only">Add, edit, or remove visual annotations from the connected image.</AppDialogDescription>
+      <AppDialogTitle className="sr-only">{tc("Annotation editor")}</AppDialogTitle>
+      <AppDialogDescription className="sr-only">{tc("Add, edit, or remove visual annotations from the connected image.")}</AppDialogDescription>
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-neutral-800 bg-neutral-900 px-4">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-          {TOOLS.map((item) => <button key={item.type} type="button" onClick={() => setTool(item.type)} className={`px-3.5 py-1.5 text-xs font-medium rounded transition-colors ${tool === item.type ? "bg-white text-neutral-900" : "text-neutral-400 hover:text-white"}`}>{item.label}</button>)}
+          {TOOLS.map((item) => <button key={item.type} type="button" onClick={() => setTool(item.type)} className={`px-3.5 py-1.5 text-xs font-medium rounded transition-colors ${tool === item.type ? "bg-white text-neutral-900" : "text-neutral-400 hover:text-white"}`}>{tc(item.label)}</button>)}
           <div className="mx-3 h-6 w-px bg-neutral-700" />
-          <button type="button" disabled={!undoStack.length} onClick={() => { const previous = undoStack.at(-1); if (!previous) return; setRedoStack((history) => [...history, shapes]); setShapes(previous); setUndoStack((history) => history.slice(0, -1)); }} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-30">Undo</button>
-          <button type="button" disabled={!redoStack.length} onClick={() => { const next = redoStack.at(-1); if (!next) return; setUndoStack((history) => [...history, shapes]); setShapes(next); setRedoStack((history) => history.slice(0, -1)); }} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-30">Redo</button>
+          <button type="button" disabled={!undoStack.length} onClick={() => { const previous = undoStack.at(-1); if (!previous) return; setRedoStack((history) => [...history, shapes]); setShapes(previous); setUndoStack((history) => history.slice(0, -1)); }} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-30">{tc("Undo")}</button>
+          <button type="button" disabled={!redoStack.length} onClick={() => { const next = redoStack.at(-1); if (!next) return; setUndoStack((history) => [...history, shapes]); setShapes(next); setRedoStack((history) => history.slice(0, -1)); }} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white disabled:opacity-30">{tc("Redo")}</button>
           <div className="mx-3 h-6 w-px bg-neutral-700" />
-          <button type="button" onClick={() => checkpoint([])} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-red-400">Clear</button>
+          <button type="button" onClick={() => checkpoint([])} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-red-400">{tc("Clear")}</button>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-white">Cancel</button>
-          <button type="button" disabled={imageStatus !== "ready" || saveStatus === "saving"} onClick={() => void handleDone()} className="rounded bg-white px-4 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40">{saveStatus === "saving" ? "Saving…" : "Done"}</button>
+          <button type="button" onClick={onClose} className="px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-white">{tc("Cancel")}</button>
+          <button type="button" disabled={imageStatus !== "ready" || saveStatus === "saving"} onClick={() => void handleDone()} className="rounded bg-white px-4 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40">{saveStatus === "saving" ? tc("Saving…") : tc("Done")}</button>
         </div>
       </div>
       <div
@@ -345,36 +348,30 @@ function NodeBananaAnnotationEditorSession({
           </Layer>
         </Stage>
         {imageStatus === "loading" ? (
-          <div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-900 text-xs text-neutral-400">
-            Loading image…
-          </div>
+          <div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-900 text-xs text-neutral-400">{tc("Loading image…")}</div>
         ) : null}
         {imageStatus === "error" ? (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900 text-xs text-neutral-300">
-            <span>Could not load the connected image.</span>
+            <span>{tc("Could not load the connected image.")}</span>
             <button type="button" className="rounded border border-neutral-700 px-3 py-1.5 font-medium text-white hover:bg-neutral-800" onClick={() => {
               setImage(null);
               setImageStatus("loading");
               setImageLoadAttempt((attempt) => attempt + 1);
-            }}>
-              Retry
-            </button>
+            }}>{tc("Retry")}</button>
           </div>
         ) : null}
         {saveStatus === "error" ? (
-          <div role="alert" className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-red-300/25 bg-neutral-950/90 px-3 py-2 text-xs text-red-100">
-            Could not render the annotation result. Try again.
-          </div>
+          <div role="alert" className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-red-300/25 bg-neutral-950/90 px-3 py-2 text-xs text-red-100">{tc("Could not render the annotation result. Try again.")}</div>
         ) : null}
-        {textInput ? <input autoFocus type="text" aria-label="Annotation text" className="fixed z-[10003] min-w-28 border-b border-white bg-neutral-900/90 px-1 py-0.5 text-white outline-none" style={{ left: textInput.screenX, top: textInput.screenY, color }} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== "Escape") return; if (event.key === "Enter" && event.currentTarget.value.trim()) checkpoint([...shapes, { id: `annotation-${crypto.randomUUID()}`, type: "text", x: textInput.x, y: textInput.y, text: event.currentTarget.value, fill: color, stroke: color, strokeWidth, opacity: 1, fontSize: 32 }]); setTextInput(null); }} onBlur={(event) => { if (event.currentTarget.value.trim()) checkpoint([...shapes, { id: `annotation-${crypto.randomUUID()}`, type: "text", x: textInput.x, y: textInput.y, text: event.currentTarget.value, fill: color, stroke: color, strokeWidth, opacity: 1, fontSize: 32 }]); setTextInput(null); }} /> : null}
+        {textInput ? <input autoFocus type="text" aria-label={tc("Annotation text")} className="fixed z-[10003] min-w-28 border-b border-white bg-neutral-900/90 px-1 py-0.5 text-white outline-none" style={{ left: textInput.screenX, top: textInput.screenY, color }} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== "Escape") return; if (event.key === "Enter" && event.currentTarget.value.trim()) checkpoint([...shapes, { id: `annotation-${crypto.randomUUID()}`, type: "text", x: textInput.x, y: textInput.y, text: event.currentTarget.value, fill: color, stroke: color, strokeWidth, opacity: 1, fontSize: 32 }]); setTextInput(null); }} onBlur={(event) => { if (event.currentTarget.value.trim()) checkpoint([...shapes, { id: `annotation-${crypto.randomUUID()}`, type: "text", x: textInput.x, y: textInput.y, text: event.currentTarget.value, fill: color, stroke: color, strokeWidth, opacity: 1, fontSize: 32 }]); setTextInput(null); }} /> : null}
       </div>
       <div className="flex h-14 shrink-0 items-center justify-start gap-6 overflow-x-auto border-t border-neutral-800 bg-neutral-900 px-4 xl:justify-center">
-        <div className="flex items-center gap-2"><span className="mr-1 text-[10px] uppercase tracking-wide text-neutral-500">Color</span>{COLORS.map((item) => <button key={item} type="button" aria-label={`Color ${item}`} onClick={() => setColor(item)} className={`h-6 w-6 rounded-full transition-transform ${color === item ? "scale-110 ring-2 ring-white ring-offset-2 ring-offset-neutral-900" : "hover:scale-105"}`} style={{ backgroundColor: item }} />)}</div>
+        <div className="flex items-center gap-2"><span className="mr-1 text-[10px] uppercase tracking-wide text-neutral-500">{tc("Color")}</span>{COLORS.map((item) => <button key={item} type="button" aria-label={`Color ${item}`} onClick={() => setColor(item)} className={`h-6 w-6 rounded-full transition-transform ${color === item ? "scale-110 ring-2 ring-white ring-offset-2 ring-offset-neutral-900" : "hover:scale-105"}`} style={{ backgroundColor: item }} />)}</div>
         <div className="h-6 w-px bg-neutral-700" />
-        <div className="flex items-center gap-2"><span className="mr-1 text-[10px] uppercase tracking-wide text-neutral-500">Size</span>{STROKE_WIDTHS.map((item) => <button key={item} type="button" aria-label={`Stroke ${item}`} onClick={() => setStrokeWidth(item)} className={`flex h-8 w-8 items-center justify-center rounded ${strokeWidth === item ? "bg-neutral-700" : "hover:bg-neutral-800"}`}><span className="rounded-full bg-white" style={{ width: item * 1.5, height: item * 1.5 }} /></button>)}</div>
+        <div className="flex items-center gap-2"><span className="mr-1 text-[10px] uppercase tracking-wide text-neutral-500">{tc("Size")}</span>{STROKE_WIDTHS.map((item) => <button key={item} type="button" aria-label={`Stroke ${item}`} onClick={() => setStrokeWidth(item)} className={`flex h-8 w-8 items-center justify-center rounded ${strokeWidth === item ? "bg-neutral-700" : "hover:bg-neutral-800"}`}><span className="rounded-full bg-white" style={{ width: item * 1.5, height: item * 1.5 }} /></button>)}</div>
         <div className="h-6 w-px bg-neutral-700" />
-        <button type="button" onClick={() => setFill((value) => !value)} className={`rounded px-3 py-1.5 text-[10px] uppercase tracking-wide ${fill ? "bg-neutral-700 text-white" : "text-neutral-500 hover:text-white"}`}>Fill</button>
-        <div className="ml-auto flex items-center gap-2"><button type="button" aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.1, value - 0.1))} className="h-7 w-7 text-neutral-400 hover:text-white">−</button><span className="w-10 text-center text-[10px] text-neutral-400">{Math.round(zoom * 100)}%</span><button type="button" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(5, value + 0.1))} className="h-7 w-7 text-neutral-400 hover:text-white">+</button></div>
+        <button type="button" onClick={() => setFill((value) => !value)} className={`rounded px-3 py-1.5 text-[10px] uppercase tracking-wide ${fill ? "bg-neutral-700 text-white" : "text-neutral-500 hover:text-white"}`}>{tc("Fill")}</button>
+        <div className="ml-auto flex items-center gap-2"><button type="button" aria-label={tc("Zoom out")} onClick={() => setZoom((value) => Math.max(0.1, value - 0.1))} className="h-7 w-7 text-neutral-400 hover:text-white">−</button><span className="w-10 text-center text-[10px] text-neutral-400">{Math.round(zoom * 100)}%</span><button type="button" aria-label={tc("Zoom in")} onClick={() => setZoom((value) => Math.min(5, value + 0.1))} className="h-7 w-7 text-neutral-400 hover:text-white">+</button></div>
       </div>
       </AppDialogContent>
     </AppDialog>

@@ -52,13 +52,13 @@ export function AppBrandLogo({
     >
       <span
         className={cn(
-          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-[0_0_34px_rgba(205,255,0,0.2)]",
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-data-accent ",
           markSizeClasses[size],
           markClassName,
         )}
       >
         <Image
-          src="/logo.webp"
+          src="/logo-blue.svg"
           alt={iconOnly ? label : ""}
           width={imageSize[size]}
           height={imageSize[size]}
@@ -69,7 +69,7 @@ export function AppBrandLogo({
       {iconOnly ? null : (
         <span
           className={cn(
-            "font-display truncate font-medium tracking-[-0.035em] text-white",
+            "font-brand truncate font-bold tracking-[-0.035em] text-white",
             textSizeClasses[size],
             textClassName,
           )}

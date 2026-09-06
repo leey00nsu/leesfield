@@ -97,7 +97,7 @@ describe("CanonicalNode Node Banana presentation", () => {
     );
 
     expect(screen.getByLabelText("Prompt", { selector: "article" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox")).toHaveAttribute("placeholder", "Describe what to generate...");
+    expect(screen.getByRole("textbox")).toHaveAttribute("placeholder", "만들고 싶은 것을 설명하세요…");
     expect(screen.getAllByLabelText("Text")).toHaveLength(2);
     expect(screen.queryByText(/Editing and execution|후속 미디어 통합/)).not.toBeInTheDocument();
   });
@@ -131,7 +131,7 @@ describe("CanonicalNode Node Banana presentation", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(screen.getByRole("textbox", { name: "Text from connected Prompt node" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Text from connected Prompt node" })).toHaveValue("upstream prompt");
+    expect(screen.getByRole("textbox", { name: "연결된 프롬프트 노드의 내용" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "연결된 프롬프트 노드의 내용" })).toHaveValue("upstream prompt");
   });
 });

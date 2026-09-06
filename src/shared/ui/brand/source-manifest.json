@@ -1,0 +1,149 @@
+{
+  "repository": "https://github.com/leey00nsu/copy-singer",
+  "commit": "eb164d718d66b2ce3e177fc03727ae60ec0add3d",
+  "transforms": [
+    "cn import path",
+    "direct UI imports without barrels",
+    "Dialog/Sheet close text uses host-supplied localized CloseLabel; original text restored for source parity"
+  ],
+  "files": [
+    {
+      "source": "src/shared/ui/button/button.tsx",
+      "target": "src/shared/ui/brand/button/button.tsx",
+      "sourceSha256": "46ab1561f5864755a031daf129f9939828b4f4e008bd69ec588ab50ad06a9635",
+      "adaptedSha256": "5e117665a220a0ffd96c4a8a9ab79fa0df19db04441bc7ac901e32993a7c3e8e"
+    },
+    {
+      "source": "src/shared/ui/input/input.tsx",
+      "target": "src/shared/ui/brand/input/input.tsx",
+      "sourceSha256": "9298158e6a916e5acbd69cac465e676dbf075cd67e30c58ae0cbea63e14882dd",
+      "adaptedSha256": "07c711c470f70138cc994c2e212abf99296df7b1559ee5525ef8c4500580d1a8"
+    },
+    {
+      "source": "src/shared/ui/card/card.tsx",
+      "target": "src/shared/ui/brand/card/card.tsx",
+      "sourceSha256": "a30abf9dd727771108f2922d9aa84d16b8e0d03aa018b72c5ee873d628c72091",
+      "adaptedSha256": "25001b55f286464a4386f38d958f610f75f4813118a64a17320b1fe77a1c7a8a"
+    },
+    {
+      "source": "src/shared/ui/select/select.tsx",
+      "target": "src/shared/ui/brand/select/select.tsx",
+      "sourceSha256": "90a8ec65aaf8266fc75f297d00835cbac5f0d7422ace3ebd979a145c7eba045a",
+      "adaptedSha256": "c78595357451654737575a0c7e6ac85257149de53cf9680ac8f8f2738531a9ea"
+    },
+    {
+      "source": "src/shared/ui/dialog/dialog.tsx",
+      "target": "src/shared/ui/brand/dialog/dialog.tsx",
+      "sourceSha256": "1e36cb48c20200184f51d538524e224544114516302e1314d38a63f433ddc0ee",
+      "adaptedSha256": "5f67e6d63fe29148d1770856246c2d2c84045f8b694e198e5703751436b78e9c"
+    },
+    {
+      "source": "src/shared/ui/popover/popover.tsx",
+      "target": "src/shared/ui/brand/popover/popover.tsx",
+      "sourceSha256": "8a247690ed52190d70bac92390e16e79d34a135d098fc12c3488483a674aeec9",
+      "adaptedSha256": "89f7a83e644f486ae887a207153191c16bf4f8df4ebcb3f812e533f884620170"
+    },
+    {
+      "source": "src/shared/ui/dropdown-menu/dropdown-menu.tsx",
+      "target": "src/shared/ui/brand/dropdown-menu/dropdown-menu.tsx",
+      "sourceSha256": "0205279baa6eb5d6daac10f1b7526c7d404f28eccdd647e6d52aa541182b73ad",
+      "adaptedSha256": "83d64421db5600af0ddeed460119adf65ac5f889971f02008932b027793b0d19"
+    },
+    {
+      "source": "src/shared/ui/tooltip/tooltip.tsx",
+      "target": "src/shared/ui/brand/tooltip/tooltip.tsx",
+      "sourceSha256": "6562de6179d675541544f766838f7b13a1148f5c2f780e78012c3e7eaa49e6bb",
+      "adaptedSha256": "c6a9c8789058425c523d5f8c4783ab31e19543ebe91725f98943ccb457f785d5"
+    },
+    {
+      "source": "src/shared/ui/tabs/tabs.tsx",
+      "target": "src/shared/ui/brand/tabs/tabs.tsx",
+      "sourceSha256": "233d01e6d7bcce804c9144a7299f2d400a216b089fbf6950c7f07979018b0914",
+      "adaptedSha256": "b18f3f21037eb84bce9484d319eaa93ede68e7367d697ae05adb2dfdb449e991"
+    },
+    {
+      "source": "src/shared/ui/label/label.tsx",
+      "target": "src/shared/ui/brand/label/label.tsx",
+      "sourceSha256": "0a91046d727635dd0fa62ab2f58c6f0fbb412315c9148f3a7918ac377ee4298f",
+      "adaptedSha256": "92e132c0e440156a7b5858bbc03b6a01670918956daf47ca0f231d3b14fdbac8"
+    },
+    {
+      "source": "src/shared/ui/separator/separator.tsx",
+      "target": "src/shared/ui/brand/separator/separator.tsx",
+      "sourceSha256": "f1bdc1a5b0f21682849d696b702c5d1f7438196aab0c3c864ef0c3fc363abc3a",
+      "adaptedSha256": "880a0409b7bfbb19502910e087fde8c346fb9979ca2f11405308f021d0472e5d"
+    },
+    {
+      "source": "src/shared/ui/badge/badge.tsx",
+      "target": "src/shared/ui/brand/badge/badge.tsx",
+      "sourceSha256": "2880729689cc403dd34a4e414595e57acfac47ec4f26634d3eec114fbb9d855a",
+      "adaptedSha256": "e7bb54cfc7df046117a330bb70bfb10cfd7b685bd7093d71b9da3950ccd28735"
+    },
+    {
+      "source": "src/shared/ui/switch/switch.tsx",
+      "target": "src/shared/ui/brand/switch/switch.tsx",
+      "sourceSha256": "77b3b6433cd2ad4d4afc8f12f6a2a8dfb1f8a483066bd1c41620bdb1f531b978",
+      "adaptedSha256": "c508b4a6adcc04004f644518ef476c547146b635e0a1f7ea86fe50475b29988b"
+    },
+    {
+      "source": "src/shared/ui/skeleton/skeleton.tsx",
+      "target": "src/shared/ui/brand/skeleton/skeleton.tsx",
+      "sourceSha256": "4c96fa2ede31c9a0620ad8889d0d00652c22086dcf18eb146d38d0ebb2bc5bed",
+      "adaptedSha256": "dc8b897003a4545d44d17f6ca4a74f9bcf16e1cd9c822913c45f4f150330bbc8"
+    },
+    {
+      "source": "src/shared/ui/sheet/sheet.tsx",
+      "target": "src/shared/ui/brand/sheet/sheet.tsx",
+      "sourceSha256": "6c7302755bcadf574bf2e493ef7283a506414f50239a6faf40f701d8d3de2c93",
+      "adaptedSha256": "df72d7e2f9f3614b81727524a10970df934512b77ccb82ab277fd6be0a7f7377"
+    },
+    {
+      "source": "src/shared/ui/product-page-intro/product-page-intro.tsx",
+      "target": "src/shared/ui/brand/product-page-intro/product-page-intro.tsx",
+      "sourceSha256": "50ecc3b75e7aee65a045aa9fd4d4722fe336e29df1ed4de95d74562f780ef5d4",
+      "adaptedSha256": "6b1db27e5291cb7fde05f42a983f37e17b76828cb694d5dba584379d8ff0cea5"
+    },
+    {
+      "source": "src/shared/ui/state-panel/state-panel.tsx",
+      "target": "src/shared/ui/brand/state-panel/state-panel.tsx",
+      "sourceSha256": "b2d04bbc2a0146ddd7d6fd6c18be64be3eea212db0b302188046657c3b97f1e9",
+      "adaptedSha256": "beb68f674abf3e0a98caa8778d72bc457eae68770d93561bf8c8fd76e3f6b71f"
+    },
+    {
+      "source": "src/shared/ui/status-notice/status-notice.tsx",
+      "target": "src/shared/ui/brand/status-notice/status-notice.tsx",
+      "sourceSha256": "12a68603945def7133d6d2284b3c33ea43bc7a54e078c2a7971abb4c2a89f6b6",
+      "adaptedSha256": "46648293ab92d94cc8a0a1443fd015c8e5a536bc565b976eee8b32252cd0f09b"
+    },
+    {
+      "source": "src/shared/ui/bento-grid/bento-grid.tsx",
+      "target": "src/shared/ui/brand/bento-grid/bento-grid.tsx",
+      "sourceSha256": "8ba76cbeebb92728f700ab7bd25a569760a8150df2a23ca8da409c396c154046",
+      "adaptedSha256": "626c3d1ace09f00a32cd220914a588333daf7a3c3ea6c789016461ab82b7cab1"
+    },
+    {
+      "source": "src/shared/ui/reveal-content/reveal-content.module.css",
+      "target": "src/shared/ui/brand/reveal-content/reveal-content.module.css",
+      "sourceSha256": "94effce5510a47d1593db9727756afa688d36b40b352b363a71d8d1e7300d292",
+      "adaptedSha256": "94effce5510a47d1593db9727756afa688d36b40b352b363a71d8d1e7300d292"
+    },
+    {
+      "source": "src/shared/ui/reveal-content/reveal-content.tsx",
+      "target": "src/shared/ui/brand/reveal-content/reveal-content.tsx",
+      "sourceSha256": "29d1c05b26c047e86b95fd7e2cd8b1952dd137351407612c841158920c58a34b",
+      "adaptedSha256": "7e7db9f15f9782ae7cacc5a8720ec696f8b4709de5a7bcde54fc9ec22362ee88"
+    },
+    {
+      "source": "src/shared/ui/chart/chart.tsx",
+      "target": "src/shared/ui/brand/chart/chart.tsx",
+      "sourceSha256": "770de891d5546f6bdfe3361c60f2a42731b2723d867459966cfa0e040c30e35c",
+      "adaptedSha256": "57b3e6eb45a08dbdb5357593890ba571211fa237a33746e5ee342d8b4fcf701a"
+    },
+    {
+      "source": "src/shared/ui/resource-row-link/resource-row-link.tsx",
+      "target": "src/shared/ui/brand/resource-row-link/resource-row-link.tsx",
+      "sourceSha256": "a8e18f89e08df2b290ec248d4d8334d3847581bd508b1bc7873033969c983c52",
+      "adaptedSha256": "9d0241ab9cde648828c0fc74b57a0b4f7d71089d8573911744f354bd0c27c53e"
+    }
+  ]
+}

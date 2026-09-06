@@ -1,7 +1,8 @@
 "use client";
+import { useLandingReducedMotion as useReducedMotion } from "./use-landing-reduced-motion";
 
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "@/shared/lib/utils";
 
 type LandingHeroMotionLayerProps = {

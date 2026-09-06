@@ -112,13 +112,13 @@ describe("legacy Node Banana presenter parity", () => {
       expect(header, kind).not.toBeNull();
       const actions = nodeBananaHostedHeaderContract[kind];
 
-      expect(within(header as HTMLElement).queryByRole("button", { name: /comment/i }), kind)
-        .toBe(actions.includes("comment") ? within(header as HTMLElement).getByRole("button", { name: /comment/i }) : null);
-      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: /Required|Optional/ })), kind)
+      expect(within(header as HTMLElement).queryByRole("button", { name: /댓글/ }), kind)
+        .toBe(actions.includes("comment") ? within(header as HTMLElement).getByRole("button", { name: /댓글/ }) : null);
+      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: /필수|선택/ })), kind)
         .toBe(actions.includes("required"));
-      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: /Expand editor|Collapse editor/ })), kind)
+      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: /편집기 펼치기|편집기 접기/ })), kind)
         .toBe(actions.includes("expand"));
-      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: "Run node" })), kind)
+      expect(Boolean(within(header as HTMLElement).queryByRole("button", { name: "노드 실행" })), kind)
         .toBe(actions.includes("run"));
       view.unmount();
     }
@@ -128,10 +128,10 @@ describe("legacy Node Banana presenter parity", () => {
     const user = userEvent.setup();
     renderNode("input.prompt");
 
-    expect(screen.getByRole("button", { name: "Required" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Add comment" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Expand editor" }));
-    expect(screen.getByRole("dialog", { name: "Edit Prompt" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "필수" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "댓글 추가" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "편집기 펼치기" }));
+    expect(screen.getByRole("dialog", { name: "프롬프트 편집" })).toHaveAttribute(
       "data-node-banana-component",
       "PromptEditorModal",
     );
@@ -140,8 +140,8 @@ describe("legacy Node Banana presenter parity", () => {
   it("edits and persists a custom title from every real FloatingNodeHeader", async () => {
     const user = userEvent.setup();
     renderNode("edit.video.trim");
-    await user.click(screen.getByRole("button", { name: "Click to edit title" }));
-    const input = screen.getByRole("textbox", { name: "Custom title" });
+    await user.click(screen.getByRole("button", { name: "제목 편집" }));
+    const input = screen.getByRole("textbox", { name: "사용자 지정 제목" });
     await user.type(input, "Cut A");
     await user.keyboard("{Enter}");
 

@@ -4,17 +4,15 @@ import type { ModelCatalogItem } from "@/features/model-management/model/model-c
 import { ModelCard } from "@/features/model-management/ui/model-card";
 import { AppCard } from "@/shared/ui/app-card";
 
+import { AppResourceList } from "@/shared/ui/app-resource-list";
+
 interface ModelListProps {
   items: ModelCatalogItem[];
   emptyMessage?: string;
   onEdit?: (key: string) => void;
 }
 
-export function ModelList({
-  items,
-  emptyMessage,
-  onEdit,
-}: ModelListProps) {
+export function ModelList({ items, emptyMessage, onEdit }: ModelListProps) {
   const tEmpty = useTranslations("model.empty");
   const resolvedEmptyMessage = emptyMessage ?? tEmpty("default");
 
@@ -28,10 +26,8 @@ export function ModelList({
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Boxes className="h-6 w-6 text-gray-500" />
         </div>
-        <h3 className="text-lg font-bold text-gray-200">
-          {tEmpty("title")}
-        </h3>
-        <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+        <h3 className="text-lg font-bold text-gray-200">{tEmpty("title")}</h3>
+        <p className="text-xs font-sans uppercase tracking-widest text-gray-500">
           {resolvedEmptyMessage}
         </p>
       </AppCard>
@@ -39,11 +35,7 @@ export function ModelList({
   }
 
   return (
-    <AppCard
-      variant="editorial-flat"
-      radius="lg"
-      className="p-1"
-      role="list"
+    <AppResourceList
       aria-label={tEmpty("listLabel")}
     >
       {items.map((item) => (
@@ -51,6 +43,6 @@ export function ModelList({
           <ModelCard item={item} onEdit={onEdit} />
         </div>
       ))}
-    </AppCard>
+    </AppResourceList>
   );
 }

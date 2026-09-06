@@ -1,4 +1,5 @@
 "use client";
+import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -18,7 +19,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import {
   createVideoGenerationSchema,
@@ -31,6 +32,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationResultReveal } from "@/shared/ui/generation-result-reveal";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
@@ -56,6 +58,7 @@ import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema"
 import { resolveVideoModalities } from "@/shared/model-catalog/modality";
 
 type VideoGenerationFormProps = {
+  embedded?: boolean;
   isAuthenticated: boolean;
 };
 
@@ -66,8 +69,11 @@ const studioPreviewShellClass =
 const studioResultFrameClass =
   "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
-export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProps) {
-  const searchParams = useSearchParams();
+export function VideoGenerationForm({
+  isAuthenticated,
+  embedded = false,
+}: VideoGenerationFormProps) {
+  const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const tGeneration = useTranslations("generation");
@@ -80,7 +86,8 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedVideoModels = runtimeVideoModels;
   const hasModels = resolvedVideoModels.length > 0;
-  const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedVideoModels) ?? "";
+  const defaultModelKey =
+    resolveRuntimeDefaultModelKey(resolvedVideoModels) ?? "";
   const runtimeModelMap = useMemo(
     () => new Map(resolvedVideoModels.map((model) => [model.key, model])),
     [resolvedVideoModels],
@@ -107,7 +114,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     zodResolver(staticSchema) as Resolver<VideoGenerationFormValues>,
   );
   useEffect(() => {
-    resolverRef.current = zodResolver(runtimeSchema) as Resolver<VideoGenerationFormValues>;
+    resolverRef.current = zodResolver(
+      runtimeSchema,
+    ) as Resolver<VideoGenerationFormValues>;
   }, [runtimeSchema]);
   const resolver = useMemo<Resolver<VideoGenerationFormValues>>(
     () => (values, context, options) =>
@@ -120,7 +129,12 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
     mode: "onChange",
   });
   const promptFromQuery = searchParams?.get("prompt") ?? "";
-  const modelFromQuery = searchParams?.get("model") ?? "";
+  const modelFromQuery =
+    searchParams?.get("model") ??
+    resolvedVideoModels.find(
+      (model) => model.label === searchParams?.get("modelLabel"),
+    )?.key ??
+    "";
   const initImageFromQuery = searchParams?.get("initImage") ?? "";
   const hasInjectedInitImageRef = useRef(false);
   const handleLoginRedirect = useCallback(() => {
@@ -164,7 +178,10 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
       : defaultModelKey
     : "";
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
-  const durationRange = getRuntimeVideoParamRange(activeRuntimeModel, "durationSec");
+  const durationRange = getRuntimeVideoParamRange(
+    activeRuntimeModel,
+    "durationSec",
+  );
   const durationConfig = getRuntimeVideoParamConfig(
     activeRuntimeModel,
     "durationSec",
@@ -183,12 +200,13 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const initImageValue =
     useWatch({ control: form.control, name: "initImage" }) ?? "";
 
-  const supportsInitImage = resolveRuntimeVideoSupportsInitImage(
-    activeRuntimeModel,
-  );
+  const supportsInitImage =
+    resolveRuntimeVideoSupportsInitImage(activeRuntimeModel);
   const hasInitImage = Boolean(initImageValue);
   const canSubmit =
-    hasModels && promptValue.trim().length > 0 && (!supportsInitImage || hasInitImage);
+    hasModels &&
+    promptValue.trim().length > 0 &&
+    (!supportsInitImage || hasInitImage);
 
   useEffect(() => {
     if (hasInjectedInitImageRef.current) return;
@@ -247,7 +265,9 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration();
   const isGenerating =
-    state.status === "pending" || state.status === "processing" || state.status === "uploading";
+    state.status === "pending" ||
+    state.status === "processing" ||
+    state.status === "uploading";
   const resultVideos = state.result?.videos ?? [];
   const hasResults = state.status === "completed" && resultVideos.length > 0;
   const primaryVideo = resultVideos[0];
@@ -306,33 +326,43 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   return (
     <AppForm {...form}>
       <form
-        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        className={
+          embedded
+            ? "generation-embedded"
+            : "mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        }
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-6">
-          <div className={studioPreviewShellClass}>
-            <GenerationStudioIntro
+          <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
+            {!embedded && (<GenerationStudioIntro
+                compact={embedded}
+                guidance={tGeneration("page.videoGuidance")}
               eyebrow={tVideo("previewEyebrow")}
               title={tVideo("previewTitle")}
               description={tVideo("previewDescription")}
-            />
+            />)}
             <GenerationCanvas
               isGenerating={isGenerating}
               status={state.status}
               errorMessage={state.errorMessage}
-              className={studioResultFrameClass}
+              className={
+                embedded
+                  ? "mx-auto w-full max-w-[400px] aspect-square rounded-xl border bg-card"
+                  : studioResultFrameClass
+              }
             >
               {hasResults && primaryVideo ? (
                 <video
                   src={primaryVideo.url}
                   controls
-                  className="relative z-10 h-full w-full object-cover"
+                  className="relative z-10 h-full w-full object-contain"
                 />
               ) : (
                 <div aria-hidden="true" className="h-full w-full" />
               )}
             </GenerationCanvas>
-          </div>
+            </GenerationResultReveal>
 
           {hasResults && state.errorMessage ? (
             <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -342,7 +372,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
 
           {hasResults && primaryVideo ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                 {tLabels("ready")} • {primaryVideo.width ?? "--"}x
                 {primaryVideo.height ?? "--"}
               </div>
@@ -380,46 +410,50 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
                   surface="hero"
-                  className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  className={
+                    embedded
+                      ? "generation-composer"
+                      : "fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  }
                   textarea={
                     <AppFormControl>
                       <AppTextarea
                         surface="transparent"
-                        className="min-h-[104px]"
+                        className="min-h-[160px]"
+                        placeholder={tVideo("promptPlaceholder")}
                         {...field}
                       />
                     </AppFormControl>
                   }
-                  promptMeta={tLabels("chars", { count: promptValue.length })}
-                  feedback={fieldState.error ? (
-                    <AppFormMessage className="text-xs text-red-400" />
-                  ) : undefined}
-                  attachments={
-                    initImageValue ? (
-                      <div className="flex flex-wrap gap-2 px-4 pb-3">
-                        <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={initImageValue}
-                            alt={tVideo("initImageAlt")}
-                            className="h-full w-full object-cover"
-                          />
-                          <AppButton
-                            type="button"
-                            onClick={handleRemoveInitImage}
-                            variant="ghost"
-                            size="icon-sm"
-                            className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                            title={tActions("remove")}
-                          >
-                            <span className="text-xs">×</span>
-                          </AppButton>
-                        </div>
-                      </div>
-                    ) : null
+                  feedback={
+                    fieldState.error ? (
+                      <AppFormMessage className="text-xs text-red-400" />
+                    ) : undefined
                   }
-                  footerLeft={
-                    <>
+                  attachments={
+                    <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
+                      {initImageValue ? (
+                        <div className="flex flex-wrap gap-2">
+                          <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={initImageValue}
+                              alt={tVideo("initImageAlt")}
+                              className="h-full w-full object-cover"
+                            />
+                            <AppButton
+                              type="button"
+                              onClick={handleRemoveInitImage}
+                              variant="ghost"
+                              size="icon-sm"
+                              className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                              title={tActions("remove")}
+                            >
+                              <span className="text-xs">×</span>
+                            </AppButton>
+                          </div>
+                        </div>
+                      ) : null}
                       <AppButton
                         type="button"
                         variant="surface"
@@ -428,7 +462,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                         aria-label={tVideo("uploadReference")}
                         disabled={!supportsInitImage}
                         className={cn(
-                          "h-12 w-12 rounded-xl border-primary/20 bg-black/16 transition-colors",
+                          "",
                           supportsInitImage
                             ? "text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
                             : "cursor-not-allowed text-gray-700",
@@ -437,6 +471,10 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                       >
                         <ImagePlus className="h-5 w-5" />
                       </AppButton>
+                    </div>
+                  }
+                  footerLeft={
+                    <>
                       {!isGuest && hasModels ? (
                         <GenerationModelSection
                           modality="video"
@@ -509,7 +547,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/15"
                                   />
                                 </AppFormControl>
-                                <div className="flex justify-between px-1 text-[10px] font-mono text-gray-600">
+                                <div className="flex justify-between px-1 text-[10px] font-sans text-gray-600">
                                   <span>{durationRange.min}s</span>
                                   <span>{durationRange.max}s</span>
                                 </div>
@@ -534,18 +572,17 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
                   footerRight={
                     <>
                       <AppButton
-                        type={isAuthenticated ? "submit" : "button"}
+                        variant="generate"
+                              type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
                             (isModelLoading || !hasModels || !canSubmit))
                         }
-                        className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                        className="min-w-24"
                         onClick={
-                          isAuthenticated
-                            ? undefined
-                            : handleLoginRedirect
+                          isAuthenticated ? undefined : handleLoginRedirect
                         }
                       >
                         {isGenerating

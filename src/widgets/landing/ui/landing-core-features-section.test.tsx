@@ -1,29 +1,24 @@
+import type React from "react";
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { LandingCoreFeaturesSection } from "@/widgets/landing/ui/landing-core-features-section";
+import { describe, it, expect, vi } from "vitest";
 import { renderWithIntl } from "@/test-utils/intl";
-
+import { LandingCoreFeaturesSection } from "./landing-core-features-section";
+vi.mock("@/shared/ui/brand/reveal-content/reveal-content", () => ({
+  RevealContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 describe("LandingCoreFeaturesSection", () => {
-  it("shows concise end-user feature cards", () => {
+  it("describes the implemented platform and links to its screens", () => {
     renderWithIntl(<LandingCoreFeaturesSection />);
-
     expect(
       screen.getByRole("heading", {
-        name: "A workflow built for controlled generation.",
+        name: "통합 모델 인터페이스",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Generate")).toBeInTheDocument();
-    expect(screen.getByText("Review")).toBeInTheDocument();
-    expect(screen.getByText("Monitor")).toBeInTheDocument();
-    expect(screen.getByText("Integrate")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Monitor/i }),
-    ).toHaveAttribute("href", "/monitoring");
-    expect(screen.getByTestId("landing-review-skeleton-grid")).toBeInTheDocument();
-    expect(screen.queryByText("Succeeded")).not.toBeInTheDocument();
-    expect(screen.getByText("Image / Video / Audio usage")).toBeInTheDocument();
-    expect(screen.getByText("/v2/image/generate")).toBeInTheDocument();
-    expect(screen.queryByText("Export project")).not.toBeInTheDocument();
-    expect(screen.queryByText(/components\/ui/)).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: "확장 가능한 제공업체 구조" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("99.2%")).toBeNull();
   });
 });

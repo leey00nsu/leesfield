@@ -1,10 +1,8 @@
 "use client";
+import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  SlidersHorizontal,
-  Sparkles,
-} from "lucide-react";
+import { SlidersHorizontal, Sparkles } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -13,7 +11,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import {
   audioGenerationDefaults,
@@ -26,6 +24,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationResultReveal } from "@/shared/ui/generation-result-reveal";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
@@ -65,6 +64,7 @@ import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema"
 import { resolveAudioModalities } from "@/shared/model-catalog/modality";
 
 type AudioGenerationFormProps = {
+  embedded?: boolean;
   isAuthenticated: boolean;
 };
 
@@ -136,8 +136,11 @@ function RequiredFieldLabel({
   );
 }
 
-export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProps) {
-  const searchParams = useSearchParams();
+export function AudioGenerationForm({
+  isAuthenticated,
+  embedded = false,
+}: AudioGenerationFormProps) {
+  const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const tGeneration = useTranslations("generation");
@@ -150,7 +153,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedAudioModels = runtimeAudioModels;
   const hasModels = resolvedAudioModels.length > 0;
-  const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedAudioModels) ?? "";
+  const defaultModelKey =
+    resolveRuntimeDefaultModelKey(resolvedAudioModels) ?? "";
   const runtimeModelMap = useMemo(
     () => new Map(resolvedAudioModels.map((model) => [model.key, model])),
     [resolvedAudioModels],
@@ -178,7 +182,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     zodResolver(staticSchema) as Resolver<AudioGenerationFormValues>,
   );
   useEffect(() => {
-    resolverRef.current = zodResolver(runtimeSchema) as Resolver<AudioGenerationFormValues>;
+    resolverRef.current = zodResolver(
+      runtimeSchema,
+    ) as Resolver<AudioGenerationFormValues>;
   }, [runtimeSchema]);
   const resolver = useMemo<Resolver<AudioGenerationFormValues>>(
     () => (values, context, options) =>
@@ -192,7 +198,12 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     mode: "onChange",
   });
   const promptFromQuery = searchParams?.get("prompt") ?? "";
-  const modelFromQuery = searchParams?.get("model") ?? "";
+  const modelFromQuery =
+    searchParams?.get("model") ??
+    resolvedAudioModels.find(
+      (model) => model.label === searchParams?.get("modelLabel"),
+    )?.key ??
+    "";
   const handleLoginRedirect = useCallback(() => {
     const queryString = searchParams.toString();
     const returnTo = `${pathname}${queryString ? `?${queryString}` : ""}`;
@@ -252,10 +263,14 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       : defaultModelKey
     : "";
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
-  const activeDefaults = useMemo<Partial<Record<AudioFieldName, string | number | boolean | undefined>>>(
+  const activeDefaults = useMemo<
+    Partial<Record<AudioFieldName, string | number | boolean | undefined>>
+  >(
     () => ({
       ...audioGenerationDefaults,
-      ...(activeRuntimeModel ? resolveRuntimeAudioDefaults(activeRuntimeModel) : {}),
+      ...(activeRuntimeModel
+        ? resolveRuntimeAudioDefaults(activeRuntimeModel)
+        : {}),
     }),
     [activeRuntimeModel],
   );
@@ -285,8 +300,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     () => getRuntimeAudioDynamicParameters(activeRuntimeModel),
     [activeRuntimeModel],
   );
-  const advancedParameterKeys = parameterKeys.filter((key) =>
-    advancedAudioFields.has(key) && visibleAdvancedAudioFields.has(key),
+  const advancedParameterKeys = parameterKeys.filter(
+    (key) =>
+      advancedAudioFields.has(key) && visibleAdvancedAudioFields.has(key),
   );
   const canSubmit =
     hasModels &&
@@ -341,9 +357,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
       speaker: defaults.speaker,
       speed: defaults.speed,
       seed: currentValues.seed ?? "",
-      inputAudio: supportsInputAudio ? currentValues.inputAudio ?? "" : "",
+      inputAudio: supportsInputAudio ? (currentValues.inputAudio ?? "") : "",
       referenceText: supportsInputAudio
-        ? currentValues.referenceText ?? ""
+        ? (currentValues.referenceText ?? "")
         : "",
       modeChoice: defaults.modeChoice,
       language: defaults.language,
@@ -370,7 +386,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const { state, startGeneration, reset } = useAudioGeneration();
   const isGenerating =
-    state.status === "pending" || state.status === "processing" || state.status === "uploading";
+    state.status === "pending" ||
+    state.status === "processing" ||
+    state.status === "uploading";
   const resultAudios = state.result?.audios ?? [];
   const hasResults = state.status === "completed" && resultAudios.length > 0;
   const primaryAudio = resultAudios[0];
@@ -420,7 +438,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
     }
 
     void form.handleSubmit((values) => {
-      const resolvedVoiceDefault = String(getResolvedDefaultValue("voice") ?? "");
+      const resolvedVoiceDefault = String(
+        getResolvedDefaultValue("voice") ?? "",
+      );
       const shouldSuppressLegacyVoice =
         parameterKeys.includes("speaker") &&
         typeof values.speaker === "string" &&
@@ -430,10 +450,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
       const resolvedValues: AudioGenerationFormValues = {
         ...values,
-        voice:
-          shouldSuppressLegacyVoice
-            ? ""
-            : parameterKeys.includes("voice")
+        voice: shouldSuppressLegacyVoice
+          ? ""
+          : parameterKeys.includes("voice")
             ? !(values.voice ?? "").trim()
               ? resolvedVoiceDefault
               : values.voice
@@ -443,7 +462,8 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             ? String(getResolvedDefaultValue("speaker") ?? "")
             : values.speaker,
         modeChoice:
-          parameterKeys.includes("modeChoice") && !(values.modeChoice ?? "").trim()
+          parameterKeys.includes("modeChoice") &&
+          !(values.modeChoice ?? "").trim()
             ? String(getResolvedDefaultValue("modeChoice") ?? "")
             : values.modeChoice,
         language:
@@ -541,11 +561,19 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   const getResolvedDefaultValue = (key: AudioFieldName) => {
     const config = getRuntimeAudioParamConfig(activeRuntimeModel, key);
     if (config?.ui === "select") {
-      if (typeof config.default === "string" || typeof config.default === "number") {
+      if (
+        typeof config.default === "string" ||
+        typeof config.default === "number"
+      ) {
         return String(config.default);
       }
-      const firstOptionValue = getRuntimeParameterOptionValue(config.options?.[0]);
-      if (typeof firstOptionValue === "string" || typeof firstOptionValue === "number") {
+      const firstOptionValue = getRuntimeParameterOptionValue(
+        config.options?.[0],
+      );
+      if (
+        typeof firstOptionValue === "string" ||
+        typeof firstOptionValue === "number"
+      ) {
         return String(firstOptionValue);
       }
       return "";
@@ -581,7 +609,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={key}
           render={() => (
             <AppFormItem className="flex flex-col gap-3">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
@@ -637,26 +665,31 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       : range.min;
                 return (
                   <>
-              <div className="flex items-center justify-between">
-                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                  <RequiredFieldLabel label={label} required={isRequired} />
-                </AppFormLabel>
-                <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
-                  {effectiveValue}
-                </span>
-              </div>
-              <AppFormControl>
-                <input
-                  type="range"
-                  min={range.min}
-                  max={range.max}
-                  step={range.step}
-                  value={effectiveValue}
-                  onChange={(event) => field.onChange(Number(event.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
-                />
-              </AppFormControl>
-              <AppFormMessage className="text-xs text-red-400" />
+                    <div className="flex items-center justify-between">
+                      <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
+                        <RequiredFieldLabel
+                          label={label}
+                          required={isRequired}
+                        />
+                      </AppFormLabel>
+                      <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-sans">
+                        {effectiveValue}
+                      </span>
+                    </div>
+                    <AppFormControl>
+                      <input
+                        type="range"
+                        min={range.min}
+                        max={range.max}
+                        step={range.step}
+                        value={effectiveValue}
+                        onChange={(event) =>
+                          field.onChange(Number(event.target.value))
+                        }
+                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
+                      />
+                    </AppFormControl>
+                    <AppFormMessage className="text-xs text-red-400" />
                   </>
                 );
               })()}
@@ -675,7 +708,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={key}
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppSelectRoot
@@ -724,7 +757,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 : Boolean(getResolvedDefaultValue(key));
             return (
               <AppFormItem className="flex items-center justify-between gap-4">
-                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                   <RequiredFieldLabel label={label} required={isRequired} />
                 </AppFormLabel>
                 <AppFormControl>
@@ -739,7 +772,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                       isEnabled ? "text-black" : "text-gray-300",
                     )}
                   >
-                    {isEnabled ? "On" : "Off"}
+                    {isEnabled ? tLabels("enabled") : tLabels("disabled")}
                   </AppButton>
                 </AppFormControl>
               </AppFormItem>
@@ -757,7 +790,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={key}
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
@@ -782,7 +815,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
         name={key}
         render={({ field }) => (
           <AppFormItem className="flex flex-col gap-2">
-            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
               <RequiredFieldLabel label={label} required={isRequired} />
             </AppFormLabel>
             <AppFormControl>
@@ -826,10 +859,10 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             return (
               <AppFormItem className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                  <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                     <RequiredFieldLabel label={label} required={isRequired} />
                   </AppFormLabel>
-                  <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-mono">
+                  <span className="rounded border border-white/10 bg-surface-lighter px-2 py-0.5 text-xs font-bold text-white font-sans">
                     {value}
                   </span>
                 </div>
@@ -863,7 +896,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={fieldName}
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-3">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
@@ -901,7 +934,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={fieldName}
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppSelectRoot
@@ -947,7 +980,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
             const isEnabled = field.value === true;
             return (
               <AppFormItem className="flex items-center justify-between gap-4">
-                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                   <RequiredFieldLabel label={label} required={isRequired} />
                 </AppFormLabel>
                 <AppFormControl>
@@ -959,7 +992,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     aria-pressed={isEnabled}
                     onClick={() => field.onChange(!isEnabled)}
                   >
-                    {isEnabled ? "On" : "Off"}
+                    {isEnabled ? tLabels("enabled") : tLabels("disabled")}
                   </AppButton>
                 </AppFormControl>
               </AppFormItem>
@@ -977,7 +1010,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
           name={fieldName}
           render={({ field }) => (
             <AppFormItem className="flex flex-col gap-2">
-              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+              <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
@@ -1002,7 +1035,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
         name={fieldName}
         render={({ field }) => (
           <AppFormItem className="flex flex-col gap-2">
-            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
               <RequiredFieldLabel label={label} required={isRequired} />
             </AppFormLabel>
             <AppFormControl>
@@ -1013,7 +1046,9 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                     ? field.value
                     : ""
                 }
-                type={config.binding?.valueType === "number" ? "number" : "text"}
+                type={
+                  config.binding?.valueType === "number" ? "number" : "text"
+                }
                 aria-label={label}
                 onChange={(event) =>
                   field.onChange(
@@ -1034,21 +1069,31 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
   return (
     <AppForm {...form}>
       <form
-        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        className={
+          embedded
+            ? "generation-embedded"
+            : "mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        }
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-6">
-          <div className={studioPreviewShellClass}>
-            <GenerationStudioIntro
+          <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
+            {!embedded && (<GenerationStudioIntro
+                compact={embedded}
+                guidance={tGeneration("page.audioGuidance")}
               eyebrow={tAudio("previewEyebrow")}
               title={tAudio("previewTitle")}
               description={tAudio("previewDescription")}
-            />
+            />)}
             <GenerationCanvas
               isGenerating={isGenerating}
               status={state.status}
               errorMessage={state.errorMessage}
-              className={studioResultFrameClass}
+              className={
+                embedded
+                  ? "mx-auto w-full max-w-[400px] aspect-square rounded-xl border bg-card"
+                  : studioResultFrameClass
+              }
             >
               {hasResults && primaryAudio ? (
                 <div className="relative z-10 flex w-full max-w-3xl flex-col gap-3 px-6">
@@ -1062,7 +1107,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 <div aria-hidden="true" className="h-full w-full" />
               )}
             </GenerationCanvas>
-          </div>
+            </GenerationResultReveal>
 
           {hasResults && state.errorMessage ? (
             <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -1078,20 +1123,26 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                 <GenerationPromptField
                   ariaLabel={tGeneration("promptDock.label")}
                   surface="hero"
-                  className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  className={
+                    embedded
+                      ? "generation-composer"
+                      : "fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                  }
                   textarea={
                     <AppFormControl>
                       <AppTextarea
                         surface="transparent"
-                        className="min-h-[104px]"
+                        className="min-h-[160px]"
+                        placeholder={tAudio("promptPlaceholder")}
                         {...field}
                       />
                     </AppFormControl>
                   }
-                  promptMeta={tLabels("chars", { count: promptValue.length })}
-                  feedback={fieldState.error ? (
-                    <AppFormMessage className="text-xs text-red-400" />
-                  ) : undefined}
+                  feedback={
+                    fieldState.error ? (
+                      <AppFormMessage className="text-xs text-red-400" />
+                    ) : undefined
+                  }
                   footerLeft={
                     <>
                       {!isGuest && hasModels ? (
@@ -1138,14 +1189,16 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                         icon={<SlidersHorizontal className="h-4 w-4" />}
                       >
                         <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
-                          {primaryParameterKeys.map((key) => renderAudioField(key))}
+                          {primaryParameterKeys.map((key) =>
+                            renderAudioField(key),
+                          )}
                           {dynamicParameters.map(({ key, config }) =>
                             renderDynamicAudioField(key, config),
                           )}
                           {advancedParameterKeys.length > 0 ? (
                             <>
                               <div className="h-px bg-white/5" />
-                              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                                 {tLabels("moreControls")}
                               </div>
                               {advancedParameterKeys.map((key) =>
@@ -1160,18 +1213,17 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
                   footerRight={
                     <>
                       <AppButton
-                        type={isAuthenticated ? "submit" : "button"}
+                        variant="generate"
+                              type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
                             (isModelLoading || !hasModels || !canSubmit))
                         }
-                        className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                        className="min-w-24"
                         onClick={
-                          isAuthenticated
-                            ? undefined
-                            : handleLoginRedirect
+                          isAuthenticated ? undefined : handleLoginRedirect
                         }
                       >
                         {isGenerating

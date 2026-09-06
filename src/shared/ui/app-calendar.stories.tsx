@@ -41,7 +41,7 @@ function AppCalendarPreview({
   }
 
   return (
-    <div className="rounded-[1.6rem] border border-white/10 bg-[#0b0d0e] p-3">
+    <div className="rounded-[1.6rem] border border-white/10 bg-card p-3">
       <AppCalendar
         mode="single"
         selected={date}

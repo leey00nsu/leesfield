@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Wan 2.2",
+    "logo": "/brands/models/wan.jpg",
+    "source": "https://huggingface.co/Wan-AI",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/67b610677ea7952def8b29c6/N6jQbbeaa_FcUY-wI1dgG.png",
+    "organization": "Wan-AI",
+    "verifiedAt": "2026-09-06"
+  },
+  {
+    "name": "LTX-2.5",
+    "logo": "/brands/models/ltx.jpg",
+    "source": "https://huggingface.co/Lightricks/LTX-2.5",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/669524bcbcd81f395e8f60f6/0ynfqKEWMh_dn3h4ff1K5.png",
+    "organization": "Lightricks",
+    "verifiedAt": "2026-09-06"
+  },
+  {
+    "name": "FLUX.2 klein",
+    "logo": "/brands/models/flux.jpg",
+    "source": "https://bfl.ai/models/flux-2-klein",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/633f7a8f4be90e06da248e0f/m5YoF33abJ09vcwFxt1Mj.png",
+    "organization": "black-forest-labs",
+    "verifiedAt": "2026-09-06"
+  },
+  {
+    "name": "Krea 2",
+    "logo": "/brands/models/krea.png",
+    "source": "https://www.krea.ai/krea-2",
+    "logoSource": "https://avatars.githubusercontent.com/u/108735617?v=4",
+    "organization": "Krea",
+    "verifiedAt": "2026-09-07"
+  },
+  {
+    "name": "Z-Image",
+    "logo": "/brands/models/wan.jpg",
+    "source": "https://huggingface.co/Tongyi-MAI/Z-Image",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/67b610677ea7952def8b29c6/N6jQbbeaa_FcUY-wI1dgG.png",
+    "organization": "Tongyi-MAI",
+    "verifiedAt": "2026-09-06"
+  },
+  {
+    "name": "Qwen-Image-2512",
+    "logo": "/brands/models/qwen.jpg",
+    "source": "https://qwen.ai/blog?id=qwen-image-2512",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/6215ca5692c0ecfba9186921/hrRM50-6XcdWgg2AKpENG.jpeg",
+    "organization": "Qwen",
+    "verifiedAt": "2026-09-06"
+  },
+  {
+    "name": "Speech 2.8",
+    "logo": "/brands/models/minimax.jpg",
+    "source": "https://platform.minimax.io/docs/guides/models-intro",
+    "logoSource": "https://cdn-avatars.huggingface.co/v1/production/uploads/676e38ad04af5bec20bc9faf/dUd-LsZEX0H_d4qefO_g6.jpeg",
+    "organization": "MiniMaxAI",
+    "verifiedAt": "2026-09-06"
+  }
+]

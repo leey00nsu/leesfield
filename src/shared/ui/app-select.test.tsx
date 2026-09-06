@@ -1,5 +1,6 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import {
   AppSelectContent,
   AppSelectItem,
@@ -8,11 +9,16 @@ import {
   AppSelectValue,
 } from "@/shared/ui/app-select";
 import { renderWithIntl } from "@/test-utils/intl";
-
 describe("AppSelect", () => {
-  it("renders portal content above generation settings popovers", () => {
-    renderWithIntl(
-      <AppSelectRoot defaultOpen defaultValue="auto">
+  it("selects through a portal and returns focus to the trigger", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    const { container } = renderWithIntl(
+      <AppSelectRoot
+        defaultOpen
+        defaultValue="auto"
+        onValueChange={onValueChange}
+      >
         <AppSelectTrigger aria-label="Language">
           <AppSelectValue />
         </AppSelectTrigger>
@@ -22,7 +28,9 @@ describe("AppSelect", () => {
         </AppSelectContent>
       </AppSelectRoot>,
     );
-
-    expect(screen.getByRole("listbox")).toHaveClass("z-[100]");
+    expect(container).not.toContainElement(screen.getByRole("listbox"));
+    await user.click(screen.getByRole("option", { name: "Korean" }));
+    expect(onValueChange).toHaveBeenCalledWith("korean");
+    expect(screen.getByRole("combobox")).toHaveFocus();
   });
 });

@@ -1,11 +1,8 @@
 export const dashboardNavigation = [
-  { key: "image", href: "/image" },
+  { key: "generate", href: "/generate" },
   { key: "nodeStudio", href: "/spaces" },
-  { key: "video", href: "/video" },
-  { key: "audio", href: "/audio" },
   { key: "history", href: "/history" },
-  { key: "monitoring", href: "/monitoring" },
   { key: "model", href: "/model" },
-  { key: "apiKey", href: "/api-key" },
+  { key: "monitoring", href: "/monitoring" },
   { key: "apiDocs", href: "/api-docs" },
 ];

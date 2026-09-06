@@ -1,4 +1,5 @@
 "use client";
+import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -42,7 +43,8 @@ import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 
-type HistoryStatusFilter = "all" | Extract<GenerationHistoryStatus, "completed" | "failed">;
+type HistoryStatusFilter =
+  "all" | Extract<GenerationHistoryStatus, "completed" | "failed">;
 const FINISHED_STATUSES = new Set(["completed", "failed"]);
 const HISTORY_STATUSES = new Set<GenerationHistoryStatus>([
   "pending",
@@ -61,7 +63,11 @@ function buildHistoryGenerationUrl(
   if (prompt) params.set("prompt", prompt);
   const model = item.model?.trim();
   if (model) params.set("model", model);
-  if (options.includeImageReference && item.type === "image" && item.resultUrl) {
+  if (
+    options.includeImageReference &&
+    item.type === "image" &&
+    item.resultUrl
+  ) {
     params.set("initImage", item.resultUrl);
   }
   const query = params.toString();
@@ -73,7 +79,9 @@ function formatFallback(value: string | null | undefined) {
 }
 
 function formatProgress(value: number | null | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? `${value}%` : "-";
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${value}%`
+    : "-";
 }
 
 function toHistoryStatus(status: string): GenerationHistoryStatus | null {
@@ -119,7 +127,8 @@ export function GenerationHistoryScreen() {
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
   const [searchInput, setSearchInput] = useState("");
-  const [selectedItem, setSelectedItem] = useState<GenerationHistoryItem | null>(null);
+  const [selectedItem, setSelectedItem] =
+    useState<GenerationHistoryItem | null>(null);
   const debouncedQuery = useDebouncedValue(searchInput, 350);
   const query = debouncedQuery.trim();
   const { items, total, isLoading, error, sentinelRef, removeItem } =
@@ -136,8 +145,9 @@ export function GenerationHistoryScreen() {
   const hasFilteredState = query.length > 0 || statusFilter !== "all";
 
   return (
-    <div className="relative flex min-h-[calc(100vh-5rem)] flex-col gap-8 overflow-x-hidden pb-16">
-      <section className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 pt-6 sm:pt-8 lg:pt-10">
+    <AppPageShell className="relative flex flex-col gap-6">
+      <h1 className="sr-only">{tHistory("title.leading") + " " + tHistory("title.accent")}</h1>
+      <section className="flex w-full flex-col gap-6">
         <AppFilterToolbar>
           <AppFilterGroup>
             <AppFilterToggle
@@ -216,7 +226,7 @@ export function GenerationHistoryScreen() {
         </AppFilterToolbar>
       </section>
 
-      <div className="mx-auto w-full max-w-[1800px]">
+      <div className="w-full">
         {error ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
             {tHistory("error")}
@@ -228,7 +238,9 @@ export function GenerationHistoryScreen() {
             onDeleteItem={removeItem}
             onSelectItem={setSelectedItem}
             emptyMessage={
-              hasFilteredState ? tHistory("empty.search") : tHistory("empty.default")
+              hasFilteredState
+                ? tHistory("empty.search")
+                : tHistory("empty.default")
             }
           />
         )}
@@ -241,7 +253,7 @@ export function GenerationHistoryScreen() {
               className="h-8 w-full max-w-xs"
             />
             {isLoading && (
-              <span className="text-xs font-mono uppercase tracking-widest text-gray-500">
+              <span className="text-xs font-sans uppercase tracking-widest text-gray-500">
                 {tCommonActions("loading")}
               </span>
             )}
@@ -277,7 +289,7 @@ export function GenerationHistoryScreen() {
           }
         />
       ) : null}
-    </div>
+    </AppPageShell>
   );
 }
 
@@ -300,7 +312,11 @@ function HistoryDetailOverlay({
   const tCommonActions = useTranslations("common.actions");
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
-  const detailQuery = useMonitoringRequestDetail(item.type, item.id, item.origin !== "edit");
+  const detailQuery = useMonitoringRequestDetail(
+    item.type,
+    item.id,
+    item.origin !== "edit",
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const detail = detailQuery.data ?? null;
   const hydratedItem = hydrateHistoryItem(item, detail);
@@ -351,7 +367,8 @@ function HistoryDetailOverlay({
   const formattedDuration = formatDuration(durationMs);
   const formattedProgress = formatProgress(hydratedItem.progress);
   const resultUrl = hydratedItem.resultUrl ?? null;
-  const thumbnailUrl = hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl ?? null;
+  const thumbnailUrl =
+    hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl ?? null;
   const warningMessage = detail?.warningMessage ?? null;
 
   useEffect(() => {
@@ -373,9 +390,15 @@ function HistoryDetailOverlay({
   }, [onClose]);
 
   const settingsRows = [
-    { label: tHistory("detail.model"), value: formatFallback(hydratedItem.model) },
+    {
+      label: tHistory("detail.model"),
+      value: formatFallback(hydratedItem.model),
+    },
     { label: tHistory("detail.type"), value: tTypes(hydratedItem.type) },
-    { label: tHistory("detail.origin"), value: tHistory(`origins.${hydratedItem.origin ?? "generation"}`) },
+    {
+      label: tHistory("detail.origin"),
+      value: tHistory(`origins.${hydratedItem.origin ?? "generation"}`),
+    },
     { label: tHistory("detail.status"), value: tStatuses(hydratedItem.status) },
     { label: tHistory("detail.progress"), value: formattedProgress },
   ];
@@ -384,9 +407,18 @@ function HistoryDetailOverlay({
     { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
     { label: tHistory("detail.completedAt"), value: completedAt },
     { label: tHistory("detail.duration"), value: formattedDuration },
-    { label: tHistory("detail.assetId"), value: formatFallback(hydratedItem.assetId) },
-    { label: tHistory("detail.graphId"), value: formatFallback(hydratedItem.graphId) },
-    { label: tHistory("detail.graphNodeId"), value: formatFallback(hydratedItem.graphNodeId) },
+    {
+      label: tHistory("detail.assetId"),
+      value: formatFallback(hydratedItem.assetId),
+    },
+    {
+      label: tHistory("detail.graphId"),
+      value: formatFallback(hydratedItem.graphId),
+    },
+    {
+      label: tHistory("detail.graphNodeId"),
+      value: formatFallback(hydratedItem.graphNodeId),
+    },
     {
       label: tHistory("detail.sourceRecord"),
       value: hydratedItem.operation?.id ?? hydratedItem.id,
@@ -523,18 +555,23 @@ function HistoryDetailOverlay({
   );
 
   const settingsTab = (
-    <AppDetailSection className="p-4">{renderRows(settingsRows)}</AppDetailSection>
+    <AppDetailSection className="p-4">
+      {renderRows(settingsRows)}
+    </AppDetailSection>
   );
 
   const metadataTab = (
-    <AppDetailSection className="p-4">{renderRows(metadataRows)}</AppDetailSection>
+    <AppDetailSection className="p-4">
+      {renderRows(metadataRows)}
+    </AppDetailSection>
   );
 
   const historyTab = (
     <div className="grid gap-3">
       {renderMediaPreview({
         label: inputLabel,
-        url: hydratedItem.type === "audio" ? primaryInputAudio : primaryInputImage,
+        url:
+          hydratedItem.type === "audio" ? primaryInputAudio : primaryInputImage,
         type: hydratedItem.type === "audio" ? "audio" : "image",
         empty: tHistory("detail.noInputAsset"),
       })}
@@ -576,7 +613,8 @@ function HistoryDetailOverlay({
             {tHistory("detail.operationParameters")}
           </div>
           <p className="text-xs text-white/55">
-            {hydratedItem.operation.type} · v{hydratedItem.operation.configVersion}
+            {hydratedItem.operation.type} · v
+            {hydratedItem.operation.configVersion}
           </p>
           <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-white/58">
             {JSON.stringify(hydratedItem.operation.parameters, null, 2)}
@@ -681,6 +719,7 @@ function HistoryDetailOverlay({
             <AppButton
               type="button"
               size="lg"
+              variant="generate"
               onClick={() => onRecreate(hydratedItem)}
               className="h-12 rounded-xl text-sm shadow-none"
             >
@@ -699,7 +738,11 @@ function HistoryDetailOverlay({
                 {tActions("video")}
               </AppButton>
               {hydratedItem.resultUrl ? (
-                <AppButton asChild variant="surface" className="h-11 rounded-xl">
+                <AppButton
+                  asChild
+                  variant="surface"
+                  className="h-11 rounded-xl"
+                >
                   <a
                     href={hydratedItem.resultUrl}
                     download

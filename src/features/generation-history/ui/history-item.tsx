@@ -115,7 +115,7 @@ export function HistoryItem({
               preload="metadata"
             />
           ) : isAudio ? (
-            <div className="flex h-full items-center justify-center bg-[#0b0d0e]">
+            <div className="flex h-full items-center justify-center bg-card">
               <AudioLines className="h-12 w-12 text-primary" />
             </div>
           ) : (
@@ -151,18 +151,26 @@ export function HistoryItem({
               status.className,
             )}
           >
-            <StatusIcon className={cn("h-3 w-3", status.spin && "animate-spin")} />
+            <StatusIcon
+              className={cn("h-3 w-3", status.spin && "animate-spin")}
+            />
             {tStatuses(item.status)}
           </AppBadge>
         </div>
 
         <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
           {item.model ? (
-            <AppBadge variant="overlay" className="max-w-full truncate normal-case tracking-normal backdrop-blur">
+            <AppBadge
+              variant="overlay"
+              className="max-w-full truncate normal-case tracking-normal backdrop-blur"
+            >
               {item.model}
             </AppBadge>
           ) : null}
-          <AppBadge variant="overlay" className="normal-case tracking-normal backdrop-blur">
+          <AppBadge
+            variant="overlay"
+            className="normal-case tracking-normal backdrop-blur"
+          >
             {formattedDate}
           </AppBadge>
         </div>
@@ -176,7 +184,9 @@ export function HistoryItem({
           </div>
         ) : null}
 
-        {item.status === "pending" || item.status === "processing" || item.status === "uploading" ? (
+        {item.status === "pending" ||
+        item.status === "processing" ||
+        item.status === "uploading" ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/35">
             <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>
@@ -195,7 +205,9 @@ export function HistoryItem({
   );
 }
 
-export function HistoryItemSkeleton({ className }: { className?: string } = {}) {
+export function HistoryItemSkeleton({
+  className,
+}: { className?: string } = {}) {
   return (
     <article
       data-testid="history-item-skeleton"

@@ -1,102 +1,56 @@
-import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
-import { getModelCatalog } from "@/server/model-catalog/catalog-service";
-import { modelCatalog as fallbackModelCatalog } from "@/features/model-management/model/model-catalog";
-import {
-  LandingPlatformClientSection,
-  type LandingPlatformModel,
-  type LandingPlatformMonitoringData,
-} from "@/widgets/landing/ui/landing-platform-section-client";
-
-const MODEL_ASSETS = [
-  "/assets/creative-studio/studio-vocalist.jpg",
-  "/assets/creative-studio/film-production.jpg",
-  "/assets/creative-studio/audio-console.jpg",
-  "/assets/creative-studio/mirror-portrait.jpg",
-];
-
-const SHOWCASE_MONITORING_DATA: LandingPlatformMonitoringData = {
-  totalCount: 12486,
-  successRate: 97.8,
-  trend: [
-    { day: "04/24", requests: 920, errors: 18 },
-    { day: "04/25", requests: 1240, errors: 19 },
-    { day: "04/26", requests: 1168, errors: 21 },
-    { day: "04/27", requests: 1492, errors: 22 },
-    { day: "04/28", requests: 1860, errors: 31 },
-    { day: "04/29", requests: 1735, errors: 24 },
-    { day: "04/30", requests: 2110, errors: 27 },
-  ],
-  usage: [
-    { name: "Image", value: 42, total: 5244, color: "#d4f032" },
-    { name: "Video", value: 28, total: 3496, color: "#f5f2df" },
-    { name: "Audio", value: 19, total: 2372, color: "#9e8cff" },
-    { name: "API", value: 11, total: 1374, color: "#6ee7b7" },
-  ],
-};
-
-type FallbackCatalogItem = (typeof fallbackModelCatalog)[number];
-
-function toTitleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function toLandingModel(
-  model: Pick<
-    FallbackCatalogItem | ModelCatalogItem,
-    "key" | "label" | "vendor" | "provider" | "type"
-  >,
-  index: number,
-): LandingPlatformModel {
-  return {
-    key: model.key,
-    label: model.label,
-    vendor: model.vendor,
-    provider: model.provider,
-    modality: toTitleCase(model.type) as LandingPlatformModel["modality"],
-    asset: MODEL_ASSETS[index % MODEL_ASSETS.length],
-  };
-}
-
-async function loadModelCatalog() {
-  try {
-    const catalog = await getModelCatalog({
-      bypassCache: true,
-      includeInactive: false,
-    });
-
-    if (catalog.length > 0) {
-      return catalog.map(toLandingModel);
-    }
-  } catch {
-    // Landing should still render when the local database is not available.
-  }
-
-  return fallbackModelCatalog.map(toLandingModel);
-}
-
-function selectFeaturedModels(catalog: LandingPlatformModel[]) {
-  const imageModel =
-    catalog.find((model) => model.key.includes("gpt-image-2")) ??
-    catalog.find((model) => model.modality === "Image");
-  const videoModel = catalog.find((model) => model.modality === "Video");
-  const audioModel = catalog.find((model) => model.modality === "Audio");
-  const fallback = catalog.find(
-    (model) => model.key !== imageModel?.key && model.key !== videoModel?.key,
-  );
-
-  return [imageModel, videoModel, audioModel, fallback].filter(
-    (model): model is LandingPlatformModel => Boolean(model),
-  ).slice(0, 3);
-}
-
-export async function LandingPlatformSection() {
-  const modelCatalog = await loadModelCatalog();
-  const featuredModels = selectFeaturedModels(modelCatalog);
-
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Boxes, Code2, Activity, Workflow, ArrowUpRight } from "lucide-react";
+import { RevealContent } from "@/shared/ui/brand/reveal-content/reveal-content";
+export function LandingPlatformSection() {
+  const t = useTranslations("inferenceLanding.guides");
   return (
-    <LandingPlatformClientSection
-      featuredModels={featuredModels}
-      monitoring={SHOWCASE_MONITORING_DATA}
-    />
+    <section className="mx-auto w-full max-w-[72rem] px-5 py-24 sm:px-7 sm:py-32 lg:px-8 lg:py-40">
+      <RevealContent variant="section">
+        <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          {t("eyebrow")}
+        </p>
+        <h2 className="mt-3 text-2xl font-medium tracking-[-0.035em]">
+          {t("title")}
+        </h2>
+      </RevealContent>
+      <RevealContent
+        className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        delay={100}
+        variant="stagger"
+      >
+        {[Boxes, Code2, Activity, Workflow].map((Icon, index) => (
+          <article data-reveal-item key={index}>
+            <Link
+              href={["/model", "/api-docs", "/monitoring", "/spaces"][index]}
+              className="group block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            >
+              <div
+                className="relative flex aspect-[1.65] items-center justify-center overflow-hidden rounded-lg border bg-card"
+                data-reveal-media
+              >
+                <Icon
+                  aria-hidden="true"
+                  className="size-9 text-data-accent-foreground transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
+                />
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className="absolute right-3 top-3 size-4 text-muted-foreground"
+                />
+              </div>
+              <p className="mt-3 text-[9px] text-muted-foreground uppercase">
+                {t(`items.${index}.label`)}
+              </p>
+              <h3 className="mt-1 text-xs font-semibold">
+                {t(`items.${index}.title`)}
+              </h3>
+              <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                {t(`items.${index}.description`)}
+              </p>
+            </Link>
+          </article>
+        ))}
+      </RevealContent>
+    </section>
   );
 }

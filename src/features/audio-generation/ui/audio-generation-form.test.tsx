@@ -286,11 +286,12 @@ describe("AudioGenerationForm", () => {
     mockUseAudioGeneration.mockReset();
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ items: runtimeAudioModelsFixture }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ items: runtimeAudioModelsFixture }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
       ),
     );
   });
@@ -404,9 +405,9 @@ describe("AudioGenerationForm", () => {
     expect(dock).toHaveClass("backdrop-blur-xl");
     expect(dock.className).not.toContain("gradient");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
-      "bg-black/18",
+      "bg-card",
     );
-    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(screen.queryByTestId("shared-prompt-meta")).not.toBeInTheDocument();
     expect(dock).toHaveTextContent("모델 선택");
     expect(dock).toHaveTextContent("설정");
     expect(dock).toHaveTextContent("1x");
@@ -447,21 +448,23 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await waitForModels();
 
-    expect(screen.getByText("AUDIO STUDIO")).not.toBeNull();
+    expect(screen.getByText("오디오 생성")).not.toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Shape sound with control." }),
+      screen.getByRole("heading", { name: "원하는 소리를 만들어 보세요." }),
     ).not.toBeNull();
     expect(
-      screen.getByText("Describe the sound you need. Fine-tune the settings. Generate production-ready audio."),
+      screen.getByText(
+        "필요한 소리를 설명하고 설정을 조정해 오디오를 생성하세요.",
+      ),
     ).not.toBeNull();
     const resultFrame = screen.getByTestId("generation-canvas");
     expect(resultFrame).toHaveClass("rounded-[1.75rem]");
     expect(resultFrame).toHaveClass("max-w-6xl");
     expect(resultFrame).not.toHaveClass("bg-[#07090a]");
     expect(
-      screen.getByRole("heading", { name: "Shape sound with control." }).closest(
-        "[data-testid='generation-canvas']",
-      ),
+      screen
+        .getByRole("heading", { name: "원하는 소리를 만들어 보세요." })
+        .closest("[data-testid='generation-canvas']"),
     ).toBeNull();
     expect(screen.queryByAltText("오디오 콘솔 사진")).toBeNull();
     expect(screen.queryByText("VOICE TAKE")).toBeNull();
@@ -570,14 +573,17 @@ describe("AudioGenerationForm", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({ items: [...runtimeAudioModelsFixture, secondModel] }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        ),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              items: [...runtimeAudioModelsFixture, secondModel],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
       ),
     );
 
@@ -616,11 +622,12 @@ describe("AudioGenerationForm", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ items: [cloneModel] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ items: [cloneModel] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
       ),
     );
 
@@ -681,11 +688,12 @@ describe("AudioGenerationForm", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ items: [qwenModeModelFixture] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ items: [qwenModeModelFixture] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
       ),
     );
 
@@ -708,9 +716,9 @@ describe("AudioGenerationForm", () => {
     expect(screen.getAllByText("Mode").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Language").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Speaker").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("combobox", { name: "Speaker" }),
-    ).toHaveTextContent("Vivian - Chinese - Bright young female");
+    expect(screen.getByRole("combobox", { name: "Speaker" })).toHaveTextContent(
+      "Vivian - Chinese - Bright young female",
+    );
     expect(screen.getByText("추가 조정")).not.toBeNull();
     expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
     expect(screen.queryByText("Top K")).not.toBeInTheDocument();
@@ -728,10 +736,9 @@ describe("AudioGenerationForm", () => {
         type: "audio/wav",
       }),
     );
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "샘플 문장" }),
-      { target: { value: "reference transcript" } },
-    );
+    fireEvent.change(screen.getByRole("textbox", { name: "샘플 문장" }), {
+      target: { value: "reference transcript" },
+    });
     await user.click(screen.getByRole("button", { name: "생성" }));
 
     await waitFor(() => {
@@ -763,11 +770,15 @@ describe("AudioGenerationForm", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ items: [dynamicParameterModelFixture] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ items: [dynamicParameterModelFixture] }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
       ),
     );
 
@@ -805,9 +816,9 @@ describe("AudioGenerationForm", () => {
     expect(
       screen.getByRole("button", { name: "Use x-vector only" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("slider", { name: "Temperature" }),
-    ).toHaveValue("0.7");
+    expect(screen.getByRole("slider", { name: "Temperature" })).toHaveValue(
+      "0.7",
+    );
     expect(screen.getByRole("textbox", { name: "Style Prompt" }).tagName).toBe(
       "TEXTAREA",
     );

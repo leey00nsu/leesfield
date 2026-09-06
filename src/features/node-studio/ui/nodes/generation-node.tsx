@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { memo, useRef, useState } from "react";
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
 import { AlertCircle, AudioLines, Image as ImageIcon, LoaderCircle, RotateCcw, SlidersHorizontal, Video } from "lucide-react";
@@ -124,6 +126,7 @@ function GenerationHandle({
 }
 
 export const GenerationNode = memo(function GenerationNode({ id, data, selected }: NodeProps<GenerationRuntimeNode>) {
+  const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio");
   const authoring = useNodeAuthoring();
   const [expanded, setExpanded] = useState(false);
@@ -227,7 +230,7 @@ export const GenerationNode = memo(function GenerationNode({ id, data, selected 
           type="target"
           position={Position.Left}
           top={inputTop}
-          label="Image"
+          label={tc("Image")}
           selected={selected}
           accent
         />
@@ -237,7 +240,7 @@ export const GenerationNode = memo(function GenerationNode({ id, data, selected 
         type="target"
         position={Position.Left}
         top={promptTop}
-        label="Prompt"
+        label={tc("Prompt")}
         selected={selected}
       />
       <GenerationHandle
@@ -269,9 +272,9 @@ export const GenerationNode = memo(function GenerationNode({ id, data, selected 
               rows={3}
               maxLength={20_000}
               disabled={!writable || promptInput.connected}
-              aria-label={promptInput.connected ? "Prompt from connected Prompt node" : undefined}
+              aria-label={promptInput.connected ? tc("Prompt from connected Prompt node") : undefined}
               className="nodrag nowheel min-h-24 resize-none rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-xs normal-case leading-5 tracking-normal text-white outline-none focus:border-primary/70 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-black/40 disabled:text-white/45"
-              placeholder="Describe what to generate..."
+              placeholder={tc("Describe what to generate...")}
               onPointerDown={(event) => event.stopPropagation()}
               onCompositionStart={() => {
                 composingRef.current = true;

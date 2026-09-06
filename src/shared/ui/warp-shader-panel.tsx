@@ -59,10 +59,10 @@ export function WarpShaderPanel({
           rotation={0}
           speed={reduceMotion ? 0 : 0.65}
           colors={[
-            "hsl(200, 100%, 20%)",
-            "hsl(160, 100%, 75%)",
-            "hsl(180, 90%, 30%)",
-            "hsl(170, 100%, 80%)",
+            "hsl(218, 100%, 20%)",
+            "hsl(214, 100%, 75%)",
+            "hsl(220, 90%, 30%)",
+            "hsl(210, 100%, 80%)",
           ]}
         />
       </div>

@@ -84,8 +84,8 @@ function KpiChart({
       >
         <defs>
           <linearGradient id={chartId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#d4f032" stopOpacity={0.2} />
-            <stop offset="100%" stopColor="#d4f032" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#347ff4" stopOpacity={0.2} />
+            <stop offset="100%" stopColor="#347ff4" stopOpacity={0.02} />
           </linearGradient>
         </defs>
         <CartesianGrid
@@ -115,24 +115,26 @@ function KpiChart({
             return (
               <AppChartTooltipContent
                 label={
-                  typeof tooltipLabel === "string" ? formatDay(tooltipLabel) : "-"
+                  typeof tooltipLabel === "string"
+                    ? formatDay(tooltipLabel)
+                    : "-"
                 }
                 rows={[
                   {
                     label,
                     value: formatValue(value),
-                    color: "#d4f032",
+                    color: "#347ff4",
                   },
                 ]}
               />
             );
           }}
-          cursor={{ stroke: "rgba(212,240,50,0.3)" }}
+          cursor={{ stroke: "rgba(52,127,244,0.3)" }}
         />
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#d4f032"
+          stroke="#347ff4"
           strokeWidth={2}
           fill={`url(#${chartId})`}
           dot={false}
@@ -141,7 +143,7 @@ function KpiChart({
         <Line
           type="monotone"
           dataKey="value"
-          stroke="#d4f032"
+          stroke="#347ff4"
           strokeWidth={1}
           dot={false}
           isAnimationActive={false}
@@ -206,7 +208,7 @@ function UsagePieChart({
           {
             name: labels.image,
             value: usageByType.image,
-            color: "#d4f032",
+            color: "#347ff4",
           },
           {
             name: labels.video,
@@ -271,7 +273,10 @@ function UsagePieChart({
           const percent =
             safeTotal > 0 ? Math.round((item.value / safeTotal) * 100) : 0;
           return (
-            <div key={item.name} className="flex items-center justify-between gap-3">
+            <div
+              key={item.name}
+              className="flex items-center justify-between gap-3"
+            >
               <span className="flex min-w-0 items-center gap-2">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -279,7 +284,7 @@ function UsagePieChart({
                 />
                 <span className="truncate">{item.name}</span>
               </span>
-              <span className="font-mono text-[0.7rem] text-white/70">
+              <span className="font-sans text-[0.7rem] text-white/70">
                 {percent}%
               </span>
             </div>

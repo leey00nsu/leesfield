@@ -1,3 +1,5 @@
+"use client";
+import { GenerationComposerLayout } from "@/shared/ui/generation-media-rail";
 import type { ReactNode } from "react";
 import {
   AppPromptField,
@@ -5,6 +7,7 @@ import {
 } from "@/shared/ui/app-prompt-surface";
 
 interface GenerationPromptFieldProps {
+  mediaSelector?: ReactNode;
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
@@ -53,6 +56,7 @@ export function GenerationPromptSurface({
 }
 
 export function GenerationPromptField({
+  mediaSelector,
   textarea,
   attachments,
   header,
@@ -68,20 +72,22 @@ export function GenerationPromptField({
   surface,
 }: GenerationPromptFieldProps) {
   return (
-    <AppPromptField
-      textarea={textarea}
-      attachments={attachments}
-      header={header}
-      feedback={feedback}
-      footer={footer}
-      footerLeft={footerLeft}
-      footerRight={footerRight}
-      promptMeta={promptMeta}
-      contentWrapper={contentWrapper}
-      className={className}
-      ariaLabel={ariaLabel}
-      testId={testId}
-      surface={surface}
-    />
+    <GenerationComposerLayout rail={mediaSelector}>
+      <AppPromptField
+        textarea={textarea}
+        attachments={attachments}
+        header={header}
+        feedback={feedback}
+        footer={footer}
+        footerLeft={footerLeft}
+        footerRight={footerRight}
+        promptMeta={promptMeta}
+        contentWrapper={contentWrapper}
+        className={className}
+        ariaLabel={ariaLabel}
+        testId={testId}
+        surface={surface}
+      />
+    </GenerationComposerLayout>
   );
 }

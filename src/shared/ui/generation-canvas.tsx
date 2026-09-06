@@ -1,3 +1,4 @@
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
@@ -33,7 +34,7 @@ export function GenerationCanvas({
       data-testid="generation-canvas"
       className={cn(
         "group relative flex aspect-video items-center justify-center overflow-hidden bg-background/40",
-        className
+        className,
       )}
     >
       {actions ? (
@@ -42,21 +43,16 @@ export function GenerationCanvas({
       {showEmptyState ? emptyState : children}
 
       {isGenerating && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/75 backdrop-blur-sm">
-          <div className="relative flex h-20 w-20 items-center justify-center">
-            <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-          <p className="text-xs font-mono uppercase tracking-widest text-gray-300">
-            {t("generating")}
-          </p>
+        <div role="status" className="absolute inset-0 z-20 bg-[#090b0d]">
+          <AppSkeleton surface="media" className="absolute inset-0 rounded-none motion-reduce:animate-none" data-testid="generation-skeleton" />
+          <span className="sr-only">{t("generating")}</span>
         </div>
       )}
 
       {showError && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-background/70 px-6 text-center">
           <p className="text-sm font-bold text-red-300">{t("failedTitle")}</p>
-          <p className="text-xs font-mono text-gray-400">
+          <p className="text-xs font-sans text-gray-400">
             {errorMessage ?? t("failedDescription")}
           </p>
         </div>

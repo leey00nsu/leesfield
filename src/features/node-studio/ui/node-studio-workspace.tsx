@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
@@ -1022,12 +1024,13 @@ export function NodeStudioWorkspace({
   }, [graph.writable]);
 
   const busy = autosave.status === "dirty" || autosave.status === "saving";
+  const tHost = useTranslations("nodeStudio.host");
   const saveLabel = {
-    saved: "Saved",
-    dirty: "Unsaved changes",
-    saving: "Saving...",
-    error: "Save failed",
-    conflict: "Newer version available",
+    saved: tHost("saved"),
+    dirty: tHost("dirty"),
+    saving: tHost("saving"),
+    error: tHost("saveError"),
+    conflict: tHost("conflict"),
   }[autosave.status];
   const hostedGraph = useMemo(() => ({ ...graph, title }), [graph, title]);
   const commentNodes = useMemo(() => {
@@ -1066,7 +1069,7 @@ export function NodeStudioWorkspace({
       data-node-banana-annotation-node={annotationNodeId ?? undefined}
       onPointerDownCapture={(event) => {
         const target = event.target;
-        if (target instanceof Element && !target.closest('[aria-label="Navigate comments"], [title="Next comment"], [title="Previous comment"]')) comments.clearFocus();
+        if (target instanceof Element && !target.closest('[data-canvas-action="comments"], [data-canvas-action="next-comment"], [data-canvas-action="previous-comment"]')) comments.clearFocus();
       }}
     >
       <NodeBananaHostedHeader
@@ -1107,8 +1110,8 @@ export function NodeStudioWorkspace({
         inlineParametersEnabled={preferences.inlineParametersEnabled}
         onInlineParametersChange={preferences.setInlineParametersEnabled}
         brand={<div className="flex shrink-0 items-center gap-2">
-          {onBack ? <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 disabled:opacity-40" aria-label="Back to Spaces" title="Back to Spaces" disabled={leaving} onClick={() => void leaveAfterSaving(onBack)}><ChevronLeft aria-hidden="true" className="h-5 w-5" /></button> : null}
-          {onCreatePreset ? <button type="button" className="flex items-center" aria-label="Quickstart" title="Quickstart" onClick={() => setQuickstartOpen(true)}><AppBrandLogo size="sm" /></button> : <AppBrandLogo size="sm" />}
+          {onBack ? <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 disabled:opacity-40" aria-label={tHost("back")} title={tHost("back")} disabled={leaving} onClick={() => void leaveAfterSaving(onBack)}><ChevronLeft aria-hidden="true" className="h-5 w-5" /></button> : null}
+          {onCreatePreset ? <button type="button" className="flex items-center" aria-label={tHost("quickstart")} title={tHost("quickstart")} onClick={() => setQuickstartOpen(true)}><AppBrandLogo size="sm" /></button> : <AppBrandLogo size="sm" />}
         </div>}
         title={title}
         graphs={graphs ?? [{ id: graph.id, title: graph.title }]}
@@ -1174,18 +1177,18 @@ export function NodeStudioWorkspace({
         edges={draftRef.current.edges.map((edge) => ({ source: edge.sourceNodeId, target: edge.targetNodeId }))} />}
       <NodeBananaConfirmDialog
         open={leaveOpen}
-        title="Leave this space?"
-        description="Your changes could not be saved. Stay to retry saving, or discard local changes and leave this space."
-        confirmLabel="Discard and leave"
+        title={tHost("leaveTitle")}
+        description={tHost("leaveDescription")}
+        confirmLabel={tHost("leaveConfirm")}
         danger
         onCancel={() => { setLeaveOpen(false); pendingLeaveAction.current = null; }}
         onConfirm={() => { setLeaveOpen(false); const action = pendingLeaveAction.current; pendingLeaveAction.current = null; action?.(); }}
       />
       <NodeBananaConfirmDialog
         open={deleteOpen}
-        title="Delete space?"
-        description={`Delete “${title}” and its saved graph data. This cannot be undone.`}
-        confirmLabel="Delete"
+        title={tHost("deleteTitle")}
+        description={tHost("deleteDescription", { title })}
+        confirmLabel={tHost("delete")}
         danger
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => {
@@ -1196,9 +1199,9 @@ export function NodeStudioWorkspace({
 
       <NodeBananaConfirmDialog
         open={reloadOpen}
-        title="Reload latest space?"
-        description="Discard local changes and load the latest saved version."
-        confirmLabel="Reload"
+        title={tHost("reloadTitle")}
+        description={tHost("reloadDescription")}
+        confirmLabel={tHost("reload")}
         onCancel={() => setReloadOpen(false)}
         onConfirm={() => {
           setReloadOpen(false);

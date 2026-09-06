@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/apple-touch-icon.png" alt="leesfield rounded favicon" width="96" height="96">
+  <img src="public/logo-blue.svg" alt="leesfield rounded favicon" width="96" height="96">
 </p>
 
 <h1 align="center">
@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  <strong>AI 이미지·비디오·오디오 생성 및 Node 워크플로 플랫폼</strong>
+  <strong>AI inference platform</strong>
 </p>
 
 <p align="center">
@@ -37,6 +37,20 @@
 - [테스트](#테스트)
 - [문제 해결](#문제-해결)
 - [문서](#문서)
+
+## 플랫폼 개요
+
+Leesfield는 서로 다른 AI inference provider의 API와 파라미터를 **runtime model catalog**로 추상화하고, **모델별 동시성 제어·비동기 job orchestration·API key 기반 외부 API·운영 모니터링**을 제공하는 AI inference platform입니다.
+
+모델별 provider와 입력·기본값·검증 규칙은 카탈로그에서 관리합니다. 웹 UI와 외부 API에서 요청을 받아 비동기 작업을 실행하고 상태와 결과를 조회합니다. 새로운 provider 연동에는 서버 adapter 구현이 필요하며, 매체별 외부 API를 하나의 HTTP endpoint로 합치는 구조는 아닙니다.
+
+`모델 선택 / 입력 검증 → 비동기 job → 모델별 동시성 제어 → provider adapter → 결과·히스토리 / 모니터링`
+
+- **웹 생성**: `/generate?type=image|video|audio`에서 매체와 모델을 선택합니다. 탭 전환 시 세션 내 초안과 진행 중 job을 유지합니다. 기존 `/image`, `/video`, `/audio` 링크는 입력 query를 보존해 통합 화면으로 연결합니다.
+- **카탈로그**: 모델별 API·파라미터 설정과 기본 모델을 관리합니다. [모델 카탈로그 가이드](MODEL_CATALOG.md)를 참고하세요.
+- **실행과 운영**: 비동기 job 상태 조회, 모델별 동시성 설정, 요청량·성공률·지연 시간·모델 사용 현황을 제공합니다.
+- **외부 API**: `x-api-key` 인증으로 이미지·비디오·오디오 생성과 상태 조회, 모델 조회 API를 사용합니다.
+- **Spaces**: 노드로 입력과 결과를 구성하고 개별 노드를 직접 실행합니다. 일반 생성과 같은 서버 실행 기반을 사용합니다.
 
 ## Quick Start
 
@@ -70,7 +84,7 @@ pnpm dev
 
 ### 🎨 AI 생성
 
-- 이미지·비디오·오디오 생성 화면
+- 이미지·비디오·오디오 통합 생성 화면과 매체별 입력·결과
 - 생성·편집 asset 히스토리 조회 및 재사용
 
 ### ◈ Spaces
@@ -85,7 +99,8 @@ pnpm dev
 
 ### 📊 모델 관리
 
-- 모델 카탈로그 등록/수정
+- runtime model catalog 등록/수정과 모델별 파라미터·provider 설정
+- 모델별 동시성 제어와 비동기 job 실행·상태 조회
 - 모니터링 대시보드
 
 ### 🔗 API 통합
@@ -96,6 +111,10 @@ pnpm dev
 ### 🌐 국제화 (i18n)
 
 - next-intl 기반 다국어 지원 (한국어, 영어)
+
+## 브랜드 UI
+
+Copy Singer의 고정 shadcn/Base UI 원본을 재사용하며, 차콜 다크 테마·오프화이트 주요 버튼·블루 브랜드 강조·Pretendard를 적용합니다. 출처와 최소 통합 차이는 [COPY_SINGER_UI.md](COPY_SINGER_UI.md)에서 추적합니다. Spaces도 같은 장기 디자인 시스템의 대상이며 실제 스타일 전환은 후속 적용합니다.
 
 ## 기술 스택
 
@@ -206,12 +225,13 @@ pnpm sbom:generate
 
 이 프로젝트는 **API 호출(생성)**과 **저장소 업로드**를 각각 어댑터 패턴으로 분리했습니다.
 
-#### 1) API 호출 어댑터 (이미지/비디오 생성)
+#### 1) API 호출 어댑터 (이미지/비디오/오디오 생성)
 
 현재 구현된 provider:
 
 - 이미지: `hf_space`, `codex_cli`, `codex_bridge`
 - 비디오: `hf_space`
+- 오디오: `hf_space`
 
 설정/선택:
 
@@ -223,8 +243,9 @@ pnpm sbom:generate
 1. 어댑터 파일 추가
    - 이미지: `src/server/image-generation/adapters/`
    - 비디오: `src/server/video-generation/adapters/`
+   - 오디오: `src/server/audio-generation/adapters/`
 2. `types.ts`의 인터페이스 구현
-3. `image-generation.ts` / `video-generation.ts`에서 제공자 분기 추가
+3. `image-generation.ts` / `video-generation.ts` / `audio-generation.ts`에서 제공자 분기 추가
 4. 모델 카탈로그(DB) 갱신
 5. 필요 시 `.env.example`에 새 제공자 설정 추가
 
@@ -291,6 +312,8 @@ pnpm sbom:generate
 - `GET /api/external/image-generation/{requestId}`
 - `POST /api/external/video-generation`
 - `GET /api/external/video-generation/{requestId}`
+- `POST /api/external/audio-generation`
+- `GET /api/external/audio-generation/{requestId}`
 - `GET /api/external/models`
 
 ## 프로젝트 구조
@@ -367,3 +390,5 @@ docker compose restart postgres  # 재시작
 ## 라이선스
 
 [MIT License](LICENSE)
+
+랜딩에서는 스페이스와 같은 React Flow 엔진의 4노드 캔버스로 로컬 예제를 조작할 수 있습니다. 예제 변경은 저장되지 않으며 생성 API를 호출하지 않습니다. 랜딩은 Copy Singer BentoGrid와 Aceternity UI의 Layout Text Flip·무음 Terminal을 사용하며 출처와 통합 차이는 COPY_SINGER_UI.md에서 확인할 수 있습니다.

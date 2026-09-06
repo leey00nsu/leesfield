@@ -10,11 +10,11 @@ type AppToastOptions = Omit<ExternalToast, "description"> & {
 
 const toastClassNames = {
   toast:
-    "border border-white/10 bg-[#111414]/95 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl",
+    "border border-border bg-popover text-popover-foreground rounded-lg shadow-md",
   title: "text-sm font-semibold text-white",
-  description: "text-xs leading-5 text-white/52",
+  description: "text-xs leading-5 text-muted-foreground",
   closeButton:
-    "border-white/10 bg-black/40 text-white/60 hover:bg-white/10 hover:text-white",
+    "border-border bg-popover text-muted-foreground hover:bg-muted hover:text-foreground",
   icon: "text-primary",
 };
 
@@ -31,7 +31,7 @@ export function AppToaster() {
       icons={{
         success: <CheckCircle2 className="h-4 w-4 text-primary" />,
         info: <Info className="h-4 w-4 text-primary" />,
-        error: <XCircle className="h-4 w-4 text-red-300" />,
+        error: <XCircle className="h-4 w-4 text-destructive" />,
       }}
     />
   );

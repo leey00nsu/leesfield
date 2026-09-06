@@ -11,7 +11,7 @@ export default async function PublicLayout({
 
   return (
     <div
-      className="min-h-screen bg-background-dark text-white"
+      className="flex min-h-dvh flex-col bg-background-dark text-white"
       style={
         {
           "--dashboard-header-height": "60px",
@@ -23,7 +23,7 @@ export default async function PublicLayout({
         isAuthenticated={session.isLoggedIn}
         userEmail={session.adminEmail}
       />
-      <main className="bg-background-dark px-6 py-6">{children}</main>
+      <main className="flex flex-1 flex-col bg-background-dark px-4 sm:px-6 lg:px-8">{children}</main>
     </div>
   );
 }

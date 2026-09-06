@@ -51,7 +51,10 @@ export function MonitoringRequestTable({
   const locale = useLocale();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState<MonitoringRequestItem | null>(null);
-  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(locale),
+    [locale],
+  );
   const formatDateTime = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -87,7 +90,8 @@ export function MonitoringRequestTable({
   const canPreviousPage = offset > 0;
   const canNextPage = offset + items.length < total;
   const rangeStart = total === 0 ? 0 : Math.min(offset + 1, total);
-  const fallbackVisibleCount = total === 0 ? 0 : Math.min(limit, total - offset);
+  const fallbackVisibleCount =
+    total === 0 ? 0 : Math.min(limit, total - offset);
   const visibleCount = items.length > 0 ? items.length : fallbackVisibleCount;
   const rangeEnd = total === 0 ? 0 : Math.min(offset + visibleCount, total);
   const safeCurrentPage = total === 0 ? 0 : pageIndex + 1;
@@ -130,7 +134,7 @@ export function MonitoringRequestTable({
         header: t("requests.columns.model"),
         cell: ({ row }) => (
           <div className="flex items-center gap-2 font-semibold text-white">
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-400">
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-sans uppercase text-gray-400">
               {row.original.type}
             </span>
             <span>{row.original.model ?? "-"}</span>
@@ -161,7 +165,10 @@ export function MonitoringRequestTable({
           <div className="text-right">{t("requests.columns.status")}</div>
         ),
         cell: ({ row }) => {
-          const status = resolveMonitoringStatus(row.original.status, statusLabels);
+          const status = resolveMonitoringStatus(
+            row.original.status,
+            statusLabels,
+          );
           const Icon = status.icon;
           return (
             <div className="text-right">
@@ -223,9 +230,11 @@ export function MonitoringRequestTable({
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-primary">
+        <div className="flex items-center gap-2 text-xs font-sans text-primary">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-          {updatedAt ? t("requests.updated", { time: formatDateTime(updatedAt) }) : t("requests.updating")}
+          {updatedAt
+            ? t("requests.updated", { time: formatDateTime(updatedAt) })
+            : t("requests.updating")}
         </div>
       </div>
 
@@ -264,7 +273,7 @@ export function MonitoringRequestTable({
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr
                     key={headerGroup.id}
-                    className="border-b border-white/10 text-xs font-mono uppercase tracking-widest text-gray-500"
+                    className="border-b border-white/10 text-xs font-sans uppercase tracking-widest text-gray-500"
                   >
                     {headerGroup.headers.map((header) => (
                       <th
@@ -303,7 +312,10 @@ export function MonitoringRequestTable({
                   >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -312,10 +324,13 @@ export function MonitoringRequestTable({
             </table>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="font-mono uppercase tracking-widest">
+                <span className="font-sans uppercase tracking-widest">
                   {t("requests.pagination.rowsPerPage")}
                 </span>
-                <AppSelectRoot value={String(limit)} onValueChange={handleLimitChange}>
+                <AppSelectRoot
+                  value={String(limit)}
+                  onValueChange={handleLimitChange}
+                >
                   <AppSelectTrigger
                     triggerSize="sm"
                     className="w-[92px] text-xs"
@@ -342,7 +357,7 @@ export function MonitoringRequestTable({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </AppButton>
-                <div className="min-w-[84px] text-center text-xs font-mono text-gray-400">
+                <div className="min-w-[84px] text-center text-xs font-sans text-gray-400">
                   {t("requests.pagination.page", {
                     current: safeCurrentPage,
                     total: safePageCount,

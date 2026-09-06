@@ -47,10 +47,7 @@ export function LandingFeaturesSection() {
 
           <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
             {statKeys.map((key) => (
-              <div
-                key={key}
-                className="border-t border-white/15 pt-4"
-              >
+              <div key={key} className="border-t border-white/15 pt-4">
                 <p className="text-3xl font-black text-white">
                   {t(`stats.${key}.value`)}
                 </p>
@@ -88,7 +85,7 @@ export function LandingFeaturesSection() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="absolute inset-x-4 bottom-4">
-                  <p className="text-xs font-mono text-gray-400">
+                  <p className="text-xs font-sans text-gray-400">
                     0{index + 1}
                   </p>
                   <h3 className="mt-1 text-2xl font-black text-white">

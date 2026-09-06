@@ -1,187 +1,67 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  ChartNoAxesCombined,
-  Code2,
-  Eye,
-  Sparkles,
-} from "lucide-react";
 import { useTranslations } from "next-intl";
-import { AppCard } from "@/shared/ui/app-card";
-import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
-import { LandingReveal, LandingScaleY } from "./landing-motion";
-
-const workflowItems = [
-  { key: "generate", icon: Sparkles, href: "/image" },
-  { key: "review", icon: Eye, href: "/history" },
-  { key: "monitor", icon: ChartNoAxesCombined, href: "/monitoring" },
-  { key: "integrate", icon: Code2, href: "/api-docs" },
-] as const;
-
+import {
+  BentoGrid,
+  BentoGridItem,
+} from "@/shared/ui/brand/bento-grid/bento-grid";
+import { RevealContent } from "@/shared/ui/brand/reveal-content/reveal-content";
+import { LandingProductPreview } from "./landing-product-preview";
 export function LandingCoreFeaturesSection() {
-  const t = useTranslations("landing.workflow");
-
+  const t = useTranslations("inferenceLanding");
   return (
-    <section className="px-6 py-20 sm:px-10 lg:py-28">
-      <div className="mx-auto w-full max-w-[1500px]">
-        <LandingReveal
-          className="mx-auto max-w-4xl text-center"
-          testId="landing-workflow-heading"
-          y={14}
-        >
-          <AppEyebrow>{t("eyebrow")}</AppEyebrow>
-          <AppHeading className="mt-7">
-            {t("title")}
-          </AppHeading>
-          <p className="mx-auto mt-7 max-w-3xl text-base leading-7 text-white/64 md:text-lg">
-            {t("description")}
-          </p>
-        </LandingReveal>
-
-        <div className="mt-20 grid gap-4 lg:grid-cols-4">
-          {workflowItems.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <LandingReveal
-                key={item.key}
-                className="h-full"
-                delay={index * 0.08}
-                testId={`landing-workflow-card-${item.key}`}
+    <section
+      aria-label={t("bentoLabel")}
+      className="mx-auto w-full max-w-6xl px-6 py-20 lg:py-28"
+    >
+      <RevealContent suppressHydrationWarning variant="section">
+        <p className="text-sm text-data-accent-foreground">
+          {t("platformEyebrow")}
+        </p>
+        <h2 className="mt-3 max-w-2xl text-3xl font-medium tracking-tight sm:text-4xl">
+          {t("platformTitle")}
+        </h2>
+      </RevealContent>
+      <RevealContent suppressHydrationWarning variant="fade" className="mt-10">
+        <BentoGrid className="gap-px overflow-hidden rounded-2xl border bg-border">
+          {(["jobs", "catalog", "monitor", "api"] as const).map(
+            (key, index) => (
+              <div
+                key={key}
+                className={
+                  "flex flex-col bg-[#141416] " +
+                  ([1, 2].includes(index) ? "md:col-span-4" : "md:col-span-2")
+                }
               >
-                <AppCard
-                  variant="editorial"
-                  className="group min-h-[34rem] rounded-[1.35rem] p-0 transition-transform duration-300 hover:-translate-y-1"
+                <BentoGridItem
+                  className="min-h-[300px] flex-1 rounded-none border-0 bg-transparent hover:translate-y-0"
+                  title={t(key + ".title")}
                 >
-                  <Link href={item.href} className="flex min-h-[34rem] flex-col p-6">
-                    <div className="flex items-center gap-3 text-primary">
-                      <Icon className="h-6 w-6" />
-                      <span className="font-semibold">{t(`items.${item.key}.title`)}</span>
-                    </div>
-                    <div className="mt-8 h-56 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/18 p-4">
-                      <MiniWorkflowPreview itemKey={item.key} />
-                    </div>
-                    <div className="mt-8 flex flex-1 flex-col border-t border-primary/55 pt-6">
-                      <p className="max-w-xs text-base leading-7 text-white/78">
-                        {t(`items.${item.key}.description`)}
-                      </p>
-                      <span className="mt-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary text-black transition-transform group-hover:translate-x-1">
-                        <ArrowRight className="h-5 w-5" />
-                      </span>
-                    </div>
-                  </Link>
-                </AppCard>
-              </LandingReveal>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function MiniWorkflowPreview({ itemKey }: { itemKey: string }) {
-  if (itemKey === "review") {
-    return (
-      <div
-        data-testid="landing-review-skeleton-grid"
-        className="grid h-full grid-cols-6 grid-rows-6 gap-2"
-      >
-        <SkeletonGridTile className="col-span-3 row-span-3" index={0} />
-        <SkeletonGridTile className="col-span-3 row-span-2" index={1} />
-        <SkeletonGridTile className="col-span-2 row-span-2" index={2} />
-        <SkeletonGridTile className="col-span-2 row-span-3" index={3} />
-        <SkeletonGridTile className="col-span-2 row-span-2" index={4} />
-        <SkeletonGridTile className="col-span-2 row-span-2" index={5} />
-      </div>
-    );
-  }
-
-  if (itemKey === "monitor") {
-    return (
-      <div className="flex h-full flex-col justify-between">
-        <div className="grid grid-cols-3 gap-2 text-xs text-white/56">
-          <MetricPreview label="Success" value="99.2%" />
-          <MetricPreview label="Jobs" value="432" />
-          <MetricPreview label="Latency" value="1.2s" />
-        </div>
-        <div className="flex h-20 items-end gap-1.5">
-          {[32, 46, 40, 58, 44, 52, 66, 49, 62, 72, 56, 68, 60, 76].map(
-            (height, index) => (
-              <LandingScaleY
-                key={`${height}-${index}`}
-                className="flex-1 rounded-t bg-primary/80"
-                delay={index * 0.025}
-                style={{ height: `${height}%` }}
-              />
+                  <div className="flex w-full flex-col transition-transform duration-500 ease-out group-hover/bento:scale-[1.025] motion-reduce:transform-none">
+                    <LandingProductPreview kind={key} />
+                    {key !== "api" && (
+                      <Link
+                        href={
+                          {
+                            jobs: "/monitoring",
+                            catalog: "/model",
+                            monitor: "/monitoring",
+                            api: "/api-docs",
+                          }[key]
+                        }
+                        aria-label={t(key + ".title")}
+                        className="absolute inset-0"
+                      ></Link>
+                    )}
+                  </div>
+                </BentoGridItem>
+                <p className="px-4 pb-5 text-sm leading-relaxed text-muted-foreground sm:px-5">
+                  {t(key + ".description")}
+                </p>
+              </div>
             ),
           )}
-        </div>
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/62">
-          <span>Image / Video / Audio usage</span>
-          <span className="text-primary">Live</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (itemKey === "integrate") {
-    return (
-      <div className="flex h-full flex-col text-sm text-white/62">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-md bg-primary/15 px-2 py-1 font-semibold text-primary">
-            POST
-          </span>
-          <span>/v2/image/generate</span>
-        </div>
-        <LandingReveal className="mt-4 flex-1" delay={0.08} y={10}>
-          <div className="h-full rounded-lg border border-white/8 bg-black/30 p-3 font-mono text-xs leading-6 text-white/58">
-            <p>{'{"model": "gpt-image-2",'}</p>
-            <p>{'"prompt": "studio product shot",'}</p>
-            <p>{'"aspect_ratio": "16:9"}'}</p>
-          </div>
-        </LandingReveal>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <span className="rounded-lg bg-white/8 px-3 py-2 text-center">API keys</span>
-          <span className="rounded-lg bg-primary py-2 text-center font-semibold text-black">
-            Docs
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="grid grid-cols-3 border-b border-white/10 text-center text-xs text-white/70">
-        <span className="border-b border-primary py-2 text-primary">Image</span>
-        <span className="py-2">Video</span>
-        <span className="py-2">Audio</span>
-      </div>
-      <LandingReveal className="mt-3 h-24 rounded-lg bg-white/8" delay={0.06} y={8} />
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <LandingReveal className="h-12 rounded-lg bg-white/8" delay={0.1} y={8} />
-        <LandingReveal className="h-12 rounded-lg bg-white/8" delay={0.14} y={8} />
-      </div>
-      <LandingReveal className="mx-auto mt-5 h-10 w-36 rounded-lg bg-primary" delay={0.18} y={8} />
-    </div>
-  );
-}
-
-function MetricPreview({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/8 bg-white/[0.04] p-2">
-      <p>{label}</p>
-      <p className="mt-1 font-medium text-white">{value}</p>
-    </div>
-  );
-}
-
-function SkeletonGridTile({ className, index }: { className: string; index: number }) {
-  return (
-    <LandingReveal
-      className={`rounded-lg border border-white/8 bg-white/[0.075] ${className}`}
-      delay={index * 0.045}
-      y={8}
-    />
+        </BentoGrid>
+      </RevealContent>
+    </section>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -132,9 +133,11 @@ export function MonitoringDashboardScreen() {
   };
 
   return (
-    <div className="overflow-x-hidden pb-20 pt-4 sm:pt-6">
-      <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-4 px-4 sm:px-6 lg:px-8">
-        <AppFilterToolbar>
+    <AppPageShell>
+      <h1 className="sr-only">{t("title.leading") + " " + t("title.accent")}</h1>
+      <div className="flex w-full min-w-0 flex-col gap-6">
+        <AppFilterToolbar className="lg:flex-col lg:items-stretch">
+          <div className="flex flex-wrap items-center gap-2" data-monitoring-filter-group="">
           <AppFilterGroup>
             {(["all", "image", "video", "audio"] as MonitoringType[]).map(
               (item) => (
@@ -152,17 +155,8 @@ export function MonitoringDashboardScreen() {
             )}
           </AppFilterGroup>
 
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(8rem,0.7fr)_minmax(8rem,0.7fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
-            <AppDatePicker
-              aria-label={t("filters.from")}
-              value={from}
-              onChange={handleFromChange}
-            />
-            <AppDatePicker
-              aria-label={t("filters.to")}
-              value={to}
-              onChange={handleToChange}
-            />
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+
             <AppSelectRoot
               value={status}
               onValueChange={(value) =>
@@ -173,11 +167,12 @@ export function MonitoringDashboardScreen() {
                 surface="toolbar"
                 triggerSize="md"
                 aria-label={t("filters.status")}
-                className="h-14 rounded-[1.5rem]"
+                className="w-full sm:w-44"
+                style={{ height: 40 }}
               >
                 <AppSelectValue placeholder={t("filters.status")} />
               </AppSelectTrigger>
-              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+              <AppSelectContent className="border-white/10 bg-card text-white">
                 {statusFilters.map((item) => (
                   <AppSelectItem key={item} value={item}>
                     {t(`filters.statuses.${item}`)}
@@ -193,11 +188,12 @@ export function MonitoringDashboardScreen() {
                 surface="toolbar"
                 triggerSize="md"
                 aria-label={t("filters.model")}
-                className="h-14 rounded-[1.5rem]"
+                className="w-full sm:w-44"
+                style={{ height: 40 }}
               >
                 <AppSelectValue placeholder={t("filters.model")} />
               </AppSelectTrigger>
-              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+              <AppSelectContent className="border-white/10 bg-card text-white">
                 <AppSelectItem value="all">
                   {t("filters.allModels")}
                 </AppSelectItem>
@@ -216,11 +212,12 @@ export function MonitoringDashboardScreen() {
                 surface="toolbar"
                 triggerSize="md"
                 aria-label={t("filters.apiKey")}
-                className="h-14 rounded-[1.5rem]"
+                className="w-full sm:w-44"
+                style={{ height: 40 }}
               >
                 <AppSelectValue placeholder={t("filters.apiKey")} />
               </AppSelectTrigger>
-              <AppSelectContent className="border-white/10 bg-[#0b0d0e] text-white">
+              <AppSelectContent className="border-white/10 bg-card text-white">
                 <AppSelectItem value="all">
                   {t("filters.allApiKeys")}
                 </AppSelectItem>
@@ -234,6 +231,19 @@ export function MonitoringDashboardScreen() {
                 ))}
               </AppSelectContent>
             </AppSelectRoot>
+          </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" data-monitoring-date-group="">
+            <AppDatePicker
+              aria-label={t("filters.from")}
+              value={from}
+              onChange={handleFromChange}
+            />
+            <AppDatePicker
+              aria-label={t("filters.to")}
+              value={to}
+              onChange={handleToChange}
+            />
           </div>
         </AppFilterToolbar>
 
@@ -262,6 +272,6 @@ export function MonitoringDashboardScreen() {
           <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
         </div>
       </div>
-    </div>
+    </AppPageShell>
   );
 }

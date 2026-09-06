@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { AppCanvasLocalizationProvider } from "@/shared/i18n/canvas-localization-provider";
+import { CloseLabelProvider } from "@/shared/ui/close-label";
 import { AppToaster } from "@/shared/ui/app-toast";
 
 interface ProvidersProps {
@@ -40,8 +42,10 @@ export function Providers({
         messages={messages}
         timeZone={timeZone}
       >
-        {children}
-        <AppToaster />
+        <CloseLabelProvider><AppCanvasLocalizationProvider>
+          {children}
+          <AppToaster />
+        </AppCanvasLocalizationProvider></CloseLabelProvider>
       </NextIntlClientProvider>
     </QueryClientProvider>
   );

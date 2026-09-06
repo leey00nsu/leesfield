@@ -55,16 +55,20 @@ describe("VideoGenerationForm", () => {
     resetMock.mockClear();
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            items: [...runtimeImageModelsFixture, ...runtimeVideoModelsFixture],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        ),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              items: [
+                ...runtimeImageModelsFixture,
+                ...runtimeVideoModelsFixture,
+              ],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
       ),
     );
     class MockFileReader {
@@ -87,7 +91,10 @@ describe("VideoGenerationForm", () => {
     navigationMocks.searchParams = new URLSearchParams();
     navigationMocks.searchParams.set("prompt", "query prompt");
     navigationMocks.searchParams.set("model", "wan2-2-hf");
-    navigationMocks.searchParams.set("initImage", "https://example.com/init.png");
+    navigationMocks.searchParams.set(
+      "initImage",
+      "https://example.com/init.png",
+    );
 
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
@@ -127,16 +134,17 @@ describe("VideoGenerationForm", () => {
     expect(dock).toHaveClass("backdrop-blur-xl");
     expect(dock.className).not.toContain("gradient");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
-      "bg-black/18",
+      "bg-card",
     );
-    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(screen.queryByTestId("shared-prompt-meta")).not.toBeInTheDocument();
     expect(dock).toHaveTextContent("모델 선택");
     expect(dock).toHaveTextContent("이미지 필요");
     expect(dock).toHaveTextContent("3.5s");
     expect(within(dock).queryByRole("slider")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: /Wan 2\.2/i }),
-    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", { name: /Wan 2\.2/i })).toHaveAttribute(
+      "aria-haspopup",
+      "dialog",
+    );
     expect(screen.getByRole("button", { name: "생성" })).toBeInTheDocument();
   });
 
@@ -144,39 +152,45 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
-    expect(screen.getByText("VIDEO STUDIO")).toBeInTheDocument();
+    expect(screen.getByText("비디오 생성")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Create motion with control." }),
+      screen.getByRole("heading", { name: "원하는 움직임을 만들어 보세요." }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Describe your idea. We'll handle the camera, the movement, and the magic."),
+      screen.getByText(
+        "장면과 움직임을 설명하고 비디오를 생성하세요.",
+      ),
     ).toBeInTheDocument();
     const resultFrame = screen.getByTestId("generation-canvas");
     expect(resultFrame).toHaveClass("rounded-[1.75rem]");
     expect(resultFrame).toHaveClass("max-w-6xl");
     expect(resultFrame).not.toHaveClass("bg-[#07090a]");
     expect(
-      screen.getByRole("heading", { name: "Create motion with control." }).closest(
-        "[data-testid='generation-canvas']",
-      ),
+      screen
+        .getByRole("heading", { name: "원하는 움직임을 만들어 보세요." })
+        .closest("[data-testid='generation-canvas']"),
     ).toBeNull();
     expect(screen.queryByAltText("촬영 현장 사진")).not.toBeInTheDocument();
     expect(screen.queryByText("MOTION TAKE")).not.toBeInTheDocument();
   });
 
   it("does not render the old preset strip and still submits through the dock", async () => {
-    const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    const { container } = renderWithIntl(
+      <VideoGenerationForm isAuthenticated />,
+    );
     const user = userEvent.setup();
 
     await waitForModels();
-    expect(screen.queryByRole("button", { name: /제품 오빗/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /제품 오빗/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Wan 2\.2/i })).toHaveClass(
       "border-primary",
     );
 
     const submit = screen.getByRole("button", { name: "생성" });
     const fileInput = container.querySelector(
-      "input[type=\"file\"]",
+      'input[type="file"]',
     ) as HTMLInputElement | null;
 
     expect(submit).toBeDisabled();
@@ -231,14 +245,16 @@ describe("VideoGenerationForm", () => {
     await waitForModels();
 
     await openModelPicker(userEvent.setup());
-    expect(await screen.findByText("default")).toBeInTheDocument();
+    expect(await screen.findByText("기본")).toBeInTheDocument();
     expect(screen.queryByText("T2V")).not.toBeInTheDocument();
     expect(screen.queryByText("I2V")).not.toBeInTheDocument();
     expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
   });
 
   it("submits prompt and default settings", async () => {
-    const { container } = renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    const { container } = renderWithIntl(
+      <VideoGenerationForm isAuthenticated />,
+    );
     const user = userEvent.setup();
     await waitForModels();
 
@@ -247,7 +263,7 @@ describe("VideoGenerationForm", () => {
     ).getByRole("textbox");
     const submit = screen.getByRole("button", { name: "생성" });
     const fileInput = container.querySelector(
-      "input[type=\"file\"]",
+      'input[type="file"]',
     ) as HTMLInputElement | null;
 
     expect(submit).toBeDisabled();

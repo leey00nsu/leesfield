@@ -96,7 +96,10 @@ const audioModelFixture: ModelCatalogItem = {
   },
 };
 
-const records = [...modelCatalog.map((item) => toRecord(item)), toRecord(audioModelFixture)];
+const records = [
+  ...modelCatalog.map((item) => toRecord(item)),
+  toRecord(audioModelFixture),
+];
 const imageModel = records.find((item) => item.type === "image");
 const videoModel = records.find((item) => item.type === "video");
 const audioModel = records.find((item) => item.type === "audio");
@@ -140,21 +143,28 @@ describe("ModelManagementScreen", () => {
 
     const imageLabels = await screen.findAllByText(imageModel!.label);
     expect(imageLabels.length).toBeGreaterThan(0);
-    expect(screen.getByPlaceholderText("검색...")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "모델 정렬" })).toBeInTheDocument();
-    expect(screen.queryByText("모델 관리")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("검색…")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "모델 정렬" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "모델 관리" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
     const toolbar = document.querySelector("[data-app-filter-toolbar]");
     expect(toolbar).toBeInTheDocument();
     expect(toolbar).toHaveClass("lg:flex-wrap");
-    expect(screen.getByRole("button", { name: "전체" })).toHaveClass("rounded-full");
-    expect(screen.getByRole("button", { name: "전체" })).not.toHaveClass("rounded-none");
+    expect(screen.getByRole("button", { name: "전체" })).not.toHaveClass(
+      "rounded-none",
+    );
 
     await user.click(screen.getByRole("button", { name: "이미지" }));
 
     await waitFor(() => {
       expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
-      expect(screen.queryAllByText(imageModel!.label).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(imageModel!.label).length).toBeGreaterThan(
+        0,
+      );
     });
   });
 
@@ -183,9 +193,9 @@ describe("ModelManagementScreen", () => {
     renderWithIntl(<ModelManagementScreen />);
 
     await screen.findByText(newerVideo.label);
-    const labels = Array.from(document.querySelectorAll("[data-model-row] h3")).map(
-      (node) => node.textContent,
-    );
+    const labels = Array.from(
+      document.querySelectorAll("[data-model-row] h3"),
+    ).map((node) => node.textContent);
 
     expect(labels[0]).toBe(newerVideo.label);
     expect(labels[1]).toBe(olderImage.label);
@@ -204,14 +214,16 @@ describe("ModelManagementScreen", () => {
     const videoLabels = await screen.findAllByText(videoModel!.label);
     expect(videoLabels.length).toBeGreaterThan(0);
 
-    const input = screen.getByPlaceholderText("검색...");
+    const input = screen.getByPlaceholderText("검색…");
 
     await user.clear(input);
     await user.type(input, videoModel!.key);
 
     await waitFor(() => {
       expect(screen.queryAllByText(imageModel!.label)).toHaveLength(0);
-      expect(screen.queryAllByText(videoModel!.label).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(videoModel!.label).length).toBeGreaterThan(
+        0,
+      );
     });
   });
 
@@ -250,7 +262,9 @@ describe("ModelManagementScreen", () => {
     await user.click(screen.getByRole("button", { name: "오디오" }));
 
     await waitFor(() => {
-      expect(screen.queryAllByText(audioModel!.label).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(audioModel!.label).length).toBeGreaterThan(
+        0,
+      );
       expect(screen.queryAllByText(imageModel!.label)).toHaveLength(0);
       expect(screen.queryAllByText(videoModel!.label)).toHaveLength(0);
     });
@@ -258,12 +272,16 @@ describe("ModelManagementScreen", () => {
     await user.click(screen.getByRole("button", { name: "모델 추가" }));
     const typeSelect = screen.getByRole("combobox", { name: "유형" });
     expect(typeSelect).toHaveAttribute("data-app-select");
-    expect(document.querySelector("[data-app-select-native]")).not.toBeInTheDocument();
+    expect(
+      document.querySelector("[data-app-select-native]"),
+    ).not.toBeInTheDocument();
     await user.click(typeSelect);
     await user.click(screen.getByRole("option", { name: "오디오" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("combobox", { name: "유형" })).toHaveTextContent("오디오");
+      expect(screen.getByRole("combobox", { name: "유형" })).toHaveTextContent(
+        "오디오",
+      );
       expect(screen.getByDisplayValue(/run_generation/)).toBeTruthy();
       expect(screen.getByDisplayValue(/default_speed/)).toBeTruthy();
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
@@ -331,7 +349,9 @@ describe("ModelManagementScreen", () => {
     await user.click(screen.getByRole("button", { name: "가져오기" }));
 
     await waitFor(() => {
-      expect(screen.getAllByDisplayValue(/run_generation/).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByDisplayValue(/run_generation/).length,
+      ).toBeGreaterThan(0);
       expect(screen.getByDisplayValue(/supports_input_audio/)).toBeTruthy();
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
       expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();

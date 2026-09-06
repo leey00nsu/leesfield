@@ -55,7 +55,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    const input = await screen.findByPlaceholderText("검색...");
+    const input = await screen.findByPlaceholderText("검색…");
     await user.type(input, "Legacy");
 
     await waitFor(() => {
@@ -82,7 +82,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    const labelInput = await screen.findByPlaceholderText("새 키 라벨...");
+    const labelInput = await screen.findByPlaceholderText("새 키 라벨…");
     await user.type(labelInput, "NewKey");
     await user.click(screen.getByRole("button", { name: "새 키 발급" }));
 

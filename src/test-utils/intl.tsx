@@ -1,3 +1,4 @@
+import { CloseLabelProvider } from "@/shared/ui/close-label";
 import type { PropsWithChildren } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import type { AbstractIntlMessages } from "next-intl";
@@ -17,8 +18,8 @@ export function IntlProvider({
   messages?: AbstractIntlMessages;
 }>) {
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      {children}
+    <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
+      <CloseLabelProvider>{children}</CloseLabelProvider>
     </NextIntlClientProvider>
   );
 }
@@ -62,8 +63,8 @@ export function createIntlWrapper(
   return function Wrapper({ children }: PropsWithChildren) {
     return (
       <QueryClientProvider client={queryClient}>
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
+          <CloseLabelProvider>{children}</CloseLabelProvider>
         </NextIntlClientProvider>
       </QueryClientProvider>
     );

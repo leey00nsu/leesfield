@@ -1,102 +1,43 @@
-import Image from "next/image";
 import { Header } from "@/widgets/header/ui/header";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
 import { getTranslations } from "next-intl/server";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
-import { AppHeading } from "@/shared/ui/app-typography";
-
-type LoginScreenProps = {
-  returnTo?: string;
-};
-
+type LoginScreenProps = { returnTo?: string };
 export async function LoginScreen({ returnTo = "/" }: LoginScreenProps) {
-  const tLogin = await getTranslations("auth.login");
+  const t = await getTranslations("auth.login");
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#07090b] text-white">
-      <div className="pointer-events-none absolute inset-0">
-        <Image
-          src="/assets/creative-studio/blue-mosaic.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover opacity-10 blur-sm"
-        />
-        <div className="absolute inset-0 bg-[#07090b]/82" />
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
       <Header variant="public" />
-
-      <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 sm:px-8 lg:px-10">
+      <main className="flex min-h-[calc(100svh-4rem)] flex-1 items-center">
         <section
-          aria-label={tLogin("panelLabel")}
-          className="grid w-full min-w-0 max-w-[22.375rem] grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[2rem] border border-white/10 bg-[#121619]/95 shadow-[0_28px_130px_rgba(0,0,0,0.58)] backdrop-blur-xl sm:max-w-[calc(100vw-4rem)] lg:max-w-6xl lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)]"
+          aria-label={t("panelLabel")}
+          className="mx-auto grid w-full max-w-[72rem] gap-10 px-5 py-14 sm:px-7 sm:py-20 lg:grid-cols-[minmax(0,.9fr)_minmax(20rem,.58fr)] lg:items-center lg:px-8"
         >
-          <div className="flex min-h-[38rem] min-w-0 overflow-hidden flex-col justify-center px-6 py-8 sm:px-10 lg:px-14">
-            <div className="mx-auto flex w-full min-w-0 max-w-[19.5rem] flex-col items-center text-center sm:max-w-md">
+          <div
+            className="hidden min-h-[28rem] items-center justify-center lg:flex"
+            aria-hidden="true"
+          >
+            <div className="flex flex-col items-center gap-6">
               <AppBrandLogo
                 variant="icon"
                 size="lg"
-                className="mb-6"
-                markClassName="shadow-[0_0_34px_rgba(205,255,0,0.25)]"
+                markClassName="h-28 w-28"
               />
-              <AppHeading
-                as="h1"
-                size="compact"
-                className="max-w-full text-3xl sm:text-4xl"
-              >
-                {tLogin("headline")}
-              </AppHeading>
-              <p className="mt-3 w-full max-w-full whitespace-normal break-words text-sm leading-6 text-gray-400 sm:max-w-sm">
-                {tLogin("subtitle")}
+              <p className="text-sm text-muted-foreground">
+                {t("platform")}
               </p>
-
-              <div className="mt-10 w-full">
-                <LoginForm returnTo={returnTo} />
-              </div>
             </div>
           </div>
-
-          <div className="relative hidden min-h-[38rem] overflow-hidden border-l border-white/10 lg:block">
-            <Image
-              src="/assets/creative-studio/mirror-portrait.jpg"
-              alt={tLogin("preview.imageAlt")}
-              fill
-              priority
-              sizes="(min-width: 1024px) 44rem, 0vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-black/54" />
-            <div className="absolute bottom-6 left-6 right-6">
-              <div className="mb-4 flex flex-wrap gap-2">
-                <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-black text-black">
-                  {tLogin("preview.badges.unlimited")}
-                </span>
-                <span className="rounded-lg bg-black/45 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md">
-                  {tLogin("preview.badges.quality")}
-                </span>
-                <span className="rounded-lg bg-black/45 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md">
-                  {tLogin("preview.badges.prompt")}
-                </span>
-              </div>
-              <AppHeading as="h2" size="compact" className="text-4xl leading-none">
-                {tLogin("preview.title")}
-              </AppHeading>
-              <p className="mt-3 text-sm text-gray-300">
-                {tLogin("preview.description")}
-              </p>
-              <div
-                aria-hidden="true"
-                className="mt-8 grid grid-cols-4 gap-1.5 text-xs font-semibold text-gray-500"
-              >
-                <span className="h-1 rounded-full bg-white" />
-                <span className="h-1 rounded-full bg-white/80" />
-                <span className="h-1 rounded-full bg-white/30" />
-                <span className="h-1 rounded-full bg-white/15" />
-                <span>{tLogin("preview.tabs.image")}</span>
-                <span>{tLogin("preview.tabs.video")}</span>
-                <span>{tLogin("preview.tabs.audio")}</span>
-                <span>{tLogin("preview.tabs.api")}</span>
-              </div>
+          <div className="mx-auto flex w-full max-w-sm flex-col text-center lg:mx-0 lg:text-left">
+            <AppBrandLogo size="sm" className="mx-auto lg:mx-0" />
+            <h1 className="mt-3 break-keep text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.05em] sm:text-[2.75rem] lg:text-5xl">
+              {t("headline")}
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              {t("subtitle")}
+            </p>
+            <div className="mt-8 w-full">
+              <LoginForm returnTo={returnTo} />
             </div>
           </div>
         </section>

@@ -1,0 +1,29 @@
+.stagger [data-reveal-item] {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.stagger [data-reveal-media] {
+  transform: scale(1.025);
+}
+
+.line [data-reveal-line] {
+  transform: scaleX(0);
+  transform-origin: center;
+}
+
+.line [data-reveal-item] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .root,
+  .root [data-reveal-item],
+  .root [data-reveal-media],
+  .root [data-reveal-line] {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion and no-JS must override Motion's inline initial state. */
+    opacity: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion and no-JS must override Motion's inline initial state. */
+    transform: none !important;
+  }
+}

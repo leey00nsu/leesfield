@@ -8,10 +8,11 @@ const globalsCss = readFileSync(
 );
 
 describe("global CSS boundaries", () => {
-  it("keeps Nanum Myeongjo as the display point font fallback", () => {
-    expect(globalsCss).toContain(
-      '--font-heading: "Nanum Myeongjo", Georgia, "Times New Roman", serif;',
-    );
+  it("uses the body sans family for general headings and scopes the legacy font", () => {
+    const root = globalsCss.match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    expect(root).toContain("--font-heading: var(--font-body)");
+    expect(root).not.toContain("serif");
+    expect(globalsCss).not.toContain("body[data-legacy-spaces]");
   });
 
   it("does not keep project editorial surface recipes in global CSS", () => {
@@ -43,6 +44,8 @@ describe("global CSS boundaries", () => {
   it("keeps project scrollbar treatment available globally", () => {
     expect(globalsCss).toContain(".app-scrollbar");
     expect(globalsCss).toContain("*::-webkit-scrollbar-thumb");
-    expect(globalsCss).toContain("scrollbar-color: rgba(255, 255, 255, 0.18) transparent");
+    expect(globalsCss).toContain(
+      "scrollbar-color: rgba(255, 255, 255, 0.18) transparent",
+    );
   });
 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { X } from "lucide-react";
 
 import type { MediaAssetDto, MediaType } from "@/shared/media-assets/media-asset-contract";
@@ -19,6 +21,7 @@ export function NodeBananaOperationPreview({
   onClearOutput?: () => void;
   grid?: { rows: number; columns: number };
 }) {
+  const tc = useCanvasTranslation();
   return (
     <div
       className="relative min-h-36 overflow-hidden rounded bg-neutral-900/40"
@@ -27,7 +30,7 @@ export function NodeBananaOperationPreview({
     >
       {asset?.type === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={asset.url} alt={output ? "Operation result" : "Operation source"} className="absolute inset-0 h-full w-full object-contain" />
+        <img src={asset.url} alt={output ? tc("Operation result") : tc("Operation source")} className="absolute inset-0 h-full w-full object-contain" />
       ) : asset?.type === "video" ? (
         <video src={asset.url} controls playsInline preload="metadata" className="absolute inset-0 h-full w-full object-contain" />
       ) : asset?.type === "audio" ? (
@@ -41,8 +44,7 @@ export function NodeBananaOperationPreview({
       )}
 
       {asset && asset.type !== expectedType ? (
-        <p className="absolute inset-x-2 bottom-2 rounded bg-red-950/80 px-2 py-1 text-[10px] text-red-200" role="alert">
-          Expected {expectedType}, received {asset.type}
+        <p className="absolute inset-x-2 bottom-2 rounded bg-red-950/80 px-2 py-1 text-[10px] text-red-200" role="alert">{tc("Expected")}{expectedType}{tc(", received")}{asset.type}
         </p>
       ) : null}
       {asset?.type === "image" && grid ? (
@@ -63,8 +65,8 @@ export function NodeBananaOperationPreview({
       {output && onClearOutput ? (
         <button
           type="button"
-          aria-label="Clear result"
-          title="Clear result"
+          aria-label={tc("Clear result")}
+          title={tc("Clear result")}
           className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded bg-neutral-900/80 text-neutral-400 transition-colors hover:bg-red-600/80 hover:text-white"
           onClick={onClearOutput}
         >

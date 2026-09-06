@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GenerationGraphSnapshotDto } from "@/features/node-studio/model/graph-types";
+import enMessages from "@/shared/i18n/messages/en.json";
 import { renderWithIntl } from "@/test-utils/intl";
 
 import { NodeStudioScreen } from "./node-studio-screen";
@@ -104,6 +105,11 @@ describe("NodeStudioScreen", () => {
     mocks.remove.mockResolvedValue(undefined);
   });
 
+  it("inherits English from the application locale", () => {
+    renderWithIntl(<NodeStudioScreen spaceId="graph-a" />, { locale: "en", messages: enMessages });
+    expect(screen.getByTestId("node-banana-home")).toHaveAttribute("aria-label", "Space editor");
+  });
+
   it("uses a safe list fallback for a direct editor URL", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
@@ -125,14 +131,14 @@ describe("NodeStudioScreen", () => {
     renderWithIntl(<NodeStudioScreen spaceId="missing-space" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to Spaces" })).toHaveAttribute("href", "/spaces");
+    expect(screen.getByRole("link", { name: "스페이스 목록으로" })).toHaveAttribute("href", "/spaces");
   });
   it("does not expose an unguarded recovery link when background queries fail over a cached editor", () => {
     mocks.useList.mockReturnValue({ data: list, isLoading: false, isError: true, refetch: vi.fn() });
     mocks.useDetail.mockReturnValue({ data: graphA, isLoading: false, isError: true, refetch: vi.fn() });
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
     expect(screen.getByTestId("workspace")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Back to Spaces" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "스페이스 목록으로" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -152,7 +158,7 @@ describe("NodeStudioScreen", () => {
 
     expect(screen.getByTestId("node-banana-home")).toHaveAttribute(
       "aria-label",
-      "Space editor",
+      "스페이스 편집기",
     );
     expect(screen.queryByTestId("generation-studio-intro")).not.toBeInTheDocument();
     expect(screen.queryByTestId("node-studio-graph-controls")).not.toBeInTheDocument();
@@ -184,7 +190,7 @@ describe("NodeStudioScreen", () => {
 
     await user.click(screen.getByRole("button", { name: "new workflow" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not create the graph");
+    expect(await screen.findByRole("alert")).toHaveTextContent("스페이스를 만들지 못했습니다.");
   });
 
   it("Graph가 없어도 자동 생성하지 않는다", async () => {
@@ -193,7 +199,7 @@ describe("NodeStudioScreen", () => {
 
     renderWithIntl(<NodeStudioScreen />);
 
-    expect(await screen.findByText("Loading space...")).toBeInTheDocument();
+    expect(await screen.findByText("스페이스를 불러오는 중…")).toBeInTheDocument();
     expect(mocks.create).not.toHaveBeenCalled();
   });
 

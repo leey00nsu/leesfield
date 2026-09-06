@@ -1,4 +1,5 @@
 "use client";
+import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
 import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
@@ -21,7 +22,8 @@ export function ApiKeyManagementWidget() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 overflow-x-hidden px-4 pb-20 pt-6 sm:px-6 lg:px-8">
+    <AppPageShell>
+      <h1 className="sr-only">{t("title.leading") + " " + t("title.accent")}</h1>
       <AppFilterToolbar>
         <ApiKeyToolbar
           filter={filters.filter}
@@ -77,9 +79,7 @@ export function ApiKeyManagementWidget() {
                 </AppButton>
               </div>
             </div>
-            <p className="mt-3 text-xs text-primary/70">
-              {t("pending.note")}
-            </p>
+            <p className="mt-3 text-xs text-primary/70">{t("pending.note")}</p>
           </AppCard>
         ) : null}
         {list.error ? (
@@ -122,6 +122,6 @@ export function ApiKeyManagementWidget() {
         onSave={edit.update}
         onRevoke={edit.revoke}
       />
-    </div>
+    </AppPageShell>
   );
 }

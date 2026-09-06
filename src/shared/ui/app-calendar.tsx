@@ -29,7 +29,11 @@ function formatDateLabel(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function AppCalendar({ className, classNames, ...props }: AppCalendarProps) {
+export function AppCalendar({
+  className,
+  classNames,
+  ...props
+}: AppCalendarProps) {
   return (
     <Calendar
       data-app-calendar=""
@@ -71,7 +75,7 @@ export function AppDatePicker({
           size="toolbar"
           variant="surface"
           className={cn(
-            "justify-between bg-black/45 px-5 font-mono text-sm text-white hover:!bg-black/45 hover:!text-white",
+            "justify-between bg-black/45 px-5 font-sans text-sm text-white hover:!bg-black/45 hover:!text-white",
             className,
           )}
         >
@@ -81,7 +85,7 @@ export function AppDatePicker({
       </AppPopoverTrigger>
       <AppPopoverContent
         align="start"
-        className="w-auto rounded-[1.35rem] border-white/10 bg-[#0b0d0e] p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.46)]"
+        className="w-auto rounded-[1.35rem] border-white/10 bg-card p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.46)]"
       >
         <AppCalendar
           mode="single"

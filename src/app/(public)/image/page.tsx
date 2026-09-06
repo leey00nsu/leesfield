@@ -1,8 +1,9 @@
-import { ImageGenerationScreen } from "@/screens/image-generation/ui/image-generation-screen";
-import { getSession } from "@/server/auth/session";
-
-export default async function ImageGenerationPage() {
-  const session = await getSession();
-
-  return <ImageGenerationScreen isAuthenticated={session.isLoggedIn} />;
+import { redirect } from "next/navigation";
+import { generationHref } from "@/shared/lib/generation/routes";
+export default async function ImageGenerationPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  redirect(generationHref("image", await searchParams));
 }

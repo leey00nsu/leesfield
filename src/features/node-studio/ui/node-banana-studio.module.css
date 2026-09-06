@@ -1,17 +1,17 @@
 .runtime {
-  --node-banana-grid: rgb(64 64 64);
+  --node-banana-grid: var(--border);
   position: relative;
   min-width: 0;
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  background: rgb(18 20 19);
+  background: var(--background);
 }
 
 .runtime :global(.react-flow) {
   position: absolute;
   inset: 0;
-  background: rgb(18 20 19);
+  background: var(--background);
 }
 
 /* The original group menu is inside the transformed viewport. Keep its
@@ -31,13 +31,13 @@
 }
 
 .runtime :global(.react-flow__controls-button) {
-  border-color: rgb(64 64 64);
-  background: rgb(38 38 38);
+  border-color: var(--border);
+  background: var(--card);
   fill: rgb(212 212 212);
 }
 
 .runtime :global(.react-flow__controls-button:hover) {
-  background: rgb(64 64 64);
+  background: var(--border);
   fill: white;
 }
 
@@ -51,7 +51,7 @@
 }
 
 .runtime :global(.react-flow__minimap-node) {
-  fill: var(--primary);
+  fill: var(--data-accent);
 }
 
 .runtime :global(.react-flow__panel.react-flow__panel-bottom) {
@@ -83,7 +83,7 @@
   border: 0;
   border-radius: 0.25rem;
   padding: 0.375rem 0.625rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
   font-size: 0.6875rem;
   font-weight: 500;
@@ -96,7 +96,7 @@
 .runtime :global(.node-banana-runtime__icon-action:hover),
 .runtime :global(.node-banana-runtime__icon-action:focus-visible) {
   color: rgb(245 245 245);
-  background: rgb(64 64 64);
+  background: var(--border);
   outline: none;
 }
 
@@ -134,7 +134,7 @@
   width: 1px;
   height: 1.25rem;
   margin: 0 0.375rem;
-  background: rgb(82 82 82);
+  background: var(--input);
 }
 
 .runtime :global(.node-banana-runtime__popover-anchor) {
@@ -148,9 +148,9 @@
   z-index: 60;
   min-width: 9rem;
   overflow: hidden;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 14px 34px rgb(0 0 0 / 0.45);
 }
 
@@ -168,7 +168,7 @@
 .runtime :global(.node-banana-runtime__quick-menu button:hover),
 .runtime :global(.node-banana-runtime__quick-menu button:focus-visible) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
   outline: none;
 }
 
@@ -180,14 +180,14 @@
   width: 12rem;
   max-height: min(25rem, calc(100vh - 7rem));
   overflow-y: auto;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 14px 34px rgb(0 0 0 / 0.45);
 }
 
 .runtime :global(.node-banana-runtime__section-heading--divided) {
-  border-top: 1px solid rgb(64 64 64);
+  border-top: 1px solid var(--border);
 }
 
 .runtime :global(.node-banana-runtime__all-nodes-menu h3),
@@ -214,7 +214,7 @@
 .runtime :global(.node-banana-runtime__all-nodes-menu button:hover),
 .runtime :global(.node-banana-runtime__all-nodes-menu button:focus-visible) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
   outline: none;
 }
 
@@ -232,9 +232,9 @@
   align-items: center;
   gap: 0.3rem;
   border: 0;
-  border-right: 1px solid rgb(163 163 163);
+  border-right: 1px solid var(--muted-foreground);
   padding: 0 0.75rem;
-  color: rgb(23 23 23);
+  color: var(--background);
   background: transparent;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -269,10 +269,10 @@
   width: 14rem;
   max-height: 21rem;
   overflow: hidden;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
   color: white;
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
   transform: translate(-0.5rem, -0.5rem);
 }
@@ -281,7 +281,7 @@
   display: flex;
   gap: 0.25rem;
   padding: 0.375rem 0.5rem;
-  border-bottom: 1px solid rgb(64 64 64);
+  border-bottom: 1px solid var(--border);
 }
 
 .runtime :global(.node-banana-runtime__menu-header input) {
@@ -299,7 +299,7 @@
   width: 1.5rem;
   border: 0;
   border-radius: 0.25rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
 }
 
@@ -325,7 +325,7 @@
 .runtime :global(.node-banana-runtime__menu-items button:hover),
 .runtime :global(.node-banana-runtime__menu-items button:focus-visible) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
   outline: none;
 }
 
@@ -350,10 +350,10 @@
   max-height: min(44rem, calc(100vh - 2rem));
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.75rem;
   color: rgb(229 229 229);
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.62);
 }
 
@@ -361,7 +361,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgb(64 64 64);
+  border-bottom: 1px solid var(--border);
   padding: 0.875rem 1rem;
 }
 
@@ -380,7 +380,7 @@
 
 .runtime :global(.node-banana-runtime__model-dialog header button) {
   border: 0;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
   font-size: 1.25rem;
 }
@@ -391,11 +391,11 @@
 
 .runtime :global(.node-banana-runtime__model-search input) {
   width: 100%;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
   padding: 0.6rem 0.75rem;
   color: white;
-  background: rgb(23 23 23);
+  background: var(--background);
   font-size: 0.75rem;
   outline: none;
 }
@@ -410,19 +410,19 @@
   border: 0;
   border-radius: 0.375rem;
   padding: 0.35rem 0.65rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
   font-size: 0.6875rem;
 }
 
 .runtime :global(.node-banana-runtime__model-tabs button[aria-selected="true"]) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
 }
 
 .runtime :global(.node-banana-runtime__model-list) {
   overflow-y: auto;
-  border-top: 1px solid rgb(64 64 64);
+  border-top: 1px solid var(--border);
   padding: 0.5rem;
 }
 
@@ -442,7 +442,7 @@
 
 .runtime :global(.node-banana-runtime__model-list > button:hover),
 .runtime :global(.node-banana-runtime__model-list > button:focus-visible) {
-  background: rgb(64 64 64);
+  background: var(--border);
   outline: none;
 }
 
@@ -468,11 +468,11 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
   padding: 0.25rem;
   color: rgb(212 212 212);
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 10px 24px rgb(0 0 0 / 0.38);
   transform: translateX(-50%);
   font-size: 0.6875rem;
@@ -493,7 +493,7 @@
   border: 0;
   border-radius: 0.25rem;
   padding: 0.375rem 0.5rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
   font-size: 0.6875rem;
 }
@@ -501,7 +501,7 @@
 .runtime :global(.node-banana-runtime__selection-toolbar button:hover),
 .runtime :global(.node-banana-runtime__edge-toolbar button:hover) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
 }
 
 .runtime :global(.node-banana-runtime__edge-toolbar button[data-paused="true"]) {
@@ -535,10 +535,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid rgb(38 38 38);
+  border-bottom: 1px solid var(--card);
   padding: 0 1rem;
   color: rgb(245 245 245);
-  background: rgb(23 23 23);
+  background: var(--background);
 }
 
 :global(.node-banana-hosted__header-left),
@@ -573,7 +573,7 @@
 
 :global(.node-banana-hosted__project) {
   gap: 0.5rem;
-  border-left: 1px solid rgb(64 64 64);
+  border-left: 1px solid var(--border);
   padding-left: 1rem;
 }
 
@@ -600,7 +600,7 @@
   place-items: center;
   border: 0;
   border-radius: 0.25rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
 }
 
@@ -609,7 +609,7 @@
 :global(.node-banana-hosted__header-right button:hover),
 :global(.node-banana-hosted__header-right button:focus-visible) {
   color: rgb(229 229 229);
-  background: rgb(38 38 38);
+  background: var(--card);
   outline: none;
 }
 
@@ -646,14 +646,14 @@
   z-index: 100;
   width: 15rem;
   overflow: hidden;
-  border: 1px solid rgb(64 64 64);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 16px 36px rgb(0 0 0 / 0.48);
 }
 
 :global(.node-banana-hosted__browser > div) {
-  border-bottom: 1px solid rgb(64 64 64);
+  border-bottom: 1px solid var(--border);
   padding: 0.45rem 0.75rem;
   color: rgb(115 115 115);
   font-size: 0.625rem;
@@ -672,7 +672,7 @@
 
 :global(.node-banana-hosted__browser > button[aria-current="page"]) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
 }
 
 :global(.node-banana-hosted__modal-backdrop) {
@@ -694,9 +694,9 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 50%;
-  background: rgb(38 38 38);
+  background: var(--card);
   color: rgb(229 229 229);
   opacity: 0;
 }
@@ -741,9 +741,9 @@
   max-height: 80dvh;
   overflow-y: auto;
   padding: 1.5rem;
-  border: 1px solid rgb(64 64 64);
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
-  background: rgb(38 38 38);
+  background: var(--card);
   color: rgb(245 245 245);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.6);
 }
@@ -759,7 +759,7 @@
 }
 
 :global(.node-banana-space-browser__list > button[aria-current="page"]) {
-  background: rgb(64 64 64);
+  background: var(--border);
 }
 
 :global(.node-banana-space-browser footer) {
@@ -770,14 +770,14 @@
   flex-shrink: 0;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgb(64 64 64);
+  border-top: 1px solid var(--border);
 }
 
 :global(.node-banana-space-browser footer button) {
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
-  background: rgb(64 64 64);
+  background: var(--border);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -787,7 +787,7 @@
 }
 
 :global(.node-banana-space-browser button:hover:not(:disabled)) {
-  background: rgb(82 82 82);
+  background: var(--input);
 }
 
 :global(.node-banana-space-browser button:focus-visible),
@@ -811,9 +811,9 @@
   width: 100%;
   min-width: 0;
   padding: 0.625rem 0.75rem;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.5rem;
-  background: rgb(23 23 23);
+  background: var(--background);
 }
 
 :global(.node-banana-hosted__shortcuts),
@@ -821,10 +821,10 @@
 :global(.node-banana-hosted__settings) {
   width: min(28rem, calc(100vw - 2rem));
   overflow: hidden;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.75rem;
   color: rgb(229 229 229);
-  background: rgb(38 38 38);
+  background: var(--card);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.6);
 }
 
@@ -840,7 +840,7 @@
 :global(.node-banana-hosted__shortcuts header),
 :global(.node-banana-hosted__dialog header),
 :global(.node-banana-hosted__settings header) {
-  border-bottom: 1px solid rgb(64 64 64);
+  border-bottom: 1px solid var(--border);
   padding: 0.875rem 1rem;
 }
 
@@ -855,7 +855,7 @@
 :global(.node-banana-hosted__dialog header button),
 :global(.node-banana-hosted__settings header button) {
   border: 0;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
 }
 
@@ -865,7 +865,7 @@
 
 :global(.node-banana-hosted__shortcuts dl > div) {
   padding: 0.4rem 0;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
 }
 
@@ -877,7 +877,7 @@
 :global(.node-banana-hosted__dialog > label) {
   display: block;
   padding: 1rem 1rem 0.4rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -885,7 +885,7 @@
 
 :global(.node-banana-hosted__dialog > p) {
   padding: 1rem 1rem 0;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -893,17 +893,17 @@
 :global(.node-banana-hosted__dialog > input) {
   width: calc(100% - 2rem);
   margin: 0 1rem;
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.625rem 0.75rem;
   color: rgb(229 229 229);
-  background: rgb(23 23 23);
+  background: var(--background);
   font-size: 0.8125rem;
   outline: none;
 }
 
 :global(.node-banana-hosted__dialog > input:focus) {
-  border-color: rgb(163 163 163);
+  border-color: var(--muted-foreground);
 }
 
 :global(.node-banana-hosted__dialog footer) {
@@ -916,7 +916,7 @@
 :global(.node-banana-hosted__settings nav) {
   display: flex;
   gap: 0.25rem;
-  border-bottom: 1px solid rgb(64 64 64);
+  border-bottom: 1px solid var(--border);
   padding: 0.5rem 1rem;
 }
 
@@ -924,14 +924,14 @@
   border: 0;
   border-radius: 0.375rem;
   padding: 0.4rem 0.75rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   background: transparent;
   font-size: 0.75rem;
 }
 
 :global(.node-banana-hosted__settings nav button[aria-selected="true"]) {
   color: white;
-  background: rgb(64 64 64);
+  background: var(--border);
 }
 
 :global(.node-banana-hosted__settings-body) {
@@ -946,7 +946,7 @@
 :global(.node-banana-hosted__settings-body fieldset) {
   display: grid;
   gap: 0.5rem;
-  border: 1px solid rgb(64 64 64);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.75rem;
   color: rgb(212 212 212);
@@ -954,17 +954,17 @@
 }
 
 :global(.node-banana-hosted__settings-body > label input) {
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.55rem 0.65rem;
   color: white;
-  background: rgb(23 23 23);
+  background: var(--background);
   outline: none;
 }
 
 :global(.node-banana-hosted__settings-body legend) {
   padding: 0 0.25rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
   text-transform: uppercase;
 }
@@ -973,46 +973,46 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgb(163 163 163);
+  color: var(--muted-foreground);
 }
 
 :global(.node-banana-hosted__settings footer) {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  border-top: 1px solid rgb(64 64 64);
+  border-top: 1px solid var(--border);
   padding: 1rem;
 }
 
 :global(.node-banana-hosted__settings footer button) {
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.45rem 0.75rem;
   color: rgb(212 212 212);
-  background: rgb(38 38 38);
+  background: var(--card);
   font-size: 0.75rem;
 }
 
 :global(.node-banana-hosted__settings footer button[data-variant="primary"]) {
-  border-color: rgb(212 255 0 / 0.7);
-  color: rgb(23 23 23);
-  background: rgb(212 255 0);
+  border-color: var(--data-accent);
+  color: white;
+  background: var(--data-accent);
 }
 
 :global(.node-banana-hosted__dialog footer button) {
-  border: 1px solid rgb(82 82 82);
+  border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.45rem 0.75rem;
   color: rgb(212 212 212);
-  background: rgb(38 38 38);
+  background: var(--card);
   font-size: 0.75rem;
 }
 
 :global(.node-banana-hosted__dialog footer button[type="submit"]),
 :global(.node-banana-hosted__dialog footer button[data-variant="primary"]) {
-  border-color: rgb(212 255 0 / 0.7);
-  color: rgb(23 23 23);
-  background: rgb(212 255 0);
+  border-color: var(--data-accent);
+  color: white;
+  background: var(--data-accent);
 }
 
 :global(.node-banana-hosted__dialog footer button[data-variant="danger"]) {
@@ -1031,7 +1031,7 @@
   place-items: center;
   padding: 2rem;
   color: rgb(254 202 202);
-  background: rgb(18 20 19);
+  background: var(--background);
   text-align: center;
 }
 
@@ -1171,3 +1171,26 @@
 :global(.react-flow__handle.node-banana-port-action[data-connected="true"]) {
   opacity: 1;
 }
+
+/* Generation actions share the product brand color. */
+.runtime :global(.node-banana-runtime__run-group > button:first-child),
+.runtime :global(button[data-canvas-action="run"]) {
+  background-color: var(--data-accent);
+  color: white;
+}
+.runtime :global(.node-banana-runtime__run-group > button:first-child:not(:disabled):hover),
+.runtime :global(button[data-canvas-action="run"]:not(:disabled):hover) {
+  background-color: color-mix(in srgb, var(--data-accent) 90%, black);
+}
+
+/* Brand adapters preserve upstream node geometry and interaction layers. */
+.runtime { font-family: var(--font-sans); }
+.runtime :global(.react-flow__node.selected [data-tutorial$="-node"]) { border-color: var(--data-accent); box-shadow: 0 0 0 1px var(--data-accent); }
+.runtime :global(.node-banana-runtime__model-tabs button[aria-selected="true"]),
+:global(.node-banana-hosted__settings nav button[aria-selected="true"]) { color: var(--data-accent-foreground); background: color-mix(in srgb, var(--data-accent) 15%, transparent); }
+.runtime :global(button:focus-visible),
+.runtime :global(input:focus-visible),
+.runtime :global(textarea:focus-visible),
+:global(.node-banana-hosted__settings button:focus-visible),
+:global(.node-banana-hosted__dialog button:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+.runtime :global([data-tutorial$="-node"]) { background-color: var(--card); }

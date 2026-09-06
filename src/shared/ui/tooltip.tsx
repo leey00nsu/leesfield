@@ -1,53 +1,25 @@
 "use client";
-
-import * as React from "react";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { cn } from "@/shared/lib/utils";
-
-function TooltipProvider({
-  delayDuration = 0,
+import { Children, type ReactElement, type ComponentProps } from "react";
+import * as B from "@/shared/ui/brand/tooltip/tooltip";
+export const Tooltip = B.Tooltip,
+  TooltipContent = B.TooltipContent;
+export function TooltipProvider({
+  delayDuration,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+}: ComponentProps<typeof B.TooltipProvider> & { delayDuration?: number }) {
+  return <B.TooltipProvider delay={delayDuration} {...props} />;
+}
+export function TooltipTrigger({
+  asChild,
+  children,
+  ...props
+}: ComponentProps<typeof B.TooltipTrigger> & { asChild?: boolean }) {
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
+    <B.TooltipTrigger
       {...props}
-    />
+      render={asChild ? (Children.only(children) as ReactElement) : undefined}
+    >
+      {asChild ? undefined : children}
+    </B.TooltipTrigger>
   );
 }
-
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
-}
-
-function TooltipTrigger({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
-
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 8, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content
-      ref={ref}
-      data-slot="tooltip-content"
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 overflow-hidden rounded-full border border-white/10 bg-black/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white shadow-lg",
-        "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
-        "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        className,
-      )}
-      {...props}
-    />
-  </TooltipPrimitive.Portal>
-));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
-
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };

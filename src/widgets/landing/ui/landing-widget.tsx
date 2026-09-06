@@ -1,8 +1,8 @@
+import { LandingSpacesSection } from "./landing-spaces-section";
 import { Header } from "@/widgets/header/ui/header";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { LandingCoreFeaturesSection } from "@/widgets/landing/ui/landing-core-features-section";
 import { LandingReuseSection } from "@/widgets/landing/ui/landing-reuse-section";
-import { LandingPlatformSection } from "@/widgets/landing/ui/landing-platform-section";
 import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
 import { LandingFooter } from "@/widgets/landing/ui/landing-footer";
 
@@ -24,10 +24,10 @@ export function LandingWidget({
       />
 
       <main className="flex flex-col">
-        <LandingHero />
+        <LandingHero isAuthenticated={isAuthenticated} />
+        <LandingSpacesSection />
         <LandingCoreFeaturesSection />
         <LandingReuseSection />
-        <LandingPlatformSection />
         <LandingCtaSection />
       </main>
       <LandingFooter />

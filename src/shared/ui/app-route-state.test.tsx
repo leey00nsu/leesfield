@@ -12,10 +12,17 @@ describe("AppRouteState", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Preparing your workspace." })).toBeInTheDocument();
-    expect(screen.getByText("The studio surface is loading.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go home" })).toHaveAttribute("href", "/");
-    expect(container.querySelector("[data-app-card]")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Preparing your workspace." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("The studio surface is loading."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(container.querySelector('[data-slot="state-panel"]')).toBeTruthy();
     expect(container.querySelector("[data-app-button]")).toBeTruthy();
   });
 });

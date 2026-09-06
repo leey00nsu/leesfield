@@ -13,7 +13,10 @@ function collectSourceFiles(dir: string): string[] {
   });
 }
 
-const sourceFiles = collectSourceFiles(sourceRoot);
+const sourceFiles = collectSourceFiles(sourceRoot).filter(
+  (path) =>
+    !path.includes("/shared/ui/legacy/") && !path.includes("/shared/ui/brand/"),
+);
 const legacyClassNames = [
   ["lf", "editorial", "panel"].join("-"),
   ["lf", "editorial", "card"].join("-"),
@@ -105,7 +108,8 @@ describe("app-* design wrapper boundaries", () => {
   it("keeps project input fields behind the dedicated AppInput wrapper", () => {
     const offenders = sourceFiles.flatMap((filePath) => {
       const relativePath = relative(process.cwd(), filePath);
-      if (relativePath.endsWith("src/shared/ui/app-form-control.tsx")) return [];
+      if (relativePath.endsWith("src/shared/ui/app-form-control.tsx"))
+        return [];
 
       const contents = readFileSync(filePath, "utf8");
       const importsFormControlInput =
@@ -148,9 +152,9 @@ describe("app-* design wrapper boundaries", () => {
     expect(appInput).toContain("appInputShellClassName");
     expect(appFilterToolbar).toContain("appSearchFieldSurfaceClassName");
     expect(appFilterToolbar).toContain("appInputShellClassName");
-    expect(appFilterToolbar).toContain("data-app-search-surface");
+    expect(appFilterToolbar).toContain('from "@/shared/ui/input"');
     expect(appFilterToolbar).toContain("data-app-search-input");
-    expect(appFilterToolbar).toContain("dark:bg-transparent");
+    expect(appFilterToolbar).not.toContain("focus-visible:ring-0");
     expect(appFilterToolbar).not.toContain("<AppInput");
     expect(appFilterToolbar).not.toContain("appInputSurfaceClassName");
     expect(apiDocsSidebar).not.toMatch(
@@ -162,7 +166,8 @@ describe("app-* design wrapper boundaries", () => {
     const offenders = sourceFiles.flatMap((filePath) => {
       const relativePath = relative(process.cwd(), filePath);
       if (relativePath.endsWith("src/shared/ui/app-dialog.tsx")) return [];
-      if (relativePath.endsWith("src/shared/ui/app-dialog.stories.tsx")) return [];
+      if (relativePath.endsWith("src/shared/ui/app-dialog.stories.tsx"))
+        return [];
 
       const contents = readFileSync(filePath, "utf8");
       const localSurfaceOverride =
@@ -187,7 +192,9 @@ describe("app-* design wrapper boundaries", () => {
       }
       const contents = readFileSync(filePath, "utf8");
       if (!contents.includes('role="dialog"')) return [];
-      return allowedDirectRoleDialogs.includes(relativePath) ? [] : [relativePath];
+      return allowedDirectRoleDialogs.includes(relativePath)
+        ? []
+        : [relativePath];
     });
 
     expect(appDialog).toContain("size?: AppDialogSize");
@@ -207,7 +214,10 @@ describe("app-* design wrapper boundaries", () => {
       "utf8",
     );
     const modelScreen = readFileSync(
-      join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
+      join(
+        sourceRoot,
+        "screens/model-management/ui/model-management-screen.tsx",
+      ),
       "utf8",
     );
 
@@ -257,7 +267,7 @@ describe("app-* design wrapper boundaries", () => {
 
     expect(appButton).toContain("surface-muted");
     expect(appButton).toContain("auth:");
-    expect(appInput).toContain('type AppInputSurface = "default"');
+    expect(appInput).toContain("@/shared/ui/input");
     expect(appInput).toContain('"toolbar"');
     expect(appInput).toContain('"auth"');
     expect(appInput).not.toContain('"profile"');
@@ -267,10 +277,12 @@ describe("app-* design wrapper boundaries", () => {
 
     expect(apiKeyToolbar).toContain('surface="toolbar"');
     expect(apiKeyToolbar).toContain('size="toolbar"');
-    expect(apiKeyToolbar).not.toContain("rounded-[1.5rem] border-white/10 bg-black/45");
+    expect(apiKeyToolbar).not.toContain(
+      "rounded-[1.5rem] border-white/10 bg-black/45",
+    );
 
-    expect(apiKeyCard).toContain('variant="surface-muted"');
-    expect(apiKeyCard).toContain('size="pill-md"');
+    expect(apiKeyCard).toContain("ResourceRowButton");
+    expect(apiKeyCard).toContain("resourceRowInteractiveClassName");
     expect(apiKeyCard).not.toContain("hover:bg-white/6");
 
     expect(loginForm).toContain('surface="auth"');
@@ -281,16 +293,19 @@ describe("app-* design wrapper boundaries", () => {
 
   it("keeps model management modal surfaces behind app wrappers", () => {
     const modelScreen = readFileSync(
-      join(sourceRoot, "screens/model-management/ui/model-management-screen.tsx"),
+      join(
+        sourceRoot,
+        "screens/model-management/ui/model-management-screen.tsx",
+      ),
       "utf8",
     );
     const forbiddenImports = [
-      '@/shared/ui/button',
-      '@/shared/ui/dialog',
-      '@/shared/ui/alert-dialog',
-      '@/shared/ui/input',
-      '@/shared/ui/label',
-      '@/shared/ui/textarea',
+      "@/shared/ui/button",
+      "@/shared/ui/dialog",
+      "@/shared/ui/alert-dialog",
+      "@/shared/ui/input",
+      "@/shared/ui/label",
+      "@/shared/ui/textarea",
     ];
     const forbiddenJsx = [
       "<Button",
@@ -311,8 +326,12 @@ describe("app-* design wrapper boundaries", () => {
       'type="checkbox"',
     ];
 
-    expect(forbiddenImports.filter((value) => modelScreen.includes(value))).toEqual([]);
-    expect(forbiddenJsx.filter((value) => modelScreen.includes(value))).toEqual([]);
+    expect(
+      forbiddenImports.filter((value) => modelScreen.includes(value)),
+    ).toEqual([]);
+    expect(forbiddenJsx.filter((value) => modelScreen.includes(value))).toEqual(
+      [],
+    );
     expect(modelScreen).toContain("@/shared/ui/app-dialog");
     expect(modelScreen).toContain("@/shared/ui/app-confirm-dialog");
     expect(modelScreen).toContain("@/shared/ui/app-input");
@@ -342,7 +361,7 @@ describe("app-* design wrapper boundaries", () => {
       }
 
       const contents = readFileSync(filePath, "utf8");
-      return contents.includes('@/shared/ui/skeleton') ? [relativePath] : [];
+      return contents.includes("@/shared/ui/skeleton") ? [relativePath] : [];
     });
     const appSkeleton = readFileSync(
       join(sourceRoot, "shared/ui/app-skeleton.tsx"),

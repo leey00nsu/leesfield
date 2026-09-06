@@ -2,11 +2,12 @@ import type { ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
+import { ProductPageIntro } from "@/shared/ui/brand/product-page-intro/product-page-intro";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 
 interface PageHeaderProps {
-  title: ReactNode;
+  title: string;
   subtitle?: string;
   rightSlot?: ReactNode;
   rightSlotClassName?: string;
@@ -26,41 +27,28 @@ export function PageHeader({
   stickyOffset = "var(--dashboard-header-height, 0px)",
   children,
 }: PageHeaderProps) {
+  void stickyOffset;
   return (
     <div
       data-app-page-header=""
       className={cn(
-        "-mx-6 -mt-6 border-b border-white/5 bg-background-dark/95 px-6 py-6 backdrop-blur-xl sm:px-10",
-        sticky ? "sticky top-0 z-20" : "relative z-10",
+        "mx-auto w-full max-w-[72rem] py-6",
+        sticky && "relative",
         className,
       )}
-      style={
-        sticky
-          ? { paddingTop: `calc(${stickyOffset} + 0.75rem)` }
-          : undefined
-      }
     >
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-4xl font-black uppercase leading-tight tracking-[-0.033em] text-white sm:text-5xl">
-              {title}
-            </h1>
-            {subtitle ? (
-              <p className="mt-2 flex items-center gap-2 text-xs font-mono tracking-wide text-gray-400">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
-          {rightSlot ? (
-            <div className={cn("w-full md:w-96", rightSlotClassName)}>
-              {rightSlot}
-            </div>
-          ) : null}
-        </div>
-        {children}
-      </div>
+      <ProductPageIntro
+        eyebrow={null}
+        className="[&>div>p:first-child]:hidden [&_h1]:mt-0"
+        title={title}
+        description={subtitle}
+        aside={
+          rightSlot ? (
+            <div className={rightSlotClassName}>{rightSlot}</div>
+          ) : undefined
+        }
+      />
+      {children ? <div className="mt-6">{children}</div> : null}
     </div>
   );
 }

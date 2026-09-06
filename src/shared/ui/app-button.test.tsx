@@ -1,31 +1,29 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { AppButton } from "@/shared/ui/app-button";
-
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { AppButton } from "./app-button";
 describe("AppButton", () => {
-  it("keeps project button colors stable on hover", () => {
+  it("preserves link semantics and prevents duplicate actions while loading", async () => {
+    const user = userEvent.setup(),
+      onClick = vi.fn();
     render(
-      <div>
-        <AppButton>Generate</AppButton>
-        <AppButton variant="surface">Surface</AppButton>
-        <AppButton variant="white">White</AppButton>
-      </div>,
+      <>
+        <AppButton asChild>
+          <a href="/generate">Create</a>
+        </AppButton>
+        <AppButton isLoading onClick={onClick} loadingText="Running">
+          Generate
+        </AppButton>
+      </>,
     );
-
-    expect(screen.getByRole("button", { name: "Generate" })).toHaveClass(
-      "bg-primary",
-      "hover:!bg-primary",
-      "hover:!text-primary-content",
+    expect(screen.getByRole("link", { name: "Create" })).toHaveAttribute(
+      "href",
+      "/generate",
     );
-    expect(screen.getByRole("button", { name: "Surface" })).toHaveClass(
-      "bg-black/16",
-      "hover:!bg-black/16",
-      "hover:!text-white/82",
-    );
-    expect(screen.getByRole("button", { name: "White" })).toHaveClass(
-      "bg-white",
-      "hover:!bg-white",
-      "hover:!text-black",
-    );
+    const action = screen.getByRole("button", { name: "Running" });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("aria-busy", "true");
+    await user.click(action);
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

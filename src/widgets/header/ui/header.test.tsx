@@ -25,109 +25,48 @@ vi.mock("@/shared/ui/language-switcher", () => ({
   LanguageSwitcher: () => <div data-testid="language-switcher" />,
 }));
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/generate" }));
 describe("Header", () => {
-  it("대시보드 네비게이션에 Audio 링크를 노출한다", () => {
-    const { container } = renderWithIntl(
-      <Header isAuthenticated userEmail="admin@example.com" />,
+  it("combines media navigation and marks the current destination", () => {
+    renderWithIntl(<Header />);
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).getByRole("link", { name: "AI 생성" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-
-    expect(container.querySelectorAll('a[href="/audio"]').length).toBeGreaterThan(0);
-  });
-
-  it("인증된 대시보드 네비게이션에 Node Studio 링크를 노출한다", () => {
-    const { container } = renderWithIntl(
-      <Header isAuthenticated userEmail="admin@example.com" />,
-    );
-
-    expect(container.querySelectorAll('a[href="/spaces"]').length).toBeGreaterThan(0);
-  });
-
-  it("브랜드 로고 이미지를 rounded icon으로 표시한다", () => {
-    const { container } = renderWithIntl(
-      <Header isAuthenticated userEmail="admin@example.com" />,
-    );
-
-    const logoImage = container.querySelector('img[src="/logo.webp"]');
-    expect(logoImage?.parentElement).toHaveClass("rounded-xl");
-  });
-
-  it("public header navigation uses the sans font tone", () => {
-    renderWithIntl(<Header variant="public" />);
-
-    const desktopNav = screen.getByRole("navigation");
-    const imageLink = within(desktopNav).getByRole("link", { name: "이미지" });
-
-    expect(imageLink).toHaveClass("font-medium");
-    expect(imageLink).not.toHaveClass(["lf", "serif"].join("-"));
-  });
-
-  it("public header uses language switcher plus the emphasized login action", () => {
-    renderWithIntl(<Header variant="public" />);
-
-    expect(screen.getByTestId("language-switcher")).toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "이미지" })).toBeNull();
     expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
       "href",
       "/login",
     );
-    expect(screen.queryByText("대시보드로 이동")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "프로필" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "스페이스" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "스페이스" })).toBeNull();
   });
-
-  it("로그인한 public header에서 Node Studio 진입 경로를 제공한다", () => {
-    const { container } = renderWithIntl(
-      <Header variant="public" isAuthenticated userEmail="admin@example.com" />,
-    );
-
-    const nodeStudioLinks = container.querySelectorAll('a[href="/spaces"]');
-    expect(nodeStudioLinks.length).toBe(2);
-    expect(screen.getAllByRole("link", { name: "스페이스" })).toHaveLength(2);
+  it("offers public navigation in the mobile menu", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<Header variant="public" />);
+    await user.click(screen.getByRole("button", { name: "메뉴" }));
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu).getByRole("menuitem", { name: "AI 생성" }),
+    ).toHaveAttribute("href", "/generate");
+    expect(
+      within(menu).getByRole("menuitem", { name: "API 문서" }),
+    ).toHaveAttribute("href", "/api-docs");
   });
-
-  it("desktop nav 링크는 xl 미만 숨김용 라벨 wrapper와 접근성 이름을 가진다", () => {
+  it("keeps Spaces and account API keys available to signed-in users", async () => {
+    const user = userEvent.setup();
     renderWithIntl(<Header isAuthenticated userEmail="admin@example.com" />);
-
-    const desktopNav = screen.getByRole("navigation");
-    const audioLink = within(desktopNav).getByRole("link", { name: "오디오" });
-    const label = within(audioLink).getByText("오디오");
-
-    expect(audioLink).toHaveAttribute("aria-label", "오디오");
-    expect(label.tagName).toBe("SPAN");
-    expect(label).toHaveClass("hidden");
-    expect(label).toHaveClass("xl:inline");
-  });
-
-  it("모바일 메뉴를 열면 Audio 링크가 보인다", async () => {
-    const user = userEvent.setup();
-    const { container } = renderWithIntl(
-      <Header isAuthenticated userEmail="admin@example.com" />,
+    expect(screen.getByRole("link", { name: "스페이스" })).toHaveAttribute(
+      "href",
+      "/spaces",
     );
-
-    expect(container.querySelectorAll('a[href="/audio"]').length).toBe(1);
-    await user.click(screen.getByRole("button", { name: /메뉴/i }));
-
-    const audioLinks = container.ownerDocument.querySelectorAll('a[href="/audio"]');
-    expect(audioLinks.length).toBeGreaterThan(1);
-
-    const dropdownAudioLink = audioLinks[audioLinks.length - 1];
-    expect(dropdownAudioLink).toHaveTextContent("오디오");
-    expect(dropdownAudioLink.querySelector("span")).toBeNull();
-  });
-
-  it("authenticated header removes profile links and exposes logout as the primary action", async () => {
-    const user = userEvent.setup();
-    const { container } = renderWithIntl(
-      <Header isAuthenticated userEmail="admin@example.com" />,
-    );
-
-    expect(container.querySelector('a[href="/profile"]')).toBeNull();
-    expect(screen.getByTestId("language-switcher")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /메뉴/i }));
-
-    expect(container.ownerDocument.querySelector('a[href="/profile"]')).toBeNull();
-    expect(screen.queryByText("프로필")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "admin@example.com" }));
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu).getByRole("menuitem", { name: "API 키" }),
+    ).toHaveAttribute("href", "/api-key");
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
   });
 });

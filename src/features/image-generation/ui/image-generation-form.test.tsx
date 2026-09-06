@@ -49,16 +49,20 @@ describe("ImageGenerationForm", () => {
     mockUseImageGeneration.mockReset();
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            items: [...runtimeImageModelsFixture, ...runtimeVideoModelsFixture],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        ),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              items: [
+                ...runtimeImageModelsFixture,
+                ...runtimeVideoModelsFixture,
+              ],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
       ),
     );
   });
@@ -80,16 +84,22 @@ describe("ImageGenerationForm", () => {
     navigationMocks.searchParams = new URLSearchParams();
     navigationMocks.searchParams.set("prompt", "a query prompt");
     navigationMocks.searchParams.set("model", "flux2-klein-9b");
-    navigationMocks.searchParams.append("initImage", "https://example.com/one.png");
-    navigationMocks.searchParams.append("initImage", "https://example.com/two.png");
+    navigationMocks.searchParams.append(
+      "initImage",
+      "https://example.com/one.png",
+    );
+    navigationMocks.searchParams.append(
+      "initImage",
+      "https://example.com/two.png",
+    );
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
     await waitForModels();
 
-    expect(
-      screen.getByDisplayValue("a query prompt"),
-    ).toBeInTheDocument();
-    expect(await screen.findAllByAltText("입력 이미지 미리보기")).toHaveLength(2);
+    expect(screen.getByDisplayValue("a query prompt")).toBeInTheDocument();
+    expect(await screen.findAllByAltText("입력 이미지 미리보기")).toHaveLength(
+      2,
+    );
 
     const modelButton = screen.getByRole("button", {
       name: /FLUX\.2 Klein 9B/i,
@@ -121,9 +131,9 @@ describe("ImageGenerationForm", () => {
     expect(dock).toHaveClass("backdrop-blur-xl");
     expect(dock.className).not.toContain("gradient");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
-      "bg-black/18",
+      "bg-card",
     );
-    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0자");
+    expect(screen.queryByTestId("shared-prompt-meta")).not.toBeInTheDocument();
     expect(dock).toHaveTextContent("모델 선택");
     expect(dock).not.toHaveTextContent("1:1");
     expect(dock).not.toHaveTextContent("1K");
@@ -149,23 +159,27 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
     await waitForModels();
 
-    expect(screen.getByText("IMAGE STUDIO")).toBeInTheDocument();
+    expect(screen.getByText("이미지 생성")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Create images with control." }),
+      screen.getByRole("heading", { name: "원하는 이미지를 만들어 보세요." }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Describe your idea. Choose your settings. Generate with precision."),
+      screen.getByText(
+        "아이디어를 입력하고 설정을 선택해 이미지를 생성하세요.",
+      ),
     ).toBeInTheDocument();
     const resultFrame = screen.getByTestId("generation-canvas");
     expect(resultFrame).toHaveClass("rounded-[1.75rem]");
     expect(resultFrame).toHaveClass("max-w-6xl");
     expect(resultFrame).not.toHaveClass("bg-[#07090a]");
     expect(
-      screen.getByRole("heading", { name: "Create images with control." }).closest(
-        "[data-testid='generation-canvas']",
-      ),
+      screen
+        .getByRole("heading", { name: "원하는 이미지를 만들어 보세요." })
+        .closest("[data-testid='generation-canvas']"),
     ).toBeNull();
-    expect(screen.queryByAltText("어두운 톤의 인물 레퍼런스")).not.toBeInTheDocument();
+    expect(
+      screen.queryByAltText("어두운 톤의 인물 레퍼런스"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("VISUAL TAKE")).not.toBeInTheDocument();
   });
 
@@ -177,17 +191,20 @@ describe("ImageGenerationForm", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ items: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
       ),
     );
 
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
-    expect(await screen.findByText("선택 가능한 모델 없음")).toBeInTheDocument();
+    expect(
+      await screen.findByText("선택 가능한 모델 없음"),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText("지금 사용할 수 있는 생성 모델이 없습니다."),
     ).not.toBeInTheDocument();
@@ -216,9 +233,9 @@ describe("ImageGenerationForm", () => {
       await screen.findByText("프롬프트를 입력해주세요."),
     ).toBeInTheDocument();
     const feedback = screen.getByTestId("shared-prompt-feedback");
-    expect(
-      screen.getByTestId("shared-prompt-form-surface"),
-    ).toContainElement(feedback);
+    expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
+      feedback,
+    );
     expect(feedback).toContainElement(
       screen.getByText("프롬프트를 입력해주세요."),
     );
@@ -239,7 +256,7 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.queryByText("42%")).not.toBeInTheDocument();
-    expect(screen.getAllByText("생성 중...").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("생성 중…").length).toBeGreaterThan(0);
   });
 
   it("완료된 결과 이미지를 표시한다", () => {
@@ -260,7 +277,7 @@ describe("ImageGenerationForm", () => {
 
     expect(screen.getByAltText("생성된 이미지 1")).toBeInTheDocument();
     expect(screen.queryByText("준비 완료")).not.toBeInTheDocument();
-    expect(screen.queryByText("생성 중...")).not.toBeInTheDocument();
+    expect(screen.queryByText("생성 중…")).not.toBeInTheDocument();
   });
 
   it("비로그인 상태에서 로그인 페이지로 이동한다", async () => {
@@ -290,7 +307,9 @@ describe("ImageGenerationForm", () => {
   });
 
   it("FLUX 모델에서 모드/가이던스/업샘플링 옵션을 노출한다", async () => {
-    const fluxModel = imageModels.find((model) => model.key === "flux2-klein-9b");
+    const fluxModel = imageModels.find(
+      (model) => model.key === "flux2-klein-9b",
+    );
     expect(fluxModel).toBeDefined();
     if (!fluxModel) return;
 
@@ -351,7 +370,7 @@ describe("ImageGenerationForm", () => {
     await waitForModels();
 
     await openModelPicker(userEvent.setup());
-    expect(screen.getByText("default")).toBeInTheDocument();
+    expect(screen.getByText("기본")).toBeInTheDocument();
     expect(screen.queryByText("T2I")).not.toBeInTheDocument();
     expect(screen.queryByText("I2I")).not.toBeInTheDocument();
     expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();

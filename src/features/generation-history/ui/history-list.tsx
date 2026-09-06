@@ -1,7 +1,10 @@
 import { Archive } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
-import { HistoryItem, HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
+import {
+  HistoryItem,
+  HistoryItemSkeleton,
+} from "@/features/generation-history/ui/history-item";
 import { cn } from "@/shared/lib/utils";
 import { AppCard } from "@/shared/ui/app-card";
 
@@ -64,10 +67,8 @@ export function HistoryList({
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
           <Archive className="h-6 w-6 text-gray-500" />
         </div>
-        <h3 className="text-lg font-bold text-gray-200">
-          {tEmpty("title")}
-        </h3>
-        <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+        <h3 className="text-lg font-bold text-gray-200">{tEmpty("title")}</h3>
+        <p className="text-xs font-sans uppercase tracking-widest text-gray-500">
           {resolvedEmptyMessage}
         </p>
       </AppCard>

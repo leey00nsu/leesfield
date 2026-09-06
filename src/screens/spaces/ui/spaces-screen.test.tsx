@@ -1,4 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { renderWithIntl as render } from "@/test-utils/intl";
+import enMessages from "@/shared/i18n/messages/en.json";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpacesScreen } from "./spaces-screen";
@@ -27,30 +29,65 @@ describe("Spaces list", () => {
   beforeEach(() => { vi.clearAllMocks(); window.history.replaceState(null, ""); mocks.list.mockReturnValue({ data: [], isLoading: false, isError: false }); });
   it("does not create or open a Space on an empty list visit", () => {
     render(<SpacesScreen />);
-    expect(screen.getByRole("heading", { name: "Spaces" })).toBeInTheDocument();
-    expect(screen.getByTestId("generation-studio-intro")).toBeInTheDocument();
-    expect(screen.getByText("Your first space starts here")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "스페이스" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "스페이스" })).toHaveClass("sr-only");
+    expect(screen.getByText("첫 스페이스를 만들어 보세요")).toBeInTheDocument();
     expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.push).not.toHaveBeenCalled();
   });
   it("creates a named space only after explicit confirmation", async () => {
     const user = userEvent.setup(); mocks.create.mockResolvedValue(space); render(<SpacesScreen />);
-    await user.click(screen.getByRole("button", { name: "New Space" }));
+    await user.click(screen.getByRole("button", { name: "새 스페이스" }));
     const dialog = screen.getByRole("dialog");
-    await user.clear(within(dialog).getByRole("textbox", { name: "Space name" }));
+    await user.clear(within(dialog).getByRole("textbox", { name: "스페이스 이름" }));
     await user.type(within(dialog).getByRole("textbox"), "My Space");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(within(dialog).getByRole("button", { name: "저장" }));
     expect(mocks.create).toHaveBeenCalledWith("My Space"); expect(mocks.push).toHaveBeenCalledWith("/spaces/one");
   });
   it("copies into the list and requires confirmation before deleting", async () => {
     const user = userEvent.setup(); mocks.list.mockReturnValue({ data: [space] }); mocks.copy.mockResolvedValue({ ...space, id: "two" });
     render(<SpacesScreen />);
     expect(screen.getByRole("link", { name: /First Space/ })).toHaveAttribute("href", "/spaces/one");
-    await user.click(screen.getByRole("button", { name: "Copy First Space" }));
+    await user.click(screen.getByRole("button", { name: "First Space 복제" }));
     expect(mocks.copy).toHaveBeenCalledWith("one"); expect(mocks.sync).toHaveBeenCalledWith(expect.objectContaining({ id: "two" }));
-    await user.click(screen.getByRole("button", { name: "Delete First Space" }));
+    await user.click(screen.getByRole("button", { name: "First Space 삭제" }));
     expect(mocks.remove).not.toHaveBeenCalled();
-    expect(screen.getByText(/generation history will be kept/)).toBeInTheDocument();
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
+    expect(screen.getByText(/생성 기록은 유지됩니다/)).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "삭제" }));
     expect(mocks.remove).toHaveBeenCalledWith("one");
   });
+});
+
+ it("filters names, resets no results, and orders without mutating cached data", async () => {
+  const user = userEvent.setup();
+  const items = [
+    { ...space, id: "a", title: "Alpha", updatedAt: "2026-09-01", createdAt: "2026-09-06" },
+    { ...space, id: "b", title: "Beta", updatedAt: "2026-09-07", createdAt: "2026-09-01" },
+  ];
+  mocks.list.mockReturnValue({ data: items });
+  render(<SpacesScreen />);
+  const names = () => screen.getAllByRole("listitem").map((row) => within(row).getByRole("link").textContent);
+  expect(names()).toEqual(["Beta", "Alpha"]);
+  await user.click(screen.getByRole("combobox", { name: "스페이스 정렬" }));
+  await user.click(await screen.findByRole("option", { name: "최근 생성순" }));
+  expect(names()).toEqual(["Alpha", "Beta"]);
+  const input = screen.getByRole("searchbox", { name: "스페이스 이름 검색" });
+  await user.type(input, " BETA ");
+  expect(names()).toEqual(["Beta"]);
+  await user.clear(input);
+  await user.type(input, "missing");
+  expect(screen.getByText(/검색 결과가 없습니다/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "검색 초기화" }));
+  expect(names()).toEqual(["Alpha", "Beta"]);
+  expect(items.map((item) => item.id)).toEqual(["a", "b"]);
+});
+
+it("localizes the list, counts and dialog in English without translating user names", async () => {
+  mocks.list.mockReturnValue({ data: [space] });
+  render(<SpacesScreen />, { locale: "en", messages: enMessages });
+  expect(screen.getByRole("heading", { name: "Spaces" })).toBeInTheDocument();
+  expect(screen.getByText("1 space")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: space.title })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Rename First Space" }));
+  expect(screen.getByRole("textbox", { name: "Space name" })).toHaveValue(space.title);
+  expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 });

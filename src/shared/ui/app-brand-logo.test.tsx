@@ -19,12 +19,12 @@ vi.mock("next/image", () => ({
 }));
 
 describe("AppBrandLogo", () => {
-  it("uses a slightly stronger wordmark weight without changing the label", () => {
+  it("uses the shared brand font without changing the label", () => {
     renderWithIntl(<AppBrandLogo label="leesfield" />);
 
     const wordmark = screen.getByText("leesfield");
-    expect(wordmark).toHaveClass("font-display");
-    expect(wordmark).toHaveClass("font-medium");
+    expect(wordmark).toHaveClass("font-brand");
+    expect(wordmark).toHaveClass("font-bold");
     expect(wordmark).not.toHaveClass("font-normal");
   });
 

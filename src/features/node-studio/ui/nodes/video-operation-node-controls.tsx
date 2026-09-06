@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, Play, Square } from "lucide-react";
@@ -90,6 +92,7 @@ export function VideoOperationNodeControls({
   data: NodeBananaNodeData;
   kind: VideoOperationKind;
 }) {
+  const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio");
   const authoring = useNodeAuthoring();
   const queryClient = useQueryClient();
@@ -138,7 +141,7 @@ export function VideoOperationNodeControls({
       return (
         <div className="grid gap-2">
           <NumberField
-            label="Sequence repeat"
+            label={tc("Sequence repeat")}
             value={number(parameters.repeat, 1)}
             min={1}
             max={3}
@@ -151,9 +154,7 @@ export function VideoOperationNodeControls({
               checked={stripAudio}
               disabled={!writable}
               onChange={(event) => updateParameters({ stripAudio: event.target.checked })}
-            />
-            Remove all source and soundtrack audio
-          </label>
+            />{tc("Remove all source and soundtrack audio")}</label>
         </div>
       );
     }
@@ -167,7 +168,7 @@ export function VideoOperationNodeControls({
             <div className="pointer-events-none absolute inset-x-0 top-2 h-1.5 rounded-full bg-neutral-700" />
             <input
               type="range"
-              aria-label="Trim start"
+              aria-label={tc("Trim start")}
               min={0}
               max={durationSeconds}
               step={0.1}
@@ -178,7 +179,7 @@ export function VideoOperationNodeControls({
             />
             <input
               type="range"
-              aria-label="Trim end"
+              aria-label={tc("Trim end")}
               min={0}
               max={durationSeconds}
               step={0.1}
@@ -189,9 +190,9 @@ export function VideoOperationNodeControls({
             />
           </div>
           <div className="flex justify-between font-mono text-[10px] text-neutral-400">
-            <span>Start {startSeconds.toFixed(1)}s</span>
-            <span>Duration {Math.max(0, endSeconds - startSeconds).toFixed(1)}s</span>
-            <span>End {endSeconds.toFixed(1)}s</span>
+            <span>{tc("Start")}{startSeconds.toFixed(1)}s</span>
+            <span>{tc("Duration")}{Math.max(0, endSeconds - startSeconds).toFixed(1)}s</span>
+            <span>{tc("End")}{endSeconds.toFixed(1)}s</span>
           </div>
           <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60">
             <input
@@ -199,16 +200,14 @@ export function VideoOperationNodeControls({
               checked={stripAudio}
               disabled={!writable}
               onChange={(event) => updateParameters({ stripAudio: event.target.checked })}
-            />
-            Remove embedded audio
-          </label>
+            />{tc("Remove embedded audio")}</label>
         </div>
       );
     }
     if (kind === "edit.video.frameGrab") {
       const position = parameters.position === "last" ? "last" : "first";
       return (
-        <div className="flex gap-1" role="group" aria-label="Frame position">
+        <div className="flex gap-1" role="group" aria-label={tc("Frame position")}>
           {(["first", "last"] as const).map((candidate) => (
             <button
               key={candidate}
@@ -222,7 +221,7 @@ export function VideoOperationNodeControls({
               }`}
               onClick={() => updateParameters({ position: candidate })}
             >
-              {candidate === "first" ? "First" : "Last"}
+              {candidate === "first" ? tc("First") : tc("Last")}
             </button>
           ))}
         </div>
@@ -235,7 +234,7 @@ export function VideoOperationNodeControls({
     return (
       <div className="grid grid-cols-2 gap-2">
         <NumberField
-          label="Output (s)"
+          label={tc("Output (s)")}
           value={number(parameters.outputDurationMs, 1_500) / 1_000}
           min={0.1}
           max={600}
@@ -243,16 +242,14 @@ export function VideoOperationNodeControls({
           disabled={!controlsWritable}
           onChange={(value) => updateParameters({ outputDurationMs: Math.round(value * 1_000) })}
         />
-        <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">
-          Curve
-          <select
+        <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Curve")}<select
             value={preset}
           disabled={!controlsWritable}
             className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white"
             onChange={(event) => updateParameters({ easingPreset: event.target.value === "custom" ? null : event.target.value })}
           >
             {easingPresets.map((name) => <option key={name} value={name}>{name}</option>)}
-            <option value="custom">Custom bezier</option>
+            <option value="custom">{tc("Custom bezier")}</option>
           </select>
         </label>
         {preset === "custom" ? bezier.map((value, index) => (
@@ -323,7 +320,7 @@ export function VideoOperationNodeControls({
           {clipAssets.length ? clipAssets.map((query, index) => query.data?.type === "video" ? (
             <video key={query.data.id} src={query.data.url} muted playsInline preload="metadata" aria-label={`Video ${index + 1}`} className="aspect-video h-full shrink-0 rounded object-cover" />
           ) : null) : (
-            <span className="m-auto text-[10px] text-neutral-500">Connect videos</span>
+            <span className="m-auto text-[10px] text-neutral-500">{tc("Connect videos")}</span>
           )}
         </div>
       ) : null}
@@ -331,7 +328,7 @@ export function VideoOperationNodeControls({
         asset={outputAsset ?? inputAsset.data}
         expectedType={kind === "edit.video.frameGrab" ? "image" : "video"}
         output={Boolean(outputAsset)}
-        emptyLabel={kind === "edit.video.stitch" ? "Connect videos to stitch" : "Connect a video"}
+        emptyLabel={kind === "edit.video.stitch" ? tc("Connect videos to stitch") : tc("Connect a video")}
         onClearOutput={data.selectedOutputAssetId
           ? () => authoring.selectNodeOutputAsset?.(id, null)
           : undefined}

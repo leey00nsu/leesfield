@@ -49,7 +49,7 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
                 openApiDocument={openApiDocument}
               />
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-[#0b0d0e] px-5 py-5 text-sm text-gray-300">
+              <div className="rounded-2xl border border-white/10 bg-card px-5 py-5 text-sm text-gray-300">
                 {tStates("missingEndpoints")}
               </div>
             )}

@@ -177,7 +177,7 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.queryByText("평균")).not.toBeInTheDocument();
     expect(screen.queryByText("성공 비율")).not.toBeInTheDocument();
     expect(screen.queryByText("Top N 지표")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("검색...")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("검색…")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "이미지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "비디오" })).toBeInTheDocument();
     expect(screen.getByLabelText("시작일")).toBeInTheDocument();

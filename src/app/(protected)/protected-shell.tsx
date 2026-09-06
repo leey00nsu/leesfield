@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { Header } from "@/widgets/header/ui/header";
@@ -21,7 +21,9 @@ export function ProtectedShell({
 
   if (nodeStudio) {
     return (
-      <div className="h-dvh overflow-hidden bg-neutral-900 text-white">
+      <div
+        className="spaces-canvas h-dvh overflow-hidden bg-background text-foreground"
+      >
         <main className="h-full min-h-0">{children}</main>
       </div>
     );
@@ -41,7 +43,11 @@ export function ProtectedShell({
         isAuthenticated={isAuthenticated}
         userEmail={userEmail}
       />
-      <main className="bg-background-dark px-6 py-6">{children}</main>
+      <main
+        className="bg-background-dark px-4 sm:px-6 lg:px-8"
+      >
+        {children}
+      </main>
     </div>
   );
 }

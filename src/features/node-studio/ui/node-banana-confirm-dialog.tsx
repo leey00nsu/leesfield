@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useId } from "react";
 
 import styles from "./node-banana-studio.module.css";
@@ -20,11 +21,12 @@ export function NodeBananaConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   danger = false,
   onCancel,
   onConfirm,
 }: NodeBananaConfirmDialogProps) {
+  const t = useTranslations("nodeStudio.host");
   const titleId = useId();
   const descriptionId = useId();
 
@@ -46,11 +48,11 @@ export function NodeBananaConfirmDialog({
       >
         <header>
           <h2 id={titleId}>{title}</h2>
-          <button type="button" onClick={onCancel} aria-label="Close dialog">×</button>
+          <button type="button" onClick={onCancel} aria-label={t("close")}>×</button>
         </header>
         <p id={descriptionId}>{description}</p>
         <footer>
-          <button type="button" onClick={onCancel}>{cancelLabel}</button>
+          <button type="button" onClick={onCancel}>{cancelLabel ?? t("cancel")}</button>
           <button
             type="button"
             data-variant={danger ? "danger" : "primary"}

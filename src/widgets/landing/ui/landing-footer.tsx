@@ -1,75 +1,62 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
-import { AppCard } from "@/shared/ui/app-card";
-import { LandingReveal } from "./landing-motion";
-
-const groups = [
-  {
-    title: "Product",
-    links: [
-      ["Image", "/image"],
-      ["Video", "/video"],
-      ["Audio", "/audio"],
-      ["History", "/history"],
-    ],
-  },
-  {
-    title: "Platform",
-    links: [
-      ["Models", "/model"],
-      ["Monitoring", "/monitoring"],
-      ["API Docs", "/api-docs"],
-      ["API Keys", "/api-key"],
-    ],
-  },
-  {
-    title: "Social",
-    links: [
-      ["GitHub", "https://github.com/leey00nsu/leesfield"],
-    ],
-  },
-];
-
 export function LandingFooter() {
+  const t = useTranslations("inferenceLanding.footer"),
+    nav = useTranslations("nav");
   return (
-    <footer className="px-6 pb-12 pt-8 sm:px-10">
-      <LandingReveal
-        className="mx-auto max-w-[1500px]"
-        testId="landing-footer-reveal"
-        y={16}
-      >
-        <AppCard variant="editorial" className="rounded-[1.6rem] p-8 md:p-14">
-          <div className="grid gap-12 md:grid-cols-[1fr_0.46fr_0.46fr_0.46fr]">
-            <LandingReveal delay={0.04} y={10}>
-              <Link href="/" className="flex items-center gap-3 self-start">
-                <AppBrandLogo size="lg" textClassName="text-2xl" />
-              </Link>
-            </LandingReveal>
-            {groups.map((group, index) => (
-              <LandingReveal key={group.title} delay={0.08 + index * 0.05} y={10}>
-                <h2 className="text-sm uppercase tracking-[0.16em] text-white/44">
-                  {group.title}
-                </h2>
-                <ul className="mt-7 space-y-5">
-                  {group.links.map(([label, href]) => (
-                    <li key={label}>
-                      <Link
-                        href={href}
-                        className="text-lg text-white/82 transition-colors hover:text-white"
-                      >
-                        {label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </LandingReveal>
-            ))}
+    <footer className="mx-auto w-full max-w-[72rem] border-t px-5 py-12 sm:px-7 lg:px-8">
+      <div className="grid gap-10 sm:grid-cols-[1fr_auto_auto]">
+        <div>
+          <Link href="/">
+            <AppBrandLogo size="sm" />
+          </Link>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t("description")}
+          </p>
+        </div>
+        {[
+          {
+            title: t("product"),
+            links: [
+              ["generate", "/generate"],
+              ["nodeStudio", "/spaces"],
+              ["history", "/history"],
+            ],
+          },
+          {
+            title: t("platform"),
+            links: [
+              ["model", "/model"],
+              ["monitoring", "/monitoring"],
+              ["apiDocs", "/api-docs"],
+              ["apiKey", "/api-key"],
+            ],
+          },
+        ].map((group) => (
+          <div key={group.title}>
+            <h2 className="text-xs font-medium text-muted-foreground">
+              {group.title}
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {group.links.map(([key, href]) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className="text-sm hover:text-data-accent-foreground"
+                  >
+                    {nav(key)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="mt-24 border-t border-white/12 pt-8 text-sm text-white/48">
-            © 2026 leesfield. All rights reserved.
-          </div>
-        </AppCard>
-      </LandingReveal>
+        ))}
+      </div>
+      <div className="mt-12 flex flex-wrap justify-between gap-4 text-xs text-muted-foreground">
+        <p>© {new Date().getFullYear()} Leesfield</p>
+        <Link href="https://github.com/leey00nsu/leesfield">GitHub</Link>
+      </div>
     </footer>
   );
 }

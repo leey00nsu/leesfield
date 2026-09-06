@@ -1,4 +1,12 @@
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
+  useRuntimeModelCatalog: () => ({
+    imageModels: [],
+    videoModels: [],
+    audioModels: [],
+  }),
+}));
 import type React from "react";
+import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
@@ -7,9 +15,9 @@ import { renderWithIntl } from "@/test-utils/intl";
 vi.mock("next/image", () => ({
   default: (
     props: React.ImgHTMLAttributes<HTMLImageElement> & {
-    fill?: boolean;
-    priority?: boolean;
-  },
+      fill?: boolean;
+      priority?: boolean;
+    },
   ) => {
     const imageProps = { ...props };
     delete imageProps.fill;
@@ -28,8 +36,11 @@ vi.mock("@paper-design/shaders-react", () => ({
   ),
 }));
 
-vi.mock("motion/react", () => ({
+vi.mock("motion/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("motion/react")>()),
   motion: {
+    p: (await importOriginal<typeof import("motion/react")>()).motion.p,
+    span: (await importOriginal<typeof import("motion/react")>()).motion.span,
     div: ({
       animate,
       children,
@@ -54,13 +65,39 @@ vi.mock("motion/react", () => ({
   useReducedMotion: () => false,
 }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 describe("LandingHero", () => {
+  it("updates the preview and destination without submitting a generation", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<LandingHero />);
+    await user.click(screen.getByRole("tab", { name: "오디오" }));
+    expect(screen.getByRole("tab", { name: "오디오" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "생성" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/generate?type=audio"),
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "생성할 음성이나 오디오를 설명해 주세요.",
+    );
+  });
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
 
     const panel = screen.getByRole("region", { name: "생성 패널" });
     expect(panel).toBeInTheDocument();
-    expect(screen.getByTestId(["warp", "shader"].join("-"))).toBeInTheDocument();
+    expect(screen.getByTestId("landing-hero-composer-motion")).toContainElement(
+      screen.getByRole("tab", { name: "이미지" }),
+    );
+    expect(
+      screen.getByRole("link", { name: /스페이스가 추가되었어요/ }),
+    ).toHaveAttribute("href", "#spaces");
+    expect(
+      screen.getByTestId(["warp", "shader"].join("-")),
+    ).toBeInTheDocument();
     expect(panel).toHaveClass("bg-[#07090a]");
     expect(panel).not.toHaveClass("border");
     expect(panel).not.toHaveClass("border-white/10");
@@ -88,7 +125,9 @@ describe("LandingHero", () => {
     expect(formSurface).toContainElement(formMotion);
     expect(borderMotion).not.toContainElement(formMotion);
     expect(formMotion).not.toContainElement(formSurface);
-    expect(formMotion).toContainElement(screen.getByTestId("shared-prompt-form-surface"));
+    expect(formMotion).toContainElement(
+      screen.getByTestId("shared-prompt-form-surface"),
+    );
     expect(formMotion).not.toContainElement(shaderPanel);
     expect(formSurface).toHaveClass("border-0");
     expect(borderMotion).toHaveClass("pointer-events-none");
@@ -124,26 +163,14 @@ describe("LandingHero", () => {
     }
     expect(shaderPanel).not.toHaveClass("animate-in");
     expect(shaderPanel).not.toHaveClass("fade-in");
-    expect(
-      formSurface,
-    ).toHaveClass("relative");
-    expect(
-      formSurface,
-    ).toHaveAttribute("data-app-card");
-    expect(
-      formSurface,
-    ).toHaveAttribute("data-variant", "editorial-flat");
-    expect(
-      formSurface,
-    ).toHaveAttribute("data-surface", "hero");
-    expect(
-      formSurface,
-    ).toHaveClass("bg-black/24");
-    expect(
-      formSurface,
-    ).toHaveClass("backdrop-blur-xl");
+    expect(formSurface).toHaveClass("relative");
+    expect(formSurface).toHaveAttribute("data-app-card");
+    expect(formSurface).toHaveAttribute("data-variant", "editorial-flat");
+    expect(formSurface).toHaveAttribute("data-surface", "hero");
+    expect(formSurface).toHaveClass("bg-black/24");
+    expect(formSurface).toHaveClass("backdrop-blur-xl");
     expect(screen.getByTestId("shared-prompt-form-surface")).toHaveClass(
-      "bg-black/18",
+      "bg-card",
     );
     expect(screen.queryByText("크리에이티브 스튜디오")).not.toBeInTheDocument();
     expect(screen.queryByAltText("오디오 콘솔 사진")).not.toBeInTheDocument();
@@ -153,33 +180,37 @@ describe("LandingHero", () => {
     expect(screen.queryByText("Monitor and optimize")).not.toBeInTheDocument();
 
     const headline = screen.getByRole("heading", {
-      name: "Generate anything. One platform for image, video, and audio.",
+      name: "모든 AI 모델을 하나의 인터페이스로",
     });
     expect(headline).toBeInTheDocument();
-    expect(headline).toHaveClass("text-[clamp(2.15rem,3.55vw,3.85rem)]");
-    expect(headline.querySelectorAll("span.block")).toHaveLength(2);
-    expect(headline.querySelector("span.block")).toHaveClass("sm:whitespace-nowrap");
-    expect(headline.querySelector(".lf-text-generate-word")).toBeInTheDocument();
+    expect(headline.querySelectorAll("span.block")).toHaveLength(1);
+    expect(headline.querySelector("span.block")).toHaveClass(
+      "sm:whitespace-nowrap",
+    );
+    expect(
+      headline.querySelector(".lf-text-generate-word"),
+    ).toBeInTheDocument();
 
-    const imageLink = screen.getByRole("link", { name: "Image" });
-    const videoLink = screen.getByRole("link", { name: "Video" });
-    const audioLink = screen.getByRole("link", { name: "Audio" });
-
-    expect(imageLink).toHaveAttribute("href", "/image");
-    expect(videoLink).toHaveAttribute("href", "/video");
-    expect(audioLink).toHaveAttribute("href", "/audio");
+    expect(screen.getByRole("tab", { name: "이미지" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "비디오" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "오디오" })).toBeInTheDocument();
 
     expect(screen.queryByText("네온 패션 editorial")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다."),
+      screen.queryByText(
+        "한 화면에서 결과 타입을 보고 바로 생성 흐름으로 이동합니다.",
+      ),
     ).not.toBeInTheDocument();
 
-    expect(screen.getByRole("textbox", { name: "프롬프트" })).toHaveAttribute(
-      "readonly",
-    );
-    expect(screen.getByRole("link", { name: /Generate/ })).toHaveAttribute(
+    expect(
+      screen.getByRole("textbox", { name: "프롬프트" }),
+    ).not.toHaveAttribute("readonly");
+    expect(screen.getByRole("link", { name: "생성" })).toHaveAttribute(
       "href",
-      "/image",
+      expect.stringContaining("/generate?type=image"),
     );
   });
 

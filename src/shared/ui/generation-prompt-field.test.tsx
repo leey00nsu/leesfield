@@ -24,18 +24,18 @@ describe("GenerationPromptField", () => {
     expect(dock).toHaveAttribute("data-app-card");
     expect(dock).toHaveAttribute("data-variant", "editorial-flat");
     expect(dock).toHaveAttribute("data-surface", "default");
-    expect(dock).toHaveClass("rounded-[1.35rem]");
     expect(dock).toHaveClass("border-0");
-    expect(dock.className).toContain("bg-[#0b0d0e]");
+    expect(dock.className).toContain("bg-card");
     expect(dock.className).not.toContain("gradient");
     expect(surface).toHaveAttribute("data-app-card");
     expect(surface).toHaveAttribute("data-variant", "prompt");
     expect(surface).toHaveClass("relative");
     expect(surface).toHaveClass("rounded-xl");
-    expect(surface).toHaveClass("border-white/12");
-    expect(surface).toHaveClass("bg-black/18");
+    expect(surface).toHaveClass("bg-card");
     expect(surface).not.toHaveClass("bg-creative-surface");
-    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent("0 chars");
+    expect(screen.getByTestId("shared-prompt-meta")).toHaveTextContent(
+      "0 chars",
+    );
   });
 
   it("can wrap the inner prompt content without wrapping the outer prompt field surface", () => {

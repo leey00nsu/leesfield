@@ -34,9 +34,8 @@ const appPromptFieldSurfaceClassNames: Record<
   NonNullable<AppPromptFieldProps["surface"]>,
   string
 > = {
-  default: "border-0 bg-[#0b0d0e] shadow-none",
-  hero:
-    "border border-white/12 bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl",
+  default: "border-0 bg-card shadow-none",
+  hero: "border border-white/12 bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl",
 };
 
 export function AppPromptSurface({
@@ -54,35 +53,41 @@ export function AppPromptSurface({
     <AppCard
       variant="prompt"
       data-testid="shared-prompt-form-surface"
-      className={cn("rounded-xl", className)}
+      className={cn(
+        "relative grid min-w-0 flex-1 gap-0 py-0 sm:grid-cols-[minmax(0,1fr)_auto]",
+        className,
+      )}
     >
-      {header}
-      <div className="relative">
-        {textarea}
-        {promptMeta ? (
-          <div
-            data-testid="shared-prompt-meta"
-            className="pointer-events-none absolute bottom-3 right-4 text-[10px] font-mono text-gray-600"
-          >
-            {promptMeta}
+      <div className="flex min-w-0 flex-col">
+        {header}
+        {attachments}
+        <div className="relative flex flex-1 flex-col [&_textarea]:flex-1">
+          {textarea}
+          {promptMeta ? (
+            <div
+              data-testid="shared-prompt-meta"
+              className="pointer-events-none absolute bottom-3 right-4 text-xs text-muted-foreground"
+            >
+              {promptMeta}
+            </div>
+          ) : null}
+        </div>
+        {feedback ? (
+          <div data-testid="shared-prompt-feedback" className="px-4 py-2">
+            {feedback}
           </div>
         ) : null}
-      </div>
-      {attachments}
-      {feedback ? (
-        <div
-          data-testid="shared-prompt-feedback"
-          className="border-t border-white/8 px-4 py-2"
-        >
-          {feedback}
-        </div>
-      ) : null}
-      {footer ?? (
-        <div className="flex flex-col gap-3 border-t border-white/12 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {footerLeft}
+        {footer ?? (
+          <div className="px-4 pb-4 pt-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {footerLeft}
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">{footerRight}</div>
+        )}
+      </div>
+      {footerRight && (
+        <div className="flex shrink-0 items-stretch gap-2 p-3 sm:pl-0 [&>button]:h-auto [&>a]:h-auto">
+          {footerRight}
         </div>
       )}
     </AppCard>
@@ -126,7 +131,9 @@ export function AppPromptField({
       role={ariaLabel ? "region" : undefined}
       aria-label={ariaLabel}
       className={cn(
-        "relative rounded-[1.35rem] p-4",
+        surface === "hero"
+          ? "relative rounded-[1.05rem] p-3 sm:p-4"
+          : "relative gap-0 p-0",
         appPromptFieldSurfaceClassNames[surface],
         className,
       )}

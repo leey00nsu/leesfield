@@ -72,7 +72,9 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
           name="email"
           render={({ field }) => (
             <AppFormItem>
-              <AppFormLabel className="sr-only">{tForm("emailLabel")}</AppFormLabel>
+              <AppFormLabel className="sr-only">
+                {tForm("emailLabel")}
+              </AppFormLabel>
               <AppFormControl>
                 <AppInput
                   surface="auth"
@@ -93,7 +95,9 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
           name="password"
           render={({ field }) => (
             <AppFormItem>
-              <AppFormLabel className="sr-only">{tForm("passwordLabel")}</AppFormLabel>
+              <AppFormLabel className="sr-only">
+                {tForm("passwordLabel")}
+              </AppFormLabel>
               <AppFormControl>
                 <AppInput
                   type="password"
@@ -121,7 +125,7 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
           disabled={isPending}
           variant="auth"
           size="toolbar"
-          className="mt-2 w-full rounded-xl text-base font-bold"
+          className="mt-2 w-full"
         >
           {isPending ? tForm("submitting") : tForm("submit")}
         </AppButton>

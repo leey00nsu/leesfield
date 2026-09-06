@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { StatePanel } from "@/shared/ui/brand/state-panel/state-panel";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppCard } from "@/shared/ui/app-card";
-import { AppEyebrow, AppHeading } from "@/shared/ui/app-typography";
 
 type AppRouteStateProps = {
   eyebrow: string;
@@ -19,26 +17,18 @@ export function AppRouteState({
   action,
 }: AppRouteStateProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#07090b] px-6 py-12 text-white">
-      <AppCard
-        variant="editorial-flat"
-        className="w-full max-w-xl rounded-[1.75rem] p-8 text-center sm:p-10"
-      >
-        <AppBrandLogo
-          variant="icon"
-          size="lg"
-          className="mx-auto"
-          markClassName="shadow-[0_0_34px_rgba(205,255,0,0.2)]"
-        />
-        <AppEyebrow className="mt-8">{eyebrow}</AppEyebrow>
-        <AppHeading as="h1" size="compact" className="mt-5">
-          {title}
-        </AppHeading>
-        <p className="mx-auto mt-5 max-w-md text-sm leading-6 text-white/58">
-          {description}
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div>
+        <p className="text-center text-xs text-data-accent-foreground">
+          {eyebrow}
         </p>
-        {action ? <div className="mt-8">{action}</div> : null}
-      </AppCard>
+        <StatePanel
+          headingLevel="h1"
+          title={title}
+          description={description}
+          action={action}
+        />
+      </div>
     </main>
   );
 }

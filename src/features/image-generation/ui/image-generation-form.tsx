@@ -1,13 +1,8 @@
 "use client";
+import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type FormEvent,
-} from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -37,6 +32,7 @@ import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationResultReveal } from "@/shared/ui/generation-result-reveal";
 import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
@@ -66,6 +62,7 @@ import {
 } from "@/shared/generation/image-authoring";
 
 type ImageGenerationFormProps = {
+  embedded?: boolean;
   isAuthenticated: boolean;
 };
 
@@ -76,8 +73,11 @@ const studioPreviewShellClass =
 const studioResultFrameClass =
   "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
-export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProps) {
-  const searchParams = useSearchParams();
+export function ImageGenerationForm({
+  isAuthenticated,
+  embedded = false,
+}: ImageGenerationFormProps) {
+  const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const tGeneration = useTranslations("generation");
@@ -90,7 +90,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     useRuntimeModelCatalog({ enabled: !isGuest });
   const resolvedImageModels = runtimeImageModels;
   const hasModels = resolvedImageModels.length > 0;
-  const defaultModelKey = resolveRuntimeDefaultModelKey(resolvedImageModels) ?? "";
+  const defaultModelKey =
+    resolveRuntimeDefaultModelKey(resolvedImageModels) ?? "";
   const runtimeModelMap = useMemo(
     () => new Map(resolvedImageModels.map((model) => [model.key, model])),
     [resolvedImageModels],
@@ -117,11 +118,12 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     zodResolver(staticSchema) as Resolver<ImageGenerationFormValues>,
   );
   useEffect(() => {
-    resolverRef.current = zodResolver(runtimeSchema) as Resolver<ImageGenerationFormValues>;
+    resolverRef.current = zodResolver(
+      runtimeSchema,
+    ) as Resolver<ImageGenerationFormValues>;
   }, [runtimeSchema]);
   const resolver = useCallback<Resolver<ImageGenerationFormValues>>(
-    (values, context, options) =>
-      resolverRef.current(values, context, options),
+    (values, context, options) => resolverRef.current(values, context, options),
     [],
   );
   const form = useForm<ImageGenerationFormValues>({
@@ -130,7 +132,12 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     mode: "onChange",
   });
   const promptFromQuery = searchParams?.get("prompt") ?? "";
-  const modelFromQuery = searchParams?.get("model") ?? "";
+  const modelFromQuery =
+    searchParams?.get("model") ??
+    resolvedImageModels.find(
+      (model) => model.label === searchParams?.get("modelLabel"),
+    )?.key ??
+    "";
   const initImagesFromQuery = useMemo(
     () =>
       (searchParams?.getAll("initImage") ?? [])
@@ -166,7 +173,6 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     });
   }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
-  const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const width =
     useWatch({ control: form.control, name: "width" }) ??
     imageGenerationDefaults.width;
@@ -209,7 +215,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   const widthConfig = getRuntimeImageParamConfig(activeRuntimeModel, "width");
   const heightConfig = getRuntimeImageParamConfig(activeRuntimeModel, "height");
   const stepsConfig = getRuntimeImageParamConfig(activeRuntimeModel, "steps");
-  const modeConfig = getRuntimeImageParamConfig(activeRuntimeModel, "modeChoice");
+  const modeConfig = getRuntimeImageParamConfig(
+    activeRuntimeModel,
+    "modeChoice",
+  );
   const guidanceConfig = getRuntimeImageParamConfig(
     activeRuntimeModel,
     "guidanceScale",
@@ -233,7 +242,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     (Boolean(heightConfig) && heightConfig?.ui !== "hidden");
   const showSteps = Boolean(stepsConfig) && stepsConfig?.ui !== "hidden";
   const showModeChoice =
-    Boolean(modeConfig) && modeConfig?.ui !== "hidden" && modeOptions.length > 0;
+    Boolean(modeConfig) &&
+    modeConfig?.ui !== "hidden" &&
+    modeOptions.length > 0;
   const showGuidanceScale =
     Boolean(guidanceConfig) && guidanceConfig?.ui !== "hidden";
   const showPromptUpsampling =
@@ -314,6 +325,45 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     }
   }, [activeModel, form, runtimeModelMap]);
 
+  const appliedLandingSettings = useRef(false);
+  useEffect(() => {
+    if (
+      appliedLandingSettings.current ||
+      searchParams.get("source") !== "landing" ||
+      !activeRuntimeModel ||
+      (modelFromQuery && activeModel !== modelFromQuery)
+    )
+      return;
+    appliedLandingSettings.current = true;
+    for (const [name, range] of [
+      ["width", widthRange],
+      ["height", heightRange],
+      ["steps", stepsRange],
+      ["imageCount", imageCountRange],
+    ] as const) {
+      const value = Number(searchParams.get(name));
+      if (!Number.isFinite(value) || value <= 0) continue;
+      const bounded = Math.min(
+        range.max,
+        Math.max(
+          range.min,
+          Math.round(value / Math.max(1, range.step)) * Math.max(1, range.step),
+        ),
+      );
+      form.setValue(name, bounded, { shouldValidate: true });
+    }
+  }, [
+    activeRuntimeModel,
+    activeModel,
+    modelFromQuery,
+    searchParams,
+    form,
+    widthRange,
+    heightRange,
+    stepsRange,
+    imageCountRange,
+  ]);
+
   useEffect(() => {
     if (!showModeChoice) return;
     const current = modeChoice?.trim();
@@ -343,16 +393,13 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     form.setValue("guidanceScale", adjusted.guidanceScale, {
       shouldValidate: true,
     });
-  }, [
-    form,
-    activeRuntimeModel,
-    modeChoice,
-    showModeChoice,
-  ]);
+  }, [form, activeRuntimeModel, modeChoice, showModeChoice]);
 
   const { state, startGeneration, reset } = useImageGeneration();
   const isGenerating =
-    state.status === "pending" || state.status === "processing" || state.status === "uploading";
+    state.status === "pending" ||
+    state.status === "processing" ||
+    state.status === "uploading";
   const resultImages = state.result?.images ?? [];
   const hasResults = state.status === "completed" && resultImages.length > 0;
 
@@ -397,8 +444,8 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
     resultImages.length <= 1
       ? "grid-cols-1"
       : resultImages.length === 2
-      ? "grid-cols-2"
-      : "grid-cols-2 lg:grid-cols-3";
+        ? "grid-cols-2"
+        : "grid-cols-2 lg:grid-cols-3";
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
@@ -416,28 +463,38 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
   return (
     <AppForm {...form}>
       <form
-        className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        className={
+          embedded
+            ? "generation-embedded"
+            : "mx-auto flex w-full max-w-[1600px] flex-col gap-8 pb-36"
+        }
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-6">
-            <div className={studioPreviewShellClass}>
-              <GenerationStudioIntro
+            <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
+              {!embedded && (<GenerationStudioIntro
+                compact={embedded}
+                guidance={tGeneration("page.imageGuidance")}
                 eyebrow={tImage("previewEyebrow")}
                 title={tImage("previewTitle")}
                 description={tImage("previewDescription")}
-              />
+              />)}
               <GenerationCanvas
                 isGenerating={isGenerating}
                 status={state.status}
                 errorMessage={state.errorMessage}
-                className={studioResultFrameClass}
+                className={
+                  embedded
+                    ? "mx-auto w-full max-w-[400px] aspect-square rounded-xl border bg-card"
+                    : studioResultFrameClass
+                }
               >
                 {hasResults ? (
                   <div
                     className={cn(
                       "relative z-10 grid h-full w-full gap-3 p-4",
-                      resultsGridClass
+                      resultsGridClass,
                     )}
                   >
                     {resultImages.map((image, index) => {
@@ -453,7 +510,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={image.url}
-                            alt={tImage("generatedImageAlt", { index: index + 1 })}
+                            alt={tImage("generatedImageAlt", {
+                              index: index + 1,
+                            })}
                             className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
                           />
                           <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
@@ -488,7 +547,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                   <div aria-hidden="true" className="h-full w-full" />
                 )}
               </GenerationCanvas>
-            </div>
+            </GenerationResultReveal>
 
             {hasResults && state.errorMessage && (
               <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
@@ -506,53 +565,57 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                       <GenerationPromptField
                         ariaLabel={tGeneration("promptDock.label")}
                         surface="hero"
-                        className="fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                        className={
+                          embedded
+                            ? "generation-composer"
+                            : "fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
+                        }
                         textarea={
                           <AppFormControl>
                             <AppTextarea
                               surface="transparent"
-                              className="min-h-[104px]"
+                              className="min-h-[160px]"
+                              placeholder={tImage("promptPlaceholder")}
                               {...field}
                             />
                           </AppFormControl>
                         }
-                        promptMeta={tLabels("chars", {
-                          count: promptValue.length,
-                        })}
-                        feedback={fieldState.error ? (
-                          <AppFormMessage className="text-xs text-red-400" />
-                        ) : undefined}
-                        attachments={
-                          initImagePreviews.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 px-4 pb-3">
-                              {initImagePreviews.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40"
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={item.url}
-                                    alt={tImage("initImageAlt")}
-                                    className="h-full w-full object-cover"
-                                  />
-                                  <AppButton
-                                    type="button"
-                                    onClick={() => handleRemoveInitImage(item.id)}
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                                    title={tActions("remove")}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </AppButton>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null
+                        feedback={
+                          fieldState.error ? (
+                            <AppFormMessage className="text-xs text-red-400" />
+                          ) : undefined
                         }
-                        footerLeft={
-                          <>
+                        attachments={
+                          <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
+                            {initImagePreviews.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {initImagePreviews.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={item.url}
+                                      alt={tImage("initImageAlt")}
+                                      className="h-full w-full object-cover"
+                                    />
+                                    <AppButton
+                                      type="button"
+                                      onClick={() =>
+                                        handleRemoveInitImage(item.id)
+                                      }
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                                      title={tActions("remove")}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </AppButton>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                             <AppButton
                               type="button"
                               variant="surface"
@@ -562,7 +625,7 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                 !canUploadImages ||
                                 initImagePreviews.length >= maxInputImages
                               }
-                              className="h-12 w-12 rounded-xl border-primary/20 bg-black/16 text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
+
                               title={
                                 canUploadImages
                                   ? tImage("uploadReference")
@@ -571,6 +634,10 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                             >
                               <ImagePlus className="h-5 w-5" />
                             </AppButton>
+                          </div>
+                        }
+                        footerLeft={
+                          <>
                             {!isGuest && hasModels ? (
                               <GenerationModelSection
                                 modality="image"
@@ -625,7 +692,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               step={widthRange.step}
                                               value={field.value}
                                               onChange={(event) =>
-                                                field.onChange(Number(event.target.value))
+                                                field.onChange(
+                                                  Number(event.target.value),
+                                                )
                                               }
                                               className="h-11 border-white/10 bg-black/30 text-white"
                                             />
@@ -651,7 +720,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               step={heightRange.step}
                                               value={field.value}
                                               onChange={(event) =>
-                                                field.onChange(Number(event.target.value))
+                                                field.onChange(
+                                                  Number(event.target.value),
+                                                )
                                               }
                                               className="h-11 border-white/10 bg-black/30 text-white"
                                             />
@@ -737,14 +808,18 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                             >
                                               {modeOptions.map((option) => {
                                                 const optionValue = String(
-                                                  getRuntimeParameterOptionValue(option),
+                                                  getRuntimeParameterOptionValue(
+                                                    option,
+                                                  ),
                                                 );
                                                 return (
                                                   <option
                                                     key={optionValue}
                                                     value={optionValue}
                                                   >
-                                                    {getRuntimeParameterOptionLabel(option)}
+                                                    {getRuntimeParameterOptionLabel(
+                                                      option,
+                                                    )}
                                                   </option>
                                                 );
                                               })}
@@ -807,7 +882,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               min={guidanceRange.min}
                                               max={guidanceRange.max}
                                               step={guidanceRange.step}
-                                              value={field.value ?? guidanceScale}
+                                              value={
+                                                field.value ?? guidanceScale
+                                              }
                                               onChange={(event) =>
                                                 field.onChange(
                                                   Number(event.target.value),
@@ -835,7 +912,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                               <AppButton
                                                 type="button"
                                                 variant={
-                                                  isEnabled ? "primary" : "surface"
+                                                  isEnabled
+                                                    ? "primary"
+                                                    : "surface"
                                                 }
                                                 size="sm"
                                                 onClick={() =>
@@ -871,7 +950,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                           <AppFormControl>
                                             <div className="flex items-center gap-2">
                                               <AppInput
-                                                placeholder={tImage("seedPlaceholder")}
+                                                placeholder={tImage(
+                                                  "seedPlaceholder",
+                                                )}
                                                 {...field}
                                               />
                                               <AppButton
@@ -880,7 +961,9 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                                                 size="icon"
                                                 onClick={handleRandomizeSeed}
                                                 disabled={isGenerating}
-                                                aria-label={tLabels("randomize")}
+                                                aria-label={tLabels(
+                                                  "randomize",
+                                                )}
                                               >
                                                 <Dice5 className="h-4 w-4" />
                                               </AppButton>
@@ -898,13 +981,15 @@ export function ImageGenerationForm({ isAuthenticated }: ImageGenerationFormProp
                         footerRight={
                           <>
                             <AppButton
+                              variant="generate"
                               type={isAuthenticated ? "submit" : "button"}
                               size="xl"
                               disabled={
                                 isGenerating ||
-                                (isAuthenticated && (isModelLoading || !hasModels))
+                                (isAuthenticated &&
+                                  (isModelLoading || !hasModels))
                               }
-                              className="h-16 min-w-40 rounded-2xl px-6 text-base shadow-none"
+                              className="min-w-24"
                               onClick={
                                 isAuthenticated
                                   ? undefined

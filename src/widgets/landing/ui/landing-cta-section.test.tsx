@@ -1,29 +1,23 @@
+import type React from "react";
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { LandingCtaSection } from "@/widgets/landing/ui/landing-cta-section";
+import { describe, it, expect, vi } from "vitest";
 import { renderWithIntl } from "@/test-utils/intl";
-
+import { LandingCtaSection } from "./landing-cta-section";
+vi.mock("@/shared/ui/brand/reveal-content/reveal-content", () => ({
+  RevealContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 describe("LandingCtaSection", () => {
-  it("links to image generation without an email field", () => {
+  it("describes the implemented platform and links to its screens", () => {
     renderWithIntl(<LandingCtaSection />);
-
-    expect(
-      screen.getByRole("heading", { name: "Design with leesfield" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Design with leesfield" }).closest(
-        `.${["lf", "outline", "map"].join("-")}`,
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Design with leesfield" }).closest(
-        "[data-app-card][data-variant='outline-map']",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Get started now/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "AI 생성 열기" })).toHaveAttribute(
       "href",
-      "/image",
+      "/generate",
     );
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "API 문서 보기" })).toHaveAttribute(
+      "href",
+      "/api-docs",
+    );
   });
 });

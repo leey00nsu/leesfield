@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderWithIntl as render } from "@/test-utils/intl";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -157,41 +158,41 @@ describe("NodeBananaAnnotationEditor", () => {
     const onSave = vi.fn();
     const view = render(<Editor onSave={onSave} />);
 
-    const dialog = screen.getByRole("dialog", { name: "Annotation editor" });
-    expect(dialog).toHaveAccessibleDescription("Add, edit, or remove visual annotations from the connected image.");
-    expect(screen.getByRole("status")).toHaveTextContent("Loading image");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    const dialog = screen.getByRole("dialog", { name: "이미지 주석 편집" });
+    expect(dialog).toHaveAccessibleDescription("연결된 이미지에 주석을 추가하거나 수정, 삭제하세요.");
+    expect(screen.getByRole("status")).toHaveTextContent("이미지를 불러오는 중");
+    await waitFor(() => expect(screen.getByRole("button", { name: "완료" })).toBeEnabled());
     expect(imageLoader.sources).toEqual(["/api/media-assets/asset-1/content"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Rect" }));
+    fireEvent.click(screen.getByRole("button", { name: "사각형" }));
     const canvas = screen.getByRole("img", { name: "Annotation canvas" });
     fireEvent.mouseDown(canvas);
     konva.pointer = { x: 410, y: 330 };
     fireEvent.mouseMove(canvas);
     fireEvent.mouseUp(canvas);
 
-    fireEvent.click(screen.getByRole("button", { name: "Circle" }));
+    fireEvent.click(screen.getByRole("button", { name: "원" }));
     konva.pointer = { x: 370, y: 280 };
     fireEvent.mouseDown(canvas);
     konva.pointer = { x: 430, y: 340 };
     fireEvent.mouseMove(canvas);
     fireEvent.mouseUp(canvas);
 
-    fireEvent.click(screen.getByRole("button", { name: "Arrow" }));
+    fireEvent.click(screen.getByRole("button", { name: "화살표" }));
     konva.pointer = { x: 380, y: 290 };
     fireEvent.mouseDown(canvas);
     konva.pointer = { x: 440, y: 350 };
     fireEvent.mouseMove(canvas);
     fireEvent.mouseUp(canvas);
 
-    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    fireEvent.click(screen.getByRole("button", { name: "텍스트" }));
     konva.pointer = { x: 400, y: 300 };
     fireEvent.mouseDown(canvas);
-    fireEvent.change(screen.getByRole("textbox", { name: "Annotation text" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "주석 내용" }), {
       target: { value: "Review" },
     });
-    fireEvent.keyDown(screen.getByRole("textbox", { name: "Annotation text" }), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "주석 내용" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "완료" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     const saved = onSave.mock.calls[0][0] as AnnotationShape[];
@@ -214,7 +215,7 @@ describe("NodeBananaAnnotationEditor", () => {
 
     view.unmount();
     render(<Editor initialShapes={saved} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "완료" })).toBeEnabled());
     for (const shape of saved) {
       expect(document.querySelector(`[data-annotation-shape="${shape.id}"]`)).toBeInTheDocument();
     }
@@ -227,7 +228,7 @@ describe("NodeBananaAnnotationEditor", () => {
       { id: "circle-1", type: "circle", x: 20, y: 20, radiusX: 10, radiusY: 10, fill: null, stroke: "#ef4444", strokeWidth: 4, opacity: 1 },
     ];
     render(<Editor initialShapes={initialShapes} onSave={onSave} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "완료" })).toBeEnabled());
 
     const rectangle = document.querySelector('[data-annotation-shape="rect-1"]');
     const circle = document.querySelector('[data-annotation-shape="circle-1"]');
@@ -237,7 +238,7 @@ describe("NodeBananaAnnotationEditor", () => {
     fireEvent.dragEnd(rectangle!);
     fireEvent.click(circle!);
     fireEvent.keyDown(window, { key: "Delete" });
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "완료" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
       [expect.objectContaining({ id: "rect-1", x: 30, y: 40 })],
@@ -251,12 +252,12 @@ describe("NodeBananaAnnotationEditor", () => {
       { id: "rect-1", type: "rectangle", x: 1, y: 2, width: 30, height: 40, fill: null, stroke: "#ef4444", strokeWidth: 4, opacity: 1 },
     ];
     render(<Editor initialShapes={initialShapes} onSave={onSave} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "완료" })).toBeEnabled());
 
     const rectangle = document.querySelector('[data-annotation-shape="rect-1"]');
     expect(rectangle).toBeInTheDocument();
     fireEvent.doubleClick(rectangle!);
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "완료" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
       [expect.objectContaining({
@@ -274,11 +275,11 @@ describe("NodeBananaAnnotationEditor", () => {
     imageLoader.fail = true;
     render(<Editor />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the connected image.");
-    expect(screen.getByRole("button", { name: "Done" })).toBeDisabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("연결된 이미지를 불러오지 못했습니다.");
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
     imageLoader.fail = false;
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "완료" })).toBeEnabled());
     expect(imageLoader.sources).toHaveLength(2);
   });
 });

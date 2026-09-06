@@ -6,12 +6,41 @@ import { WarpShaderPanel } from "@/shared/ui/warp-shader-panel";
 vi.mock("@paper-design/shaders-react", () => ({
   Warp: ({
     style,
+    ...config
   }: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => (
-    <div data-testid="warp-shader" style={style} />
+    <div
+      data-testid="warp-shader"
+      data-config={JSON.stringify(config)}
+      style={style}
+    />
   ),
 }));
 
 describe("WarpShaderPanel", () => {
+  it("preserves the Warp shape and stops time in reduced motion", () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    render(<WarpShaderPanel />);
+    const config = JSON.parse(
+      screen.getByTestId("warp-shader").getAttribute("data-config") ?? "{}",
+    );
+    expect(config).toMatchObject({
+      proportion: 0.45,
+      softness: 1,
+      distortion: 0.25,
+      swirl: 0.8,
+      swirlIterations: 10,
+      shape: "checks",
+      shapeScale: 0.1,
+      scale: 1,
+      rotation: 0,
+      speed: 0,
+    });
+    vi.unstubAllGlobals();
+  });
   it("masks a white shader first frame without hiding the shader colors", () => {
     render(<WarpShaderPanel className="absolute inset-0" fadeIn />);
 

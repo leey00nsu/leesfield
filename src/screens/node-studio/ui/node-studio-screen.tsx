@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { NextIntlClientProvider, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
-import enMessages from "@/shared/i18n/messages/en.json";
 import {
   useCreateGenerationGraph,
   useDeleteGenerationGraph,
@@ -20,11 +19,7 @@ import { quickstartSpaceTemplate } from "@/features/node-studio/model/quickstart
 import type { HostedPresetWorkflow } from "@node-banana-runtime/runtime-entry";
 
 export function NodeStudioScreen({ spaceId }: { spaceId?: string }) {
-  return (
-    <NextIntlClientProvider locale="en" messages={enMessages}>
-      <NodeStudioScreenContent spaceId={spaceId} />
-    </NextIntlClientProvider>
-  );
+  return <NodeStudioScreenContent spaceId={spaceId} />;
 }
 
 function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
@@ -71,7 +66,7 @@ function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
 
   const createPreset = async (workflow: HostedPresetWorkflow | null, tutorial = false) => {
     const draft = workflow ? quickstartSpaceTemplate(workflow) : null;
-    const created = await createMutation.mutateAsync(workflow?.name ?? (tutorial ? "Tutorial" : "Untitled Space"));
+    const created = await createMutation.mutateAsync(workflow?.name ?? (tutorial ? t("host.tutorial") : t("host.untitled")));
     try {
       const saved = draft ? await updateGenerationGraph(created.id, { expectedVersion: created.version, schemaVersion: 3, title: created.title, ...draft }) : created;
       syncCache(saved);
@@ -92,7 +87,7 @@ function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
   return (
     <section
       className="fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-neutral-900 text-white"
-      aria-label="Space editor"
+      aria-label={t("host.editor")}
       data-testid="node-banana-home"
     >
       {lifecycleError ? (
@@ -100,12 +95,12 @@ function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
           {lifecycleError}
         </div>
       ) : null}
-      {listQuery.isLoading && !detailQuery.data ? <NodeStudioLoading label="Loading spaces..." /> : null}
+      {listQuery.isLoading && !detailQuery.data ? <NodeStudioLoading label={t("host.loadingSpaces")} /> : null}
       {listQuery.isError && !detailQuery.data ? (
         <NodeStudioError label={t("errors.list")} onRetry={() => void listQuery.refetch()} />
       ) : null}
       {!listQuery.isLoading && !listQuery.isError && !detailQuery.isError && !detailQuery.data ? (
-        <NodeStudioLoading label={createMutation.isPending ? "Creating space..." : "Loading space..."} />
+        <NodeStudioLoading label={createMutation.isPending ? t("host.creatingSpace") : t("host.loadingSpace")} />
       ) : null}
       {activeGraphId && detailQuery.isError && !detailQuery.data ? (
         <NodeStudioError label={t("errors.load")} onRetry={() => void detailQuery.refetch()} />
@@ -145,14 +140,15 @@ function NodeStudioLoading({ label }: { label: string }) {
 }
 
 function NodeStudioError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  const t = useTranslations("nodeStudio.host");
   return (
     <div className="grid flex-1 place-items-center bg-neutral-900 p-8 text-center" role="alert">
       <div className="text-xs text-red-300">
         <p>{label}</p>
         <button type="button" className="mt-3 rounded border border-neutral-600 px-3 py-1.5 text-neutral-300 hover:bg-neutral-800" onClick={onRetry}>
-          Try again
+          {t("retry")}
         </button>
-        <Link className="ml-3 text-neutral-300 underline" href="/spaces">Back to Spaces</Link>
+        <Link className="ml-3 text-neutral-300 underline" href="/spaces">{t("back")}</Link>
       </div>
     </div>
   );

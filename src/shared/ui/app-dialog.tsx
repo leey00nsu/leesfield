@@ -18,26 +18,22 @@ type AppDialogPadding = "default" | "none";
 type AppDialogButtonProps = ComponentProps<typeof AppButton>;
 
 const appDialogSizeClassNames: Record<AppDialogSize, string> = {
-  sm: "max-w-xl",
-  md: "max-w-3xl",
-  lg: "max-w-4xl",
-  xl: "max-w-6xl",
-  full: "inset-0 h-screen w-screen max-w-none translate-x-0 translate-y-0",
+  sm: "sm:max-w-xl",
+  md: "sm:max-w-3xl",
+  lg: "sm:max-w-4xl",
+  xl: "sm:max-w-6xl",
+  full: "inset-0 h-screen w-screen max-w-none sm:max-w-none translate-x-0 translate-y-0",
 };
 
 const appDialogSurfaceClassNames: Record<AppDialogSurface, string> = {
-  default:
-    "rounded-[1.5rem] border-white/10 bg-[#0b0d0e] text-white shadow-[0_34px_120px_rgba(0,0,0,0.65)]",
-  media:
-    "overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]",
-  editor:
-    "gap-0 overflow-hidden rounded-xl border-neutral-700 bg-neutral-800 text-neutral-100 shadow-2xl",
-  canvas:
-    "gap-0 overflow-hidden rounded-none border-0 bg-neutral-950 text-neutral-100 shadow-none",
+  default: "",
+  media: "",
+  editor: "",
+  canvas: "",
 };
 
 const appDialogPaddingClassNames: Record<AppDialogPadding, string> = {
-  default: "p-6",
+  default: "",
   none: "p-0",
 };
 
@@ -60,7 +56,10 @@ export function AppDialogContent({
   return (
     <DialogContent
       data-app-dialog-content=""
-      overlayClassName={cn((surface === "editor" || surface === "canvas") && "z-[10000]", overlayClassName)}
+      overlayClassName={cn(
+        (surface === "editor" || surface === "canvas") && "z-[10000]",
+        overlayClassName,
+      )}
       className={cn(
         "w-[calc(100%-2rem)]",
         (surface === "editor" || surface === "canvas") && "z-[10001]",
@@ -94,7 +93,7 @@ export function AppDialogTitle({
   return (
     <DialogTitle
       data-app-dialog-title=""
-      className={cn("mt-2 text-xl font-semibold text-white", className)}
+      className={cn("", className)}
       {...props}
     />
   );
@@ -107,10 +106,7 @@ export function AppDialogDescription({
   return (
     <DialogDescription
       data-app-dialog-description=""
-      className={cn(
-        "text-[11px] font-black uppercase tracking-[0.24em] text-primary",
-        className,
-      )}
+      className={cn("", className)}
       {...props}
     />
   );
@@ -123,10 +119,7 @@ export function AppDialogFooter({
   return (
     <DialogFooter
       data-app-dialog-footer=""
-      className={cn(
-        "mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end",
-        className,
-      )}
+      className={cn("", className)}
       {...props}
     />
   );
@@ -137,7 +130,11 @@ export function AppDialogClose({
   ...props
 }: ComponentProps<typeof DialogClose>) {
   return (
-    <DialogClose data-app-dialog-close="" className={cn(className)} {...props} />
+    <DialogClose
+      data-app-dialog-close=""
+      className={cn(className)}
+      {...props}
+    />
   );
 }
 

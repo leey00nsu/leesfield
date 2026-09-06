@@ -24,17 +24,22 @@ describe("ApiDocsWidget", () => {
     expect(document.getElementById("authentication")).toBeTruthy();
     expect(document.getElementById("errors")).toBeTruthy();
     expect(document.getElementById("images")).toBeTruthy();
-    expect(document.getElementById("post-/api/external/image-generation")).toBeTruthy();
+    expect(
+      document.getElementById("post-/api/external/image-generation"),
+    ).toBeTruthy();
     expect(document.getElementById("videos")).toBeTruthy();
     expect(document.getElementById("audio")).toBeTruthy();
     expect(document.getElementById("models")).toBeTruthy();
-    expect(container.querySelector("h1")).toBeNull();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "leesfield API" }),
+    ).toBeInTheDocument();
     expect(container.querySelector("[data-app-card]")).toBeTruthy();
     expect(container.querySelector("[data-app-badge]")).toBeTruthy();
     expect(container.querySelector(".sticky")).toBeTruthy();
     expect(
-      screen.getAllByRole("link", { name: /POST\/api\/external\/image-generation/i })
-        .length,
+      screen.getAllByRole("link", {
+        name: /POST\/api\/external\/image-generation/i,
+      }).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
       screen.queryByRole("navigation", { name: "API 레퍼런스" }),
@@ -42,12 +47,14 @@ describe("ApiDocsWidget", () => {
 
     await user.click(screen.getByRole("button", { name: "API 레퍼런스" }));
 
-    const mobileNavigation = screen.getByRole("navigation", { name: "API 레퍼런스" });
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "API 레퍼런스",
+    });
     expect(mobileNavigation).toBeInTheDocument();
     expect(
-      within(mobileNavigation.parentElement ?? mobileNavigation).getByPlaceholderText(
-        "엔드포인트 검색...",
-      ),
+      within(
+        mobileNavigation.parentElement ?? mobileNavigation,
+      ).getByPlaceholderText("엔드포인트 검색…"),
     ).toBeInTheDocument();
   });
 });

@@ -25,7 +25,7 @@ export function AppConfirmDialogContent({
     <AlertDialogContent
       data-app-confirm-dialog-content=""
       className={cn(
-        "w-[calc(100%-2rem)] max-w-xl rounded-[1.5rem] border-white/10 bg-[#0b0d0e] p-6 text-white shadow-[0_34px_120px_rgba(0,0,0,0.65)]",
+        "w-[calc(100%-2rem)] max-w-sm rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10",
         className,
       )}
       {...props}
@@ -92,10 +92,7 @@ export function AppConfirmDialogCancel({
   return (
     <AlertDialogCancel
       data-app-confirm-dialog-cancel=""
-      className={cn(
-        "h-11 rounded-full border border-white/10 px-5 text-sm font-semibold text-white/70 transition-colors hover:bg-white/6 hover:text-white",
-        className,
-      )}
+      className={cn("", className)}
       {...props}
     />
   );
@@ -109,7 +106,7 @@ export function AppConfirmDialogAction({
     <AlertDialogAction
       data-app-confirm-dialog-action=""
       className={cn(
-        "h-11 rounded-full bg-destructive px-5 text-sm font-semibold text-white hover:bg-destructive/90",
+        "bg-destructive/10 text-destructive hover:bg-destructive/20",
         className,
       )}
       {...props}

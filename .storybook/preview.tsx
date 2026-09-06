@@ -3,6 +3,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import koMessages from "../src/shared/i18n/messages/ko.json";
 import "../src/app/globals.css";
+import "./preview.css";
+if (typeof document !== "undefined")
+  document.documentElement.classList.add("dark");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,15 +30,9 @@ const preview: Preview = {
             style={{
               "--font-body":
                 "Pretendard, Noto Sans KR, Noto Sans, ui-sans-serif, system-ui, sans-serif",
-              "--font-heading":
-                "Nanum Myeongjo, Georgia, Times New Roman, serif",
+              "--font-heading": "var(--font-body)",
             }}
           >
-            <style>
-              {
-                "@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');"
-              }
-            </style>
             <Story />
           </div>
         </QueryClientProvider>

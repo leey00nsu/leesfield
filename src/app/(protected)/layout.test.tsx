@@ -1,3 +1,6 @@
+vi.mock("next/font/google", () => ({
+  Nanum_Myeongjo: () => ({ variable: "legacy-font" }),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProtectedLayout from "@/app/(protected)/layout";
 

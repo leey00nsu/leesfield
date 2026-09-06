@@ -24,13 +24,7 @@ export function AppDocsSectionCard({
   bodyClassName,
 }: AppDocsSectionCardProps) {
   return (
-    <AppCard
-      variant="plain"
-      className={cn(
-        "rounded-[1.25rem] border-white/10 bg-[#0b0d0e] shadow-[0_18px_70px_rgba(0,0,0,0.28)]",
-        className,
-      )}
-    >
+    <AppCard variant="plain" className={cn("gap-0 py-0", className)}>
       <AppCardContent className={cn("p-0", bodyClassName)}>
         <div
           className={cn(

@@ -99,3 +99,8 @@
 0099-connected-icons-input-menu.patch
 0100-input-menu-focus-restoration.patch
 0101-unify-reference-icon-background.patch
+0102-brand-download-filenames.patch
+0103-brand-assets-and-modality-labels.patch
+0104-canvas-localization.patch
+0105-canvas-localized-search.patch
+0106-selection-label-spacing.patch

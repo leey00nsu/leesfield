@@ -1,0 +1,13 @@
+diff --git a/src/components/MultiSelectToolbar.tsx b/src/components/MultiSelectToolbar.tsx
+index 6048f29..f22b6df 100644
+--- a/src/components/MultiSelectToolbar.tsx
++++ b/src/components/MultiSelectToolbar.tsx
+@@ -265,7 +265,7 @@ export function MultiSelectToolbar({ hosted }: MultiSelectToolbarProps = {}) {
+         transform: "translateX(-50%)",
+       }}
+     >
+-      {hosted ? <span className="px-1.5 text-[10px] text-neutral-300">{selectedNodes.length}{tc("selected")}</span> : null}
++      {hosted ? <span className="px-1.5 text-[10px] text-neutral-300">{selectedNodes.length}{" "}{tc("selected")}</span> : null}
+       {hosted?.onCopy ? (
+         <button
+           type="button"

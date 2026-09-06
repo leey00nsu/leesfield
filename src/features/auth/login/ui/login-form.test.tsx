@@ -37,7 +37,7 @@ describe("LoginForm", () => {
     renderWithIntl(<LoginForm returnTo="/image?prompt=studio" />);
 
     await user.type(
-      screen.getByPlaceholderText("아이디 입력..."),
+      screen.getByPlaceholderText("아이디 입력…"),
       "admin@example.com",
     );
     await user.type(screen.getByPlaceholderText("••••••••"), "secret");

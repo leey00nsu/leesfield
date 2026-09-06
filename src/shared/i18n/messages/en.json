@@ -4,7 +4,8 @@
     "logout": "Log out",
     "menu": "Menu",
     "language": "Language",
-    "dashboard": "Go to dashboard"
+    "dashboard": "Go to dashboard",
+    "account": "Account menu"
   },
   "nav": {
     "image": "Image",
@@ -15,7 +16,8 @@
     "monitoring": "Monitoring",
     "model": "Model",
     "apiKey": "API keys",
-    "apiDocs": "API docs"
+    "apiDocs": "API docs",
+    "generate": "AI generation"
   },
   "common": {
     "actions": {
@@ -93,9 +95,9 @@
     "hero": {
       "secondaryCta": "API docs",
       "headline": "Generate anything. One platform for image, video, and audio.",
-      "headlineFirst": "Generate anything.",
-      "headlineSecond": "One platform for image, video, and audio.",
-      "subhead": "Built for creators and developers who ship.",
+      "headlineFirst": "Every AI model",
+      "headlineSecond": "One interface",
+      "subhead": "Run and manage AI generation models through one interface.",
       "tabs": {
         "image": "Image",
         "video": "Video",
@@ -105,12 +107,34 @@
         "label": "Generation panel",
         "promptLabel": "Prompt",
         "placeholder": "Describe what you want to create...",
-        "modelLabel": "Model",
+        "modelLabel": "Explore models",
         "model": "GPT Image 2",
         "aspectLabel": "Aspect ratio",
         "aspect": "16:9",
-        "generate": "Generate"
-      }
+        "generate": "Generate",
+        "mediaLabel": "Generation media",
+        "placeholders": {
+          "image": "Describe the image you want to create.",
+          "video": "Describe the scene you want to create.",
+          "audio": "Describe the speech or audio you want to create."
+        },
+        "hints": {
+          "image": "Image generation · Reference images",
+          "video": "Text or image to video",
+          "audio": "Speech · Audio generation"
+        },
+        "attachment": "Attach reference image",
+        "removeAttachment": "Remove reference image",
+        "fileError": "Choose an image under 3 MB."
+      },
+      "announcement": "Spaces is here",
+      "headlineSecondFirst": "One",
+      "headlineSecondLast": "interface",
+      "primaryAction": "Start creating",
+      "secondaryAction": "Explore Spaces",
+      "headlineInterface": "interface",
+      "headlineSuffix": "",
+      "new": "New"
     },
     "workflow": {
       "eyebrow": "SYSTEM OVERVIEW",
@@ -128,8 +152,7 @@
         "monitor": {
           "title": "Monitor",
           "description": "Track request volume, success rate, latency, and model usage from one dashboard."
-        }
-        ,
+        },
         "integrate": {
           "title": "Integrate",
           "description": "Use API docs, model controls, and keys to connect generation to your product."
@@ -207,7 +230,8 @@
       "validation": {
         "email": "Please enter a valid email.",
         "password": "Please enter a password."
-      }
+      },
+      "platform": "AI inference platform"
     }
   },
   "generation": {
@@ -307,7 +331,7 @@
         "accent": "Generation"
       },
       "subtitle": "Create images",
-      "promptPlaceholder": "",
+      "promptPlaceholder": "Describe the image you want to create.",
       "uploadReference": "Upload Reference Image",
       "uploadUnsupported": "This model does not support image input.",
       "initImageAlt": "Init image preview",
@@ -327,7 +351,7 @@
         "accent": "Generation"
       },
       "subtitle": "Create a short scene",
-      "promptPlaceholder": "",
+      "promptPlaceholder": "Describe the scene you want to create.",
       "uploadReference": "Upload Reference Image",
       "initImageAlt": "Init image preview",
       "previewFilmAlt": "Film production photo",
@@ -349,7 +373,7 @@
         "accent": "Generation"
       },
       "subtitle": "Create a voice take",
-      "promptPlaceholder": "",
+      "promptPlaceholder": "Describe the speech or audio you want to create.",
       "voiceLabel": "Voice",
       "voiceUnset": "Default voice",
       "voicePlaceholder": "e.g. alloy",
@@ -418,6 +442,13 @@
           "speed": "Speed"
         }
       }
+    },
+    "page": {
+      "title": "AI Generation",
+      "description": "Choose an image, video, or audio model and generate your result.",
+      "imageGuidance": "Describe the image you want to create below.",
+      "videoGuidance": "Describe the scene and movement for your video.",
+      "audioGuidance": "Enter the text to speak or describe the sound you want."
     }
   },
   "history": {
@@ -435,7 +466,7 @@
       "searchPlaceholder": "Search by prompt, model, or tags...",
       "sort": "Sort history"
     },
-    "subtitle": "Find your generations fast",
+    "subtitle": "Review your results and job status, and generate again with previous settings.",
     "error": "Failed to load history.",
     "previewAlt": "Generated preview",
     "inputImageAlt": "Input image",
@@ -516,7 +547,7 @@
     },
     "detailActions": {
       "recreate": "Recreate",
-      "video": "Video",
+      "video": "Create video",
       "download": "Download",
       "upscale": "Upscale",
       "edit": "Edit",
@@ -543,7 +574,7 @@
       "leading": "Model",
       "accent": "Monitoring"
     },
-    "subtitle": "Live feed for API & UI requests",
+    "subtitle": "Track generation latency, failure rates, throughput, and job status in one place.",
     "lastUpdated": "Last updated",
     "updating": "Streaming",
     "kpi": {
@@ -652,7 +683,7 @@
       "leading": "Model",
       "accent": "Management"
     },
-    "subtitle": "Find your models fast",
+    "subtitle": "Register models and manage their generation settings and availability.",
     "empty": {
       "title": "Models Empty",
       "default": "No models available.",
@@ -839,6 +870,11 @@
         "notFound": "Model not found.",
         "delete": "Failed to delete model."
       }
+    },
+    "filters": {
+      "title": "Media type",
+      "description": "Choose the media type you want to browse.",
+      "apply": "View models"
     }
   },
   "apiKey": {
@@ -939,7 +975,9 @@
         "videos": "Videos",
         "audio": "Audio",
         "models": "Models"
-      }
+      },
+      "baseUrl": "Base URL",
+      "version": "Version"
     },
     "auth": {
       "title": "Authentication",
@@ -1031,15 +1069,15 @@
     "title": "Spaces",
     "description": "Create, connect, and explore your creative workflows.",
     "actions": {
-    "addImageNode": "Add image node",
-    "addNode": "Add or search nodes",
+      "addImageNode": "Add image node",
+      "addNode": "Add or search nodes",
       "canvasTools": "Canvas tools",
       "selectTool": "Select tool",
-    "panTool": "Pan tool",
-    "undo": "Undo",
-    "redo": "Redo",
-    "copy": "Copy selected nodes",
-    "paste": "Paste nodes",
+      "panTool": "Pan tool",
+      "undo": "Undo",
+      "redo": "Redo",
+      "copy": "Copy selected nodes",
+      "paste": "Paste nodes",
       "duplicateNode": "Duplicate node",
       "fitView": "Fit view",
       "deleteNode": "Delete node",
@@ -1047,45 +1085,45 @@
       "rerunNode": "Run again",
       "retry": "Retry",
       "reloadLatest": "Reload latest",
-      "createGraph": "Create graph",
-      "deleteGraph": "Delete graph",
-    "cancel": "Cancel"
-  },
-  "runtime": {
-    "application": "Space canvas",
-    "nodeBanana": "Node Banana",
-    "searchPlaceholder": "Search by node name or media type",
-    "closeMenu": "Close node menu",
-    "readOnly": "Read-only graph · {reason}",
-    "unsupportedDescription": "The unsupported node payload was preserved. Reason: {reason}",
-    "failureTitle": "The canvas could not be displayed",
-    "failureDescription": "The saved graph was not changed. Reload the page to recover.",
-    "nodeFailureTitle": "This node could not be displayed",
-    "nodeFailureDescription": "The original {node} node remains in the saved graph.",
-    "reload": "Reload page"
-  },
-  "nodeKinds": {
-    "inputImage": "Image Input",
-    "inputAudio": "Audio Input",
-    "inputVideo": "Video Input",
-    "inputPrompt": "Prompt",
-    "generateImage": "Generate Image",
-    "generateAudio": "Generate Audio",
-    "generateVideo": "Generate Video",
-    "editImageAnnotation": "Annotation",
-    "editImageResize": "Image Resize",
-    "editImageRemoveBackground": "Remove Background",
-    "editImageSplitGrid": "Split Grid",
-    "editImageGif": "GIF Encoder",
-    "editVideoStitch": "Video Stitch",
-    "editVideoTrim": "Video Trim",
-    "editVideoFrameGrab": "Frame Grab",
-    "editVideoEaseCurve": "Ease Curve",
-    "editAudioBasic": "Audio Edit",
-    "outputSingle": "Output",
-    "outputGallery": "Output Gallery",
-    "inspectImageCompare": "Image Compare"
-  },
+      "createGraph": "Create space",
+      "deleteGraph": "Delete space",
+      "cancel": "Cancel"
+    },
+    "runtime": {
+      "application": "Space canvas",
+      "nodeBanana": "Node Banana",
+      "searchPlaceholder": "Search by node name or media type",
+      "closeMenu": "Close node menu",
+      "readOnly": "Read-only space · {reason}",
+      "unsupportedDescription": "The unsupported node payload was preserved. Reason: {reason}",
+      "failureTitle": "The canvas could not be displayed",
+      "failureDescription": "The saved space was not changed. Reload the page to recover.",
+      "nodeFailureTitle": "This node could not be displayed",
+      "nodeFailureDescription": "The original {node} node remains in the saved space.",
+      "reload": "Reload page"
+    },
+    "nodeKinds": {
+      "inputImage": "Image Input",
+      "inputAudio": "Audio Input",
+      "inputVideo": "Video Input",
+      "inputPrompt": "Prompt",
+      "generateImage": "Generate Image",
+      "generateAudio": "Generate Audio",
+      "generateVideo": "Generate Video",
+      "editImageAnnotation": "Annotation",
+      "editImageResize": "Image Resize",
+      "editImageRemoveBackground": "Remove Background",
+      "editImageSplitGrid": "Split Grid",
+      "editImageGif": "GIF Encoder",
+      "editVideoStitch": "Video Stitch",
+      "editVideoTrim": "Video Trim",
+      "editVideoFrameGrab": "Frame Grab",
+      "editVideoEaseCurve": "Ease Curve",
+      "editAudioBasic": "Audio Edit",
+      "outputSingle": "Output",
+      "outputGallery": "Output Gallery",
+      "inspectImageCompare": "Image Compare"
+    },
     "edge": {
       "primaryTarget": "Primary input",
       "referenceTarget": "Reference input",
@@ -1120,14 +1158,14 @@
       "invalidParameter": "Check the supported range and step."
     },
     "generationNode": {
-      "description": "Run only this node using the saved graph configuration and connected assets.",
+      "description": "Run only this node using the saved space configuration and connected assets.",
       "modelLabel": "Model",
       "parametersLabel": "Parameters",
       "modelLoading": "Loading models...",
       "modelEmpty": "No models are available.",
       "modelError": "Could not load models.",
       "promptPlaceholder": "Describe the {media} to generate",
-      "executionError": "The execution request failed. Check the graph configuration and storage availability.",
+      "executionError": "The execution request failed. Check the space configuration and storage availability.",
       "media": {
         "image": "image",
         "audio": "audio",
@@ -1145,7 +1183,7 @@
       "loadError": "Assets could not be loaded.",
       "uploadError": "The asset upload failed.",
       "deleteError": "The asset could not be deleted.",
-      "assetInUse": "This asset is referenced by graph(s): {graphs}",
+      "assetInUse": "This file is referenced by spaces: {graphs}",
       "deleteAsset": "Delete asset",
       "outputEmpty": "No connected durable output yet.",
       "outputError": "Connected output could not be loaded.",
@@ -1192,8 +1230,8 @@
       "outputs": "Choose generated output",
       "selectOutput": "Select output {index}",
       "loadError": "Could not load this node's generations.",
-      "saveConflict": "A newer graph exists. Reload it before running.",
-      "saveError": "The graph could not be saved, so the node was not run.",
+      "saveConflict": "A newer space exists. Reload it before running.",
+      "saveError": "The space could not be saved, so the node was not run.",
       "activeError": "This node is already generating.",
       "configError": "Check the current node configuration.",
       "inputSelectionRequired": "Choose an output on the connected source node, then run again.",
@@ -1217,11 +1255,11 @@
       "UNKNOWN": "This connection is not valid."
     },
     "graph": {
-      "selector": "Select graph",
-      "none": "No graphs",
-      "createPlaceholder": "New graph title",
-      "title": "Graph title",
-      "emptyTitle": "Create your first graph",
+      "selector": "Select space",
+      "none": "No spaces",
+      "createPlaceholder": "New space title",
+      "title": "Space title",
+      "emptyTitle": "Create your first space",
       "emptyDescription": "Create a space to start your creative workflow."
     },
     "save": {
@@ -1232,25 +1270,241 @@
       "conflict": "A newer server version exists. Your local edits have not been overwritten."
     },
     "confirm": {
-      "deleteTitle": "Delete this graph?",
-      "deleteDescription": "This permanently deletes the graph and its nodes and edges.",
+      "deleteTitle": "Delete this space?",
+      "deleteDescription": "This permanently deletes the space and its nodes and edges.",
       "reloadTitle": "Discard local edits and reload?",
       "reloadDescription": "The latest server snapshot will replace the current local canvas.",
-      "switchDescription": "This graph has unsaved or conflicted local edits. Discard them and switch graphs?"
+      "switchDescription": "This space has unsaved or conflicted local edits. Discard them and switch spaces?"
     },
     "loading": {
-      "graphs": "Loading graphs...",
-      "graph": "Loading graph..."
+      "graphs": "Loading spaces...",
+      "graph": "Loading space..."
     },
     "errors": {
-      "list": "Could not load your graphs.",
-      "load": "Could not load this graph.",
-      "create": "Could not create the graph. Try again.",
-      "delete": "Could not delete the graph. Try again."
+      "list": "Could not load your spaces.",
+      "load": "Could not load this space.",
+      "create": "Could not create the space. Try again.",
+      "delete": "Could not delete the space. Try again."
+    },
+    "host": {
+      "editor": "Space editor",
+      "loadingSpaces": "Loading spaces...",
+      "loadingSpace": "Loading space...",
+      "creatingSpace": "Creating space...",
+      "tutorial": "Tutorial",
+      "untitled": "Untitled Space",
+      "retry": "Try again",
+      "back": "Back to Spaces",
+      "quickstart": "Quickstart",
+      "editPrompt": "Edit Prompt",
+      "fontSize": "Font size",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Describe what to generate...",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "discard": "Discard",
+      "unsavedTitle": "Unsaved prompt changes",
+      "unsaved": "You have unsaved changes",
+      "close": "Close dialog",
+      "leaveTitle": "Leave this space?",
+      "leaveDescription": "Your changes could not be saved. Stay to retry saving, or discard local changes and leave this space.",
+      "leaveConfirm": "Discard and leave",
+      "deleteTitle": "Delete space?",
+      "deleteDescription": "Delete “{title}” and its saved node graph. This cannot be undone.",
+      "delete": "Delete",
+      "reloadTitle": "Reload latest space?",
+      "reloadDescription": "Discard local changes and load the latest saved version.",
+      "reload": "Reload",
+      "saved": "Saved",
+      "dirty": "Unsaved changes",
+      "saving": "Saving...",
+      "saveError": "Save failed",
+      "conflict": "Newer version available",
+      "customTitle": "Custom title",
+      "customTitlePlaceholder": "Custom title...",
+      "editTitle": "Click to edit title",
+      "requiredToggle": "Mark this input as required",
+      "optionalToggle": "Mark this input as optional",
+      "optional": "Optional",
+      "required": "Required",
+      "editComment": "Edit comment",
+      "addComment": "Add comment",
+      "commentPlaceholder": "Add a comment...",
+      "save": "Save",
+      "collapseEditor": "Collapse editor",
+      "expandEditor": "Expand editor",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "runNode": "Run node",
+      "runThisNode": "Run this node"
     }
   },
   "dashboard": {
     "title": "Dashboard",
     "description": "Generation pages and management tools are in progress."
+  },
+  "generationPage": {
+    "title": "AI generation",
+    "description": "Choose a model and create images, video, or audio.",
+    "mediaLabel": "Generation media"
+  },
+  "inferenceLanding": {
+    "bentoLabel": "Platform capabilities",
+    "catalog": {
+      "title": "Unified model interface",
+      "description": "Use different AI providers and models through one consistent interface."
+    },
+    "jobs": {
+      "title": "Asynchronous jobs",
+      "description": "Process long-running image, video, and audio generation as asynchronous jobs."
+    },
+    "api": {
+      "title": "Extensible providers",
+      "description": "Connect new AI providers or models while keeping the existing generation flow."
+    },
+    "monitor": {
+      "title": "Real-time monitoring",
+      "description": "Track processing times, failure rates, job status, and throughput in one place."
+    },
+    "story": {
+      "eyebrow": "From model to result",
+      "title": "Choose your model.",
+      "second": "Run it in one place.",
+      "description": "From image, video, and audio generation to external APIs, manage different providers through a shared operating flow.",
+      "steps": {
+        "0": {
+          "title": "Select a model from the catalog",
+          "description": "Review model-specific inputs and settings, then prepare a prompt and reference files."
+        },
+        "1": {
+          "title": "Request a job and follow its status",
+          "description": "Execute asynchronous jobs within model concurrency limits and retrieve status and results."
+        },
+        "2": {
+          "title": "Reuse results and review operations",
+          "description": "Reopen saved inputs and results from history, then inspect execution records in monitoring."
+        }
+      }
+    },
+    "guides": {
+      "eyebrow": "Platform guide",
+      "title": "Start with what you need.",
+      "items": {
+        "0": {
+          "title": "Manage models and parameters",
+          "description": "Configure providers, model inputs, and defaults in the catalog.",
+          "label": "Model catalog"
+        },
+        "1": {
+          "title": "Connect through the API",
+          "description": "Review request formats and authentication, then create an API key.",
+          "label": "External API"
+        },
+        "2": {
+          "title": "Inspect execution",
+          "description": "Review successful and failed requests, response times, and model usage.",
+          "label": "Monitoring"
+        },
+        "3": {
+          "title": "Compose in Spaces",
+          "description": "Connect inputs and results with nodes, then run individual nodes when needed.",
+          "label": "Spaces"
+        }
+      }
+    },
+    "cta": {
+      "title": "Make something of your own.",
+      "createTitle": "Create in the browser",
+      "createDescription": "Choose a model and generate images, video, or audio.",
+      "createAction": "Open AI generation",
+      "apiTitle": "Connect your service",
+      "apiDescription": "Use API keys and media-specific endpoints to add generation to your product.",
+      "apiAction": "Read API docs"
+    },
+    "footer": {
+      "product": "Product",
+      "platform": "Platform",
+      "description": "Image, video, and audio. All in one place."
+    },
+    "platformEyebrow": "Key features",
+    "platformTitle": "Different models. One way to operate.",
+    "apiSection": {
+      "title": "Connect AI generation to your service.",
+      "description": "Call models through one API and manage the status and results of your generation jobs.",
+      "action": "Read the API docs",
+      "example": "Image generation request and status lookup",
+      "eyebrow": "External API"
+    },
+    "spaces": {
+      "title": "Compare models with one prompt.",
+      "description": "Connect one prompt to several models and compare their results side by side.",
+      "action": "Open Spaces",
+      "hint": "Drag nodes · Space + drag to pan · Alt + scroll to zoom",
+      "reset": "Reset",
+      "note": "An interactive example with a sample result. Changes stay local and no generation requests are sent.",
+      "loading": "Preparing the canvas.",
+      "prompt": "A neon-lit alley in Tokyo on a rainy night, wet pavement reflecting colorful signs, cinematic atmosphere, soft mist, moody lighting",
+      "canvas": "Spaces demo",
+      "add": "Add node",
+      "select": "Select",
+      "pan": "Pan",
+      "undo": "Undo",
+      "redo": "Redo",
+      "copy": "Copy",
+      "paste": "Paste",
+      "fit": "Fit view",
+      "search": "Search nodes",
+      "close": "Close",
+      "empty": "Restore the example nodes.",
+      "emptyDescription": "Use Reset to return to the starting graph.",
+      "readOnly": "Read only",
+      "label": "Spaces"
+    },
+    "previewNote": "Illustrative previews of platform features."
+  },
+  "spaces": {
+    "title": "Spaces",
+    "untitled": "Untitled space",
+    "updateError": "Could not update the space. Please try again.",
+    "duplicateError": "Could not duplicate the space. Please try again.",
+    "search": "Search spaces by name",
+    "sort": "Sort spaces",
+    "updated": "Recently updated",
+    "created": "Recently created",
+    "nameSort": "Name",
+    "new": "New space",
+    "loading": "Loading spaces…",
+    "loadError": "Could not load spaces.",
+    "retry": "Try again",
+    "emptyTitle": "Create your first space",
+    "emptyDescription": "Connect models and inputs, and compare generated results in one place.",
+    "create": "Create space",
+    "noResults": "No results. Try searching for another name.",
+    "clearSearch": "Clear search",
+    "modified": "Updated",
+    "deleteTitle": "Delete space?",
+    "renameTitle": "Rename space",
+    "namePrompt": "Enter a name for the space.",
+    "name": "Space name",
+    "cancel": "Cancel",
+    "busy": "Processing…",
+    "delete": "Delete",
+    "save": "Save",
+    "count": "{count, plural, one {# space} other {# spaces}}",
+    "filteredCount": "{count} of {total} spaces",
+    "renameLabel": "Rename {title}",
+    "duplicateLabel": "Duplicate {title}",
+    "deleteLabel": "Delete {title}",
+    "deleteDescription": "Delete “{title}”? Media and generation history will be kept."
+  },
+  "routeState": {
+    "error": "Error",
+    "errorTitle": "Something interrupted the studio.",
+    "errorDescription": "Try loading the page again, or return to the landing page and restart from there.",
+    "retry": "Try again",
+    "home": "Go home",
+    "notFound": "Page not found",
+    "loading": "Loading…",
+    "spaceLoading": "Loading space…"
   }
 }

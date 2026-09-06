@@ -35,16 +35,11 @@ export function GenerationSettingsPopover({
         <AppButton
           type="button"
           variant="surface"
-          className={cn(
-            "h-12 min-w-max rounded-xl border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82 hover:!bg-black/16 hover:!text-white/82",
-            className,
-          )}
+          className={cn("min-w-max", className)}
         >
           {icon}
           <span className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] font-semibold uppercase text-white/42">
-              {label}
-            </span>
+            <span className="sr-only">{label}</span>
             <span>{summary}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-white/46" />
@@ -54,8 +49,7 @@ export function GenerationSettingsPopover({
         align={align}
         side={side}
         sideOffset={12}
-        collisionPadding={16}
-        className="z-[10001] w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
+        className="w-[min(22rem,calc(100vw-2rem))]"
       >
         {children}
       </AppPopoverContent>

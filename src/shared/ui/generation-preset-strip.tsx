@@ -31,9 +31,7 @@ export function GenerationPresetStrip({
         <h3 className="text-sm font-semibold text-gray-300">
           {t(`${modality}.title`)}
         </h3>
-        <span className="text-xs font-mono text-gray-500">
-          {t("hint")}
-        </span>
+        <span className="text-xs font-sans text-gray-500">{t("hint")}</span>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3">

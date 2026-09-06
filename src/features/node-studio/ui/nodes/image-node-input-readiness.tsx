@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/shared/lib/utils";
@@ -30,6 +32,7 @@ export function ImageNodeInputReadinessView({
   readiness: ImageNodeInputReadiness;
   compact?: boolean;
 }) {
+  const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio");
   const description = t("input.summary", {
     ready: readiness.readyCount,
@@ -55,7 +58,7 @@ export function ImageNodeInputReadinessView({
     <section aria-label={t("input.title")} aria-describedby="node-input-summary">
       <div className="text-[11px]">
         <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
-          <span className="block text-white/45">Image</span>
+          <span className="block text-white/45">{tc("Image")}</span>
           <span className={cn("mt-0.5 block font-semibold", readiness.missingCount > 0 ? "text-amber-100" : "text-primary") }>
             {readinessText(t, {
               connectedCount: readiness.connectedCount,

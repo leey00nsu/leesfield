@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -96,7 +96,7 @@ describe("GenerationHistoryScreen", () => {
       screen.queryByRole("heading", { name: "Results you can reuse." }),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("0");
-    expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "히스토리" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Community" })).not.toBeInTheDocument();
 
     const audioFilter = screen.getByRole("button", { name: "오디오" });
@@ -140,10 +140,10 @@ describe("GenerationHistoryScreen", () => {
 
     renderWithIntl(<GenerationHistoryScreen />);
 
-    expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색…")).toBeInTheDocument();
     expect(
       screen
-        .getByPlaceholderText("프롬프트, 모델, 태그 검색...")
+        .getByPlaceholderText("프롬프트, 모델, 태그 검색…")
         .closest("[data-app-search-field]"),
     ).toHaveClass("sm:flex-1");
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
@@ -214,24 +214,24 @@ describe("GenerationHistoryScreen", () => {
       "",
     );
     expect(screen.getByRole("tablist", { name: "결과 상세 섹션" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Prompt" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "프롬프트" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     expect(screen.getByText("medium shot editorial result")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "복사" }));
     expect(clipboardWriteTextMock).toHaveBeenCalledWith(
       "medium shot editorial result",
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
-    expect(screen.getByText("Model")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "설정" }));
+    expect(screen.getByText("모델")).toBeInTheDocument();
     expect(screen.getAllByText("flux2-klein-9b").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("상태")).toBeInTheDocument();
     expect(screen.getByText("100%")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
+    fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
     expect(screen.getByText("요청 ID")).toBeInTheDocument();
     expect(screen.getAllByText("history-detail-1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("요청 시간")).toBeInTheDocument();
@@ -239,27 +239,27 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("소요 시간")).toBeInTheDocument();
     expect(screen.getByText("2.5s")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "History" }));
+    fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
     expect(screen.getByText("입력 이미지")).toBeInTheDocument();
     expect(screen.getByText("결과 이미지")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: /이미지/ })).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Recreate" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "다시 생성" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "다운로드" })).toHaveAttribute(
       "href",
       "https://example.com/result.png",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Video" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "결과 상세" })).getByRole("button", { name: "비디오로 생성" }));
     expect(routerPushMock).toHaveBeenCalledWith(
       "/video?prompt=medium+shot+editorial+result&model=flux2-klein-9b&initImage=https%3A%2F%2Fexample.com%2Fresult.png",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "편집" }));
     expect(routerPushMock).toHaveBeenCalledWith(
       "/image?prompt=medium+shot+editorial+result&model=flux2-klein-9b&initImage=https%3A%2F%2Fexample.com%2Fresult.png",
     );
 
-    expect(screen.getByRole("button", { name: "Upscale" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "업스케일" })).toBeDisabled();
   });
 
   it("closes the detail overlay from the preview backdrop but not from media or rail clicks", () => {
@@ -373,25 +373,25 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("hydrated prompt")).toBeInTheDocument();
     expect(screen.getByText("hydrated reference")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("tab", { name: "설정" }));
     expect(screen.getAllByText("hydrated-model").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("100%")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
+    fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
     const completedAtRow = screen.getByText("완료 시간").parentElement;
     expect(completedAtRow).toHaveTextContent("2026");
     expect(completedAtRow).not.toHaveTextContent("-");
     expect(screen.getByText("2.5s")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "History" }));
+    fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
     expect(screen.getByText("경고 메시지")).toBeInTheDocument();
     expect(screen.getByText("asset warning")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "다운로드" })).toHaveAttribute(
       "href",
       "https://example.com/detail-result.png",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Video" }));
+    fireEvent.click(screen.getByRole("button", { name: "비디오로 생성" }));
     expect(routerPushMock).toHaveBeenCalledWith(
       "/video?prompt=hydrated+prompt&model=hydrated-model&initImage=https%3A%2F%2Fexample.com%2Fdetail-result.png",
     );
@@ -456,12 +456,12 @@ describe("GenerationHistoryScreen", () => {
 
     fireEvent.click(screen.getByTestId("history-list"));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
+    fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
     expect(screen.getAllByText("pending-detail").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(2);
 
-    fireEvent.click(screen.getByRole("tab", { name: "History" }));
-    expect(screen.getByText("입력 자산 없음")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
+    expect(screen.getByText("입력 파일 없음")).toBeInTheDocument();
     expect(screen.getByText("결과 없음")).toBeInTheDocument();
   });
 });

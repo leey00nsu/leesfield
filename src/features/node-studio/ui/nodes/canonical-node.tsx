@@ -1,5 +1,7 @@
 "use client";
 
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+
 import { memo, useRef, useState } from "react";
 import { Handle, NodeResizer, Position, useEdges, type Node, type NodeProps } from "@xyflow/react";
 import { useTranslations } from "next-intl";
@@ -98,6 +100,7 @@ function PortHandle({
 }
 
 function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNodeData }) {
+  const tc = useCanvasTranslation();
   const authoring = useNodeAuthoring();
   const config = data.config && typeof data.config === "object" && !Array.isArray(data.config)
     ? data.config as Record<string, CanonicalJsonValue>
@@ -114,8 +117,8 @@ function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNod
       rows={6}
       maxLength={20_000}
       disabled={!writable || incoming.connected}
-      aria-label={incoming.connected ? "Text from connected Prompt node" : undefined}
-      placeholder={incoming.connected ? "Text from connected node..." : "Describe what to generate..."}
+      aria-label={incoming.connected ? tc("Text from connected Prompt node") : undefined}
+      placeholder={incoming.connected ? tc("Text from connected node...") : tc("Describe what to generate...")}
       className="nodrag nopan nowheel h-full min-h-[100px] w-full resize-none rounded-lg border-0 bg-neutral-800 p-3 pb-7 text-xs leading-relaxed text-neutral-100 outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:bg-neutral-900/70 disabled:text-neutral-400"
       onPointerDown={(event) => event.stopPropagation()}
       onChange={(event) => {
