@@ -7,11 +7,19 @@ import {
 
 const validNode = {
   id: "node_1",
-  type: "imageGeneration" as const,
+  kind: "generate.image",
   position: { x: 10, y: -2.5 },
-  configVersion: 1 as const,
+  configVersion: 1,
   config: { prompt: "a studio portrait", modelKey: null, parameters: {} },
-  selectedOutputImageId: null,
+  selectedOutputAssetId: null,
+};
+
+const validSnapshot = {
+  schemaVersion: 3 as const, groups: [],
+  expectedVersion: 1,
+  title: "Graph",
+  nodes: [validNode],
+  edges: [],
 };
 
 describe("generation graph contract", () => {
@@ -21,42 +29,29 @@ describe("generation graph contract", () => {
     });
   });
 
-  it("accepts an image generation v1 snapshot", () => {
-    const result = updateGenerationGraphSchema.parse({
-      expectedVersion: 1,
-      title: "Graph",
-      nodes: [validNode],
-      edges: [],
-    });
-
-    expect(result.nodes[0]).toEqual(validNode);
+  it("accepts only the strict canonical v2 snapshot", () => {
+    expect(updateGenerationGraphSchema.parse(validSnapshot)).toEqual(validSnapshot);
   });
 
   it.each([
-    ["unknown node type", { ...validNode, type: "videoGeneration" }],
-    ["unknown config version", { ...validNode, configVersion: 2 }],
-    ["extra config field", { ...validNode, config: { ...validNode.config, provider: "x" } }],
-    ["non-finite position", { ...validNode, position: { x: Number.NaN, y: 0 } }],
-  ])("rejects %s", (_label, node) => {
-    expect(
-      updateGenerationGraphSchema.safeParse({
-        expectedVersion: 1,
-        title: "Graph",
-        nodes: [node],
-        edges: [],
-      }).success,
-    ).toBe(false);
+    ["old v2 writer", { ...validSnapshot, schemaVersion: 2 }],
+    ["omitted groups", { ...validSnapshot, groups: undefined }],
+    ["v1 schema", { ...validSnapshot, schemaVersion: 1 }],
+    ["writer compatibility field", { ...validSnapshot, writerVersion: 2 }],
+    ["legacy node type", { ...validSnapshot, nodes: [{ ...validNode, type: "imageGeneration" }] }],
+    ["legacy selected image", { ...validSnapshot, nodes: [{ ...validNode, selectedOutputImageId: null }] }],
+    ["non-finite position", { ...validSnapshot, nodes: [{ ...validNode, position: { x: Number.NaN, y: 0 } }] }],
+    ["unknown snapshot field", { ...validSnapshot, ownerEmail: "other@example.com" }],
+  ])("rejects %s", (_label, snapshot) => {
+    expect(updateGenerationGraphSchema.safeParse(snapshot).success).toBe(false);
   });
 
-  it("rejects unknown snapshot fields", () => {
-    expect(
-      updateGenerationGraphSchema.safeParse({
-        expectedVersion: 1,
-        title: "Graph",
-        nodes: [],
-        edges: [],
-        ownerEmail: "other@example.com",
-      }).success,
-    ).toBe(false);
+  it("rejects duplicate group ownership and members from another Space", () => {
+    const group = { id: "group", title: "Frame", color: "neutral", locked: false,
+      bounds: { x: 0, y: 0, width: 500, height: 500 }, memberNodeIds: [validNode.id] };
+    expect(updateGenerationGraphSchema.safeParse({ ...validSnapshot, groups: [group] }).success).toBe(true);
+    for (const groups of [[group, { ...group, id: "other" }], [{ ...group, memberNodeIds: ["foreign"] }]]) {
+      expect(updateGenerationGraphSchema.safeParse({ ...validSnapshot, groups }).success).toBe(false);
+    }
   });
 });

@@ -1,0 +1,42 @@
+--- a/src/components/MultiSelectToolbar.tsx
++++ b/src/components/MultiSelectToolbar.tsx
+@@ -38,1 +38,3 @@
+-  onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
++  onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
++  onDownloadSelected?: (nodeIds: string[]) => void | Promise<void>;
++  downloadingImages?: boolean;
+@@ -208,1 +208,5 @@
+-  const handleDownloadImages = useCallback(async () => {
++  const handleDownloadImages = useCallback(async () => {
++    if (hosted?.onDownloadSelected) {
++      await hosted.onDownloadSelected(selectedNodes.map((node) => node.id));
++      return;
++    }
+@@ -243,1 +243,1 @@
+-  }, [hosted?.onDownloadImages, selectedNodes]);
++  }, [hosted?.onDownloadImages, hosted?.onDownloadSelected, selectedNodes]);
+@@ -352,1 +352,2 @@
+-        disabled={hosted?.writable === false || (hosted != null && !hosted.onDownloadImages)}
++        disabled={hosted?.writable === false || hosted?.downloadingImages || (hosted != null && !hosted.onDownloadImages && !hosted.onDownloadSelected)}
++        aria-busy={hosted?.downloadingImages || undefined}
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -164,1 +164,3 @@
+-  onRunNode?: (nodeId: string) => void | Promise<unknown>;
++  onRunNode?: (nodeId: string) => void | Promise<unknown>;
++  onDownloadSelectedImages?: (nodeIds: string[]) => void | Promise<void>;
++  downloadingImages?: boolean;
+@@ -441,2 +441,4 @@
+-  onRunNode,
+-  renderNodeHeader,
++  onRunNode,
++  onDownloadSelectedImages,
++  downloadingImages,
++  renderNodeHeader,
+@@ -1038,2 +1038,4 @@
+-          onCopy: copy,
+-          onDelete: () => removeSelection(),
++          onCopy: copy,
++          onDelete: () => removeSelection(),
++          onDownloadSelected: onDownloadSelectedImages,
++          downloadingImages,

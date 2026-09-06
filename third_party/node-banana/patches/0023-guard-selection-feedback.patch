@@ -1,0 +1,51 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -481,9 +481,14 @@
+   const onNodesChange = useCallback((changes: NodeChange<NodeBananaRuntimeNode>[]) => {
+     const selection = changes.filter((change) => change.type === "select");
+     if (selection.length) {
+-      const selected = new Set(interaction.selectedNodeIds);
++      const currentSelection = store.getState().selectedNodeIds;
++      const selected = new Set(currentSelection);
+       for (const change of selection) change.selected ? selected.add(change.id) : selected.delete(change.id);
+-      store.setState({ selectedNodeIds: [...selected] });
++      const selectedNodeIds = [...selected];
++      if (
++        selectedNodeIds.length !== currentSelection.length ||
++        selectedNodeIds.some((id, index) => id !== currentSelection[index])
++      ) store.setState({ selectedNodeIds });
+     }
+     const dimensions = changes.filter((change) => change.type === "dimensions");
+     if (dimensions.length) {
+@@ -535,7 +540,7 @@
+     const edges = graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+     const removed = durableChanges.some((change) => change.type === "remove");
+     publish({ nodes, edges }, removed ? "delete" : "nodes", removed);
+-  }, [graph, interaction.selectedNodeIds, publish, store, writable]);
++  }, [graph, publish, store, writable]);
+ 
+   const commitNodeDrag = useCallback(() => {
+     const previous = dragStartRef.current;
+@@ -559,14 +564,19 @@
+   const onEdgesChange = useCallback((changes: EdgeChange<NodeBananaRuntimeEdge>[]) => {
+     const selection = changes.filter((change) => change.type === "select");
+     if (selection.length) {
+-      const selected = new Set(interaction.selectedEdgeIds);
++      const currentSelection = store.getState().selectedEdgeIds;
++      const selected = new Set(currentSelection);
+       for (const change of selection) change.selected ? selected.add(change.id) : selected.delete(change.id);
+-      store.setState({ selectedEdgeIds: [...selected] });
++      const selectedEdgeIds = [...selected];
++      if (
++        selectedEdgeIds.length !== currentSelection.length ||
++        selectedEdgeIds.some((id, index) => id !== currentSelection[index])
++      ) store.setState({ selectedEdgeIds });
+     }
+     const durableChanges = changes.filter((change) => change.type !== "select");
+     if (!durableChanges.length || !writable) return;
+     publish({ nodes: graph.nodes, edges: applyEdgeChanges(durableChanges, graph.edges) }, "edges");
+-  }, [graph, interaction.selectedEdgeIds, publish, store, writable]);
++  }, [graph, publish, store, writable]);
+ 
+   const onConnect = useCallback((connection: Connection) => {
+     if (!writable || (isValidConnection && !isValidConnection(connection))) return;

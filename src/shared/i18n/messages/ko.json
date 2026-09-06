@@ -8,7 +8,7 @@
   },
   "nav": {
     "image": "이미지",
-    "nodeStudio": "노드 스튜디오",
+    "nodeStudio": "스페이스",
     "video": "비디오",
     "audio": "오디오",
     "history": "히스토리",
@@ -453,13 +453,19 @@
     "statuses": {
       "pending": "대기중",
       "processing": "처리중",
+      "uploading": "업로드중",
       "completed": "완료",
-      "failed": "실패"
+      "failed": "실패",
+      "cancelled": "취소됨"
     },
     "types": {
       "image": "이미지",
       "video": "비디오",
       "audio": "오디오"
+    },
+    "origins": {
+      "generation": "생성",
+      "edit": "편집"
     },
     "actions": {
       "reusePrompt": "프롬프트 재사용",
@@ -488,6 +494,13 @@
       "completedAt": "완료 시간",
       "duration": "소요 시간",
       "progress": "진행률",
+      "origin": "출처",
+      "assetId": "자산 ID",
+      "graphId": "Graph ID",
+      "graphNodeId": "Node ID",
+      "sourceRecord": "원본 실행",
+      "sourceAssets": "입력 자산",
+      "operationParameters": "편집 파라미터",
       "assets": "ASSETS",
       "inputImage": "입력 이미지",
       "inputAudio": "입력 오디오",
@@ -547,8 +560,10 @@
     "statuses": {
       "pending": "대기",
       "processing": "처리 중",
+      "uploading": "업로드 중",
       "completed": "완료",
-      "failed": "실패"
+      "failed": "실패",
+      "cancelled": "취소됨"
     },
     "filters": {
       "from": "시작일",
@@ -1012,25 +1027,65 @@
     }
   },
   "nodeStudio": {
-    "eyebrow": "비주얼 워크플로 편집기",
-    "title": "Node Studio",
-    "description": "이미지 생성 노드를 배치하고 워크플로를 Graph로 안전하게 저장하세요.",
+    "eyebrow": "Visual workflow editor",
+    "title": "Spaces",
+    "description": "Create, connect, and explore your creative workflows.",
     "actions": {
-      "addImageNode": "이미지 노드 추가",
+    "addImageNode": "이미지 노드 추가",
+    "addNode": "노드 추가 또는 검색",
       "canvasTools": "Canvas 도구",
       "selectTool": "선택 도구",
-      "panTool": "이동 도구",
+    "panTool": "이동 도구",
+    "undo": "실행 취소",
+    "redo": "다시 실행",
+    "copy": "선택 노드 복사",
+    "paste": "노드 붙여넣기",
       "duplicateNode": "노드 복제",
       "fitView": "전체 보기",
       "deleteNode": "노드 삭제",
-      "runNode": "실행",
-      "rerunNode": "다시 실행",
+      "runNode": "Run",
+      "rerunNode": "Run again",
       "retry": "다시 시도",
       "reloadLatest": "최신 버전 불러오기",
       "createGraph": "Graph 생성",
       "deleteGraph": "Graph 삭제",
-      "cancel": "취소"
-    },
+    "cancel": "취소"
+  },
+  "runtime": {
+    "application": "Space canvas",
+    "nodeBanana": "Node Banana",
+    "searchPlaceholder": "노드 이름 또는 미디어 유형 검색",
+    "closeMenu": "노드 메뉴 닫기",
+    "readOnly": "읽기 전용 Graph · {reason}",
+    "unsupportedDescription": "지원하지 않는 노드 원문을 보존했습니다. 이유: {reason}",
+    "failureTitle": "Canvas를 표시하지 못했습니다",
+    "failureDescription": "저장된 Graph는 변경되지 않았습니다. 화면을 다시 불러와 복구할 수 있습니다.",
+    "nodeFailureTitle": "이 노드를 표시하지 못했습니다",
+    "nodeFailureDescription": "{node} 노드의 원문은 저장된 Graph에 그대로 남아 있습니다.",
+    "reload": "화면 다시 불러오기"
+  },
+  "nodeKinds": {
+    "inputImage": "Image Input",
+    "inputAudio": "Audio Input",
+    "inputVideo": "Video Input",
+    "inputPrompt": "Prompt",
+    "generateImage": "Generate Image",
+    "generateAudio": "Generate Audio",
+    "generateVideo": "Generate Video",
+    "editImageAnnotation": "Annotation",
+    "editImageResize": "Image Resize",
+    "editImageRemoveBackground": "Remove Background",
+    "editImageSplitGrid": "Split Grid",
+    "editImageGif": "GIF Encoder",
+    "editVideoStitch": "Video Stitch",
+    "editVideoTrim": "Video Trim",
+    "editVideoFrameGrab": "Frame Grab",
+    "editVideoEaseCurve": "Ease Curve",
+    "editAudioBasic": "Audio Edit",
+    "outputSingle": "Output",
+    "outputGallery": "Output Gallery",
+    "inspectImageCompare": "Image Compare"
+  },
     "edge": {
       "primaryTarget": "Primary 입력",
       "referenceTarget": "Reference 입력",
@@ -1053,28 +1108,84 @@
       "modelUnselected": "모델 미선택",
       "inputReady": "연결 입력",
       "authoringReady": "선택한 노드의 이미지 설정을 여기에서 작성합니다.",
-      "promptEmpty": "선택하여 프롬프트와 모델을 설정하세요.",
-      "promptLabel": "프롬프트",
-      "promptPlaceholder": "만들고 싶은 이미지를 설명하세요...",
+      "promptEmpty": "Select to configure a prompt and model.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "Describe the image you want to create...",
       "promptChars": "{count}자",
-      "chooseModel": "모델 선택",
+      "chooseModel": "Choose a model",
       "modelLoading": "이미지 모델을 불러오는 중입니다...",
       "modelEmpty": "사용 가능한 이미지 모델이 없습니다.",
       "modelError": "이미지 모델을 불러오지 못했습니다.",
       "modelUnavailable": "사용할 수 없음 · {model}",
       "invalidParameter": "지원 범위와 입력 단위를 확인하세요."
     },
+    "generationNode": {
+      "description": "저장된 Graph 설정과 연결된 자산으로 이 노드만 실행합니다.",
+      "modelLabel": "Model",
+      "parametersLabel": "Parameters",
+      "modelLoading": "모델을 불러오는 중입니다...",
+      "modelEmpty": "사용 가능한 모델이 없습니다.",
+      "modelError": "모델을 불러오지 못했습니다.",
+      "promptPlaceholder": "{media} 생성 프롬프트",
+      "executionError": "실행 요청을 처리하지 못했습니다. Graph 설정과 저장소 상태를 확인하세요.",
+      "media": {
+        "image": "이미지",
+        "audio": "오디오",
+        "video": "비디오"
+      }
+    },
+    "mediaNodes": {
+      "inputEmpty": "업로드하거나 히스토리 자산을 선택하세요.",
+      "upload": "파일 업로드",
+      "uploading": "업로드 중",
+      "historyPicker": "히스토리 자산",
+      "historyEmpty": "재사용할 자산이 없습니다.",
+      "loadMore": "더 불러오기",
+      "loading": "자산을 불러오는 중입니다.",
+      "loadError": "자산을 불러오지 못했습니다.",
+      "uploadError": "자산 업로드에 실패했습니다.",
+      "deleteError": "자산 삭제에 실패했습니다.",
+      "assetInUse": "이 자산을 참조하는 Graph가 있습니다: {graphs}",
+      "deleteAsset": "자산 삭제",
+      "outputEmpty": "연결된 durable output이 없습니다.",
+      "outputError": "연결된 output을 불러오지 못했습니다.",
+      "compareNeedsTwo": "비교할 before/after 이미지가 모두 필요합니다.",
+      "before": "편집 전 이미지",
+      "after": "편집 후 이미지",
+      "download": "다운로드",
+      "openHistory": "히스토리",
+      "origins": {
+        "upload": "업로드",
+        "generation": "생성",
+        "media_operation": "편집",
+        "legacy_generation": "기존 생성"
+      }
+    },
     "execution": {
-      "title": "이미지 생성 실행",
+      "title": "Generation 실행",
       "status": {
         "idle": "실행 대기",
         "submitting": "제출 중",
         "pending": "대기 중",
         "processing": "생성 중",
+        "uploading": "업로드 중",
         "completed": "생성 완료",
-        "failed": "생성 실패"
+        "failed": "생성 실패",
+        "cancelled": "생성 취소"
       },
       "configureFirst": "프롬프트와 모델을 선택하면 실행할 수 있습니다.",
+      "blocked": {
+        "NODE_NOT_FOUND": "이 노드는 더 이상 워크플로에 존재하지 않습니다.",
+        "NODE_NOT_EXECUTABLE": "이 노드는 직접 실행할 수 없습니다.",
+        "NODE_CONFIG_INVALID": "노드 설정을 확인해 주세요.",
+        "MODEL_REQUIRED": "모델을 선택해 주세요.",
+        "PROMPT_REQUIRED": "프롬프트를 입력하거나 Prompt 노드를 연결해 주세요.",
+        "PARAMETERS_INVALID": "모델 설정값을 확인해 주세요.",
+        "INPUT_REQUIRED": "필수 입력을 연결해 주세요.",
+        "INPUT_NOT_READY": "연결된 source 노드에서 완료된 결과를 선택해 주세요.",
+        "INPUT_UNSUPPORTED": "지원하지 않는 입력을 해제하거나 다른 모델을 선택해 주세요.",
+        "PROCESSOR_UNAVAILABLE": "필요한 프로세서를 사용할 수 없습니다."
+      },
       "empty": "실행하면 최신 결과와 이전 Generation을 여기에서 확인할 수 있습니다.",
       "latestResult": "최신 생성 결과",
       "history": "Generation 이력 {count}개",
@@ -1089,7 +1200,7 @@
       "inputInvalid": "선택된 source 결과를 사용할 수 없습니다. source 노드를 다시 실행하거나 다른 결과를 선택하세요.",
       "inputUnsupported": "선택한 모델은 이미지 입력을 지원하지 않습니다. 입력 연결을 해제하거나 다른 모델을 선택하세요.",
       "inputLimitExceeded": "선택한 모델은 이미지 입력을 최대 {limit}개까지 지원합니다. 일부 연결을 해제하세요.",
-      "submitError": "이미지 생성 요청을 제출하지 못했습니다."
+      "submitError": "Generation 요청을 제출하지 못했습니다."
     },
     "empty": {
       "title": "이미지 노드로 시작하세요",
@@ -1111,7 +1222,7 @@
       "createPlaceholder": "새 Graph 이름",
       "title": "Graph 이름",
       "emptyTitle": "첫 Graph를 만들어 보세요",
-      "emptyDescription": "위에서 이름을 입력하면 저장 가능한 Node Studio 작업 공간이 열립니다."
+      "emptyDescription": "새 스페이스를 만들어 작업을 시작하세요."
     },
     "save": {
       "saved": "저장됨",

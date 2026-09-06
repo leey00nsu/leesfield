@@ -1,0 +1,16 @@
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
+new file mode 100644
+--- /dev/null
++++ b/src/leesfield/runtime-entry.ts
+@@ -0,0 +1,11 @@
++export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
++
++export const LEESFIELD_RUNTIME_FEATURES = [
++  "canvas",
++  "typed-nodes",
++  "media-processing",
++] as const;
++
++export type LeesfieldRuntimeFeature =
++  (typeof LEESFIELD_RUNTIME_FEATURES)[number];
++

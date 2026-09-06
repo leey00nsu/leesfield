@@ -68,8 +68,10 @@ export function MonitoringRequestTable({
     () => ({
       pending: t("statuses.pending"),
       processing: t("statuses.processing"),
+      uploading: t("statuses.uploading"),
       completed: t("statuses.completed"),
       failed: t("statuses.failed"),
+      cancelled: t("statuses.cancelled"),
     }),
     [t],
   );

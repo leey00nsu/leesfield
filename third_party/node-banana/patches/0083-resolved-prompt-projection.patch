@@ -1,0 +1,45 @@
+--- a/src/components/nodes/PromptConstructorNode.tsx
++++ b/src/components/nodes/PromptConstructorNode.tsx
+@@ -50,7 +50,7 @@
+         if (promptData.variableName) {
+           vars.push({
+             name: promptData.variableName,
+-            value: promptData.prompt || "",
++            value: promptData.resolvedPrompt ?? promptData.prompt ?? "",
+             nodeId: node.id,
+           });
+           usedNames.add(promptData.variableName);
+@@ -62,7 +62,7 @@
+     connectedTextNodes.forEach((node) => {
+       let text: string | null = null;
+       if (node.type === "prompt") {
+-        text = (node.data as PromptNodeData).prompt || null;
++        text = (node.data as PromptNodeData).resolvedPrompt ?? (node.data as PromptNodeData).prompt ?? null;
+ 
+       } else if (node.type === "promptConstructor") {
+         const pcData = node.data as PromptConstructorNodeData;
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -572,9 +572,9 @@
+       .map((edge) => adaptedHostNodes(host ?? parentHost).find((node) => node.id === edge.source)).filter(Boolean);
+     const variables = new Map<string, { name: string; value: string; nodeId: string }>();
+     for (const source of sources) if (source?.type === "prompt" && source.data.variableName) {
+-      const name = String(source.data.variableName); variables.set(name, { name, value: String(source.data.prompt ?? ""), nodeId: source.id });
++      const name = String(source.data.variableName); variables.set(name, { name, value: String(source.data.resolvedPrompt ?? source.data.prompt ?? ""), nodeId: source.id });
+     }
+-    for (const source of sources) for (const variable of parseVarTags(String(source?.data.outputText ?? source?.data.prompt ?? ""))) {
++    for (const source of sources) for (const variable of parseVarTags(String(source?.data.outputText ?? source?.data.resolvedPrompt ?? source?.data.prompt ?? ""))) {
+       if (!variables.has(variable.name)) variables.set(variable.name, { ...variable, nodeId: String(source?.id) });
+     }
+     return [...variables.values()];
+--- a/src/components/onboarding/ElementHighlight.tsx
++++ b/src/components/onboarding/ElementHighlight.tsx
+@@ -99,7 +99,7 @@
+             left: rect.left - 4,
+             width: rect.width + 8,
+             height: rect.height + 8,
+-            zIndex: 101,
++            zIndex: 201,
+             border: "2px solid rgb(59, 130, 246)",
+             borderRadius: "8px",
+             boxShadow: "0 0 8px rgba(59, 130, 246, 0.3)",

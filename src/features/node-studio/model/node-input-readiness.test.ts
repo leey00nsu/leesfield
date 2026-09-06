@@ -6,15 +6,15 @@ import type {
 } from "./flow-types";
 import { resolveImageNodeInputReadiness } from "./node-input-readiness";
 
-function node(id: string, selectedOutputImageId: string | null) {
+function node(id: string, selectedOutputAssetId: string | null) {
   return {
     id,
-    type: "imageGeneration",
+    type: "generationNode",
     position: { x: 0, y: 0 },
     data: {
       configVersion: 1,
       config: { prompt: "prompt", modelKey: "model/a", parameters: {} },
-      selectedOutputImageId,
+      selectedOutputAssetId,
     },
   } satisfies ImageGenerationFlowNode;
 }
@@ -22,13 +22,13 @@ function node(id: string, selectedOutputImageId: string | null) {
 function edge(
   id: string,
   source: string,
-  kind: "primary" | "reference",
+  targetPortId: "primary" | "references",
 ) {
   return {
     id,
     source,
     target: "target",
-    data: { kind },
+    data: { sourcePortId: "image", targetPortId, sortOrder: 0 },
   } satisfies GenerationGraphFlowEdge;
 }
 
@@ -39,7 +39,7 @@ describe("resolveImageNodeInputReadiness", () => {
       [node("source-ready", "image-1"), node("source-missing", null), node("target", null)],
       [
         edge("primary", "source-ready", "primary"),
-        edge("reference", "source-missing", "reference"),
+        edge("reference", "source-missing", "references"),
       ],
     );
 
@@ -67,7 +67,7 @@ describe("resolveImageNodeInputReadiness", () => {
       [node("source-a", "image-shared"), node("source-b", "image-shared")],
       [
         edge("primary", "source-a", "primary"),
-        edge("reference", "source-b", "reference"),
+        edge("reference", "source-b", "references"),
       ],
     );
 
@@ -79,7 +79,7 @@ describe("resolveImageNodeInputReadiness", () => {
     const readiness = resolveImageNodeInputReadiness(
       "target",
       [node("target", null), node("other", "image-1")],
-      [{ ...edge("outgoing", "target", "reference"), target: "other" }],
+      [{ ...edge("outgoing", "target", "references"), target: "other" }],
     );
 
     expect(readiness).toEqual({

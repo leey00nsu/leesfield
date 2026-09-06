@@ -1,0 +1,183 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -147,6 +147,8 @@
+   selectedNodeIds: string[];
+   selectedEdgeIds: string[];
+   nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
++  nodePositions: Record<string, XYPosition>;
++  edgeToolbarPosition: XYPosition | null;
+   clipboard: ClipboardSnapshot | null;
+   pasteCount: number;
+   undo: NodeBananaRuntimeGraph[];
+@@ -170,6 +172,8 @@
+     selectedNodeIds: [],
+     selectedEdgeIds: [],
+     nodeLayout: {},
++    nodePositions: {},
++    edgeToolbarPosition: null,
+     clipboard: null,
+     pasteCount: 0,
+     undo: [],
+@@ -507,7 +511,24 @@
+       }
+       if (changed) store.setState({ nodeLayout });
+     }
+-    const durableChanges = changes.filter((change) => change.type !== "select" && change.type !== "dimensions");
++    const positions = changes.filter((change) => change.type === "position");
++    if (positions.length) {
++      const current = store.getState().nodePositions;
++      const positionIds = new Set(positions.map((change) => change.id));
++      const movedNodes = applyNodeChanges(
++        positions,
++        graph.nodes.map((node) => ({
++          ...node,
++          position: current[node.id] ?? node.position,
++        })),
++      );
++      const nodePositions = { ...current };
++      for (const node of movedNodes) {
++        if (positionIds.has(node.id)) nodePositions[node.id] = node.position;
++      }
++      store.setState({ nodePositions });
++    }
++    const durableChanges = changes.filter((change) => change.type !== "select" && change.type !== "dimensions" && change.type !== "position");
+     if (!durableChanges.length || !writable) return;
+     const nodes = applyNodeChanges(durableChanges, graph.nodes);
+     const nodeIds = new Set(nodes.map((node) => node.id));
+@@ -516,6 +537,25 @@
+     publish({ nodes, edges }, removed ? "delete" : "nodes", removed);
+   }, [graph, interaction.selectedNodeIds, publish, store, writable]);
+ 
++  const commitNodeDrag = useCallback(() => {
++    const previous = dragStartRef.current;
++    dragStartRef.current = null;
++    if (!previous || !writable) return;
++    const positions = store.getState().nodePositions;
++    const nodes = graph.nodes.map((node) => positions[node.id]
++      ? { ...node, position: positions[node.id] }
++      : node);
++    const changed = nodes.some((node, index) =>
++      node.position.x !== graph.nodes[index]?.position.x ||
++      node.position.y !== graph.nodes[index]?.position.y,
++    );
++    if (changed) {
++      recordUndo(previous);
++      publish({ nodes, edges: graph.edges }, "drag", false);
++    }
++    store.setState({ nodePositions: {} });
++  }, [graph, publish, recordUndo, store, writable]);
++
+   const onEdgesChange = useCallback((changes: EdgeChange<NodeBananaRuntimeEdge>[]) => {
+     const selection = changes.filter((change) => change.type === "select");
+     if (selection.length) {
+@@ -689,9 +729,21 @@
+       nodes: graph.nodes.filter((node) => !nodes.has(node.id)),
+       edges: graph.edges.filter((edge) => !edges.has(edge.id) && !nodes.has(edge.source) && !nodes.has(edge.target)),
+     }, "delete");
+-    store.setState({ selectedNodeIds: [], selectedEdgeIds: [] });
++    store.setState({ selectedNodeIds: [], selectedEdgeIds: [], edgeToolbarPosition: null });
+   }, [graph, interaction.selectedEdgeIds, interaction.selectedNodeIds, publish, store, writable]);
+ 
++  const toggleSelectedEdgePause = useCallback(() => {
++    if (!writable) return;
++    const selectedEdgeId = store.getState().selectedEdgeIds[0];
++    if (!selectedEdgeId || store.getState().selectedEdgeIds.length !== 1) return;
++    publish({
++      nodes: graph.nodes,
++      edges: graph.edges.map((edge) => edge.id === selectedEdgeId
++        ? { ...edge, data: { ...edge.data, hasPause: !edge.data?.hasPause } }
++        : edge),
++    }, "edges");
++  }, [graph, publish, store, writable]);
++
+   const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+     if (isFormTarget(event.target)) return;
+     const command = event.metaKey || event.ctrlKey;
+@@ -714,13 +766,22 @@
+     return graph.nodes.map((node) => ({
+       ...node,
+       ...interaction.nodeLayout[node.id],
++      position: interaction.nodePositions[node.id] ?? node.position,
+       selected: selected.has(node.id),
+     }));
+-  }, [graph.nodes, interaction.nodeLayout, interaction.selectedNodeIds]);
++  }, [graph.nodes, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
+   const visibleEdges = useMemo(() => {
+     const selected = new Set(interaction.selectedEdgeIds);
+-    return graph.edges.map((edge) => ({ ...edge, selected: selected.has(edge.id) }));
++    return graph.edges.map((edge) => ({
++      ...edge,
++      selected: selected.has(edge.id),
++      style: edge.data?.hasPause ? { ...edge.style, stroke: "#ea580c" } : edge.style,
++    }));
+   }, [graph.edges, interaction.selectedEdgeIds]);
++  const selectedEdge = useMemo(
++    () => graph.edges.find((edge) => interaction.selectedEdgeIds.includes(edge.id)) ?? null,
++    [graph.edges, interaction.selectedEdgeIds],
++  );
+   const onSelectionChange = useCallback((selection: {
+     nodes: NodeBananaRuntimeNode[];
+     edges: NodeBananaRuntimeEdge[];
+@@ -734,7 +795,11 @@
+       selectedNodeIds.every((id, index) => id === current.selectedNodeIds[index]) &&
+       selectedEdgeIds.every((id, index) => id === current.selectedEdgeIds[index])
+     ) return;
+-    store.setState({ selectedNodeIds, selectedEdgeIds });
++    store.setState({
++      selectedNodeIds,
++      selectedEdgeIds,
++      edgeToolbarPosition: selectedEdgeIds.length === 1 ? current.edgeToolbarPosition : null,
++    });
+   }, [store]);
+   const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+     const current = store.getState().viewport;
+@@ -770,7 +835,14 @@
+         onConnectEnd={onConnectEnd}
+         isValidConnection={isValidConnection}
+         onNodeDragStart={() => { dragStartRef.current = cloneGraph(graph); }}
+-        onNodeDragStop={() => { if (dragStartRef.current) recordUndo(dragStartRef.current); dragStartRef.current = null; }}
++        onNodeDragStop={commitNodeDrag}
++        onEdgeClick={(event, edge) => {
++          store.setState({
++            selectedNodeIds: [],
++            selectedEdgeIds: [edge.id],
++            edgeToolbarPosition: { x: event.clientX, y: event.clientY - 40 },
++          });
++        }}
+         onSelectionChange={onSelectionChange}
+         onMoveEnd={onMoveEnd}
+         nodesDraggable={writable}
+@@ -841,10 +913,30 @@
+           <button type="button" onClick={removeSelection} disabled={!writable}>Delete</button>
+         </div>
+       ) : null}
+-      {interaction.selectedEdgeIds.length === 1 ? (
+-        <div className="node-banana-runtime__edge-toolbar" role="toolbar" aria-label="Selected edge" data-node-banana-component="EdgeToolbar">
++      {selectedEdge && interaction.edgeToolbarPosition ? (
++        <div
++          className="node-banana-runtime__edge-toolbar"
++          role="toolbar"
++          aria-label="Selected edge"
++          data-node-banana-component="EdgeToolbar"
++          style={{ left: interaction.edgeToolbarPosition.x, top: interaction.edgeToolbarPosition.y }}
++        >
++          <button
++            type="button"
++            onClick={toggleSelectedEdgePause}
++            disabled={!writable}
++            aria-label={selectedEdge.data?.hasPause ? "Remove pause" : "Add pause"}
++            title={selectedEdge.data?.hasPause ? "Remove pause" : "Add pause"}
++            data-paused={selectedEdge.data?.hasPause ? "true" : "false"}
++          >
++            {selectedEdge.data?.hasPause ? (
++              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
++            ) : (
++              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
++            )}
++          </button>
+           <button type="button" onClick={removeSelection} disabled={!writable} aria-label="Delete edge">
+-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
++            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+           </button>
+         </div>
+       ) : null}

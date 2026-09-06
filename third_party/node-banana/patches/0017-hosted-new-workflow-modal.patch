@@ -1,0 +1,68 @@
+--- a/src/leesfield/hosted-header.tsx
++++ b/src/leesfield/hosted-header.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useState } from "react";
++import { type FormEvent, useState } from "react";
+ 
+ export type NodeBananaHeaderGraph = {
+   id: string;
+@@ -40,10 +40,16 @@
+ }: NodeBananaHostedHeaderProps) {
+   const [browserOpen, setBrowserOpen] = useState(false);
+   const [shortcutsOpen, setShortcutsOpen] = useState(false);
++  const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
++  const [newWorkflowName, setNewWorkflowName] = useState("Untitled Workflow");
+ 
+-  const createWorkflow = () => {
+-    const name = window.prompt("Workflow name", "Untitled Workflow")?.trim();
+-    if (name) onCreateGraph(name);
++  const createWorkflow = (event: FormEvent<HTMLFormElement>) => {
++    event.preventDefault();
++    const name = newWorkflowName.trim();
++    if (!name) return;
++    onCreateGraph(name);
++    setNewWorkflowOpen(false);
++    setNewWorkflowName("Untitled Workflow");
+   };
+ 
+   return (
+@@ -67,7 +73,7 @@
+               <button type="button" onClick={onSave} disabled={!writable || saving} aria-label={saving ? "Saving workflow" : "Save workflow"} title={saving ? "Saving..." : "Save project"}>
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+               </button>
+-              <button type="button" onClick={createWorkflow} disabled={creating} aria-label="New workflow" title="New project">
++              <button type="button" onClick={() => setNewWorkflowOpen(true)} disabled={creating} aria-label="New workflow" title="New project">
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>
+               </button>
+               <div className="node-banana-hosted__browser-anchor">
+@@ -110,6 +116,28 @@
+           </button>
+         </div>
+       </header>
++      {newWorkflowOpen ? (
++        <div className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setNewWorkflowOpen(false)}>
++          <form className="node-banana-hosted__dialog" role="dialog" aria-modal="true" aria-labelledby="node-banana-new-workflow-title" onSubmit={createWorkflow} onMouseDown={(event) => event.stopPropagation()}>
++            <header>
++              <h2 id="node-banana-new-workflow-title">New workflow</h2>
++              <button type="button" onClick={() => setNewWorkflowOpen(false)} aria-label="Close new workflow">×</button>
++            </header>
++            <label htmlFor="node-banana-new-workflow-name">Workflow name</label>
++            <input
++              id="node-banana-new-workflow-name"
++              autoFocus
++              maxLength={120}
++              value={newWorkflowName}
++              onChange={(event) => setNewWorkflowName(event.target.value)}
++            />
++            <footer>
++              <button type="button" onClick={() => setNewWorkflowOpen(false)}>Cancel</button>
++              <button type="submit" disabled={creating || !newWorkflowName.trim()}>Create</button>
++            </footer>
++          </form>
++        </div>
++      ) : null}
+       {shortcutsOpen ? (
+         <div className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setShortcutsOpen(false)}>
+           <section className="node-banana-hosted__shortcuts" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onMouseDown={(event) => event.stopPropagation()}>

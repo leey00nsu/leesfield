@@ -5,12 +5,14 @@ import type { ImageGenerationStatus } from "@/features/image-generation/model/im
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { createImageGenerationRecord } from "@/server/image-generation/image-generation-repository";
 import { uploadInputImages } from "@/server/shared/input-image-uploader";
+import { NodeExecutionActiveError } from "@/server/node-executions/node-execution-errors";
 
 export type SubmitImageGenerationInput = {
   payload: ImageGenerationFormValues;
   ownerEmail: string;
   apiKeyId?: string | null;
   graphNodeId?: string | null;
+  requestSnapshot?: Record<string, Prisma.InputJsonValue | null>;
 };
 
 export type ImageGenerationSubmissionRecord = {
@@ -19,11 +21,11 @@ export type ImageGenerationSubmissionRecord = {
   progress: number;
 };
 
-export class ImageGenerationActiveNodeError extends Error {
+export class ImageGenerationActiveNodeError extends NodeExecutionActiveError {
   readonly code = "NODE_GENERATION_ACTIVE";
 
   constructor() {
-    super("NODE_GENERATION_ACTIVE");
+    super();
     this.name = "ImageGenerationActiveNodeError";
   }
 }
@@ -40,6 +42,7 @@ export async function submitImageGeneration({
   ownerEmail,
   apiKeyId = null,
   graphNodeId = null,
+  requestSnapshot,
 }: SubmitImageGenerationInput) {
   startGenerationWorker();
 
@@ -48,21 +51,31 @@ export async function submitImageGeneration({
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
   const resolvedInitImages =
-    initImages.length > 0
+    !requestSnapshot && initImages.length > 0
       ? await uploadInputImages(requestId, initImages)
       : [];
   let record;
   try {
-    record = await createImageGenerationRecord(
-      requestId,
-      {
-        ...payload,
-        initImages: resolvedInitImages,
-      },
-      ownerEmail,
-      apiKeyId,
-      graphNodeId,
-    );
+    const recordPayload = {
+      ...payload,
+      initImages: resolvedInitImages,
+    };
+    record = requestSnapshot
+      ? await createImageGenerationRecord(
+          requestId,
+          recordPayload,
+          ownerEmail,
+          apiKeyId,
+          graphNodeId,
+          requestSnapshot,
+        )
+      : await createImageGenerationRecord(
+          requestId,
+          recordPayload,
+          ownerEmail,
+          apiKeyId,
+          graphNodeId,
+        );
   } catch (error) {
     if (graphNodeId && isUniqueConstraintError(error)) {
       throw new ImageGenerationActiveNodeError();

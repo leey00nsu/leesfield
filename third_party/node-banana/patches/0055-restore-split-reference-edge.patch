@@ -1,0 +1,30 @@
+--- a/src/components/edges/ReferenceEdge.tsx
++++ b/src/components/edges/ReferenceEdge.tsx
+@@ -6,7 +6,7 @@
+   EdgeProps,
+   getBezierPath,
+ } from "@xyflow/react";
++import { useWorkflowStore } from "../../leesfield/upstream-node-host";
+-import { useWorkflowStore } from "@/store/workflowStore";
+ import { getSharedGradientId } from "./SharedEdgeGradients";
+ 
+ export function ReferenceEdge({
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -66,6 +66,7 @@
+   type MultiSelectToolbarHostedProps,
+ } from "../components/MultiSelectToolbar";
+ import { SharedEdgeGradients as UpstreamSharedEdgeGradients } from "../components/edges/SharedEdgeGradients";
++import { ReferenceEdge } from "../components/edges/ReferenceEdge";
+ import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+@@ -440,7 +441,7 @@
+   const store = useMemo(createInteractionStore, []);
+   const interaction = useStore(store);
+   const runtimeEdgeTypes = useMemo<EdgeTypes>(
++    () => ({ ...edgeTypes, editable: UpstreamEditableEdge, reference: ReferenceEdge }),
+-    () => ({ ...edgeTypes, editable: UpstreamEditableEdge }),
+     [edgeTypes],
+   );
+   const rootRef = useRef<HTMLDivElement>(null);

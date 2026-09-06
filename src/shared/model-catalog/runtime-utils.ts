@@ -135,6 +135,14 @@ export type RuntimeImageMeta = {
   default_steps?: number;
   concurrent_limit?: number | null;
   max_input_images?: number;
+  operations?: {
+    background_removal?: {
+      version: number;
+      api_name: string;
+      input_parameter: string;
+      output_mime_type: "image/png";
+    };
+  };
   [key: string]: unknown;
 };
 

@@ -1,0 +1,11 @@
+--- a/src/leesfield/hosted-space-browser.tsx
++++ b/src/leesfield/hosted-space-browser.tsx
+@@ -20,7 +20,7 @@
+   closeRef.current = onClose;
+   useEffect(() => {
+     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+-    const controls = () => Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []);
++    const controls = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])') ?? []);
+     (dialogRef.current?.querySelector<HTMLButtonElement>('[aria-current="page"]') ?? controls()[0])?.focus();
+     const key = (event: KeyboardEvent) => {
+       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }

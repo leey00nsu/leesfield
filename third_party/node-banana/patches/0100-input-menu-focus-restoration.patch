@@ -1,0 +1,11 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -772,7 +772,7 @@
+   const assetController=useRef<AbortController|null>(null);
+   const assetRequestRef=useRef(assetRequest); assetRequestRef.current=assetRequest;
+   const mediaFileRef=useRef<HTMLInputElement>(null);
+-  const closeAssets=useCallback(()=>{assetController.current?.abort(); assetRequestRef.current=null;setAssetRequest(null);rootRef.current?.focus();},[]);
++  const closeAssets=useCallback(()=>{const restoreFocus=assetRequestRef.current!==null;assetController.current?.abort(); assetRequestRef.current=null;setAssetRequest(null);if(restoreFocus)requestAnimationFrame(()=>rootRef.current?.focus());},[]);
+   useEffect(()=>{closeAssets();return ()=>{assetController.current?.abort();assetRequestRef.current=null;};},[writable,contextId,closeAssets]);
+   useEffect(()=>{const input=mediaFileRef.current;input?.addEventListener("cancel",closeAssets);return ()=>input?.removeEventListener("cancel",closeAssets);},[closeAssets]);
+   const selectConnectionMedia=async (source:File|{assetId:string})=>{

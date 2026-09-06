@@ -53,6 +53,7 @@ describe("generation graph api", () => {
     await expect(createGenerationGraph("Graph")).resolves.toEqual(graph);
     await expect(
       updateGenerationGraph("graph_1", {
+        schemaVersion: 3, groups: [],
         expectedVersion: 1,
         title: "Graph",
         nodes: [],

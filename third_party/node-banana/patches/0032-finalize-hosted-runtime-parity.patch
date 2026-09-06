@@ -1,0 +1,52 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -799,6 +799,12 @@
+       return;
+     }
+     if (kind === "edit.image.annotation" && typeof patch.outputImage === "string" && patch.outputImage.startsWith("data:") && host?.onAnnotationOutput) {
++      // AnnotationModal has already flattened the exact upstream canvas here.
++      // Project it immediately while the canonical asset is uploaded so Done
++      // never appears to discard the edit.
++      commit?.(nodeId, {
++        __upstreamTransient: { optimisticAnnotationOutput: patch.outputImage },
++      });
+       void host.onAnnotationOutput({
+         nodeId,
+         dataUrl: patch.outputImage,
+@@ -809,8 +815,14 @@
+             parameters: { shapes: Array.isArray(patch.annotations) ? patch.annotations : [] },
+           },
+           selectedOutputAssetId: assetId,
++          __upstreamTransient: { optimisticAnnotationOutput: undefined },
++        });
++      }).catch((error) => {
++        commit?.(nodeId, {
++          __upstreamTransient: { optimisticAnnotationOutput: undefined },
+         });
+-      }).catch((error) => host.onHostError?.(error instanceof Error ? error : new Error(String(error))));
++        host.onHostError?.(error instanceof Error ? error : new Error(String(error)));
++      });
+       return;
+     }
+     commit?.(nodeId, canonicalPatchForNode(runtimeData, patch));
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -887,12 +887,16 @@
+         zoomOnDoubleClick={false}
+         deleteKeyCode={null}
+         fitViewOptions={{
+-          minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
++          minZoom: graph.nodes.length <= 1
++            ? 0.65
++            : typeof window !== "undefined" && window.innerWidth <= 640
++              ? 0.1
++              : 0.2,
+           maxZoom: 1,
+           padding: graph.nodes.length <= 1
+             ? 0.08
+             : typeof window !== "undefined" && window.innerWidth <= 640
+-              ? 0.4
++              ? { top: "24px", right: "24px", bottom: "112px", left: "24px" }
+               : 0.2,
+         }}
+         proOptions={{ hideAttribution: true }}

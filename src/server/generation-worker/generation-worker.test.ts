@@ -29,6 +29,10 @@ const mockValidateAudioPayload = vi.hoisted(() => vi.fn());
 const mockValidateImagePayload = vi.hoisted(() => vi.fn());
 const mockValidateVideoPayload = vi.hoisted(() => vi.fn());
 const mockGetRuntimeCatalog = vi.hoisted(() => vi.fn());
+const mockGetMediaAsset = vi.hoisted(() => vi.fn());
+const mockMarkUploading = vi.hoisted(() => vi.fn());
+const mockCompleteGeneration = vi.hoisted(() => vi.fn());
+const mockSettleCancelled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
@@ -90,9 +94,24 @@ vi.mock("@/server/model-catalog/generation-validation", () => ({
   validateVideoGenerationPayload: mockValidateVideoPayload,
 }));
 
+vi.mock("@/server/media-assets/media-asset-service", () => ({
+  mediaAssetService: { get: mockGetMediaAsset },
+}));
+
+vi.mock("@/server/node-executions/node-execution-repository", () => ({
+  nodeExecutionRepository: {
+    markUploading: mockMarkUploading,
+    completeGeneration: mockCompleteGeneration,
+    settleCancelledIfRequested: mockSettleCancelled,
+  },
+}));
+
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMarkUploading.mockResolvedValue(undefined);
+    mockCompleteGeneration.mockResolvedValue({ status: "completed", assetIds: ["asset-output"] });
+    mockSettleCancelled.mockResolvedValue(false);
     const audioModels: RuntimeAudioModel[] = [
       {
         key: "alloy-tts",
@@ -241,7 +260,7 @@ describe("generation worker", () => {
       .mockResolvedValueOnce([pendingRecord]);
     (prisma.audioGeneration.updateMany as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ count: 0 })
-      .mockResolvedValueOnce({ count: 1 });
+      .mockResolvedValue({ count: 1 });
     (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: "completed",
       result: { audios: [] },
@@ -252,7 +271,7 @@ describe("generation worker", () => {
     await processAudioJobs();
 
     expect(prisma.audioGeneration.updateMany).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.objectContaining({
         where: { id: "aud-pending-id", status: "pending" },
         data: { status: "processing", progress: 92 },
@@ -427,6 +446,69 @@ describe("generation worker", () => {
     expect(saveImageGenerationResult).not.toHaveBeenCalled();
   });
 
+  it("resolves stable input asset IDs at processing time and atomically commits Graph outputs", async () => {
+    const mockRecord = {
+      id: "img-graph-db-id",
+      requestId: "img-graph-request-id",
+      ownerEmail: "owner@example.com",
+      graphNodeId: "node-1",
+      prompt: "hello",
+      requestParams: {
+        model: "z-image-turbo",
+        width: 512,
+        height: 512,
+        steps: 5,
+        imageCount: 1,
+        seed: "",
+        initImages: [],
+        inputAssets: [{ assetId: "asset-input", portId: "primary", sortOrder: 0 }],
+      },
+      imageCount: 1,
+      steps: 5,
+      seed: null,
+      progress: 0,
+    };
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.imageGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
+    mockGetMediaAsset.mockResolvedValue({ url: "https://signed.example/input.png" });
+    (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mockImplementation(
+      async (_payload, _requestId, lifecycle) => {
+        await lifecycle.onUploading();
+        return {
+          status: "completed",
+          result: { images: [{ url: "https://cdn.example.com/output.webp", width: 512, height: 512 }] },
+          artifacts: [{
+            type: "image",
+            storageProvider: "leemage",
+            storageObjectId: "file-output",
+            storageUrl: "https://cdn.example.com/output.webp",
+            mimeType: "image/webp",
+            bytes: 128,
+            width: 512,
+            height: 512,
+            durationMs: null,
+          }],
+        };
+      },
+    );
+
+    await processImageJobs();
+
+    expect(mockGetMediaAsset).toHaveBeenCalledWith("owner@example.com", "asset-input");
+    expect(mockValidateImagePayload).toHaveBeenCalledWith(expect.objectContaining({
+      initImages: ["https://signed.example/input.png"],
+    }));
+    expect(mockMarkUploading).toHaveBeenCalledWith("image", "img-graph-db-id");
+    expect(mockCompleteGeneration).toHaveBeenCalledWith(
+      "image",
+      "img-graph-db-id",
+      [expect.objectContaining({ storageObjectId: "file-output" })],
+    );
+    expect(saveImageGenerationResult).not.toHaveBeenCalled();
+  });
+
   it("treats a deleted claimed Image Generation as a canceled job", async () => {
     const mockRecord = {
       id: "deleted-image-id",
@@ -512,5 +594,31 @@ describe("generation worker", () => {
       undefined,
     );
     expect(saveVideoGenerationResult).not.toHaveBeenCalled();
+  });
+
+  it("converges stale cancelled uploads and stale non-cancelled work to distinct terminals", async () => {
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    (prisma.imageGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+
+    await processImageJobs();
+
+    expect(prisma.imageGeneration.updateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        status: { in: ["processing", "uploading"] },
+        cancelRequestedAt: { not: null },
+        updatedAt: { lt: expect.any(Date) },
+      },
+      data: { status: "cancelled", progress: 0 },
+    });
+    expect(prisma.imageGeneration.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        status: { in: ["processing", "uploading"] },
+        cancelRequestedAt: null,
+        updatedAt: { lt: expect.any(Date) },
+      },
+      data: { status: "failed", progress: 0, errorMessage: "PROCESSING_TIMEOUT" },
+    });
   });
 });

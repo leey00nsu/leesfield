@@ -26,6 +26,9 @@ import {
   type RuntimeImageModel,
   type RuntimeVideoModel,
 } from "@/server/model-catalog/runtime-models";
+import { mediaAssetService } from "@/server/media-assets/media-asset-service";
+import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
+import { nodeExecutionRepository } from "@/server/node-executions/node-execution-repository";
 
 const WORKER_INTERVAL_MS = 2000;
 const PENDING_SCAN_LIMIT = 60;
@@ -151,13 +154,41 @@ async function getAudioRuntimeState(): Promise<AudioRuntimeState | null> {
   };
 }
 
-function buildImagePayload(
+async function resolveGraphInputUrls(
+  record: { ownerEmail?: string | null; graphNodeId?: string | null; requestParams: unknown },
+  mediaType: "image" | "video",
+) {
+  if (!record.graphNodeId || !record.ownerEmail || !record.requestParams || typeof record.requestParams !== "object") {
+    return [];
+  }
+  const inputAssets = (record.requestParams as Record<string, unknown>).inputAssets;
+  if (!Array.isArray(inputAssets)) return [];
+  const candidates = inputAssets
+    .filter((input): input is { assetId: string; portId: string; sortOrder: number } =>
+      Boolean(
+        input &&
+        typeof input === "object" &&
+        typeof (input as Record<string, unknown>).assetId === "string" &&
+        typeof (input as Record<string, unknown>).portId === "string" &&
+        typeof (input as Record<string, unknown>).sortOrder === "number",
+      ),
+    )
+    .filter((input) => mediaType === "image" || input.portId === "initImage")
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+  return Promise.all(candidates.map(async (input) =>
+    (await mediaAssetService.get(record.ownerEmail as string, input.assetId)).url,
+  ));
+}
+
+async function buildImagePayload(
   record: {
     prompt: string;
     requestParams: unknown;
     imageCount: number;
     steps: number;
     seed: string | null;
+    ownerEmail?: string | null;
+    graphNodeId?: string | null;
   },
   runtime: ImageRuntimeState,
 ) {
@@ -171,9 +202,13 @@ function buildImagePayload(
       : runtime.defaultKey;
   const defaults =
     runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
-  const initImages = Array.isArray(params.initImages)
+  const storedInitImages = Array.isArray(params.initImages)
     ? params.initImages.filter((value) => typeof value === "string")
     : [];
+  const initImages = [
+    ...await resolveGraphInputUrls(record, "image"),
+    ...storedInitImages,
+  ];
 
   return {
     prompt: record.prompt,
@@ -196,10 +231,12 @@ function buildImagePayload(
   };
 }
 
-function buildVideoPayload(
+async function buildVideoPayload(
   record: {
     prompt: string;
     requestParams: unknown;
+    ownerEmail?: string | null;
+    graphNodeId?: string | null;
   },
   runtime: VideoRuntimeState,
 ) {
@@ -213,12 +250,13 @@ function buildVideoPayload(
       : runtime.defaultKey;
   const defaults =
     runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
-  const initImage =
+  const graphInputs = await resolveGraphInputUrls(record, "video");
+  const initImage = graphInputs[0] ?? (
     typeof params.initImage === "string"
       ? params.initImage
       : Array.isArray(params.initImages)
         ? params.initImages.find((value) => typeof value === "string") ?? ""
-        : "";
+        : "");
 
   return {
     prompt: record.prompt,
@@ -439,7 +477,19 @@ async function getAudioProcessingCounts(
 async function expireStaleImageProcessing() {
   const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
   await prisma.imageGeneration.updateMany({
-    where: { status: "processing", updatedAt: { lt: cutoff } },
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: { not: null },
+      updatedAt: { lt: cutoff },
+    },
+    data: { status: "cancelled", progress: 0 },
+  });
+  await prisma.imageGeneration.updateMany({
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: null,
+      updatedAt: { lt: cutoff },
+    },
     data: {
       status: "failed",
       progress: 0,
@@ -451,7 +501,19 @@ async function expireStaleImageProcessing() {
 async function expireStaleVideoProcessing() {
   const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
   await prisma.videoGeneration.updateMany({
-    where: { status: "processing", updatedAt: { lt: cutoff } },
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: { not: null },
+      updatedAt: { lt: cutoff },
+    },
+    data: { status: "cancelled", progress: 0 },
+  });
+  await prisma.videoGeneration.updateMany({
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: null,
+      updatedAt: { lt: cutoff },
+    },
     data: {
       status: "failed",
       progress: 0,
@@ -463,7 +525,19 @@ async function expireStaleVideoProcessing() {
 async function expireStaleAudioProcessing() {
   const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
   await prisma.audioGeneration.updateMany({
-    where: { status: "processing", updatedAt: { lt: cutoff } },
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: { not: null },
+      updatedAt: { lt: cutoff },
+    },
+    data: { status: "cancelled", progress: 0 },
+  });
+  await prisma.audioGeneration.updateMany({
+    where: {
+      status: { in: ["processing", "uploading"] },
+      cancelRequestedAt: null,
+      updatedAt: { lt: cutoff },
+    },
     data: {
       status: "failed",
       progress: 0,
@@ -481,8 +555,21 @@ async function handleImageRecord(record: {
   steps: number;
   seed: string | null;
   progress: number;
+  ownerEmail: string | null;
+  graphNodeId: string | null;
 }, runtime: ImageRuntimeState) {
-  const payload = buildImagePayload(record, runtime);
+  let payload;
+  try {
+    payload = await buildImagePayload(record, runtime);
+  } catch (error) {
+    await updateImageGenerationStatus(
+      record.id,
+      "failed",
+      0,
+      error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
+    );
+    return;
+  }
   const parsed = await validateImageGenerationPayload(payload);
   if (!parsed.success) {
     await updateImageGenerationStatus(
@@ -495,19 +582,31 @@ async function handleImageRecord(record: {
   }
 
   try {
-    const result = await resolveImageGenerationResult(
-      parsed.data,
-      record.requestId,
-    );
+    const result = record.graphNodeId
+      ? await resolveImageGenerationResult(parsed.data, record.requestId, {
+          onUploading: () => nodeExecutionRepository.markUploading("image", record.id),
+        })
+      : await resolveImageGenerationResult(parsed.data, record.requestId);
+    if (
+      record.graphNodeId &&
+      result.status === "completed" &&
+      (result.skipDbSave || !result.artifacts?.length)
+    ) {
+      throw new Error("GENERATION_DURABLE_OUTPUT_REQUIRED");
+    }
 
     if (result.status === "completed" && !result.skipDbSave) {
-      await saveImageGenerationResult(
-        record.id,
-        result.status,
-        100,
-        result.result,
-        result.errorMessage,
-      );
+      if (record.graphNodeId) {
+        await nodeExecutionRepository.completeGeneration("image", record.id, result.artifacts ?? []);
+      } else {
+        await saveImageGenerationResult(
+          record.id,
+          result.status,
+          100,
+          result.result,
+          result.errorMessage,
+        );
+      }
     } else {
       await updateImageGenerationStatus(
         record.id,
@@ -518,6 +617,8 @@ async function handleImageRecord(record: {
     }
   } catch (error) {
     if (isMissingGenerationRecord(error)) return;
+    if (error instanceof NodeExecutionCancelledError) return;
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("image", record.id)) return;
 
     try {
       await updateImageGenerationStatus(
@@ -539,8 +640,21 @@ async function handleVideoRecord(record: {
   prompt: string;
   requestParams: unknown;
   progress: number;
+  ownerEmail: string | null;
+  graphNodeId: string | null;
 }, runtime: VideoRuntimeState) {
-  const payload = buildVideoPayload(record, runtime);
+  let payload;
+  try {
+    payload = await buildVideoPayload(record, runtime);
+  } catch (error) {
+    await updateVideoGenerationStatus(
+      record.id,
+      "failed",
+      0,
+      error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
+    );
+    return;
+  }
   const parsed = await validateVideoGenerationPayload(payload);
   if (!parsed.success) {
     await updateVideoGenerationStatus(
@@ -553,19 +667,31 @@ async function handleVideoRecord(record: {
   }
 
   try {
-    const result = await resolveVideoGenerationResult(
-      parsed.data,
-      record.requestId,
-    );
+    const result = record.graphNodeId
+      ? await resolveVideoGenerationResult(parsed.data, record.requestId, {
+          onUploading: () => nodeExecutionRepository.markUploading("video", record.id),
+        })
+      : await resolveVideoGenerationResult(parsed.data, record.requestId);
+    if (
+      record.graphNodeId &&
+      result.status === "completed" &&
+      (result.skipDbSave || !result.artifacts?.length)
+    ) {
+      throw new Error("GENERATION_DURABLE_OUTPUT_REQUIRED");
+    }
 
     if (result.status === "completed" && !result.skipDbSave) {
-      await saveVideoGenerationResult(
-        record.id,
-        result.status,
-        100,
-        result.result,
-        result.errorMessage,
-      );
+      if (record.graphNodeId) {
+        await nodeExecutionRepository.completeGeneration("video", record.id, result.artifacts ?? []);
+      } else {
+        await saveVideoGenerationResult(
+          record.id,
+          result.status,
+          100,
+          result.result,
+          result.errorMessage,
+        );
+      }
     } else {
       await updateVideoGenerationStatus(
         record.id,
@@ -575,6 +701,8 @@ async function handleVideoRecord(record: {
       );
     }
   } catch (error) {
+    if (error instanceof NodeExecutionCancelledError) return;
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("video", record.id)) return;
     await updateVideoGenerationStatus(
       record.id,
       "failed",
@@ -590,6 +718,7 @@ async function handleAudioRecord(record: {
   prompt: string;
   requestParams: unknown;
   progress: number;
+  graphNodeId: string | null;
 }, runtime: AudioRuntimeState) {
   const payload = buildAudioPayload(record, runtime);
   const parsed = await validateAudioGenerationPayload(payload);
@@ -604,19 +733,31 @@ async function handleAudioRecord(record: {
   }
 
   try {
-    const result = await resolveAudioGenerationResult(
-      parsed.data,
-      record.requestId,
-    );
+    const result = record.graphNodeId
+      ? await resolveAudioGenerationResult(parsed.data, record.requestId, {
+          onUploading: () => nodeExecutionRepository.markUploading("audio", record.id),
+        })
+      : await resolveAudioGenerationResult(parsed.data, record.requestId);
+    if (
+      record.graphNodeId &&
+      result.status === "completed" &&
+      (result.skipDbSave || !result.artifacts?.length)
+    ) {
+      throw new Error("GENERATION_DURABLE_OUTPUT_REQUIRED");
+    }
 
     if (result.status === "completed" && result.result?.audios?.length) {
-      await saveAudioGenerationResult(
-        record.id,
-        result.status,
-        100,
-        result.result,
-        result.errorMessage,
-      );
+      if (record.graphNodeId) {
+        await nodeExecutionRepository.completeGeneration("audio", record.id, result.artifacts ?? []);
+      } else {
+        await saveAudioGenerationResult(
+          record.id,
+          result.status,
+          100,
+          result.result,
+          result.errorMessage,
+        );
+      }
     } else {
       await updateAudioGenerationStatus(
         record.id,
@@ -626,6 +767,8 @@ async function handleAudioRecord(record: {
       );
     }
   } catch (error) {
+    if (error instanceof NodeExecutionCancelledError) return;
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("audio", record.id)) return;
     await updateAudioGenerationStatus(
       record.id,
       "failed",

@@ -233,7 +233,7 @@ describe("GenerationHistoryScreen", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
     expect(screen.getByText("요청 ID")).toBeInTheDocument();
-    expect(screen.getByText("history-detail-1")).toBeInTheDocument();
+    expect(screen.getAllByText("history-detail-1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("요청 시간")).toBeInTheDocument();
     expect(screen.getByText("완료 시간")).toBeInTheDocument();
     expect(screen.getByText("소요 시간")).toBeInTheDocument();
@@ -457,7 +457,7 @@ describe("GenerationHistoryScreen", () => {
     fireEvent.click(screen.getByTestId("history-list"));
 
     fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
-    expect(screen.getByText("pending-detail")).toBeInTheDocument();
+    expect(screen.getAllByText("pending-detail").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(2);
 
     fireEvent.click(screen.getByRole("tab", { name: "History" }));

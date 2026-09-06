@@ -300,7 +300,7 @@ function HistoryDetailOverlay({
   const tCommonActions = useTranslations("common.actions");
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
-  const detailQuery = useMonitoringRequestDetail(item.type, item.id, true);
+  const detailQuery = useMonitoringRequestDetail(item.type, item.id, item.origin !== "edit");
   const dialogRef = useRef<HTMLDivElement>(null);
   const detail = detailQuery.data ?? null;
   const hydratedItem = hydrateHistoryItem(item, detail);
@@ -375,6 +375,7 @@ function HistoryDetailOverlay({
   const settingsRows = [
     { label: tHistory("detail.model"), value: formatFallback(hydratedItem.model) },
     { label: tHistory("detail.type"), value: tTypes(hydratedItem.type) },
+    { label: tHistory("detail.origin"), value: tHistory(`origins.${hydratedItem.origin ?? "generation"}`) },
     { label: tHistory("detail.status"), value: tStatuses(hydratedItem.status) },
     { label: tHistory("detail.progress"), value: formattedProgress },
   ];
@@ -383,6 +384,17 @@ function HistoryDetailOverlay({
     { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
     { label: tHistory("detail.completedAt"), value: completedAt },
     { label: tHistory("detail.duration"), value: formattedDuration },
+    { label: tHistory("detail.assetId"), value: formatFallback(hydratedItem.assetId) },
+    { label: tHistory("detail.graphId"), value: formatFallback(hydratedItem.graphId) },
+    { label: tHistory("detail.graphNodeId"), value: formatFallback(hydratedItem.graphNodeId) },
+    {
+      label: tHistory("detail.sourceRecord"),
+      value: hydratedItem.operation?.id ?? hydratedItem.id,
+    },
+    {
+      label: tHistory("detail.sourceAssets"),
+      value: hydratedItem.sourceAssetIds?.join(", ") || "-",
+    },
   ];
 
   const primaryInputImage = inputImages[0] ?? null;
@@ -556,6 +568,19 @@ function HistoryDetailOverlay({
           >
             {warningMessage}
           </AppExpandableText>
+        </div>
+      ) : null}
+      {hydratedItem.operation ? (
+        <div className="grid gap-2 rounded-xl border border-white/10 bg-black/18 p-4">
+          <div className="text-sm font-semibold text-white">
+            {tHistory("detail.operationParameters")}
+          </div>
+          <p className="text-xs text-white/55">
+            {hydratedItem.operation.type} · v{hydratedItem.operation.configVersion}
+          </p>
+          <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-white/58">
+            {JSON.stringify(hydratedItem.operation.parameters, null, 2)}
+          </pre>
         </div>
       ) : null}
       {renderMediaPreview({

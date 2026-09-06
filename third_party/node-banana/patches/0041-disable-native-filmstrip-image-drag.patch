@@ -1,0 +1,21 @@
+--- a/src/components/nodes/GifEncoderNode.tsx
++++ b/src/components/nodes/GifEncoderNode.tsx
+@@ -77,7 +77,7 @@
+ function FrameThumbnail({ src, alt }: { src: string; alt: string }) {
+   const thumbSrc = useThumbnailSrc(src);
+   return (
+-    <img src={thumbSrc ?? src} alt={alt} className="w-full h-full object-contain rounded" />
++    <img src={thumbSrc ?? src} alt={alt} draggable={false} className="w-full h-full object-contain rounded" />
+   );
+ }
+ 
+--- a/src/components/nodes/VideoStitchNode.tsx
++++ b/src/components/nodes/VideoStitchNode.tsx
+@@ -485,6 +485,7 @@
+                         <img
+                           src={thumbnail}
+                           alt={`Clip ${clip.edgeId}`}
++                          draggable={false}
+                           className="w-full h-full object-contain rounded"
+                         />
+                       ) : (

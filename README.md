@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  <strong>AI 생성 플랫폼</strong>
+  <strong>AI 이미지·비디오·오디오 생성 및 Node 워크플로 플랫폼</strong>
 </p>
 
 <p align="center">
@@ -70,8 +70,18 @@ pnpm dev
 
 ### 🎨 AI 생성
 
-- 이미지/비디오 생성 대시보드
-- 생성 히스토리 조회 및 관리
+- 이미지·비디오·오디오 생성 화면
+- 생성·편집 asset 히스토리 조회 및 재사용
+
+### ◈ Spaces
+
+- image·audio·video 입력, 생성, 기본 편집과 출력을 typed Graph로 구성
+- 교체 가능한 Canvas runtime과 Leesfield Graph·Generation·MediaAsset adapter 경계
+- 사용자가 선택한 단일 Node 실행, durable output과 SSE/polling 상태 복구
+- `/spaces` 목록에서 만들기·열기·복사·삭제하고 상세 편집기에서 서버 자동 저장
+- Node Banana 기반 canonical Graph v3, 일반 그룹·댓글·사용자별 모델 기본값, 시스템 clipboard/drop과 단축키
+- Prompt Constructor의 변수 조합, 새 Space에 적용하는 6개 Quickstart 프리셋과 튜토리얼
+- Split Grid 셀별 미니 캔버스: 템플릿 편집·Apply·Undo·재적용 확인, 셀마다 독립된 노드·연결·그룹 저장
 
 ### 📊 모델 관리
 
@@ -167,7 +177,32 @@ pnpm dev
 - 이미지/비디오에서 저장소 설정이 없거나 지원되지 않는 경우: 결과는 즉시 응답되지만 히스토리(DB) 저장은 생략됩니다.
 - 오디오에서 저장소 설정이 없거나 지원되지 않는 경우: 외부 저장소 업로드를 건너뛰고 inline 결과를 DB에 저장합니다.
 
-### 5) 어댑터 구현 방식
+Node Studio의 생성·편집 output은 Graph 새로고침과 History 재사용을 보장해야 하므로 세 media 모두 `leemage` durable storage가 필요합니다. Classic 생성 화면의 기존 fallback 정책은 그대로 유지되지만, Node 실행은 storage가 준비되지 않으면 명시적으로 중단됩니다.
+
+### 5) Node Studio runtime과 vendored Node Banana
+
+Node Banana는 npm dependency나 별도 fork가 아니라 `third_party/node-banana/`의 고정 upstream snapshot과 Leesfield patch stack으로 포함됩니다. 생성된 work copy는 버전 관리하지 않으며 `dev`, `test`, `build`, Storybook 전에 로컬 snapshot만으로 재생성됩니다.
+
+```bash
+# snapshot hash 확인, patch 적용, generated runtime 준비
+pnpm vendor:node-banana:prepare
+
+# offline 재현성, import deny-list, license, 취약점 baseline, SBOM 검증
+pnpm vendor:node-banana:verify
+
+# SBOM을 의도적으로 갱신할 때
+pnpm sbom:generate
+```
+
+- F059의 초기 cutover와 Spaces 전환 migration은 당시 기존 테스트 Graph를 제거하는 breaking change였습니다. 그 이후 생성된 Spaces는 보존하며 v3 전환은 additive migration과 지원되는 v2 config의 읽기 변환을 사용합니다. migration을 다시 적용하기 위해 Graph를 수동으로 비우지 않습니다.
+- Graph와 분리 가능한 Image/Video/Audio Generation, MediaOperation, MediaAsset, History는 `ON DELETE SET NULL` 관계로 보존됩니다. 운영 적용 전 DB snapshot을 확보하고, 장애 복구는 downgrade가 아닌 snapshot 복원 또는 forward fix로 수행합니다.
+- 런타임 선택·canary 환경변수는 없습니다. Spaces의 유일한 Canvas와 writer는 Node Banana adapter를 거친 canonical v3입니다. 알 수 없는 Node/config version은 원문을 보존하는 읽기 전용 상태로 표시합니다.
+- 지원하는 원본 Node는 20종입니다. LLM·Array·Router·Switch·Conditional Switch·Comfy App·3D 생성/뷰어, AI workflow 작성, 전체/선택 workflow 자동 실행은 제외합니다. 비용 추정·JSON 교환·영구 snapshot은 후속 범위이며 Audio Edit는 제거됐습니다.
+- 프리셋과 셀 템플릿 Apply는 생성 API를 호출하지 않습니다. 사용자가 catalog 모델과 입력을 설정하고 노드를 직접 실행합니다. 샘플 이미지 자동 배포와 browser provider key 설정은 제공하지 않습니다.
+- `edit.image.removeBackground`는 별도 browser/provider 설정을 저장하지 않습니다. 활성 `hf_space` 이미지 모델의 ModelCatalog `meta.operations.background_removal` capability가 있을 때만 palette에 노출되고, 실행은 Leesfield의 server credential·공통 execution/storage adapter를 통과합니다.
+- license 원문·third-party notice·upstream pin은 `third_party/node-banana/`에, production SBOM은 `third_party/node-banana/sbom.cdx.json`에 있습니다.
+
+### 6) 어댑터 구현 방식
 
 이 프로젝트는 **API 호출(생성)**과 **저장소 업로드**를 각각 어댑터 패턴으로 분리했습니다.
 
@@ -222,14 +257,14 @@ pnpm dev
 3. `storage-selector.ts`에 선택 규칙 추가
 4. 필요 시 `.env.example`에 새 저장소 설정 추가
 
-### 6) 모델 카탈로그 관리
+### 7) 모델 카탈로그 관리
 
 모델 정의/파라미터는 DB의 모델 카탈로그에서 JSON 구조로 저장됩니다.
 관리 화면에서 등록/수정한 설정이 생성 요청과 검증에 사용됩니다.
 
 자세한 스키마 정보: [모델 카탈로그 가이드](MODEL_CATALOG.md)
 
-### 7) 이미지 생성 저장 구조
+### 8) 이미지 생성 저장 구조
 
 이미지 생성 요청은 핵심 컬럼(예: prompt/steps/size)과 함께 `requestParams` JSON 컬럼에도 저장됩니다.
 모델별 파라미터가 달라져도 히스토리를 보존하기 위한 목적입니다.
@@ -326,6 +361,8 @@ docker compose restart postgres  # 재시작
 
 - 스펙/계획/태스크: `../docs/features/`
 - 디자인 레퍼런스: `../docs/designs/`
+- 제품 요구사항: `../docs/prd/lees_field_prd.md`
+- 시스템 아키텍처: `../docs/prd/system-architecture.md`
 
 ## 라이선스
 

@@ -247,7 +247,7 @@ export function VideoGenerationForm({ isAuthenticated }: VideoGenerationFormProp
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration();
   const isGenerating =
-    state.status === "pending" || state.status === "processing";
+    state.status === "pending" || state.status === "processing" || state.status === "uploading";
   const resultVideos = state.result?.videos ?? [];
   const hasResults = state.status === "completed" && resultVideos.length > 0;
   const primaryVideo = resultVideos[0];

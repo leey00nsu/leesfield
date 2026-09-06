@@ -1,4 +1,5 @@
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
+import { leemageFileName } from "@/server/shared/leemage-file-name";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 
@@ -99,7 +100,7 @@ function buildUploadFile(
 ): UploadableFile {
   const arrayBuffer = Uint8Array.from(buffer).buffer;
   return {
-    name,
+    name: leemageFileName(name),
     type: contentType,
     size: buffer.byteLength,
     arrayBuffer: async () => arrayBuffer,

@@ -1,4 +1,5 @@
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
+import { leemageFileName } from "@/server/shared/leemage-file-name";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationResponse } from "@/features/audio-generation/model/audio-generation-types";
 import type {
@@ -85,7 +86,7 @@ function buildUploadFile(
 ): UploadableFile {
   const arrayBuffer = Uint8Array.from(buffer).buffer;
   return {
-    name,
+    name: leemageFileName(name),
     type: contentType,
     size: buffer.byteLength,
     arrayBuffer: async () => arrayBuffer,
@@ -164,6 +165,17 @@ async function uploadGeneratedAudios(
           durationSec,
         })),
       },
+      artifacts: uploads.map((file) => ({
+        type: "audio" as const,
+        storageProvider: "leemage" as const,
+        storageObjectId: file.id,
+        storageUrl: resolveFileUrl(file),
+        mimeType: file.mimeType,
+        bytes: file.size,
+        width: null,
+        height: null,
+        durationMs: Math.round(durationSec * 1_000),
+      })),
     };
   } catch (error) {
     return {

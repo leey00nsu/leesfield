@@ -3,7 +3,7 @@ import { GenerationGraphNotFoundError } from "@/server/generation-graph/generati
 import { generationGraphService } from "@/server/generation-graph/generation-graph-service";
 import {
   generationEventId,
-  type GenerationUpdatedEvent,
+  type GenerationEvent,
 } from "@/shared/generation-events/generation-event-contract";
 import {
   getGenerationEventBroker,
@@ -24,8 +24,8 @@ function eventFrame(event: string, data: unknown, id?: string) {
   return `${id ? `id: ${id}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function generationFrame(event: GenerationUpdatedEvent) {
-  return eventFrame("generation.updated", event, generationEventId(event));
+function generationFrame(event: GenerationEvent) {
+  return eventFrame(event.type, event, generationEventId(event));
 }
 
 async function authenticatedOwnerEmail() {
@@ -91,11 +91,11 @@ export async function GET(request: Request, context: RouteContext) {
       const onState = (state: GenerationEventBrokerState) => {
         if (state === "connected" && !readySent) {
           readySent = enqueue(
-            eventFrame("stream.ready", { version: 1, graphId }),
+            eventFrame("stream.ready", { version: 2, graphId }),
           );
         }
         if (state === "degraded") {
-          enqueue(eventFrame("stream.degraded", { version: 1 }));
+          enqueue(eventFrame("stream.degraded", { version: 2 }));
           close();
         }
       };
@@ -113,7 +113,7 @@ export async function GET(request: Request, context: RouteContext) {
       heartbeat = setInterval(() => {
         const now = new Date().toISOString();
         enqueue(
-          `: heartbeat ${now}\n${eventFrame("stream.heartbeat", { version: 1, at: now })}`,
+          `: heartbeat ${now}\n${eventFrame("stream.heartbeat", { version: 2, at: now })}`,
         );
       }, HEARTBEAT_INTERVAL_MS);
       request.signal.addEventListener("abort", close, { once: true });

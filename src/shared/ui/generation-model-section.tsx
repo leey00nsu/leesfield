@@ -29,6 +29,7 @@ interface GenerationModelSectionProps<T extends string> {
   defaultId?: T;
   onSelect: (id: T) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export function GenerationModelSection<T extends string>({
@@ -40,6 +41,7 @@ export function GenerationModelSection<T extends string>({
   defaultId,
   onSelect,
   className,
+  disabled = false,
 }: GenerationModelSectionProps<T>) {
   const t = useTranslations("generation");
   const tPicker = useTranslations("generation.modelPicker");
@@ -129,6 +131,7 @@ export function GenerationModelSection<T extends string>({
             type="button"
             variant="surface"
             size="md"
+            disabled={disabled}
             aria-haspopup="dialog"
             aria-expanded={isOpen}
             className={cn(
@@ -156,7 +159,7 @@ export function GenerationModelSection<T extends string>({
         collisionPadding={16}
         role="dialog"
         aria-label={typeof resolvedTitle === "string" ? resolvedTitle : t("modelSelect")}
-        className="z-[90] flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border-white/12 bg-[#171b1f]/95 p-0 text-white shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
+        className="z-[10001] flex max-h-[min(70vh,44rem)] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-[1.35rem] border-white/12 bg-[#171b1f]/95 p-0 text-white shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-xl"
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">

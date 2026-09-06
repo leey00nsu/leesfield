@@ -1,0 +1,775 @@
+--- a/src/components/modals/ModelSearchDialog.tsx
++++ b/src/components/modals/ModelSearchDialog.tsx
+@@ -3,72 +3,14 @@
+ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+ import { createPortal } from "react-dom";
+ import {
+-  clearFetchCache,
+-  deduplicatedFetch,
+-  useProviderApiKeys,
+   useWorkflowStore,
+ } from "../../leesfield/upstream-node-host";
+-import { useReactFlow } from "@xyflow/react";
+ import type {
+   ModelCapability,
+   ProviderModel,
+   ProviderType,
+-  RecentModel,
+ } from "../../leesfield/upstream-node-host";
+ 
+-const MODELS_CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
+-const MODELS_CACHE_MAX_ENTRIES = 20;
+-
+-interface ModelsCacheEntry {
+-  models: ProviderModel[];
+-  availableProviders?: string[];
+-  timestamp: number;
+-}
+-
+-const modelCache = new Map<string, ModelsCacheEntry>();
+-
+-function getCachedModels(cacheKey: string): ModelsCacheEntry | null {
+-  const entry = modelCache.get(cacheKey);
+-  if (!entry) return null;
+-  if (Date.now() - entry.timestamp >= MODELS_CACHE_TTL) {
+-    modelCache.delete(cacheKey);
+-    return null;
+-  }
+-  modelCache.delete(cacheKey);
+-  modelCache.set(cacheKey, entry);
+-  return entry;
+-}
+-
+-function setCachedModels(cacheKey: string, models: ProviderModel[], availableProviders?: string[]) {
+-  modelCache.set(cacheKey, { models, availableProviders, timestamp: Date.now() });
+-  while (modelCache.size > MODELS_CACHE_MAX_ENTRIES) {
+-    const oldest = modelCache.keys().next().value;
+-    if (oldest === undefined) break;
+-    modelCache.delete(oldest);
+-  }
+-}
+-
+-// Build a short, stable hash of the configured providers so the cache key
+-// changes when API keys are added/removed (otherwise the "all" view keeps
+-// serving a stale list that omits a newly-configured provider).
+-function getProvidersHash(providers: {
+-  replicate: boolean;
+-  fal: boolean;
+-  kie: boolean;
+-  wavespeed: boolean;
+-  openai: boolean;
+-}): string {
+-  // Fixed order keeps the hash deterministic across renders.
+-  return [
+-    providers.replicate ? "r" : "",
+-    providers.fal ? "f" : "",
+-    providers.kie ? "k" : "",
+-    providers.wavespeed ? "w" : "",
+-    providers.openai ? "o" : "",
+-  ].join("");
+-}
+-
+-// Provider icons — all normalized to w-3.5 h-3.5 with viewBoxes cropped to fill consistently
+ const ReplicateIcon = () => (
+   <svg className="w-3.5 h-3.5" viewBox="0 0 1000 1000" fill="currentColor">
+     <polygon points="1000,427.6 1000,540.6 603.4,540.6 603.4,1000 477,1000 477,427.6" />
+@@ -109,35 +51,15 @@
+   </svg>
+ );
+ 
+-// Get the center of the React Flow pane in screen coordinates
+-function getPaneCenter() {
+-  const pane = document.querySelector(".react-flow");
+-  if (pane) {
+-    const rect = pane.getBoundingClientRect();
+-    return {
+-      x: rect.left + rect.width / 2,
+-      y: rect.top + rect.height / 2,
+-    };
+-  }
+-  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+-}
++type CapabilityFilter = "all" | "image" | "video" | "audio";
+ 
+-// Capability filter options
+-type CapabilityFilter = "all" | "image" | "video" | "3d" | "audio";
+-
+-// API response type
+-interface ModelsResponse {
+-  success: boolean;
+-  models?: ProviderModel[];
+-  /** Providers with API keys configured (env or client header) */
+-  availableProviders?: string[];
+-  error?: string;
+-}
+-
+ export type ModelSearchDialogHostedProps = {
+   /** Models supplied by the embedding application; no provider/API fetches are made. */
+   hostedModels: readonly ProviderModel[];
+   onHostedModelSelected: (model: ProviderModel) => void;
++  isLoading?: boolean;
++  error?: string | null;
++  onRefresh?: () => Promise<void>;
+ };
+ 
+ interface ModelSearchDialogProps {
+@@ -158,7 +80,7 @@
+   hosted?: ModelSearchDialogHostedProps;
+ }
+ 
+-function StandaloneModelSearchDialog({
++export function ModelSearchDialog({
+   isOpen,
+   onClose,
+   initialProvider,
+@@ -167,18 +89,21 @@
+   showClearOption,
+   onClearSelection,
+   title = "Browse Models",
++  hosted,
+ }: ModelSearchDialogProps) {
+   const {
+-    addNode,
+     incrementModalCount,
+     decrementModalCount,
+     recentModels,
+     trackModelUsage,
++    hostedModels,
++    hostedModelsLoading,
++    hostedModelsError,
++    refreshHostedModels,
+   } = useWorkflowStore();
+-  // Use stable selector for API keys to prevent unnecessary re-fetches
+-  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, openaiApiKey } = useProviderApiKeys();
+-  const { screenToFlowPosition } = useReactFlow();
+-
++  const catalog = hosted?.hostedModels ?? hostedModels;
++  const refreshCatalog = hosted?.onRefresh ?? refreshHostedModels;
++  const selectModel = hosted?.onHostedModelSelected ?? onModelSelected;
+   // State
+   const [searchQuery, setSearchQuery] = useState("");
+   const [debouncedSearch, setDebouncedSearch] = useState("");
+@@ -187,11 +112,10 @@
+   );
+   const [capabilityFilter, setCapabilityFilter] =
+     useState<CapabilityFilter>(initialCapabilityFilter || "all");
+-  const [models, setModels] = useState<ProviderModel[]>([]);
+-  const [isLoading, setIsLoading] = useState(false);
++  const isLoading = hosted?.isLoading ?? hostedModelsLoading ?? false;
+   const [isRefreshing, setIsRefreshing] = useState(false);
+-  const [error, setError] = useState<string | null>(null);
+-  const [serverAvailableProviders, setServerAvailableProviders] = useState<string[]>([]);
++  const [refreshError, setRefreshError] = useState<string | null>(null);
++  const error = refreshError ?? hosted?.error ?? hostedModelsError ?? null;
+ 
+   // Refs
+   const searchInputRef = useRef<HTMLInputElement>(null);
+@@ -214,148 +138,52 @@
+     return () => clearTimeout(timer);
+   }, [searchQuery]);
+ 
+-  // Update provider filter when initialProvider changes
+   useEffect(() => {
+-    if (initialProvider) {
+-      setProviderFilter(initialProvider);
+-    }
+-  }, [initialProvider]);
++    if (!isOpen) return;
++    setProviderFilter(initialProvider ?? "all");
++    setCapabilityFilter(initialCapabilityFilter ?? "all");
++    setSearchQuery("");
++    setDebouncedSearch("");
++    setRefreshError(null);
++  }, [isOpen, initialProvider, initialCapabilityFilter]);
+ 
+-  // Fetch models
+-  const fetchModels = useCallback(async (bypassCache = false) => {
+-    // Increment version to track this request
+-    const thisVersion = ++requestVersionRef.current;
+-
+-    // Build cache key from filters + configured providers (so the key changes
+-    // when an API key is added/removed and the "all" view can't go stale).
+-    const providersHash = getProvidersHash({
+-      replicate: !!replicateApiKey,
+-      fal: !!falApiKey,
+-      kie: !!kieApiKey,
+-      wavespeed: !!wavespeedApiKey,
+-      openai: !!openaiApiKey,
+-    });
+-    const cacheKey = `${providersHash}:${providerFilter}:${capabilityFilter}:${debouncedSearch}`;
+-
+-    // Check the in-memory model cache first (skip when bypassing).
+-    if (!bypassCache) {
+-      const cached = getCachedModels(cacheKey);
+-      if (cached) {
+-        setModels(cached.models);
+-        if (cached.availableProviders) {
+-          setServerAvailableProviders(cached.availableProviders);
+-        }
+-        return;
+-      }
+-    }
+-
+-    setIsLoading(true);
+-    setError(null);
++  // The authenticated host owns catalog loading, caching, and schema refresh.
++  // Keep a generation guard so a closed/reopened dialog ignores late failures.
++  useEffect(() => {
++    requestVersionRef.current += 1;
++    return () => { requestVersionRef.current += 1; };
++  }, [isOpen, catalog]);
+ 
++  const handleRefresh = useCallback(async () => {
++    if (!refreshCatalog) return;
++    const version = requestVersionRef.current;
++    setIsRefreshing(true);
++    setRefreshError(null);
+     try {
+-      // Build query params
+-      const params = new URLSearchParams();
+-      if (debouncedSearch) {
+-        params.set("search", debouncedSearch);
++      await refreshCatalog();
++    } catch (cause) {
++      if (version === requestVersionRef.current) {
++        setRefreshError(cause instanceof Error ? cause.message : "Failed to refresh models");
+       }
+-      if (providerFilter !== "all") {
+-        params.set("provider", providerFilter);
+-      }
+-      if (capabilityFilter !== "all") {
+-        const capabilities =
+-          capabilityFilter === "image"
+-            ? "text-to-image,image-to-image"
+-            : capabilityFilter === "video"
+-            ? "text-to-video,image-to-video,audio-to-video"
+-            : capabilityFilter === "3d"
+-            ? "text-to-3d,image-to-3d"
+-            : "text-to-audio";
+-        params.set("capabilities", capabilities);
+-      }
+-      if (bypassCache) {
+-        params.set("refresh", "true");
+-      }
+-
+-      // Build headers with API keys
+-      const headers: Record<string, string> = {};
+-      if (replicateApiKey) {
+-        headers["X-Replicate-Key"] = replicateApiKey;
+-      }
+-      if (falApiKey) {
+-        headers["X-Fal-Key"] = falApiKey;
+-      }
+-      if (kieApiKey) {
+-        headers["X-Kie-Key"] = kieApiKey;
+-      }
+-      if (wavespeedApiKey) {
+-        headers["X-WaveSpeed-Key"] = wavespeedApiKey;
+-      }
+-      if (openaiApiKey) {
+-        headers["X-OpenAI-API-Key"] = openaiApiKey;
+-      }
+-
+-      const response = await deduplicatedFetch(`/api/models?${params.toString()}`, {
+-        headers,
+-      });
+-
+-      // Check if this request is still current
+-      if (thisVersion !== requestVersionRef.current) {
+-        return; // Ignore stale response
+-      }
+-
+-      const data: ModelsResponse = await response.json();
+-
+-      if (data.success && data.models) {
+-        setModels(data.models);
+-        // Only cache browse results (empty search), not per-keystroke search
+-        // fragments — otherwise every distinct debounced string stores a full
+-        // model list and the cache grows unbounded.
+-        if (!debouncedSearch) {
+-          setCachedModels(cacheKey, data.models, data.availableProviders);
+-        }
+-        // Update server-reported available providers
+-        if (data.availableProviders) {
+-          setServerAvailableProviders(data.availableProviders);
+-        }
+-      } else {
+-        setError(data.error || "Failed to fetch models");
+-        setModels([]);
+-      }
+-    } catch (err) {
+-      // Check if this request is still current
+-      if (thisVersion !== requestVersionRef.current) {
+-        return; // Ignore stale error
+-      }
+-      setError(err instanceof Error ? err.message : "Failed to fetch models");
+-      setModels([]);
+     } finally {
+-      // Only update loading state if this is still the current request
+-      if (thisVersion === requestVersionRef.current) {
+-        setIsLoading(false);
+-      }
++      if (version === requestVersionRef.current) setIsRefreshing(false);
+     }
+-  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, openaiApiKey]);
++  }, [refreshCatalog]);
+ 
+-  // Fetch models when filters change
+-  useEffect(() => {
+-    if (isOpen) {
+-      fetchModels();
+-    }
+-  }, [isOpen, fetchModels]);
++  useEffect(() => { setIsRefreshing(false); }, [isOpen, catalog]);
+ 
+-  // Clear all caches and re-fetch models from scratch
+-  const handleRefresh = useCallback(async () => {
+-    setIsRefreshing(true);
+-    try {
+-      // Clear host-scoped caches before re-fetching.
+-      modelCache.clear();
+-      clearFetchCache();
+-      // Re-fetch with cache bypass
+-      await fetchModels(true);
+-    } finally {
+-      setIsRefreshing(false);
+-    }
+-  }, [fetchModels]);
++  const supportedModels = useMemo(() => catalog.filter((model) =>
++    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "text-to-audio"].includes(cap))
++  ), [catalog]);
++  const models = useMemo(() => supportedModels.filter((model) => {
++    if (providerFilter !== "all" && model.provider !== providerFilter) return false;
++    const query = debouncedSearch.trim().toLowerCase();
++    if (query && !`${model.name} ${model.id} ${model.provider} ${model.description ?? ""}`.toLowerCase().includes(query)) return false;
++    const capabilities = capabilityFilter === "image" ? ["text-to-image", "image-to-image"]
++      : capabilityFilter === "video" ? ["text-to-video", "image-to-video", "audio-to-video"]
++      : capabilityFilter === "audio" ? ["text-to-audio"] : null;
++    return !capabilities || model.capabilities.some((cap) => capabilities.includes(cap));
++  }), [supportedModels, providerFilter, capabilityFilter, debouncedSearch]);
+ 
+   // Focus search input when dialog opens
+   useEffect(() => {
+@@ -367,52 +195,18 @@
+   // Handle model selection
+   const handleSelectModel = useCallback(
+     (model: ProviderModel) => {
+-      // Track model usage for "recently used" feature
++      // Selection must still belong to this authenticated, active catalog.
++      const activeModel = supportedModels.find((item) => item.id === model.id && item.provider === model.provider);
++      if (!activeModel || !selectModel) return;
++      selectModel(activeModel);
+       trackModelUsage({
+-        provider: model.provider,
+-        modelId: model.id,
+-        displayName: model.name,
+-      });
+-
+-      // If onModelSelected is provided, use it to update an existing node
+-      if (onModelSelected) {
+-        onModelSelected(model);
+-        onClose();
+-        return;
+-      }
+-
+-      // Otherwise, create a new node
+-      const center = getPaneCenter();
+-      const position = screenToFlowPosition({
+-        x: center.x + Math.random() * 100 - 50,
+-        y: center.y + Math.random() * 100 - 50,
++        provider: activeModel.provider,
++        modelId: activeModel.id,
++        displayName: activeModel.name,
+       });
+-
+-      // Determine node type based on model capabilities
+-      const isVideoModel = model.capabilities.some(
+-        (cap) => cap === "text-to-video" || cap === "image-to-video" || cap === "audio-to-video"
+-      );
+-      const is3DModel = model.capabilities.some(
+-        (cap) => cap === "text-to-3d" || cap === "image-to-3d"
+-      );
+-      const isAudioModel = model.capabilities.some(
+-        (cap) => cap === "text-to-audio"
+-      );
+-
+-      const nodeType = isVideoModel ? "generateVideo" : is3DModel ? "generate3d" : isAudioModel ? "generateAudio" : "nanoBanana";
+-
+-      addNode(nodeType, position, {
+-        selectedModel: {
+-          provider: model.provider,
+-          modelId: model.id,
+-          displayName: model.name,
+-          capabilities: model.capabilities,
+-        },
+-      });
+-
+       onClose();
+     },
+-    [screenToFlowPosition, addNode, onClose, onModelSelected, trackModelUsage]
++    [supportedModels, selectModel, onClose, trackModelUsage]
+   );
+ 
+   // Handle escape key
+@@ -482,20 +276,10 @@
+     }
+   };
+ 
+-  // Compute which providers are available based on client API keys + server env vars
+-  const availableProviders = useMemo(() => {
+-    const providers = new Set<ProviderType>(["gemini", "fal"]); // Always available
+-    // Client-side keys supplied by the host provider catalog.
+-    if (replicateApiKey) providers.add("replicate");
+-    if (kieApiKey) providers.add("kie");
+-    if (wavespeedApiKey) providers.add("wavespeed");
+-    if (openaiApiKey) providers.add("openai");
+-    // Host-reported provider availability.
+-    for (const p of serverAvailableProviders) {
+-      providers.add(p as ProviderType);
+-    }
+-    return providers;
+-  }, [replicateApiKey, kieApiKey, wavespeedApiKey, openaiApiKey, serverAvailableProviders]);
++  const availableProviders = useMemo(
++    () => new Set(supportedModels.map((model) => model.provider)),
++    [supportedModels]
++  );
+ 
+   // Reset provider filter if current selection becomes unavailable
+   useEffect(() => {
+@@ -504,40 +288,10 @@
+     }
+   }, [providerFilter, availableProviders]);
+ 
+-  // Filter recent models by capability
+-  const filteredRecentModels = useMemo(() => {
+-    return recentModels
+-      .filter((recent) => {
+-        // Find matching model in current models list to check capabilities
+-        const matchingModel = models.find((m) => m.id === recent.modelId);
+-        if (!matchingModel && capabilityFilter !== "all") {
+-          // If model not loaded yet and filter is active, exclude it
+-          return false;
+-        }
+-        if (capabilityFilter === "all") return true;
+-        if (!matchingModel) return true; // Show if we can't verify capabilities
+-
+-        const isImage = matchingModel.capabilities.some(
+-          (cap) => cap === "text-to-image" || cap === "image-to-image"
+-        );
+-        const isVideo = matchingModel.capabilities.some(
+-          (cap) => cap === "text-to-video" || cap === "image-to-video" || cap === "audio-to-video"
+-        );
+-        const is3D = matchingModel.capabilities.some(
+-          (cap) => cap === "text-to-3d" || cap === "image-to-3d"
+-        );
+-        const isAudio = matchingModel.capabilities.some(
+-          (cap) => cap === "text-to-audio"
+-        );
+-
+-        if (capabilityFilter === "image") return isImage;
+-        if (capabilityFilter === "video") return isVideo;
+-        if (capabilityFilter === "3d") return is3D;
+-        if (capabilityFilter === "audio") return isAudio;
+-        return true;
+-      })
+-      .slice(0, 4); // Show max 4
+-  }, [recentModels, models, capabilityFilter]);
++  // Only current catalog entries are selectable; never reconstruct stale models.
++  const filteredRecentModels = useMemo(() => recentModels.filter((recent) =>
++    models.some((model) => model.id === recent.modelId && model.provider === recent.provider)
++  ).slice(0, 4), [recentModels, models]);
+ 
+   // Get display name with suffix for fal.ai models to differentiate variants
+   const getDisplayName = (model: ProviderModel): string => {
+@@ -594,14 +348,6 @@
+           color = "bg-pink-500/20 text-pink-300";
+           label = "img→vid";
+           break;
+-        case "text-to-3d":
+-          color = "bg-orange-500/20 text-orange-300";
+-          label = "txt→3d";
+-          break;
+-        case "image-to-3d":
+-          color = "bg-amber-500/20 text-amber-300";
+-          label = "img→3d";
+-          break;
+         case "text-to-audio":
+           color = "bg-fuchsia-500/20 text-fuchsia-300";
+           label = "txt→audio";
+@@ -634,7 +380,11 @@
+       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+       onClick={handleBackdropClick}
+     >
+-      <div className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col mx-4">
++      <div role="dialog"
++        aria-modal="true"
++        aria-label={title}
++        data-node-banana-component="ModelSearchDialog"
++        className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col mx-4">
+         {/* Header */}
+         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-700">
+           <h2 className="text-lg font-semibold text-neutral-100">
+@@ -642,6 +392,7 @@
+           </h2>
+           <button
+             onClick={onClose}
++            aria-label="Close models"
+             className="p-1.5 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded transition-colors"
+           >
+             <svg
+@@ -680,6 +431,7 @@
+               </svg>
+               <input
+                 ref={searchInputRef}
++                aria-label="Search models"
+                 type="text"
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+@@ -779,10 +531,32 @@
+                   <OpenAIIcon />
+                 </button>
+               )}
++              {[...availableProviders].filter((provider) => !["gemini", "replicate", "fal", "kie", "wavespeed", "openai"].includes(provider)).map((provider) => (
++                <button
++                  key={provider}
++                  type="button"
++                  onClick={() => setProviderFilter(provider)}
++                  title={getProviderDisplayName(provider)}
++                  aria-label={getProviderDisplayName(provider)}
++                  aria-pressed={providerFilter === provider}
++                  className={`p-2 rounded transition-colors ${
++                    providerFilter === provider
++                      ? "bg-neutral-600 text-neutral-100"
++                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
++                  }`}
++                >
++                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
++                    <rect x="3" y="3" width="18" height="7" rx="2" />
++                    <rect x="3" y="14" width="18" height="7" rx="2" />
++                    <path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" strokeLinecap="round" />
++                  </svg>
++                </button>
++              ))}
+             </div>
+ 
+             {/* Capability Filter */}
+             <select
++              aria-label="Model capability"
+               value={capabilityFilter}
+               onChange={(e) =>
+                 setCapabilityFilter(e.target.value as CapabilityFilter)
+@@ -792,14 +566,13 @@
+               <option value="all">All Types</option>
+               <option value="image">Image</option>
+               <option value="video">Video</option>
+-              <option value="3d">3D</option>
+               <option value="audio">Audio</option>
+             </select>
+ 
+             {/* Refresh Cache */}
+             <button
+               onClick={handleRefresh}
+-              disabled={isRefreshing || isLoading}
++              disabled={!refreshCatalog || isRefreshing || isLoading}
+               title="Refresh models & schemas"
+               className="p-2 rounded text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+@@ -869,6 +642,7 @@
+               </p>
+               <button
+                 onClick={handleRefresh}
++                disabled={!refreshCatalog || isRefreshing}
+                 className="px-3 py-1.5 text-sm bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
+               >
+                 Try Again
+@@ -935,19 +709,13 @@
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                     {filteredRecentModels.map((recent) => {
+                       const matchingModel = models.find(
+-                        (m) => m.id === recent.modelId
++                        (m) => m.id === recent.modelId && m.provider === recent.provider
+                       );
+-                      // Create a ProviderModel from RecentModel for handleSelectModel
+-                      const model: ProviderModel = matchingModel || {
+-                        id: recent.modelId,
+-                        name: recent.displayName,
+-                        description: null,
+-                        provider: recent.provider,
+-                        capabilities: [],
+-                      };
++                      if (!matchingModel) return null;
++                      const model = matchingModel;
+                       return (
+                         <button
+-                          key={`recent-${recent.modelId}`}
++                          key={`recent-${recent.provider}-${recent.modelId}`}
+                           onClick={() => handleSelectModel(model)}
+                           className="flex items-center gap-3 p-3 bg-neutral-700/50 hover:bg-neutral-700 border border-neutral-600/30 hover:border-neutral-500 rounded-lg transition-colors text-left cursor-pointer group"
+                         >
+@@ -1125,161 +893,3 @@
+   // Use portal to render outside React Flow stacking context
+   return createPortal(dialogContent, document.body);
+ }
+-
+-function HostedModelSearchDialog({
+-  isOpen,
+-  onClose,
+-  title = "Browse Models",
+-  initialCapabilityFilter,
+-  hostedModels,
+-  onHostedModelSelected,
+-}: ModelSearchDialogProps & ModelSearchDialogHostedProps) {
+-  const [searchQuery, setSearchQuery] = useState("");
+-  const [capabilityFilter, setCapabilityFilter] = useState<CapabilityFilter>(initialCapabilityFilter ?? "all");
+-
+-  useEffect(() => {
+-    if (!isOpen) {
+-      setSearchQuery("");
+-      setCapabilityFilter(initialCapabilityFilter ?? "all");
+-    }
+-  }, [initialCapabilityFilter, isOpen]);
+-
+-  useEffect(() => {
+-    if (!isOpen) return;
+-    const handleKeyDown = (event: KeyboardEvent) => {
+-      if (event.key === "Escape") onClose();
+-    };
+-    window.addEventListener("keydown", handleKeyDown);
+-    return () => window.removeEventListener("keydown", handleKeyDown);
+-  }, [isOpen, onClose]);
+-
+-  if (!isOpen) return null;
+-
+-  const query = searchQuery.trim().toLowerCase();
+-  const visibleModels = hostedModels.filter((model) => {
+-    const searchable = `${model.name} ${model.id} ${model.provider} ${model.description ?? ""} ${model.capabilities.join(" ")}`.toLowerCase();
+-    if (query && !searchable.includes(query)) return false;
+-    if (capabilityFilter === "all") return true;
+-    if (capabilityFilter === "image") return model.capabilities.some((cap) => cap === "text-to-image" || cap === "image-to-image");
+-    if (capabilityFilter === "video") return model.capabilities.some((cap) => cap === "text-to-video" || cap === "image-to-video" || cap === "audio-to-video");
+-    if (capabilityFilter === "3d") return model.capabilities.some((cap) => cap === "text-to-3d" || cap === "image-to-3d");
+-    return model.capabilities.some((cap) => cap === "text-to-audio");
+-  });
+-
+-  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+-    if (event.target === event.currentTarget) onClose();
+-  };
+-
+-  const dialogContent = (
+-    <div
+-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 node-banana-runtime__modal-backdrop"
+-      role="presentation"
+-      onMouseDown={handleBackdropClick}
+-    >
+-      <section
+-        className="relative flex w-full max-w-5xl max-h-[85vh] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-800 shadow-2xl node-banana-runtime__model-dialog"
+-        role="dialog"
+-        aria-modal="true"
+-        aria-label={title}
+-        data-node-banana-component="ModelSearchDialog"
+-        onMouseDown={(event) => event.stopPropagation()}
+-      >
+-        <header className="flex items-center justify-between border-b border-neutral-700 px-6 py-4">
+-          <h2 className="text-lg font-semibold text-neutral-100">{title}</h2>
+-          <button type="button" onClick={onClose} aria-label="Close models" className="p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100">
+-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+-            </svg>
+-          </button>
+-        </header>
+-        <div className="border-b border-neutral-700 px-6 py-4">
+-          <div className="relative">
+-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+-            </svg>
+-            <input
+-              autoFocus
+-              type="search"
+-              value={searchQuery}
+-              onChange={(event) => setSearchQuery(event.target.value)}
+-              placeholder="Search models..."
+-              aria-label="Search models"
+-              className="w-full rounded border border-neutral-600 bg-neutral-700 py-2 pl-10 pr-4 text-sm text-neutral-100 outline-none placeholder:text-neutral-400 focus:ring-1 focus:ring-neutral-500"
+-            />
+-          </div>
+-          <div className="mt-3 flex items-center gap-1" role="tablist" aria-label="Model capability">
+-            {(["all", "image", "video", "3d", "audio"] as const).map((filter) => (
+-              <button
+-                key={filter}
+-                type="button"
+-                role="tab"
+-                aria-selected={capabilityFilter === filter}
+-                onClick={() => setCapabilityFilter(filter)}
+-                className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${capabilityFilter === filter ? "bg-neutral-600 text-neutral-100" : "text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"}`}
+-              >
+-                {filter === "all" ? "All" : filter === "3d" ? "3D" : filter[0].toUpperCase() + filter.slice(1)}
+-              </button>
+-            ))}
+-          </div>
+-        </div>
+-        <div className="flex-1 overflow-y-auto p-4 node-banana-runtime__model-list" role="listbox" aria-label="Models">
+-          {visibleModels.length ? (
+-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+-              {visibleModels.map((model) => (
+-                <button
+-                  key={`${model.provider}-${model.id}`}
+-                  type="button"
+-                  role="option"
+-                  onClick={() => {
+-                    onHostedModelSelected(model);
+-                    onClose();
+-                  }}
+-                  className="flex items-start gap-3 rounded-lg border border-neutral-600/50 bg-neutral-700/50 p-4 text-left transition-colors hover:border-neutral-500 hover:bg-neutral-700 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+-                >
+-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-600">
+-                    {model.coverImage ? <img src={model.coverImage} alt="" className="h-full w-full object-cover" /> : (
+-                      <svg className="h-7 w-7 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+-                      </svg>
+-                    )}
+-                  </div>
+-                  <span className="min-w-0 flex-1">
+-                    <strong className="block truncate text-sm font-medium text-neutral-100">{model.name}</strong>
+-                    <small className="mt-0.5 block truncate font-mono text-[10px] text-neutral-500">{model.id}</small>
+-                    <span className="mt-1 flex flex-wrap gap-1">
+-                      <span className="rounded bg-neutral-600 px-1.5 py-0.5 text-[10px] text-neutral-300">{model.provider}</span>
+-                      {model.capabilities.map((capability) => <span key={capability} className="rounded bg-neutral-600/70 px-1.5 py-0.5 text-[10px] text-neutral-400">{capability}</span>)}
+-                    </span>
+-                    {model.description ? <span className="mt-1.5 block line-clamp-2 text-xs text-neutral-400">{model.description}</span> : null}
+-                  </span>
+-                </button>
+-              ))}
+-            </div>
+-          ) : (
+-            <p className="p-8 text-center text-sm text-neutral-400">No models found</p>
+-          )}
+-        </div>
+-        {visibleModels.length ? <footer className="border-t border-neutral-700 px-6 py-3 text-xs text-neutral-400">{visibleModels.length} model{visibleModels.length !== 1 ? "s" : ""} found</footer> : null}
+-      </section>
+-    </div>
+-  );
+-
+-  return typeof document === "undefined" ? dialogContent : createPortal(dialogContent, document.body);
+-}
+-
+-export function ModelSearchDialog(props: ModelSearchDialogProps) {
+-  const hostedModels = useWorkflowStore((state) => state.hostedModels);
+-  if (props.hosted) {
+-    return <HostedModelSearchDialog {...props} {...props.hosted} />;
+-  }
+-  if (props.onModelSelected && hostedModels.length > 0) {
+-    return (
+-      <HostedModelSearchDialog
+-        {...props}
+-        hostedModels={hostedModels}
+-        onHostedModelSelected={props.onModelSelected}
+-      />
+-    );
+-  }
+-  return <StandaloneModelSearchDialog {...props} />;
+-}
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -1,0 +1,2 @@
++export { ModelSearchDialog } from "../components/modals/ModelSearchDialog";
++export type { ModelSearchDialogHostedProps } from "../components/modals/ModelSearchDialog";

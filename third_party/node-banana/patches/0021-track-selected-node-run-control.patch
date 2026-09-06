@@ -1,0 +1,70 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -460,6 +460,9 @@ export function NodeBananaCanvasRuntime({
+   const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
+   const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
+   const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
++  const selectedNodeId = interaction.selectedNodeIds.length === 1 ? interaction.selectedNodeIds[0] : null;
++  const [selectedRunControlEnabled, setSelectedRunControlEnabled] = useState(false);
++  const selectedRunControlEnabledRef = useRef(false);
+ 
+   const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
+     store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
+@@ -588,12 +591,45 @@ export function NodeBananaCanvasRuntime({
+     setModelBrowserOpen(false);
+   }, [addNodeAtCenter, paletteItems]);
+ 
++  useEffect(() => {
++    const root = rootRef.current;
++    if (!root || !selectedNodeId) {
++      if (selectedRunControlEnabledRef.current) {
++        selectedRunControlEnabledRef.current = false;
++        setSelectedRunControlEnabled(false);
++      }
++      return;
++    }
++    const update = () => {
++      const selectedNode = Array.from(root.querySelectorAll<HTMLElement>("[data-id]")).find(
++        (candidate) => candidate.dataset.id === selectedNodeId,
++      );
++      const runControl = selectedNode?.querySelector<HTMLButtonElement>("[data-node-run]");
++      const enabled = Boolean(runControl && !runControl.disabled);
++      if (selectedRunControlEnabledRef.current === enabled) return;
++      selectedRunControlEnabledRef.current = enabled;
++      setSelectedRunControlEnabled(enabled);
++    };
++    update();
++    const observer = new MutationObserver(update);
++    observer.observe(root, {
++      subtree: true,
++      childList: true,
++      attributes: true,
++      attributeFilter: ["disabled"],
++    });
++    return () => observer.disconnect();
++  }, [selectedNodeId]);
++
+   const runSelectedNode = useCallback(() => {
+     const selectedId = store.getState().selectedNodeIds[0];
+     if (!selectedId || store.getState().selectedNodeIds.length !== 1) return;
++    if (isNodeRunnable && !isNodeRunnable(selectedId)) return;
+     const node = rootRef.current?.querySelector<HTMLElement>('[data-id="' + CSS.escape(selectedId) + '"]');
+-    node?.querySelector<HTMLButtonElement>("[data-node-run]")?.click();
+-  }, [store]);
++    const runControl = node?.querySelector<HTMLButtonElement>("[data-node-run]");
++    if (!runControl || runControl.disabled) return;
++    runControl.click();
++  }, [isNodeRunnable, store]);
+ 
+   const undo = useCallback(() => {
+     if (!writable) return;
+@@ -787,7 +823,8 @@ export function NodeBananaCanvasRuntime({
+             selectedNodeCount={interaction.selectedNodeIds.length}
+             runEnabled={
+               interaction.selectedNodeIds.length === 1 &&
+-              (isNodeRunnable?.(interaction.selectedNodeIds[0]) ?? true)
++              (isNodeRunnable?.(interaction.selectedNodeIds[0]) ?? true) &&
++              selectedRunControlEnabled
+             }
+             onAddItem={addNodeAtCenter}
+             onBrowseModels={() => setModelBrowserOpen(true)}

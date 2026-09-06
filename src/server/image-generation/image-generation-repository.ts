@@ -12,8 +12,9 @@ export async function createImageGenerationRecord(
   ownerEmail: string,
   apiKeyId: string | null = null,
   graphNodeId: string | null = null,
+  requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
 ) {
-  const requestParams: Prisma.InputJsonValue = {
+  const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
     model: payload.model,
     prompt: payload.prompt,
     width: payload.width,

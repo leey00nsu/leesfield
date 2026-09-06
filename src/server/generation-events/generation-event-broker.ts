@@ -3,7 +3,7 @@ import { Client } from "pg";
 import {
   GENERATION_EVENT_CHANNEL,
   parseGenerationEvent,
-  type GenerationUpdatedEvent,
+  type GenerationEvent,
 } from "@/shared/generation-events/generation-event-contract";
 
 export type GenerationEventBrokerState =
@@ -12,7 +12,7 @@ export type GenerationEventBrokerState =
   | "degraded";
 
 export type GenerationEventSubscriber = {
-  onEvent: (event: GenerationUpdatedEvent) => void;
+  onEvent: (event: GenerationEvent) => void;
   onState?: (state: GenerationEventBrokerState) => void;
 };
 

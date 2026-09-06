@@ -10,11 +10,13 @@ import {
   useGraphAutosave,
 } from "./use-graph-autosave";
 
-const baseDraft: GraphDraft = { title: "Graph", nodes: [], edges: [] };
+const baseDraft: GraphDraft = { schemaVersion: 3, groups: [], title: "Graph", nodes: [], edges: [] };
 const graph = (version: number, title = "Graph"): GenerationGraphSnapshotDto => ({
   id: "graph_1",
   title,
   version,
+  schemaVersion: 3, groups: [],
+  minimumWriterVersion: 3,
   createdAt: "2026-08-24T00:00:00.000Z",
   updatedAt: "2026-08-24T00:00:00.000Z",
   nodes: [],
@@ -62,6 +64,37 @@ describe("GraphAutosaveController", () => {
     expect(controller.getSnapshot()).toEqual({ status: "saved", version: 2 });
   });
 
+  it("preserves the canonical v2 envelope for Node Banana drafts", async () => {
+    const save = vi.fn().mockResolvedValue(graph(4, "Canonical"));
+    const canonicalDraft: GraphDraft = {
+      schemaVersion: 3, groups: [],
+      title: "Canonical",
+      nodes: [],
+      edges: [],
+    };
+    const controller = new GraphAutosaveController({
+      graphId: "graph_1",
+      initialVersion: 3,
+      initialDraft: canonicalDraft,
+      save,
+    });
+
+    controller.update({ ...canonicalDraft, title: "Canonical v2" });
+    await vi.advanceTimersByTimeAsync(650);
+
+    expect(save).toHaveBeenCalledWith(
+      "graph_1",
+      {
+        schemaVersion: 3, groups: [],
+        title: "Canonical v2",
+        nodes: [],
+        edges: [],
+        expectedVersion: 3,
+      },
+      expect.any(AbortSignal),
+    );
+  });
+
   it("coalesces image node authoring edits into the latest graph snapshot", async () => {
     const save = vi.fn().mockResolvedValue(graph(2));
     const controller = new GraphAutosaveController({
@@ -75,7 +108,7 @@ describe("GraphAutosaveController", () => {
       nodes: [
         {
           id: "node_a",
-          type: "imageGeneration",
+          kind: "generate.image",
           position: { x: 0, y: 0 },
           configVersion: 1,
           config: {
@@ -83,7 +116,7 @@ describe("GraphAutosaveController", () => {
             modelKey: "model/a",
             parameters: { width: 1024, height: 1024 },
           },
-          selectedOutputImageId: null,
+          selectedOutputAssetId: null,
         },
       ],
     });
@@ -164,10 +197,10 @@ describe("GraphAutosaveController", () => {
         {
           id: "edge-primary",
           sourceNodeId: "source",
+          sourcePortId: "image",
           targetNodeId: "target",
-          kind: "primary",
-          sourceHandle: "output",
-          targetHandle: "primary",
+          targetPortId: "primary",
+          sortOrder: 0,
         },
       ],
     };

@@ -1,0 +1,130 @@
+--- a/src/components/nodes/GifEncoderNode.tsx
++++ b/src/components/nodes/GifEncoderNode.tsx
+@@ -136,47 +136,30 @@
+     }
+   }, [imageEdges, nodeData.clipOrder, id, updateNodeData]);
+ 
+-  // Build ordered frame list for the filmstrip
++  // Keep every collection member attached to its input edge; clipOrder moves
++  // whole groups while preserving the source's cell order.
+   const orderedFrames = useMemo(() => {
+-    const map = new Map<string, { edgeId: string; sourceEdgeId: string; src: string | null; projected: boolean }>();
++    type Frame = { edgeId: string; sourceEdgeId: string; src: string | null };
++    const map = new Map<string, Frame[]>();
++    const groups = Array.isArray(nodeData.frameGroups)
++      ? nodeData.frameGroups as { sourceEdgeId: string; frames: string[] }[]
++      : [];
+     imageEdges.forEach((edge) => {
++      const group = groups.find((candidate) => candidate.sourceEdgeId === edge.id);
++      if (group) {
++        map.set(edge.id, group.frames.map((src, index) => ({
++          edgeId: `${edge.id}:asset:${index}`, sourceEdgeId: edge.id, src,
++        })));
++        return;
++      }
+       const sourceNode = nodes.find((n) => n.id === edge.source);
+-      if (!sourceNode) return;
+-      map.set(edge.id, { edgeId: edge.id, sourceEdgeId: edge.id, src: getImageFromSourceNode(sourceNode), projected: false });
++      if (sourceNode) map.set(edge.id, [{
++        edgeId: edge.id, sourceEdgeId: edge.id, src: getImageFromSourceNode(sourceNode),
++      }]);
+     });
+-    const order = nodeData.clipOrder?.length ? nodeData.clipOrder : imageEdges.map((e) => e.id);
+-    const ordered: { edgeId: string; sourceEdgeId: string; src: string | null; projected: boolean }[] = [];
+-    for (const eid of order) {
+-      const f = map.get(eid);
+-      if (f) ordered.push(f);
+-    }
+-    // Append any new edges not yet in clipOrder
+-    imageEdges.forEach((edge) => {
+-      if (!order.includes(edge.id)) {
+-        const f = map.get(edge.id);
+-        if (f) ordered.push(f);
+-      }
+-    });
+-
+-    // A Leesfield collection edge can carry multiple durable image assets (for
+-    // example, every cell emitted by Split Grid), while upstream Node Banana
+-    // normally represents every GIF frame as a separate edge. The host adapter
+-    // projects that collection as `frames`; render those real assets when the
+-    // edge-shaped upstream store cannot expose every member individually.
+-    const projectedFrames = Array.isArray(nodeData.frames)
+-      ? nodeData.frames.filter((frame): frame is string => typeof frame === "string" && frame.length > 0)
+-      : [];
+-    if (projectedFrames.length > ordered.filter((frame) => frame.src).length) {
+-      const sourceEdgeId = imageEdges[0]?.id ?? "hosted-frames";
+-      return projectedFrames.map((src, index) => ({
+-        edgeId: `${sourceEdgeId}:asset:${index}`,
+-        sourceEdgeId,
+-        src,
+-        projected: true,
+-      }));
+-    }
+-    return ordered;
+-  }, [imageEdges, nodes, nodeData.clipOrder, nodeData.frames]);
++    const order = [...new Set([...(nodeData.clipOrder ?? []), ...imageEdges.map((edge) => edge.id)])];
++    return order.flatMap((edgeId) => map.get(edgeId) ?? []);
++  }, [imageEdges, nodes, nodeData.clipOrder, nodeData.frameGroups]);
+ 
+   // Pointer-based drag reorder (HTML5 drag doesn't work inside React Flow)
+   const [draggedId, setDraggedId] = useState<string | null>(null);
+@@ -196,8 +179,8 @@
+     for (const el of elementsUnder) {
+       const clipEl = (el as HTMLElement).closest("[data-frame-id]") as HTMLElement | null;
+       if (clipEl) {
+-        const targetId = clipEl.dataset.frameId!;
+-        if (targetId !== draggedId) setHoverId(targetId);
++        const targetId = clipEl.dataset.sourceEdgeId!;
++        setHoverId(targetId !== draggedId ? targetId : null);
+         return;
+       }
+     }
+@@ -211,7 +194,7 @@
+       setHoverId(null);
+       return;
+     }
+-    const order = [...(nodeData.clipOrder || [])];
++    const order = [...new Set(orderedFrames.map((frame) => frame.sourceEdgeId))];
+     const a = order.indexOf(draggedId);
+     const b = order.indexOf(hoverId);
+     if (a !== -1 && b !== -1) {
+@@ -221,7 +204,7 @@
+     }
+     setDraggedId(null);
+     setHoverId(null);
+-  }, [draggedId, hoverId, nodeData.clipOrder, id, updateNodeData]);
++  }, [draggedId, hoverId, orderedFrames, id, updateNodeData]);
+ 
+   // Dynamic image handles: render up to the highest referenced handle index
+   // (parsed from "image-N" targetHandles) plus one free slot for a new
+@@ -293,13 +276,14 @@
+               <div
+                 key={frame.edgeId}
+                 data-frame-id={frame.edgeId}
+-                onPointerDown={frame.projected ? undefined : (e) => handlePointerDown(e, frame.edgeId)}
+-                onPointerMove={frame.projected ? undefined : handlePointerMove}
+-                onPointerUp={frame.projected ? undefined : handlePointerUp}
+-                className={`nodrag relative aspect-square bg-neutral-800 border rounded ${frame.projected ? "cursor-default" : "cursor-move"} transition-colors group ${
+-                  draggedId === frame.edgeId
++                data-source-edge-id={frame.sourceEdgeId}
++                onPointerDown={(e) => handlePointerDown(e, frame.sourceEdgeId)}
++                onPointerMove={handlePointerMove}
++                onPointerUp={handlePointerUp}
++                className={`nodrag relative aspect-square bg-neutral-800 border rounded cursor-move transition-colors group ${
++                  draggedId === frame.sourceEdgeId
+                     ? "opacity-50 border-blue-500"
+-                    : hoverId === frame.edgeId && draggedId
++                    : hoverId === frame.sourceEdgeId && draggedId
+                       ? "border-blue-400 ring-1 ring-blue-400/50"
+                       : "border-neutral-600 hover:border-neutral-500"
+                 }`}
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -231,6 +231,7 @@
+       return {
+         ...upstream,
+         frames: data.frames ?? [],
++        frameGroups: data.frameGroups,
+         clipOrder: parameters.clipOrder ?? [],
+         outputGif: data.outputGif ?? null,
+         fps: parameters.fps ?? 8,

@@ -1,0 +1,14 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -317,6 +317,13 @@
+   const nextParameters: HostNodeData = hasParametersPatch
+     ? { ...objectValue(patch.parameters) }
+     : { ...currentParameters };
++  // The image-generation contract serializes seed as a string, including
++  // numeric defaults returned by provider schemas (for example Gradio's
++  // default seed of 42). Keep this invariant at the upstream/canonical
++  // boundary regardless of which upstream control emitted the snapshot.
++  if (kind === "generate.image" && typeof nextParameters.seed === "number" && Number.isFinite(nextParameters.seed)) {
++    nextParameters.seed = String(nextParameters.seed);
++  }
+   const nextConfig: HostNodeData = { ...currentConfig };

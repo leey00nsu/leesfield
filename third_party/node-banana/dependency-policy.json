@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "runtimeEntrypoints": [
+    "src/leesfield/runtime-entry.ts"
+  ],
+  "runtimeDependencies": {
+    "gifenc": "1.0.3",
+    "jszip": "3.10.1",
+    "konva": "10.0.12",
+    "mediabunny": "1.31.0",
+    "react-compare-slider": "3.1.0",
+    "react-konva": "19.2.1",
+    "zustand": "5.0.9"
+  },
+  "allowedHostDependencies": [
+    "@xyflow/react",
+    "lucide-react",
+    "react",
+    "react-dom",
+    "zod"
+  ],
+  "forbiddenDependencies": [
+    "@ai-sdk/google",
+    "@ai-sdk/react",
+    "@comfyorg/sdk",
+    "@google/genai",
+    "@imgly/background-removal",
+    "@react-three/drei",
+    "@react-three/fiber",
+    "ai",
+    "onnxruntime-web",
+    "react-markdown",
+    "three"
+  ],
+  "forbiddenPathPrefixes": [
+    "scripts/",
+    "server.js",
+    "src/app/",
+    "src/components/ChatPanel.tsx",
+    "src/components/GlobalImageHistory.tsx",
+    "src/components/WorkflowBrowserModal.tsx",
+    "src/components/nodes/Comfy",
+    "src/components/nodes/Generate3DNode.tsx",
+    "src/components/nodes/LLM",
+    "src/components/onboarding/FTUX",
+    "src/components/quickstart/PromptWorkflowView.tsx",
+    "src/components/quickstart/WorkflowBrowserView.tsx",
+    "src/components/quickstart/WelcomeModal.tsx",
+    "src/components/settings/",
+    "src/lib/chat/",
+    "src/lib/comfy/",
+    "src/lib/images/",
+    "src/lib/providers/",
+    "src/lib/quickstart/prompts.ts",
+    "src/lib/quickstart/proposalPrompt.ts",
+    "src/lib/quickstart/validation.ts",
+    "src/store/execution/",
+    "src/store/ftuxStore.ts",
+    "src/store/utils/localStorage.ts",
+    "src/store/workflowStore.ts",
+    "src/utils/backgroundRemoval.ts",
+    "src/utils/browseRegistry.ts",
+    "src/utils/mediaStorage.ts",
+    "src/utils/pathValidation.ts",
+    "src/utils/providerUrls.ts"
+  ],
+  "forbiddenSourcePatterns": [
+    "/api/generate",
+    "/api/providers",
+    "localStorage",
+    "indexedDB",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY"
+  ],
+  "allowedLicenseExpressions": [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 AND MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC-BY-4.0",
+    "ISC",
+    "LGPL-3.0-or-later",
+    "MIT",
+    "MIT AND ISC",
+    "MPL-2.0"
+  ],
+  "licenseExceptions": {
+    "pako": [
+      "(MIT AND Zlib)"
+    ],
+    "jszip": [
+      "(MIT OR GPL-3.0-or-later)",
+      "(MIT OR GPL-3.0)"
+    ],
+    "@paper-design/shaders": [
+      "Unknown"
+    ],
+    "@paper-design/shaders-react": [
+      "Unknown"
+    ]
+  }
+}

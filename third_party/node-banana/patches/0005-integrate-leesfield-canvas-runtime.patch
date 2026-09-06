@@ -1,0 +1,640 @@
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -1,3 +1,18 @@
++export {
++  NodeBananaCanvasErrorBoundary,
++  NodeBananaCanvasRuntime,
++} from "./canvas-runtime";
++export type {
++  NodeBananaCanvasLabels,
++  NodeBananaCanvasProps,
++  NodeBananaCanvasReason,
++  NodeBananaPendingConnection,
++  NodeBananaRuntimeEdge,
++  NodeBananaRuntimeGraph,
++  NodeBananaRuntimeNode,
++  NodeBananaRuntimePaletteItem,
++} from "./canvas-runtime";
++
+ export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
+ 
+ export const LEESFIELD_RUNTIME_FEATURES = [
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -0,0 +1,613 @@
++"use client";
++
++import {
++  Component,
++  useCallback,
++  useEffect,
++  useMemo,
++  useRef,
++  type ErrorInfo,
++  type KeyboardEvent as ReactKeyboardEvent,
++  type ReactNode,
++} from "react";
++import {
++  addEdge,
++  applyEdgeChanges,
++  applyNodeChanges,
++  Background,
++  BackgroundVariant,
++  Controls,
++  MiniMap,
++  Panel,
++  ReactFlow,
++  type Connection,
++  type Edge,
++  type EdgeChange,
++  type EdgeTypes,
++  type FinalConnectionState,
++  type IsValidConnection,
++  type Node,
++  type NodeChange,
++  type NodeTypes,
++  type ReactFlowInstance,
++  type Viewport,
++  type XYPosition,
++} from "@xyflow/react";
++import { createStore, type StoreApi } from "zustand/vanilla";
++import { useStore } from "zustand";
++
++export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
++export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
++
++export type NodeBananaRuntimeGraph = {
++  nodes: NodeBananaRuntimeNode[];
++  edges: NodeBananaRuntimeEdge[];
++};
++
++export type NodeBananaPendingConnection = {
++  nodeId: string;
++  handleId: string | null;
++  handleType: "source" | "target";
++};
++
++export type NodeBananaRuntimePaletteItem = {
++  kind: string;
++  label: string;
++  description?: string;
++  mediaType?: "text" | "image" | "audio" | "video" | "media";
++};
++
++export type NodeBananaCanvasReason =
++  | "connect"
++  | "create"
++  | "delete"
++  | "drag"
++  | "edges"
++  | "nodes"
++  | "paste"
++  | "redo"
++  | "undo";
++
++export type NodeBananaCanvasLabels = {
++  application: string;
++  addNode: string;
++  selectTool: string;
++  panTool: string;
++  undo: string;
++  redo: string;
++  copy: string;
++  paste: string;
++  fitView: string;
++  searchPlaceholder: string;
++  closeMenu: string;
++  emptyTitle: string;
++  emptyDescription: string;
++  readOnly: string;
++};
++
++type CreateNodeResult = {
++  node: NodeBananaRuntimeNode;
++  edge?: NodeBananaRuntimeEdge | null;
++};
++
++export type NodeBananaCanvasProps = {
++  graph: NodeBananaRuntimeGraph;
++  nodeTypes: NodeTypes;
++  edgeTypes?: EdgeTypes;
++  paletteItems: readonly NodeBananaRuntimePaletteItem[];
++  labels: NodeBananaCanvasLabels;
++  writable: boolean;
++  className?: string;
++  onGraphChange: (graph: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason) => void;
++  onCreateNode: (
++    item: NodeBananaRuntimePaletteItem,
++    position: XYPosition,
++    pendingConnection: NodeBananaPendingConnection | null,
++  ) => CreateNodeResult;
++  createId: () => string;
++  isValidConnection?: IsValidConnection<NodeBananaRuntimeEdge>;
++  filterPaletteItems?: (
++    items: readonly NodeBananaRuntimePaletteItem[],
++    pendingConnection: NodeBananaPendingConnection | null,
++  ) => readonly NodeBananaRuntimePaletteItem[];
++  renderEmptyState?: () => ReactNode;
++  onError?: (error: Error, info: ErrorInfo) => void;
++};
++
++type ClipboardSnapshot = NodeBananaRuntimeGraph;
++type MenuState = {
++  open: boolean;
++  screen: XYPosition;
++  flow: XYPosition;
++  pendingConnection: NodeBananaPendingConnection | null;
++  query: string;
++};
++
++type InteractionState = {
++  selectedNodeIds: string[];
++  selectedEdgeIds: string[];
++  nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
++  clipboard: ClipboardSnapshot | null;
++  pasteCount: number;
++  undo: NodeBananaRuntimeGraph[];
++  redo: NodeBananaRuntimeGraph[];
++  viewport: Viewport;
++  mode: "select" | "pan";
++  menu: MenuState;
++};
++
++const closedMenu: MenuState = {
++  open: false,
++  screen: { x: 0, y: 0 },
++  flow: { x: 0, y: 0 },
++  pendingConnection: null,
++  query: "",
++};
++
++function createInteractionStore(): StoreApi<InteractionState> {
++  return createStore<InteractionState>(() => ({
++    selectedNodeIds: [],
++    selectedEdgeIds: [],
++    nodeLayout: {},
++    clipboard: null,
++    pasteCount: 0,
++    undo: [],
++    redo: [],
++    viewport: { x: 0, y: 0, zoom: 1 },
++    mode: "select",
++    menu: closedMenu,
++  }));
++}
++
++function cloneGraph(graph: NodeBananaRuntimeGraph): NodeBananaRuntimeGraph {
++  return {
++    nodes: graph.nodes.map((node) => ({ ...node, data: { ...node.data } })),
++    edges: graph.edges.map((edge) => ({ ...edge, data: edge.data ? { ...edge.data } : edge.data })),
++  };
++}
++
++function isFormTarget(target: EventTarget | null) {
++  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
++}
++
++function pointerPosition(event: MouseEvent | TouchEvent): XYPosition {
++  if ("touches" in event) {
++    const touch = event.changedTouches[0] ?? event.touches[0];
++    return { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 };
++  }
++  return { x: event.clientX, y: event.clientY };
++}
++
++function RuntimeToolbar({
++  labels,
++  mode,
++  writable,
++  canUndo,
++  canRedo,
++  canCopy,
++  canPaste,
++  onModeChange,
++  onAdd,
++  onUndo,
++  onRedo,
++  onCopy,
++  onPaste,
++  onFit,
++}: {
++  labels: NodeBananaCanvasLabels;
++  mode: "select" | "pan";
++  writable: boolean;
++  canUndo: boolean;
++  canRedo: boolean;
++  canCopy: boolean;
++  canPaste: boolean;
++  onModeChange: (mode: "select" | "pan") => void;
++  onAdd: () => void;
++  onUndo: () => void;
++  onRedo: () => void;
++  onCopy: () => void;
++  onPaste: () => void;
++  onFit: () => void;
++}) {
++  return (
++    <div className="node-banana-runtime__toolbar" role="toolbar" aria-label={labels.application}>
++      <button type="button" onClick={onAdd} disabled={!writable} aria-label={labels.addNode}>＋</button>
++      <button type="button" onClick={() => onModeChange("select")} aria-label={labels.selectTool} aria-pressed={mode === "select"}>↖</button>
++      <button type="button" onClick={() => onModeChange("pan")} aria-label={labels.panTool} aria-pressed={mode === "pan"}>✥</button>
++      <button type="button" onClick={onUndo} disabled={!writable || !canUndo} aria-label={labels.undo}>↶</button>
++      <button type="button" onClick={onRedo} disabled={!writable || !canRedo} aria-label={labels.redo}>↷</button>
++      <button type="button" onClick={onCopy} disabled={!canCopy} aria-label={labels.copy}>⧉</button>
++      <button type="button" onClick={onPaste} disabled={!writable || !canPaste} aria-label={labels.paste}>▣</button>
++      <button type="button" onClick={onFit} aria-label={labels.fitView}>⊙</button>
++    </div>
++  );
++}
++
++function RuntimeNodeMenu({
++  labels,
++  menu,
++  items,
++  onQuery,
++  onChoose,
++  onClose,
++}: {
++  labels: NodeBananaCanvasLabels;
++  menu: MenuState;
++  items: readonly NodeBananaRuntimePaletteItem[];
++  onQuery: (query: string) => void;
++  onChoose: (item: NodeBananaRuntimePaletteItem) => void;
++  onClose: () => void;
++}) {
++  const inputRef = useRef<HTMLInputElement>(null);
++  useEffect(() => {
++    inputRef.current?.focus();
++  }, [inputRef]);
++  if (!menu.open) return null;
++  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
++    if (event.key === "Escape") {
++      event.preventDefault();
++      onClose();
++      return;
++    }
++    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
++    event.preventDefault();
++    const options = Array.from(
++      event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='option']"),
++    );
++    if (!options.length) return;
++    const current = options.indexOf(document.activeElement as HTMLButtonElement);
++    const next = event.key === "ArrowDown"
++      ? (current + 1) % options.length
++      : (current <= 0 ? options.length : current) - 1;
++    options[next]?.focus();
++  };
++  return (
++    <div
++      className="node-banana-runtime__menu nodrag nopan"
++      role="dialog"
++      aria-label={labels.addNode}
++      style={{ left: menu.screen.x, top: menu.screen.y }}
++      onKeyDown={handleKeyDown}
++    >
++      <div className="node-banana-runtime__menu-header">
++        <input
++          ref={inputRef}
++          value={menu.query}
++          onChange={(event) => onQuery(event.target.value)}
++          placeholder={labels.searchPlaceholder}
++          aria-label={labels.searchPlaceholder}
++        />
++        <button type="button" onClick={onClose} aria-label={labels.closeMenu}>×</button>
++      </div>
++      <div className="node-banana-runtime__menu-items" role="listbox">
++        {items.map((item) => (
++          <button key={item.kind} type="button" role="option" onClick={() => onChoose(item)}>
++            <span>{item.label}</span>
++            {item.description ? <small>{item.description}</small> : null}
++          </button>
++        ))}
++      </div>
++    </div>
++  );
++}
++
++export function NodeBananaCanvasRuntime({
++  graph,
++  nodeTypes,
++  edgeTypes,
++  paletteItems,
++  labels,
++  writable,
++  className,
++  onGraphChange,
++  onCreateNode,
++  createId,
++  isValidConnection,
++  filterPaletteItems,
++  renderEmptyState,
++}: NodeBananaCanvasProps) {
++  const store = useMemo(createInteractionStore, []);
++  const interaction = useStore(store);
++  const rootRef = useRef<HTMLDivElement>(null);
++  const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
++  const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
++
++  const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
++    store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
++  }, [store]);
++
++  const publish = useCallback((next: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason, record = true) => {
++    if (!writable) return;
++    if (record) recordUndo(graph);
++    onGraphChange(next, reason);
++  }, [graph, onGraphChange, recordUndo, writable]);
++
++  const onNodesChange = useCallback((changes: NodeChange<NodeBananaRuntimeNode>[]) => {
++    const selection = changes.filter((change) => change.type === "select");
++    if (selection.length) {
++      const selected = new Set(interaction.selectedNodeIds);
++      for (const change of selection) change.selected ? selected.add(change.id) : selected.delete(change.id);
++      store.setState({ selectedNodeIds: [...selected] });
++    }
++    const dimensions = changes.filter((change) => change.type === "dimensions");
++    if (dimensions.length) {
++      const measuredNodes = applyNodeChanges(dimensions, graph.nodes);
++      const current = store.getState().nodeLayout;
++      const nodeLayout = { ...current };
++      let changed = false;
++      for (const node of measuredNodes) {
++        const next = { width: node.width, height: node.height, measured: node.measured };
++        const previous = current[node.id];
++        if (
++          previous?.width !== next.width ||
++          previous?.height !== next.height ||
++          previous?.measured?.width !== next.measured?.width ||
++          previous?.measured?.height !== next.measured?.height
++        ) {
++          nodeLayout[node.id] = next;
++          changed = true;
++        }
++      }
++      if (changed) store.setState({ nodeLayout });
++    }
++    const durableChanges = changes.filter((change) => change.type !== "select" && change.type !== "dimensions");
++    if (!durableChanges.length || !writable) return;
++    const nodes = applyNodeChanges(durableChanges, graph.nodes);
++    const nodeIds = new Set(nodes.map((node) => node.id));
++    const edges = graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
++    const removed = durableChanges.some((change) => change.type === "remove");
++    publish({ nodes, edges }, removed ? "delete" : "nodes", removed);
++  }, [graph, interaction.selectedNodeIds, publish, store, writable]);
++
++  const onEdgesChange = useCallback((changes: EdgeChange<NodeBananaRuntimeEdge>[]) => {
++    const selection = changes.filter((change) => change.type === "select");
++    if (selection.length) {
++      const selected = new Set(interaction.selectedEdgeIds);
++      for (const change of selection) change.selected ? selected.add(change.id) : selected.delete(change.id);
++      store.setState({ selectedEdgeIds: [...selected] });
++    }
++    const durableChanges = changes.filter((change) => change.type !== "select");
++    if (!durableChanges.length || !writable) return;
++    publish({ nodes: graph.nodes, edges: applyEdgeChanges(durableChanges, graph.edges) }, "edges");
++  }, [graph, interaction.selectedEdgeIds, publish, store, writable]);
++
++  const onConnect = useCallback((connection: Connection) => {
++    if (!writable || (isValidConnection && !isValidConnection(connection))) return;
++    publish({
++      nodes: graph.nodes,
++      edges: addEdge({ ...connection, id: createId() }, graph.edges),
++    }, "connect");
++  }, [createId, graph, isValidConnection, publish, writable]);
++
++  const openMenu = useCallback((screen: XYPosition, flow: XYPosition, pendingConnection: NodeBananaPendingConnection | null) => {
++    store.setState({ menu: { open: true, screen, flow, pendingConnection, query: "" } });
++  }, [store]);
++
++  const openCenteredMenu = useCallback(() => {
++    const rect = rootRef.current?.getBoundingClientRect();
++    const screen = { x: Math.max(12, (rect?.width ?? 480) / 2 - 140), y: Math.max(12, (rect?.height ?? 320) / 2 - 120) };
++    const client = { x: (rect?.left ?? 0) + screen.x, y: (rect?.top ?? 0) + screen.y };
++    openMenu(screen, instanceRef.current?.screenToFlowPosition(client) ?? { x: 80, y: 80 }, null);
++  }, [openMenu]);
++
++  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
++    if (!writable || !state.fromNode || state.toNode) return;
++    const pointer = pointerPosition(event);
++    const rect = rootRef.current?.getBoundingClientRect();
++    openMenu(
++      { x: pointer.x - (rect?.left ?? 0), y: pointer.y - (rect?.top ?? 0) },
++      instanceRef.current?.screenToFlowPosition(pointer) ?? state.to ?? { x: 80, y: 80 },
++      { nodeId: state.fromNode.id, handleId: state.fromHandle?.id ?? null, handleType: state.fromHandle?.type ?? "source" },
++    );
++  }, [openMenu, writable]);
++
++  const chooseNode = useCallback((item: NodeBananaRuntimePaletteItem) => {
++    const result = onCreateNode(item, interaction.menu.flow, interaction.menu.pendingConnection);
++    publish({
++      nodes: [...graph.nodes, result.node],
++      edges: result.edge ? [...graph.edges, result.edge] : graph.edges,
++    }, "create");
++    store.setState({ menu: closedMenu, selectedNodeIds: [result.node.id], selectedEdgeIds: [] });
++    rootRef.current?.focus();
++  }, [graph, interaction.menu, onCreateNode, publish, store]);
++
++  const undo = useCallback(() => {
++    if (!writable) return;
++    const previous = interaction.undo.at(-1);
++    if (!previous) return;
++    store.setState({ undo: interaction.undo.slice(0, -1), redo: [...interaction.redo.slice(-49), cloneGraph(graph)] });
++    onGraphChange(cloneGraph(previous), "undo");
++  }, [graph, interaction.redo, interaction.undo, onGraphChange, store, writable]);
++
++  const redo = useCallback(() => {
++    if (!writable) return;
++    const next = interaction.redo.at(-1);
++    if (!next) return;
++    store.setState({ redo: interaction.redo.slice(0, -1), undo: [...interaction.undo.slice(-49), cloneGraph(graph)] });
++    onGraphChange(cloneGraph(next), "redo");
++  }, [graph, interaction.redo, interaction.undo, onGraphChange, store, writable]);
++
++  const copy = useCallback(() => {
++    const ids = new Set(interaction.selectedNodeIds);
++    if (!ids.size) return;
++    store.setState({
++      clipboard: {
++        nodes: graph.nodes.filter((node) => ids.has(node.id)).map((node) => ({ ...node, selected: false })),
++        edges: graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => ({ ...edge, selected: false })),
++      },
++      pasteCount: 0,
++    });
++  }, [graph, interaction.selectedNodeIds, store]);
++
++  const paste = useCallback(() => {
++    if (!writable || !interaction.clipboard) return;
++    const offset = 28 * (interaction.pasteCount + 1);
++    const ids = new Map(interaction.clipboard.nodes.map((node) => [node.id, createId()]));
++    const nodes = interaction.clipboard.nodes.map((node) => ({
++      ...node,
++      id: ids.get(node.id) as string,
++      position: { x: node.position.x + offset, y: node.position.y + offset },
++      selected: false,
++    }));
++    const edges = interaction.clipboard.edges.map((edge) => ({
++      ...edge,
++      id: createId(),
++      source: ids.get(edge.source) as string,
++      target: ids.get(edge.target) as string,
++      selected: false,
++    }));
++    store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
++    publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] }, "paste");
++  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, store, writable]);
++
++  const removeSelection = useCallback(() => {
++    if (!writable) return;
++    const nodes = new Set(interaction.selectedNodeIds);
++    const edges = new Set(interaction.selectedEdgeIds);
++    if (!nodes.size && !edges.size) return;
++    publish({
++      nodes: graph.nodes.filter((node) => !nodes.has(node.id)),
++      edges: graph.edges.filter((edge) => !edges.has(edge.id) && !nodes.has(edge.source) && !nodes.has(edge.target)),
++    }, "delete");
++    store.setState({ selectedNodeIds: [], selectedEdgeIds: [] });
++  }, [graph, interaction.selectedEdgeIds, interaction.selectedNodeIds, publish, store, writable]);
++
++  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
++    if (isFormTarget(event.target)) return;
++    const command = event.metaKey || event.ctrlKey;
++    if (command && event.key.toLowerCase() === "k") { event.preventDefault(); openCenteredMenu(); return; }
++    if (command && event.key.toLowerCase() === "c") { event.preventDefault(); copy(); return; }
++    if (command && event.key.toLowerCase() === "v") { event.preventDefault(); paste(); return; }
++    if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
++    if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
++    if (event.key === "Escape") store.setState({ menu: closedMenu });
++  }, [copy, openCenteredMenu, paste, redo, removeSelection, store, undo]);
++
++  const availableItems = useMemo(() => {
++    const base = filterPaletteItems ? filterPaletteItems(paletteItems, interaction.menu.pendingConnection) : paletteItems;
++    const query = interaction.menu.query.trim().toLowerCase();
++    return query ? base.filter((item) => `${item.label} ${item.description ?? ""} ${item.mediaType ?? ""}`.toLowerCase().includes(query)) : base;
++  }, [filterPaletteItems, interaction.menu.pendingConnection, interaction.menu.query, paletteItems]);
++
++  const visibleNodes = useMemo(() => {
++    const selected = new Set(interaction.selectedNodeIds);
++    return graph.nodes.map((node) => ({
++      ...node,
++      ...interaction.nodeLayout[node.id],
++      selected: selected.has(node.id),
++    }));
++  }, [graph.nodes, interaction.nodeLayout, interaction.selectedNodeIds]);
++  const visibleEdges = useMemo(() => {
++    const selected = new Set(interaction.selectedEdgeIds);
++    return graph.edges.map((edge) => ({ ...edge, selected: selected.has(edge.id) }));
++  }, [graph.edges, interaction.selectedEdgeIds]);
++  const onSelectionChange = useCallback((selection: {
++    nodes: NodeBananaRuntimeNode[];
++    edges: NodeBananaRuntimeEdge[];
++  }) => {
++    const selectedNodeIds = selection.nodes.map((node) => node.id);
++    const selectedEdgeIds = selection.edges.map((edge) => edge.id);
++    const current = store.getState();
++    if (
++      selectedNodeIds.length === current.selectedNodeIds.length &&
++      selectedEdgeIds.length === current.selectedEdgeIds.length &&
++      selectedNodeIds.every((id, index) => id === current.selectedNodeIds[index]) &&
++      selectedEdgeIds.every((id, index) => id === current.selectedEdgeIds[index])
++    ) return;
++    store.setState({ selectedNodeIds, selectedEdgeIds });
++  }, [store]);
++  const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
++    const current = store.getState().viewport;
++    if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
++    store.setState({ viewport });
++  }, [store]);
++
++  return (
++    <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown}>
++      <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
++        nodes={visibleNodes}
++        edges={visibleEdges}
++        nodeTypes={nodeTypes}
++        edgeTypes={edgeTypes}
++        onInit={(instance) => { instanceRef.current = instance; }}
++        onNodesChange={onNodesChange}
++        onEdgesChange={onEdgesChange}
++        onConnect={onConnect}
++        onConnectEnd={onConnectEnd}
++        isValidConnection={isValidConnection}
++        onNodeDragStart={() => { dragStartRef.current = cloneGraph(graph); }}
++        onNodeDragStop={() => { if (dragStartRef.current) recordUndo(dragStartRef.current); dragStartRef.current = null; }}
++        onSelectionChange={onSelectionChange}
++        onMoveEnd={onMoveEnd}
++        nodesDraggable={writable && interaction.mode === "select"}
++        nodesConnectable={writable}
++        elementsSelectable={interaction.mode === "select"}
++        selectionOnDrag={interaction.mode === "select"}
++        panOnDrag={interaction.mode === "pan"}
++        deleteKeyCode={null}
++        fitView fitViewOptions={{ minZoom: 0.6, maxZoom: 1, padding: 0.2 }}
++        minZoom={0.2}
++        maxZoom={2}
++      >
++        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--node-banana-grid, rgba(255,255,255,0.1))" />
++        <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} />
++        <Controls position="bottom-right" showInteractive={false} />
++        <Panel position="top-left">
++          <RuntimeToolbar
++            labels={labels}
++            mode={interaction.mode}
++            writable={writable}
++            canUndo={interaction.undo.length > 0}
++            canRedo={interaction.redo.length > 0}
++            canCopy={interaction.selectedNodeIds.length > 0}
++            canPaste={Boolean(interaction.clipboard)}
++            onModeChange={(mode) => store.setState({ mode })}
++            onAdd={openCenteredMenu}
++            onUndo={undo}
++            onRedo={redo}
++            onCopy={copy}
++            onPaste={paste}
++            onFit={() => { void instanceRef.current?.fitView({ minZoom: 0.6, maxZoom: 1, padding: 0.2, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220 }); }}
++          />
++        </Panel>
++      </ReactFlow>
++      {graph.nodes.length === 0 ? (renderEmptyState?.() ?? <div className="node-banana-runtime__empty"><strong>{labels.emptyTitle}</strong><span>{labels.emptyDescription}</span></div>) : null}
++      {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
++      <RuntimeNodeMenu
++        labels={labels}
++        menu={interaction.menu}
++        items={availableItems}
++        onQuery={(query) => store.setState({ menu: { ...interaction.menu, query } })}
++        onChoose={chooseNode}
++        onClose={() => {
++          store.setState({ menu: closedMenu });
++          rootRef.current?.focus();
++        }}
++      />
++    </div>
++  );
++}
++
++type ErrorBoundaryProps = {
++  children: ReactNode;
++  fallback: ReactNode;
++  onError?: (error: Error, info: ErrorInfo) => void;
++};
++
++type ErrorBoundaryState = { failed: boolean };
++
++export class NodeBananaCanvasErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
++  state: ErrorBoundaryState = { failed: false };
++
++  static getDerivedStateFromError(): ErrorBoundaryState {
++    return { failed: true };
++  }
++
++  componentDidCatch(error: Error, info: ErrorInfo) {
++    this.props.onError?.(error, info);
++  }
++
++  render() {
++    return this.state.failed ? this.props.fallback : this.props.children;
++  }
++}

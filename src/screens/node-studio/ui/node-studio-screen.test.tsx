@@ -1,13 +1,12 @@
-import { useEffect } from "react";
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GraphAutosaveStatus } from "@/features/node-studio/hook/use-graph-autosave";
 import type { GenerationGraphSnapshotDto } from "@/features/node-studio/model/graph-types";
 import { renderWithIntl } from "@/test-utils/intl";
 
 import { NodeStudioScreen } from "./node-studio-screen";
+import { rememberSpaceListEntry } from "@/features/node-studio/model/space-navigation";
 
 const mocks = vi.hoisted(() => ({
   useList: vi.fn(),
@@ -15,7 +14,14 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   remove: vi.fn(),
   sync: vi.fn(),
+  push: vi.fn(),
+  replace: vi.fn(),
+  back: vi.fn(),
+  update: vi.fn(),
+  workspace: vi.fn(),
 }));
+vi.mock("@/features/node-studio/api/generation-graph-api", () => ({ updateGenerationGraph: mocks.update }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace, back: mocks.back }), useSearchParams: () => new URLSearchParams() }));
 
 vi.mock("@/features/node-studio/hook/use-generation-graphs", () => ({
   useGenerationGraphList: mocks.useList,
@@ -28,20 +34,28 @@ vi.mock("@/features/node-studio/hook/use-generation-graphs", () => ({
 vi.mock("@/features/node-studio/ui/node-studio-workspace", () => ({
   NodeStudioWorkspace: ({
     graph,
-    onStatusChange,
     onDelete,
     onReloadLatest,
+    onSelectGraph,
+    onCreateGraph,
+    onBack,
+    onCreatePreset,
   }: {
     graph: GenerationGraphSnapshotDto;
-    onStatusChange: (status: GraphAutosaveStatus) => void;
     onDelete: () => void;
     onReloadLatest: () => void;
+    onSelectGraph: (graphId: string) => void;
+    onCreateGraph: (title: string) => void;
+    onBack: () => void;
+    onCreatePreset: (preset: unknown) => Promise<void>;
   }) => {
-    useEffect(() => onStatusChange("saved"), [onStatusChange]);
+    mocks.workspace({ onCreatePreset });
     return (
       <div data-testid="workspace">
         <span>{graph.title}</span>
-        <button type="button" onClick={() => onStatusChange("conflict")}>conflict</button>
+        <button type="button" onClick={onBack}>back to list</button>
+        <button type="button" onClick={() => onSelectGraph("graph-b")}>open Graph B</button>
+        <button type="button" onClick={() => onCreateGraph("New Workflow")}>new workflow</button>
         <button type="button" onClick={onDelete}>delete</button>
         <button type="button" onClick={onReloadLatest}>reload</button>
       </div>
@@ -53,6 +67,8 @@ const graphA: GenerationGraphSnapshotDto = {
   id: "graph-a",
   title: "Graph A",
   version: 1,
+  schemaVersion: 3, groups: [],
+  minimumWriterVersion: 3,
   nodes: [],
   edges: [],
   createdAt: "2026-08-24T00:00:00.000Z",
@@ -71,6 +87,7 @@ const list = [graphA, graphB].map((graph) => ({
 describe("NodeStudioScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState(null, "");
     mocks.useList.mockReturnValue({
       data: list,
       isLoading: false,
@@ -87,35 +104,77 @@ describe("NodeStudioScreen", () => {
     mocks.remove.mockResolvedValue(undefined);
   });
 
-  it("공용 creative studio intro와 Graph control surface를 구성한다", () => {
-    renderWithIntl(<NodeStudioScreen />);
-
-    const intro = screen.getByTestId("generation-studio-intro");
-    const graphControls = screen.getByTestId("node-studio-graph-controls");
-
-    expect(intro).toContainElement(screen.getByRole("heading", { name: "Node Studio" }));
-    expect(intro).toHaveTextContent("비주얼 워크플로 편집기");
-    expect(graphControls).toContainElement(screen.getByRole("combobox", { name: "Graph 선택" }));
-    expect(graphControls).toContainElement(screen.getByRole("textbox", { name: "새 Graph 이름" }));
+  it("uses a safe list fallback for a direct editor URL", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await user.click(screen.getByRole("button", { name: "back to list" }));
+    expect(mocks.replace).toHaveBeenCalledWith("/spaces");
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
+  it("removes the newly created Space when saving a Quickstart preset fails", async () => {
+    mocks.update.mockRejectedValueOnce(new Error("save failed"));
+    renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    const preset = { name: "Failed preset", nodes: [{ id: "p", type: "prompt", position: { x: 0, y: 0 }, data: { prompt: "example" } }], edges: [] };
+    await act(async () => { await expect(mocks.workspace.mock.lastCall?.[0].onCreatePreset(preset)).rejects.toThrow("save failed"); });
+    expect(mocks.remove).toHaveBeenCalledWith(graphB.id);
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(mocks.sync).not.toHaveBeenCalled();
+  });
+  it("shows a recoverable missing-space error without an endless loading indicator", () => {
+    mocks.useDetail.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
+    renderWithIntl(<NodeStudioScreen spaceId="missing-space" />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Spaces" })).toHaveAttribute("href", "/spaces");
+  });
+  it("does not expose an unguarded recovery link when background queries fail over a cached editor", () => {
+    mocks.useList.mockReturnValue({ data: list, isLoading: false, isError: true, refetch: vi.fn() });
+    mocks.useDetail.mockReturnValue({ data: graphA, isLoading: false, isError: true, refetch: vi.fn() });
+    renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    expect(screen.getByTestId("workspace")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Back to Spaces" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("목록의 첫 Graph를 복원하고 다른 Graph를 선택한다", async () => {
+  it("returns to the actual list history entry after list navigation", async () => {
+    const user = userEvent.setup();
+    rememberSpaceListEntry("graph-a");
+    window.history.pushState(null, "");
+    renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await user.click(screen.getByRole("button", { name: "back to list" }));
+    expect(mocks.back).toHaveBeenCalledOnce();
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("기존 creative studio intro 없이 full-bleed Node Banana Home을 구성한다", () => {
+    renderWithIntl(<NodeStudioScreen />);
+
+    expect(screen.getByTestId("node-banana-home")).toHaveAttribute(
+      "aria-label",
+      "Space editor",
+    );
+    expect(screen.queryByTestId("generation-studio-intro")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("node-studio-graph-controls")).not.toBeInTheDocument();
+    expect(screen.queryByText("비주얼 워크플로 편집기")).not.toBeInTheDocument();
+  });
+
+  it("명시한 Space를 복원하고 다른 상세 route로 이동한다", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen />);
 
     expect(screen.getByTestId("workspace")).toHaveTextContent("Graph A");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Graph 선택" }), graphB.id);
-    expect(screen.getByTestId("workspace")).toHaveTextContent("Graph B");
+    await user.click(screen.getByRole("button", { name: "open Graph B" }));
+    expect(mocks.push).toHaveBeenCalledWith("/spaces/graph-b");
   });
 
   it("Graph를 생성하고 입력 title을 mutation에 전달한다", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen />);
 
-    await user.type(screen.getByRole("textbox", { name: "새 Graph 이름" }), "  새 작업  ");
-    await user.click(screen.getByRole("button", { name: "Graph 생성" }));
+    await user.click(screen.getByRole("button", { name: "new workflow" }));
 
-    expect(mocks.create).toHaveBeenCalledWith("새 작업");
+    expect(mocks.create).toHaveBeenCalledWith("New Workflow");
   });
 
   it("Graph 생성 실패를 빈 Canvas가 아닌 오류로 표시한다", async () => {
@@ -123,30 +182,19 @@ describe("NodeStudioScreen", () => {
     mocks.create.mockRejectedValue(new Error("network"));
     renderWithIntl(<NodeStudioScreen />);
 
-    await user.type(screen.getByRole("textbox", { name: "새 Graph 이름" }), "새 작업");
-    await user.click(screen.getByRole("button", { name: "Graph 생성" }));
+    await user.click(screen.getByRole("button", { name: "new workflow" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Graph를 만들지 못했습니다");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not create the graph");
   });
 
-  it("Graph가 없으면 생성 안내를 표시한다", () => {
+  it("Graph가 없어도 자동 생성하지 않는다", async () => {
     mocks.useList.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     mocks.useDetail.mockReturnValue({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() });
 
     renderWithIntl(<NodeStudioScreen />);
 
-    expect(screen.getByRole("heading", { name: "첫 Graph를 만들어 보세요" })).toBeInTheDocument();
+    expect(await screen.findByText("Loading space...")).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it("충돌 상태의 Graph 전환은 확인 없이 로컬 작업을 버리지 않는다", async () => {
-    const user = userEvent.setup();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    renderWithIntl(<NodeStudioScreen />);
-
-    await user.click(screen.getByRole("button", { name: "conflict" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "Graph 선택" }), graphB.id);
-
-    expect(confirm).toHaveBeenCalled();
-    expect(screen.getByTestId("workspace")).toHaveTextContent("Graph A");
-  });
 });

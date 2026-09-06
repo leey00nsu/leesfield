@@ -5,9 +5,9 @@ import type {
 } from "@/features/video-generation/model/video-generation-types";
 import { uploadInputImages } from "@/server/shared/input-image-uploader";
 import {
-  createVideoGenerationRecord,
   getVideoGenerationByRequestId,
 } from "@/server/video-generation/video-generation-repository";
+import { submitVideoGeneration } from "@/server/video-generation/video-generation-submission";
 
 export type VideoGenerationRecord = {
   id: string;
@@ -55,18 +55,14 @@ export async function createMockVideoGenerationWithLimit(
         initImage: (await uploadInputImages(requestId, [initImage]))[0] ?? "",
       }
     : payload;
-  const record = await createVideoGenerationRecord(
-    requestId,
-    resolvedPayload,
+  const { record } = await submitVideoGeneration({
+    payload: resolvedPayload,
     ownerEmail,
     apiKeyId,
-  );
+    requestId,
+  });
   return {
-    record: {
-      id: record.requestId,
-      status: record.status,
-      progress: record.progress,
-    } satisfies VideoGenerationRecord,
+    record: record satisfies VideoGenerationRecord,
     latest: null,
   };
 }

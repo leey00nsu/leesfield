@@ -1,0 +1,36 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -873,25 +873,6 @@ export function NodeBananaCanvasRuntime({
+     () => graph.edges.find((edge) => interaction.selectedEdgeIds.includes(edge.id)) ?? null,
+     [graph.edges, interaction.selectedEdgeIds],
+   );
+-  const onSelectionChange = useCallback((selection: {
+-    nodes: NodeBananaRuntimeNode[];
+-    edges: NodeBananaRuntimeEdge[];
+-  }) => {
+-    const selectedNodeIds = selection.nodes.map((node) => node.id);
+-    const selectedEdgeIds = selection.edges.map((edge) => edge.id);
+-    const current = store.getState();
+-    if (
+-      selectedNodeIds.length === current.selectedNodeIds.length &&
+-      selectedEdgeIds.length === current.selectedEdgeIds.length &&
+-      selectedNodeIds.every((id, index) => id === current.selectedNodeIds[index]) &&
+-      selectedEdgeIds.every((id, index) => id === current.selectedEdgeIds[index])
+-    ) return;
+-    store.setState({
+-      selectedNodeIds,
+-      selectedEdgeIds,
+-      edgeToolbarPosition: selectedEdgeIds.length === 1 ? current.edgeToolbarPosition : null,
+-    });
+-  }, [store]);
+   const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+     const current = store.getState().viewport;
+     if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
+@@ -939,7 +920,6 @@ export function NodeBananaCanvasRuntime({
+             edgeToolbarPosition: { x: event.clientX, y: event.clientY - 40 },
+           });
+         }}
+-        onSelectionChange={onSelectionChange}
+         onMoveEnd={onMoveEnd}
+         nodesDraggable={writable}
+         nodesConnectable={writable}

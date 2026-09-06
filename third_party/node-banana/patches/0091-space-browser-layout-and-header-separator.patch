@@ -1,0 +1,39 @@
+--- a/src/components/Header.tsx
++++ b/src/components/Header.tsx
+@@ -86,7 +86,6 @@
+             {isProjectConfigured ? (
+               <>
+                 <span className="text-sm text-neutral-300">{workflowName}</span>
+-                <span className="text-neutral-600">|</span>
+ 
+                 {/* File operations group */}
+                 <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
+--- a/src/leesfield/hosted-space-browser.tsx
++++ b/src/leesfield/hosted-space-browser.tsx
+@@ -35,18 +35,20 @@
+     return () => { window.removeEventListener("keydown", key, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
+   }, []);
+   return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+-    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={creatingDraft ? "New space" : "Spaces"} className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto p-8 border border-neutral-700">
++    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={creatingDraft ? "New space" : "Spaces"} className="node-banana-space-browser">
+       <h2 className="text-xl font-medium text-neutral-100 mb-5">{creatingDraft ? "New space" : "Spaces"}</h2>
+-      {creatingDraft ? <form onSubmit={(event) => { event.preventDefault(); if (!creating && title.trim()) { onCreateGraph?.(title.trim()); onClose(); } }}>
++      {creatingDraft ? <form className="node-banana-space-browser__form" onSubmit={(event) => { event.preventDefault(); if (!creating && title.trim()) { onCreateGraph?.(title.trim()); onClose(); } }}>
+         <label>Space name<input autoFocus aria-label="Space name" maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+-        <button type="button" onClick={() => setCreatingDraft(false)}>Cancel</button>
+-        <button type="submit" disabled={creating || !title.trim()}>Create</button>
++        <footer><button type="button" onClick={() => setCreatingDraft(false)}>Cancel</button>
++        <button type="submit" disabled={creating || !title.trim()}>Create</button></footer>
+       </form> : <>
++      <div className="node-banana-space-browser__list">
+       {graphs.length === 0 && <p>No spaces available.</p>}
+       {graphs.map((graph) => <button className="block w-full p-3 text-left rounded hover:bg-neutral-700" key={graph.id} type="button" aria-current={graph.id === activeGraphId ? "page" : undefined} onClick={() => { onSelectGraph(graph.id); onClose(); }}>{graph.title}</button>)}
++      </div><footer>
+       {onCreateGraph && <button type="button" disabled={creating} onClick={() => setCreatingDraft(true)}>New space</button>}
+-      {onDelete && <button type="button" disabled={deleting} onClick={() => { onClose(); onDelete(); }}>Delete space</button>}
+-      <button type="button" onClick={onClose}>Close</button>
++      {onDelete && <button data-variant="danger" type="button" disabled={deleting} onClick={() => { onClose(); onDelete(); }}>Delete space</button>}
++      <button type="button" onClick={onClose}>Close</button></footer>
+       </>}
+     </section>
+   </div>;

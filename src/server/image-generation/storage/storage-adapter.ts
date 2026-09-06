@@ -1,5 +1,6 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 export type ImageStorageProvider = "leemage";
 
@@ -8,6 +9,7 @@ export interface ImageStorageResult {
   result?: ImageGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }
 
 export interface ImageStorageAvailability {

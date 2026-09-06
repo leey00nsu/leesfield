@@ -1,0 +1,39 @@
+--- a/src/components/ProjectSetupModal.tsx
++++ b/src/components/ProjectSetupModal.tsx
+@@ -53,6 +53,7 @@
+   nodeDefaults?: HostedNodeDefaults;
+   models?: readonly { id: string; name: string; mediaKind: HostedDefaultKind; provider?: string }[];
+   onSaveNodeDefaults?: (defaults: HostedNodeDefaults) => Promise<void>;
++  onSaveSettings?: (changes: { defaults?: HostedNodeDefaults; inlineParametersEnabled?: boolean }) => Promise<void>;
+   nodeDefaultsLoading?: boolean;
+   nodeDefaultsError?: string | null;
+   onRetryNodeDefaults?: () => void;
+@@ -69,7 +70,7 @@
+  title, writable, canvasSettings, onCanvasSettingsChange, onTitleChange, onClose,
+  nodeDefaults = {}, models = [], onSaveNodeDefaults, nodeDefaultsLoading = false,
+  nodeDefaultsError, onRetryNodeDefaults, inlineParametersEnabled = true,
+- onInlineParametersChange, renderModelPicker,
++ onInlineParametersChange, renderModelPicker, onSaveSettings,
+ }: HostedProjectSettingsProps & {
+  title: string; writable: boolean; canvasSettings: NodeBananaCanvasSettings;
+  onCanvasSettingsChange: (settings: NodeBananaCanvasSettings) => void;
+@@ -116,13 +117,16 @@
+    setBusy(true); setError(null);
+    try {
+      if (defaultsEdited.current) {
+-       if (!onSaveNodeDefaults) throw new Error("Node defaults are unavailable.");
++       if (!onSaveNodeDefaults && !onSaveSettings) throw new Error("Node defaults are unavailable.");
+        for (const kind of ["image", "video", "audio"] as const) {
+          if (localNodeDefaults[kind] && !models.some((model) => model.id === localNodeDefaults[kind] && model.mediaKind === kind)) throw new Error("Select an available model before saving.");
+        }
+-       await onSaveNodeDefaults(localNodeDefaults);
++       if (!onSaveSettings) await onSaveNodeDefaults!(localNodeDefaults);
+      }
+-     if (inlineEdited.current && localInline !== inlineParametersEnabled) await onInlineParametersChange?.(localInline);
++     const inlineChanged = inlineEdited.current && localInline !== inlineParametersEnabled;
++     if (onSaveSettings && (defaultsEdited.current || inlineChanged)) {
++       await onSaveSettings({ ...(defaultsEdited.current ? { defaults: localNodeDefaults } : {}), ...(inlineChanged ? { inlineParametersEnabled: localInline } : {}) });
++     } else if (inlineChanged) await onInlineParametersChange?.(localInline);
+      onCanvasSettingsChange(localCanvasSettings);
+      if (writable) onTitleChange(name.trim());
+      onClose();

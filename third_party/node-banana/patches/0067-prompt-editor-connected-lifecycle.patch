@@ -1,0 +1,220 @@
+--- a/src/components/modals/PromptEditorModal.tsx
++++ b/src/components/modals/PromptEditorModal.tsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useEffect, useCallback } from 'react';
++import React, { useState, useEffect, useCallback, useRef } from 'react';
+ 
+ const DEFAULT_FONT_SIZE = 14;
+ const FONT_SIZE_OPTIONS = [10, 12, 14, 16, 18, 20, 24];
+@@ -6,6 +6,7 @@
+ interface PromptEditorModalProps {
+   isOpen: boolean;
+   initialPrompt: string;
++  readOnly?: boolean;
+   onSubmit: (prompt: string) => void;
+   onClose: () => void;
+ }
+@@ -13,20 +14,25 @@
+ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
+   isOpen,
+   initialPrompt,
++  readOnly = false,
+   onSubmit,
+   onClose,
+ }) => {
+   const [prompt, setPrompt] = useState(initialPrompt);
+   const [showConfirmation, setShowConfirmation] = useState(false);
+   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
++  const dialogRef = useRef<HTMLDivElement>(null);
++  const confirmationRef = useRef<HTMLDivElement>(null);
++  const textareaRef = useRef<HTMLTextAreaElement>(null);
+ 
+   // Update local state when initial prompt changes
+   useEffect(() => {
+     setPrompt(initialPrompt);
+-  }, [initialPrompt]);
++    setShowConfirmation(false);
++  }, [isOpen, initialPrompt, readOnly]);
+ 
+   // Track unsaved changes
+-  const hasUnsavedChanges = prompt !== initialPrompt;
++  const hasUnsavedChanges = !readOnly && prompt !== initialPrompt;
+ 
+   // Handle close attempt - show confirmation if there are unsaved changes
+   const handleAttemptClose = useCallback(() => {
+@@ -37,27 +43,57 @@
+     }
+   }, [hasUnsavedChanges, onClose]);
+ 
+-  // Handle Escape key to close
++  const closeAttemptRef = useRef(handleAttemptClose);
++  useEffect(() => { closeAttemptRef.current = handleAttemptClose; }, [handleAttemptClose]);
++
++  // One focus boundary survives callback changes; the confirmation becomes
++  // the active boundary while open. Escape dismisses only that top layer.
+   useEffect(() => {
++    if (!isOpen) return;
++    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++    const activeDialog = () => confirmationRef.current ?? dialogRef.current;
++    const controls = () => Array.from(activeDialog()?.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? []);
++    (textareaRef.current?.disabled ? controls()[0] : textareaRef.current)?.focus();
+     const handleKeyDown = (e: KeyboardEvent) => {
+       if (e.key === 'Escape') {
+-        handleAttemptClose();
++        e.preventDefault();
++        e.stopImmediatePropagation();
++        if (confirmationRef.current) setShowConfirmation(false);
++        else closeAttemptRef.current();
+       }
++      if (e.key === 'Tab') {
++        const items = controls(), first = items[0], last = items.at(-1);
++        if (e.shiftKey && (document.activeElement === first || !activeDialog()?.contains(document.activeElement))) {
++          e.preventDefault(); last?.focus();
++        } else if (!e.shiftKey && (document.activeElement === last || !activeDialog()?.contains(document.activeElement))) {
++          e.preventDefault(); first?.focus();
++        }
++      }
+     };
+-
+-    if (isOpen) {
+-      window.addEventListener('keydown', handleKeyDown);
+-    }
+-
++    const focus = (event: FocusEvent) => {
++      if (event.target instanceof Node && !activeDialog()?.contains(event.target)) controls()[0]?.focus();
++    };
++    window.addEventListener('keydown', handleKeyDown, true);
++    document.addEventListener('focusin', focus);
+     return () => {
+-      window.removeEventListener('keydown', handleKeyDown);
++      window.removeEventListener('keydown', handleKeyDown, true);
++      document.removeEventListener('focusin', focus);
++      if (previous?.isConnected) previous.focus();
+     };
+-  }, [isOpen, handleAttemptClose]);
++  }, [isOpen]);
+ 
++  useEffect(() => {
++    if (!isOpen || !showConfirmation) return;
++    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++    confirmationRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
++    return () => { if (previous?.isConnected && dialogRef.current?.contains(previous)) previous.focus(); };
++  }, [isOpen, showConfirmation]);
++
+   const handleSubmit = useCallback(() => {
++    if (readOnly) return;
+     onSubmit(prompt);
+     onClose();
+-  }, [prompt, onSubmit, onClose]);
++  }, [prompt, onSubmit, onClose, readOnly]);
+ 
+   const handleFontSizeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+     setFontSize(parseInt(e.target.value, 10));
+@@ -97,7 +133,7 @@
+       aria-modal="true"
+       aria-label="Edit Prompt"
+     >
+-      <div className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
++      <div ref={dialogRef} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
+         {/* Header */}
+         <div className="px-6 pt-6 pb-4">
+           <h2 className="text-xl font-semibold text-neutral-100">
+@@ -111,6 +147,7 @@
+           <div className="h-12 bg-neutral-900 border-b border-neutral-700 flex items-center px-4 gap-3 shrink-0">
+             {/* Font Size Control */}
+             <select
++              aria-label="Prompt font size"
+               value={fontSize}
+               onChange={handleFontSizeChange}
+               className="text-sm py-1 px-2 border border-neutral-700 rounded bg-neutral-900/50 focus:outline-none focus:ring-1 focus:ring-neutral-600 text-neutral-300"
+@@ -125,12 +162,14 @@
+ 
+           {/* Textarea */}
+           <textarea
++            ref={textareaRef}
++            aria-label="Prompt text"
++            disabled={readOnly}
+             value={prompt}
+-            onChange={(e) => setPrompt(e.target.value)}
++            onChange={(e) => { if (!readOnly) setPrompt(e.target.value); }}
+             placeholder="Describe what to generate..."
+-            className="nodrag nopan nowheel flex-1 w-full p-6 leading-relaxed text-neutral-100 bg-transparent border-0 resize-none focus:outline-none placeholder:text-neutral-500"
++            className="nodrag nopan nowheel flex-1 w-full p-6 leading-relaxed text-neutral-100 bg-transparent border-0 resize-none focus:outline-none placeholder:text-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed"
+             style={{ fontSize: `${fontSize}px` }}
+-            autoFocus
+           />
+         </div>
+ 
+@@ -144,7 +183,8 @@
+           </button>
+           <button
+             onClick={handleSubmit}
+-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400"
++            disabled={readOnly}
++            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+           >
+             Submit
+           </button>
+@@ -156,7 +196,7 @@
+             className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg"
+             onClick={handleConfirmationBackdropClick}
+           >
+-            <div className="relative bg-neutral-800 border border-neutral-600 rounded-lg p-6 mx-4 max-w-sm shadow-xl">
++            <div ref={confirmationRef} role="dialog" aria-modal="true" aria-label="Unsaved prompt changes" className="relative bg-neutral-800 border border-neutral-600 rounded-lg p-6 mx-4 max-w-sm shadow-xl">
+               {/* Close button */}
+               <button
+                 onClick={handleDismissConfirmation}
+@@ -190,6 +230,7 @@
+                 </button>
+                 <button
+                   onClick={handleSubmit}
++                  disabled={readOnly}
+                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400"
+                 >
+                   Submit
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -17,6 +17,7 @@
+   type NodeBananaUpstreamHostValue,
+   browseRegistry,
+   expandRegistry,
++  useWorkflowStore,
+ } from "./upstream-node-host";
+ import { AnnotationNode } from "../components/nodes/AnnotationNode";
+ import { AnnotationModal } from "../components/AnnotationModal";
+@@ -545,6 +546,7 @@
+   onCancelNode,
+ }: NodeBananaUpstreamHeaderProps): ReactNode {
+   const [promptOpen, setPromptOpen] = useState(false);
++  const parentHost = useWorkflowStore();
+   const kind = String(runtimeData.canonicalKind ?? "");
+   const type = upstreamHeaderTypeForKind[kind];
+   if (!type) return null;
+@@ -554,7 +556,14 @@
+   });
+   const nodeId = String(runtimeData.id ?? "");
+   const hostReadiness = host?.getNodeRunReadiness?.(nodeId);
+-  const writable = host?.writable !== false;
++  const writable = (host?.writable ?? parentHost.writable) !== false;
++  const promptConnected = kind === "input.prompt" && (host?.edges ?? parentHost.edges).some(
++    (edge) => edge.target === nodeId && edge.targetHandle === "text" && !edge.data?.hasPause,
++  );
++  const promptReadOnly = !writable || promptConnected;
++  const expandedPrompt = promptConnected
++    ? (host?.getConnectedInputs ?? parentHost.getConnectedInputs)(nodeId).text ?? ""
++    : typeof upstreamData.prompt === "string" ? upstreamData.prompt : "";
+   const resolvedRunReady = writable && (runReady ?? hostReadiness?.ready ?? runtimeData.runReady !== false);
+   const resolvedRunDisabledReason = resolvedRunReady
+     ? null
+@@ -665,8 +674,9 @@
+       />
+       <PromptEditorModal
+         isOpen={promptOpen}
+-        initialPrompt={typeof upstreamData.prompt === "string" ? upstreamData.prompt : ""}
+-        onSubmit={(prompt) => update(nodeId, { prompt })}
++        initialPrompt={expandedPrompt}
++        readOnly={promptReadOnly}
++        onSubmit={(prompt) => { if (!promptReadOnly) update(nodeId, { prompt }); }}
+         onClose={() => setPromptOpen(false)}
+       />
+     </NodeBananaUpstreamHostProvider>

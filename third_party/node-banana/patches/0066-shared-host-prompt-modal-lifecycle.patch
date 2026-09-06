@@ -1,0 +1,113 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -411,2 +411,3 @@
+-  const workflow = useMemo(() => makeWorkflowState({
+-    ...value,
++  const workflow = useMemo(() => makeWorkflowState({
++    ...parent,
++    ...value,
+@@ -415,1 +416,1 @@
+-  }), [value, hoveredNodeId, setHoveredNodeId]);
++  }), [parent, value, hoveredNodeId, setHoveredNodeId]);
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -71,1 +71,1 @@
+-import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
++import { NodeBananaUpstreamHostProvider, type NodeBananaUpstreamHostValue } from "./upstream-node-host";
+@@ -150,1 +150,2 @@
+-export type NodeBananaCanvasProps = {
++export type NodeBananaCanvasProps = {
++  host?: NodeBananaUpstreamHostValue;
+@@ -439,1 +440,2 @@
+-export function NodeBananaCanvasRuntime({
++export function NodeBananaCanvasRuntime({
++  host,
+@@ -490,1 +492,4 @@
+-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
++  const [shortcutsOpen, setShortcutsOpen] = useState(false);
++  const modalCount = useRef(0);
++  const incrementModalCount = useCallback(() => { modalCount.current += 1; }, []);
++  const decrementModalCount = useCallback(() => { modalCount.current = Math.max(0, modalCount.current - 1); }, []);
+@@ -906,1 +911,1 @@
+-  const canvasBlocked = () => Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'));
++  const canvasBlocked = () => modalCount.current > 0 || Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'));
+@@ -1122,2 +1127,4 @@
+-  const upstreamHostValue = useMemo(() => ({
+-    writable,
++  const upstreamHostValue = useMemo(() => ({
++    ...host,
++    incrementModalCount, decrementModalCount,
++    writable,
+@@ -1131,1 +1138,1 @@
+-  }), [applyToolbarNodeChanges, interaction.edgeStyle, setSelectedEdgeLoopCount, store, toggleSelectedEdgePause, visibleEdges, visibleNodes, writable]);
++  }), [host, incrementModalCount, decrementModalCount, applyToolbarNodeChanges, interaction.edgeStyle, setSelectedEdgeLoopCount, store, toggleSelectedEdgePause, visibleEdges, visibleNodes, writable]);
+--- a/src/components/nodes/PromptNode.tsx
++++ b/src/components/nodes/PromptNode.tsx
+@@ -30,1 +30,21 @@
+-  const [varNameInput, setVarNameInput] = useState(nodeData.variableName || "");
++  const [varNameInput, setVarNameInput] = useState(nodeData.variableName || "");
++  const variableDialogRef = useRef<HTMLDivElement>(null);
++  useEffect(() => {
++    if (!showVarDialog) return;
++    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++    const dialog = variableDialogRef.current;
++    const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])') ?? []);
++    controls()[0]?.focus();
++    const keydown = (event: KeyboardEvent) => {
++      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setShowVarDialog(false); }
++      if (event.key === "Tab") {
++        const items = controls(), first = items[0], last = items.at(-1);
++        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
++        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
++      }
++    };
++    const focus = (event: FocusEvent) => { if (event.target instanceof globalThis.Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
++    window.addEventListener("keydown", keydown, true);
++    document.addEventListener("focusin", focus);
++    return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
++  }, [showVarDialog]);
+@@ -34,1 +54,1 @@
+-    return edges.some((edge) => edge.target === id && edge.targetHandle === "text");
++    return edges.some((edge) => edge.target === id && edge.targetHandle === "text" && !edge.data?.hasPause);
+@@ -37,18 +57,3 @@
+-  // Track the last received text from connected LLM node to detect when it changes
+-  const lastReceivedTextRef = useRef<string | null>(null);
+-
+-  // Get connected text input and update prompt when LLM output changes
+-  useEffect(() => {
+-    if (hasIncomingTextConnection) {
+-      const { text } = getConnectedInputs(id);
+-      // Only update if the incoming text changed (LLM node ran again)
+-      if (text !== null && text !== lastReceivedTextRef.current) {
+-        lastReceivedTextRef.current = text;
+-        updateNodeData(id, { prompt: text });
+-      }
+-    } else {
+-      // Clear tracking when connection is removed
+-      lastReceivedTextRef.current = null;
+-    }
+-  }, [hasIncomingTextConnection, id, getConnectedInputs, updateNodeData]);
+-
++  // A connected prompt is a projection, not an edit of the authored prompt.
++  const connectedText = hasIncomingTextConnection ? getConnectedInputs(id).text : null;
++
+@@ -75,1 +80,1 @@
+-    if (writable && localPrompt !== nodeData.prompt) {
++    if (writable && !hasIncomingTextConnection && localPrompt !== nodeData.prompt) {
+@@ -78,1 +83,1 @@
+-  }, [id, localPrompt, nodeData.prompt, updateNodeData, writable]);
++  }, [id, localPrompt, nodeData.prompt, updateNodeData, writable, hasIncomingTextConnection]);
+@@ -117,1 +122,1 @@
+-          value={localPrompt}
++          value={hasIncomingTextConnection ? connectedText ?? "" : localPrompt}
+@@ -122,1 +127,1 @@
+-          placeholder={hasIncomingTextConnection ? "Text from connected node (editable)..." : nodeData.isOptional ? "Optional prompt (leave empty to skip)..." : "Describe what to generate..."}
++          placeholder={hasIncomingTextConnection ? "Text from connected Prompt node..." : nodeData.isOptional ? "Optional prompt (leave empty to skip)..." : "Describe what to generate..."}
+@@ -123,1 +128,1 @@
+-          className="nodrag nopan nowheel w-full h-full p-3 pb-7 text-xs leading-relaxed text-neutral-100 bg-neutral-800 rounded-t-lg resize-none focus:outline-none placeholder:text-neutral-500"
++          className="nodrag nopan nowheel w-full h-full p-3 pb-7 text-xs leading-relaxed text-neutral-100 bg-neutral-800 rounded-t-lg resize-none focus:outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:bg-neutral-900"
+@@ -150,2 +155,2 @@
+-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
+-          <div className="bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-4 w-96">
++        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" role="dialog" aria-modal="true" aria-label="Set Variable Name" onClick={(event) => { if (event.target === event.currentTarget) setShowVarDialog(false); }}>
++          <div ref={variableDialogRef} className="bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-4 w-96 max-w-[calc(100vw-32px)]">

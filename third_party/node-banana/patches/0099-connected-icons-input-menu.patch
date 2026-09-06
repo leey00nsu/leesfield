@@ -1,0 +1,96 @@
+--- a/src/leesfield/port-handle.tsx
++++ b/src/leesfield/port-handle.tsx
+@@ -1,5 +1,5 @@
+ "use client";
+-import { Handle as FlowHandle, useNodeId, type HandleProps } from "@xyflow/react";
++import { Handle as FlowHandle, useNodeId, useNodeConnections, type HandleProps } from "@xyflow/react";
+ import { useRef, type ComponentProps, type SyntheticEvent } from "react";
+ import { useWorkflowStore } from "./upstream-node-host";
+ export function PortIcon({type}: {type: string}) {
+@@ -7,6 +7,7 @@
+ }
+ export function Handle(props: ComponentProps<typeof FlowHandle> & HandleProps) {
+  const nodeId = useNodeId();
++ const connected = useNodeConnections({ handleType: props.type, handleId: props.id ?? undefined }).length > 0;
+  const writable = useWorkflowStore(state => state.writable);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const enabled = writable && props.isConnectable !== false;
+@@ -20,6 +21,7 @@
+   }}));
+  };
+  return <FlowHandle {...props}
++  data-connected={connected ? "true" : "false"}
+   className={"node-banana-port-action " + (props.className ?? "")}
+   style={{ ...props.style, width: 30, height: 30, borderRadius: "50%", border: "1px solid rgb(82 82 82)", background: "rgb(38 38 38)", zIndex: 30 }}
+   isConnectable={enabled} isConnectableStart={enabled && props.isConnectableStart !== false} isConnectableEnd={enabled && props.isConnectableEnd !== false}
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -409,6 +409,7 @@
+ }
+ 
+ function HostedConnectionDropMenu({
++  inputMedia = false,
+   root,
+   labels,
+   menu,
+@@ -421,6 +422,7 @@
+   labels: NodeBananaCanvasLabels;
+   menu: MenuState;
+   items: readonly NodeBananaRuntimePaletteItem[];
++  inputMedia?: boolean;
+   onMedia: (action: "upload" | "assets", mediaType: "image" | "audio" | "video") => void;
+   onChoose: (item: NodeBananaRuntimePaletteItem) => void;
+   onClose: () => void;
+@@ -436,7 +438,7 @@
+       onSelect={() => undefined}
+       onClose={onClose}
+       hosted={{
+-        hostedOptions: [...items.filter(item => !(pending.handleType === "target" && item.kind === ("input." + handleType))).map(hostedConnectionOption), ...(pending.handleType === "target" && (handleType === "image" || handleType === "audio" || handleType === "video") && items.some(item=>item.kind === ("input." + handleType)) ? ["upload", "assets"].map(action=>({type:action,label:action === "upload" ? "Upload" : "Assets",icon:<PortIcon type={action}/>,value:action})) : [])],
++        hostedOptions: [...items.filter(item => !(pending.handleType === "target" && item.kind === ("input." + handleType))).map(hostedConnectionOption), ...((inputMedia || (pending.handleType === "target" && items.some(item=>item.kind === ("input." + handleType)))) && (handleType === "image" || handleType === "audio" || handleType === "video") ? ["upload", "assets"].map(action=>({type:action,label:action === "upload" ? "Upload" : "Assets",icon:<PortIcon type={action}/>,value:action})) : [])],
+         hostedAriaLabel: labels.addNode,
+         onHostedSelect: (option) => {
+           if ((option.value === "upload" || option.value === "assets") && (handleType === "image" || handleType === "audio" || handleType === "video")) { onMedia(option.value, handleType); return; }
+@@ -776,6 +778,9 @@
+   const selectConnectionMedia=async (source:File|{assetId:string})=>{
+     const request=assetRequestRef.current; if(!request || !contentContext.current.writable) return;
+     assetController.current?.abort(); const controller=new AbortController();assetController.current=controller;
++    const original = contentContext.current.graph.nodes.find(node => node.id === request.menu.pendingConnection?.nodeId);
++    const replaceInput = request.menu.pendingConnection?.handleType === "source" && original?.data.canonicalKind === "input." + request.mediaType;
++    const originalConfig = JSON.stringify(original?.data.config);
+     try {
+       const imported=await contentContext.current.onImportCanvasMedia?.(source,controller.signal);
+       const current=contentContext.current;
+@@ -783,6 +788,12 @@
+       if(imported.mediaType!==request.mediaType) throw new Error("ASSET_MEDIA_TYPE_MISMATCH");
+       const pending=request.menu.pendingConnection;
+       if(!pending || !current.graph.nodes.some(node=>node.id===pending.nodeId)) return closeAssets();
++      if (replaceInput) {
++        const target = current.graph.nodes.find(node => node.id === original?.id);
++        if (!target || target.data.canonicalKind !== original?.data.canonicalKind || JSON.stringify(target.data.config) !== originalConfig) throw new Error("INPUT_TARGET_CHANGED");
++        current.publish({ ...current.graph, nodes: current.graph.nodes.map(node => node.id === target.id ? { ...node, data: { ...node.data, config: { ...(node.data.config as Record<string, unknown>), assetId: imported.assetId } } } : node) }, "nodes");
++        closeAssets(); return;
++      }
+       const item=current.paletteItems.find(item=>item.kind===("input." + imported.mediaType));if(!item)return;
+       const result=current.onCreateNode(item,request.menu.flow,pending);
+       if(!result.edge) throw new Error("CONNECTION_NOT_AVAILABLE");
+@@ -1393,6 +1404,7 @@
+       {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
+       {interaction.menu.pendingConnection ? (
+         <HostedConnectionDropMenu
++          inputMedia={interaction.menu.pendingConnection.handleType === "source" && graph.nodes.some(node => node.id === interaction.menu.pendingConnection?.nodeId && node.data.canonicalKind === "input." + pendingHandleType(interaction.menu.pendingConnection))}
+           root={rootRef.current}
+           labels={labels}
+           menu={interaction.menu}
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -476,8 +476,8 @@
+   mediaType: "image" | "audio" | "video";
+   selectedAssetId?: string | null;
+ }) {
+-  const renderInputHistory = useWorkflowStore((state) => state.renderInputHistory);
+-  return renderInputHistory(nodeId, mediaType, selectedAssetId ?? null);
++  // Media selection is offered by the Input icon menu.
++  return null;
+ }
+ 
+ export function useAnnotationStore<T = typeof defaultAnnotationState>(

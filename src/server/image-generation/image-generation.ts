@@ -8,7 +8,13 @@ import { leemageStorageAdapter } from "@/server/image-generation/storage/adapter
 import type { ImageStorageAdapter } from "@/server/image-generation/storage/storage-adapter";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import type { GeneratedMediaArtifact, GenerationUploadLifecycle } from "@/server/media-assets/generated-media-artifact";
+import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import {
+  isNodeStudioE2EMockGenerationEnabled,
+  mockImageGenerationResult,
+} from "@/server/media-assets/node-studio-e2e-media-fixtures";
 
 type ImageProvider = "hf_space" | "codex_cli" | "codex_bridge";
 
@@ -82,17 +88,21 @@ function mapProviderError(adapter: ImageGenerationAdapter | null, error: unknown
 
 export async function resolveImageGenerationResult(
   payload: ImageGenerationFormValues,
-  requestId: string
+  requestId: string,
+  lifecycle: GenerationUploadLifecycle = {},
 ): Promise<{
   status: "completed" | "failed";
   result?: ImageGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }> {
   let adapter: ImageGenerationAdapter | null = null;
   try {
     adapter = await getAdapter(payload.model);
-    const result = await adapter.generate(payload);
+    const result = isNodeStudioE2EMockGenerationEnabled()
+      ? mockImageGenerationResult(payload)
+      : await adapter.generate(payload);
     const { provider, warningMessage } = resolveImageStorageProvider();
 
     if (!provider) {
@@ -108,9 +118,11 @@ export async function resolveImageGenerationResult(
       };
     }
 
+    await lifecycle.onUploading?.();
     const storageAdapter = getStorageAdapter();
     return storageAdapter.uploadImages(payload, requestId, result.images);
   } catch (error) {
+    if (error instanceof NodeExecutionCancelledError) throw error;
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),

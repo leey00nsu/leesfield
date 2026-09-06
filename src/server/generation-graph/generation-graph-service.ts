@@ -9,7 +9,7 @@ import {
   generationGraphRepository,
   type GenerationGraphRepository,
 } from "./generation-graph-repository";
-import { validateGraphStructure } from "@/shared/generation-graph/graph-validation";
+import { validateCanonicalGraph } from "@/shared/generation-graph/canonical-graph";
 
 function parseInput<T>(parse: () => T): T {
   try {
@@ -35,13 +35,17 @@ export function createGenerationGraphService(
       return repository.list(ownerEmail);
     },
 
+    copy(ownerEmail: string, graphId: string) {
+      return repository.copy(ownerEmail, graphId);
+    },
+
     get(ownerEmail: string, graphId: string) {
       return repository.get(ownerEmail, graphId);
     },
 
     update(ownerEmail: string, graphId: string, body: unknown) {
       const input = parseInput(() => updateGenerationGraphSchema.parse(body));
-      const issues = validateGraphStructure(input);
+      const issues = validateCanonicalGraph(input);
       if (issues.length > 0) throw new GenerationGraphStructureError(issues);
       return repository.update(ownerEmail, graphId, input);
     },

@@ -1,0 +1,334 @@
+--- a/src/components/nodes/VideoStitchNode.tsx
++++ b/src/components/nodes/VideoStitchNode.tsx
+@@ -23,6 +23,7 @@
+   const [thumbnails, setThumbnails] = useState<Map<string, string>>(new Map());
+   const regenerateNode = useWorkflowStore((state) => state.regenerateNode);
+   const isRunning = useWorkflowStore((state) => state.isRunning);
++  const writable = useWorkflowStore((state) => state.writable);
+   const removeEdge = useWorkflowStore((state) => state.removeEdge);
+   const videoBlobUrl = useVideoBlobUrl(nodeData.outputVideo ?? null);
+   const videoAutoplayRef = useVideoAutoplay(id, selected);
+@@ -590,6 +591,17 @@
+         {/* Controls row: Loop selector + Stitch button (below video, right-aligned) */}
+         {orderedClips.length > 0 && (
+           <div className="shrink-0 flex items-center justify-end gap-2">
++            <label className="nodrag flex items-center gap-1.5 text-[10px] text-neutral-400">
++              <input
++                type="checkbox"
++                aria-label="Strip audio"
++                checked={nodeData.stripAudio === true}
++                disabled={!writable || nodeData.status === "loading" || isRunning}
++                onChange={(event) => updateNodeData(id, { stripAudio: event.target.checked })}
++                className="nodrag h-3 w-3 accent-blue-500"
++              />
++              Strip audio
++            </label>
+             <div className="flex items-center gap-1">
+               <span className="text-[10px] text-neutral-400">Loop</span>
+               {([1, 2, 3] as const).map((count) => (
+--- a/src/components/nodes/VideoTrimNode.tsx
++++ b/src/components/nodes/VideoTrimNode.tsx
+@@ -29,6 +29,7 @@
+   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+   const regenerateNode = useWorkflowStore((state) => state.regenerateNode);
+   const isRunning = useWorkflowStore((state) => state.isRunning);
++  const writable = useWorkflowStore((state) => state.writable);
+   const edges = useWorkflowStore((state) => state.edges);
+   const nodes = useWorkflowStore((state) => state.nodes);
+ 
+@@ -405,7 +406,18 @@
+         )}
+ 
+         {/* Trim button */}
+-        <div className="shrink-0 flex justify-end px-1">
++        <div className="shrink-0 flex items-center justify-end gap-3 px-1">
++          <label className="nodrag flex items-center gap-1.5 text-[10px] text-neutral-400">
++            <input
++              type="checkbox"
++              aria-label="Strip audio"
++              checked={nodeData.stripAudio === true}
++              disabled={!writable || nodeData.status === "loading" || isRunning}
++              onChange={(event) => updateNodeData(id, { stripAudio: event.target.checked })}
++              className="nodrag h-3 w-3 accent-blue-500"
++            />
++            Strip audio
++          </label>
+           <button
+             onClick={handleTrim}
+             disabled={!canTrim || nodeData.status === "loading" || isRunning}
+--- a/src/components/nodes/EaseCurveNode.tsx
++++ b/src/components/nodes/EaseCurveNode.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import React, { useEffect } from "react";
++import React, { useCallback, useEffect } from "react";
+ import { Handle, Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+@@ -15,14 +15,41 @@
+ 
+ type EaseCurveNodeType = Node<EaseCurveNodeData, "easeCurve">;
+ 
++const easingPresets = [
++  "linear",
++  "easeInQuad",
++  "easeOutQuad",
++  "easeInOutQuad",
++  "easeInCubic",
++  "easeOutCubic",
++  "easeInOutCubic",
++  "easeInSine",
++  "easeOutSine",
++  "easeInOutSine",
++  "easeInExpo",
++  "easeOutExpo",
++  "easeInOutExpo",
++] as const;
+ 
++const defaultBezier: [number, number, number, number] = [0.42, 0, 0.58, 1];
++
+ export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeType>) {
+   const nodeData = data;
+   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
++  const regenerateNode = useWorkflowStore((state) => state.regenerateNode);
+   const isRunning = useWorkflowStore((state) => state.isRunning);
++  const writable = useWorkflowStore((state) => state.writable);
+   const videoBlobUrl = useVideoBlobUrl(nodeData.outputVideo ?? null);
+   const videoAutoplayRef = useVideoAutoplay(id, selected);
+   const showLabels = useShowHandleLabels(selected);
++  const bezierHandles = Array.isArray(nodeData.bezierHandles) && nodeData.bezierHandles.length === 4
++    ? nodeData.bezierHandles.map((value) => typeof value === "number" && Number.isFinite(value) ? value : 0) as [number, number, number, number]
++    : defaultBezier;
++  const easingPreset = typeof nodeData.easingPreset === "string" ? nodeData.easingPreset : "easeInOutSine";
++  const outputDuration = typeof nodeData.outputDuration === "number" && Number.isFinite(nodeData.outputDuration)
++    ? nodeData.outputDuration
++    : 1.5;
++  const settingsInherited = typeof nodeData.inheritedFrom === "string" && nodeData.inheritedFrom.length > 0;
+ 
+   // Check encoder support on mount
+   useEffect(() => {
+@@ -82,6 +109,16 @@
+     </>
+   );
+ 
++  const updateBezierHandle = useCallback((index: number, value: number) => {
++    const next = [...bezierHandles] as [number, number, number, number];
++    next[index] = Math.max(0, Math.min(1, value));
++    updateNodeData(id, { bezierHandles: next, easingPreset: null });
++  }, [bezierHandles, id, updateNodeData]);
++
++  const handleRun = useCallback(() => {
++    regenerateNode(id);
++  }, [id, regenerateNode]);
++
+   // Encoder not supported
+   if (nodeData.encoderSupported === false) {
+     return (
+@@ -175,6 +212,75 @@
+         </div>
+       )}
+ 
++      {/* Canonical ease-curve settings stay in the actual upstream node body.
++          The host adapter maps these display values back to milliseconds and
++          the canonical bezier/easing fields before persisting them. */}
++      <div className="nodrag nowheel absolute inset-x-2 bottom-2 z-10 grid gap-2 rounded-lg border border-neutral-700 bg-neutral-900/95 p-2 shadow-lg">
++        <div className="grid grid-cols-2 gap-2">
++          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">
++            Output (s)
++            <input
++              type="number"
++              aria-label="Output duration"
++              min={0.1}
++              max={600}
++              step={0.1}
++              value={outputDuration}
++              disabled={!writable || settingsInherited}
++              onChange={(event) => {
++                const value = Number(event.target.value);
++                if (Number.isFinite(value)) updateNodeData(id, { outputDuration: Math.max(0.1, Math.min(600, value)) });
++              }}
++              className="nodrag nopan h-7 rounded border border-neutral-700 bg-neutral-800 px-2 text-xs normal-case tracking-normal text-neutral-100 outline-none focus:border-blue-500 disabled:text-neutral-600"
++            />
++          </label>
++          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">
++            Curve
++            <select
++              aria-label="Easing preset"
++              value={easingPreset}
++              disabled={!writable || settingsInherited}
++              onChange={(event) => updateNodeData(id, { easingPreset: event.target.value === "custom" ? null : event.target.value })}
++              className="nodrag nopan h-7 rounded border border-neutral-700 bg-neutral-800 px-2 text-xs normal-case tracking-normal text-neutral-100 outline-none focus:border-blue-500 disabled:text-neutral-600"
++            >
++              {easingPresets.map((preset) => <option key={preset} value={preset}>{preset}</option>)}
++              <option value="custom">Custom bezier</option>
++            </select>
++          </label>
++        </div>
++        {(easingPreset === "custom" || nodeData.easingPreset == null) && (
++          <div className="grid grid-cols-4 gap-1.5">
++            {bezierHandles.map((value, index) => (
++              <label key={index} className="grid gap-1 text-[9px] uppercase tracking-wider text-neutral-500">
++                P{index + 1}
++                <input
++                  type="number"
++                  aria-label={`Bezier ${index + 1}`}
++                  min={0}
++                  max={1}
++                  step={0.01}
++                  value={value}
++                  disabled={!writable || settingsInherited}
++                  onChange={(event) => updateBezierHandle(index, Number(event.target.value))}
++                  className="nodrag nopan h-7 min-w-0 rounded border border-neutral-700 bg-neutral-800 px-1 text-xs text-neutral-100 outline-none focus:border-blue-500 disabled:text-neutral-600"
++                />
++              </label>
++            ))}
++          </div>
++        )}
++        <div className="flex items-center justify-end gap-2">
++          {settingsInherited && <span className="mr-auto text-[10px] text-neutral-500">Settings inherited</span>}
++          <button
++            type="button"
++            onClick={handleRun}
++            disabled={!writable || !nodeData.sourceVideo || isRunning}
++            className="nodrag nopan rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-500"
++          >
++            {isRunning ? "Processing..." : "Run"}
++          </button>
++        </div>
++      </div>
++
+       {/* Processing overlay */}
+       {nodeData.status === "loading" && (
+         <div className="absolute inset-0 bg-neutral-900/70 rounded-lg flex flex-col items-center justify-center gap-2">
+--- a/src/components/nodes/SplitGridNode.tsx
++++ b/src/components/nodes/SplitGridNode.tsx
+@@ -96,13 +96,18 @@
+   const getConnectedInputs = useWorkflowStore((state) => state.getConnectedInputs);
+   const edges = useWorkflowStore((state) => state.edges);
+   const nodes = useWorkflowStore((state) => state.nodes);
++  const templateEditingDisabled = nodeData.disableSplitGridTemplateEditor === true;
+   const [showEditor, setShowEditor] = useState(false);
+   const showLabels = useShowHandleLabels(selected);
+ 
+   useEffect(() => {
++    if (templateEditingDisabled) {
++      expandRegistry.unregister(id);
++      return;
++    }
+     expandRegistry.register(id, () => setShowEditor(true));
+     return () => expandRegistry.unregister(id);
+-  }, [id]);
++  }, [id, templateEditingDisabled]);
+ 
+   const gridRows = clampGridDimension(nodeData.gridRows);
+   const gridCols = clampGridDimension(nodeData.gridCols);
+@@ -232,6 +237,7 @@
+   const handleColsChange = useCallback(
+     (value: number) => {
+       if (value === gridCols) return;
++      // Column count changed: custom column lines no longer fit — reset to uniform.
+       updateNodeData(id, { gridCols: value, colOffsets: undefined });
+     },
+     [id, updateNodeData, gridCols]
+@@ -286,8 +292,9 @@
+             <GridDimField label="Columns" value={gridCols} onChange={handleColsChange} disabled={isRunning} />
+           </div>
+ 
+-          {/* Cell node set editor */}
+-          <button
++          {/* Cell template editing is intentionally unavailable in the hosted
++              graph because its downstream materialization cannot be persisted. */}
++          {!templateEditingDisabled && <button
+             onClick={() => setShowEditor(true)}
+             disabled={isRunning}
+             title={isRunning ? "Wait for the current run to finish" : undefined}
+@@ -300,7 +307,7 @@
+             <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-400">
+               {templateNodeCount} / cell
+             </span>
+-          </button>
++          </button>}
+ 
+           {/* Preview with grid overlay */}
+           <div
+@@ -435,7 +442,7 @@
+       </BaseNode>
+ 
+       {/* Cell template editor */}
+-      {showEditor && (
++      {showEditor && !templateEditingDisabled && (
+         <SplitGridTemplateModal
+           nodeId={id}
+           nodeData={nodeData}
+--- a/src/components/nodes/FloatingNodeHeader.tsx
++++ b/src/components/nodes/FloatingNodeHeader.tsx
+@@ -22,6 +22,7 @@
+   'llmGenerate',
+   'removeBackground',
+   'comfyApp',
++  'easeCurve',
+ ]);
+ const EXPANDABLE_TYPES = new Set(['prompt', 'promptConstructor', 'splitGrid', 'annotation']);
+ 
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -552,6 +552,8 @@
+       ?? hostReadiness?.reason
+       ?? hostReadiness?.reasons?.[0]
+       ?? "This node is not ready to run.";
++  const splitGridTemplateEditingDisabled = kind === "edit.image.splitGrid"
++    && upstreamData.disableSplitGridTemplateEditor === true;
+   const commit = onUpdateNodeData ?? host?.onUpdateNodeData;
+   const update = (nodeId: string, patch: HostNodeData) => {
+     if (!writable) return;
+@@ -619,7 +621,7 @@
+         onCustomTitleChange={(nodeId, title) => update(nodeId, { customTitle: title })}
+         onCommentChange={(nodeId, comment) => update(nodeId, { comment })}
+         onRunNode={(nodeId) => { if (writable) onRegenerateNode?.(nodeId); }}
+-        onExpandNode={(nodeId, nodeType) => {
++        onExpandNode={splitGridTemplateEditingDisabled ? undefined : (nodeId, nodeType) => {
+           if (nodeType === "annotation") {
+             if (!writable) return;
+             annotationOpeners.get(nodeId)?.();
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -346,6 +346,10 @@
+       if (value.writable === false) return;
+       value.onRegenerateNode?.(nodeId);
+       value.regenerateNode?.(nodeId);
++    },
++    removeEdge: (edgeId) => {
++      if (value.writable === false) return;
++      value.removeEdge?.(edgeId);
+     },
+   };
+ }
+@@ -972,12 +976,21 @@
+ }
+ 
+ export function resolveGridOffsets(count: number, offsets?: unknown) {
+-  const expected = Math.max(0, clampGridDimension(count) - 1);
+-  if (!Array.isArray(offsets)) return [] as number[];
+-  return offsets
+-    .filter((offset): offset is number => typeof offset === "number" && Number.isFinite(offset))
+-    .slice(0, expected)
+-    .sort((left, right) => left - right);
++  const normalizedCount = clampGridDimension(count);
++  const expected = Math.max(0, normalizedCount - 1);
++  const uniform = Array.from({ length: expected }, (_, index) => (index + 1) / normalizedCount);
++  if (expected === 0) return [] as number[];
++  if (!Array.isArray(offsets) || offsets.length !== expected) return uniform;
++  const values = offsets.map(Number);
++  for (let index = 0; index < values.length; index += 1) {
++    const value = values[index];
++    const previous = index > 0 ? values[index - 1] : 0;
++    if (!Number.isFinite(value) || value <= 0 || value >= 1 || value - previous < MIN_SLICE_GAP) {
++      return uniform;
++    }
++  }
++  if (1 - values[values.length - 1] < MIN_SLICE_GAP) return uniform;
++  return values;
+ }
+ 
+ export function gridFractions(count: number, offsets?: number[]) {

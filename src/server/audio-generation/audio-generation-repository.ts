@@ -11,6 +11,8 @@ export async function createAudioGenerationRecord(
   payload: AudioGenerationFormValues,
   ownerEmail: string,
   apiKeyId: string | null = null,
+  graphNodeId: string | null = null,
+  requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
 ) {
   const requestParams: Record<string, Prisma.InputJsonValue | null> = {};
   Object.entries(payload).forEach(([key, value]) => {
@@ -29,8 +31,9 @@ export async function createAudioGenerationRecord(
       ownerEmail,
       apiKeyId,
       prompt: payload.prompt,
-      requestParams,
+      requestParams: requestSnapshot ?? requestParams,
       modelKey: payload.model,
+      graphNodeId,
       status: "pending",
       progress: 0,
     },

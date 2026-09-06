@@ -1,0 +1,19 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -614,14 +614,13 @@
+         selectionOnDrag
+         panOnDrag={[1, 2]}
+         deleteKeyCode={null}
+-        fitView
+         fitViewOptions={{
+           minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
+           maxZoom: 1,
+           padding: graph.nodes.length <= 1 ? 0.08 : 0.2,
+         }}
+         proOptions={{ hideAttribution: true }}
+-        minZoom={0.1}
++        minZoom={graph.nodes.length <= 1 ? 0.65 : 0.1}
+         maxZoom={4}
+         onDoubleClick={(event) => {
+           if ((event.target as HTMLElement).classList.contains("react-flow__pane")) {
+

@@ -1,0 +1,383 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -56,8 +56,24 @@
+   label: string;
+   description?: string;
+   mediaType?: "text" | "image" | "audio" | "video" | "media";
++  category?: "Input" | "Text" | "Generate" | "Process" | "Output";
++  initialModelKey?: string;
+ };
+ 
++export type NodeBananaRuntimeModelItem = {
++  key: string;
++  label: string;
++  provider: string;
++  mediaType: "image" | "video" | "audio";
++  capabilities: readonly string[];
++};
++
++export type NodeBananaCanvasSettings = {
++  panMode: "space" | "middleMouse" | "always";
++  zoomMode: "altScroll" | "ctrlScroll" | "scroll";
++  selectionMode: "click" | "altDrag" | "shiftDrag";
++};
++
+ export type NodeBananaCanvasReason =
+   | "connect"
+   | "create"
+@@ -96,8 +112,10 @@
+   nodeTypes: NodeTypes;
+   edgeTypes?: EdgeTypes;
+   paletteItems: readonly NodeBananaRuntimePaletteItem[];
++  modelItems?: readonly NodeBananaRuntimeModelItem[];
+   labels: NodeBananaCanvasLabels;
+   writable: boolean;
++  canvasSettings?: NodeBananaCanvasSettings;
+   className?: string;
+   onGraphChange: (graph: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason) => void;
+   onCreateNode: (
+@@ -173,6 +191,13 @@
+   return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+ }
+ 
++const categoryForPaletteItem = (item: NodeBananaRuntimePaletteItem) => item.category ?? (
++  item.kind.startsWith("input.") ? (item.kind === "input.prompt" ? "Text" : "Input")
++    : item.kind.startsWith("generate.") ? "Generate"
++      : item.kind.startsWith("output.") ? "Output"
++        : "Process"
++);
++
+ function pointerPosition(event: MouseEvent | TouchEvent): XYPosition {
+   if ("touches" in event) {
+     const touch = event.changedTouches[0] ?? event.touches[0];
+@@ -188,8 +213,8 @@
+   writable,
+   items,
+   selectedNodeCount,
+-  onAdd,
+   onAddItem,
++  onBrowseModels,
+   onRunSelected,
+   edgeStyle,
+   onToggleEdgeStyle,
+@@ -198,21 +223,25 @@
+   writable: boolean;
+   items: readonly NodeBananaRuntimePaletteItem[];
+   selectedNodeCount: number;
+-  onAdd: () => void;
+   onAddItem: (item: NodeBananaRuntimePaletteItem) => void;
++  onBrowseModels: () => void;
+   onRunSelected: () => void;
+   edgeStyle: "angular" | "curved";
+   onToggleEdgeStyle: () => void;
+ }) {
+   const [generateOpen, setGenerateOpen] = useState(false);
++  const [allNodesOpen, setAllNodesOpen] = useState(false);
+   const buttonClass = "node-banana-runtime__action";
+   const find = (kind: string) => items.find((item) => item.kind === kind);
+   const add = (kind: string) => {
+     const item = find(kind);
+     if (item) onAddItem(item);
+     setGenerateOpen(false);
++    setAllNodesOpen(false);
+   };
+ 
++  const categories = ["Input", "Text", "Generate", "Process", "Output"] as const;
++
+   return (
+     <div className="node-banana-runtime__floating-bar" role="toolbar" aria-label={labels.application} data-node-banana-component="FloatingActionBar">
+       <button className={buttonClass} type="button" onClick={() => add("input.image")} disabled={!writable || !find("input.image")}>Image</button>
+@@ -232,15 +261,28 @@
+         ) : null}
+       </div>
+       <button className={buttonClass} type="button" onClick={() => add("output.single")} disabled={!writable || !find("output.single")}>Output</button>
+-      <button className={buttonClass} type="button" onClick={onAdd} disabled={!writable}>
+-        All nodes
+-        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7" /></svg>
+-      </button>
++      <div className="node-banana-runtime__popover-anchor">
++        <button className={buttonClass} type="button" onClick={() => setAllNodesOpen((open) => !open)} disabled={!writable} aria-expanded={allNodesOpen}>
++          All nodes
++          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7" /></svg>
++        </button>
++        {allNodesOpen ? (
++          <div className="node-banana-runtime__all-nodes-menu" role="menu" aria-label="All nodes" data-node-banana-component="AllNodesMenu">
++            {categories.map((category) => {
++              const categoryItems = items.filter((item) => categoryForPaletteItem(item) === category);
++              if (!categoryItems.length) return null;
++              return (
++                <section key={category}>
++                  <h3>{category}</h3>
++                  {categoryItems.map((item) => <button key={item.kind} type="button" role="menuitem" onClick={() => add(item.kind)}>{item.label}</button>)}
++                </section>
++              );
++            })}
++          </div>
++        ) : null}
++      </div>
+       <span className="node-banana-runtime__separator" aria-hidden="true" />
+-      <button className={buttonClass} type="button" onClick={() => {
+-        const selectedModel = document.querySelector<HTMLSelectElement>(".react-flow__node.selected select");
+-        selectedModel?.focus();
+-      }}>All models</button>
++      <button className={buttonClass} type="button" onClick={onBrowseModels}>All models</button>
+       <span className="node-banana-runtime__separator" aria-hidden="true" />
+       <button className="node-banana-runtime__icon-action" type="button" onClick={onToggleEdgeStyle} aria-label={"Switch to " + (edgeStyle === "angular" ? "curved" : "angular") + " connectors"}>
+         {edgeStyle === "angular" ? (
+@@ -263,6 +305,56 @@
+   );
+ }
+ 
++function ModelBrowserDialog({
++  open,
++  models,
++  onChoose,
++  onClose,
++}: {
++  open: boolean;
++  models: readonly NodeBananaRuntimeModelItem[];
++  onChoose: (model: NodeBananaRuntimeModelItem) => void;
++  onClose: () => void;
++}) {
++  const [query, setQuery] = useState("");
++  const [mediaType, setMediaType] = useState<"all" | NodeBananaRuntimeModelItem["mediaType"]>("all");
++  useEffect(() => {
++    if (!open) { setQuery(""); setMediaType("all"); }
++  }, [open]);
++  useEffect(() => {
++    if (!open) return;
++    const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
++    window.addEventListener("keydown", close);
++    return () => window.removeEventListener("keydown", close);
++  }, [onClose, open]);
++  if (!open) return null;
++  const normalized = query.trim().toLowerCase();
++  const visible = models.filter((model) =>
++    (mediaType === "all" || model.mediaType === mediaType) &&
++    (!normalized || `${model.label} ${model.provider} ${model.capabilities.join(" ")}`.toLowerCase().includes(normalized)),
++  );
++  return (
++    <div className="node-banana-runtime__modal-backdrop" role="presentation" onMouseDown={onClose}>
++      <section className="node-banana-runtime__model-dialog nodrag nopan" role="dialog" aria-modal="true" aria-label="All models" data-node-banana-component="ModelSearchDialog" onMouseDown={(event) => event.stopPropagation()}>
++        <header><div><h2>All models</h2><p>Choose a model to add a generation node</p></div><button type="button" onClick={onClose} aria-label="Close models">×</button></header>
++        <div className="node-banana-runtime__model-search"><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search models..." aria-label="Search models" /></div>
++        <div className="node-banana-runtime__model-tabs" role="tablist">
++          {(["all", "image", "video", "audio"] as const).map((type) => <button key={type} type="button" role="tab" aria-selected={mediaType === type} onClick={() => setMediaType(type)}>{type === "all" ? "All" : type[0].toUpperCase() + type.slice(1)}</button>)}
++        </div>
++        <div className="node-banana-runtime__model-list" role="listbox">
++          {visible.map((model) => (
++            <button key={model.key} type="button" role="option" onClick={() => onChoose(model)}>
++              <span><strong>{model.label}</strong><small>{model.provider} · {model.mediaType}</small></span>
++              <em>{model.capabilities.join(" · ")}</em>
++            </button>
++          ))}
++          {!visible.length ? <p>No models found.</p> : null}
++        </div>
++      </section>
++    </div>
++  );
++}
++
+ // Shared host for upstream NodeSearchMenu/ConnectionDropMenu interaction.
+ function NodeSearchMenu({
+   labels,
+@@ -322,12 +414,21 @@
+         <button type="button" onClick={onClose} aria-label={labels.closeMenu}>×</button>
+       </div>
+       <div className="node-banana-runtime__menu-items" role="listbox">
+-        {items.map((item) => (
+-          <button key={item.kind} type="button" role="option" onClick={() => onChoose(item)}>
+-            <span>{item.label}</span>
+-            {item.description ? <small>{item.description}</small> : null}
+-          </button>
+-        ))}
++        {(["Input", "Text", "Generate", "Process", "Output"] as const).map((category) => {
++          const categoryItems = items.filter((item) => categoryForPaletteItem(item) === category);
++          if (!categoryItems.length) return null;
++          return (
++            <section key={category}>
++              <h3>{category}</h3>
++              {categoryItems.map((item) => (
++                <button key={item.kind} type="button" role="option" onClick={() => onChoose(item)}>
++                  <span>{item.label}</span>
++                  {item.description ? <small>{item.description}</small> : null}
++                </button>
++              ))}
++            </section>
++          );
++        })}
+       </div>
+     </div>
+   );
+@@ -338,8 +439,10 @@
+   nodeTypes,
+   edgeTypes,
+   paletteItems,
++  modelItems = [],
+   labels,
+   writable,
++  canvasSettings = { panMode: "space", zoomMode: "altScroll", selectionMode: "click" },
+   className,
+   onGraphChange,
+   onCreateNode,
+@@ -352,6 +455,7 @@
+   const rootRef = useRef<HTMLDivElement>(null);
+   const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
+   const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
++  const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
+ 
+   const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
+     store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
+@@ -472,6 +576,13 @@
+     }, "create");
+     store.setState({ selectedNodeIds: [result.node.id], selectedEdgeIds: [] });
+   }, [graph, onCreateNode, publish, store, writable]);
++
++  const addModelAtCenter = useCallback((model: NodeBananaRuntimeModelItem) => {
++    const item = paletteItems.find((candidate) => candidate.kind === `generate.${model.mediaType}`);
++    if (!item) return;
++    addNodeAtCenter({ ...item, initialModelKey: model.key });
++    setModelBrowserOpen(false);
++  }, [addNodeAtCenter, paletteItems]);
+ 
+   const runSelectedNode = useCallback(() => {
+     const selectedId = store.getState().selectedNodeIds[0];
+@@ -625,8 +736,17 @@
+         nodesDraggable={writable}
+         nodesConnectable={writable}
+         elementsSelectable
+-        selectionOnDrag
+-        panOnDrag={[1, 2]}
++        selectionOnDrag={
++          canvasSettings.selectionMode === "altDrag" || canvasSettings.selectionMode === "shiftDrag" ? false : canvasSettings.panMode === "always" ? false : typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
++        }
++        selectionKeyCode={canvasSettings.selectionMode === "altDrag" ? "Alt" : "Shift"}
++        panOnDrag={
++          canvasSettings.panMode === "always" ? true : canvasSettings.panMode === "middleMouse" ? [2] : !(typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
++        }
++        panActivationKeyCode={canvasSettings.panMode === "space" ? "Space" : null}
++        zoomOnScroll
++        zoomActivationKeyCode={canvasSettings.zoomMode === "altScroll" ? "Alt" : canvasSettings.zoomMode === "ctrlScroll" ? ["Control", "Meta"] : null}
++        zoomOnDoubleClick={false}
+         deleteKeyCode={null}
+         fitViewOptions={{
+           minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
+@@ -660,14 +780,15 @@
+             writable={writable}
+             items={paletteItems}
+             selectedNodeCount={interaction.selectedNodeIds.length}
+-            onAdd={openCenteredMenu}
+             onAddItem={addNodeAtCenter}
++            onBrowseModels={() => setModelBrowserOpen(true)}
+             onRunSelected={runSelectedNode}
+             edgeStyle={interaction.edgeStyle}
+             onToggleEdgeStyle={() => store.setState({ edgeStyle: interaction.edgeStyle === "angular" ? "curved" : "angular" })}
+           />
+         </Panel>
+       </ReactFlow>
++      <ModelBrowserDialog open={modelBrowserOpen} models={modelItems} onChoose={addModelAtCenter} onClose={() => setModelBrowserOpen(false)} />
+       {interaction.selectedNodeIds.length > 1 ? (
+         <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes" data-node-banana-component="MultiSelectToolbar">
+           <span>{interaction.selectedNodeIds.length} selected</span>
+--- a/src/leesfield/hosted-header.tsx
++++ b/src/leesfield/hosted-header.tsx
+@@ -1,7 +1,9 @@
+ "use client";
+ 
+ import { type FormEvent, useState } from "react";
+ 
++import type { NodeBananaCanvasSettings } from "./canvas-runtime";
++
+ export type NodeBananaHeaderGraph = {
+   id: string;
+   title: string;
+@@ -16,6 +18,8 @@
+   writable?: boolean;
+   creating?: boolean;
+   deleting?: boolean;
++  canvasSettings?: NodeBananaCanvasSettings;
++  onCanvasSettingsChange?: (settings: NodeBananaCanvasSettings) => void;
+   onTitleChange: (title: string) => void;
+   onSelectGraph: (graphId: string) => void;
+   onCreateGraph: (title: string) => void;
+@@ -32,6 +36,8 @@
+   writable = true,
+   creating = false,
+   deleting = false,
++  canvasSettings = { panMode: "space", zoomMode: "altScroll", selectionMode: "click" },
++  onCanvasSettingsChange = () => undefined,
+   onTitleChange,
+   onSelectGraph,
+   onCreateGraph,
+@@ -42,7 +48,17 @@
+   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
+   const [newWorkflowName, setNewWorkflowName] = useState("Untitled Workflow");
++  const [settingsOpen, setSettingsOpen] = useState(false);
++  const [settingsTab, setSettingsTab] = useState<"project" | "canvas">("project");
++  const [settingsTitle, setSettingsTitle] = useState(title);
++  const [settingsCanvas, setSettingsCanvas] = useState(canvasSettings);
+ 
++  const openSettings = () => {
++    setSettingsTitle(title);
++    setSettingsCanvas(canvasSettings);
++    setSettingsOpen(true);
++  };
++
+   const createWorkflow = (event: FormEvent<HTMLFormElement>) => {
+     event.preventDefault();
+     const name = newWorkflowName.trim();
+@@ -100,6 +116,9 @@
+                   </div>
+                 ) : null}
+               </div>
++              <button type="button" onClick={openSettings} aria-label="Project settings" title="Project settings">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z" /><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
++              </button>
+               <button type="button" onClick={onDelete} disabled={deleting} aria-label="Delete workflow" title="Delete project">
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.11 48.11 0 0 0-14.456 0m10.978-.397v-.916c0-1.18-.91-2.164-2.09-2.201a51.96 51.96 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" /></svg>
+               </button>
+@@ -138,6 +157,29 @@
+           </form>
+         </div>
+       ) : null}
++      {settingsOpen ? (
++        <div className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setSettingsOpen(false)}>
++          <section className="node-banana-hosted__settings" role="dialog" aria-modal="true" aria-labelledby="node-banana-settings-title" data-node-banana-component="ProjectSetupModal" onMouseDown={(event) => event.stopPropagation()}>
++            <header><h2 id="node-banana-settings-title">Project Settings</h2><button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></header>
++            <nav role="tablist" aria-label="Settings sections">
++              <button type="button" role="tab" aria-selected={settingsTab === "project"} onClick={() => setSettingsTab("project")}>Project</button>
++              <button type="button" role="tab" aria-selected={settingsTab === "canvas"} onClick={() => setSettingsTab("canvas")}>Canvas</button>
++            </nav>
++            <div className="node-banana-hosted__settings-body">
++              {settingsTab === "project" ? (
++                <label>Project name<input value={settingsTitle} maxLength={120} disabled={!writable} onChange={(event) => setSettingsTitle(event.target.value)} /></label>
++              ) : (
++                <>
++                  <fieldset><legend>Pan Mode</legend>{(["space", "middleMouse", "always"] as const).map((value) => <label key={value}><input type="radio" name="pan-mode" checked={settingsCanvas.panMode === value} onChange={() => setSettingsCanvas({ ...settingsCanvas, panMode: value })} />{value === "middleMouse" ? "Middle mouse" : value === "space" ? "Hold Space" : "Always"}</label>)}</fieldset>
++                  <fieldset><legend>Zoom Mode</legend>{(["scroll", "altScroll", "ctrlScroll"] as const).map((value) => <label key={value}><input type="radio" name="zoom-mode" checked={settingsCanvas.zoomMode === value} onChange={() => setSettingsCanvas({ ...settingsCanvas, zoomMode: value })} />{value === "scroll" ? "Scroll" : value === "altScroll" ? "Alt + scroll" : "Ctrl/Cmd + scroll"}</label>)}</fieldset>
++                  <fieldset><legend>Selection Mode</legend>{(["click", "altDrag", "shiftDrag"] as const).map((value) => <label key={value}><input type="radio" name="selection-mode" checked={settingsCanvas.selectionMode === value} onChange={() => setSettingsCanvas({ ...settingsCanvas, selectionMode: value })} />{value === "click" ? "Click" : value === "altDrag" ? "Alt + drag" : "Shift + drag"}</label>)}</fieldset>
++                </>
++              )}
++            </div>
++            <footer><button type="button" onClick={() => setSettingsOpen(false)}>Cancel</button><button type="button" data-variant="primary" disabled={!settingsTitle.trim()} onClick={() => { onTitleChange(settingsTitle.trim()); onCanvasSettingsChange(settingsCanvas); setSettingsOpen(false); }}>Save</button></footer>
++          </section>
++        </div>
++      ) : null}
+       {shortcutsOpen ? (
+         <div className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setShortcutsOpen(false)}>
+           <section className="node-banana-hosted__shortcuts" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onMouseDown={(event) => event.stopPropagation()}>
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -6,9 +6,11 @@
+   NodeBananaCanvasLabels,
+   NodeBananaCanvasProps,
+   NodeBananaCanvasReason,
++  NodeBananaCanvasSettings,
+   NodeBananaPendingConnection,
+   NodeBananaRuntimeEdge,
+   NodeBananaRuntimeGraph,
++  NodeBananaRuntimeModelItem,
+   NodeBananaRuntimeNode,
+   NodeBananaRuntimePaletteItem,
+ } from "./canvas-runtime";

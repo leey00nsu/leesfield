@@ -5,11 +5,15 @@ import type { ImageGenerationNodeConfigDto } from "./graph-types";
 export type ImageGenerationNodeData = {
   configVersion: 1;
   config: ImageGenerationNodeConfigDto;
-  selectedOutputImageId: string | null;
+  selectedOutputAssetId: string | null;
 };
 
-export type ImageGenerationFlowNode = Node<ImageGenerationNodeData, "imageGeneration">;
+export type ImageGenerationFlowNode = Node<ImageGenerationNodeData, "generationNode">;
 
-export type GenerationGraphEdgeData = { kind: "primary" | "reference" };
+export type GenerationGraphEdgeData = {
+  sourcePortId?: string;
+  targetPortId?: string;
+  sortOrder?: number;
+};
 
 export type GenerationGraphFlowEdge = Edge<GenerationGraphEdgeData>;

@@ -1,0 +1,470 @@
+--- /dev/null
++++ b/src/leesfield/port-handle.tsx
+@@ -0,0 +1,12 @@
++"use client";
++import { Handle as FlowHandle, useNodeId, type HandleProps } from "@xyflow/react";
++import type { ComponentProps } from "react";
++import { useWorkflowStore } from "./upstream-node-host";
++export function PortIcon({type}: {type: string}) {
++ return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">{type === "text" ? <path d="M5 5h14M12 5v14M8 19h8"/> : type === "audio" ? <path d="M4 10v4m4-8v12m4-15v18m4-15v12m4-8v4"/> : type === "video" ? <><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 9 5-3v12l-5-3"/></> : type === "upload" ? <><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></> : type === "assets" ? <path d="M3 7h7l2 2h9v11H3zM3 7V4h7l2 3"/> : <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>}</svg>;
++}
++export function Handle(props: ComponentProps<typeof FlowHandle> & HandleProps) {
++ const nodeId=useNodeId(); const writable=useWorkflowStore(state=>state.writable);
++ const media=props.id ?? "image";
++ return <><FlowHandle {...props}/>{writable && props.isConnectable !== false ? <button type="button" className="node-banana-port-action nodrag nopan" aria-label={"Connect " + media + " " + (props.type === "source" ? "output" : "input")} style={{position:"absolute",top:props.style?.top ?? "50%",transform:"translateY(-50%)",[props.type === "source" ? "right" : "left"]:-38,zIndex:30}} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation(); const rect=event.currentTarget.getBoundingClientRect(); event.currentTarget.dispatchEvent(new CustomEvent("node-banana-port-menu",{bubbles:true,detail:{nodeId,handleId:props.id ?? null,handleType:props.type,x:rect.right+8,y:rect.top}}));}}><PortIcon type={media}/></button>:null}</>;
++}
+--- a/src/components/nodes/AnnotationNode.tsx
++++ b/src/components/nodes/AnnotationNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/ArrayNode.tsx
++++ b/src/components/nodes/ArrayNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { Handle, Node, NodeProps, Position, useReactFlow } from "@xyflow/react";
++import { Node, NodeProps, Position, useReactFlow } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { useWorkflowStore } from "@/store/workflowStore";
+ import { ArrayNodeData } from "@/types";
+--- a/src/components/nodes/AudioInputNode.tsx
++++ b/src/components/nodes/AudioInputNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useRef, useState, useEffect } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/ComfyAppNode.tsx
++++ b/src/components/nodes/ComfyAppNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useEffect, useMemo, useState } from "react";
+-import { Handle, NodeProps, Node, Position, useUpdateNodeInternals } from "@xyflow/react";
++import { NodeProps, Node, Position, useUpdateNodeInternals } from "@xyflow/react";
+ 
+ import { BaseNode } from "./BaseNode";
+ import { ComfyAppParameters } from "./ComfyAppParameters";
+--- a/src/components/nodes/ConditionalSwitchNode.tsx
++++ b/src/components/nodes/ConditionalSwitchNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { memo, useMemo, useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
+-import { Handle, Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
++import { Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { useWorkflowStore } from "@/store/workflowStore";
+ import { evaluateRule } from "@/store/utils/ruleEvaluation";
+--- a/src/components/nodes/EaseCurveNode.tsx
++++ b/src/components/nodes/EaseCurveNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useEffect } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/GLBViewerNode.tsx
++++ b/src/components/nodes/GLBViewerNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useRef, useState, useEffect, Suspense } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { Canvas, useThree, useFrame } from "@react-three/fiber";
+ import { OrbitControls } from "@react-three/drei";
+ import { BaseNode } from "./BaseNode";
+--- a/src/components/nodes/Generate3DNode.tsx
++++ b/src/components/nodes/Generate3DNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useState, useEffect, useMemo } from "react";
+-import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
++import { Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { ModelParameters } from "./ModelParameters";
+ import { useWorkflowStore, useProviderApiKeys } from "@/store/workflowStore";
+--- a/src/components/nodes/GenerateAudioNode.tsx
++++ b/src/components/nodes/GenerateAudioNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useState, useEffect, useMemo } from "react";
+-import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
++import { Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import { InlineParameterPanel } from "./InlineParameterPanel";
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+-import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
++import { Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { ModelParameters } from "./ModelParameters";
+ import { ModelSearchDialog } from "../modals/ModelSearchDialog";
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useState, useEffect, useMemo } from "react";
+-import { Handle, Position, NodeProps, Node, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
++import { Position, NodeProps, Node, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import { InlineParameterPanel } from "./InlineParameterPanel";
+--- a/src/components/nodes/GifEncoderNode.tsx
++++ b/src/components/nodes/GifEncoderNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/ImageCompareNode.tsx
++++ b/src/components/nodes/ImageCompareNode.tsx
+@@ -1,6 +1,7 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import {
+   ReactCompareSlider,
+   ReactCompareSliderImage,
+--- a/src/components/nodes/ImageInputNode.tsx
++++ b/src/components/nodes/ImageInputNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useRef } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/ImageResizeNode.tsx
++++ b/src/components/nodes/ImageResizeNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useEffect, useMemo } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/LLMGenerateNode.tsx
++++ b/src/components/nodes/LLMGenerateNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useEffect, useState } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { useWorkflowStore } from "@/store/workflowStore";
+ import { LLMGenerateNodeData, LLMProvider, LLMModelType } from "@/types";
+--- a/src/components/nodes/OutputGalleryNode.tsx
++++ b/src/components/nodes/OutputGalleryNode.tsx
+@@ -1,8 +1,9 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+ import { createPortal } from "react-dom";
+-import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
++import { Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/OutputNode.tsx
++++ b/src/components/nodes/OutputNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useState, useMemo, useEffect, useRef } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/PromptConstructorNode.tsx
++++ b/src/components/nodes/PromptConstructorNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useState, useEffect, useMemo, useRef, ReactNode } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+ import { useWorkflowStore } from "../../leesfield/upstream-node-host";
+--- a/src/components/nodes/PromptNode.tsx
++++ b/src/components/nodes/PromptNode.tsx
+@@ -1,8 +1,9 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useState, useEffect, useMemo, useRef } from "react";
+ import { createPortal } from "react-dom";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/RemoveBackgroundNode.tsx
++++ b/src/components/nodes/RemoveBackgroundNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useMemo } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/RouterNode.tsx
++++ b/src/components/nodes/RouterNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { memo, useMemo, useEffect } from "react";
+-import { Handle, Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
++import { Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { useWorkflowStore } from "@/store/workflowStore";
+ import type { WorkflowNode, RouterNodeData } from "@/types";
+--- a/src/components/nodes/SplitGridNode.tsx
++++ b/src/components/nodes/SplitGridNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useState, useEffect, useMemo, useRef } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import { SplitGridTemplateModal } from "../splitgrid/SplitGridTemplateModal";
+--- a/src/components/nodes/SwitchNode.tsx
++++ b/src/components/nodes/SwitchNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { memo, useMemo, useEffect, useState, useCallback } from "react";
+-import { Handle, Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
++import { Position, useUpdateNodeInternals, useReactFlow, NodeProps } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { useWorkflowStore } from "@/store/workflowStore";
+ import type { WorkflowNode, SwitchNodeData, HandleType } from "@/types";
+--- a/src/components/nodes/VideoFrameGrabNode.tsx
++++ b/src/components/nodes/VideoFrameGrabNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useMemo } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/VideoInputNode.tsx
++++ b/src/components/nodes/VideoInputNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import { useCallback, useRef } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/VideoStitchNode.tsx
++++ b/src/components/nodes/VideoStitchNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/components/nodes/VideoTrimNode.tsx
++++ b/src/components/nodes/VideoTrimNode.tsx
+@@ -1,7 +1,8 @@
+ "use client";
++import { Handle } from "../../leesfield/port-handle";
+ 
+ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
++import { Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+ import { HandleLabel } from "./HandleLabel";
+ import {
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -1,3 +1,4 @@
+ "use client";
++import { PortIcon } from "./port-handle";
+ 
+ import {
+@@ -160,6 +161,7 @@
+   onCreateGroup?: (ids: string[], nodes: NodeBananaRuntimeNode[]) => void;
+   onUngroup?: (ids: string[]) => void;
+   onImportCanvasMedia?: (source: File | { assetId: string }, signal: AbortSignal) => Promise<{ assetId: string; mediaType: "image" | "audio" | "video" }>;
++  renderAssetPicker?: (mediaType: "image" | "audio" | "video", onSelect: (assetId: string) => void, onClose: () => void) => ReactNode;
+   onInputError?: (error: Error) => void;
+   graph: NodeBananaRuntimeGraph;
+   nodeTypes: NodeTypes;
+@@ -279,7 +281,7 @@
+ }
+ 
+ function hostedConnectionOption(item: NodeBananaRuntimePaletteItem): ConnectionDropMenuHostedOption {
+-  return { type: item.kind, label: item.label, value: item };
++  return { type: item.kind, label: item.label, icon: <PortIcon type={item.kind.includes("prompt") || item.kind.includes("Constructor") ? "text" : item.kind.includes("audio") ? "audio" : item.kind.includes("video") ? "video" : "image"}/>, value: item };
+ }
+ 
+ function HostedFloatingActionBar({
+@@ -410,12 +412,14 @@
+   menu,
+   items,
+   onChoose,
++  onMedia,
+   onClose,
+ }: {
+   root: HTMLDivElement | null;
+   labels: NodeBananaCanvasLabels;
+   menu: MenuState;
+   items: readonly NodeBananaRuntimePaletteItem[];
++  onMedia: (action: "upload" | "assets", mediaType: "image" | "audio" | "video") => void;
+   onChoose: (item: NodeBananaRuntimePaletteItem) => void;
+   onClose: () => void;
+ }) {
+@@ -430,9 +434,10 @@
+       onSelect={() => undefined}
+       onClose={onClose}
+       hosted={{
+-        hostedOptions: items.map(hostedConnectionOption),
++        hostedOptions: [...items.filter(item => !(pending.handleType === "target" && item.kind === ("input." + handleType))).map(hostedConnectionOption), ...(pending.handleType === "target" && (handleType === "image" || handleType === "audio" || handleType === "video") && items.some(item=>item.kind === ("input." + handleType)) ? ["upload", "assets"].map(action=>({type:action,label:action === "upload" ? "Upload" : "Assets",icon:<PortIcon type={action}/>,value:action})) : [])],
+         hostedAriaLabel: labels.addNode,
+         onHostedSelect: (option) => {
++          if ((option.value === "upload" || option.value === "assets") && (handleType === "image" || handleType === "audio" || handleType === "video")) { onMedia(option.value, handleType); return; }
+           if (option.value && typeof option.value === "object" && "kind" in option.value) {
+             onChoose(option.value as NodeBananaRuntimePaletteItem);
+           }
+@@ -450,6 +455,7 @@
+   onCreateGroup,
+   onUngroup,
+   onImportCanvasMedia,
++  renderAssetPicker,
+   onInputError,
+   graph,
+   nodeTypes,
+@@ -744,6 +750,41 @@
+     );
+   }, [openMenu, writable]);
+ 
++  useEffect(() => {
++    const root=rootRef.current;
++    const listener=(event: Event)=>{
++      if(!writable) return;
++      const detail=(event as CustomEvent).detail;
++      if(!detail?.nodeId || !root || !graph.nodes.some(node=>node.id===detail.nodeId)) return;
++      event.stopPropagation(); const rect=root.getBoundingClientRect();
++      openMenu({x:detail.x-rect.left,y:detail.y-rect.top}, instanceRef.current?.screenToFlowPosition({x:detail.x,y:detail.y}) ?? {x:80,y:80}, {nodeId:detail.nodeId,handleId:detail.handleId,handleType:detail.handleType});
++    };
++    root?.addEventListener("node-banana-port-menu",listener); return ()=>root?.removeEventListener("node-banana-port-menu",listener);
++  },[writable,graph.nodes,openMenu]);
++  const [assetRequest,setAssetRequest]=useState<{mediaType:"image"|"audio"|"video";menu:MenuState;picker:boolean}|null>(null);
++  const assetController=useRef<AbortController|null>(null);
++  const assetRequestRef=useRef(assetRequest); assetRequestRef.current=assetRequest;
++  const mediaFileRef=useRef<HTMLInputElement>(null);
++  const closeAssets=useCallback(()=>{assetController.current?.abort(); assetRequestRef.current=null;setAssetRequest(null);rootRef.current?.focus();},[]);
++  useEffect(()=>{if(!writable) closeAssets();return ()=>assetController.current?.abort();},[writable,closeAssets]);
++  const selectConnectionMedia=async (source:File|{assetId:string})=>{
++    const request=assetRequestRef.current; if(!request || !contentContext.current.writable) return;
++    assetController.current?.abort(); const controller=new AbortController();assetController.current=controller;
++    try {
++      const imported=await contentContext.current.onImportCanvasMedia?.(source,controller.signal);
++      const current=contentContext.current;
++      if(controller.signal.aborted || !contentMounted.current || !current.writable || assetRequestRef.current!==request || !imported) return;
++      if(imported.mediaType!==request.mediaType) throw new Error("ASSET_MEDIA_TYPE_MISMATCH");
++      const pending=request.menu.pendingConnection;
++      if(!pending || !current.graph.nodes.some(node=>node.id===pending.nodeId)) return closeAssets();
++      const item=current.paletteItems.find(item=>item.kind===("input." + imported.mediaType));if(!item)return;
++      const result=current.onCreateNode(item,request.menu.flow,pending);
++      if(!result.edge) throw new Error("CONNECTION_NOT_AVAILABLE");
++      result.node={...result.node,data:{...result.node.data,config:{assetId:imported.assetId}}};
++      current.publish({nodes:[...current.graph.nodes,result.node],edges:[...current.graph.edges,result.edge]},"create");
++      closeAssets();
++    } catch(error) { if(!controller.signal.aborted) {onInputError?.(error instanceof Error?error:new Error("MEDIA_IMPORT_FAILED"));closeAssets();} }
++  };
+   const chooseNode = useCallback((item: NodeBananaRuntimePaletteItem) => {
+     const result = onCreateNode(item, interaction.menu.flow, interaction.menu.pendingConnection);
+     publish({
+@@ -1197,6 +1238,8 @@
+             const files = Array.from(event.dataTransfer.files).filter((file) => /^(image|audio|video)\//.test(file.type));
+             if (files.length) void importContent(async () => files, position, false, false);
+           }}>
++          <input ref={mediaFileRef} type="file" hidden onCancel={closeAssets} onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void selectConnectionMedia(file);else closeAssets();}}/>
++          {assetRequest?.picker && renderAssetPicker?.(assetRequest.mediaType,assetId=>void selectConnectionMedia({assetId}),closeAssets)}
+           <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
+       <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
+         nodes={visibleNodes}
+@@ -1347,6 +1390,7 @@
+           labels={labels}
+           menu={interaction.menu}
+           items={availableItems}
++          onMedia={(action,mediaType)=>{const request={mediaType,menu:interaction.menu,picker:action==="assets"};assetRequestRef.current=request;setAssetRequest(request);store.setState({menu:closedMenu});if(action==="upload"){const input=mediaFileRef.current;if(input){input.accept=(mediaType + "/*");input.value="";input.click();}}}}
+           onChoose={chooseNode}
+           onClose={() => {
+             store.setState({ menu: closedMenu });

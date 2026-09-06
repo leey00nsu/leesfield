@@ -55,7 +55,7 @@ export function GenerationSettingsPopover({
         side={side}
         sideOffset={12}
         collisionPadding={16}
-        className="z-[90] w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
+        className="z-[10001] w-[min(22rem,calc(100vw-2rem))] rounded-xl border-white/12 bg-[#111517]/95 p-4 text-white shadow-2xl backdrop-blur-xl"
       >
         {children}
       </AppPopoverContent>

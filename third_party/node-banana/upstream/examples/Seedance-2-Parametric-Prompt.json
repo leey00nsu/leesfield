@@ -1,0 +1,499 @@
+{
+  "version": 1,
+  "id": "wf_1776713462529_gzee3l5mw",
+  "name": "Parametric Prompt Engine",
+  "directoryPath": "",
+  "nodes": [
+    {
+      "id": "prompt-1",
+      "type": "prompt",
+      "position": {
+        "x": 73.45541774296032,
+        "y": 50.625929490161866
+      },
+      "data": {
+        "prompt": " You are a cinematic scene architect for the Seedance video model. You receive:\n \n1. **Character image(s)** — visual reference for identity, wardrobe, physicality\n2. **Scene description** — what is happening, where, and why\nYour job is to analyze these inputs and output a fully-formed parametric prompt following the structure below. Do not output the analysis — only the final prompt.\n \n---\n \n## ANALYSIS PHASE (internal, do not output)\n \nBefore writing the prompt, determine:\n \n**Scene archetype** — Classify into one of: `combat` / `dialogue` / `chase` / `intimate` / `discovery` / `performance` / `environmental` / `transformation` / `ensemble` / `montage`. This selects which specialized modules to include.\n \n**Character extraction** — From each image, extract: build, apparent age, wardrobe, distinctive features, posture/attitude. Write these as compact identity anchors (e.g., \"tall, lean, mid-30s, black tactical jacket, close-cropped hair, watchful stance\") — enough for identity consistency without over-constraining. Target 8–15 words per character.\n \n**Environmental logic** — Infer materials, lighting conditions, spatial scale, interactive elements (what can be touched, moved, broken, climbed). Note time of day and weather if implied.\n \n**Emotional spine** — Identify the scene's core tension or question. Every beat should serve this.\n \n**Natural arc** — Determine the scene's rhythm: does it build, release, oscillate, or sustain? This drives the ESCALATION and HERO MOMENT equivalents.\n \n**Asymmetric intent** — Identify what each character wants *individually*. Dramatic charge comes from mismatched motivations, not shared ones.\n \n---\n \n## OUTPUT STRUCTURE\n \nAssemble the prompt using these blocks. Modules marked *(conditional)* only appear when relevant to the scene archetype.\n \n```\nFORMAT: [duration] / [continuity descriptor — e.g., continuous, single-take, interleaved, montage]\n \nCHARACTERS\nA: [identity anchor from image analysis + role in scene]\nB: [identity anchor from image analysis + role in scene]\n[additional characters as needed]\n \nENVIRONMENT\n[2–4 sentence description: space, materials, lighting, atmosphere, interactive elements, time/weather]\n \nSCENE PROFILE\nTYPE: [scene archetype]\nTONE: [e.g., tender / menacing / bittersweet / reverent / unnerving / euphoric — pick 1–2]\nENERGY: [low / medium / high / explosive / suspended]\nSTAKES: [what is at risk or being pursued]\nINTENT: [what each character wants from the scene — asymmetric where possible]\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur.\n[+ any archetype-specific additions: e.g., \"warm practical sources\" for intimate, \"anamorphic flare\" for performance, \"handheld intimacy\" for dialogue]\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- [3–5 bullets describing what actions/reactions are encouraged, tuned to archetype]\n- Use environment expressively (not decoratively)\n- Allow micro-behaviors: glances, breath, weight shifts, hesitations\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera ([archetype-appropriate framings: e.g., OTS + push-in for dialogue; wide + low-angle for performance; POV + handheld for discovery])\n- Environment reacts appropriately ([archetype-specific: e.g., dust motes + light shifts for intimate; debris + splashes for combat; reflections + condensation for atmospheric])\n \n[CONDITIONAL MODULE — IMPACT] *(combat, chase, transformation)*\nStrong contacts/transitions: 2-frame hold + brightness spike + micro shake resume\n \n[CONDITIONAL MODULE — CONNECTION] *(intimate, dialogue)*\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \n[CONDITIONAL MODULE — REVELATION] *(discovery, transformation)*\nRecognition beats: focus rack + slight push-in + ambient drop\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\n[Archetype-tuned: e.g., \"Fast exchanges + micro pauses + 1–2 slow-motion beats\" for combat; \"Long holds + small gestures + one breath-catch beat\" for intimate; \"Sustained glide + one rupture + recovery\" for discovery]\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven or spatially expressive moment\n- one decisive beat that shifts the scene's state\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- [archetype-appropriate entry] → defining action → brief aftermath hold\n- ends with strong silhouette, composition, or emotional register\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 1 — COMBAT (original archetype)\n \n**Input:**\n- Character images: [two martial figures in dark practical clothing]\n- Scene description: \"A duel between rival assassins in an abandoned warehouse at dusk. Brutal and tactical — neither will walk away casually.\"\n**Output:**\n \n```\nFORMAT: 15s / continuous fight\n \nCHARACTERS\nA: tall, lean, late-30s, black tactical jacket, close-cropped hair, controlled stance — the veteran\nB: mid-30s, wiry, dark hooded pullover, fingerless gloves, restless footwork — the challenger\n \nENVIRONMENT\nAbandoned warehouse, concrete floor streaked with old oil, steel support columns at regular intervals. Dust motes drift in horizontal shafts of dusk light through high broken windows. Stacked wooden pallets, a chain hoist overhead, loose rebar near the walls. Cold, echoing, scale large enough to allow distance and vertical play.\n \nSCENE PROFILE\nTYPE: combat / duel\nTONE: brutal, tactical\nENERGY: high, escalating to explosive\nSTAKES: survival — only one leaves\nINTENT: A wants to end it quickly and cleanly; B wants to prove something before the end\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Dust catches the low side-light; shadows long and hard-edged.\n \nDIRECTIVE\nNo fixed choreography. Fight emerges dynamically from characters, environment, and momentum.\n \nBEHAVIOR\n- Use environment freely (walls, columns, pallets, chain hoist)\n- Allow verticality (climb, wall-run, elevation shifts)\n- Encourage unexpected but physically valid actions\n- Micro-behaviors: breath control, weight resets, a wipe of blood from the mouth\n \nRULES\n- Momentum chain only, no isolated actions\n- Clear positioning at all times\n- Continuous, motivated camera (POV / OTS / wide / low-high as needed)\n- Environment actively reacts (dust plumes, debris, sparks from rebar, chain swing)\n \nIMPACT\nStrong contacts: 2-frame hold + brightness spike + micro shake resume\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nFast exchanges + micro pauses + 1–2 slow-motion beats (0.5–1s)\n \nESCALATION\nIntensity rises. Include:\n- one vertical/environment-driven move (a column used to redirect, a pallet kicked into the space)\n- one decisive high-impact action\n \nHERO MOMENT (CRITICAL)\nGenerate one standout finishing beat:\n- visually dominant, clearly readable\n- uses environment or full-body motion\n- slow-motion entry → sharp impact → brief aftermath hold\n- ends with strong silhouette against the broken-window light, dust suspended, one figure standing\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting)\n- Respect weight and inertia (no floaty or impossible motion)\n- Ensure clear cause → effect in every action\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping or mismatch)\n- Prioritize clarity and physical realism over complexity\n \nOUTPUT\nFluid, physical, cinematic fight with clear spatial logic, dynamic camera, environmental interaction, and a memorable final highlight moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 2 — INTIMATE / REUNION\n \n**Input:**\n- Character images: [two figures, one in worn leather jacket, one in business attire]\n- Scene description: \"A reunion in a rain-soaked alley at night. They haven't seen each other in ten years. Tension but not hostility — unfinished business.\"\n**Output:**\n \n```\nFORMAT: 12s / continuous, single breath-like take\n \nCHARACTERS\nA: mid-30s, lean, worn brown leather jacket over dark henley, unshaven, hands in pockets but shoulders tight — arrived first, has been waiting\nB: mid-30s, charcoal overcoat over tailored suit, damp hair, briefcase in left hand — arrived second, deliberate pace\n \nENVIRONMENT\nNarrow alley between brick buildings, slick with recent rain. Single sodium streetlight from the far end casts long amber shadows; a neon sign two buildings over bleeds red into puddles. Steam rises from a vent. Low ambient hum of city beyond. Puddles, loose gravel, a metal dumpster, one flickering bulb above a service door.\n \nSCENE PROFILE\nTYPE: intimate / reunion\nTONE: bittersweet, suspended, quietly charged\nENERGY: low, with one surge\nSTAKES: acknowledgment — whether ten years can be spoken to or must stay unspoken\nINTENT: A wants to know if B remembers; B wants to leave before admitting they do\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm sodium + cold neon color contrast. Wet surfaces catch and fracture light. Breath visible in cold air.\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- Micro-behaviors lead: glances held a beat too long, weight shifts, a hand half-raised then dropped\n- Physical distance negotiated without language — one step closer, one step back\n- Environment expressive: a puddle disturbed, breath fogging, the flickering bulb timing a pause\n- Allow silence to carry weight; dialogue optional and sparse\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera: slow push-in on A from behind B's shoulder, drift to profile two-shot, one handheld rack to B's hand on the briefcase\n- Environment reacts: rain drips from a gutter, steam curls between them, a distant car passes casting moving shadow\n \nCONNECTION\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nLong holds + small gestures + one breath-catch beat. Two moments where time almost stops. One slow exhale that releases the tension without resolving it.\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment (the bulb flickers at the exact wrong second, or a passing car's light sweeps across both faces)\n- one decisive beat that shifts the scene's state (B sets the briefcase down, or A takes the half-step forward)\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- Slow focus rack from A's eyes to B's hand loosening on the briefcase handle → the hand opens slightly → hold on the small space between them, neon reflected in a puddle at their feet\n- ends with two figures in silhouette against amber light, close but not touching\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n ",
+        "variableName": "system"
+      },
+      "style": {
+        "width": 320,
+        "height": 220
+      },
+      "measured": {
+        "width": 327,
+        "height": 385
+      },
+      "width": 327,
+      "height": 385,
+      "resizing": false,
+      "className": "",
+      "groupId": "group-2",
+      "selected": false
+    },
+    {
+      "id": "llmGenerate-2",
+      "type": "llmGenerate",
+      "position": {
+        "x": 838.0152075405168,
+        "y": 34.076808792533214
+      },
+      "data": {
+        "inputPrompt": "System prompt:\n You are a cinematic scene architect for the Seedance video model. You receive:\n \n1. **Character image(s)** — visual reference for identity, wardrobe, physicality\n2. **Scene description** — what is happening, where, and why\nYour job is to analyze these inputs and output a fully-formed parametric prompt following the structure below. Do not output the analysis — only the final prompt.\n \n---\n \n## ANALYSIS PHASE (internal, do not output)\n \nBefore writing the prompt, determine:\n \n**Scene archetype** — Classify into one of: `combat` / `dialogue` / `chase` / `intimate` / `discovery` / `performance` / `environmental` / `transformation` / `ensemble` / `montage`. This selects which specialized modules to include.\n \n**Character extraction** — From each image, extract: build, apparent age, wardrobe, distinctive features, posture/attitude. Write these as compact identity anchors (e.g., \"tall, lean, mid-30s, black tactical jacket, close-cropped hair, watchful stance\") — enough for identity consistency without over-constraining. Target 8–15 words per character.\n \n**Environmental logic** — Infer materials, lighting conditions, spatial scale, interactive elements (what can be touched, moved, broken, climbed). Note time of day and weather if implied.\n \n**Emotional spine** — Identify the scene's core tension or question. Every beat should serve this.\n \n**Natural arc** — Determine the scene's rhythm: does it build, release, oscillate, or sustain? This drives the ESCALATION and HERO MOMENT equivalents.\n \n**Asymmetric intent** — Identify what each character wants *individually*. Dramatic charge comes from mismatched motivations, not shared ones.\n \n---\n \n## OUTPUT STRUCTURE\n \nAssemble the prompt using these blocks. Modules marked *(conditional)* only appear when relevant to the scene archetype.\n \n```\nFORMAT: [duration] / [continuity descriptor — e.g., continuous, single-take, interleaved, montage]\n \nCHARACTERS\nA: [identity anchor from image analysis + role in scene]\nB: [identity anchor from image analysis + role in scene]\n[additional characters as needed]\n \nENVIRONMENT\n[2–4 sentence description: space, materials, lighting, atmosphere, interactive elements, time/weather]\n \nSCENE PROFILE\nTYPE: [scene archetype]\nTONE: [e.g., tender / menacing / bittersweet / reverent / unnerving / euphoric — pick 1–2]\nENERGY: [low / medium / high / explosive / suspended]\nSTAKES: [what is at risk or being pursued]\nINTENT: [what each character wants from the scene — asymmetric where possible]\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur.\n[+ any archetype-specific additions: e.g., \"warm practical sources\" for intimate, \"anamorphic flare\" for performance, \"handheld intimacy\" for dialogue]\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- [3–5 bullets describing what actions/reactions are encouraged, tuned to archetype]\n- Use environment expressively (not decoratively)\n- Allow micro-behaviors: glances, breath, weight shifts, hesitations\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera ([archetype-appropriate framings: e.g., OTS + push-in for dialogue; wide + low-angle for performance; POV + handheld for discovery])\n- Environment reacts appropriately ([archetype-specific: e.g., dust motes + light shifts for intimate; debris + splashes for combat; reflections + condensation for atmospheric])\n \n[CONDITIONAL MODULE — IMPACT] *(combat, chase, transformation)*\nStrong contacts/transitions: 2-frame hold + brightness spike + micro shake resume\n \n[CONDITIONAL MODULE — CONNECTION] *(intimate, dialogue)*\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \n[CONDITIONAL MODULE — REVELATION] *(discovery, transformation)*\nRecognition beats: focus rack + slight push-in + ambient drop\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\n[Archetype-tuned: e.g., \"Fast exchanges + micro pauses + 1–2 slow-motion beats\" for combat; \"Long holds + small gestures + one breath-catch beat\" for intimate; \"Sustained glide + one rupture + recovery\" for discovery]\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven or spatially expressive moment\n- one decisive beat that shifts the scene's state\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- [archetype-appropriate entry] → defining action → brief aftermath hold\n- ends with strong silhouette, composition, or emotional register\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 1 — COMBAT (original archetype)\n \n**Input:**\n- Character images: [two martial figures in dark practical clothing]\n- Scene description: \"A duel between rival assassins in an abandoned warehouse at dusk. Brutal and tactical — neither will walk away casually.\"\n**Output:**\n \n```\nFORMAT: 15s / continuous fight\n \nCHARACTERS\nA: tall, lean, late-30s, black tactical jacket, close-cropped hair, controlled stance — the veteran\nB: mid-30s, wiry, dark hooded pullover, fingerless gloves, restless footwork — the challenger\n \nENVIRONMENT\nAbandoned warehouse, concrete floor streaked with old oil, steel support columns at regular intervals. Dust motes drift in horizontal shafts of dusk light through high broken windows. Stacked wooden pallets, a chain hoist overhead, loose rebar near the walls. Cold, echoing, scale large enough to allow distance and vertical play.\n \nSCENE PROFILE\nTYPE: combat / duel\nTONE: brutal, tactical\nENERGY: high, escalating to explosive\nSTAKES: survival — only one leaves\nINTENT: A wants to end it quickly and cleanly; B wants to prove something before the end\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Dust catches the low side-light; shadows long and hard-edged.\n \nDIRECTIVE\nNo fixed choreography. Fight emerges dynamically from characters, environment, and momentum.\n \nBEHAVIOR\n- Use environment freely (walls, columns, pallets, chain hoist)\n- Allow verticality (climb, wall-run, elevation shifts)\n- Encourage unexpected but physically valid actions\n- Micro-behaviors: breath control, weight resets, a wipe of blood from the mouth\n \nRULES\n- Momentum chain only, no isolated actions\n- Clear positioning at all times\n- Continuous, motivated camera (POV / OTS / wide / low-high as needed)\n- Environment actively reacts (dust plumes, debris, sparks from rebar, chain swing)\n \nIMPACT\nStrong contacts: 2-frame hold + brightness spike + micro shake resume\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nFast exchanges + micro pauses + 1–2 slow-motion beats (0.5–1s)\n \nESCALATION\nIntensity rises. Include:\n- one vertical/environment-driven move (a column used to redirect, a pallet kicked into the space)\n- one decisive high-impact action\n \nHERO MOMENT (CRITICAL)\nGenerate one standout finishing beat:\n- visually dominant, clearly readable\n- uses environment or full-body motion\n- slow-motion entry → sharp impact → brief aftermath hold\n- ends with strong silhouette against the broken-window light, dust suspended, one figure standing\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting)\n- Respect weight and inertia (no floaty or impossible motion)\n- Ensure clear cause → effect in every action\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping or mismatch)\n- Prioritize clarity and physical realism over complexity\n \nOUTPUT\nFluid, physical, cinematic fight with clear spatial logic, dynamic camera, environmental interaction, and a memorable final highlight moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 2 — INTIMATE / REUNION\n \n**Input:**\n- Character images: [two figures, one in worn leather jacket, one in business attire]\n- Scene description: \"A reunion in a rain-soaked alley at night. They haven't seen each other in ten years. Tension but not hostility — unfinished business.\"\n**Output:**\n \n```\nFORMAT: 12s / continuous, single breath-like take\n \nCHARACTERS\nA: mid-30s, lean, worn brown leather jacket over dark henley, unshaven, hands in pockets but shoulders tight — arrived first, has been waiting\nB: mid-30s, charcoal overcoat over tailored suit, damp hair, briefcase in left hand — arrived second, deliberate pace\n \nENVIRONMENT\nNarrow alley between brick buildings, slick with recent rain. Single sodium streetlight from the far end casts long amber shadows; a neon sign two buildings over bleeds red into puddles. Steam rises from a vent. Low ambient hum of city beyond. Puddles, loose gravel, a metal dumpster, one flickering bulb above a service door.\n \nSCENE PROFILE\nTYPE: intimate / reunion\nTONE: bittersweet, suspended, quietly charged\nENERGY: low, with one surge\nSTAKES: acknowledgment — whether ten years can be spoken to or must stay unspoken\nINTENT: A wants to know if B remembers; B wants to leave before admitting they do\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm sodium + cold neon color contrast. Wet surfaces catch and fracture light. Breath visible in cold air.\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- Micro-behaviors lead: glances held a beat too long, weight shifts, a hand half-raised then dropped\n- Physical distance negotiated without language — one step closer, one step back\n- Environment expressive: a puddle disturbed, breath fogging, the flickering bulb timing a pause\n- Allow silence to carry weight; dialogue optional and sparse\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera: slow push-in on A from behind B's shoulder, drift to profile two-shot, one handheld rack to B's hand on the briefcase\n- Environment reacts: rain drips from a gutter, steam curls between them, a distant car passes casting moving shadow\n \nCONNECTION\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nLong holds + small gestures + one breath-catch beat. Two moments where time almost stops. One slow exhale that releases the tension without resolving it.\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment (the bulb flickers at the exact wrong second, or a passing car's light sweeps across both faces)\n- one decisive beat that shifts the scene's state (B sets the briefcase down, or A takes the half-step forward)\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- Slow focus rack from A's eyes to B's hand loosening on the briefcase handle → the hand opens slightly → hold on the small space between them, neon reflected in a puddle at their feet\n- ends with two figures in silhouette against amber light, close but not touching\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n \n\nScene description:\nTwo people to rob a new york city bank, a policeman sees them through the window. No dialog. ",
+        "inputImages": [],
+        "outputText": "\n\n```\nFORMAT: 18s / continuous, tension-ratcheting single take\n\nCHARACTERS\nA: mid-30s, athletic build, short dark hair, trimmed beard, black crew-neck t-shirt, calm exterior masking coiled intent — the lead robber, already inside\nB: early-30s, woman, long dark hair, black satin-collared jacket, poised and deliberate — the accomplice, handling the tellers\nC: early-40s, medium build, wavy light-brown hair, stubble, dark navy municipal police uniform with sergeant chevrons, badge on chest, duty belt with radio — the patrol officer, passing outside on foot\n\nENVIRONMENT\nManhattan bank branch interior: polished marble floors, brass-trimmed teller counter with bulletproof glass partitions, velvet rope stanchions, a central island with deposit slips. Late afternoon — warm golden light slants through floor-to-ceiling plate glass windows facing the sidewalk. Outside: concrete sidewalk, parked cruiser partially visible, pedestrians passing. The plate glass acts as a membrane between two worlds — reflections of the street layer over the interior action. Security camera red lights blink. A ballpoint pen on a chain sways slightly from the island.\n\nSCENE PROFILE\nTYPE: discovery / ensemble\nTONE: menacing, suspenseful\nENERGY: medium, building to suspended\nSTAKES: exposure — the robbery unravels if the officer processes what he sees; freedom versus duty separated by a pane of glass\nINTENT: A wants to control the room quickly and invisibly; B wants clean execution at the counter, no alarm triggered; C is mid-patrol, not yet suspicious — but something pulls his gaze toward the window\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm interior practicals (recessed ceiling spots, brass desk lamps) contrast with cooler blue-grey daylight from the street. Reflections on glass layer interior and exterior simultaneously. Anamorphic streak on the plate glass when sunlight catches it.\n\nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum. No dialogue — tension carried entirely through action, glance, and timing.\n\nBEHAVIOR\n- A moves with rehearsed calm through the lobby — purposeful but not rushed, controlling sightlines\n- B engages a teller with composed authority, sliding something across the counter beneath the glass partition\n- C walks past the window, slows, stops — something at the edge of perception catches him; his head turns incrementally\n- Micro-behaviors carry everything: A's jaw tightening, B's fingers pressing flat on marble, C's hand drifting unconsciously toward his radio\n- Environment as co-narrator: the pen on its chain swings from someone brushing the island; a teller's hand trembles; the plate glass holds two overlapping worlds\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times: interior depth (A mid-lobby, B at counter) vs. exterior plane (C on sidewalk)\n- Continuous, motivated camera: begins inside over A's shoulder surveying the room, drifts laterally to find B at the counter, then racks focus through the plate glass to discover C outside — holds the layered composition\n- Environment reacts appropriately: light shifts as a cloud passes, reflections slide across glass as C moves, the pen chain settles, a teller's paperwork trembles\n\nREVELATION\nRecognition beats: focus rack through plate glass + slight push-in on C's face + ambient interior sound drops to near-silence\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout. C's radio antenna sways faintly as he stops.\n\nRHYTHM\nSustained glide + slow accumulation + one rupture of stillness. Interior action flows at a controlled, almost procedural pace. The rupture comes when C's gaze locks through the glass and the two worlds collapse into one frozen beat.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment: the afternoon sun breaks from behind a building and floods the bank interior with light, making A and B starkly visible from outside — a curtain of visibility they cannot control\n- one decisive beat that shifts the scene's state: C stops walking, his body squares to the window, and his hand closes around the radio on his belt\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses the plate glass as compositional device\n- Camera pushes slowly toward the window from inside: in the foreground reflection, A has turned and registered C; in the midground glass surface, B is frozen at the counter; through the glass, C's face fills the background, eyes narrowing, hand on radio — three planes of focus, one pane of glass, one suspended instant\n- Hold for two full seconds: nobody moves, the pen chain is still, a pedestrian passes behind C in soft blur, unaware\n- Ends on C's eyes — the moment before decision, loaded with everything that comes next\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Three characters maintain distinct spatial planes: A deep interior, B at counter, C exterior\n- Prioritize clarity and emotional truth over complexity\n\nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a defining moment of three-plane convergence through glass — a silent, suspended instant where a robbery meets its witness.\n```",
+        "provider": "anthropic",
+        "model": "claude-opus-4.6",
+        "temperature": 0.7,
+        "maxTokens": 8192,
+        "status": "complete",
+        "error": null,
+        "_settingsPanelHeight": 150.984375,
+        "inputImageRefs": [
+          "img-mo7lwfux-zjsjl3",
+          "img-mo7lwfwd-osi8am",
+          "img-mo7lwfzj-jmmvxv"
+        ]
+      },
+      "style": {
+        "width": 320,
+        "height": 510.984375
+      },
+      "measured": {
+        "width": 320,
+        "height": 511
+      },
+      "className": "",
+      "width": 320,
+      "height": 510.984375,
+      "dragging": false,
+      "groupId": "group-2",
+      "selected": false
+    },
+    {
+      "id": "prompt-3",
+      "type": "prompt",
+      "position": {
+        "x": -331.1442164710441,
+        "y": 37.02010203123877
+      },
+      "data": {
+        "prompt": "High speed chase, a policeman pursues them",
+        "variableName": "sceneDescription"
+      },
+      "style": {
+        "width": 320,
+        "height": 220
+      },
+      "measured": {
+        "width": 320,
+        "height": 220
+      },
+      "className": "",
+      "groupId": "group-1",
+      "selected": false
+    },
+    {
+      "id": "promptConstructor-4",
+      "type": "promptConstructor",
+      "position": {
+        "x": 435.3563243650368,
+        "y": 46.766760555093214
+      },
+      "data": {
+        "template": "System prompt:\n@system\n\nScene description:\n@sceneDescription",
+        "outputText": "System prompt:\n You are a cinematic scene architect for the Seedance video model. You receive:\n \n1. **Character image(s)** — visual reference for identity, wardrobe, physicality\n2. **Scene description** — what is happening, where, and why\nYour job is to analyze these inputs and output a fully-formed parametric prompt following the structure below. Do not output the analysis — only the final prompt.\n \n---\n \n## ANALYSIS PHASE (internal, do not output)\n \nBefore writing the prompt, determine:\n \n**Scene archetype** — Classify into one of: `combat` / `dialogue` / `chase` / `intimate` / `discovery` / `performance` / `environmental` / `transformation` / `ensemble` / `montage`. This selects which specialized modules to include.\n \n**Character extraction** — From each image, extract: build, apparent age, wardrobe, distinctive features, posture/attitude. Write these as compact identity anchors (e.g., \"tall, lean, mid-30s, black tactical jacket, close-cropped hair, watchful stance\") — enough for identity consistency without over-constraining. Target 8–15 words per character.\n \n**Environmental logic** — Infer materials, lighting conditions, spatial scale, interactive elements (what can be touched, moved, broken, climbed). Note time of day and weather if implied.\n \n**Emotional spine** — Identify the scene's core tension or question. Every beat should serve this.\n \n**Natural arc** — Determine the scene's rhythm: does it build, release, oscillate, or sustain? This drives the ESCALATION and HERO MOMENT equivalents.\n \n**Asymmetric intent** — Identify what each character wants *individually*. Dramatic charge comes from mismatched motivations, not shared ones.\n \n---\n \n## OUTPUT STRUCTURE\n \nAssemble the prompt using these blocks. Modules marked *(conditional)* only appear when relevant to the scene archetype.\n \n```\nFORMAT: [duration] / [continuity descriptor — e.g., continuous, single-take, interleaved, montage]\n \nCHARACTERS\nA: [identity anchor from image analysis + role in scene]\nB: [identity anchor from image analysis + role in scene]\n[additional characters as needed]\n \nENVIRONMENT\n[2–4 sentence description: space, materials, lighting, atmosphere, interactive elements, time/weather]\n \nSCENE PROFILE\nTYPE: [scene archetype]\nTONE: [e.g., tender / menacing / bittersweet / reverent / unnerving / euphoric — pick 1–2]\nENERGY: [low / medium / high / explosive / suspended]\nSTAKES: [what is at risk or being pursued]\nINTENT: [what each character wants from the scene — asymmetric where possible]\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur.\n[+ any archetype-specific additions: e.g., \"warm practical sources\" for intimate, \"anamorphic flare\" for performance, \"handheld intimacy\" for dialogue]\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- [3–5 bullets describing what actions/reactions are encouraged, tuned to archetype]\n- Use environment expressively (not decoratively)\n- Allow micro-behaviors: glances, breath, weight shifts, hesitations\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera ([archetype-appropriate framings: e.g., OTS + push-in for dialogue; wide + low-angle for performance; POV + handheld for discovery])\n- Environment reacts appropriately ([archetype-specific: e.g., dust motes + light shifts for intimate; debris + splashes for combat; reflections + condensation for atmospheric])\n \n[CONDITIONAL MODULE — IMPACT] *(combat, chase, transformation)*\nStrong contacts/transitions: 2-frame hold + brightness spike + micro shake resume\n \n[CONDITIONAL MODULE — CONNECTION] *(intimate, dialogue)*\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \n[CONDITIONAL MODULE — REVELATION] *(discovery, transformation)*\nRecognition beats: focus rack + slight push-in + ambient drop\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\n[Archetype-tuned: e.g., \"Fast exchanges + micro pauses + 1–2 slow-motion beats\" for combat; \"Long holds + small gestures + one breath-catch beat\" for intimate; \"Sustained glide + one rupture + recovery\" for discovery]\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven or spatially expressive moment\n- one decisive beat that shifts the scene's state\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- [archetype-appropriate entry] → defining action → brief aftermath hold\n- ends with strong silhouette, composition, or emotional register\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 1 — COMBAT (original archetype)\n \n**Input:**\n- Character images: [two martial figures in dark practical clothing]\n- Scene description: \"A duel between rival assassins in an abandoned warehouse at dusk. Brutal and tactical — neither will walk away casually.\"\n**Output:**\n \n```\nFORMAT: 15s / continuous fight\n \nCHARACTERS\nA: tall, lean, late-30s, black tactical jacket, close-cropped hair, controlled stance — the veteran\nB: mid-30s, wiry, dark hooded pullover, fingerless gloves, restless footwork — the challenger\n \nENVIRONMENT\nAbandoned warehouse, concrete floor streaked with old oil, steel support columns at regular intervals. Dust motes drift in horizontal shafts of dusk light through high broken windows. Stacked wooden pallets, a chain hoist overhead, loose rebar near the walls. Cold, echoing, scale large enough to allow distance and vertical play.\n \nSCENE PROFILE\nTYPE: combat / duel\nTONE: brutal, tactical\nENERGY: high, escalating to explosive\nSTAKES: survival — only one leaves\nINTENT: A wants to end it quickly and cleanly; B wants to prove something before the end\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Dust catches the low side-light; shadows long and hard-edged.\n \nDIRECTIVE\nNo fixed choreography. Fight emerges dynamically from characters, environment, and momentum.\n \nBEHAVIOR\n- Use environment freely (walls, columns, pallets, chain hoist)\n- Allow verticality (climb, wall-run, elevation shifts)\n- Encourage unexpected but physically valid actions\n- Micro-behaviors: breath control, weight resets, a wipe of blood from the mouth\n \nRULES\n- Momentum chain only, no isolated actions\n- Clear positioning at all times\n- Continuous, motivated camera (POV / OTS / wide / low-high as needed)\n- Environment actively reacts (dust plumes, debris, sparks from rebar, chain swing)\n \nIMPACT\nStrong contacts: 2-frame hold + brightness spike + micro shake resume\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nFast exchanges + micro pauses + 1–2 slow-motion beats (0.5–1s)\n \nESCALATION\nIntensity rises. Include:\n- one vertical/environment-driven move (a column used to redirect, a pallet kicked into the space)\n- one decisive high-impact action\n \nHERO MOMENT (CRITICAL)\nGenerate one standout finishing beat:\n- visually dominant, clearly readable\n- uses environment or full-body motion\n- slow-motion entry → sharp impact → brief aftermath hold\n- ends with strong silhouette against the broken-window light, dust suspended, one figure standing\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting)\n- Respect weight and inertia (no floaty or impossible motion)\n- Ensure clear cause → effect in every action\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping or mismatch)\n- Prioritize clarity and physical realism over complexity\n \nOUTPUT\nFluid, physical, cinematic fight with clear spatial logic, dynamic camera, environmental interaction, and a memorable final highlight moment.\n```\n \n---\n \n## FEW-SHOT EXAMPLE 2 — INTIMATE / REUNION\n \n**Input:**\n- Character images: [two figures, one in worn leather jacket, one in business attire]\n- Scene description: \"A reunion in a rain-soaked alley at night. They haven't seen each other in ten years. Tension but not hostility — unfinished business.\"\n**Output:**\n \n```\nFORMAT: 12s / continuous, single breath-like take\n \nCHARACTERS\nA: mid-30s, lean, worn brown leather jacket over dark henley, unshaven, hands in pockets but shoulders tight — arrived first, has been waiting\nB: mid-30s, charcoal overcoat over tailored suit, damp hair, briefcase in left hand — arrived second, deliberate pace\n \nENVIRONMENT\nNarrow alley between brick buildings, slick with recent rain. Single sodium streetlight from the far end casts long amber shadows; a neon sign two buildings over bleeds red into puddles. Steam rises from a vent. Low ambient hum of city beyond. Puddles, loose gravel, a metal dumpster, one flickering bulb above a service door.\n \nSCENE PROFILE\nTYPE: intimate / reunion\nTONE: bittersweet, suspended, quietly charged\nENERGY: low, with one surge\nSTAKES: acknowledgment — whether ten years can be spoken to or must stay unspoken\nINTENT: A wants to know if B remembers; B wants to leave before admitting they do\n \nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm sodium + cold neon color contrast. Wet surfaces catch and fracture light. Breath visible in cold air.\n \nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum.\n \nBEHAVIOR\n- Micro-behaviors lead: glances held a beat too long, weight shifts, a hand half-raised then dropped\n- Physical distance negotiated without language — one step closer, one step back\n- Environment expressive: a puddle disturbed, breath fogging, the flickering bulb timing a pause\n- Allow silence to carry weight; dialogue optional and sparse\n \nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times\n- Continuous, motivated camera: slow push-in on A from behind B's shoulder, drift to profile two-shot, one handheld rack to B's hand on the briefcase\n- Environment reacts: rain drips from a gutter, steam curls between them, a distant car passes casting moving shadow\n \nCONNECTION\nKey emotional beats: slight hold on reaction + soft focus pull + breath audible in mix\n \nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout.\n \nRHYTHM\nLong holds + small gestures + one breath-catch beat. Two moments where time almost stops. One slow exhale that releases the tension without resolving it.\n \nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment (the bulb flickers at the exact wrong second, or a passing car's light sweeps across both faces)\n- one decisive beat that shifts the scene's state (B sets the briefcase down, or A takes the half-step forward)\n \nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment or full-body expression\n- Slow focus rack from A's eyes to B's hand loosening on the briefcase handle → the hand opens slightly → hold on the small space between them, neon reflected in a puddle at their feet\n- ends with two figures in silhouette against amber light, close but not touching\n \nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Prioritize clarity and emotional truth over complexity\n \nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment.\n```\n \n---\n \n\nScene description:\nHigh speed chase, a policeman pursues them",
+        "unresolvedVars": []
+      },
+      "style": {
+        "width": 340,
+        "height": 280
+      },
+      "measured": {
+        "width": 340,
+        "height": 280
+      },
+      "className": "",
+      "groupId": "group-2",
+      "selected": false
+    },
+    {
+      "id": "imageInput-5",
+      "type": "imageInput",
+      "position": {
+        "x": -332.8365906613988,
+        "y": 583.9266857740902
+      },
+      "data": {
+        "image": null,
+        "filename": "pasted-1776716979871.png",
+        "dimensions": {
+          "width": 2000,
+          "height": 1428
+        },
+        "imageRef": "img-mo7nfd2a-jkizj2"
+      },
+      "style": {
+        "width": 300,
+        "height": 280
+      },
+      "measured": {
+        "width": 300,
+        "height": 280
+      },
+      "dragging": false,
+      "groupId": "group-1",
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "imageInput-6",
+      "type": "imageInput",
+      "position": {
+        "x": -332.8365906613988,
+        "y": 283.9266857740898
+      },
+      "data": {
+        "image": null,
+        "filename": "pasted-1776716955250.png",
+        "dimensions": {
+          "width": 920,
+          "height": 724
+        },
+        "imageRef": "img-mo7nfd3e-xjcn7n"
+      },
+      "style": {
+        "width": 300,
+        "height": 280
+      },
+      "measured": {
+        "width": 300,
+        "height": 280
+      },
+      "dragging": false,
+      "groupId": "group-1",
+      "className": "",
+      "selected": false
+    },
+    {
+      "id": "generateVideo-13",
+      "type": "generateVideo",
+      "position": {
+        "x": 1227.3494334501563,
+        "y": 24.170766064759903
+      },
+      "data": {
+        "inputImages": [],
+        "inputPrompt": "\n\n```\nFORMAT: 18s / continuous, tension-ratcheting single take\n\nCHARACTERS\nA: mid-30s, athletic build, short dark hair, trimmed beard, black crew-neck t-shirt, calm exterior masking coiled intent — the lead robber, already inside\nB: early-30s, woman, long dark hair, black satin-collared jacket, poised and deliberate — the accomplice, handling the tellers\nC: early-40s, medium build, wavy light-brown hair, stubble, dark navy municipal police uniform with sergeant chevrons, badge on chest, duty belt with radio — the patrol officer, passing outside on foot\n\nENVIRONMENT\nManhattan bank branch interior: polished marble floors, brass-trimmed teller counter with bulletproof glass partitions, velvet rope stanchions, a central island with deposit slips. Late afternoon — warm golden light slants through floor-to-ceiling plate glass windows facing the sidewalk. Outside: concrete sidewalk, parked cruiser partially visible, pedestrians passing. The plate glass acts as a membrane between two worlds — reflections of the street layer over the interior action. Security camera red lights blink. A ballpoint pen on a chain sways slightly from the island.\n\nSCENE PROFILE\nTYPE: discovery / ensemble\nTONE: menacing, suspenseful\nENERGY: medium, building to suspended\nSTAKES: exposure — the robbery unravels if the officer processes what he sees; freedom versus duty separated by a pane of glass\nINTENT: A wants to control the room quickly and invisibly; B wants clean execution at the counter, no alarm triggered; C is mid-patrol, not yet suspicious — but something pulls his gaze toward the window\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm interior practicals (recessed ceiling spots, brass desk lamps) contrast with cooler blue-grey daylight from the street. Reflections on glass layer interior and exterior simultaneously. Anamorphic streak on the plate glass when sunlight catches it.\n\nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum. No dialogue — tension carried entirely through action, glance, and timing.\n\nBEHAVIOR\n- A moves with rehearsed calm through the lobby — purposeful but not rushed, controlling sightlines\n- B engages a teller with composed authority, sliding something across the counter beneath the glass partition\n- C walks past the window, slows, stops — something at the edge of perception catches him; his head turns incrementally\n- Micro-behaviors carry everything: A's jaw tightening, B's fingers pressing flat on marble, C's hand drifting unconsciously toward his radio\n- Environment as co-narrator: the pen on its chain swings from someone brushing the island; a teller's hand trembles; the plate glass holds two overlapping worlds\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times: interior depth (A mid-lobby, B at counter) vs. exterior plane (C on sidewalk)\n- Continuous, motivated camera: begins inside over A's shoulder surveying the room, drifts laterally to find B at the counter, then racks focus through the plate glass to discover C outside — holds the layered composition\n- Environment reacts appropriately: light shifts as a cloud passes, reflections slide across glass as C moves, the pen chain settles, a teller's paperwork trembles\n\nREVELATION\nRecognition beats: focus rack through plate glass + slight push-in on C's face + ambient interior sound drops to near-silence\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout. C's radio antenna sways faintly as he stops.\n\nRHYTHM\nSustained glide + slow accumulation + one rupture of stillness. Interior action flows at a controlled, almost procedural pace. The rupture comes when C's gaze locks through the glass and the two worlds collapse into one frozen beat.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment: the afternoon sun breaks from behind a building and floods the bank interior with light, making A and B starkly visible from outside — a curtain of visibility they cannot control\n- one decisive beat that shifts the scene's state: C stops walking, his body squares to the window, and his hand closes around the radio on his belt\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses the plate glass as compositional device\n- Camera pushes slowly toward the window from inside: in the foreground reflection, A has turned and registered C; in the midground glass surface, B is frozen at the counter; through the glass, C's face fills the background, eyes narrowing, hand on radio — three planes of focus, one pane of glass, one suspended instant\n- Hold for two full seconds: nobody moves, the pen chain is still, a pedestrian passes behind C in soft blur, unaware\n- Ends on C's eyes — the moment before decision, loaded with everything that comes next\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Three characters maintain distinct spatial planes: A deep interior, B at counter, C exterior\n- Prioritize clarity and emotional truth over complexity\n\nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a defining moment of three-plane convergence through glass — a silent, suspended instant where a robbery meets its witness.\n```",
+        "outputVideo": null,
+        "selectedModel": {
+          "provider": "kie",
+          "modelId": "bytedance/seedance-2/image-to-video",
+          "displayName": "Seedance 2.0 I2V"
+        },
+        "status": "idle",
+        "error": null,
+        "videoHistory": [
+          {
+            "id": "format_18s_continuous_1196bc8eef7822e75266850dcefe188d",
+            "timestamp": 1776720051228,
+            "prompt": "\n\n```\nFORMAT: 18s / continuous, tension-ratcheting single take\n\nCHARACTERS\nA: mid-30s, athletic build, short dark hair, trimmed beard, black crew-neck t-shirt, calm exterior masking coiled intent — the lead robber, already inside\nB: early-30s, woman, long dark hair, black satin-collared jacket, poised and deliberate — the accomplice, handling the tellers\nC: early-40s, medium build, wavy light-brown hair, stubble, dark navy municipal police uniform with sergeant chevrons, badge on chest, duty belt with radio — the patrol officer, passing outside on foot\n\nENVIRONMENT\nManhattan bank branch interior: polished marble floors, brass-trimmed teller counter with bulletproof glass partitions, velvet rope stanchions, a central island with deposit slips. Late afternoon — warm golden light slants through floor-to-ceiling plate glass windows facing the sidewalk. Outside: concrete sidewalk, parked cruiser partially visible, pedestrians passing. The plate glass acts as a membrane between two worlds — reflections of the street layer over the interior action. Security camera red lights blink. A ballpoint pen on a chain sways slightly from the island.\n\nSCENE PROFILE\nTYPE: discovery / ensemble\nTONE: menacing, suspenseful\nENERGY: medium, building to suspended\nSTAKES: exposure — the robbery unravels if the officer processes what he sees; freedom versus duty separated by a pane of glass\nINTENT: A wants to control the room quickly and invisibly; B wants clean execution at the counter, no alarm triggered; C is mid-patrol, not yet suspicious — but something pulls his gaze toward the window\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Warm interior practicals (recessed ceiling spots, brass desk lamps) contrast with cooler blue-grey daylight from the street. Reflections on glass layer interior and exterior simultaneously. Anamorphic streak on the plate glass when sunlight catches it.\n\nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and emotional momentum. No dialogue — tension carried entirely through action, glance, and timing.\n\nBEHAVIOR\n- A moves with rehearsed calm through the lobby — purposeful but not rushed, controlling sightlines\n- B engages a teller with composed authority, sliding something across the counter beneath the glass partition\n- C walks past the window, slows, stops — something at the edge of perception catches him; his head turns incrementally\n- Micro-behaviors carry everything: A's jaw tightening, B's fingers pressing flat on marble, C's hand drifting unconsciously toward his radio\n- Environment as co-narrator: the pen on its chain swings from someone brushing the island; a teller's hand trembles; the plate glass holds two overlapping worlds\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times: interior depth (A mid-lobby, B at counter) vs. exterior plane (C on sidewalk)\n- Continuous, motivated camera: begins inside over A's shoulder surveying the room, drifts laterally to find B at the counter, then racks focus through the plate glass to discover C outside — holds the layered composition\n- Environment reacts appropriately: light shifts as a cloud passes, reflections slide across glass as C moves, the pen chain settles, a teller's paperwork trembles\n\nREVELATION\nRecognition beats: focus rack through plate glass + slight push-in on C's face + ambient interior sound drops to near-silence\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout. C's radio antenna sways faintly as he stops.\n\nRHYTHM\nSustained glide + slow accumulation + one rupture of stillness. Interior action flows at a controlled, almost procedural pace. The rupture comes when C's gaze locks through the glass and the two worlds collapse into one frozen beat.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment: the afternoon sun breaks from behind a building and floods the bank interior with light, making A and B starkly visible from outside — a curtain of visibility they cannot control\n- one decisive beat that shifts the scene's state: C stops walking, his body squares to the window, and his hand closes around the radio on his belt\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses the plate glass as compositional device\n- Camera pushes slowly toward the window from inside: in the foreground reflection, A has turned and registered C; in the midground glass surface, B is frozen at the counter; through the glass, C's face fills the background, eyes narrowing, hand on radio — three planes of focus, one pane of glass, one suspended instant\n- Hold for two full seconds: nobody moves, the pen chain is still, a pedestrian passes behind C in soft blur, unaware\n- Ends on C's eyes — the moment before decision, loaded with everything that comes next\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Three characters maintain distinct spatial planes: A deep interior, B at counter, C exterior\n- Prioritize clarity and emotional truth over complexity\n\nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a defining moment of three-plane convergence through glass — a silent, suspended instant where a robbery meets its witness.\n```",
+            "model": "bytedance/seedance-2/image-to-video"
+          },
+          {
+            "id": "format_18s_continuous_a669f245659bc0f7ab27a2a245cc0f33",
+            "timestamp": 1776719550160,
+            "prompt": "\n\n```\nFORMAT: 18s / continuous, single-take with motivated camera drift\n\nCHARACTERS\nA: mid-30s, athletic build, short dark hair, trimmed beard, black crew-neck tee, coiled energy masking nervousness — the ringleader, stapler in right hand held like a pistol\nB: early-30s, long dark hair, warm complexion, black satin-collared jacket, bright nervous smile barely suppressed — the accomplice, stapler clutched two-handed at chest height\nC: early-40s, medium build, tousled sandy-brown hair, light stubble, navy municipal police uniform with sergeant chevrons, badge, duty belt with radio — the officer, coffee in hand, mid-sip when he spots them through the glass\n\nENVIRONMENT\nSmall-town bank branch interior: polished linoleum floor, a short queue rope, two teller windows behind plexiglass, a potted ficus in the corner, overhead fluorescent panels casting flat even light. Street-facing plate-glass window to the left reveals the sidewalk where C stands. A wall clock ticks audibly. Morning light streams through the window, throwing long rectangles across the floor. Outside: a parked cruiser, a parking meter, mild overcast.\n\nSCENE PROFILE\nTYPE: ensemble / absurdist heist\nTONE: comedic, absurd, lightly tense\nENERGY: medium, rising to a bewildered peak\nSTAKES: dignity — A and B risk humiliation more than prison; C risks choking on his coffee\nINTENT: A wants to be taken seriously as a threat; B wants A to realize this is a terrible idea but can't bring themselves to quit; C wants to understand what he's looking at before he has to respond to it\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Flat fluorescent interior contrasted with warm morning window-light. Reflections on plexiglass and linoleum. Anamorphic-adjacent wide framing to capture all three planes of action (tellers, robbers, window/cop).\n\nDIRECTIVE\nNo fixed choreography. Scene emerges from character intent, environment, and escalating absurdity.\n\nBEHAVIOR\n- A brandishes the stapler with dead-serious conviction — arm extended, jaw set, free hand gesturing demands at the teller\n- B holds their stapler less convincingly, eyes darting between A and the teller, smile breaking through despite efforts to look menacing\n- Teller behind plexiglass stares blankly, unsure whether to comply or laugh\n- C outside the window freezes mid-sip, coffee cup hovering, brow furrowing through stages of confusion → disbelief → reluctant professional obligation\n- Micro-behaviors: A clicks the stapler for emphasis; B accidentally staples the air and flinches at the sound; C slowly lowers his coffee\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times: A and B inside at the counter, C outside the plate-glass window, all three visible in wide shots\n- Continuous, motivated camera: opens wide on A and B at the counter, slow drift left to reveal C through the window, rack focus between interior action and C's reaction, push-in on C's dawning realization\n- Environment reacts: fluorescent light hums, the ficus leaf trembles when A slams a hand on the counter, C's breath fogs the window glass\n\nCONNECTION\nKey emotional beats: slight hold on C's reaction + soft focus pull from A's outstretched stapler to C's stunned face through glass + the click of the stapler audible in the quiet\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, environment. Weight and inertia respected throughout. Coffee ripples in C's cup when he startles.\n\nRHYTHM\nSustained deadpan tension + punctuated micro-absurdities + one long comedic hold. Two beats of silence where only the wall clock and fluorescent hum are felt. One sharp punctuation (the stapler click) that resets the rhythm.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven moment: A slams the counter and the ficus drops a single leaf; the fluorescent nearest the window flickers\n- one decisive beat that shifts the scene's state: C sets his coffee on the windowsill with slow deliberation, keys his radio, and reaches for the door handle — the moment absurdity meets authority\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the scene:\n- visually dominant, clearly readable\n- uses environment and spatial separation expressively\n- Camera holds wide through the plate-glass window from C's exterior POV: A in full theatrical holdup pose with stapler extended, B half-turned toward the window with dawning horror of being seen, teller motionless behind plexiglass — all framed like a diorama of incompetence in warm fluorescent light, C's uniformed reflection ghosted over the scene in the glass\n- Hold 2 seconds. C's hand enters frame bottom-right, slowly placing the coffee cup on the sill. The click of the cup meeting concrete is the loudest sound in the scene.\n- Ends on C's face: exhaustion, disbelief, and the quiet resignation of a man whose shift just got significantly longer\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality\n- Ensure clear cause → effect in every beat\n- Keep camera readable and motivated (no random spins or cuts)\n- Use environment logically (no clipping, no scale mismatch)\n- Staplers remain visibly staplers at all times — no visual ambiguity toward actual weapons\n- Prioritize clarity and comedic timing over complexity\n\nOUTPUT\nFluid, physical, cinematic scene with clear spatial logic, dynamic camera, environmental interaction, and a memorable defining moment — a perfectly timed absurdist tableau viewed through plate glass.\n```",
+            "model": "bytedance/seedance-2/image-to-video"
+          },
+          {
+            "id": "format_18s_continuous_bb131d131913a9dce43f342a26f26177",
+            "timestamp": 1776717879617,
+            "prompt": "\n\n```\nFORMAT: 18s / continuous, interleaved between vehicles and street-level\n\nCHARACTERS\nA: mid-30s, athletic build, dark short hair, trimmed beard, black crewneck t-shirt, tense jaw, white-knuckle grip on steering wheel — the fugitive, driving\nB: late-20s, long dark hair whipping in wind, black satin-collared jacket, wide eyes scanning mirrors — the passenger, navigating and panicking\nC: early-40s, sandy wavy hair, blue municipal police uniform with sergeant chevrons and badge, determined squint, both hands on wheel — the pursuing officer\n\nENVIRONMENT\nDense urban grid at golden hour — low sun slicing between glass and steel towers, casting rapid strobe-like shadow/light alternation as vehicles pass between buildings. Four-lane boulevard narrowing into older district with parked cars, sidewalk café furniture, fruit stand with crates stacked curbside. Wet patches from a recent street-cleaning truck leave intermittent reflections. Traffic lights, crosswalks with scattering pedestrians, a construction detour with orange barrels funneling lanes. Sirens echo off building facades, multiplying in the canyon streets.\n\nSCENE PROFILE\nTYPE: chase\nTONE: relentless, desperate\nENERGY: high, sustaining toward explosive\nSTAKES: freedom vs. capture — A and B cannot afford to be stopped; C cannot afford to lose them\nINTENT: A wants distance and an exit route; B wants A to slow down before they die; C wants to close the gap and force a stop\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Anamorphic streak on headlights and reflections. Golden-hour sun rakes horizontally — lens flare when vehicles turn west. Dashboard reflections on windshields. Handheld energy inside vehicles, stabilized tracking on exteriors.\n\nDIRECTIVE\nNo fixed choreography. Chase emerges from character intent, traffic environment, and escalating risk.\n\nBEHAVIOR\n- A drives aggressively but not supernaturally — late braking, tight threading, clipping a mirror\n- B braces against the dash, checks the side mirror, shouts directions, flinches at near-misses\n- C drives with trained precision — wider lines but relentless closing, radio mic grabbed once\n- Pedestrians and traffic react: a cyclist swerves, a café chair topples in the wake, a car horn blares\n- Micro-behaviors: A's knuckles whitening, B's hand gripping the door handle, C's jaw setting as he gains ground\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times — establish distance between vehicles and show it changing\n- Continuous, motivated camera: interior OTS from backseat of A's car → whip-pan through rear window to C's cruiser gaining → cut-on-motion to hood-level tracking → brief C interior showing his focused pursuit\n- Environment reacts: puddle spray on lens, knocked café chair spinning, orange construction barrel clipped and rolling, pigeons bursting from an awning\n\nIMPACT\nStrong contacts/transitions: 2-frame hold + brightness spike + micro shake on every near-collision, sideswipe, and barrel hit\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, debris, water spray. Weight and inertia respected — vehicles lean in turns, suspension compresses on bumps, loose objects in A's car slide on the dash.\n\nRHYTHM\nSustained high tempo with two micro-pauses: one beat where A nearly stalls (intersection choke) and time briefly compresses — then explosive re-acceleration. Rapid intercuts between interiors and one long exterior tracking shot through the narrow district.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven obstacle moment: the construction detour forces A into a single lane — C nearly alongside, close enough to see faces through windows\n- one decisive beat that shifts the scene's state: A commits to a hard turn through the fruit stand, crates exploding across the hood, creating a debris field that forces C to brake and swerve\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the chase:\n- visually dominant, clearly readable\n- uses environment and full vehicle dynamics\n- Low tracking shot at wheel-level as A yanks the wheel hard left — fruit crates detonate across the frame in a burst of color against golden-hour light — camera rises in one fluid motion to catch C's cruiser sliding through the scattered debris, fishtailing, tires smoking — brief slow-motion hold on C through his windshield, jaw locked, hands correcting the slide — resume speed as C recovers and the gap has doubled\n- ends with a wide shot: A's car disappearing into a tunnel mouth trailing shadow, C's cruiser straightening in the amber light behind, siren still wailing, distance now vast and damning\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality — cars do not defy physics\n- Ensure clear cause → effect in every beat (turn → lean → tire squeal → pedestrian reaction)\n- Keep camera readable and motivated (no random spins or unmotivated cuts)\n- Use environment logically (no clipping, no scale mismatch, consistent street geography)\n- Prioritize clarity and visceral momentum over complexity\n\nOUTPUT\nFluid, physical, cinematic chase with clear spatial logic, dynamic camera, environmental destruction, escalating desperation, and a memorable fruit-stand apex that crystallizes the gap between hunter and hunted.\n```",
+            "model": "bytedance/seedance-2/image-to-video"
+          },
+          {
+            "id": "format_18s_continuous_25a6a58361a44e8460fd1e99e71ed27a",
+            "timestamp": 1776717565162,
+            "prompt": "\n\n```\nFORMAT: 18s / continuous, interleaved between vehicles and street-level\n\nCHARACTERS\nA: mid-30s, athletic build, dark short hair, trimmed beard, black crewneck t-shirt, tense jaw, white-knuckle grip on steering wheel — the fugitive, driving\nB: late-20s, long dark hair whipping in wind, black satin-collared jacket, wide eyes scanning mirrors — the passenger, navigating and panicking\nC: early-40s, sandy wavy hair, blue municipal police uniform with sergeant chevrons and badge, determined squint, both hands on wheel — the pursuing officer\n\nENVIRONMENT\nDense urban grid at golden hour — low sun slicing between glass and steel towers, casting rapid strobe-like shadow/light alternation as vehicles pass between buildings. Four-lane boulevard narrowing into older district with parked cars, sidewalk café furniture, fruit stand with crates stacked curbside. Wet patches from a recent street-cleaning truck leave intermittent reflections. Traffic lights, crosswalks with scattering pedestrians, a construction detour with orange barrels funneling lanes. Sirens echo off building facades, multiplying in the canyon streets.\n\nSCENE PROFILE\nTYPE: chase\nTONE: relentless, desperate\nENERGY: high, sustaining toward explosive\nSTAKES: freedom vs. capture — A and B cannot afford to be stopped; C cannot afford to lose them\nINTENT: A wants distance and an exit route; B wants A to slow down before they die; C wants to close the gap and force a stop\n\nVISUAL\nCinematic realism, physical lighting, shallow DOF, subtle grain, natural motion blur. Anamorphic streak on headlights and reflections. Golden-hour sun rakes horizontally — lens flare when vehicles turn west. Dashboard reflections on windshields. Handheld energy inside vehicles, stabilized tracking on exteriors.\n\nDIRECTIVE\nNo fixed choreography. Chase emerges from character intent, traffic environment, and escalating risk.\n\nBEHAVIOR\n- A drives aggressively but not supernaturally — late braking, tight threading, clipping a mirror\n- B braces against the dash, checks the side mirror, shouts directions, flinches at near-misses\n- C drives with trained precision — wider lines but relentless closing, radio mic grabbed once\n- Pedestrians and traffic react: a cyclist swerves, a café chair topples in the wake, a car horn blares\n- Micro-behaviors: A's knuckles whitening, B's hand gripping the door handle, C's jaw setting as he gains ground\n\nRULES\n- Momentum and motivation chain only — no disconnected beats\n- Clear spatial positioning at all times — establish distance between vehicles and show it changing\n- Continuous, motivated camera: interior OTS from backseat of A's car → whip-pan through rear window to C's cruiser gaining → cut-on-motion to hood-level tracking → brief C interior showing his focused pursuit\n- Environment reacts: puddle spray on lens, knocked café chair spinning, orange construction barrel clipped and rolling, pigeons bursting from an awning\n\nIMPACT\nStrong contacts/transitions: 2-frame hold + brightness spike + micro shake on every near-collision, sideswipe, and barrel hit\n\nMOTION\nSecondary delay (~2 frames) on hair, fabric, debris, water spray. Weight and inertia respected — vehicles lean in turns, suspension compresses on bumps, loose objects in A's car slide on the dash.\n\nRHYTHM\nSustained high tempo with two micro-pauses: one beat where A nearly stalls (intersection choke) and time briefly compresses — then explosive re-acceleration. Rapid intercuts between interiors and one long exterior tracking shot through the narrow district.\n\nESCALATION\nIntensity rises toward a defined apex. Include:\n- one environment-driven obstacle moment: the construction detour forces A into a single lane — C nearly alongside, close enough to see faces through windows\n- one decisive beat that shifts the scene's state: A commits to a hard turn through the fruit stand, crates exploding across the hood, creating a debris field that forces C to brake and swerve\n\nHERO MOMENT (CRITICAL)\nGenerate one standout beat that crystallizes the chase:\n- visually dominant, clearly readable\n- uses environment and full vehicle dynamics\n- Low tracking shot at wheel-level as A yanks the wheel hard left — fruit crates detonate across the frame in a burst of color against golden-hour light — camera rises in one fluid motion to catch C's cruiser sliding through the scattered debris, fishtailing, tires smoking — brief slow-motion hold on C through his windshield, jaw locked, hands correcting the slide — resume speed as C recovers and the gap has doubled\n- ends with a wide shot: A's car disappearing into a tunnel mouth trailing shadow, C's cruiser straightening in the amber light behind, siren still wailing, distance now vast and damning\n\nGUARDRAILS\n- Keep character identity and position consistent (no teleporting, no feature drift)\n- Respect weight, inertia, and physical causality — cars do not defy physics\n- Ensure clear cause → effect in every beat (turn → lean → tire squeal → pedestrian reaction)\n- Keep camera readable and motivated (no random spins or unmotivated cuts)\n- Use environment logically (no clipping, no scale mismatch, consistent street geography)\n- Prioritize clarity and visceral momentum over complexity\n\nOUTPUT\nFluid, physical, cinematic chase with clear spatial logic, dynamic camera, environmental destruction, escalating desperation, and a memorable fruit-stand apex that crystallizes the gap between hunter and hunted.\n```",
+            "model": "bytedance/seedance-2/image-to-video"
+          }
+        ],
+        "selectedVideoHistoryIndex": 2,
+        "_settingsPanelHeight": 126.5,
+        "parameters": {
+          "aspect_ratio": "16:9",
+          "resolution": "720p",
+          "duration": 15,
+          "generate_audio": true,
+          "web_search": false
+        },
+        "inputSchema": [
+          {
+            "name": "prompt",
+            "type": "text",
+            "required": false,
+            "label": "Prompt"
+          },
+          {
+            "name": "first_frame_url",
+            "type": "image",
+            "required": false,
+            "label": "First Frame",
+            "description": "Starting frame. Mutually exclusive with Reference Images."
+          },
+          {
+            "name": "last_frame_url",
+            "type": "image",
+            "required": false,
+            "label": "Last Frame",
+            "description": "Optional end frame — interpolates from First to Last. Mutually exclusive with Reference Images."
+          },
+          {
+            "name": "reference_image_urls",
+            "type": "image",
+            "required": false,
+            "isArray": true,
+            "label": "Reference Images",
+            "description": "Up to 9 reference images for style/subject guidance. Mutually exclusive with First/Last Frame."
+          },
+          {
+            "name": "reference_video_urls",
+            "type": "image",
+            "required": false,
+            "isArray": true,
+            "label": "Reference Videos",
+            "description": "Up to 3 reference videos (accepts video data URLs over the image handle)."
+          },
+          {
+            "name": "reference_audio_urls",
+            "type": "audio",
+            "required": false,
+            "isArray": true,
+            "label": "Reference Audio",
+            "description": "Up to 3 reference audio clips."
+          }
+        ],
+        "inputImageRefs": [
+          "img-mo7n1u0u-49b9t4",
+          "img-mo7n1u30-kmx1hu",
+          "img-mo7n1u6h-d7vnfc"
+        ],
+        "outputVideoRef": "format_18s_continuous_25a6a58361a44e8460fd1e99e71ed27a"
+      },
+      "style": {
+        "width": 500,
+        "height": 426
+      },
+      "measured": {
+        "width": 758,
+        "height": 557
+      },
+      "className": "",
+      "width": 758,
+      "height": 557,
+      "selected": false,
+      "dragging": false,
+      "groupId": "group-3",
+      "resizing": false
+    },
+    {
+      "id": "imageInput-17",
+      "type": "imageInput",
+      "position": {
+        "x": -333.47719333884993,
+        "y": 883.6718322850694
+      },
+      "data": {
+        "image": null,
+        "filename": "image-1776717096828.jpg",
+        "dimensions": {
+          "width": 1792,
+          "height": 2400
+        },
+        "imageRef": "img-mo7nj762-m9elps"
+      },
+      "style": {
+        "width": 300,
+        "height": 280
+      },
+      "measured": {
+        "width": 300,
+        "height": 280
+      },
+      "selected": false,
+      "dragging": false,
+      "groupId": "group-1"
+    }
+  ],
+  "edges": [
+    {
+      "source": "prompt-1",
+      "sourceHandle": "text",
+      "target": "promptConstructor-4",
+      "targetHandle": "text",
+      "id": "edge-prompt-1-promptConstructor-4-text-text",
+      "data": {
+        "createdAt": 1776713612770
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "prompt-3",
+      "sourceHandle": "text",
+      "target": "promptConstructor-4",
+      "targetHandle": "text",
+      "id": "edge-prompt-3-promptConstructor-4-text-text",
+      "data": {
+        "createdAt": 1776713629525
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "promptConstructor-4",
+      "sourceHandle": "text",
+      "target": "llmGenerate-2",
+      "targetHandle": "text",
+      "id": "edge-promptConstructor-4-llmGenerate-2-text-text",
+      "data": {
+        "createdAt": 1776713690825
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-6",
+      "sourceHandle": "image",
+      "target": "llmGenerate-2",
+      "targetHandle": "image",
+      "id": "edge-imageInput-6-llmGenerate-2-image-image",
+      "data": {
+        "createdAt": 1776713694703
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-5",
+      "sourceHandle": "image",
+      "target": "llmGenerate-2",
+      "targetHandle": "image",
+      "id": "edge-imageInput-5-llmGenerate-2-image-image",
+      "data": {
+        "createdAt": 1776713697052
+      },
+      "selected": false
+    },
+    {
+      "source": "llmGenerate-2",
+      "sourceHandle": "text",
+      "target": "generateVideo-13",
+      "targetHandle": "text-0",
+      "id": "edge-llmGenerate-2-generateVideo-13-text-text-0",
+      "data": {
+        "createdAt": 1776716272082
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-6",
+      "sourceHandle": "image",
+      "target": "generateVideo-13",
+      "targetHandle": "image-2",
+      "id": "edge-imageInput-6-generateVideo-13-image-image-2",
+      "data": {
+        "createdAt": 1776716277795
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-5",
+      "sourceHandle": "image",
+      "target": "generateVideo-13",
+      "targetHandle": "image-2",
+      "id": "edge-imageInput-5-generateVideo-13-image-image-2",
+      "data": {
+        "createdAt": 1776716280576
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-17",
+      "sourceHandle": "image",
+      "target": "llmGenerate-2",
+      "targetHandle": "image",
+      "id": "edge-imageInput-17-llmGenerate-2-image-image",
+      "data": {
+        "createdAt": 1776717116771
+      },
+      "selected": false
+    },
+    {
+      "type": "editable",
+      "animated": false,
+      "source": "imageInput-17",
+      "sourceHandle": "image",
+      "target": "generateVideo-13",
+      "targetHandle": "image-2",
+      "id": "edge-imageInput-17-generateVideo-13-image-image-2",
+      "data": {
+        "createdAt": 1776717119419
+      },
+      "selected": false
+    }
+  ],
+  "edgeStyle": "curved",
+  "groups": {
+    "group-1": {
+      "id": "group-1",
+      "name": "Group 1",
+      "color": "green",
+      "position": {
+        "x": -352.8365906613988,
+        "y": -6.102737444799487
+      },
+      "size": {
+        "width": 376.65280671778214,
+        "height": 1190.0294232188894
+      },
+      "isNbpInput": true
+    },
+    "group-2": {
+      "id": "group-2",
+      "name": "Prompt engine",
+      "color": "blue",
+      "position": {
+        "x": 53.455417742960435,
+        "y": -2.517222229898902
+      },
+      "size": {
+        "width": 1124.5597897975567,
+        "height": 566.5940310224321
+      }
+    },
+    "group-3": {
+      "id": "group-3",
+      "name": "Seedance",
+      "color": "blue",
+      "position": {
+        "x": 1202.1492623490833,
+        "y": -9.729023809090677
+      },
+      "size": {
+        "width": 807.3358570380086,
+        "height": 614.6664777129369
+      }
+    }
+  }
+}

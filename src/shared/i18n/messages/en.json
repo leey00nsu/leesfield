@@ -8,7 +8,7 @@
   },
   "nav": {
     "image": "Image",
-    "nodeStudio": "Node Studio",
+    "nodeStudio": "Spaces",
     "video": "Video",
     "audio": "Audio",
     "history": "History",
@@ -453,13 +453,19 @@
     "statuses": {
       "pending": "Pending",
       "processing": "Processing",
+      "uploading": "Uploading",
       "completed": "Completed",
-      "failed": "Failed"
+      "failed": "Failed",
+      "cancelled": "Cancelled"
     },
     "types": {
       "image": "IMAGE",
       "video": "VIDEO",
       "audio": "AUDIO"
+    },
+    "origins": {
+      "generation": "Generation",
+      "edit": "Edit"
     },
     "actions": {
       "reusePrompt": "Reuse Prompt",
@@ -488,6 +494,13 @@
       "completedAt": "Completed",
       "duration": "Duration",
       "progress": "Progress",
+      "origin": "Origin",
+      "assetId": "Asset ID",
+      "graphId": "Graph ID",
+      "graphNodeId": "Node ID",
+      "sourceRecord": "Source execution",
+      "sourceAssets": "Input assets",
+      "operationParameters": "Edit parameters",
       "assets": "ASSETS",
       "inputImage": "Input image",
       "inputAudio": "Input audio",
@@ -547,8 +560,10 @@
     "statuses": {
       "pending": "Pending",
       "processing": "Processing",
+      "uploading": "Uploading",
       "completed": "Completed",
-      "failed": "Failed"
+      "failed": "Failed",
+      "cancelled": "Cancelled"
     },
     "filters": {
       "from": "Start date",
@@ -1013,13 +1028,18 @@
   },
   "nodeStudio": {
     "eyebrow": "Visual workflow editor",
-    "title": "Node Studio",
-    "description": "Arrange image generation nodes and save your workflow as a graph.",
+    "title": "Spaces",
+    "description": "Create, connect, and explore your creative workflows.",
     "actions": {
-      "addImageNode": "Add image node",
+    "addImageNode": "Add image node",
+    "addNode": "Add or search nodes",
       "canvasTools": "Canvas tools",
       "selectTool": "Select tool",
-      "panTool": "Pan tool",
+    "panTool": "Pan tool",
+    "undo": "Undo",
+    "redo": "Redo",
+    "copy": "Copy selected nodes",
+    "paste": "Paste nodes",
       "duplicateNode": "Duplicate node",
       "fitView": "Fit view",
       "deleteNode": "Delete node",
@@ -1029,8 +1049,43 @@
       "reloadLatest": "Reload latest",
       "createGraph": "Create graph",
       "deleteGraph": "Delete graph",
-      "cancel": "Cancel"
-    },
+    "cancel": "Cancel"
+  },
+  "runtime": {
+    "application": "Space canvas",
+    "nodeBanana": "Node Banana",
+    "searchPlaceholder": "Search by node name or media type",
+    "closeMenu": "Close node menu",
+    "readOnly": "Read-only graph · {reason}",
+    "unsupportedDescription": "The unsupported node payload was preserved. Reason: {reason}",
+    "failureTitle": "The canvas could not be displayed",
+    "failureDescription": "The saved graph was not changed. Reload the page to recover.",
+    "nodeFailureTitle": "This node could not be displayed",
+    "nodeFailureDescription": "The original {node} node remains in the saved graph.",
+    "reload": "Reload page"
+  },
+  "nodeKinds": {
+    "inputImage": "Image Input",
+    "inputAudio": "Audio Input",
+    "inputVideo": "Video Input",
+    "inputPrompt": "Prompt",
+    "generateImage": "Generate Image",
+    "generateAudio": "Generate Audio",
+    "generateVideo": "Generate Video",
+    "editImageAnnotation": "Annotation",
+    "editImageResize": "Image Resize",
+    "editImageRemoveBackground": "Remove Background",
+    "editImageSplitGrid": "Split Grid",
+    "editImageGif": "GIF Encoder",
+    "editVideoStitch": "Video Stitch",
+    "editVideoTrim": "Video Trim",
+    "editVideoFrameGrab": "Frame Grab",
+    "editVideoEaseCurve": "Ease Curve",
+    "editAudioBasic": "Audio Edit",
+    "outputSingle": "Output",
+    "outputGallery": "Output Gallery",
+    "inspectImageCompare": "Image Compare"
+  },
     "edge": {
       "primaryTarget": "Primary input",
       "referenceTarget": "Reference input",
@@ -1064,17 +1119,73 @@
       "modelUnavailable": "Unavailable · {model}",
       "invalidParameter": "Check the supported range and step."
     },
+    "generationNode": {
+      "description": "Run only this node using the saved graph configuration and connected assets.",
+      "modelLabel": "Model",
+      "parametersLabel": "Parameters",
+      "modelLoading": "Loading models...",
+      "modelEmpty": "No models are available.",
+      "modelError": "Could not load models.",
+      "promptPlaceholder": "Describe the {media} to generate",
+      "executionError": "The execution request failed. Check the graph configuration and storage availability.",
+      "media": {
+        "image": "image",
+        "audio": "audio",
+        "video": "video"
+      }
+    },
+    "mediaNodes": {
+      "inputEmpty": "Upload a file or choose an asset from history.",
+      "upload": "Upload file",
+      "uploading": "Uploading",
+      "historyPicker": "History assets",
+      "historyEmpty": "No reusable assets yet.",
+      "loadMore": "Load more",
+      "loading": "Loading assets.",
+      "loadError": "Assets could not be loaded.",
+      "uploadError": "The asset upload failed.",
+      "deleteError": "The asset could not be deleted.",
+      "assetInUse": "This asset is referenced by graph(s): {graphs}",
+      "deleteAsset": "Delete asset",
+      "outputEmpty": "No connected durable output yet.",
+      "outputError": "Connected output could not be loaded.",
+      "compareNeedsTwo": "Both before and after images are required.",
+      "before": "Before image",
+      "after": "After image",
+      "download": "Download",
+      "openHistory": "History",
+      "origins": {
+        "upload": "Upload",
+        "generation": "Generation",
+        "media_operation": "Edit",
+        "legacy_generation": "Legacy generation"
+      }
+    },
     "execution": {
-      "title": "Image generation execution",
+      "title": "Generation execution",
       "status": {
         "idle": "Ready to run",
         "submitting": "Submitting",
         "pending": "Queued",
         "processing": "Generating",
+        "uploading": "Uploading",
         "completed": "Completed",
-        "failed": "Failed"
+        "failed": "Failed",
+        "cancelled": "Cancelled"
       },
       "configureFirst": "Choose a prompt and model before running this node.",
+      "blocked": {
+        "NODE_NOT_FOUND": "This node is no longer in the workflow.",
+        "NODE_NOT_EXECUTABLE": "This node cannot be run directly.",
+        "NODE_CONFIG_INVALID": "Check this node's configuration.",
+        "MODEL_REQUIRED": "Choose a model.",
+        "PROMPT_REQUIRED": "Add a prompt or connect a Prompt node.",
+        "PARAMETERS_INVALID": "Check the model settings.",
+        "INPUT_REQUIRED": "Connect the required input.",
+        "INPUT_NOT_READY": "Choose a completed output on the connected source node.",
+        "INPUT_UNSUPPORTED": "Disconnect the unsupported input or choose another model.",
+        "PROCESSOR_UNAVAILABLE": "The required processor is unavailable."
+      },
       "empty": "Run the node to see its latest result and generation history here.",
       "latestResult": "Latest generated result",
       "history": "{count} generations",
@@ -1089,7 +1200,7 @@
       "inputInvalid": "The selected source output cannot be used. Run the source node again or choose another output.",
       "inputUnsupported": "The selected model does not support image inputs. Disconnect the input or choose another model.",
       "inputLimitExceeded": "The selected model supports up to {limit} image inputs. Disconnect some inputs.",
-      "submitError": "Could not submit the image generation request."
+      "submitError": "Could not submit the generation request."
     },
     "empty": {
       "title": "Start with an image node",
@@ -1111,7 +1222,7 @@
       "createPlaceholder": "New graph title",
       "title": "Graph title",
       "emptyTitle": "Create your first graph",
-      "emptyDescription": "Name a graph above to open a persistent Node Studio workspace."
+      "emptyDescription": "Create a space to start your creative workflow."
     },
     "save": {
       "saved": "Saved",

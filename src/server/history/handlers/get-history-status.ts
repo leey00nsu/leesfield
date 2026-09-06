@@ -11,9 +11,9 @@ import {
   parseHistoryQuery,
 } from "@/server/history/lib/history-query";
 
-const ACTIVE_IMAGE_STATUSES: ImageGenerationStatus[] = ["pending", "processing"];
-const ACTIVE_VIDEO_STATUSES: VideoGenerationStatus[] = ["pending", "processing"];
-const ACTIVE_AUDIO_STATUSES: AudioGenerationStatus[] = ["pending", "processing"];
+const ACTIVE_IMAGE_STATUSES: ImageGenerationStatus[] = ["pending", "processing", "uploading"];
+const ACTIVE_VIDEO_STATUSES: VideoGenerationStatus[] = ["pending", "processing", "uploading"];
+const ACTIVE_AUDIO_STATUSES: AudioGenerationStatus[] = ["pending", "processing", "uploading"];
 
 type ActiveStatus = {
   activeCount: number;

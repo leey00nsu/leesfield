@@ -14,18 +14,25 @@ describe("generation event client", () => {
 
   it("accepts only the shared versioned event contract", () => {
     const event = {
-      version: 1,
-      type: "generation.updated",
+      version: 2,
+      type: "node-execution.updated",
+      executionKind: "generation",
+      mediaType: "image",
       graphId: "graph-1",
       graphNodeId: "node-1",
-      requestId: "request-1",
+      executionId: "request-1",
       status: "completed",
       progress: 100,
       updatedAt: "2026-08-24T12:00:00.000Z",
     };
     expect(parseGenerationEventMessage(JSON.stringify(event))).toEqual(event);
+    expect(parseGenerationEventMessage(JSON.stringify({
+      ...event,
+      mediaType: "video",
+      graphNodeId: "node-2",
+    }))).toMatchObject({ mediaType: "video", graphNodeId: "node-2" });
     expect(
-      parseGenerationEventMessage(JSON.stringify({ ...event, version: 2 })),
+      parseGenerationEventMessage(JSON.stringify({ ...event, version: 3 })),
     ).toBeNull();
   });
 });

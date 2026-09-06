@@ -1,0 +1,25 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -596,11 +596,16 @@
+         onInit={(instance) => {
+           instanceRef.current = instance;
+           window.setTimeout(() => {
+-            void instance.fitView({
+-              minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
+-              maxZoom: 1,
+-              padding: graph.nodes.length <= 1 ? 0.08 : 0.2,
+-            });
++            const onlyNode = graph.nodes.length === 1 ? graph.nodes[0] : null;
++            if (onlyNode) {
++              void instance.setCenter(
++                onlyNode.position.x + ((onlyNode.measured?.width ?? onlyNode.width ?? 300) / 2),
++                onlyNode.position.y + ((onlyNode.measured?.height ?? onlyNode.height ?? 240) / 2),
++                { zoom: 0.8 },
++              );
++            } else {
++              void instance.fitView({ minZoom: 0.2, maxZoom: 1, padding: 0.2 });
++            }
+           }, 120);
+         }}
+         onNodesChange={onNodesChange}
+

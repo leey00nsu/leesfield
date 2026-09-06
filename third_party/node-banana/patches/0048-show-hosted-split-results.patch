@@ -1,0 +1,29 @@
+--- a/src/components/nodes/SplitGridNode.tsx
++++ b/src/components/nodes/SplitGridNode.tsx
+@@ -250,1 +250,2 @@
+-  const statusText = nodeData.status === "error"
++  const outputImages = (Array.isArray(nodeData.outputImages) ? nodeData.outputImages : []) as string[];
++  const statusText = nodeData.status === "error"
+@@ -252,1 +252,5 @@
+-    : cells.length > 0
++    : templateEditingDisabled
++      ? outputImages.length > 0
++        ? `${outputImages.length} saved images — Images output → Gallery / GIF`
++        : "Split saves images to History and the Images output"
++    : cells.length > 0
+@@ -287,1 +287,1 @@
+-        <HandleLabel label="Ref" side="source" color="#6b7280" visible={showLabels} />
++        <HandleLabel label={templateEditingDisabled ? "Images" : "Ref"} side="source" color="#6b7280" visible={showLabels} />
+@@ -418,2 +418,10 @@
+-          <div className="flex items-center justify-between gap-2">
+-            <span
++          {templateEditingDisabled && outputImages.length > 0 && (
++            <div aria-label="Split results" className="nodrag nopan nowheel flex shrink-0 gap-1 overflow-x-auto">
++              {outputImages.map((src, index) => (
++                <img key={src} src={src} alt={`Split cell ${index + 1}`} draggable={false}
++                  className="h-12 w-12 shrink-0 rounded object-contain bg-neutral-900" />
++              ))}
++            </div>
++          )}
++          <div className="flex shrink-0 items-center justify-between gap-2">
++            <span

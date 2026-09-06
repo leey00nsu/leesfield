@@ -1,0 +1,80 @@
+diff --git a/src/leesfield/image-operation-processors.ts b/src/leesfield/image-operation-processors.ts
+--- a/src/leesfield/image-operation-processors.ts
++++ b/src/leesfield/image-operation-processors.ts
+@@ -8,12 +8,19 @@
+   | "edit.image.splitGrid"
+   | "edit.image.gif";
+ 
+-type StrokeShape = { color: string; strokeWidth: number };
++type AnnotationShapeBase = {
++  id: string;
++  x: number;
++  y: number;
++  stroke: string;
++  strokeWidth: number;
++  opacity: number;
++};
+ export type AnnotationShape =
+-  | (StrokeShape & { type: "rectangle"; x: number; y: number; width: number; height: number })
+-  | (StrokeShape & { type: "circle"; x: number; y: number; radiusX: number; radiusY: number })
+-  | (StrokeShape & { type: "arrow" | "freehand"; points: number[] })
+-  | { type: "text"; x: number; y: number; text: string; color: string; fontSize: number };
++  | (AnnotationShapeBase & { type: "rectangle"; width: number; height: number; fill: string | null })
++  | (AnnotationShapeBase & { type: "circle"; radiusX: number; radiusY: number; fill: string | null })
++  | (AnnotationShapeBase & { type: "arrow" | "freehand"; points: number[] })
++  | (AnnotationShapeBase & { type: "text"; text: string; fill: string; fontSize: number });
+ 
+ export type ResizeOperationParameters = {
+   mode: "exact" | "maxEdge" | "scale";
+@@ -135,24 +142,27 @@
+   for (const shape of shapes) {
+     throwIfAborted(signal);
+     context.beginPath();
+-    context.strokeStyle = shape.color;
++    context.globalAlpha = shape.opacity;
++    context.strokeStyle = shape.stroke;
+     if (shape.type === "text") {
+-      context.fillStyle = shape.color;
++      context.fillStyle = shape.fill;
+       context.font = `${shape.fontSize}px sans-serif`;
+       context.fillText(shape.text, shape.x, shape.y);
+       continue;
+     }
+     context.lineWidth = shape.strokeWidth;
+     if (shape.type === "rectangle") {
++      if (shape.fill) { context.fillStyle = shape.fill; context.fillRect(shape.x, shape.y, shape.width, shape.height); }
+       context.strokeRect(shape.x, shape.y, shape.width, shape.height);
+     } else if (shape.type === "circle") {
+       context.ellipse(shape.x, shape.y, shape.radiusX, shape.radiusY, 0, 0, Math.PI * 2);
++      if (shape.fill) { context.fillStyle = shape.fill; context.fill(); }
+       context.stroke();
+     } else {
+       const [x, y, ...points] = shape.points;
+-      context.moveTo(x ?? 0, y ?? 0);
++      context.moveTo((x ?? 0) + shape.x, (y ?? 0) + shape.y);
+       for (let point = 0; point < points.length; point += 2) {
+-        context.lineTo(points[point] ?? 0, points[point + 1] ?? 0);
++        context.lineTo((points[point] ?? 0) + shape.x, (points[point + 1] ?? 0) + shape.y);
+       }
+       context.stroke();
+       if (shape.type === "arrow" && shape.points.length >= 4) {
+@@ -163,14 +173,15 @@
+         const angle = Math.atan2(y2 - y1, x2 - x1);
+         const head = Math.max(8, shape.strokeWidth * 4);
+         context.beginPath();
+-        context.moveTo(x2, y2);
+-        context.lineTo(x2 - head * Math.cos(angle - Math.PI / 6), y2 - head * Math.sin(angle - Math.PI / 6));
+-        context.moveTo(x2, y2);
+-        context.lineTo(x2 - head * Math.cos(angle + Math.PI / 6), y2 - head * Math.sin(angle + Math.PI / 6));
++        context.moveTo(x2 + shape.x, y2 + shape.y);
++        context.lineTo(x2 + shape.x - head * Math.cos(angle - Math.PI / 6), y2 + shape.y - head * Math.sin(angle - Math.PI / 6));
++        context.moveTo(x2 + shape.x, y2 + shape.y);
++        context.lineTo(x2 + shape.x - head * Math.cos(angle + Math.PI / 6), y2 + shape.y - head * Math.sin(angle + Math.PI / 6));
+         context.stroke();
+       }
+     }
+   }
++  context.globalAlpha = 1;
+   return { dataUrl: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
+ }
+ 

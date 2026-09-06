@@ -29,14 +29,17 @@ type QueueCounts = {
 const IMAGE_ACTIVE_STATUSES: ImageGenerationStatus[] = [
   "pending",
   "processing",
+  "uploading",
 ];
 const VIDEO_ACTIVE_STATUSES: VideoGenerationStatus[] = [
   "pending",
   "processing",
+  "uploading",
 ];
 const AUDIO_ACTIVE_STATUSES: AudioGenerationStatus[] = [
   "pending",
   "processing",
+  "uploading",
 ];
 
 function initCounts(keys: readonly string[]) {

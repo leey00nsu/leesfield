@@ -135,6 +135,13 @@ export const codexBridgeConfigSchema = z
   })
   .strict();
 
+export const backgroundRemovalCapabilitySchema = z.object({
+  version: z.number().int().positive().default(1),
+  api_name: z.string().trim().min(1),
+  input_parameter: z.string().trim().min(1).default("image"),
+  output_mime_type: z.literal("image/png").default("image/png"),
+}).strict();
+
 const imageMetaSchema = z.object({
   pipeline: z.string().min(1),
   model_id: z.string().min(1),
@@ -143,6 +150,9 @@ const imageMetaSchema = z.object({
   default_steps: z.number().int().positive(),
   concurrent_limit: z.number().int().positive().nullable().optional(),
   max_input_images: z.number().int().nonnegative(),
+  operations: z.object({
+    background_removal: backgroundRemovalCapabilitySchema.optional(),
+  }).strict().optional(),
 });
 
 const videoMetaSchema = z.object({

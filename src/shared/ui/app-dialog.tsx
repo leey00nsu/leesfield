@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 
-type AppDialogSize = "sm" | "md" | "lg" | "xl";
-type AppDialogSurface = "default" | "media";
+type AppDialogSize = "sm" | "md" | "lg" | "xl" | "full";
+type AppDialogSurface = "default" | "media" | "editor" | "canvas";
 type AppDialogPadding = "default" | "none";
 type AppDialogButtonProps = ComponentProps<typeof AppButton>;
 
@@ -22,6 +22,7 @@ const appDialogSizeClassNames: Record<AppDialogSize, string> = {
   md: "max-w-3xl",
   lg: "max-w-4xl",
   xl: "max-w-6xl",
+  full: "inset-0 h-screen w-screen max-w-none translate-x-0 translate-y-0",
 };
 
 const appDialogSurfaceClassNames: Record<AppDialogSurface, string> = {
@@ -29,6 +30,10 @@ const appDialogSurfaceClassNames: Record<AppDialogSurface, string> = {
     "rounded-[1.5rem] border-white/10 bg-[#0b0d0e] text-white shadow-[0_34px_120px_rgba(0,0,0,0.65)]",
   media:
     "overflow-hidden rounded-[1.75rem] border-white/10 bg-[#121619] text-white shadow-[0_28px_120px_rgba(0,0,0,0.62)]",
+  editor:
+    "gap-0 overflow-hidden rounded-xl border-neutral-700 bg-neutral-800 text-neutral-100 shadow-2xl",
+  canvas:
+    "gap-0 overflow-hidden rounded-none border-0 bg-neutral-950 text-neutral-100 shadow-none",
 };
 
 const appDialogPaddingClassNames: Record<AppDialogPadding, string> = {
@@ -42,6 +47,7 @@ export function AppDialog(props: ComponentProps<typeof Dialog>) {
 
 export function AppDialogContent({
   className,
+  overlayClassName,
   size = "md",
   surface = "default",
   padding = "default",
@@ -54,8 +60,10 @@ export function AppDialogContent({
   return (
     <DialogContent
       data-app-dialog-content=""
+      overlayClassName={cn((surface === "editor" || surface === "canvas") && "z-[10000]", overlayClassName)}
       className={cn(
         "w-[calc(100%-2rem)]",
+        (surface === "editor" || surface === "canvas") && "z-[10001]",
         appDialogSizeClassNames[size],
         appDialogSurfaceClassNames[surface],
         appDialogPaddingClassNames[padding],

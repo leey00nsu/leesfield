@@ -370,7 +370,7 @@ export function AudioGenerationForm({ isAuthenticated }: AudioGenerationFormProp
 
   const { state, startGeneration, reset } = useAudioGeneration();
   const isGenerating =
-    state.status === "pending" || state.status === "processing";
+    state.status === "pending" || state.status === "processing" || state.status === "uploading";
   const resultAudios = state.result?.audios ?? [];
   const hasResults = state.status === "completed" && resultAudios.length > 0;
   const primaryAudio = resultAudios[0];

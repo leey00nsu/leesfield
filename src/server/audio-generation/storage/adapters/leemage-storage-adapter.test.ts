@@ -24,7 +24,10 @@ describe("leemageAudioStorageAdapter", () => {
 
   it("octet-stream data URL도 실제 오디오 확장자로 업로드한다", async () => {
     const mockUpload = vi.fn().mockResolvedValue({
+      id: "file-1",
       url: "https://cdn.example.com/request-id-1.wav",
+      mimeType: "audio/wav",
+      size: 16,
     });
 
     vi.resetModules();
@@ -43,21 +46,29 @@ describe("leemageAudioStorageAdapter", () => {
       "@/server/audio-generation/storage/adapters/leemage-storage-adapter"
     );
 
-    await leemageAudioStorageAdapter.uploadAudios(
+    const result = await leemageAudioStorageAdapter.uploadAudios(
       {
         ...audioGenerationDefaults,
         prompt: "hello",
         model: "qwen-tts",
       },
-      "request-id",
+      "node-banana-한글",
       [createWavDataUrl()],
       { duration_sec: 1.5 },
     );
 
     expect(mockUpload).toHaveBeenCalledTimes(1);
     expect(mockUpload.mock.calls[0]?.[1]).toMatchObject({
-      name: "request-id-1.wav",
+      name: expect.stringMatching(/^leesfield-[a-f0-9]{64}\.wav$/),
       type: "audio/wav",
     });
+    expect(result.artifacts).toEqual([
+      expect.objectContaining({
+        storageObjectId: "file-1",
+        storageUrl: "https://cdn.example.com/request-id-1.wav",
+        mimeType: "audio/wav",
+        durationMs: 1500,
+      }),
+    ]);
   });
 });

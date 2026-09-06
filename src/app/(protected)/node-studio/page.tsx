@@ -1,5 +1,5 @@
-import { NodeStudioScreen } from "@/screens/node-studio/ui/node-studio-screen";
+import { redirect } from "next/navigation";
 
 export default function NodeStudioPage() {
-  return <NodeStudioScreen />;
+  return redirect("/spaces");
 }

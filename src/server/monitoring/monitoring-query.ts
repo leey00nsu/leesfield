@@ -1,5 +1,11 @@
 export type MonitoringType = "image" | "video" | "audio" | "all";
-export type MonitoringStatus = "pending" | "processing" | "completed" | "failed";
+export type MonitoringStatus =
+  | "pending"
+  | "processing"
+  | "uploading"
+  | "completed"
+  | "failed"
+  | "cancelled";
 export type MonitoringMetric = "requests" | "errors" | "latency";
 
 export type ApiKeyFilter =
@@ -32,8 +38,10 @@ const TYPES = new Set<MonitoringType>(["image", "video", "audio", "all"]);
 const STATUS = new Set<MonitoringStatus>([
   "pending",
   "processing",
+  "uploading",
   "completed",
   "failed",
+  "cancelled",
 ]);
 const METRICS = new Set<MonitoringMetric>([
   "requests",
@@ -72,6 +80,7 @@ function resolveStatuses(value: string | null): MonitoringStatus[] | null {
     if (token === "active") {
       resolved.add("pending");
       resolved.add("processing");
+      resolved.add("uploading");
       continue;
     }
     if (STATUS.has(token as MonitoringStatus)) {

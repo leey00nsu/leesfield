@@ -1,0 +1,10 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -416,6 +416,7 @@
+   const outputField = kind === "generate.image" || kind === "edit.image.annotation" || kind === "edit.image.resize"
++    || kind === "edit.image.removeBackground" || kind === "edit.video.frameGrab"
+     ? "outputImage"
+     : kind === "edit.image.gif"
+       ? "outputGif"
+     : kind === "generate.video" || kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.easeCurve"
+       ? "outputVideo"

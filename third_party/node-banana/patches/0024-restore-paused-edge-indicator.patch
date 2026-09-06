@@ -1,0 +1,127 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -17,13 +17,17 @@
+   applyNodeChanges,
+   Background,
+   BackgroundVariant,
++  BaseEdge,
+   Controls,
++  getBezierPath,
++  getSmoothStepPath,
+   MiniMap,
+   Panel,
+   ReactFlow,
+   type Connection,
+   type Edge,
+   type EdgeChange,
++  type EdgeProps,
+   type EdgeTypes,
+   type FinalConnectionState,
+   type IsValidConnection,
+@@ -211,6 +215,64 @@
+   return { x: event.clientX, y: event.clientY };
+ }
+ 
++// Hosted from upstream src/components/edges/EditableEdge.tsx. Leesfield keeps
++// only the canonical edge data and delegates the visible path/pause glyph here.
++function HostedEditableEdge({
++  id,
++  sourceX,
++  sourceY,
++  targetX,
++  targetY,
++  sourcePosition,
++  targetPosition,
++  style,
++  markerEnd,
++  data,
++}: EdgeProps<NodeBananaRuntimeEdge>) {
++  const curved = data?.edgeStyle === "curved";
++  const hasPause = data?.hasPause === true;
++  const [edgePath] = curved
++    ? getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, curvature: 0.25 })
++    : getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 8 });
++  const edgeColor = hasPause ? "#ea580c" : String(style?.stroke ?? "#64748b");
++
++  return (
++    <>
++      <BaseEdge
++        id={id}
++        path={edgePath}
++        markerEnd={markerEnd}
++        style={{
++          ...style,
++          stroke: edgeColor,
++          strokeWidth: 3,
++          strokeLinecap: "round",
++          strokeLinejoin: "round",
++        }}
++      />
++      <path
++        d={edgePath}
++        fill="none"
++        strokeWidth={15}
++        stroke="transparent"
++        className="react-flow__edge-interaction"
++      />
++      {hasPause ? (
++        <g
++          transform={`translate(${targetX - 24}, ${targetY})`}
++          role="img"
++          aria-label="Paused edge"
++          data-node-banana-component="PauseIndicator"
++        >
++          <circle r={10} fill="#27272a" stroke={edgeColor} strokeWidth={2} />
++          <rect x={-4} y={-5} width={2.5} height={10} fill={edgeColor} rx={1} />
++          <rect x={1.5} y={-5} width={2.5} height={10} fill={edgeColor} rx={1} />
++        </g>
++      ) : null}
++    </>
++  );
++}
++
+ // Hosted from upstream src/components/FloatingActionBar.tsx; Leesfield only injects
+ // the supported node inventory and selected-node command.
+ function FloatingActionBar({
+@@ -460,6 +522,10 @@
+ }: NodeBananaCanvasProps) {
+   const store = useMemo(createInteractionStore, []);
+   const interaction = useStore(store);
++  const runtimeEdgeTypes = useMemo<EdgeTypes>(
++    () => ({ ...edgeTypes, editable: HostedEditableEdge }),
++    [edgeTypes],
++  );
+   const rootRef = useRef<HTMLDivElement>(null);
+   const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
+   const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
+@@ -784,10 +850,12 @@
+     const selected = new Set(interaction.selectedEdgeIds);
+     return graph.edges.map((edge) => ({
+       ...edge,
++      type: edge.type ?? "editable",
+       selected: selected.has(edge.id),
++      data: { ...edge.data, edgeStyle: interaction.edgeStyle },
+       style: edge.data?.hasPause ? { ...edge.style, stroke: "#ea580c" } : edge.style,
+     }));
+-  }, [graph.edges, interaction.selectedEdgeIds]);
++  }, [graph.edges, interaction.edgeStyle, interaction.selectedEdgeIds]);
+   const selectedEdge = useMemo(
+     () => graph.edges.find((edge) => interaction.selectedEdgeIds.includes(edge.id)) ?? null,
+     [graph.edges, interaction.selectedEdgeIds],
+@@ -823,7 +891,7 @@
+         nodes={visibleNodes}
+         edges={visibleEdges}
+         nodeTypes={nodeTypes}
+-        edgeTypes={edgeTypes}
++        edgeTypes={runtimeEdgeTypes}
+         onInit={(instance) => {
+           instanceRef.current = instance;
+           window.setTimeout(() => {
+@@ -893,7 +961,7 @@
+           openMenu(screen, instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: 80, y: 80 }, null);
+         }}
+-        defaultEdgeOptions={{ type: interaction.edgeStyle === "angular" ? "step" : "default" }}
++        defaultEdgeOptions={{ type: "editable" }}
+       >
+         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--node-banana-grid, #404040)" />
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />

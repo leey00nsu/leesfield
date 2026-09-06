@@ -1,0 +1,44 @@
+--- a/src/components/quickstart/TemplateExplorerView.tsx
++++ b/src/components/quickstart/TemplateExplorerView.tsx
+@@ -22,7 +22,8 @@
+ 
+ // Static preset list (getAllPresets is pure/deterministic) — hoisted so its
+ // identity is stable across renders and downstream useMemos stay cached.
+-const PRESETS = getAllPresets();
++// Models are selected from the hosted catalog after creation; upstream provider tags do not apply.
++const PRESETS = getAllPresets().map((preset) => ({ ...preset, tags: [] as string[] }));
+ 
+ export function TemplateExplorerView({
+   onBack,
+@@ -64,7 +65,7 @@
+       metadata[template.id] = {
+         nodeCount: template.workflow.nodes.length,
+         category: template.category,
+-        tags: template.tags,
++        tags: [],
+       };
+     });
+     return metadata;
+@@ -220,10 +221,10 @@
+             </div>
+           </div>
+ 
+-          {/* Provider Tags */}
+-          <div className="space-y-2">
++          {/* Tags, when available for hosted presets */}
++          {availableTags.length > 0 && <div className="space-y-2">
+             <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+-              Provider
++              Tags
+             </h3>
+             <div className="flex flex-col max-sm:flex-row max-sm:flex-wrap gap-1">
+               {availableTags.map((tag) => (
+@@ -243,7 +244,7 @@
+                 </button>
+               ))}
+             </div>
+-          </div>
++          </div>}
+ 
+           {/* Clear Filters */}
+           {hasActiveFilters && (

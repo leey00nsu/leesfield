@@ -1,0 +1,216 @@
+--- a/src/components/ProjectSetupModal.tsx
++++ b/src/components/ProjectSetupModal.tsx
+@@ -1,7 +1,6 @@
+ "use client";
+-import { type ReactNode, useEffect, useRef, useState } from "react";
+-import type { NodeBananaCanvasSettings } from "../leesfield/canvas-runtime";
+-
++import { useHostedProjectSettings } from "../leesfield/hosted-project-settings";
++export type { HostedDefaultKind, HostedNodeDefaults, HostedProjectSettingsProps } from "../leesfield/hosted-project-settings";
+ // Provider icons
+ const GeminiIcon = () => (
+   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+@@ -47,92 +46,10 @@
+   }
+ };
+ 
+-export type HostedDefaultKind = "image" | "video" | "audio";
+-export type HostedNodeDefaults = Partial<Record<HostedDefaultKind, string>>;
+-export type HostedProjectSettingsProps = {
+-  nodeDefaults?: HostedNodeDefaults;
+-  models?: readonly { id: string; name: string; mediaKind: HostedDefaultKind; provider?: string }[];
+-  onSaveNodeDefaults?: (defaults: HostedNodeDefaults) => Promise<void>;
+-  onSaveSettings?: (changes: { defaults?: HostedNodeDefaults; inlineParametersEnabled?: boolean }) => Promise<void>;
+-  nodeDefaultsLoading?: boolean;
+-  nodeDefaultsError?: string | null;
+-  onRetryNodeDefaults?: () => void;
+-  inlineParametersEnabled?: boolean;
+-  onInlineParametersChange?: (enabled: boolean) => void | Promise<void>;
+-  renderModelPicker?: (kind: HostedDefaultKind, onSelect: (id: string) => void, onClose: () => void) => ReactNode;
+-};
+ 
+-// Approved exclusions: provider credentials/env-status, filesystem directory and
+-// external storage, provider concurrency, ComfyUI settings, and LLM defaults.
+-// ProjectSetupModal's original shell, tabs, default-model cards, Canvas controls,
+-// inline parameter switch, and footer. Host callbacks replace provider/filesystem effects.
+-export function ProjectSetupModal({
+- title, writable, canvasSettings, onCanvasSettingsChange, onTitleChange, onClose,
+- nodeDefaults = {}, models = [], onSaveNodeDefaults, nodeDefaultsLoading = false,
+- nodeDefaultsError, onRetryNodeDefaults, inlineParametersEnabled = true,
+- onInlineParametersChange, renderModelPicker, onSaveSettings,
+-}: HostedProjectSettingsProps & {
+- title: string; writable: boolean; canvasSettings: NodeBananaCanvasSettings;
+- onCanvasSettingsChange: (settings: NodeBananaCanvasSettings) => void;
+- onTitleChange: (title: string) => void; onClose: () => void;
+-}) {
+- const [activeTab, setActiveTab] = useState<"project" | "nodeDefaults" | "canvas">("project");
+- const [name, setName] = useState(title);
+- const [localNodeDefaults, setLocalNodeDefaults] = useState(nodeDefaults);
+- const [localCanvasSettings, setLocalCanvasSettings] = useState(canvasSettings);
+- const [localInline, setLocalInline] = useState(inlineParametersEnabled);
+- const [pickerKind, setPickerKind] = useState<HostedDefaultKind | null>(null);
+- const [busy, setBusy] = useState(false);
+- const [error, setError] = useState<string | null>(null);
+- const [conflict, setConflict] = useState(false);
+- const defaultsEdited = useRef(false);
+- const inlineEdited = useRef(false);
+- useEffect(() => { if (!nodeDefaultsLoading && !inlineEdited.current) setLocalInline(inlineParametersEnabled); }, [inlineParametersEnabled, nodeDefaultsLoading]);
+- const dialogRef = useRef<HTMLDivElement>(null);
+- const closeRef = useRef(onClose);
+- closeRef.current = () => { if (!busy) onClose(); };
+- const defaultsSnapshot = JSON.stringify(nodeDefaults);
+- useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
+- useEffect(() => {
+-   if (pickerKind) return;
+-   const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+-   const dialog = dialogRef.current;
+-   const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
+-   controls()[0]?.focus();
+-   const keydown = (event: KeyboardEvent) => {
+-     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
+-     if (event.key === "Tab") {
+-       const items = controls(), first = items[0], last = items.at(-1);
+-       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+-       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+-     }
+-   };
+-   const focus = (event: FocusEvent) => { if (event.target instanceof Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
+-   window.addEventListener("keydown", keydown, true);
+-   document.addEventListener("focusin", focus);
+-   return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
+- }, [pickerKind]);
+- const handleSave = async () => {
+-   if (conflict || busy) return;
+-   setBusy(true); setError(null);
+-   try {
+-     if (defaultsEdited.current) {
+-       if (!onSaveNodeDefaults && !onSaveSettings) throw new Error("Node defaults are unavailable.");
+-       for (const kind of ["image", "video", "audio"] as const) {
+-         if (localNodeDefaults[kind] && !models.some((model) => model.id === localNodeDefaults[kind] && model.mediaKind === kind)) throw new Error("Select an available model before saving.");
+-       }
+-       if (!onSaveSettings) await onSaveNodeDefaults!(localNodeDefaults);
+-     }
+-     const inlineChanged = inlineEdited.current && localInline !== inlineParametersEnabled;
+-     if (onSaveSettings && (defaultsEdited.current || inlineChanged)) {
+-       await onSaveSettings({ ...(defaultsEdited.current ? { defaults: localNodeDefaults } : {}), ...(inlineChanged ? { inlineParametersEnabled: localInline } : {}) });
+-     } else if (inlineChanged) await onInlineParametersChange?.(localInline);
+-     onCanvasSettingsChange(localCanvasSettings);
+-     if (writable) onTitleChange(name.trim());
+-     onClose();
+-   } catch (cause) { if (cause instanceof Error && "code" in cause && cause.code === "SPACE_PREFERENCES_CONFLICT") setConflict(true); setError(cause instanceof Error ? cause.message : "Could not save settings. Please try again."); }
+-   finally { setBusy(false); }
+- };
++// The original supported Settings render tree consumes host-owned persistence state.
++export function ProjectSetupModal(props: Parameters<typeof useHostedProjectSettings>[0]) {
++ const { activeTab, setActiveTab, name, setName, localNodeDefaults, setLocalNodeDefaults, localCanvasSettings, setLocalCanvasSettings, localInline, setLocalInline, pickerKind, setPickerKind, busy, error, conflict, defaultsEdited, inlineEdited, dialogRef, closeRef, handleSave, writable, models, nodeDefaultsLoading, nodeDefaultsError, onRetryNodeDefaults, renderModelPicker } = useHostedProjectSettings(props);
+   return (
+     <div
+       ref={dialogRef}
+@@ -144,10 +61,16 @@
+     >
+       <div
+         className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] border border-neutral-700 shadow-2xl overflow-clip flex flex-col max-h-[80vh]"
++        onKeyDown={(event) => {
++          if (event.key === "Enter" && !event.nativeEvent.isComposing && event.target instanceof HTMLInputElement && !busy && !nodeDefaultsLoading && name.trim()) {
++            event.preventDefault(); void handleSave();
++          }
++        }}
+         role="dialog" aria-modal="true" aria-labelledby="node-banana-settings-title" data-node-banana-component="ProjectSetupModal"
+       >
+         <div className="px-8 pt-8 pb-0 shrink-0">
+           <div className="flex items-center gap-2 mb-5">
++            <img src="/logo.webp" alt="" className="w-6 h-6" />
+ 
+             <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">
+               Space Settings
+--- /dev/null
++++ b/src/leesfield/hosted-project-settings.ts
+@@ -0,0 +1,88 @@
++"use client";
++import { type ReactNode, useEffect, useRef, useState } from "react";
++import type { NodeBananaCanvasSettings } from "./canvas-runtime";
++export type HostedDefaultKind = "image" | "video" | "audio";
++export type HostedNodeDefaults = Partial<Record<HostedDefaultKind, string>>;
++export type HostedProjectSettingsProps = {
++  nodeDefaults?: HostedNodeDefaults;
++  models?: readonly { id: string; name: string; mediaKind: HostedDefaultKind; provider?: string }[];
++  onSaveNodeDefaults?: (defaults: HostedNodeDefaults) => Promise<void>;
++  onSaveSettings?: (changes: { defaults?: HostedNodeDefaults; inlineParametersEnabled?: boolean }) => Promise<void>;
++  nodeDefaultsLoading?: boolean;
++  nodeDefaultsError?: string | null;
++  onRetryNodeDefaults?: () => void;
++  inlineParametersEnabled?: boolean;
++  onInlineParametersChange?: (enabled: boolean) => void | Promise<void>;
++  renderModelPicker?: (kind: HostedDefaultKind, onSelect: (id: string) => void, onClose: () => void) => ReactNode;
++};
++
++
++export function useHostedProjectSettings({
++ title, writable, canvasSettings, onCanvasSettingsChange, onTitleChange, onClose,
++ nodeDefaults = {}, models = [], onSaveNodeDefaults, nodeDefaultsLoading = false,
++ nodeDefaultsError, onRetryNodeDefaults, inlineParametersEnabled = true,
++ onInlineParametersChange, renderModelPicker, onSaveSettings,
++}: HostedProjectSettingsProps & {
++ title: string; writable: boolean; canvasSettings: NodeBananaCanvasSettings;
++ onCanvasSettingsChange: (settings: NodeBananaCanvasSettings) => void;
++ onTitleChange: (title: string) => void; onClose: () => void;
++}) {
++ const [activeTab, setActiveTab] = useState<"project" | "nodeDefaults" | "canvas">("project");
++ const [name, setName] = useState(title);
++ const [localNodeDefaults, setLocalNodeDefaults] = useState(nodeDefaults);
++ const [localCanvasSettings, setLocalCanvasSettings] = useState(canvasSettings);
++ const [localInline, setLocalInline] = useState(inlineParametersEnabled);
++ const [pickerKind, setPickerKind] = useState<HostedDefaultKind | null>(null);
++ const [busy, setBusy] = useState(false);
++ const [error, setError] = useState<string | null>(null);
++ const [conflict, setConflict] = useState(false);
++ const defaultsEdited = useRef(false);
++ const inlineEdited = useRef(false);
++ useEffect(() => { if (!nodeDefaultsLoading && !inlineEdited.current) setLocalInline(inlineParametersEnabled); }, [inlineParametersEnabled, nodeDefaultsLoading]);
++ const dialogRef = useRef<HTMLDivElement>(null);
++ const closeRef = useRef(onClose);
++ closeRef.current = () => { if (!busy) onClose(); };
++ const defaultsSnapshot = JSON.stringify(nodeDefaults);
++ useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
++ useEffect(() => {
++   if (pickerKind) return;
++   const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++   const dialog = dialogRef.current;
++   const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
++   controls()[0]?.focus();
++   const keydown = (event: KeyboardEvent) => {
++     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
++     if (event.key === "Tab") {
++       const items = controls(), first = items[0], last = items.at(-1);
++       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
++       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
++     }
++   };
++   const focus = (event: FocusEvent) => { if (event.target instanceof Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
++   window.addEventListener("keydown", keydown, true);
++   document.addEventListener("focusin", focus);
++   return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
++ }, [pickerKind]);
++ const handleSave = async () => {
++   if (conflict || busy) return;
++   setBusy(true); setError(null);
++   try {
++     if (defaultsEdited.current) {
++       if (!onSaveNodeDefaults && !onSaveSettings) throw new Error("Node defaults are unavailable.");
++       for (const kind of ["image", "video", "audio"] as const) {
++         if (localNodeDefaults[kind] && !models.some((model) => model.id === localNodeDefaults[kind] && model.mediaKind === kind)) throw new Error("Select an available model before saving.");
++       }
++       if (!onSaveSettings) await onSaveNodeDefaults!(localNodeDefaults);
++     }
++     const inlineChanged = inlineEdited.current && localInline !== inlineParametersEnabled;
++     if (onSaveSettings && (defaultsEdited.current || inlineChanged)) {
++       await onSaveSettings({ ...(defaultsEdited.current ? { defaults: localNodeDefaults } : {}), ...(inlineChanged ? { inlineParametersEnabled: localInline } : {}) });
++     } else if (inlineChanged) await onInlineParametersChange?.(localInline);
++     onCanvasSettingsChange(localCanvasSettings);
++     if (writable) onTitleChange(name.trim());
++     onClose();
++   } catch (cause) { if (cause instanceof Error && "code" in cause && cause.code === "SPACE_PREFERENCES_CONFLICT") setConflict(true); setError(cause instanceof Error ? cause.message : "Could not save settings. Please try again."); }
++   finally { setBusy(false); }
++ };
++  return { activeTab, setActiveTab, name, setName, localNodeDefaults, setLocalNodeDefaults, localCanvasSettings, setLocalCanvasSettings, localInline, setLocalInline, pickerKind, setPickerKind, busy, error, conflict, defaultsEdited, inlineEdited, dialogRef, closeRef, handleSave, writable, models, nodeDefaultsLoading, nodeDefaultsError, onRetryNodeDefaults, renderModelPicker };
++}

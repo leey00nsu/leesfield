@@ -1,10 +1,27 @@
 export type GenerationHistoryType = "image" | "video" | "audio" | "all";
 export type GenerationHistorySort = "date_desc" | "date_asc";
-export type GenerationHistoryStatus = "pending" | "processing" | "completed" | "failed";
+export type GenerationHistoryStatus =
+  | "pending"
+  | "processing"
+  | "uploading"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface GenerationHistoryItem {
   id: string;
   type: "image" | "video" | "audio";
+  origin?: "generation" | "edit";
+  assetId?: string | null;
+  graphId?: string | null;
+  graphNodeId?: string | null;
+  sourceAssetIds?: string[];
+  operation?: {
+    id: string;
+    type: string;
+    configVersion: number;
+    parameters: unknown;
+  } | null;
   status: GenerationHistoryStatus;
   prompt: string;
   model: string | null;

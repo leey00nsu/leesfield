@@ -1,4 +1,4 @@
-import type { GraphStructureIssue } from "@/shared/generation-graph/graph-validation";
+import type { CanonicalGraphIssue } from "@/shared/generation-graph/canonical-graph";
 
 export class GenerationGraphNotFoundError extends Error {
   constructor() {
@@ -25,9 +25,16 @@ export class GenerationGraphInputError extends Error {
 }
 
 export class GenerationGraphStructureError extends GenerationGraphInputError {
-  constructor(public readonly issues: GraphStructureIssue[]) {
+  constructor(public readonly issues: CanonicalGraphIssue[]) {
     super({ graph: issues });
     this.name = "GenerationGraphStructureError";
+  }
+}
+
+export class GenerationGraphActiveExecutionError extends Error {
+  constructor() {
+    super("GRAPH_ACTIVE_EXECUTION");
+    this.name = "GenerationGraphActiveExecutionError";
   }
 }
 

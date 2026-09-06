@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { generationEventId } from "@/shared/generation-events/generation-event-contract";
+
 import {
   browserGenerationEventSource,
   generationEventUrl,
@@ -10,7 +12,7 @@ import {
   type GenerationEventSource,
   type GenerationEventSourceFactory,
 } from "../api/generation-event-client";
-import { nodeGenerationKeys } from "./use-node-generations";
+import { nodeExecutionKeys } from "./use-node-executions";
 import {
   GenerationEventChannelProviderValue,
   type GenerationEventChannelState,
@@ -43,6 +45,8 @@ export function GenerationEventChannelProvider({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
+    const seenEventIds = new Set<string>();
+    const latestExecutionEventAt = new Map<string, number>();
 
     const clearWatchdog = () => {
       if (watchdogTimer) clearTimeout(watchdogTimer);
@@ -56,9 +60,25 @@ export function GenerationEventChannelProvider({
 
     const invalidateGraphQueries = () => {
       void queryClient.invalidateQueries({
-        queryKey: nodeGenerationKeys.graph(graphId),
+        queryKey: nodeExecutionKeys.graph(graphId),
         refetchType: "active",
       });
+    };
+
+    const acceptEvent = (event: NonNullable<ReturnType<typeof parseGenerationEventMessage>>) => {
+      const eventId = `${event.type}:${generationEventId(event)}`;
+      if (seenEventIds.has(eventId)) return false;
+      seenEventIds.add(eventId);
+      if (seenEventIds.size > 256) {
+        const oldest = seenEventIds.values().next().value;
+        if (oldest) seenEventIds.delete(oldest);
+      }
+      const executionKey = `${event.type}:${event.executionId}`;
+      const updatedAt = Date.parse(event.updatedAt);
+      const latest = latestExecutionEventAt.get(executionKey);
+      if (latest !== undefined && updatedAt < latest) return false;
+      latestExecutionEventAt.set(executionKey, updatedAt);
+      return true;
     };
 
     const scheduleReconnect = () => {
@@ -115,13 +135,18 @@ export function GenerationEventChannelProvider({
       nextSource.addEventListener("stream.heartbeat", () => {
         if (source === nextSource) resetWatchdog(nextSource);
       });
-      nextSource.addEventListener("generation.updated", (message) => {
+      nextSource.addEventListener("node-execution.updated", (message) => {
         if (source !== nextSource) return;
         resetWatchdog(nextSource);
         const event = parseGenerationEventMessage(message.data);
-        if (!event || event.graphId !== graphId) return;
+        if (
+          !event ||
+          event.type !== "node-execution.updated" ||
+          event.graphId !== graphId ||
+          !acceptEvent(event)
+        ) return;
         void queryClient.invalidateQueries({
-          queryKey: nodeGenerationKeys.list(graphId, event.graphNodeId),
+          queryKey: nodeExecutionKeys.list(graphId, event.graphNodeId),
         });
       });
       nextSource.addEventListener("stream.degraded", () => fail(nextSource));

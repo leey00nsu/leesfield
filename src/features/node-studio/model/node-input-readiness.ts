@@ -45,19 +45,23 @@ export function resolveImageNodeInputReadiness(
   for (const edge of edges) {
     if (edge.target !== targetNodeId) continue;
 
-    const kind = edge.data?.kind;
-    if (kind !== "primary" && kind !== "reference") continue;
+    const targetPortId = edge.data?.targetPortId ?? edge.targetHandle;
+    const kind = targetPortId === "primary"
+      ? "primary"
+      : targetPortId === "references" || targetPortId === "reference"
+        ? "reference"
+        : null;
+    if (!kind) continue;
 
     const kindReadiness = result[kind];
     kindReadiness.connectedCount += 1;
     result.connectedCount += 1;
 
-    const selectedOutputImageId = nodesById.get(edge.source)?.data
-      .selectedOutputImageId;
-    if (selectedOutputImageId) {
+    const selectedOutputAssetId = nodesById.get(edge.source)?.data.selectedOutputAssetId;
+    if (selectedOutputAssetId) {
       kindReadiness.readyCount += 1;
       result.readyCount += 1;
-      distinctSelectedOutputs.add(selectedOutputImageId);
+      distinctSelectedOutputs.add(selectedOutputAssetId);
     } else {
       kindReadiness.missingCount += 1;
       result.missingCount += 1;

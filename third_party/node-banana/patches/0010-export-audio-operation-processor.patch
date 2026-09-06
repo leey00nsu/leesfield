@@ -1,0 +1,20 @@
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -39,6 +39,15 @@ export type {
+   VideoOperationResult,
+   VideoOperationResultItem,
+ } from "./video-operation-processors";
+ 
++export { processAudioOperation } from "./audio-operation-processor";
++export type {
++  AudioEditParameters,
++  AudioOperationInput,
++  AudioOperationRequest,
++  AudioOperationResult,
++  AudioOperationResultItem,
++} from "./audio-operation-processor";
++
+ export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
+ 
+ export const LEESFIELD_RUNTIME_FEATURES = [

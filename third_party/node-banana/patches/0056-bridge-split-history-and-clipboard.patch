@@ -1,0 +1,157 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -4,6 +4,7 @@
+   Component,
+   Fragment,
+   useCallback,
++  useEffect,
+   useMemo,
+   useRef,
+   useState,
+@@ -140,6 +140,8 @@
+ };
+ 
+ export type NodeBananaCanvasProps = {
++  onUndoRecorderChange?: (recorder: ((previous: NodeBananaRuntimeGraph) => void) | null) => void;
++  remapPastedNodes?: (nodes: NodeBananaRuntimeNode[], ids: Record<string, string>, offset: { x: number; y: number }) => NodeBananaRuntimeNode[];
+   graph: NodeBananaRuntimeGraph;
+   nodeTypes: NodeTypes;
+   edgeTypes?: EdgeTypes;
+@@ -419,6 +421,8 @@
+ }
+ 
+ export function NodeBananaCanvasRuntime({
++  onUndoRecorderChange,
++  remapPastedNodes,
+   graph,
+   nodeTypes,
+   edgeTypes,
+@@ -453,6 +457,11 @@
+     store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
+   }, [store]);
+ 
++  useEffect(() => {
++    onUndoRecorderChange?.(recordUndo);
++    return () => onUndoRecorderChange?.(null);
++  }, [onUndoRecorderChange, recordUndo]);
++
+   const publish = useCallback((next: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason, record = true) => {
+     if (!writable) return;
+     if (record) recordUndo(graph);
+@@ -730,7 +739,8 @@
+     if (!writable || !interaction.clipboard) return;
+     const offset = 28 * (interaction.pasteCount + 1);
+     const ids = new Map(interaction.clipboard.nodes.map((node) => [node.id, createId()]));
++    const copiedNodes = remapPastedNodes?.(interaction.clipboard.nodes, Object.fromEntries(ids), { x: offset, y: offset }) ?? interaction.clipboard.nodes;
++    const nodes = copiedNodes.map((node) => ({
+-    const nodes = interaction.clipboard.nodes.map((node) => ({
+       ...node,
+       id: ids.get(node.id) as string,
+       position: { x: node.position.x + offset, y: node.position.y + offset },
+@@ -745,7 +755,7 @@
+     }));
+     store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
+     publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] }, "paste");
++  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, remapPastedNodes, store, writable]);
+-  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, store, writable]);
+ 
+   const removeSelection = useCallback(() => {
+     if (!writable) return;
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -230,6 +230,8 @@
+   commitNodePositions: (positions: Record<string, { x: number; y: number }>) => void;
+   addNode: (...args: any[]) => string;
+   materializeSplitGridCells: (...args: any[]) => void;
++  beginGroupInteraction: () => void;
++  endGroupInteraction: () => void;
+   updateGroup: (id: string, patch: Partial<NodeGroup>) => void;
+   deleteGroup: (id: string) => void;
+   moveGroupNodes: (id: string, delta: { x: number; y: number }) => void;
+@@ -306,6 +308,8 @@
+   commitNodePositions: noop,
+   addNode: () => crypto.randomUUID(),
+   materializeSplitGridCells: noop,
++  beginGroupInteraction: noop,
++  endGroupInteraction: noop,
+   updateGroup: noop,
+   deleteGroup: noop,
+   moveGroupNodes: noop,
+--- a/src/components/GroupsOverlay.tsx
++++ b/src/components/GroupsOverlay.tsx
+@@ -66,9 +66,11 @@
+   zoom,
+   showInteractiveControls,
+ }: GroupControlsProps) {
++  const { group, updateGroup, deleteGroup, moveGroupNodes, toggleGroupLock, beginGroupInteraction, endGroupInteraction } =
+-  const { group, updateGroup, deleteGroup, moveGroupNodes, toggleGroupLock } =
+     useWorkflowStore(
+       useShallow((state) => ({
++        beginGroupInteraction: state.beginGroupInteraction,
++        endGroupInteraction: state.endGroupInteraction,
+         group: state.groups[groupId],
+         updateGroup: state.updateGroup,
+         deleteGroup: state.deleteGroup,
+@@ -181,10 +183,11 @@
+       }
+       e.stopPropagation();
+       e.preventDefault();
++      beginGroupInteraction();
+       setIsDragging(true);
+       dragStartRef.current = { x: e.clientX, y: e.clientY };
+     },
++    [beginGroupInteraction]
+-    []
+   );
+ 
+   // Resize handlers
+@@ -192,6 +195,7 @@
+     (e: React.MouseEvent, handle: string) => {
+       e.stopPropagation();
+       e.preventDefault();
++      beginGroupInteraction();
+       setIsResizing(true);
+       setResizeHandle(handle);
+       resizeStartRef.current = {
+@@ -203,7 +207,7 @@
+         posY: group.position.y,
+       };
+     },
++    [beginGroupInteraction, group?.size, group?.position]
+-    [group?.size, group?.position]
+   );
+ 
+   useEffect(() => {
+@@ -230,6 +234,7 @@
+     };
+ 
+     const handleMouseUp = () => {
++      endGroupInteraction();
+       setIsDragging(false);
+       dragStartRef.current = null;
+     };
+@@ -241,7 +246,7 @@
+       window.removeEventListener("mousemove", handleMouseMove);
+       window.removeEventListener("mouseup", handleMouseUp);
+     };
++  }, [endGroupInteraction, isDragging, groupId, group?.position, moveGroupNodes, updateGroup, zoom]);
+-  }, [isDragging, groupId, group?.position, moveGroupNodes, updateGroup, zoom]);
+ 
+   useEffect(() => {
+     if (!isResizing || !resizeHandle) return;
+@@ -282,6 +287,7 @@
+     };
+ 
+     const handleMouseUp = () => {
++      endGroupInteraction();
+       setIsResizing(false);
+       setResizeHandle(null);
+       resizeStartRef.current = null;
+@@ -294,7 +300,7 @@
+       window.removeEventListener("mousemove", handleMouseMove);
+       window.removeEventListener("mouseup", handleMouseUp);
+     };
++  }, [endGroupInteraction, isResizing, resizeHandle, groupId, updateGroup, zoom]);
+-  }, [isResizing, resizeHandle, groupId, updateGroup, zoom]);
+ 
+   if (!group) return null;

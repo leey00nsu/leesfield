@@ -1,8 +1,10 @@
 export type AudioGenerationStatus =
   | "pending"
   | "processing"
+  | "uploading"
   | "completed"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 export interface AudioGenerationResult {
   audios: Array<{

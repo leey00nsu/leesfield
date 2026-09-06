@@ -8,6 +8,12 @@ import type {
   AudioStorageMeta,
 } from "@/server/audio-generation/storage/storage-adapter";
 import { resolveAudioStorageProvider } from "@/server/audio-generation/storage/storage-selector";
+import type { GeneratedMediaArtifact, GenerationUploadLifecycle } from "@/server/media-assets/generated-media-artifact";
+import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
+import {
+  isNodeStudioE2EMockGenerationEnabled,
+  mockAudioGenerationResult,
+} from "@/server/media-assets/node-studio-e2e-media-fixtures";
 
 type AudioProvider = "hf_space";
 
@@ -67,16 +73,20 @@ function mapProviderError(adapter: AudioGenerationAdapter | null, error: unknown
 export async function resolveAudioGenerationResult(
   payload: AudioGenerationFormValues,
   requestId: string,
+  lifecycle: GenerationUploadLifecycle = {},
 ): Promise<{
   status: "completed" | "failed";
   result?: AudioGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }> {
   let adapter: AudioGenerationAdapter | null = null;
   try {
     adapter = getAdapter(payload.model);
-    const result = await adapter.generate(payload);
+    const result = isNodeStudioE2EMockGenerationEnabled()
+      ? mockAudioGenerationResult()
+      : await adapter.generate(payload);
     const { provider, warningMessage } = resolveAudioStorageProvider();
 
     if (!provider) {
@@ -92,6 +102,7 @@ export async function resolveAudioGenerationResult(
       };
     }
 
+    await lifecycle.onUploading?.();
     const storageAdapter = getStorageAdapter();
     return storageAdapter.uploadAudios(
       payload,
@@ -100,6 +111,7 @@ export async function resolveAudioGenerationResult(
       result.meta,
     );
   } catch (error) {
+    if (error instanceof NodeExecutionCancelledError) throw error;
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),

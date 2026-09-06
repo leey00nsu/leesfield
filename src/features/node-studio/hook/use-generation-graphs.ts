@@ -20,8 +20,24 @@ const graphKeys = {
 };
 
 function toSummary(graph: GenerationGraphSnapshotDto): GenerationGraphSummaryDto {
-  const { id, title, version, createdAt, updatedAt } = graph;
-  return { id, title, version, createdAt, updatedAt };
+  const {
+    id,
+    title,
+    version,
+    schemaVersion,
+    minimumWriterVersion,
+    createdAt,
+    updatedAt,
+  } = graph;
+  return {
+    id,
+    title,
+    version,
+    schemaVersion,
+    minimumWriterVersion,
+    createdAt,
+    updatedAt,
+  };
 }
 
 export function useGenerationGraphList() {

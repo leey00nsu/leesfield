@@ -1,0 +1,68 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -125,6 +125,7 @@ export type NodeBananaCanvasProps = {
+   ) => CreateNodeResult;
+   createId: () => string;
+   isValidConnection?: IsValidConnection<NodeBananaRuntimeEdge>;
++  isNodeRunnable?: (nodeId: string) => boolean;
+   filterPaletteItems?: (
+     items: readonly NodeBananaRuntimePaletteItem[],
+     pendingConnection: NodeBananaPendingConnection | null,
+@@ -213,6 +214,7 @@ function FloatingActionBar({
+   writable,
+   items,
+   selectedNodeCount,
++  runEnabled,
+   onAddItem,
+   onBrowseModels,
+   onRunSelected,
+@@ -223,6 +225,7 @@ function FloatingActionBar({
+   writable: boolean;
+   items: readonly NodeBananaRuntimePaletteItem[];
+   selectedNodeCount: number;
++  runEnabled: boolean;
+   onAddItem: (item: NodeBananaRuntimePaletteItem) => void;
+   onBrowseModels: () => void;
+   onRunSelected: () => void;
+@@ -268,12 +271,12 @@ function FloatingActionBar({
+         </button>
+         {allNodesOpen ? (
+           <div className="node-banana-runtime__all-nodes-menu" role="menu" aria-label="All nodes" data-node-banana-component="AllNodesMenu">
+-            {categories.map((category) => {
++            {categories.map((category, categoryIndex) => {
+               const categoryItems = items.filter((item) => categoryForPaletteItem(item) === category);
+               if (!categoryItems.length) return null;
+               return (
+                 <section key={category}>
+-                  <h3>{category}</h3>
++                  <h3 className={categoryIndex > 0 ? "node-banana-runtime__section-heading--divided" : undefined}>{category}</h3>
+                   {categoryItems.map((item) => <button key={item.kind} type="button" role="menuitem" onClick={() => add(item.kind)}>{item.label}</button>)}
+                 </section>
+               );
+@@ -293,7 +296,7 @@ function FloatingActionBar({
+       </button>
+       <span className="node-banana-runtime__separator" aria-hidden="true" />
+       <div className="node-banana-runtime__run-group">
+-        <button type="button" onClick={onRunSelected} disabled={!writable || selectedNodeCount !== 1}>
++        <button type="button" onClick={onRunSelected} disabled={!writable || selectedNodeCount !== 1 || !runEnabled}>
+           <svg aria-hidden="true" viewBox="0 0 24 24" className="node-banana-runtime__play"><path d="m8 5 11 7-11 7z" /></svg>
+           Run
+         </button>
+@@ -448,5 +451,6 @@ export function NodeBananaCanvasRuntime({
+   onCreateNode,
+   createId,
+   isValidConnection,
++  isNodeRunnable,
+   filterPaletteItems,
+ }: NodeBananaCanvasProps) {
+@@ -780,6 +785,10 @@ export function NodeBananaCanvasRuntime({
+             writable={writable}
+             items={paletteItems}
+             selectedNodeCount={interaction.selectedNodeIds.length}
++            runEnabled={
++              interaction.selectedNodeIds.length === 1 &&
++              (isNodeRunnable?.(interaction.selectedNodeIds[0]) ?? true)
++            }
+             onAddItem={addNodeAtCenter}
+             onBrowseModels={() => setModelBrowserOpen(true)}
+             onRunSelected={runSelectedNode}

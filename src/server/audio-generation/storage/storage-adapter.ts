@@ -1,5 +1,6 @@
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationResponse } from "@/features/audio-generation/model/audio-generation-types";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 export type AudioStorageProvider = "leemage";
 
@@ -12,6 +13,7 @@ export interface AudioStorageResult {
   result?: AudioGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }
 
 export interface AudioStorageAvailability {

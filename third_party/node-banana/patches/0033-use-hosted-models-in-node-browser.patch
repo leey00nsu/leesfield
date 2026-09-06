@@ -1,0 +1,116 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -211,6 +211,7 @@
+ type HostWorkflowState = {
+   writable: boolean;
+   inlineParametersEnabled: boolean;
++  hostedModels: ProviderModel[];
+   nodes: HostNodeData[];
+   edges: HostNodeData[];
+   currentNodeIds: string[];
+@@ -275,6 +276,7 @@
+ const defaultWorkflowState: HostWorkflowState = {
+   writable: true,
+   inlineParametersEnabled: false,
++  hostedModels: [],
+   nodes: [],
+   edges: [],
+   currentNodeIds: [],
+--- a/src/components/modals/ModelSearchDialog.tsx
++++ b/src/components/modals/ModelSearchDialog.tsx
+@@ -1130,18 +1130,19 @@
+   isOpen,
+   onClose,
+   title = "Browse Models",
++  initialCapabilityFilter,
+   hostedModels,
+   onHostedModelSelected,
+ }: ModelSearchDialogProps & ModelSearchDialogHostedProps) {
+   const [searchQuery, setSearchQuery] = useState("");
+-  const [capabilityFilter, setCapabilityFilter] = useState<CapabilityFilter>("all");
++  const [capabilityFilter, setCapabilityFilter] = useState<CapabilityFilter>(initialCapabilityFilter ?? "all");
+ 
+   useEffect(() => {
+     if (!isOpen) {
+       setSearchQuery("");
+-      setCapabilityFilter("all");
++      setCapabilityFilter(initialCapabilityFilter ?? "all");
+     }
+-  }, [isOpen]);
++  }, [initialCapabilityFilter, isOpen]);
+ 
+   useEffect(() => {
+     if (!isOpen) return;
+@@ -1267,8 +1268,18 @@
+ }
+ 
+ export function ModelSearchDialog(props: ModelSearchDialogProps) {
++  const hostedModels = useWorkflowStore((state) => state.hostedModels);
+   if (props.hosted) {
+     return <HostedModelSearchDialog {...props} {...props.hosted} />;
+   }
++  if (props.onModelSelected && hostedModels.length > 0) {
++    return (
++      <HostedModelSearchDialog
++        {...props}
++        hostedModels={hostedModels}
++        onHostedModelSelected={props.onModelSelected}
++      />
++    );
++  }
+   return <StandaloneModelSearchDialog {...props} />;
+ }
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -76,6 +76,7 @@
+ } from "./upstream-node-components";
+ export { AnnotationModal } from "../components/AnnotationModal";
+ export { FloatingNodeHeader } from "../components/nodes/FloatingNodeHeader";
++export type { ProviderModel as NodeBananaProviderModel } from "./upstream-node-host";
+ 
+ export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
+ 
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -403,7 +403,7 @@
+     nextConfig.presentation = nextPresentation;
+   }
+   const transientPatch: HostNodeData = {};
+-  for (const key of ["encoderSupported", "duration", "outputDimensions", "outputBytes"]) {
++  for (const key of ["encoderSupported", "duration", "outputDimensions", "outputBytes", "parametersExpanded"]) {
+     if (Object.hasOwn(patch, key)) transientPatch[key] = patch[key];
+   }
+   const outputField = kind === "generate.image" || kind === "edit.image.annotation" || kind === "edit.image.resize"
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -194,7 +194,7 @@
+   }, [fetchModels]);
+ 
+   // Inline parameters: compute collapse state and toggle handler
+-  const isParamsExpanded = nodeData.parametersExpanded ?? true; // default expanded
++  const isParamsExpanded = nodeData.parametersExpanded ?? false;
+ 
+   const handleToggleParams = useCallback(() => {
+     updateNodeData(id, { parametersExpanded: !isParamsExpanded });
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -159,7 +159,7 @@
+   }, [fetchModels]);
+ 
+   // Inline parameters: compute collapse state and toggle handler
+-  const isParamsExpanded = nodeData.parametersExpanded ?? true; // default expanded
++  const isParamsExpanded = nodeData.parametersExpanded ?? false;
+ 
+   const handleToggleParams = useCallback(() => {
+     updateNodeData(id, { parametersExpanded: !isParamsExpanded });
+--- a/src/components/nodes/GenerateAudioNode.tsx
++++ b/src/components/nodes/GenerateAudioNode.tsx
+@@ -174,7 +174,7 @@
+   }, [nodeData.selectedModel?.displayName, nodeData.selectedModel?.modelId]);
+ 
+   // Inline parameters: compute collapse state and toggle handler
+-  const isParamsExpanded = nodeData.parametersExpanded ?? true; // default expanded
++  const isParamsExpanded = nodeData.parametersExpanded ?? false;
+ 
+   const handleToggleParams = useCallback(() => {
+     updateNodeData(id, { parametersExpanded: !isParamsExpanded });

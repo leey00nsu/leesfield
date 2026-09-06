@@ -1,0 +1,74 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -821,6 +821,19 @@
+     if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
+     store.setState({ viewport });
+   }, [store]);
++  const fitViewOptions = useMemo(() => ({
++    minZoom: graph.nodes.length <= 1
++      ? 0.65
++      : typeof window !== "undefined" && window.innerWidth <= 640
++        ? 0.1
++        : 0.2,
++    maxZoom: 1,
++    padding: graph.nodes.length <= 1
++      ? 0.08
++      : typeof window !== "undefined" && window.innerWidth <= 640
++        ? { top: "24px" as const, right: "24px" as const, bottom: "144px" as const, left: "24px" as const }
++        : 0.2,
++  }), [graph.nodes.length]);
+ 
+   return (
+     <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
+@@ -886,19 +899,7 @@
+         zoomActivationKeyCode={canvasSettings.zoomMode === "altScroll" ? "Alt" : canvasSettings.zoomMode === "ctrlScroll" ? ["Control", "Meta"] : null}
+         zoomOnDoubleClick={false}
+         deleteKeyCode={null}
+-        fitViewOptions={{
+-          minZoom: graph.nodes.length <= 1
+-            ? 0.65
+-            : typeof window !== "undefined" && window.innerWidth <= 640
+-              ? 0.1
+-              : 0.2,
+-          maxZoom: 1,
+-          padding: graph.nodes.length <= 1
+-            ? 0.08
+-            : typeof window !== "undefined" && window.innerWidth <= 640
+-              ? { top: "24px", right: "24px", bottom: "112px", left: "24px" }
+-              : 0.2,
+-        }}
++        fitViewOptions={fitViewOptions}
+         proOptions={{ hideAttribution: true }}
+         minZoom={graph.nodes.length <= 1 ? 0.65 : 0.1}
+         maxZoom={4}
+@@ -919,7 +920,7 @@
+       >
+         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--node-banana-grid, #404040)" />
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />
+-        <Controls showInteractive={false} />
++        <Controls showInteractive={false} fitViewOptions={fitViewOptions} />
+         {renderNodeHeader ? (
+           <ViewportPortal>
+             {visibleNodes.map((node) => (
+--- a/src/components/AnnotationModal.tsx
++++ b/src/components/AnnotationModal.tsx
+@@ -449,8 +449,8 @@
+       aria-label="Annotation editor"
+     >
+       {/* Top Bar */}
+-      <div className="h-14 bg-neutral-900 flex items-center justify-between px-4 border-b border-neutral-800">
+-        <div className="flex items-center gap-1.5">
++      <div className="h-14 min-w-0 bg-neutral-900 flex items-center justify-between gap-3 px-4 border-b border-neutral-800">
++        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+           {tools.map((tool) => (
+             <button
+               key={tool.type}
+@@ -475,7 +475,7 @@
+           <button onClick={clearAnnotations} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-red-400">Clear</button>
+         </div>
+ 
+-        <div className="flex items-center gap-3">
++        <div className="flex shrink-0 items-center gap-3">
+           <button onClick={closeModal} className="px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-white">
+             Cancel
+           </button>

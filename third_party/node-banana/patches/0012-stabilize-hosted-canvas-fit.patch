@@ -1,0 +1,26 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -589,7 +589,12 @@
+         edges={visibleEdges}
+         nodeTypes={nodeTypes}
+         edgeTypes={edgeTypes}
+-        onInit={(instance) => { instanceRef.current = instance; }}
++        onInit={(instance) => {
++          instanceRef.current = instance;
++          window.setTimeout(() => {
++            void instance.fitView({ minZoom: 0.2, maxZoom: 1, padding: 0.25 });
++          }, 120);
++        }}
+         onNodesChange={onNodesChange}
+         onEdgesChange={onEdgesChange}
+         onConnect={onConnect}
+@@ -605,7 +610,7 @@
+         selectionOnDrag
+         panOnDrag={[1, 2]}
+         deleteKeyCode={null}
+-        fitView fitViewOptions={{ minZoom: 0.6, maxZoom: 1, padding: 0.2 }}
++        fitView fitViewOptions={{ minZoom: 0.2, maxZoom: 1, padding: 0.25 }}
+         minZoom={0.1}
+         maxZoom={4}
+         onDoubleClick={(event) => {
+

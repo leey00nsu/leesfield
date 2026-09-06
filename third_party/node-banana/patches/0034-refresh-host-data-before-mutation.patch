@@ -1,0 +1,42 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -557,7 +557,11 @@
+   const commit = onUpdateNodeData ?? host?.onUpdateNodeData;
+   const update = (nodeId: string, patch: HostNodeData) => {
+     if (!writable) return;
+-    commit?.(nodeId, canonicalPatchForNode(runtimeData, patch));
++    const latestData = {
++      ...runtimeData,
++      ...(host?.resolveNodeData?.(nodeId) ?? {}),
++    };
++    commit?.(nodeId, canonicalPatchForNode(latestData, patch));
+   };
+   const isInput = kind === "input.image" || kind === "input.audio" || kind === "input.video" || kind === "input.prompt";
+   const isOptional = upstreamData.isOptional === true;
+@@ -825,7 +829,11 @@
+       });
+       return;
+     }
+-    commit?.(nodeId, canonicalPatchForNode(runtimeData, patch));
++    const latestData = {
++      ...runtimeData,
++      ...(host?.resolveNodeData?.(nodeId) ?? {}),
++    };
++    commit?.(nodeId, canonicalPatchForNode(latestData, patch));
+   }, [commit, host, kind, runtimeData]);
+   const regenerate = useCallback((nodeId: string) => {
+     (onRegenerateNode ?? host?.onRegenerateNode)?.(nodeId);
+--- a/src/components/nodes/FloatingNodeHeader.tsx
++++ b/src/components/nodes/FloatingNodeHeader.tsx
+@@ -598,9 +598,9 @@
+                     : "Run this node"}
+                 className="nodrag nopan p-0.5 rounded transition-all duration-200 ease-in-out text-neutral-500 group-hover:text-neutral-200 border border-neutral-600 flex items-center overflow-hidden group-hover:pr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                 title={!runReady
+-                  ? `Run unavailable: ${runDisabledReason || "This node is not ready to run."}`
++                  ? `Run node unavailable: ${runDisabledReason || "This node is not ready to run."}`
+                   : isExecuting
+-                    ? "Run unavailable: This node is currently running."
++                    ? "Run node unavailable: This node is currently running."
+                     : "Run this node"}
+               >
+                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">

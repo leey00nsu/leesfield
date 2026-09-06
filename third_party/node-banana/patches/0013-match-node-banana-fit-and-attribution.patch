@@ -1,0 +1,31 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -592,7 +592,11 @@
+         onInit={(instance) => {
+           instanceRef.current = instance;
+           window.setTimeout(() => {
+-            void instance.fitView({ minZoom: 0.2, maxZoom: 1, padding: 0.25 });
++            void instance.fitView({
++              minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
++              maxZoom: 1,
++              padding: graph.nodes.length <= 1 ? 0.08 : 0.2,
++            });
+           }, 120);
+         }}
+         onNodesChange={onNodesChange}
+@@ -610,7 +614,13 @@
+         selectionOnDrag
+         panOnDrag={[1, 2]}
+         deleteKeyCode={null}
+-        fitView fitViewOptions={{ minZoom: 0.2, maxZoom: 1, padding: 0.25 }}
++        fitView
++        fitViewOptions={{
++          minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
++          maxZoom: 1,
++          padding: graph.nodes.length <= 1 ? 0.08 : 0.2,
++        }}
++        proOptions={{ hideAttribution: true }}
+         minZoom={0.1}
+         maxZoom={4}
+         onDoubleClick={(event) => {
+

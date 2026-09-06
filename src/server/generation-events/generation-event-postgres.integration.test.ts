@@ -6,10 +6,11 @@ import { Client, type Notification } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/server/db/prisma";
+import { getHistory } from "@/server/history/handlers/get-history";
 import {
   GENERATION_EVENT_CHANNEL,
   parseGenerationEvent,
-  type GenerationUpdatedEvent,
+  type NodeExecutionUpdatedEvent,
 } from "@/shared/generation-events/generation-event-contract";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -19,8 +20,9 @@ function waitForEvent(
   client: Client,
   requestId: string,
   timeoutMs = 3_000,
+  matches: (event: NodeExecutionUpdatedEvent) => boolean = () => true,
 ) {
-  return new Promise<GenerationUpdatedEvent>((resolve, reject) => {
+  return new Promise<NodeExecutionUpdatedEvent>((resolve, reject) => {
     const timeout = setTimeout(() => {
       client.removeListener("notification", onNotification);
       reject(new Error(`Timed out waiting for ${requestId}`));
@@ -33,7 +35,12 @@ function waitForEvent(
         return;
       }
       const event = parseGenerationEvent(notification.payload);
-      if (!event || event.requestId !== requestId) return;
+      if (
+        !event ||
+        event.type !== "node-execution.updated" ||
+        event.executionId !== requestId ||
+        !matches(event)
+      ) return;
       clearTimeout(timeout);
       client.removeListener("notification", onNotification);
       resolve(event);
@@ -51,7 +58,11 @@ function expectNoEvent(client: Client, requestId: string, timeoutMs = 150) {
     const onNotification = (notification: Notification) => {
       if (!notification.payload) return;
       const event = parseGenerationEvent(notification.payload);
-      if (!event || event.requestId !== requestId) return;
+      if (
+        !event ||
+        event.type !== "node-execution.updated" ||
+        event.executionId !== requestId
+      ) return;
       clearTimeout(timeout);
       client.removeListener("notification", onNotification);
       reject(new Error(`Unexpected event for ${requestId}`));
@@ -60,7 +71,38 @@ function expectNoEvent(client: Client, requestId: string, timeoutMs = 150) {
   });
 }
 
-integration("PostgreSQL Node Generation notifications", () => {
+function waitForNodeExecutionEvent(
+  client: Client,
+  executionId: string,
+  timeoutMs = 3_000,
+  matches: (event: NodeExecutionUpdatedEvent) => boolean = () => true,
+) {
+  return new Promise<NodeExecutionUpdatedEvent>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      client.removeListener("notification", onNotification);
+      reject(new Error(`Timed out waiting for ${executionId}`));
+    }, timeoutMs);
+    const onNotification = (notification: Notification) => {
+      if (
+        notification.channel !== GENERATION_EVENT_CHANNEL ||
+        !notification.payload
+      ) return;
+      const event = parseGenerationEvent(notification.payload);
+      if (
+        !event ||
+        event.type !== "node-execution.updated" ||
+        event.executionId !== executionId ||
+        !matches(event)
+      ) return;
+      clearTimeout(timeout);
+      client.removeListener("notification", onNotification);
+      resolve(event);
+    };
+    client.on("notification", onNotification);
+  });
+}
+
+integration("PostgreSQL Node execution notifications", () => {
   const client = new Client({ connectionString: databaseUrl });
 
   beforeAll(async () => {
@@ -90,7 +132,7 @@ integration("PostgreSQL Node Generation notifications", () => {
           nodes: {
             create: {
               id: nodeId,
-              type: "imageGeneration",
+              kind: "generate.image",
               x: 0,
               y: 0,
               configVersion: 1,
@@ -117,7 +159,7 @@ integration("PostgreSQL Node Generation notifications", () => {
       await expect(pendingEvent).resolves.toMatchObject({
         graphId,
         graphNodeId: nodeId,
-        requestId,
+        executionId: requestId,
         status: "pending",
         progress: 0,
       });
@@ -129,7 +171,12 @@ integration("PostgreSQL Node Generation notifications", () => {
       });
       await noOpEvent;
 
-      const processingEvent = waitForEvent(client, requestId);
+      const processingEvent = waitForEvent(
+        client,
+        requestId,
+        3_000,
+        (event) => event.status === "processing" && event.progress === 10,
+      );
       await prisma.imageGeneration.update({
         where: { id: generation.id },
         data: { status: "processing", progress: 10 },
@@ -139,7 +186,12 @@ integration("PostgreSQL Node Generation notifications", () => {
         progress: 10,
       });
 
-      const completedEvent = waitForEvent(client, requestId);
+      const completedEvent = waitForEvent(
+        client,
+        requestId,
+        3_000,
+        (event) => event.status === "completed" && event.progress === 100,
+      );
       await prisma.$transaction([
         prisma.imageGeneration.update({
           where: { id: generation.id },
@@ -183,7 +235,12 @@ integration("PostgreSQL Node Generation notifications", () => {
         },
       });
       await failedPendingEvent;
-      const failedEvent = waitForEvent(client, failedRequestId);
+      const failedEvent = waitForEvent(
+        client,
+        failedRequestId,
+        3_000,
+        (event) => event.status === "failed",
+      );
       await prisma.imageGeneration.update({
         where: { id: failedGeneration.id },
         data: { status: "failed", progress: 0, errorMessage: "EXPECTED_FAILURE" },
@@ -220,6 +277,246 @@ integration("PostgreSQL Node Generation notifications", () => {
           requestId: { in: [requestId, failedRequestId, classicRequestId] },
         },
       });
+      await prisma.generationGraph.deleteMany({ where: { id: graphId } });
+    }
+  });
+
+  it("publishes v2 events for all generation media and completed MediaOperation assets", async () => {
+    const suffix = randomUUID();
+    const ownerEmail = `f059-${suffix}@example.com`;
+    const graphId = `f059-graph-${suffix}`;
+    const imageNodeId = `f059-image-${suffix}`;
+    const videoNodeId = `f059-video-${suffix}`;
+    const audioNodeId = `f059-audio-${suffix}`;
+    const editNodeId = `f059-edit-${suffix}`;
+    const imageRequestId = `f059-image-request-${suffix}`;
+    const videoRequestId = `f059-video-request-${suffix}`;
+    const audioRequestId = `f059-audio-request-${suffix}`;
+    const operationId = `f059-operation-${suffix}`;
+    let assetId: string | null = null;
+
+    try {
+      await prisma.generationGraph.create({
+        data: {
+          id: graphId,
+          ownerEmail,
+          title: "F059 event integration",
+          schemaVersion: 2,
+          minimumWriterVersion: 2,
+          nodes: {
+            create: [
+              { id: imageNodeId, kind: "generate.image", x: 0, y: 0, configVersion: 1, config: {} },
+              { id: videoNodeId, kind: "generate.video", x: 100, y: 0, configVersion: 1, config: {} },
+              { id: audioNodeId, kind: "generate.audio", x: 200, y: 0, configVersion: 1, config: {} },
+              { id: editNodeId, kind: "edit.audio.basic", x: 300, y: 0, configVersion: 1, config: {} },
+            ],
+          },
+        },
+      });
+
+      const imageEvent = waitForNodeExecutionEvent(client, imageRequestId);
+      await prisma.imageGeneration.create({
+        data: {
+          requestId: imageRequestId,
+          ownerEmail,
+          graphNodeId: imageNodeId,
+          prompt: "image",
+          aspectRatio: "1024x1024",
+          imageCount: 1,
+          steps: 1,
+          status: "pending",
+          progress: 0,
+        },
+      });
+      await expect(imageEvent).resolves.toMatchObject({
+        executionKind: "generation",
+        mediaType: "image",
+        graphId,
+        graphNodeId: imageNodeId,
+        status: "pending",
+      });
+
+      const videoEvent = waitForNodeExecutionEvent(client, videoRequestId);
+      await prisma.videoGeneration.create({
+        data: {
+          requestId: videoRequestId,
+          ownerEmail,
+          graphNodeId: videoNodeId,
+          prompt: "video",
+          status: "processing",
+          progress: 25,
+        },
+      });
+      await expect(videoEvent).resolves.toMatchObject({
+        executionKind: "generation",
+        mediaType: "video",
+        graphNodeId: videoNodeId,
+        status: "processing",
+        progress: 25,
+      });
+
+      const audioEvent = waitForNodeExecutionEvent(client, audioRequestId);
+      await prisma.audioGeneration.create({
+        data: {
+          requestId: audioRequestId,
+          ownerEmail,
+          graphNodeId: audioNodeId,
+          prompt: "audio",
+          status: "uploading",
+          progress: 95,
+        },
+      });
+      await expect(audioEvent).resolves.toMatchObject({
+        executionKind: "generation",
+        mediaType: "audio",
+        graphNodeId: audioNodeId,
+        status: "uploading",
+        progress: 95,
+      });
+
+      const pendingOperationEvent = waitForNodeExecutionEvent(
+        client,
+        operationId,
+        3_000,
+        (event) => event.status === "pending",
+      );
+      const operation = await prisma.mediaOperation.create({
+        data: {
+          id: operationId,
+          ownerEmail,
+          graphId,
+          graphNodeId: editNodeId,
+          type: "edit.audio.basic",
+          configVersion: 1,
+          parameters: {},
+          status: "pending",
+          progress: 0,
+        },
+      });
+      await expect(pendingOperationEvent).resolves.toMatchObject({
+        executionKind: "media_operation",
+        mediaType: "audio",
+        graphId,
+        graphNodeId: editNodeId,
+        status: "pending",
+        progress: 0,
+      });
+
+      const processingOperationEvent = waitForNodeExecutionEvent(
+        client,
+        operation.id,
+        3_000,
+        (event) => event.status === "processing",
+      );
+      await prisma.mediaOperation.update({
+        where: { id: operation.id },
+        data: { status: "processing", progress: 20 },
+      });
+      await expect(processingOperationEvent).resolves.toMatchObject({
+        status: "processing",
+        progress: 20,
+      });
+
+      const uploadingOperationEvent = waitForNodeExecutionEvent(
+        client,
+        operation.id,
+        3_000,
+        (event) => event.status === "uploading",
+      );
+      await prisma.mediaOperation.update({
+        where: { id: operation.id },
+        data: { status: "uploading", progress: 95 },
+      });
+      await expect(uploadingOperationEvent).resolves.toMatchObject({
+        status: "uploading",
+        progress: 95,
+      });
+
+      const completedEvent = waitForNodeExecutionEvent(
+        client,
+        operation.id,
+        3_000,
+        (event) => event.status === "completed",
+      );
+      const committed = await prisma.$transaction(async (tx) => {
+        await tx.mediaOperation.update({
+          where: { id: operation.id },
+          data: { status: "completed", progress: 100, completedAt: new Date() },
+        });
+        const asset = await tx.mediaAsset.create({
+          data: {
+            ownerEmail,
+            type: "audio",
+            status: "completed",
+            origin: "media_operation",
+            storageProvider: "integration",
+            storageObjectId: `f059-audio-${suffix}`,
+            storageUrl: "https://example.com/f059.wav",
+            mimeType: "audio/wav",
+            bytes: 1_024,
+            durationMs: 1_000,
+            sourceOperationId: operation.id,
+          },
+        });
+        await tx.generationGraphNodeOutput.create({
+          data: {
+            graphNodeId: editNodeId,
+            portId: "audio",
+            assetId: asset.id,
+            sortOrder: 0,
+          },
+        });
+        return asset;
+      });
+      assetId = committed.id;
+
+      await expect(completedEvent).resolves.toMatchObject({
+        executionKind: "media_operation",
+        mediaType: "audio",
+        graphId,
+        graphNodeId: editNodeId,
+        executionId: operation.id,
+        status: "completed",
+        progress: 100,
+      });
+      await expect(
+        prisma.generationGraphNodeOutput.findFirst({
+          where: { graphNodeId: editNodeId, assetId: committed.id },
+          include: { asset: true },
+        }),
+      ).resolves.toMatchObject({
+        asset: {
+          status: "completed",
+          origin: "media_operation",
+          mimeType: "audio/wav",
+          sourceOperationId: operation.id,
+        },
+      });
+      await expect(
+        getHistory(new URLSearchParams({ type: "audio" }), ownerEmail),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          items: expect.arrayContaining([
+          expect.objectContaining({
+            id: operation.id,
+            origin: "edit",
+            assetId: committed.id,
+            graphId,
+            graphNodeId: editNodeId,
+            status: "completed",
+          }),
+          ]),
+        }),
+      );
+    } finally {
+      await prisma.generationGraphNodeOutput.deleteMany({
+        where: { graphNodeId: { in: [imageNodeId, videoNodeId, audioNodeId, editNodeId] } },
+      });
+      if (assetId) await prisma.mediaAsset.deleteMany({ where: { id: assetId } });
+      await prisma.mediaOperation.deleteMany({ where: { id: operationId } });
+      await prisma.imageGeneration.deleteMany({ where: { requestId: imageRequestId } });
+      await prisma.videoGeneration.deleteMany({ where: { requestId: videoRequestId } });
+      await prisma.audioGeneration.deleteMany({ where: { requestId: audioRequestId } });
       await prisma.generationGraph.deleteMany({ where: { id: graphId } });
     }
   });

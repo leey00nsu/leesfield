@@ -1,0 +1,30 @@
+--- a/src/leesfield/hosted-header.tsx
++++ b/src/leesfield/hosted-header.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { type FormEvent, useState } from "react";
++import { type FormEvent, type ReactNode, useState } from "react";
+ 
+ import type { NodeBananaCanvasSettings } from "./canvas-runtime";
+ 
+@@ -13,4 +13,5 @@
+   title: string;
++  brand?: ReactNode;
+   graphs: readonly NodeBananaHeaderGraph[];
+   activeGraphId: string;
+   saveLabel: string;
+@@ -31,4 +32,5 @@
+   title,
++  brand,
+   graphs,
+   activeGraphId,
+   saveLabel,
+@@ -75,5 +77,5 @@
+-          <div className="node-banana-hosted__brand" aria-label="Node Banana">
++          {brand ?? <div className="node-banana-hosted__brand" aria-label="Node Banana">
+             <span aria-hidden="true">🍌</span>
+             <h1>Node Banana</h1>
+-          </div>
++          </div>}
+           <div className="node-banana-hosted__project">

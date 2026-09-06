@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
+import { leemageFileName } from "@/server/shared/leemage-file-name";
 import path from "path";
-import { LeemageClient, type UploadableFile } from "leemage-sdk";
+import { LeemageClient, type ImageFormat, type UploadableFile } from "leemage-sdk";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 import type {
@@ -8,6 +9,7 @@ import type {
   ImageStorageAvailability,
   ImageStorageResult,
 } from "@/server/image-generation/storage/storage-adapter";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 const PLACEHOLDER_FILE = "sample-image.png";
 const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
@@ -107,7 +109,7 @@ function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
   const arrayBuffer = Uint8Array.from(buffer).buffer;
 
   return {
-    name,
+    name: leemageFileName(name),
     type: resolveContentType(name),
     size: buffer.byteLength,
     arrayBuffer: async () => arrayBuffer,
@@ -168,6 +170,33 @@ function mapFileToImage(
   };
 }
 
+function mapFileToArtifact(
+  file: Awaited<ReturnType<ReturnType<typeof getLeemageClient>["files"]["upload"]>>,
+  fallbackWidth: number,
+  fallbackHeight: number,
+) {
+  const variant = file.variants.find((item) => item.url) ?? file.variants[0];
+  const storageUrl = variant?.url ?? file.url;
+  if (!storageUrl) throw new Error("업로드된 이미지 URL을 찾을 수 없습니다.");
+  const format = variant?.format?.toLowerCase();
+  return {
+    type: "image" as const,
+    storageProvider: "leemage" as const,
+    storageObjectId: file.id,
+    storageUrl,
+    mimeType:
+      format === "jpg" || format === "jpeg"
+        ? "image/jpeg"
+        : format === "png" || format === "avif" || format === "webp"
+          ? `image/${format}`
+          : file.mimeType,
+    bytes: variant?.size ?? file.size,
+    width: variant?.width ?? fallbackWidth,
+    height: variant?.height ?? fallbackHeight,
+    durationMs: null,
+  };
+}
+
 export async function uploadGeneratedImages(
   payload: ImageGenerationFormValues,
   requestId: string,
@@ -195,6 +224,7 @@ export async function uploadGeneratedImages(
       result: {
         images: uploads.map((file) => mapFileToImage(file, width, height)),
       },
+      artifacts: uploads.map((file) => mapFileToArtifact(file, width, height)),
     };
   } catch (error) {
     return {
@@ -204,6 +234,31 @@ export async function uploadGeneratedImages(
         error instanceof Error ? error.message : "저장에 실패했습니다.",
     };
   }
+}
+
+export async function uploadMediaOperationImages(
+  requestId: string,
+  images: Array<{ dataUrl: string; width: number | null; height: number | null }>,
+): Promise<GeneratedMediaArtifact[]> {
+  const client = getLeemageClient();
+  const { projectId } = getLeemageConfig();
+  const uploads = await Promise.all(
+    images.map(({ dataUrl }, index) => {
+      const { contentType, buffer } = parseDataUrl(dataUrl);
+      const extension = resolveExtension(contentType);
+      const format: ImageFormat = extension === "jpg" ? "jpeg" : extension as ImageFormat;
+      return client.files.upload(
+        projectId,
+        buildUploadFile(buffer, `${requestId}-${index + 1}.${extension}`),
+        { variants: [{ sizeLabel: "source", format }] },
+      );
+    }),
+  );
+  return uploads.map((file, index) => mapFileToArtifact(
+    file,
+    images[index]?.width ?? 1,
+    images[index]?.height ?? 1,
+  ));
 }
 
 export async function resolveGenerationResult(

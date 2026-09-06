@@ -1,5 +1,6 @@
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 export type VideoStorageProvider = "leemage";
 
@@ -15,6 +16,7 @@ export interface VideoStorageResult {
   result?: VideoGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }
 
 export interface VideoStorageAvailability {

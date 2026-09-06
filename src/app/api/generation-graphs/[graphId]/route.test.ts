@@ -9,6 +9,7 @@ vi.mock("@/server/generation-graph/generation-graph-service", () => ({
 }));
 
 import {
+  GenerationGraphActiveExecutionError,
   GenerationGraphInputError,
   GenerationGraphNotFoundError,
   GenerationGraphVersionConflictError,
@@ -63,9 +64,20 @@ describe("/api/generation-graphs/[graphId]", () => {
     expect((await response.json()).message).toBe("GRAPH_VERSION_CONFLICT");
   });
 
+  it("maps the active execution guard to 409", async () => {
+    service.update.mockRejectedValue(new GenerationGraphActiveExecutionError());
+    const response = await PUT(
+      new Request("http://localhost", { method: "PUT", body: "{}" }),
+      context,
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).message).toBe("GRAPH_ACTIVE_EXECUTION");
+  });
+
   it("returns the saved graph", async () => {
     service.update.mockResolvedValue({ id: "graph_1", title: "Updated", version: 2 });
-    const body = { expectedVersion: 1, title: "Updated", nodes: [], edges: [] };
+    const body = { schemaVersion: 3, groups: [], expectedVersion: 1, title: "Updated", nodes: [], edges: [] };
     const response = await PUT(
       new Request("http://localhost", { method: "PUT", body: JSON.stringify(body) }),
       context,

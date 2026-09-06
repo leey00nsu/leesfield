@@ -11,8 +11,10 @@ export async function createVideoGenerationRecord(
   payload: VideoGenerationFormValues,
   ownerEmail: string,
   apiKeyId: string | null = null,
+  graphNodeId: string | null = null,
+  requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
 ) {
-  const requestParams: Prisma.InputJsonValue = {
+  const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
     model: payload.model,
     prompt: payload.prompt,
     initImage: payload.initImage || null,
@@ -30,6 +32,7 @@ export async function createVideoGenerationRecord(
       requestId,
       ownerEmail,
       apiKeyId,
+      graphNodeId,
       prompt: payload.prompt,
       requestParams,
       modelKey: payload.model,

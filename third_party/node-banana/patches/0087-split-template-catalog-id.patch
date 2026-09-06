@@ -1,0 +1,11 @@
+--- a/src/components/splitgrid/TemplateNodes.tsx
++++ b/src/components/splitgrid/TemplateNodes.tsx
+@@ -301,7 +301,7 @@
+ 
+   const selectedModel = overrides.selectedModel as SelectedModel | undefined;
+   const catalog = useWorkflowStore((state) => state.hostedModels) ?? [];
+-  const currentProvider = catalog.find((model) => model.key === selectedModel?.modelId)?.provider ?? selectedModel?.provider ?? "hf_space";
++  const currentProvider = catalog.find((model) => model.id === selectedModel?.modelId)?.provider ?? selectedModel?.provider ?? "hf_space";
+   // Same shape as GenerateImageNode.handleBrowseModelSelect
+   const handleBrowseModelSelect = useCallback(
+     (model: ProviderModel) => {

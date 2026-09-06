@@ -1,0 +1,87 @@
+{
+  "note": "Recorded by scripts/comfy-smoke.mjs. Re-record with: node scripts/comfy-smoke.mjs record",
+  "engine": "https://cloud.comfy.org",
+  "blueprints": [
+    {
+      "id": "text_to_video_ltx_2_3",
+      "name": "Text to Video (LTX-2.3)",
+      "why": "VIDEO sink — SaveVideo needs a codec the save never carries"
+    },
+    {
+      "id": "text_to_video_wan_2_2",
+      "name": "Text to Video (Wan 2.2)",
+      "why": "prompt, width, height and length all promoted onto the boundary"
+    },
+    {
+      "id": "canny_to_video_ltx_2_0",
+      "name": "Canny to Video (LTX 2.0)",
+      "why": "one boundary slot driving three loaders at once"
+    },
+    {
+      "id": "image_captioning_gemini",
+      "name": "Image Captioning(Gemini)",
+      "why": "STRING output — a preview node would save no file"
+    },
+    {
+      "id": "image_to_model_hunyuan3d_2_1",
+      "name": "Image to 3D Model (Hunyuan3d 2.1)",
+      "why": "MESH output"
+    },
+    {
+      "id": "image_segmentation_sam3",
+      "name": "Image Segmentation (SAM3)",
+      "why": "MASK output, which no sink takes directly"
+    },
+    {
+      "id": "image_to_gaussian_splat_triposplat",
+      "name": "Image to Gaussian Splat (TripoSplat)",
+      "why": "SPLAT output, and a MASK input"
+    },
+    {
+      "id": "text_to_audio_ace_step_1_5",
+      "name": "Text to Audio (ACE-Step 1.5)",
+      "why": "PrimitiveNode — a frontend-virtual node with no backend"
+    },
+    {
+      "id": "image_edit_qwen_2509",
+      "name": "Image Edit (Qwen 2509)",
+      "why": "a prompt widget that was once skipped as plumbing"
+    },
+    {
+      "id": "image_outpainting_qwen_image",
+      "name": "Image Outpainting (Qwen-Image)",
+      "why": "pad amounts on the boundary; placeholder image input"
+    },
+    {
+      "id": "select_per_line_text_by_index",
+      "name": "Select Per-Line Text by Index",
+      "why": "a STRING boundary input proxied from an inner node"
+    },
+    {
+      "id": "character_replacement_scail_2_base",
+      "name": "Character Replacement (SCAIL-2 Base)",
+      "why": "repeated labels, and an autogrow socket group"
+    },
+    {
+      "id": "text_to_image_ernie_image",
+      "name": "Text to Image (Ernie Image)",
+      "why": "a boundary slot feeding a widget and a socket at once"
+    },
+    {
+      "id": "crop_images_3x3",
+      "name": "Crop Images 3x3",
+      "why": "ten outputs, one of them a batch"
+    },
+    {
+      "id": "color_curves",
+      "name": "Color Curves",
+      "why": "CURVE widgets"
+    },
+    {
+      "id": "merge_videos",
+      "name": "Merge Videos",
+      "why": "two booleans that used to share one label"
+    }
+  ],
+  "catalogTypes": 110
+}

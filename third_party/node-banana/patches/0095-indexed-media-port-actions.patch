@@ -1,0 +1,22 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -401,7 +401,8 @@
+ }
+ 
+ function pendingHandleType(pending: NodeBananaPendingConnection): "image" | "text" | "video" | "audio" | "3d" | "easeCurve" | null {
+-  const handleId = pending.handleId;
++  const rawHandleId = pending.handleId;
++  const handleId = rawHandleId?.match(/^(image|video|audio)(?:-|$)/)?.[1] ?? rawHandleId;
+   return handleId === "image" || handleId === "text" || handleId === "video" || handleId === "audio" || handleId === "3d" || handleId === "easeCurve"
+     ? handleId
+     : null;
+--- a/src/leesfield/port-handle.tsx
++++ b/src/leesfield/port-handle.tsx
+@@ -7,6 +7,6 @@
+ }
+ export function Handle(props: ComponentProps<typeof FlowHandle> & HandleProps) {
+  const nodeId=useNodeId(); const writable=useWorkflowStore(state=>state.writable);
+- const media=props.id ?? "image";
++ const media=props.id?.match(/^(image|video|audio)(?:-|$)/)?.[1] ?? props.id ?? "image";
+  return <><FlowHandle {...props}/>{writable && props.isConnectable !== false ? <button type="button" className="node-banana-port-action nodrag nopan" aria-label={"Connect " + media + " " + (props.type === "source" ? "output" : "input")} style={{position:"absolute",top:props.style?.top ?? "50%",transform:"translateY(-50%)",[props.type === "source" ? "right" : "left"]:-38,zIndex:30}} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation(); const rect=event.currentTarget.getBoundingClientRect(); event.currentTarget.dispatchEvent(new CustomEvent("node-banana-port-menu",{bubbles:true,detail:{nodeId,handleId:props.id ?? null,handleType:props.type,x:rect.right+8,y:rect.top}}));}}><PortIcon type={media}/></button>:null}</>;
+ }

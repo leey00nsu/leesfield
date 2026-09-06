@@ -420,7 +420,7 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
 
     const aspectOptions = getParamConfig(parameters, "aspectRatio")?.options;
     if (Array.isArray(aspectOptions) && aspectOptions.length > 0) {
-      if (!aspectOptions.includes(data.aspectRatio)) {
+      if (!hasRuntimeParameterOption(aspectOptions, data.aspectRatio)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["aspectRatio"],
@@ -431,7 +431,7 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
 
     const resolutionOptions = getParamConfig(parameters, "resolution")?.options;
     if (Array.isArray(resolutionOptions) && resolutionOptions.length > 0) {
-      if (!resolutionOptions.includes(data.resolution)) {
+      if (!hasRuntimeParameterOption(resolutionOptions, data.resolution)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["resolution"],

@@ -1,0 +1,22 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -384,7 +384,18 @@
+   value?: NodeBananaUpstreamHostValue;
+   children: ReactNode;
+ }) {
+-  const workflow = useMemo(() => makeWorkflowState(value ?? {}), [value]);
++  const parent = useContext(WorkflowContext);
++  const [localHoveredNodeId, setLocalHoveredNodeId] = useState<string | null>(null);
++  const hoveredNodeId = parent === defaultWorkflowState
++    ? localHoveredNodeId : parent.hoveredNodeId;
++  const setHoveredNodeId = parent === defaultWorkflowState
++    ? setLocalHoveredNodeId : parent.setHoveredNodeId;
++  // Nested per-node adapters share the canvas hover state, never a no-op copy.
++  const workflow = useMemo(() => makeWorkflowState({
++    ...value,
++    hoveredNodeId,
++    setHoveredNodeId,
++  }), [value, hoveredNodeId, setHoveredNodeId]);
+   return <WorkflowContext.Provider value={workflow}>{children}</WorkflowContext.Provider>;
+ }
+ 

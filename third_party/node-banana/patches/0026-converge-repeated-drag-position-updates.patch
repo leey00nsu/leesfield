@@ -1,0 +1,57 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -583,7 +583,7 @@
+       if (changed) store.setState({ nodeLayout });
+     }
+     const positions = changes.filter((change) => change.type === "position");
+-    if (positions.length) {
++    if (positions.length && dragStartRef.current) {
+       const current = store.getState().nodePositions;
+       const positionIds = new Set(positions.map((change) => change.id));
+       const movedNodes = applyNodeChanges(
+@@ -594,10 +594,20 @@
+         })),
+       );
+       const nodePositions = { ...current };
++      let changed = false;
+       for (const node of movedNodes) {
+-        if (positionIds.has(node.id)) nodePositions[node.id] = node.position;
++        if (!positionIds.has(node.id)) continue;
++        const previous = current[node.id] ?? graph.nodes.find((candidate) => candidate.id === node.id)?.position;
++        if (
++          !previous ||
++          previous.x !== node.position.x ||
++          previous.y !== node.position.y
++        ) {
++          nodePositions[node.id] = node.position;
++          changed = true;
++        }
+       }
+-      store.setState({ nodePositions });
++      if (changed) store.setState({ nodePositions });
+     }
+     const durableChanges = changes.filter((change) => change.type !== "select" && change.type !== "dimensions" && change.type !== "position");
+     if (!durableChanges.length || !writable) return;
+@@ -624,7 +634,7 @@
+       recordUndo(previous);
+       publish({ nodes, edges: graph.edges }, "drag", false);
+     }
+-    store.setState({ nodePositions: {} });
++    if (Object.keys(positions).length) store.setState({ nodePositions: {} });
+   }, [graph, publish, recordUndo, store, writable]);
+ 
+   const onEdgesChange = useCallback((changes: EdgeChange<NodeBananaRuntimeEdge>[]) => {
+@@ -912,7 +922,12 @@
+         onConnect={onConnect}
+         onConnectEnd={onConnectEnd}
+         isValidConnection={isValidConnection}
+-        onNodeDragStart={() => { dragStartRef.current = cloneGraph(graph); }}
++        onNodeDragStart={() => {
++          dragStartRef.current = cloneGraph(graph);
++          if (Object.keys(store.getState().nodePositions).length) {
++            store.setState({ nodePositions: {} });
++          }
++        }}
+         onNodeDragStop={commitNodeDrag}
+         onEdgeClick={(event, edge) => {
+           store.setState({

@@ -1,0 +1,39 @@
+name: Node Banana supply-chain verification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/node-banana-supply-chain.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "scripts/node-banana/**"
+      - "third_party/node-banana/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/node-banana-supply-chain.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "scripts/node-banana/**"
+      - "third_party/node-banana/**"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vendor:node-banana:verify
+      - run: pnpm vitest run scripts/node-banana/lib.test.mjs

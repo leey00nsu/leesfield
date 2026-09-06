@@ -1,0 +1,84 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -181,7 +181,9 @@
+   return { x: event.clientX, y: event.clientY };
+ }
+ 
+-function RuntimeToolbar({
++// Hosted from upstream src/components/FloatingActionBar.tsx; Leesfield only injects
++// the supported node inventory and selected-node command.
++function FloatingActionBar({
+   labels,
+   writable,
+   items,
+@@ -212,7 +214,7 @@
+   };
+ 
+   return (
+-    <div className="node-banana-runtime__floating-bar" role="toolbar" aria-label={labels.application}>
++    <div className="node-banana-runtime__floating-bar" role="toolbar" aria-label={labels.application} data-node-banana-component="FloatingActionBar">
+       <button className={buttonClass} type="button" onClick={() => add("input.image")} disabled={!writable || !find("input.image")}>Image</button>
+       <button className={buttonClass} type="button" onClick={() => add("input.video")} disabled={!writable || !find("input.video")}>Video</button>
+       <button className={buttonClass} type="button" onClick={() => add("input.prompt")} disabled={!writable || !find("input.prompt")}>Prompt</button>
+@@ -261,7 +263,8 @@
+   );
+ }
+ 
+-function RuntimeNodeMenu({
++// Shared host for upstream NodeSearchMenu/ConnectionDropMenu interaction.
++function NodeSearchMenu({
+   labels,
+   menu,
+   items,
+@@ -304,6 +307,7 @@
+       className="node-banana-runtime__menu nodrag nopan"
+       role="dialog"
+       aria-label={labels.addNode}
++      data-node-banana-component={menu.pendingConnection ? "ConnectionDropMenu" : "NodeSearchMenu"}
+       style={{ left: menu.screen.x, top: menu.screen.y }}
+       onKeyDown={handleKeyDown}
+     >
+@@ -583,7 +587,7 @@
+   }, [store]);
+ 
+   return (
+-    <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown}>
++    <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
+       <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
+         nodes={visibleNodes}
+         edges={visibleEdges}
+@@ -641,7 +645,7 @@
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />
+         <Controls showInteractive={false} />
+         <Panel position="bottom-center">
+-          <RuntimeToolbar
++          <FloatingActionBar
+             labels={labels}
+             writable={writable}
+             items={paletteItems}
+@@ -655,21 +659,21 @@
+         </Panel>
+       </ReactFlow>
+       {interaction.selectedNodeIds.length > 1 ? (
+-        <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes">
++        <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes" data-node-banana-component="MultiSelectToolbar">
+           <span>{interaction.selectedNodeIds.length} selected</span>
+           <button type="button" onClick={copy}>Copy</button>
+           <button type="button" onClick={removeSelection} disabled={!writable}>Delete</button>
+         </div>
+       ) : null}
+       {interaction.selectedEdgeIds.length === 1 ? (
+-        <div className="node-banana-runtime__edge-toolbar" role="toolbar" aria-label="Selected edge">
++        <div className="node-banana-runtime__edge-toolbar" role="toolbar" aria-label="Selected edge" data-node-banana-component="EdgeToolbar">
+           <button type="button" onClick={removeSelection} disabled={!writable} aria-label="Delete edge">
+             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
+           </button>
+         </div>
+       ) : null}
+       {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
+-      <RuntimeNodeMenu
++      <NodeSearchMenu
+         labels={labels}
+         menu={interaction.menu}
+         items={availableItems}
+

@@ -1,0 +1,48 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -154,6 +154,7 @@
+ };
+ 
+ export type NodeBananaCanvasProps = {
++  contextId?: string;
+   host?: NodeBananaUpstreamHostValue;
+   navigationTarget?: { nodeId: string; sequence: number } | null;
+   onUndoRecorderChange?: (recorder: ((previous: NodeBananaRuntimeGraph) => void) | null) => void;
+@@ -448,6 +449,7 @@
+ }
+ 
+ export function NodeBananaCanvasRuntime({
++  contextId,
+   host,
+   navigationTarget,
+   onUndoRecorderChange,
+@@ -757,7 +759,9 @@
+       const detail=(event as CustomEvent).detail;
+       if(!detail?.nodeId || !root || !graph.nodes.some(node=>node.id===detail.nodeId)) return;
+       event.stopPropagation(); const rect=root.getBoundingClientRect();
+-      openMenu({x:detail.x-rect.left,y:detail.y-rect.top}, instanceRef.current?.screenToFlowPosition({x:detail.x,y:detail.y}) ?? {x:80,y:80}, {nodeId:detail.nodeId,handleId:detail.handleId,handleType:detail.handleType});
++      const flow=instanceRef.current?.screenToFlowPosition({x:detail.x,y:detail.y}) ?? {x:80,y:80};
++      if(detail.handleType === "target") flow.x -= 360;
++      openMenu({x:detail.x-rect.left,y:detail.y-rect.top}, flow, {nodeId:detail.nodeId,handleId:detail.handleId,handleType:detail.handleType});
+     };
+     root?.addEventListener("node-banana-port-menu",listener); return ()=>root?.removeEventListener("node-banana-port-menu",listener);
+   },[writable,graph.nodes,openMenu]);
+@@ -766,7 +770,7 @@
+   const assetRequestRef=useRef(assetRequest); assetRequestRef.current=assetRequest;
+   const mediaFileRef=useRef<HTMLInputElement>(null);
+   const closeAssets=useCallback(()=>{assetController.current?.abort(); assetRequestRef.current=null;setAssetRequest(null);rootRef.current?.focus();},[]);
+-  useEffect(()=>{if(!writable) closeAssets();return ()=>assetController.current?.abort();},[writable,closeAssets]);
++  useEffect(()=>{closeAssets();return ()=>{assetController.current?.abort();assetRequestRef.current=null;};},[writable,contextId,closeAssets]);
+   const selectConnectionMedia=async (source:File|{assetId:string})=>{
+     const request=assetRequestRef.current; if(!request || !contentContext.current.writable) return;
+     assetController.current?.abort(); const controller=new AbortController();assetController.current=controller;
+@@ -786,7 +790,8 @@
+     } catch(error) { if(!controller.signal.aborted) {onInputError?.(error instanceof Error?error:new Error("MEDIA_IMPORT_FAILED"));closeAssets();} }
+   };
+   const chooseNode = useCallback((item: NodeBananaRuntimePaletteItem) => {
+-    const result = onCreateNode(item, interaction.menu.flow, interaction.menu.pendingConnection);
++    let result: CreateNodeResult;
++    try { result = onCreateNode(item, interaction.menu.flow, interaction.menu.pendingConnection); } catch(error) { onInputError?.(error instanceof Error ? error : new Error("CONNECTION_NOT_AVAILABLE")); return; }
+     publish({
+       nodes: [...graph.nodes, result.node],
+       edges: result.edge ? [...graph.edges, result.edge] : graph.edges,

@@ -1,0 +1,201 @@
+--- a/src/leesfield/hosted-preset-types.ts
++++ b/src/leesfield/hosted-preset-types.ts
+@@ -1,5 +1,5 @@
+ export type HostedPresetWorkflow = {
+   id: string; version: number; name: string; edgeStyle?: string;
+-  nodes: { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }[];
++  nodes: { id: string; type: string; position: { x: number; y: number }; style?: { width?: number; height?: number }; data: Record<string, unknown> }[];
+   edges: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }[];
+ };
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -71,6 +71,11 @@
+ import { NodeBananaUpstreamHostProvider, type NodeBananaUpstreamHostValue } from "./upstream-node-host";
+ import { KeyboardShortcutsDialog } from "../components/KeyboardShortcutsDialog";
+ 
++// Node IDs are external data; inherited Object keys are not layout entries.
++function ownEntry<T>(record: Record<string, T>, key: string): T {
++  return Object.hasOwn(record, key) ? record[key] : undefined as T;
++}
++
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+ export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
+ 
+@@ -545,14 +550,14 @@
+       const dimensionIds = new Set(dimensions.map((change) => change.id));
+       const measuredNodes = applyNodeChanges(
+         dimensions,
+-        graph.nodes.map((node) => ({ ...node, ...current[node.id] })),
++        graph.nodes.map((node) => ({ ...node, ...ownEntry(current, node.id) })),
+       );
+       const nodeLayout = { ...current };
+       let changed = false;
+       for (const node of measuredNodes) {
+         if (!dimensionIds.has(node.id)) continue;
+         const next = { width: node.width, height: node.height, measured: node.measured };
+-        const previous = current[node.id];
++        const previous = ownEntry(current, node.id);
+         if (
+           previous?.width !== next.width ||
+           previous?.height !== next.height ||
+@@ -569,7 +574,7 @@
+       // attributes in sync; passive ResizeObserver measurements never write here.
+       for (const change of dimensions) {
+         if (!change.setAttributes || !change.dimensions) continue;
+-        const previous = store.getState().nodeGeometry[change.id];
++        const previous = ownEntry(store.getState().nodeGeometry, change.id);
+         if (!previous) continue;
+         const width = change.setAttributes === true || change.setAttributes === "width"
+           ? change.dimensions.width : previous.width;
+@@ -592,14 +597,14 @@
+         positions,
+         graph.nodes.map((node) => ({
+           ...node,
+-          position: current[node.id] ?? node.position,
++          position: ownEntry(current, node.id) ?? node.position,
+         })),
+       );
+       const nodePositions = { ...current };
+       let changed = false;
+       for (const node of movedNodes) {
+         if (!positionIds.has(node.id)) continue;
+-        const previous = current[node.id] ?? graph.nodes.find((candidate) => candidate.id === node.id)?.position;
++        const previous = ownEntry(current, node.id) ?? graph.nodes.find((candidate) => candidate.id === node.id)?.position;
+         if (
+           !previous ||
+           previous.x !== node.position.x ||
+@@ -626,7 +631,7 @@
+       const height = change.item.height ?? change.item.style?.height;
+       if (typeof width === "number" && Number.isFinite(width) && width > 0
+         && typeof height === "number" && Number.isFinite(height) && height > 0) {
+-        const previous = store.getState().nodeGeometry[change.id];
++        const previous = ownEntry(store.getState().nodeGeometry, change.id);
+         const panel = change.item.data?._settingsPanelHeight;
+         const settingsPanelHeight = typeof panel === "number" && Number.isFinite(panel)
+           ? Math.max(0, panel) : previous?.settingsPanelHeight ?? 0;
+@@ -665,8 +670,8 @@
+       previousPosition.y === draggedNode.position.y
+       ? bufferedPositions
+       : { ...bufferedPositions, [draggedNode.id]: draggedNode.position };
+-    const nodes = graph.nodes.map((node) => positions[node.id]
+-      ? { ...node, position: positions[node.id] }
++    const nodes = graph.nodes.map((node) => ownEntry(positions, node.id)
++      ? { ...node, position: ownEntry(positions, node.id) }
+       : node);
+     const changed = nodes.some((node, index) =>
+       node.position.x !== graph.nodes[index]?.position.x ||
+@@ -680,8 +685,8 @@
+       }));
+       if (groups) for (const node of nodes) {
+         if (!movedIds.has(node.id)) continue;
+-        const layout = store.getState().nodeLayout[node.id];
+-        const geometry = store.getState().nodeGeometry[node.id];
++        const layout = ownEntry(store.getState().nodeLayout, node.id);
++        const geometry = ownEntry(store.getState().nodeGeometry, node.id);
+         const x = node.position.x + (layout?.measured?.width ?? geometry?.width ?? node.width ?? 300) / 2;
+         const y = node.position.y + (layout?.measured?.height ?? geometry?.height ?? node.height ?? 280) / 2;
+         const owner = groups.find(({ bounds: b }) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);
+@@ -897,7 +902,7 @@
+   const updateEdgeData = useCallback((edgeId: string, patch: Record<string, unknown>) => {
+     const offsetX = typeof patch.offsetX === "number" ? patch.offsetX : 0;
+     const offsetY = typeof patch.offsetY === "number" ? patch.offsetY : 0;
+-    const current = store.getState().edgeOffsets[edgeId];
++    const current = ownEntry(store.getState().edgeOffsets, edgeId);
+     if (current?.offsetX === offsetX && current.offsetY === offsetY) return;
+     store.setState({ edgeOffsets: { ...store.getState().edgeOffsets, [edgeId]: { offsetX, offsetY } } });
+   }, [store]);
+@@ -1057,7 +1062,7 @@
+     }
+     if (!event.shiftKey && ["v", "h", "g"].includes(key)) {
+       const selected = graph.nodes.filter((node) => store.getState().selectedNodeIds.includes(node.id)).map((node) => ({
+-        ...node, measured: store.getState().nodeLayout[node.id]?.measured ?? node.measured,
++        ...node, measured: ownEntry(store.getState().nodeLayout, node.id)?.measured ?? node.measured,
+       }));
+       if (selected.length < 2 || !writable) return;
+       event.preventDefault();
+@@ -1091,14 +1096,14 @@
+     const selected = new Set(interaction.selectedNodeIds);
+     return graph.nodes.map((node) => ({
+       ...node,
+-      ...interaction.nodeLayout[node.id],
+-      ...(interaction.nodeGeometry[node.id] ? {
+-        width: interaction.nodeGeometry[node.id].width,
+-        height: interaction.nodeGeometry[node.id].height,
+-        style: { ...node.style, width: interaction.nodeGeometry[node.id].width, height: interaction.nodeGeometry[node.id].height },
+-        data: { ...node.data, _settingsPanelHeight: interaction.nodeGeometry[node.id].settingsPanelHeight },
++      ...ownEntry(interaction.nodeLayout, node.id),
++      ...(ownEntry(interaction.nodeGeometry, node.id) ? {
++        width: ownEntry(interaction.nodeGeometry, node.id).width,
++        height: ownEntry(interaction.nodeGeometry, node.id).height,
++        style: { ...node.style, width: ownEntry(interaction.nodeGeometry, node.id).width, height: ownEntry(interaction.nodeGeometry, node.id).height },
++        data: { ...node.data, _settingsPanelHeight: ownEntry(interaction.nodeGeometry, node.id).settingsPanelHeight },
+       } : {}),
+-      position: interaction.nodePositions[node.id] ?? node.position,
++      position: ownEntry(interaction.nodePositions, node.id) ?? node.position,
+       groupId: graph.groups?.find((group) => group.memberNodeIds.includes(node.id))?.id,
+       selected: selected.has(node.id),
+     }));
+@@ -1111,7 +1116,7 @@
+       selected: selected.has(edge.id),
+       data: {
+         ...edge.data,
+-        ...interaction.edgeOffsets[edge.id],
++        ...ownEntry(interaction.edgeOffsets, edge.id),
+         edgeStyle: interaction.edgeStyle,
+         isConnectedToSelection: Boolean(selected.has(edge.id) || interaction.selectedNodeIds.some((id) => id === edge.source || id === edge.target)),
+         isTargetLoading: graph.nodes.find((node) => node.id === edge.target)?.data?.executionStatus === "processing",
+@@ -1226,8 +1231,8 @@
+           const positions = store.getState().nodePositions;
+           dragStartRef.current = cloneGraph({
+             ...graph,
+-            nodes: graph.nodes.map((node) => positions[node.id]
+-              ? { ...node, position: positions[node.id] }
++            nodes: graph.nodes.map((node) => ownEntry(positions, node.id)
++              ? { ...node, position: ownEntry(positions, node.id) }
+               : node),
+             edges: graph.edges,
+           });
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -958,6 +958,7 @@
+   videoInput: { width: 300, height: 280 },
+   annotation: { width: 300, height: 280 },
+   prompt: { width: 320, height: 220 },
++  promptConstructor: { width: 340, height: 280 },
+   nanoBanana: { width: 300, height: 300 },
+   generateVideo: { width: 300, height: 300 },
+   generateAudio: { width: 300, height: 280 },
+--- a/src/components/nodes/PromptConstructorNode.tsx
++++ b/src/components/nodes/PromptConstructorNode.tsx
+@@ -21,6 +21,8 @@
+   const [localTemplate, setLocalTemplate] = useState(nodeData.template);
+   const [isEditing, setIsEditing] = useState(false);
+ 
++  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
++  useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
+   const textareaRef = useRef<HTMLTextAreaElement>(null);
+ 
+   // Sync from props when not actively editing
+@@ -180,8 +182,9 @@
+       updateNodeData(id, { template: localTemplate });
+     }
+     // Close autocomplete on blur
+-    setTimeout(() => closeAutocomplete(), 200);
+-  }, [id, localTemplate, nodeData.template, updateNodeData, closeAutocomplete]);
++    if (blurTimer.current) clearTimeout(blurTimer.current);
++    blurTimer.current = setTimeout(() => closeAutocomplete(), 200);
++  }, [id, localTemplate, nodeData.template, updateNodeData, closeAutocomplete, writable]);
+ 
+   return (
+     <>
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -158,7 +158,7 @@
+     case "process.promptConstructor":
+       return { ...upstream, template: config.template ?? "", outputText: data.outputText ?? null };
+     case "input.prompt":
+-      return { ...upstream, prompt: config.text ?? "", variableName: config.variableName ?? "" };
++      return { ...upstream, prompt: data.prompt ?? config.text ?? "", variableName: config.variableName ?? "" };
+     case "generate.image":
+       return {
+         ...upstream,

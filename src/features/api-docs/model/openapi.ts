@@ -51,7 +51,7 @@ const videoResultSchema = z.object({
 
 const imageStatusResponseSchema = z.object({
   requestId: z.string(),
-  status: z.enum(["pending", "processing", "completed", "failed"]),
+  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
   progress: z.number(),
   result: imageResultSchema.optional(),
   errorMessage: z.string().optional(),
@@ -59,7 +59,7 @@ const imageStatusResponseSchema = z.object({
 
 const videoStatusResponseSchema = z.object({
   requestId: z.string(),
-  status: z.enum(["pending", "processing", "completed", "failed"]),
+  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
   progress: z.number(),
   result: videoResultSchema.optional(),
   errorMessage: z.string().optional(),
@@ -76,7 +76,7 @@ const audioResultSchema = z.object({
 
 const audioStatusResponseSchema = z.object({
   requestId: z.string(),
-  status: z.enum(["pending", "processing", "completed", "failed"]),
+  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
   progress: z.number(),
   result: audioResultSchema.optional(),
   errorMessage: z.string().optional(),

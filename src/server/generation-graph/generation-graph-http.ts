@@ -3,6 +3,7 @@ import { buildErrorResponse, buildInvalidRequestResponse } from "@/server/http/r
 import {
   GenerationGraphInputError,
   GenerationGraphNotFoundError,
+  GenerationGraphActiveExecutionError,
   GenerationGraphVersionConflictError,
 } from "./generation-graph-errors";
 
@@ -15,6 +16,9 @@ export function buildGenerationGraphKnownErrorResponse(error: unknown) {
   }
   if (error instanceof GenerationGraphVersionConflictError) {
     return buildErrorResponse("GRAPH_VERSION_CONFLICT", 409);
+  }
+  if (error instanceof GenerationGraphActiveExecutionError) {
+    return buildErrorResponse("GRAPH_ACTIVE_EXECUTION", 409);
   }
   return null;
 }

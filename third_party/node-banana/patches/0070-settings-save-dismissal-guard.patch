@@ -1,0 +1,30 @@
+--- a/src/components/ProjectSetupModal.tsx
++++ b/src/components/ProjectSetupModal.tsx
+@@ -91,7 +91,7 @@
+  useEffect(() => { if (!nodeDefaultsLoading && !inlineEdited.current) setLocalInline(inlineParametersEnabled); }, [inlineParametersEnabled, nodeDefaultsLoading]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+- closeRef.current = onClose;
++ closeRef.current = () => { if (!busy) onClose(); };
+  const defaultsSnapshot = JSON.stringify(nodeDefaults);
+  useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
+  useEffect(() => {
+@@ -136,7 +136,7 @@
+       ref={dialogRef}
+       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+       onClick={(e) => {
+-        if (e.target === e.currentTarget) onClose();
++        if (e.target === e.currentTarget) closeRef.current();
+       }}
+       onWheelCapture={(e) => e.stopPropagation()}
+     >
+@@ -387,7 +387,8 @@
+         {/* Fixed footer */}
+         <div className="flex justify-end gap-2 px-8 py-5 border-t border-neutral-700/50 shrink-0">
+           <button
+-            onClick={onClose}
++            onClick={() => closeRef.current()}
++            disabled={busy}
+             className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-100 transition-colors"
+           >
+             Cancel

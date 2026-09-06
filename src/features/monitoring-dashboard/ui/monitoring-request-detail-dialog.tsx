@@ -148,8 +148,10 @@ export function MonitoringRequestDetailDialog({
   const statusLabels: Record<string, string> = {
     pending: t("statuses.pending"),
     processing: t("statuses.processing"),
+    uploading: t("statuses.uploading"),
     completed: t("statuses.completed"),
     failed: t("statuses.failed"),
+    cancelled: t("statuses.cancelled"),
   };
 
   const shouldFetchDetail = Boolean(request);

@@ -1,0 +1,18 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -66,6 +66,7 @@
+   MultiSelectToolbar as UpstreamMultiSelectToolbar,
+   type MultiSelectToolbarHostedProps,
+ } from "../components/MultiSelectToolbar";
++import { SharedEdgeGradients as UpstreamSharedEdgeGradients } from "../components/edges/SharedEdgeGradients";
+ import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+@@ -949,6 +950,7 @@
+         }}
+         defaultEdgeOptions={{ type: "editable" }}
+       >
++        <UpstreamSharedEdgeGradients />
+         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--node-banana-grid, #404040)" />
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />
+         <Controls showInteractive={false} fitViewOptions={fitViewOptions} />

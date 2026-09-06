@@ -8,6 +8,12 @@ import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/
 import { leemageVideoStorageAdapter } from "@/server/video-generation/storage/adapters/leemage-storage-adapter";
 import type { VideoStorageAdapter, VideoStorageMeta } from "@/server/video-generation/storage/storage-adapter";
 import { resolveVideoStorageProvider } from "@/server/video-generation/storage/storage-selector";
+import type { GeneratedMediaArtifact, GenerationUploadLifecycle } from "@/server/media-assets/generated-media-artifact";
+import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
+import {
+  isNodeStudioE2EMockGenerationEnabled,
+  mockVideoGenerationResult,
+} from "@/server/media-assets/node-studio-e2e-media-fixtures";
 
 type VideoProvider = "hf_space";
 const DEFAULT_VIDEO_META = {
@@ -77,17 +83,21 @@ function mapProviderError(adapter: VideoGenerationAdapter | null, error: unknown
 
 export async function resolveVideoGenerationResult(
   payload: VideoGenerationFormValues,
-  requestId: string
+  requestId: string,
+  lifecycle: GenerationUploadLifecycle = {},
 ): Promise<{
   status: "completed" | "failed";
   result?: VideoGenerationResponse["result"];
   errorMessage?: string;
   skipDbSave?: boolean;
+  artifacts?: GeneratedMediaArtifact[];
 }> {
   let adapter: VideoGenerationAdapter | null = null;
   try {
     adapter = getAdapter(payload.model);
-    const result = await adapter.generate(payload);
+    const result = isNodeStudioE2EMockGenerationEnabled()
+      ? mockVideoGenerationResult()
+      : await adapter.generate(payload);
     const { provider, warningMessage } = resolveVideoStorageProvider();
 
     if (!provider) {
@@ -103,6 +113,7 @@ export async function resolveVideoGenerationResult(
       };
     }
 
+    await lifecycle.onUploading?.();
     const storageAdapter = getStorageAdapter();
     return storageAdapter.uploadVideos(
       payload,
@@ -111,6 +122,7 @@ export async function resolveVideoGenerationResult(
       result.meta,
     );
   } catch (error) {
+    if (error instanceof NodeExecutionCancelledError) throw error;
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),

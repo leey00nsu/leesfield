@@ -1,0 +1,169 @@
+--- a/src/components/quickstart/TemplateExplorerView.tsx
++++ b/src/components/quickstart/TemplateExplorerView.tsx
+@@ -5,7 +5,7 @@
+ import { getAllPresets, PRESET_TEMPLATES, getPresetTemplate } from "../../lib/quickstart/templates";
+ import { QuickstartBackButton } from "./QuickstartBackButton";
+ import { TemplateCard } from "./TemplateCard";
+-import { CommunityWorkflowMeta, TemplateCategory, TemplateMetadata } from "../../types/quickstart";
++import { TemplateCategory, TemplateMetadata } from "../../types/quickstart";
+ 
+ interface TemplateExplorerViewProps {
+   onBack: () => void;
+@@ -24,33 +24,13 @@
+ // identity is stable across renders and downstream useMemos stay cached.
+ const PRESETS = getAllPresets();
+ 
+-// Primary thumbnails (resized content images - 288px for 2x retina)
+-const primaryThumbnails: Record<string, string> = {
+-  "product-shot": "/template-thumbnails/primary/product-shot.jpg",
+-  "model-product": "/template-thumbnails/primary/model-product.jpg",
+-  "color-variations": "/template-thumbnails/primary/color-variations.jpg",
+-  "background-swap": "/template-thumbnails/primary/background-swap.jpg",
+-  "style-transfer": "/template-thumbnails/primary/style-transfer.jpg",
+-  "scene-composite": "/template-thumbnails/primary/scene-composite.jpg",
+-};
+-
+-// Hover thumbnails (workflow screenshots - 288px)
+-const hoverThumbnails: Record<string, string> = {
+-  "product-shot": "/template-thumbnails/product-shot.png",
+-  "model-product": "/template-thumbnails/model-product.png",
+-  "color-variations": "/template-thumbnails/color-variations.png",
+-  "background-swap": "/template-thumbnails/background-swap.png",
+-  "style-transfer": "/template-thumbnails/style-transfer.png",
+-  "scene-composite": "/template-thumbnails/scene-composite.png",
+-};
+-
+ export function TemplateExplorerView({
+   onBack,
+   onWorkflowSelected,
+ }: TemplateExplorerViewProps) {
+-  const communityWorkflows: CommunityWorkflowMeta[] = [];
+-  const isLoadingList = false;
+   const [contentLevel, setContentLevel] = useState<"empty" | "minimal">("minimal");
++  const mounted = useRef(true);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+   const [loadingWorkflowId, setLoadingWorkflowId] = useState<string | null>(null);
+   const [error, setError] = useState<string | null>(null);
+ 
+@@ -122,45 +102,14 @@
+     });
+   }, [debouncedSearch, categoryFilter, selectedTags]);
+ 
+-  // Filter community workflows
+-  const filteredCommunity = useMemo(() => {
+-    // Only show community workflows if "all" or "community" category selected
+-    if (categoryFilter !== "all" && categoryFilter !== "community") {
+-      return [];
+-    }
+-
+-    return communityWorkflows.filter((workflow) => {
+-      // Search filter
+-      if (debouncedSearch) {
+-        const searchLower = debouncedSearch.toLowerCase();
+-        const matchesSearch =
+-          workflow.name.toLowerCase().includes(searchLower) ||
+-          workflow.author.toLowerCase().includes(searchLower) ||
+-          workflow.description.toLowerCase().includes(searchLower);
+-        if (!matchesSearch) return false;
+-      }
+-
+-      // Tags filter (OR logic - match ANY selected tag)
+-      if (selectedTags.size > 0) {
+-        const hasMatchingTag = workflow.tags.some((tag) => selectedTags.has(tag));
+-        if (!hasMatchingTag) return false;
+-      }
+-
+-      return true;
+-    });
+-  }, [communityWorkflows, debouncedSearch, categoryFilter, selectedTags]);
+-
+-  // Collect all unique tags from presets and community workflows
++  // Collect all unique tags from presets
+   const availableTags = useMemo(() => {
+     const tags = new Set<string>();
+     PRESETS.forEach((preset) => {
+       preset.tags.forEach((tag) => tags.add(tag));
+     });
+-    communityWorkflows.forEach((workflow) => {
+-      workflow.tags.forEach((tag) => tags.add(tag));
+-    });
+     return Array.from(tags).sort();
+-  }, [communityWorkflows]);
++  }, []);
+ 
+   // Toggle tag selection
+   const toggleTag = useCallback((tag: string) => {
+@@ -187,10 +136,7 @@
+   const hasActiveFilters = searchQuery || categoryFilter !== "all" || selectedTags.size > 0;
+ 
+   // Check if results are empty
+-  const hasNoResults =
+-    filteredPresets.length === 0 &&
+-    (categoryFilter === "community" ? filteredCommunity.length === 0 : true) &&
+-    !isLoadingList;
++  const hasNoResults = filteredPresets.length === 0;
+ 
+   const handlePresetSelect = useCallback(
+     async (templateId: string) => {
+@@ -201,9 +147,9 @@
+         await onWorkflowSelected(getPresetTemplate(templateId, contentLevel));
+       } catch (err) {
+         console.error("Error loading preset:", err);
+-        setError(err instanceof Error ? err.message : "Failed to load template");
++        if (mounted.current) setError(err instanceof Error ? err.message : "Failed to load template");
+       } finally {
+-        setLoadingWorkflowId(null);
++        if (mounted.current) setLoadingWorkflowId(null);
+       }
+     },
+     [onWorkflowSelected, contentLevel]
+@@ -222,9 +168,9 @@
+       </div>
+ 
+       {/* Content - Sidebar + Main Grid */}
+-      <div className="flex-1 flex min-h-0 overflow-clip">
++      <div className="flex-1 flex max-sm:flex-col min-h-0 overflow-clip">
+         {/* Sidebar */}
+-        <div className="w-48 flex-shrink-0 bg-neutral-900/80 border-r border-neutral-700 p-4 space-y-5 overflow-y-auto">
++        <div className="w-48 max-sm:w-full flex-shrink-0 bg-neutral-900/80 border-r border-neutral-700 p-4 space-y-5 max-sm:space-y-2 overflow-y-auto">
+           {/* Search Input */}
+           <div className="relative">
+             <svg
+@@ -254,7 +200,7 @@
+             <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+               Category
+             </h3>
+-            <div className="flex flex-col gap-1">
++            <div className="flex flex-col max-sm:flex-row max-sm:flex-wrap gap-1">
+               {CATEGORY_OPTIONS.map((option) => (
+                 <button
+                   key={option.id}
+@@ -279,7 +225,7 @@
+             <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+               Provider
+             </h3>
+-            <div className="flex flex-col gap-1">
++            <div className="flex flex-col max-sm:flex-row max-sm:flex-wrap gap-1">
+               {availableTags.map((tag) => (
+                 <button
+                   key={tag}
+@@ -311,7 +257,7 @@
+         </div>
+ 
+         {/* Main Content Area */}
+-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6">
++        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 max-sm:p-3 space-y-6">
+           {/* Empty State */}
+           {hasNoResults && hasActiveFilters && (
+             <div className="flex flex-col items-center justify-center py-12 text-center">
+--- a/src/components/quickstart/TemplateCard.tsx
++++ b/src/components/quickstart/TemplateCard.tsx
+@@ -55,7 +55,7 @@
+       {/* Thumbnail - Left side (square) */}
+       <div
+         className={`
+-          w-36 h-36 flex-shrink-0 rounded-lg overflow-hidden relative
++          w-36 h-36 max-sm:w-16 max-sm:h-16 flex-shrink-0 rounded-lg overflow-hidden relative
+           ${
+             isLoading
+               ? "bg-blue-500/20"

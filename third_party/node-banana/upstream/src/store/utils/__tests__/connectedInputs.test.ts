@@ -1,0 +1,451 @@
+import { describe, it, expect } from "vitest";
+import { getConnectedInputsPure, validateWorkflowPure } from "../connectedInputs";
+import type { WorkflowNode, WorkflowEdge } from "@/types";
+
+function makeNode(id: string, type: string, data: Record<string, unknown> = {}): WorkflowNode {
+  return { id, type, position: { x: 0, y: 0 }, data } as WorkflowNode;
+}
+
+function makeEdge(source: string, target: string, targetHandle?: string): WorkflowEdge {
+  return {
+    id: `${source}-${target}`,
+    source,
+    target,
+    sourceHandle: "image",
+    targetHandle: targetHandle || "image",
+  } as WorkflowEdge;
+}
+
+describe("getConnectedInputsPure", () => {
+  it("should return empty arrays when no edges connect to node", () => {
+    const nodes = [makeNode("a", "prompt")];
+    const result = getConnectedInputsPure("a", nodes, []);
+    expect(result.images).toEqual([]);
+    expect(result.videos).toEqual([]);
+    expect(result.audio).toEqual([]);
+    expect(result.text).toBeNull();
+    expect(result.dynamicInputs).toEqual({});
+    expect(result.easeCurve).toBeNull();
+  });
+
+  it("should extract image from imageInput source", () => {
+    const nodes = [
+      makeNode("img", "imageInput", { image: "data:image/png;base64,abc" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("img", "gen", "image")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual(["data:image/png;base64,abc"]);
+  });
+
+  it("should extract text from prompt source", () => {
+    const nodes = [
+      makeNode("p", "prompt", { prompt: "hello world" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("p", "gen", "text")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("hello world");
+  });
+
+  it("should extract image from annotation output", () => {
+    const nodes = [
+      makeNode("ann", "annotation", { outputImage: "data:image/png;base64,xyz" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("ann", "gen", "image")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual(["data:image/png;base64,xyz"]);
+  });
+
+  it("should extract image from nanoBanana output", () => {
+    const nodes = [
+      makeNode("nb", "nanoBanana", { outputImage: "data:image/png;base64,nb" }),
+      makeNode("out", "output"),
+    ];
+    const edges = [makeEdge("nb", "out", "image")];
+    const result = getConnectedInputsPure("out", nodes, edges);
+    expect(result.images).toEqual(["data:image/png;base64,nb"]);
+  });
+
+  it("should extract video from generateVideo source", () => {
+    const nodes = [
+      makeNode("vid", "generateVideo", { outputVideo: "data:video/mp4;base64,vid" }),
+      makeNode("out", "output"),
+    ];
+    const edges = [makeEdge("vid", "out", "image")];
+    const result = getConnectedInputsPure("out", nodes, edges);
+    expect(result.videos).toEqual(["data:video/mp4;base64,vid"]);
+  });
+
+  it("should extract text from llmGenerate source", () => {
+    const nodes = [
+      makeNode("llm", "llmGenerate", { outputText: "generated text" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("llm", "gen", "text")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("generated text");
+  });
+
+  it("should extract full array JSON from array node default text output", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[\"one\",\"two\"]", outputItems: ["one", "two"] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text",
+      targetHandle: "text",
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("[\"one\",\"two\"]");
+  });
+
+  it("should extract indexed item from array node dynamic output handle", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[\"one\",\"two\"]", outputItems: ["one", "two"] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen-item",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text-1",
+      targetHandle: "text",
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("two");
+  });
+
+  it("should extract indexed item from array node edge metadata index", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[\"one\",\"two\",\"three\"]", outputItems: ["one", "two", "three"] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen-meta",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text",
+      targetHandle: "text",
+      data: { arrayItemIndex: 2 },
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("three");
+  });
+
+  it("should wrap out-of-bounds arrayItemIndex via modulo", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[\"one\",\"two\"]", outputItems: ["one", "two"] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen-stale",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text",
+      targetHandle: "text",
+      data: { arrayItemIndex: 3 }, // index 3 on 2-item array wraps to index 1
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("two");
+  });
+
+  it("should return null for out-of-bounds arrayItemIndex on empty array", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[]", outputItems: [] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen-empty",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text",
+      targetHandle: "text",
+      data: { arrayItemIndex: 0 },
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBeNull();
+  });
+
+  it("should wrap large arrayItemIndex correctly", () => {
+    const nodes = [
+      makeNode("arr", "array", { outputText: "[\"a\",\"b\",\"c\"]", outputItems: ["a", "b", "c"] }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [{
+      id: "arr-gen-large",
+      source: "arr",
+      target: "gen",
+      sourceHandle: "text",
+      targetHandle: "text",
+      data: { arrayItemIndex: 7 }, // 7 % 3 = 1
+    }] as WorkflowEdge[];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("b");
+  });
+
+  it("should extract text from promptConstructor outputText", () => {
+    const nodes = [
+      makeNode("pc", "promptConstructor", { outputText: "constructed", template: "tmpl" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("pc", "gen", "text")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("constructed");
+  });
+
+  it("should fallback to template when promptConstructor has no outputText", () => {
+    const nodes = [
+      makeNode("pc", "promptConstructor", { outputText: null, template: "tmpl" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("pc", "gen", "text")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.text).toBe("tmpl");
+  });
+
+  it("should skip source nodes with null output", () => {
+    const nodes = [
+      makeNode("img", "imageInput", { image: null }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("img", "gen", "image")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual([]);
+  });
+
+  it("should handle multiple image inputs", () => {
+    const nodes = [
+      makeNode("img1", "imageInput", { image: "data:image/png;base64,a" }),
+      makeNode("img2", "imageInput", { image: "data:image/png;base64,b" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [
+      makeEdge("img1", "gen", "image"),
+      makeEdge("img2", "gen", "image"),
+    ];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual(["data:image/png;base64,a", "data:image/png;base64,b"]);
+  });
+
+  it("should populate dynamicInputs with schema mapping", () => {
+    const nodes = [
+      makeNode("img", "imageInput", { image: "data:image/png;base64,a" }),
+      makeNode("gen", "nanoBanana", {
+        inputSchema: [{ name: "image_url", type: "image" }],
+      }),
+    ];
+    const edges = [makeEdge("img", "gen", "image-0")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.dynamicInputs).toEqual({ image_url: "data:image/png;base64,a" });
+  });
+
+  it("should populate dynamicInputs through a router passthrough (regression: router bypassed dynamicInputs → 422)", () => {
+    const nodes = [
+      makeNode("img", "imageInput", { image: "data:image/png;base64,a" }),
+      makeNode("r", "router"),
+      makeNode("gen", "nanoBanana", {
+        inputSchema: [{ name: "image_url", type: "image" }],
+      }),
+    ];
+    const edges = [
+      makeEdge("img", "r", "image"),   // source → router
+      makeEdge("r", "gen", "image-0"), // router → generate (named schema slot)
+    ];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    // Before the fix, dynamicInputs was empty for routed inputs (router returned early) → 422
+    expect(result.dynamicInputs).toEqual({ image_url: "data:image/png;base64,a" });
+    // images[] still populated too (nanoBanana path unaffected)
+    expect(result.images).toEqual(["data:image/png;base64,a"]);
+  });
+
+  it("should populate dynamicInputs through an enabled switch passthrough", () => {
+    const nodes = [
+      makeNode("img", "imageInput", { image: "data:image/png;base64,a" }),
+      makeNode("sw", "switch", {
+        inputType: "image",
+        switches: [{ id: "sw-1", name: "Output 1", enabled: true }],
+      }),
+      makeNode("gen", "nanoBanana", {
+        inputSchema: [{ name: "image_url", type: "image" }],
+      }),
+    ];
+    const edges = [
+      makeEdge("img", "sw", "image"),
+      {
+        ...makeEdge("sw", "gen", "image-0"),
+        sourceHandle: "sw-1",
+      },
+    ];
+
+    const result = getConnectedInputsPure("gen", nodes, edges);
+
+    expect(result.dynamicInputs).toEqual({ image_url: "data:image/png;base64,a" });
+    expect(result.images).toEqual(["data:image/png;base64,a"]);
+  });
+
+  it("should map a connected video into dynamicInputs and videos via schema", () => {
+    const nodes = [
+      makeNode("vid", "videoInput", { video: "data:video/mp4;base64,v" }),
+      makeNode("gen", "generateVideo", {
+        inputSchema: [{ name: "video_url", type: "video" }],
+      }),
+    ];
+    const edges = [{
+      id: "vid-gen",
+      source: "vid",
+      target: "gen",
+      sourceHandle: "video",
+      targetHandle: "video-0",
+    }] as WorkflowEdge[];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.dynamicInputs).toEqual({ video_url: "data:video/mp4;base64,v" });
+    expect(result.videos).toEqual(["data:video/mp4;base64,v"]);
+  });
+
+  it("should extract easeCurve data", () => {
+    const nodes = [
+      makeNode("ec", "easeCurve", {
+        bezierHandles: [0.25, 0.1, 0.25, 1.0],
+        easingPreset: "ease-in-out",
+        outputDuration: 8,
+        outputVideo: null,
+      }),
+      makeNode("vs", "videoStitch"),
+    ];
+    const edges = [{
+      id: "ec-vs",
+      source: "ec",
+      target: "vs",
+      sourceHandle: "easeCurve",
+      targetHandle: "easeCurve",
+    }] as WorkflowEdge[];
+    const result = getConnectedInputsPure("vs", nodes, edges);
+    expect(result.easeCurve).toEqual({
+      bezierHandles: [0.25, 0.1, 0.25, 1.0],
+      easingPreset: "ease-in-out",
+      outputDuration: 8,
+    });
+  });
+
+  it("should extract capturedImage from glbViewer source", () => {
+    const nodes = [
+      makeNode("glb", "glbViewer", { capturedImage: "data:image/png;base64,snap" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("glb", "gen", "image")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual(["data:image/png;base64,snap"]);
+  });
+
+  it("should return empty images when glbViewer has no capture", () => {
+    const nodes = [
+      makeNode("glb", "glbViewer", { capturedImage: null }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("glb", "gen", "image")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.images).toEqual([]);
+  });
+
+  it("should extract audio from audioInput source", () => {
+    const nodes = [
+      makeNode("aud", "audioInput", { audioFile: "data:audio/wav;base64,abc" }),
+      makeNode("gen", "nanoBanana"),
+    ];
+    const edges = [makeEdge("aud", "gen", "audio")];
+    const result = getConnectedInputsPure("gen", nodes, edges);
+    expect(result.audio).toEqual(["data:audio/wav;base64,abc"]);
+  });
+});
+
+describe("validateWorkflowPure", () => {
+  it("should fail for empty workflow", () => {
+    const result = validateWorkflowPure([], []);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Workflow is empty");
+  });
+
+  it("should pass for valid workflow", () => {
+    const nodes = [
+      makeNode("p", "prompt"),
+      makeNode("gen", "nanoBanana"),
+      makeNode("out", "output"),
+    ];
+    const edges = [
+      makeEdge("p", "gen", "text"),
+      makeEdge("gen", "out"),
+    ];
+    const result = validateWorkflowPure(nodes, edges);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("should detect missing text input on nanoBanana", () => {
+    const nodes = [makeNode("gen", "nanoBanana")];
+    const result = validateWorkflowPure(nodes, []);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("missing text input");
+  });
+
+  it("should detect missing input on generateVideo when nothing is connected", () => {
+    const nodes = [makeNode("vid", "generateVideo")];
+    const result = validateWorkflowPure(nodes, []);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("missing input");
+  });
+
+  it("should pass generateVideo with only a video input connected (no prompt required)", () => {
+    const nodes = [
+      makeNode("src", "videoInput", { video: "data:video/mp4;base64,v" }),
+      makeNode("vid", "generateVideo"),
+    ];
+    const edges = [{
+      id: "src-vid",
+      source: "src",
+      target: "vid",
+      sourceHandle: "video",
+      targetHandle: "video-0",
+    }] as WorkflowEdge[];
+    const result = validateWorkflowPure(nodes, edges);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("should detect missing image input on annotation without manual image", () => {
+    const nodes = [makeNode("ann", "annotation", { sourceImage: null })];
+    const result = validateWorkflowPure(nodes, []);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("missing image input");
+  });
+
+  it("should pass annotation with manual image", () => {
+    const nodes = [makeNode("ann", "annotation", { sourceImage: "data:image/png;base64,x" })];
+    const result = validateWorkflowPure(nodes, []);
+    expect(result.valid).toBe(true);
+  });
+
+  it("should detect missing image input on output", () => {
+    const nodes = [makeNode("out", "output")];
+    const result = validateWorkflowPure(nodes, []);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("missing image input");
+  });
+
+  it("should accept text-0 handle for nanoBanana", () => {
+    const nodes = [makeNode("p", "prompt"), makeNode("gen", "nanoBanana")];
+    const edges = [makeEdge("p", "gen", "text-0")];
+    const result = validateWorkflowPure(nodes, edges);
+    expect(result.valid).toBe(true);
+  });
+});

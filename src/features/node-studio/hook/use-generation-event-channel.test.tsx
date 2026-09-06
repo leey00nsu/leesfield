@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GenerationEventSource } from "../api/generation-event-client";
 import { useGenerationEventChannelState } from "../model/generation-event-channel-context";
-import { nodeGenerationKeys } from "./use-node-generations";
+import { nodeExecutionKeys } from "./use-node-executions";
 import { GenerationEventChannelProvider } from "./use-generation-event-channel";
 
 class FakeEventSource implements GenerationEventSource {
@@ -61,15 +61,35 @@ function setup(graphId = "graph-1") {
 }
 
 const generationEvent = JSON.stringify({
-  version: 1,
-  type: "generation.updated",
+  version: 2,
+  type: "node-execution.updated",
+  executionKind: "generation",
+  mediaType: "image",
   graphId: "graph-1",
   graphNodeId: "node-1",
-  requestId: "request-1",
+  executionId: "request-1",
   status: "processing",
   progress: 10,
   updatedAt: "2026-08-24T12:00:00.000Z",
 });
+
+function nodeExecutionEvent(
+  updatedAt = "2026-09-04T00:00:01.000Z",
+  graphId = "graph-1",
+) {
+  return JSON.stringify({
+    version: 2,
+    type: "node-execution.updated",
+    executionKind: "media_operation",
+    mediaType: "audio",
+    graphId,
+    graphNodeId: "node-2",
+    executionId: "operation-1",
+    status: "completed",
+    progress: 100,
+    updatedAt,
+  });
+}
 
 describe("GenerationEventChannelProvider", () => {
   afterEach(() => {
@@ -86,48 +106,74 @@ describe("GenerationEventChannelProvider", () => {
     await act(async () => sources[0].emit("stream.ready"));
     expect(screen.getByTestId("state")).toHaveTextContent("connected");
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: nodeGenerationKeys.graph("graph-1"),
+      queryKey: nodeExecutionKeys.graph("graph-1"),
       refetchType: "active",
     });
 
     invalidate.mockClear();
     await act(async () =>
-      sources[0].emit("generation.updated", generationEvent),
+      sources[0].emit("node-execution.updated", generationEvent),
     );
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: nodeGenerationKeys.list("graph-1", "node-1"),
+      queryKey: nodeExecutionKeys.list("graph-1", "node-1"),
+    });
+
+    invalidate.mockClear();
+    await act(async () =>
+      sources[0].emit("node-execution.updated", nodeExecutionEvent()),
+    );
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: nodeExecutionKeys.list("graph-1", "node-2"),
     });
 
     const cachedSnapshot = [{ requestId: "request-1", status: "completed" }];
     queryClient.setQueryData(
-      nodeGenerationKeys.list("graph-1", "node-1"),
+      nodeExecutionKeys.list("graph-1", "node-1"),
       cachedSnapshot,
     );
+    invalidate.mockClear();
     await act(async () => {
-      sources[0].emit("generation.updated", generationEvent);
       sources[0].emit(
-        "generation.updated",
-        generationEvent.replace('"status":"processing"', '"status":"pending"'),
+        "node-execution.updated",
+        nodeExecutionEvent("2026-09-04T00:00:02.000Z"),
+      );
+      sources[0].emit(
+        "node-execution.updated",
+        nodeExecutionEvent("2026-09-04T00:00:02.000Z"),
+      );
+      sources[0].emit(
+        "node-execution.updated",
+        nodeExecutionEvent("2026-09-04T00:00:00.000Z"),
       );
     });
+    expect(invalidate).toHaveBeenCalledTimes(1);
     expect(
       queryClient.getQueryData(
-        nodeGenerationKeys.list("graph-1", "node-1"),
+        nodeExecutionKeys.list("graph-1", "node-1"),
       ),
     ).toEqual(cachedSnapshot);
 
     invalidate.mockClear();
     await act(async () =>
-      sources[0].emit("generation.updated", "malformed"),
+      sources[0].emit("node-execution.updated", "malformed"),
     );
     expect(invalidate).not.toHaveBeenCalled();
     expect(factory).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      sources[0].emit(
+        "node-execution.updated",
+        nodeExecutionEvent("2026-09-04T00:00:03.000Z", "foreign-graph"),
+      ),
+    );
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it("falls back on error and reconnects with bounded backoff", async () => {
     vi.useFakeTimers();
-    const { sources, factory } = setup();
+    const { sources, factory, invalidate } = setup();
     await act(async () => sources[0].emit("stream.ready"));
+    invalidate.mockClear();
 
     await act(async () => sources[0].onerror?.());
     expect(sources[0].close).toHaveBeenCalledTimes(1);
@@ -136,6 +182,13 @@ describe("GenerationEventChannelProvider", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1_000));
     expect(factory).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("state")).toHaveTextContent("connecting");
+
+    await act(async () => sources[1].emit("stream.ready"));
+    expect(screen.getByTestId("state")).toHaveTextContent("connected");
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: nodeExecutionKeys.graph("graph-1"),
+      refetchType: "active",
+    });
   });
 
   it("uses a heartbeat watchdog before reconnecting", async () => {

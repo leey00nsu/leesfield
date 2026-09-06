@@ -13,9 +13,16 @@
 # testing
 /coverage
 /storybook-static
+# Browser traces may contain authenticated requests or presigned storage URLs.
+/artifacts/node-banana-e2e/test-results/
+# Generated review evidence/reports stay local; fixed snapshots remain trackable.
+/artifacts/node-banana-e2e/evidence/
+/artifacts/node-banana-e2e/results.json
+/tmp/
 
 # next.js
 /.next/
+/.next-node-studio-e2e/
 /out/
 
 # production
@@ -47,3 +54,6 @@ __pycache__/
 next-env.d.ts
 
 /src/generated/prisma
+
+# generated from the immutable Node Banana snapshot + Leesfield patches
+/.generated/

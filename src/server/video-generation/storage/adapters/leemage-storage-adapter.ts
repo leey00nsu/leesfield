@@ -1,4 +1,5 @@
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
+import { leemageFileName } from "@/server/shared/leemage-file-name";
 import {
   resolveVideoAspectRatioSize,
   type VideoGenerationFormValues,
@@ -90,7 +91,7 @@ function buildUploadFile(
 ): UploadableFile {
   const arrayBuffer = Uint8Array.from(buffer).buffer;
   return {
-    name,
+    name: leemageFileName(name),
     type: contentType,
     size: buffer.byteLength,
     arrayBuffer: async () => arrayBuffer,
@@ -181,6 +182,20 @@ async function uploadGeneratedVideos(
           ...resolveVideoMeta(payload, meta),
         })),
       },
+      artifacts: uploads.map((file) => {
+        const resolved = resolveVideoMeta(payload, meta);
+        return {
+          type: "video" as const,
+          storageProvider: "leemage" as const,
+          storageObjectId: file.id,
+          storageUrl: resolveFileUrl(file),
+          mimeType: file.mimeType,
+          bytes: file.size,
+          width: resolved.width,
+          height: resolved.height,
+          durationMs: Math.round(resolved.durationSec * 1_000),
+        };
+      }),
     };
   } catch (error) {
     return {

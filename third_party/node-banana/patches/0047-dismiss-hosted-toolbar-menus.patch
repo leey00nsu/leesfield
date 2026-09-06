@@ -1,0 +1,53 @@
+--- a/src/components/FloatingActionBar.tsx
++++ b/src/components/FloatingActionBar.tsx
+@@ -405,2 +405,26 @@
+-  const [allNodesOpen, setAllNodesOpen] = useState(false);
+-  const buttonClass = "node-banana-runtime__action";
++  const [allNodesOpen, setAllNodesOpen] = useState(false);
++  const generateRef = useRef<HTMLDivElement>(null);
++  const allNodesRef = useRef<HTMLDivElement>(null);
++  useEffect(() => {
++    if (!generateOpen && !allNodesOpen) return;
++    const dismiss = (event: PointerEvent) => {
++      const target = event.target as Node;
++      if (!generateRef.current?.contains(target)) setGenerateOpen(false);
++      if (!allNodesRef.current?.contains(target)) setAllNodesOpen(false);
++    };
++    const escape = (event: KeyboardEvent) => {
++      if (event.key !== "Escape") return;
++      const active = generateOpen ? generateRef.current : allNodesRef.current;
++      setGenerateOpen(false);
++      setAllNodesOpen(false);
++      active?.querySelector("button")?.focus();
++    };
++    // Capture also sees events that React Flow stops while panning/selecting.
++    document.addEventListener("pointerdown", dismiss, true);
++    document.addEventListener("keydown", escape, true);
++    return () => {
++      document.removeEventListener("pointerdown", dismiss, true);
++      document.removeEventListener("keydown", escape, true);
++    };
++  }, [generateOpen, allNodesOpen]);
++  const buttonClass = "node-banana-runtime__action";
+@@ -477,5 +477,5 @@
+-      <div className="node-banana-runtime__popover-anchor">
+-        <button
+-          className={buttonClass}
+-          type="button"
+-          onClick={() => setGenerateOpen((open) => !open)}
++      <div ref={generateRef} className="node-banana-runtime__popover-anchor">
++        <button
++          className={buttonClass}
++          type="button"
++          onClick={() => { setAllNodesOpen(false); setGenerateOpen((open) => !open); }}
+@@ -520,5 +520,5 @@
+-      <div className="node-banana-runtime__popover-anchor">
+-        <button
+-          className={buttonClass}
+-          type="button"
+-          onClick={() => setAllNodesOpen((open) => !open)}
++      <div ref={allNodesRef} className="node-banana-runtime__popover-anchor">
++        <button
++          className={buttonClass}
++          type="button"
++          onClick={() => { setGenerateOpen(false); setAllNodesOpen((open) => !open); }}

@@ -1,8 +1,10 @@
 export type VideoGenerationStatus =
   | "pending"
   | "processing"
+  | "uploading"
   | "completed"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 export interface VideoGenerationResult {
   videos: Array<{

@@ -1,0 +1,13 @@
+--- a/src/components/nodes/VideoStitchNode.tsx
++++ b/src/components/nodes/VideoStitchNode.tsx
+@@ -84,7 +84,9 @@
+       let videoData: string | null = null;
+       let duration: number | null = null;
+ 
+-      if (sourceNode.type === "generateVideo" || sourceNode.type === "easeCurve" || sourceNode.type === "videoStitch" || sourceNode.type === "videoTrim") {
++      if (sourceNode.type === "videoInput") {
++        videoData = (sourceNode.data as any).video || null;
++      } else if (sourceNode.type === "generateVideo" || sourceNode.type === "easeCurve" || sourceNode.type === "videoStitch" || sourceNode.type === "videoTrim") {
+         videoData = (sourceNode.data as any).outputVideo || null;
+       }
+ 

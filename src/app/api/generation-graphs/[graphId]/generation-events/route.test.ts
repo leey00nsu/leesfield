@@ -94,20 +94,41 @@ describe("Graph generation event stream", () => {
     expect(await readFrame(reader)).toContain("event: stream.ready");
 
     subscriber!.onEvent({
-      version: 1,
-      type: "generation.updated",
+      version: 2,
+      type: "node-execution.updated",
+      executionKind: "generation",
+      mediaType: "image",
       graphId: "graph-1",
       graphNodeId: "node-1",
-      requestId: "request-1",
+      executionId: "request-1",
       status: "completed",
       progress: 100,
       updatedAt: "2026-08-24T12:00:00.000Z",
     });
     const frame = await readFrame(reader);
-    expect(frame).toContain("event: generation.updated");
+    expect(frame).toContain("event: node-execution.updated");
     expect(frame).toContain("id: request-1:2026-08-24T12:00:00.000Z");
     expect(frame).toContain('"graphNodeId":"node-1"');
     expect(frame).not.toContain("prompt");
+
+    subscriber!.onEvent({
+      version: 2,
+      type: "node-execution.updated",
+      executionKind: "media_operation",
+      mediaType: "audio",
+      graphId: "graph-1",
+      graphNodeId: "node-2",
+      executionId: "operation-1",
+      status: "completed",
+      progress: 100,
+      updatedAt: "2026-09-04T00:00:00.000Z",
+    });
+    const executionFrame = await readFrame(reader);
+    expect(executionFrame).toContain("event: node-execution.updated");
+    expect(executionFrame).toContain(
+      "id: operation-1:2026-09-04T00:00:00.000Z",
+    );
+    expect(executionFrame).not.toContain("parameters");
 
     controller.abort();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
@@ -125,7 +146,7 @@ describe("Graph generation event stream", () => {
     const heartbeatFrame = await pendingFrame;
     expect(heartbeatFrame).toContain(": heartbeat");
     expect(heartbeatFrame).toContain("event: stream.heartbeat");
-    expect(heartbeatFrame).toContain('"version":1');
+    expect(heartbeatFrame).toContain('"version":2');
     await reader.cancel();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });

@@ -10,6 +10,7 @@ import { createGenerationGraphService } from "./generation-graph-service";
 function repositoryMock(): GenerationGraphRepository {
   return {
     create: vi.fn(),
+    copy: vi.fn(),
     list: vi.fn(),
     get: vi.fn(),
     update: vi.fn(),
@@ -19,11 +20,11 @@ function repositoryMock(): GenerationGraphRepository {
 
 const node = {
   id: "node_1",
-  type: "imageGeneration",
+  kind: "generate.image",
   position: { x: 1, y: 2 },
   configVersion: 1,
   config: { prompt: "hello", modelKey: null, parameters: {} },
-  selectedOutputImageId: null,
+  selectedOutputAssetId: null,
 };
 
 describe("generationGraphService", () => {
@@ -33,60 +34,62 @@ describe("generationGraphService", () => {
     const service = createGenerationGraphService(repository);
 
     await service.create("owner@example.com", { title: "  My graph " });
-
     expect(repository.create).toHaveBeenCalledWith("owner@example.com", "My graph");
   });
 
-  it("rejects malformed input before repository access", async () => {
+  it("rejects malformed or legacy input before repository access", () => {
     const repository = repositoryMock();
     const service = createGenerationGraphService(repository);
 
-    expect(() => service.create("owner@example.com", { title: "" })).toThrow(
-      GenerationGraphInputError,
-    );
+    expect(() => service.create("owner@example.com", { title: "" })).toThrow(GenerationGraphInputError);
+    expect(() => service.update("owner@example.com", "graph_1", {
+      schemaVersion: 1,
+      expectedVersion: 1,
+      title: "Graph",
+      nodes: [],
+      edges: [],
+    })).toThrow(GenerationGraphInputError);
     expect(repository.create).not.toHaveBeenCalled();
-  });
-
-  it("rejects an invalid graph before opening persistence", async () => {
-    const repository = repositoryMock();
-    const service = createGenerationGraphService(repository);
-
-    expect(() =>
-      service.update("owner@example.com", "graph_1", {
-        expectedVersion: 1,
-        title: "Graph",
-        nodes: [node],
-        edges: [
-          {
-            id: "edge_1",
-            sourceNodeId: "node_1",
-            targetNodeId: "node_1",
-            kind: "reference",
-            sourceHandle: null,
-            targetHandle: null,
-          },
-        ],
-      }),
-    ).toThrow(GenerationGraphStructureError);
     expect(repository.update).not.toHaveBeenCalled();
   });
 
-  it("passes a valid normalized snapshot to the repository", async () => {
+  it("rejects an invalid canonical graph before persistence", () => {
+    const repository = repositoryMock();
+    const service = createGenerationGraphService(repository);
+
+    expect(() => service.update("owner@example.com", "graph_1", {
+      schemaVersion: 3, groups: [],
+      expectedVersion: 1,
+      title: "Graph",
+      nodes: [node],
+      edges: [{
+        id: "edge_1",
+        sourceNodeId: "node_1",
+        sourcePortId: "image",
+        targetNodeId: "node_1",
+        targetPortId: "references",
+        sortOrder: 0,
+      }],
+    })).toThrow(GenerationGraphStructureError);
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("passes a normalized canonical snapshot to the repository", async () => {
     const repository = repositoryMock();
     vi.mocked(repository.update).mockResolvedValue({} as never);
     const service = createGenerationGraphService(repository);
 
     await service.update("owner@example.com", "graph_1", {
+      schemaVersion: 3, groups: [],
       expectedVersion: 2,
       title: " Graph ",
       nodes: [node],
       edges: [],
     });
-
     expect(repository.update).toHaveBeenCalledWith(
       "owner@example.com",
       "graph_1",
-      expect.objectContaining({ expectedVersion: 2, title: "Graph", nodes: [node] }),
+      expect.objectContaining({ schemaVersion: 3, groups: [], expectedVersion: 2, title: "Graph", nodes: [node] }),
     );
   });
 
@@ -100,7 +103,6 @@ describe("generationGraphService", () => {
     await service.list("owner@example.com");
     await service.get("owner@example.com", "graph_1");
     await service.remove("owner@example.com", "graph_1");
-
     expect(repository.list).toHaveBeenCalledWith("owner@example.com");
     expect(repository.get).toHaveBeenCalledWith("owner@example.com", "graph_1");
     expect(repository.remove).toHaveBeenCalledWith("owner@example.com", "graph_1");

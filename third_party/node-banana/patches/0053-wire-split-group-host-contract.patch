@@ -1,0 +1,81 @@
+--- a/src/store/utils/splitGridTemplate.ts
++++ b/src/store/utils/splitGridTemplate.ts
+@@ -19,8 +19,8 @@
+   SplitGridTemplate,
+   SplitGridTemplateRouterConnection,
+   SplitGridCell,
++} from "../../leesfield/upstream-node-host";
++import { MODEL_DISPLAY_NAMES } from "../../leesfield/upstream-node-host";
+-} from "../../types";
+-import { MODEL_DISPLAY_NAMES } from "../../types";
+ import {
+   createDefaultNodeData,
+   createDefaultSplitGridTemplate,
+@@ -250,7 +250,7 @@
+   // never be populated (and re-materialize on every run) — treat as invalid.
+   if (
+     data.template &&
++    data.template.nodes.some((node: WorkflowNode) => node.id === data.template!.baseNodeId)
+-    data.template.nodes.some((node) => node.id === data.template!.baseNodeId)
+   ) {
+     return data.template;
+   }
+@@ -355,7 +355,7 @@
+   if (cells.length !== rows * cols) return true;
+   // A partially deleted grid is intentional pruning; rebuild only when every
+   // cell's base image node is gone
+-  return cells.every((cell) => !existingNodeIds.has(cell.baseImageNodeId));
++  return cells.every((cell: SplitGridCell) => !existingNodeIds.has(cell.baseImageNodeId));
+ }
+ 
+ export interface BuildCellInstancesOptions {
+--- a/src/components/GroupsOverlay.tsx
++++ b/src/components/GroupsOverlay.tsx
+@@ -4,7 +4,7 @@
+ import { useStore, ViewportPortal, type ReactFlowState } from "@xyflow/react";
+ import { useShallow } from "zustand/shallow";
+ import { useWorkflowStore, GROUP_COLORS } from "../leesfield/upstream-node-host";
++import { GroupColor } from "../leesfield/upstream-node-host";
+-import { GroupColor } from "../types";
+ import { isOverviewZoom } from "../utils/canvasPerformance";
+ 
+ const COLOR_OPTIONS: { color: GroupColor; label: string }[] = [
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -230,6 +230,10 @@
+   commitNodePositions: (positions: Record<string, { x: number; y: number }>) => void;
+   addNode: (...args: any[]) => string;
+   materializeSplitGridCells: (...args: any[]) => void;
++  updateGroup: (id: string, patch: Partial<NodeGroup>) => void;
++  deleteGroup: (id: string) => void;
++  moveGroupNodes: (id: string, delta: { x: number; y: number }) => void;
++  toggleGroupLock: (id: string) => void;
+   incrementModalCount: () => void;
+   decrementModalCount: () => void;
+   recentModels: RecentModel[];
+@@ -302,6 +306,10 @@
+   commitNodePositions: noop,
+   addNode: () => crypto.randomUUID(),
+   materializeSplitGridCells: noop,
++  updateGroup: noop,
++  deleteGroup: noop,
++  moveGroupNodes: noop,
++  toggleGroupLock: noop,
+   incrementModalCount: noop,
+   decrementModalCount: noop,
+   recentModels: [],
+@@ -885,8 +893,13 @@
+   },
+ };
+ 
++export type GroupColor = "neutral" | "blue" | "green" | "purple" | "orange" | "red";
++export type HandleType = string;
++export type WorkflowEdge = HostNodeData;
++export type NodeGroup = { id: string; name: string; color: GroupColor; position: { x: number; y: number }; size: { width: number; height: number }; locked?: boolean; isNbpInput?: boolean };
++export type SplitGridCell = { baseImageNodeId: string; nodeIds: string[]; groupId?: string };
+ export const SPLIT_GRID_BASE_NODE_ID = "cell-image";
++export const GROUP_COLORS: Record<string, string> = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
+-export const GROUP_COLORS = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
+ export const defaultNodeDimensions: Record<string, { width: number; height: number }> = {
+   imageInput: { width: 300, height: 280 },
+   audioInput: { width: 300, height: 200 },

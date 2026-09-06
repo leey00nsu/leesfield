@@ -5,6 +5,28 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
   getModelCatalog: mockGetModelCatalog,
 }));
 
+describe("validateVideoGenerationPayload catalog option parity", () => {
+  it.each([
+    { aspect: ["16:9"], resolution: [480] },
+    { aspect: [{ label: "Landscape", value: "16:9" }], resolution: [{ label: "480p", value: 480 }] },
+    { aspect: [["Landscape", "16:9"]], resolution: [["480p", 480]] },
+  ])("accepts catalog values, not labels, for $aspect", async ({ aspect, resolution }) => {
+    mockGetModelCatalog.mockResolvedValue([{
+      type: "video", key: "wan-options", meta: { supports_init_image: false },
+      parameters: { aspectRatio: { options: aspect }, resolution: { options: resolution } },
+    }]);
+    const { validateVideoGenerationPayload } = await import("@/server/model-catalog/generation-validation");
+    const values = {
+      model: "wan-options", prompt: "moving kite", aspectRatio: "16:9", resolution: 480,
+      durationSec: 3, fps: 16, steps: 6, guidanceScale: 1,
+    };
+    expect((await validateVideoGenerationPayload(values)).success).toBe(true);
+    const invalid = await validateVideoGenerationPayload({ ...values, aspectRatio: "Landscape", resolution: 999 });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) expect(invalid.error.issues.map((issue) => issue.path[0])).toEqual(["aspectRatio", "resolution"]);
+  });
+});
+
 describe("validateAudioGenerationPayload dynamicParams", () => {
   beforeEach(() => {
     vi.resetModules();

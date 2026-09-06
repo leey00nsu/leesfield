@@ -17,22 +17,28 @@ datasource db {
 enum ImageGenerationStatus {
   pending
   processing
+  uploading
   completed
   failed
+  cancelled
 }
 
 enum VideoGenerationStatus {
   pending
   processing
+  uploading
   completed
   failed
+  cancelled
 }
 
 enum AudioGenerationStatus {
   pending
   processing
+  uploading
   completed
   failed
+  cancelled
 }
 
 enum ApiKeyStatus {
@@ -46,36 +52,64 @@ enum ModelCatalogType {
   audio
 }
 
-enum GenerationGraphNodeType {
-  imageGeneration
+enum MediaType {
+  image
+  audio
+  video
 }
 
-enum GenerationGraphEdgeKind {
-  primary
-  reference
+enum MediaAssetStatus {
+  completed
+  deleting
+  failed
+}
+
+enum MediaAssetOrigin {
+  upload
+  generation
+  media_operation
+  legacy_generation
+}
+
+enum MediaUploadSessionStatus {
+  pending
+  confirming
+  completed
+  expired
+  failed
+}
+
+enum MediaOperationStatus {
+  pending
+  processing
+  uploading
+  completed
+  failed
+  cancelled
 }
 
 model ImageGeneration {
-  id            String                 @id @default(cuid())
-  requestId     String                 @unique
-  ownerEmail    String?
-  apiKeyId      String?
-  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  prompt        String
-  requestParams Json?
-  modelKey      String?
-  aspectRatio   String
-  imageCount    Int
-  steps         Int
-  seed          String?
-  status        ImageGenerationStatus
-  progress      Int
-  errorMessage  String?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  images        ImageGenerationImage[]
-  graphNodeId   String?
-  graphNode     GenerationGraphNode?   @relation("GraphNodeGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
+  id                String                 @id @default(cuid())
+  requestId         String                 @unique
+  ownerEmail        String?
+  apiKeyId          String?
+  apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  prompt            String
+  requestParams     Json?
+  modelKey          String?
+  aspectRatio       String
+  imageCount        Int
+  steps             Int
+  seed              String?
+  status            ImageGenerationStatus
+  progress          Int
+  errorMessage      String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  cancelRequestedAt DateTime?
+  images            ImageGenerationImage[]
+  graphNodeId       String?
+  graphNode         GenerationGraphNode?   @relation("GraphNodeGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
   @@index([status, createdAt])
@@ -93,86 +127,112 @@ model ImageGenerationImage {
   height               Int?
   createdAt            DateTime              @default(now())
   generation           ImageGeneration       @relation(fields: [generationId], references: [id], onDelete: Cascade)
-  selectedByGraphNodes GenerationGraphNode[] @relation("GraphNodeSelectedOutput")
+  assetId              String?               @unique
+  asset                MediaAsset?           @relation("ImageGenerationAsset", fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([generationId])
 }
 
+model SpaceEditorPreference {
+  inlineParametersEnabled Boolean @default(false)
+  ownerEmail      String   @id
+  schemaVersion   Int      @default(1)
+  revision        Int      @default(0)
+  recentModelKeys Json     @default("[]")
+  defaults        Json     @default("{}")
+  updatedAt       DateTime @updatedAt
+}
+
 model GenerationGraph {
-  id         String                @id @default(cuid())
-  ownerEmail String
-  title      String
-  version    Int                   @default(1)
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
-  nodes      GenerationGraphNode[]
-  edges      GenerationGraphEdge[]
+  id                   String                @id @default(cuid())
+  ownerEmail           String
+  title                String
+  version              Int                   @default(1)
+  schemaVersion        Int                   @default(3)
+  minimumWriterVersion Int                   @default(3)
+  groups               Json                  @default("[]")
+  spaceVersion         Int                   @default(1)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  nodes                GenerationGraphNode[]
+  edges                GenerationGraphEdge[]
+  mediaOperations      MediaOperation[]
 
   @@index([ownerEmail, updatedAt])
 }
 
 model GenerationGraphNode {
-  id                    String                  @id
+  id                    String                      @id
   graphId               String
-  type                  GenerationGraphNodeType
+  kind                  String
   x                     Float
   y                     Float
   configVersion         Int
   config                Json
-  selectedOutputImageId String?
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  graph                 GenerationGraph         @relation(fields: [graphId], references: [id], onDelete: Cascade)
-  selectedOutputImage   ImageGenerationImage?   @relation("GraphNodeSelectedOutput", fields: [selectedOutputImageId], references: [id], onDelete: SetNull)
-  generations           ImageGeneration[]       @relation("GraphNodeGenerations")
-  outgoingEdges         GenerationGraphEdge[]   @relation("GraphEdgeSource")
-  incomingEdges         GenerationGraphEdge[]   @relation("GraphEdgeTarget")
+  selectedOutputAssetId String?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  graph                 GenerationGraph             @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  selectedOutputAsset   MediaAsset?                 @relation("GraphNodeSelectedAsset", fields: [selectedOutputAssetId], references: [id], onDelete: SetNull)
+  generations           ImageGeneration[]           @relation("GraphNodeGenerations")
+  videoGenerations      VideoGeneration[]           @relation("GraphNodeVideoGenerations")
+  audioGenerations      AudioGeneration[]           @relation("GraphNodeAudioGenerations")
+  outgoingEdges         GenerationGraphEdge[]       @relation("GraphEdgeSource")
+  incomingEdges         GenerationGraphEdge[]       @relation("GraphEdgeTarget")
+  mediaOperations       MediaOperation[]
+  outputs               GenerationGraphNodeOutput[]
 
   @@index([graphId])
-  @@index([selectedOutputImageId])
+  @@index([kind])
+  @@index([selectedOutputAssetId])
 }
 
 model GenerationGraphEdge {
-  id           String                  @id
+  id           String                   @id
   graphId      String
   sourceNodeId String
   targetNodeId String
-  kind         GenerationGraphEdgeKind
-  sourceHandle String?
-  targetHandle String?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
-  graph        GenerationGraph         @relation(fields: [graphId], references: [id], onDelete: Cascade)
-  sourceNode   GenerationGraphNode     @relation("GraphEdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode   GenerationGraphNode     @relation("GraphEdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  sourcePortId String
+  targetPortId String
+  sortOrder    Int                      @default(0)
+  hasPause     Boolean                  @default(false)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  graph        GenerationGraph          @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  sourceNode   GenerationGraphNode      @relation("GraphEdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   GenerationGraphNode      @relation("GraphEdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
-  @@unique([graphId, sourceNodeId, targetNodeId, kind, sourceHandle, targetHandle])
+  @@unique([graphId, sourceNodeId, sourcePortId, targetNodeId, targetPortId, sortOrder])
   @@index([graphId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
 }
 
 model VideoGeneration {
-  id            String                 @id @default(cuid())
-  requestId     String                 @unique
-  ownerEmail    String?
-  apiKeyId      String?
-  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  prompt        String
-  requestParams Json?
-  modelKey      String?
-  status        VideoGenerationStatus
-  progress      Int
-  errorMessage  String?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  videos        VideoGenerationVideo[]
+  id                String                 @id @default(cuid())
+  requestId         String                 @unique
+  ownerEmail        String?
+  apiKeyId          String?
+  apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  prompt            String
+  requestParams     Json?
+  modelKey          String?
+  status            VideoGenerationStatus
+  progress          Int
+  errorMessage      String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  cancelRequestedAt DateTime?
+  videos            VideoGenerationVideo[]
+  graphNodeId       String?
+  graphNode         GenerationGraphNode?   @relation("GraphNodeVideoGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
+  @@index([graphNodeId, createdAt])
 }
 
 model VideoGenerationVideo {
@@ -184,31 +244,37 @@ model VideoGenerationVideo {
   durationSec  Int?
   createdAt    DateTime        @default(now())
   generation   VideoGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  assetId      String?         @unique
+  asset        MediaAsset?     @relation("VideoGenerationAsset", fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([generationId])
 }
 
 model AudioGeneration {
-  id            String                 @id @default(cuid())
-  requestId     String                 @unique
-  ownerEmail    String?
-  apiKeyId      String?
-  apiKey        ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  prompt        String
-  requestParams Json?
-  modelKey      String?
-  status        AudioGenerationStatus
-  progress      Int
-  errorMessage  String?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  audios        AudioGenerationAudio[]
+  id                String                 @id @default(cuid())
+  requestId         String                 @unique
+  ownerEmail        String?
+  apiKeyId          String?
+  apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  prompt            String
+  requestParams     Json?
+  modelKey          String?
+  status            AudioGenerationStatus
+  progress          Int
+  errorMessage      String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  cancelRequestedAt DateTime?
+  audios            AudioGenerationAudio[]
+  graphNodeId       String?
+  graphNode         GenerationGraphNode?   @relation("GraphNodeAudioGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
+  @@index([graphNodeId, createdAt])
 }
 
 model AudioGenerationAudio {
@@ -218,8 +284,125 @@ model AudioGenerationAudio {
   durationSec  Int?
   createdAt    DateTime        @default(now())
   generation   AudioGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  assetId      String?         @unique
+  asset        MediaAsset?     @relation("AudioGenerationAsset", fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([generationId])
+}
+
+model MediaAsset {
+  id                   String                      @id @default(cuid())
+  version              Int                         @default(1)
+  ownerEmail           String
+  type                 MediaType
+  status               MediaAssetStatus            @default(completed)
+  origin               MediaAssetOrigin
+  storageProvider      String
+  storageObjectId      String
+  storageUrl           String?
+  legacyUrl            String?
+  mimeType             String
+  bytes                BigInt?
+  width                Int?
+  height               Int?
+  durationMs           Int?
+  sourceOperationId    String?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  sourceOperation      MediaOperation?             @relation("MediaOperationOutputs", fields: [sourceOperationId], references: [id], onDelete: SetNull)
+  selectedByGraphNodes GenerationGraphNode[]       @relation("GraphNodeSelectedAsset")
+  graphNodeOutputs     GenerationGraphNodeOutput[]
+  operationInputs      MediaOperationInput[]
+  uploadSessions       MediaUploadSession[]
+  imageGenerationImage ImageGenerationImage?       @relation("ImageGenerationAsset")
+  videoGenerationVideo VideoGenerationVideo?       @relation("VideoGenerationAsset")
+  audioGenerationAudio AudioGenerationAudio?       @relation("AudioGenerationAsset")
+
+  @@unique([storageProvider, storageObjectId])
+  @@index([ownerEmail, type, status, createdAt])
+  @@index([sourceOperationId])
+}
+
+model MediaUploadSession {
+  id                String                   @id @default(cuid())
+  ownerEmail        String
+  intendedType      MediaType
+  fileName          String
+  declaredMimeType  String
+  declaredBytes     BigInt
+  storageProvider   String
+  storageObjectId   String                   @unique
+  storageObjectName String
+  storageFileName   String?
+  storageUrl        String
+  operationId       String?
+  outputPortId      String?
+  sortOrder         Int                      @default(0)
+  status            MediaUploadSessionStatus @default(pending)
+  expiresAt         DateTime
+  assetId           String?                  @unique
+  errorCode         String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  operation         MediaOperation?          @relation(fields: [operationId], references: [id], onDelete: SetNull)
+  asset             MediaAsset?              @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([ownerEmail, status, expiresAt])
+  @@index([operationId])
+  @@index([assetId])
+}
+
+model GenerationGraphNodeOutput {
+  id          String              @id @default(cuid())
+  graphNodeId String
+  portId      String
+  assetId     String
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  graphNode   GenerationGraphNode @relation(fields: [graphNodeId], references: [id], onDelete: Cascade)
+  asset       MediaAsset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([graphNodeId, portId, sortOrder])
+  @@index([assetId])
+}
+
+model MediaOperation {
+  id                  String                @id @default(cuid())
+  ownerEmail          String
+  graphId             String?
+  graphNodeId         String?
+  type                String
+  configVersion       Int
+  parameters          Json
+  status              MediaOperationStatus  @default(pending)
+  progress            Int                   @default(0)
+  expectedOutputCount Int                   @default(1)
+  errorCode           String?
+  errorMessage        String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  completedAt         DateTime?
+  graph               GenerationGraph?      @relation(fields: [graphId], references: [id], onDelete: SetNull)
+  graphNode           GenerationGraphNode?  @relation(fields: [graphNodeId], references: [id], onDelete: SetNull)
+  inputs              MediaOperationInput[]
+  outputs             MediaAsset[]          @relation("MediaOperationOutputs")
+  uploadSessions      MediaUploadSession[]
+
+  @@index([ownerEmail, status, createdAt])
+  @@index([graphId, graphNodeId, createdAt])
+}
+
+model MediaOperationInput {
+  id          String         @id @default(cuid())
+  operationId String
+  assetId     String
+  portId      String
+  sortOrder   Int            @default(0)
+  operation   MediaOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  asset       MediaAsset     @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([operationId, portId, sortOrder])
+  @@index([assetId])
 }
 
 model ModelCatalog {

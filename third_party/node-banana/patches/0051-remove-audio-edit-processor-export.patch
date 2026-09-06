@@ -1,0 +1,18 @@
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -49,14 +49,5 @@ export type {
+ } from "./video-operation-processors";
+ 
+-export { processAudioOperation } from "./audio-operation-processor";
+-export type {
+-  AudioEditParameters,
+-  AudioOperationInput,
+-  AudioOperationRequest,
+-  AudioOperationResult,
+-  AudioOperationResultItem,
+-} from "./audio-operation-processor";
+-
+ /**
+  * Node Banana v1.9.0's actual node presenters, exposed through the host
+  * facade. The facade removes upstream stores/provider clients while keeping

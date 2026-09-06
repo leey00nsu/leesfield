@@ -1,0 +1,80 @@
+--- a/src/store/utils/splitGridTemplate.ts
++++ b/src/store/utils/splitGridTemplate.ts
+@@ -19,14 +19,14 @@
+   SplitGridTemplate,
+   SplitGridTemplateRouterConnection,
+   SplitGridCell,
++} from "../../types";
++import { MODEL_DISPLAY_NAMES } from "../../types";
+-} from "@/types";
+-import { MODEL_DISPLAY_NAMES } from "@/types";
+ import {
+   createDefaultNodeData,
+   createDefaultSplitGridTemplate,
+   defaultNodeDimensions,
+   SPLIT_GRID_BASE_NODE_ID,
++} from "../../leesfield/upstream-node-host";
+-} from "./nodeDefaults";
+ 
+ export { createDefaultSplitGridTemplate, SPLIT_GRID_BASE_NODE_ID };
+ 
+--- a/src/components/GroupsOverlay.tsx
++++ b/src/components/GroupsOverlay.tsx
+@@ -3,9 +3,9 @@
+ import { memo, useCallback, useState, useRef, useEffect } from "react";
+ import { useStore, ViewportPortal, type ReactFlowState } from "@xyflow/react";
+ import { useShallow } from "zustand/shallow";
++import { useWorkflowStore, GROUP_COLORS } from "../leesfield/upstream-node-host";
++import { GroupColor } from "../types";
++import { isOverviewZoom } from "../utils/canvasPerformance";
+-import { useWorkflowStore, GROUP_COLORS } from "@/store/workflowStore";
+-import { GroupColor } from "@/types";
+-import { isOverviewZoom } from "@/utils/canvasPerformance";
+ 
+ const COLOR_OPTIONS: { color: GroupColor; label: string }[] = [
+   { color: "neutral", label: "Gray" },
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -885,6 +885,8 @@
+   },
+ };
+ 
++export const SPLIT_GRID_BASE_NODE_ID = "cell-image";
++export const GROUP_COLORS = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
+ export const defaultNodeDimensions: Record<string, { width: number; height: number }> = {
+   imageInput: { width: 300, height: 280 },
+   audioInput: { width: 300, height: 200 },
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -1,3 +1,5 @@
++export { buildCellInstances } from "../store/utils/splitGridTemplate";
++export { GroupBackgroundsPortal, GroupControlsOverlay } from "../components/GroupsOverlay";
+ export {
+   NodeBananaCanvasErrorBoundary,
+   NodeBananaCanvasRuntime,
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -159,6 +159,7 @@
+   isNodeRunnable?: (nodeId: string) => boolean;
+   onRunNode?: (nodeId: string) => void | Promise<unknown>;
+   renderNodeHeader?: (node: NodeBananaRuntimeNode) => ReactNode;
++  canvasOverlay?: ReactNode;
+   filterPaletteItems?: (
+     items: readonly NodeBananaRuntimePaletteItem[],
+     pendingConnection: NodeBananaPendingConnection | null,
+@@ -433,6 +434,7 @@
+   isNodeRunnable,
+   onRunNode,
+   renderNodeHeader,
++  canvasOverlay,
+   filterPaletteItems,
+ }: NodeBananaCanvasProps) {
+   const store = useMemo(createInteractionStore, []);
+@@ -972,6 +974,7 @@
+         defaultEdgeOptions={{ type: "editable" }}
+       >
+         <UpstreamSharedEdgeGradients />
++        {canvasOverlay}
+         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--node-banana-grid, #404040)" />
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />
+         <Controls showInteractive={false} fitViewOptions={fitViewOptions} />

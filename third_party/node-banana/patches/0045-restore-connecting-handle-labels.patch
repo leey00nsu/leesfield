@@ -1,0 +1,7 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -480,3 +480,1 @@
+-export function useShowHandleLabels(selected?: boolean): boolean {
+-  return Boolean(selected);
+-}
++export { useShowHandleLabels } from "../hooks/useShowHandleLabels";

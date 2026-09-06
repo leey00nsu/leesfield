@@ -1,0 +1,26 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -518,2 +518,3 @@
+-  runReady?: boolean;
+-  runDisabledReason?: string | null;
++  runReady?: boolean;
++  runDisabledReason?: string | null;
++  onCancelNode?: (nodeId: string) => Promise<void>;
+@@ -541,2 +541,3 @@
+-  runDisabledReason,
+-}: NodeBananaUpstreamHeaderProps): ReactNode {
++  runDisabledReason,
++  onCancelNode,
++}: NodeBananaUpstreamHeaderProps): ReactNode {
+@@ -594,2 +594,9 @@
+-  ) : undefined;
+-  const isGeneration = kind === "generate.image" || kind === "generate.audio" || kind === "generate.video";
++  ) : isExecuting && kind.startsWith("edit.") && onCancelNode ? (
++    <button type="button" aria-label="Cancel operation" title="Cancel operation"
++      disabled={!writable}
++      onClick={() => { if (writable) void onCancelNode(nodeId); }}
++      className="nodrag nopan rounded border border-neutral-600 px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-neutral-700">
++      Cancel
++    </button>
++  ) : undefined;
++  const isGeneration = kind === "generate.image" || kind === "generate.audio" || kind === "generate.video";

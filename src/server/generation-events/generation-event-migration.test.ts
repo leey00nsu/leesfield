@@ -5,48 +5,54 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = path.join(
   process.cwd(),
-  "prisma/migrations/20260824215000_generation_event_notify/migration.sql",
+  "prisma/migrations/20260904093000_break_generation_graph_v2_cutover/migration.sql",
 );
 
-describe("generation event migration", () => {
-  it("publishes Node-linked insert and status/progress updates after the row write", async () => {
+describe("v2-only node execution event migration", () => {
+  it("removes the v1 trigger and publishes all execution kinds on the v2 channel", async () => {
     const migration = await readFile(migrationPath, "utf8");
 
-    expect(migration).toContain(
-      'AFTER INSERT OR UPDATE OF "status", "progress", "graphNodeId"',
-    );
-    expect(migration).toContain("FOR EACH ROW");
-    expect(migration).toContain(
-      "pg_notify('leesfield_generation_events_v1', event_payload::TEXT)",
-    );
-    expect(migration).toContain('NEW."graphNodeId" IS NULL');
-    expect(migration).toContain('NEW."status" IS NOT DISTINCT FROM OLD."status"');
-    expect(migration).toContain(
-      'NEW."progress" IS NOT DISTINCT FROM OLD."progress"',
-    );
+    expect(migration).toContain('DROP TRIGGER IF EXISTS "ImageGeneration_notify_node_generation_updated"');
+    expect(migration).toContain('DROP FUNCTION IF EXISTS "notify_node_generation_updated"()');
+    for (const trigger of [
+      "ImageGeneration_notify_node_execution_updated_v2",
+      "VideoGeneration_notify_node_execution_updated_v2",
+      "AudioGeneration_notify_node_execution_updated_v2",
+      "MediaOperation_notify_node_execution_updated_v2",
+    ]) {
+      expect(migration).toContain(`CREATE TRIGGER "${trigger}"`);
+    }
+    expect(migration).toContain("pg_notify('leesfield_node_execution_events_v2', event_payload::TEXT)");
+    expect(migration).not.toContain("pg_notify('leesfield_generation_events_v1', event_payload::TEXT)");
   });
 
-  it("resolves the Graph relation and emits only the versioned minimal contract", async () => {
+  it("keeps the v2 notification payload minimal", async () => {
     const migration = await readFile(migrationPath, "utf8");
 
     for (const field of [
       "version",
       "type",
+      "executionKind",
+      "mediaType",
       "graphId",
       "graphNodeId",
-      "requestId",
+      "executionId",
       "status",
       "progress",
       "updatedAt",
     ]) {
       expect(migration).toContain(`'${field}'`);
     }
-
-    expect(migration).toContain('FROM "GenerationGraphNode"');
-    expect(migration).not.toContain("'ownerEmail'");
-    expect(migration).not.toContain("'prompt'");
-    expect(migration).not.toContain("'requestParams'");
-    expect(migration).not.toContain("'errorMessage'");
-    expect(migration).not.toContain("'images'");
+    for (const sensitive of [
+      "'ownerEmail'",
+      "'prompt'",
+      "'parameters'",
+      "'requestParams'",
+      "'errorMessage'",
+      "'storageUrl'",
+      "'assetUrl'",
+    ]) {
+      expect(migration).not.toContain(sensitive);
+    }
   });
 });

@@ -39,7 +39,7 @@ describe("Header", () => {
       <Header isAuthenticated userEmail="admin@example.com" />,
     );
 
-    expect(container.querySelectorAll('a[href="/node-studio"]').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('a[href="/spaces"]').length).toBeGreaterThan(0);
   });
 
   it("브랜드 로고 이미지를 rounded icon으로 표시한다", () => {
@@ -71,7 +71,7 @@ describe("Header", () => {
     );
     expect(screen.queryByText("대시보드로 이동")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "프로필" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "노드 스튜디오" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "스페이스" })).not.toBeInTheDocument();
   });
 
   it("로그인한 public header에서 Node Studio 진입 경로를 제공한다", () => {
@@ -79,9 +79,9 @@ describe("Header", () => {
       <Header variant="public" isAuthenticated userEmail="admin@example.com" />,
     );
 
-    const nodeStudioLinks = container.querySelectorAll('a[href="/node-studio"]');
+    const nodeStudioLinks = container.querySelectorAll('a[href="/spaces"]');
     expect(nodeStudioLinks.length).toBe(2);
-    expect(screen.getAllByRole("link", { name: "노드 스튜디오" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "스페이스" })).toHaveLength(2);
   });
 
   it("desktop nav 링크는 xl 미만 숨김용 라벨 wrapper와 접근성 이름을 가진다", () => {

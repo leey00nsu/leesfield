@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Network } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { NextIntlClientProvider, useTranslations } from "next-intl";
 
+import enMessages from "@/shared/i18n/messages/en.json";
 import {
   useCreateGenerationGraph,
   useDeleteGenerationGraph,
@@ -11,50 +13,46 @@ import {
   useGenerationGraphList,
   useSyncGenerationGraphCache,
 } from "@/features/node-studio/hook/use-generation-graphs";
-import type { GraphAutosaveStatus } from "@/features/node-studio/hook/use-graph-autosave";
-import { GraphSelector } from "@/features/node-studio/ui/graph-selector";
 import { NodeStudioWorkspace } from "@/features/node-studio/ui/node-studio-workspace";
-import { AppButton } from "@/shared/ui/app-button";
-import { AppCard } from "@/shared/ui/app-card";
-import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
+import { attachSpaceReturnEntry, hasSpaceListReturnEntry } from "@/features/node-studio/model/space-navigation";
+import { updateGenerationGraph } from "@/features/node-studio/api/generation-graph-api";
+import { quickstartSpaceTemplate } from "@/features/node-studio/model/quickstart-space-template";
+import type { HostedPresetWorkflow } from "@node-banana-runtime/runtime-entry";
 
-export function NodeStudioScreen() {
+export function NodeStudioScreen({ spaceId }: { spaceId?: string }) {
+  return (
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <NodeStudioScreenContent spaceId={spaceId} />
+    </NextIntlClientProvider>
+  );
+}
+
+function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
+  const router = useRouter();
   const t = useTranslations("nodeStudio");
   const listQuery = useGenerationGraphList();
   const createMutation = useCreateGenerationGraph();
   const deleteMutation = useDeleteGenerationGraph();
   const syncCache = useSyncGenerationGraphCache();
-  const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [workspaceKey, setWorkspaceKey] = useState(0);
-  const [saveStatus, setSaveStatus] = useState<GraphAutosaveStatus>("saved");
+  const searchParams = useSearchParams();
+  const [dismissedTutorialSpace, setDismissedTutorialSpace] = useState<string>();
+  const tutorialActive = searchParams.get("tutorial") === "1" && dismissedTutorialSpace !== spaceId;
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const graphs = listQuery.data ?? [];
-  const activeGraphId =
-    selectedGraphId && graphs.some((graph) => graph.id === selectedGraphId)
-      ? selectedGraphId
-      : (graphs[0]?.id ?? null);
+  const activeGraphId = spaceId ?? null;
   const detailQuery = useGenerationGraph(activeGraphId);
+  useEffect(() => { if (spaceId) attachSpaceReturnEntry(spaceId); }, [spaceId]);
 
-  const busy = saveStatus === "dirty" || saveStatus === "saving";
-  const selectGraph = (graphId: string) => {
-    if (busy) return;
-    if (
-      (saveStatus === "error" || saveStatus === "conflict") &&
-      !window.confirm(t("confirm.switchDescription"))
-    ) {
-      return;
-    }
-    setSelectedGraphId(graphId);
-    setWorkspaceKey((value) => value + 1);
-    setSaveStatus("saved");
+  const commitGraphSelection = (graphId: string) => {
+    router.push(`/spaces/${graphId}`);
   };
 
   const createGraph = async (title: string) => {
     setLifecycleError(null);
     try {
       const graph = await createMutation.mutateAsync(title);
-      setSelectedGraphId(graph.id);
-      setWorkspaceKey((value) => value + 1);
+      router.push(`/spaces/${graph.id}`);
     } catch {
       setLifecycleError(t("errors.create"));
     }
@@ -65,10 +63,22 @@ export function NodeStudioScreen() {
     setLifecycleError(null);
     try {
       await deleteMutation.mutateAsync(activeGraphId);
-      setSelectedGraphId(null);
-      setWorkspaceKey((value) => value + 1);
+      router.replace("/spaces");
     } catch {
       setLifecycleError(t("errors.delete"));
+    }
+  };
+
+  const createPreset = async (workflow: HostedPresetWorkflow | null, tutorial = false) => {
+    const draft = workflow ? quickstartSpaceTemplate(workflow) : null;
+    const created = await createMutation.mutateAsync(workflow?.name ?? (tutorial ? "Tutorial" : "Untitled Space"));
+    try {
+      const saved = draft ? await updateGenerationGraph(created.id, { expectedVersion: created.version, schemaVersion: 3, title: created.title, ...draft }) : created;
+      syncCache(saved);
+      router.push(`/spaces/${saved.id}${tutorial ? "?tutorial=1" : ""}`);
+    } catch (error) {
+      await deleteMutation.mutateAsync(created.id).catch(() => undefined);
+      throw error;
     }
   };
 
@@ -76,102 +86,73 @@ export function NodeStudioScreen() {
     const result = await detailQuery.refetch();
     if (result.data) {
       setWorkspaceKey((value) => value + 1);
-      setSaveStatus("saved");
     }
   };
 
   return (
-    <section className="grid w-full gap-8 pb-20">
-      <GenerationStudioIntro
-        eyebrow={t("eyebrow")}
-        title={t("title")}
-        description={t("description")}
-      />
-
-      <div className="mx-auto w-full max-w-6xl">
-        <AppCard
-          variant="prompt"
-          radius="xl"
-          padding="sm"
-          className="bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl"
-          data-testid="node-studio-graph-controls"
-        >
-          <GraphSelector
-            graphs={graphs}
-            selectedGraphId={activeGraphId}
-            disabled={busy}
-            creating={createMutation.isPending}
-            onSelect={selectGraph}
-            onCreate={(title) => void createGraph(title)}
-          />
-        </AppCard>
-      </div>
-
-      <div className="mx-auto grid w-full max-w-[1600px] gap-5">
-        {lifecycleError ? (
-          <div
-            className="rounded-2xl border border-red-300/15 bg-red-500/5 px-4 py-3 text-sm text-red-100"
-            role="alert"
-          >
-            {lifecycleError}
-          </div>
-        ) : null}
-
-        {listQuery.isLoading ? <NodeStudioLoading label={t("loading.graphs")} /> : null}
-        {listQuery.isError ? (
-          <NodeStudioError label={t("errors.list")} onRetry={() => void listQuery.refetch()} />
-        ) : null}
-        {!listQuery.isLoading && !listQuery.isError && graphs.length === 0 ? (
-          <div className="grid min-h-[32rem] place-items-center rounded-3xl border border-dashed border-white/12 bg-surface-dark/35 p-8 text-center">
-            <div className="max-w-md">
-              <Network className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
-              <h2 className="mt-5 font-display text-3xl">{t("graph.emptyTitle")}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/50">
-                {t("graph.emptyDescription")}
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {activeGraphId && detailQuery.isLoading ? (
-          <NodeStudioLoading label={t("loading.graph")} />
-        ) : null}
-        {activeGraphId && detailQuery.isError ? (
-          <NodeStudioError label={t("errors.load")} onRetry={() => void detailQuery.refetch()} />
-        ) : null}
-        {detailQuery.data ? (
-          <NodeStudioWorkspace
-            key={`${detailQuery.data.id}:${workspaceKey}`}
-            graph={detailQuery.data}
-            deleting={deleteMutation.isPending}
-            onSaved={syncCache}
-            onDelete={() => void deleteGraph()}
-            onReloadLatest={() => void reloadLatest()}
-            onStatusChange={setSaveStatus}
-          />
-        ) : null}
-      </div>
+    <section
+      className="fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-neutral-900 text-white"
+      aria-label="Space editor"
+      data-testid="node-banana-home"
+    >
+      {lifecycleError ? (
+        <div className="absolute left-1/2 top-14 z-[140] -translate-x-1/2 rounded-md border border-red-400/30 bg-red-950/90 px-3 py-2 text-xs text-red-100 shadow-xl" role="alert">
+          {lifecycleError}
+        </div>
+      ) : null}
+      {listQuery.isLoading && !detailQuery.data ? <NodeStudioLoading label="Loading spaces..." /> : null}
+      {listQuery.isError && !detailQuery.data ? (
+        <NodeStudioError label={t("errors.list")} onRetry={() => void listQuery.refetch()} />
+      ) : null}
+      {!listQuery.isLoading && !listQuery.isError && !detailQuery.isError && !detailQuery.data ? (
+        <NodeStudioLoading label={createMutation.isPending ? "Creating space..." : "Loading space..."} />
+      ) : null}
+      {activeGraphId && detailQuery.isError && !detailQuery.data ? (
+        <NodeStudioError label={t("errors.load")} onRetry={() => void detailQuery.refetch()} />
+      ) : null}
+      {detailQuery.data ? (
+        <NodeStudioWorkspace
+          key={`${detailQuery.data.id}:${detailQuery.data.schemaVersion ?? 1}:${workspaceKey}`}
+          graph={detailQuery.data}
+          onBack={() => { if (spaceId && hasSpaceListReturnEntry(spaceId)) router.back(); else router.replace("/spaces"); }}
+          graphs={graphs}
+          activeGraphId={detailQuery.data.id}
+          creating={createMutation.isPending}
+          deleting={deleteMutation.isPending}
+          onSaved={syncCache}
+          onSelectGraph={commitGraphSelection}
+          onCreateGraph={(title) => void createGraph(title)}
+          onCreatePreset={createPreset}
+          tutorialActive={tutorialActive}
+          onTutorialClose={() => { setDismissedTutorialSpace(spaceId); router.replace(`/spaces/${detailQuery.data.id}`); }}
+          onDelete={() => void deleteGraph()}
+          onReloadLatest={() => void reloadLatest()}
+        />
+      ) : null}
     </section>
   );
 }
 
 function NodeStudioLoading({ label }: { label: string }) {
   return (
-    <div className="grid min-h-[32rem] place-items-center rounded-3xl border border-white/10 bg-surface-dark/35 text-sm text-white/50" role="status">
-      {label}
+    <div className="grid flex-1 place-items-center bg-neutral-900 text-xs text-neutral-500" role="status">
+      <div className="flex items-center gap-2">
+        <span className="h-3 w-3 animate-spin rounded-full border border-neutral-600 border-t-neutral-200" aria-hidden="true" />
+        {label}
+      </div>
     </div>
   );
 }
 
 function NodeStudioError({ label, onRetry }: { label: string; onRetry: () => void }) {
-  const t = useTranslations("nodeStudio");
   return (
-    <div className="grid min-h-[24rem] place-items-center rounded-3xl border border-red-300/15 bg-red-500/5 p-8 text-center" role="alert">
-      <div>
-        <AlertTriangle className="mx-auto h-8 w-8 text-red-200" aria-hidden="true" />
-        <p className="mt-4 text-sm text-red-100">{label}</p>
-        <AppButton type="button" variant="surface" size="sm" className="mt-4" onClick={onRetry}>
-          {t("actions.retry")}
-        </AppButton>
+    <div className="grid flex-1 place-items-center bg-neutral-900 p-8 text-center" role="alert">
+      <div className="text-xs text-red-300">
+        <p>{label}</p>
+        <button type="button" className="mt-3 rounded border border-neutral-600 px-3 py-1.5 text-neutral-300 hover:bg-neutral-800" onClick={onRetry}>
+          Try again
+        </button>
+        <Link className="ml-3 text-neutral-300 underline" href="/spaces">Back to Spaces</Link>
       </div>
     </div>
   );

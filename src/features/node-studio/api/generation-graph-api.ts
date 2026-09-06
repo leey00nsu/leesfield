@@ -70,4 +70,10 @@ export async function deleteGenerationGraph(graphId: string) {
     method: "DELETE",
   });
   if (!response.ok) await readPayload(response);
+  else await response.text();
+}
+
+export async function copyGenerationGraph(graphId: string) {
+  const response = await fetch(`/api/generation-graphs/${encodeURIComponent(graphId)}/copy`, { method: "POST" });
+  return (await readPayload<{ graph: GenerationGraphSnapshotDto }>(response)).graph;
 }

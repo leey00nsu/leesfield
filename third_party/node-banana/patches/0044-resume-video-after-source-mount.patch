@@ -1,0 +1,59 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -478,3 +478,1 @@
+-export function useVideoAutoplay(..._args: any[]) {
+-  return useRef<HTMLVideoElement | null>(null);
+-}
++export { useVideoAutoplay } from "../hooks/useVideoAutoplay";
+--- a/src/hooks/useVideoAutoplay.ts
++++ b/src/hooks/useVideoAutoplay.ts
+@@ -1,4 +1,4 @@
+-import { useRef, useEffect } from "react";
++import { useRef, useEffect, useState, useCallback } from "react";
+-import { useWorkflowStore } from "@/store/workflowStore";
++import { useWorkflowStore } from "../leesfield/upstream-node-host";
+ 
+ /**
+@@ -19,13 +19,13 @@
+ export function useVideoAutoplay(
+   nodeId: string,
+   selected: boolean | undefined
+-): React.RefObject<HTMLVideoElement | null> {
+-  const videoRef = useRef<HTMLVideoElement | null>(null);
++): React.RefCallback<HTMLVideoElement> {
++  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
++  const videoRef = useCallback((element: HTMLVideoElement | null) => setVideo(element), []);
+   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const isHovered = useWorkflowStore((s) => s.hoveredNodeId === nodeId);
+ 
+   useEffect(() => {
+-    const video = videoRef.current;
+     if (!video) return;
+ 
+     // Clear any pending hover timeout
+@@ -36,6 +37,7 @@
+       }
+     };
+ 
++    const applyPlayback = () => {
+     if (selected || isHovered) {
+       // Play the video
+       if (selected) {
+@@ -64,10 +65,16 @@
+       // Note: Do NOT reset currentTime - resume from current position
+     }
++    };
++    // A conditional/keyed video mount or deferred blob source can occur after
++    // hover/selection. Resume the same policy when that source has decoded.
++    video.addEventListener("loadeddata", applyPlayback);
++    applyPlayback();
+ 
+     // Cleanup on unmount or dependency change
+     return () => {
+       clearHoverTimeout();
++      video.removeEventListener("loadeddata", applyPlayback);
+     };
+-  }, [isHovered, selected, nodeId]);
++  }, [video, isHovered, selected, nodeId]);
+ 
+   return videoRef;

@@ -1,15 +1,13 @@
-import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import NodeStudioPage from "./page";
 
-vi.mock("@/screens/node-studio/ui/node-studio-screen", () => ({
-  NodeStudioScreen: () => <div>node studio screen</div>,
-}));
+const redirect = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ redirect }));
 
 describe("NodeStudioPage", () => {
-  it("Node Studio 화면을 protected route에 조립한다", () => {
-    render(<NodeStudioPage />);
-    expect(screen.getByText("node studio screen")).toBeInTheDocument();
+  it("redirects to the Spaces list without creating a graph", () => {
+    NodeStudioPage();
+    expect(redirect).toHaveBeenCalledWith("/spaces");
   });
 });

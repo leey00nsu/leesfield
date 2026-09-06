@@ -1,0 +1,68 @@
+--- a/src/components/Header.tsx
++++ b/src/components/Header.tsx
+@@ -35,7 +35,8 @@
+ };
+ 
+ 
+-export function Header({ title, brand, commentsNavigation, hasUnsavedChanges = false, saveLabel,
++
++export function Header({ title, brand, commentsNavigation, hasUnsavedChanges = false, saveLabel, onCreateGraph, onDelete, creating, deleting,
+   saving: isSaving = false, writable = true, graphs, activeGraphId, onSelectGraph, onSave,
+   canvasSettings = { panMode: "space", zoomMode: "altScroll", selectionMode: "click" },
+   onCanvasSettingsChange = () => undefined, onTitleChange, ...settingsProps
+@@ -76,7 +77,7 @@
+ 
+   return (<>
+     {settingsOpen && <ProjectSetupModal {...settingsProps} title={title} writable={writable} canvasSettings={canvasSettings} onCanvasSettingsChange={onCanvasSettingsChange} onTitleChange={onTitleChange} onClose={() => setSettingsOpen(false)} />}
+-    {browserOpen && <HostedSpaceBrowser graphs={graphs} activeGraphId={activeGraphId} onSelectGraph={onSelectGraph} onClose={() => setBrowserOpen(false)} />}
++    {browserOpen && <HostedSpaceBrowser graphs={graphs} activeGraphId={activeGraphId} onSelectGraph={onSelectGraph} onCreateGraph={onCreateGraph} onDelete={onDelete} creating={creating} deleting={deleting} onClose={() => setBrowserOpen(false)} />}
+       <header data-node-banana-component="Header" className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0">
+         <div className="flex items-center gap-2">
+           {brand ?? <span className="text-2xl font-semibold text-neutral-100 tracking-tight">Spaces</span>}
+--- a/src/leesfield/hosted-space-browser.tsx
++++ b/src/leesfield/hosted-space-browser.tsx
+@@ -1,14 +1,20 @@
+ "use client";
+ 
+-import { useEffect, useRef } from "react";
++import { useEffect, useRef, useState } from "react";
+ 
+ // Leesfield platform selector; it is not the upstream filesystem browser.
+-export function HostedSpaceBrowser({ graphs, activeGraphId, onSelectGraph, onClose }: {
++export function HostedSpaceBrowser({ graphs, activeGraphId, onSelectGraph, onClose, onCreateGraph, onDelete, creating, deleting }: {
+   graphs: readonly { id: string; title: string }[];
+   activeGraphId: string;
+   onSelectGraph: (id: string) => void;
+   onClose: () => void;
++  onCreateGraph?: (title: string) => void;
++  onDelete?: () => void;
++  creating?: boolean;
++  deleting?: boolean;
+ }) {
++  const [creatingDraft, setCreatingDraft] = useState(false);
++  const [title, setTitle] = useState("Untitled Space");
+   const dialogRef = useRef<HTMLElement>(null);
+   const closeRef = useRef(onClose);
+   closeRef.current = onClose;
+@@ -29,11 +35,19 @@
+     return () => { window.removeEventListener("keydown", key, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
+   }, []);
+   return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+-    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="Spaces" className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto p-8 border border-neutral-700">
+-      <h2 className="text-xl font-medium text-neutral-100 mb-5">Spaces</h2>
++    <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={creatingDraft ? "New space" : "Spaces"} className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto p-8 border border-neutral-700">
++      <h2 className="text-xl font-medium text-neutral-100 mb-5">{creatingDraft ? "New space" : "Spaces"}</h2>
++      {creatingDraft ? <form onSubmit={(event) => { event.preventDefault(); if (!creating && title.trim()) { onCreateGraph?.(title.trim()); onClose(); } }}>
++        <label>Space name<input autoFocus aria-label="Space name" maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
++        <button type="button" onClick={() => setCreatingDraft(false)}>Cancel</button>
++        <button type="submit" disabled={creating || !title.trim()}>Create</button>
++      </form> : <>
+       {graphs.length === 0 && <p>No spaces available.</p>}
+       {graphs.map((graph) => <button className="block w-full p-3 text-left rounded hover:bg-neutral-700" key={graph.id} type="button" aria-current={graph.id === activeGraphId ? "page" : undefined} onClick={() => { onSelectGraph(graph.id); onClose(); }}>{graph.title}</button>)}
++      {onCreateGraph && <button type="button" disabled={creating} onClick={() => setCreatingDraft(true)}>New space</button>}
++      {onDelete && <button type="button" disabled={deleting} onClick={() => { onClose(); onDelete(); }}>Delete space</button>}
+       <button type="button" onClick={onClose}>Close</button>
++      </>}
+     </section>
+   </div>;
+ }

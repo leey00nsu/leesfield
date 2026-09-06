@@ -1,8 +1,10 @@
 export type ImageGenerationStatus =
   | "pending"
   | "processing"
+  | "uploading"
   | "completed"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 export interface ImageGenerationResult {
   images: Array<{

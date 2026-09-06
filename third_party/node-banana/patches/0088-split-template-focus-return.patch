@@ -1,0 +1,41 @@
+--- a/src/components/splitgrid/SplitGridTemplateModal.tsx
++++ b/src/components/splitgrid/SplitGridTemplateModal.tsx
+@@ -350,8 +350,17 @@
+   const baseNodeId = initialTemplate.baseNodeId;
+   const { fitView, screenToFlowPosition } = useReactFlow();
+ 
++  const refitFrame = useRef<number | null>(null);
++  useEffect(() => {
++    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++    return () => {
++      if (refitFrame.current !== null) cancelAnimationFrame(refitFrame.current);
++      if (previous?.isConnected) previous.focus(); else document.querySelector<HTMLElement>('[data-node-banana-component="WorkflowCanvas"]')?.focus();
++    };
++  }, []);
+   const refitSoon = useCallback(() => {
+-    requestAnimationFrame(() => {
++    if (refitFrame.current !== null) cancelAnimationFrame(refitFrame.current);
++    refitFrame.current = requestAnimationFrame(() => {
+       fitView({ padding: 0.25, maxZoom: 1, duration: 200 });
+     });
+   }, [fitView]);
+@@ -500,7 +509,9 @@
+   useEffect(() => {
+     const handleKeyDown = (event: KeyboardEvent) => {
+       if (event.key !== "Escape") return;
+-      if (edgeToolbar) {
++      if (replaceMessage) {
++        setReplaceMessage(null);
++      } else if (edgeToolbar) {
+         setEdgeToolbar(null);
+       } else if (dropMenu) {
+         setDropMenu(null);
+@@ -512,7 +523,7 @@
+     };
+     window.addEventListener("keydown", handleKeyDown);
+     return () => window.removeEventListener("keydown", handleKeyDown);
+-  }, [edgeToolbar, dropMenu, showDiscardConfirm, requestClose]);
++  }, [edgeToolbar, dropMenu, showDiscardConfirm, replaceMessage, requestClose]);
+ 
+   const setOverrides = useCallback(
+     (id: string, overrides: Record<string, unknown>) => {

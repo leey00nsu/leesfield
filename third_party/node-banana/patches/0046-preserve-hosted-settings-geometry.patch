@@ -1,0 +1,102 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -182,1 +182,2 @@
+-  nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
++  nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
++  nodeGeometry: Record<string, { width: number; height: number; settingsPanelHeight: number }>;
+@@ -208,1 +208,2 @@
+-    nodeLayout: {},
++    nodeLayout: {},
++    nodeGeometry: {},
+@@ -532,3 +532,20 @@
+-      const current = graph.nodes.find((node) => node.id === change.id);
+-      if (!current || dragStartRef.current) continue;
+-      if (
++      const current = graph.nodes.find((node) => node.id === change.id);
++      if (!current || dragStartRef.current) continue;
++      // Upstream BaseNode uses setNodes for resize/settings layout. Retain only
++      // this transient geometry, never replace host data or selection wholesale.
++      const width = change.item.width ?? change.item.style?.width;
++      const height = change.item.height ?? change.item.style?.height;
++      if (typeof width === "number" && Number.isFinite(width) && width > 0
++        && typeof height === "number" && Number.isFinite(height) && height > 0) {
++        const previous = store.getState().nodeGeometry[change.id];
++        const panel = change.item.data?._settingsPanelHeight;
++        const settingsPanelHeight = typeof panel === "number" && Number.isFinite(panel)
++          ? Math.max(0, panel) : previous?.settingsPanelHeight ?? 0;
++        if (previous?.width !== width || previous?.height !== height
++          || previous?.settingsPanelHeight !== settingsPanelHeight) {
++          store.setState((state) => ({
++            nodeGeometry: { ...state.nodeGeometry, [change.id]: { width, height, settingsPanelHeight } },
++          }));
++        }
++      }
++      if (
+@@ -792,2 +792,8 @@
+-      ...interaction.nodeLayout[node.id],
+-      position: interaction.nodePositions[node.id] ?? node.position,
++      ...interaction.nodeLayout[node.id],
++      ...(interaction.nodeGeometry[node.id] ? {
++        width: interaction.nodeGeometry[node.id].width,
++        height: interaction.nodeGeometry[node.id].height,
++        style: { ...node.style, width: interaction.nodeGeometry[node.id].width, height: interaction.nodeGeometry[node.id].height },
++        data: { ...node.data, _settingsPanelHeight: interaction.nodeGeometry[node.id].settingsPanelHeight },
++      } : {}),
++      position: interaction.nodePositions[node.id] ?? node.position,
+@@ -796,1 +796,1 @@
+-  }, [graph.nodes, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
++  }, [graph.nodes, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -463,1 +463,2 @@
+-      fullBleed
++      fullBleed
++      contentClassName="flex flex-col flex-1 min-h-0 relative"
+@@ -650,1 +650,1 @@
+-        className="relative w-full h-full min-h-0 overflow-hidden rounded-lg"
++        className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg"
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -325,1 +325,2 @@
+-      fullBleed
++      fullBleed
++      contentClassName="flex flex-col flex-1 min-h-0 relative"
+@@ -573,1 +573,1 @@
+-      <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg">
++      <div className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg">
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -429,1 +429,1 @@
+-    <label className="nodrag nopan block border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
++    <label className="nodrag nopan block shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
+--- a/src/components/nodes/BaseNode.tsx
++++ b/src/components/nodes/BaseNode.tsx
+@@ -365,1 +365,1 @@
+-        <div ref={settingsPanelRef}>
++        <div ref={settingsPanelRef} className="shrink-0">
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -495,3 +495,20 @@
+-      if (changed) store.setState({ nodeLayout });
+-    }
+-    const positions = changes
++      if (changed) store.setState({ nodeLayout });
++      // NodeResizer writes its own node through dimension changes (its onResize
++      // callback only sizes the other selected nodes). Keep explicit resize
++      // attributes in sync; passive ResizeObserver measurements never write here.
++      for (const change of dimensions) {
++        if (!change.setAttributes || !change.dimensions) continue;
++        const previous = store.getState().nodeGeometry[change.id];
++        if (!previous) continue;
++        const width = change.setAttributes === true || change.setAttributes === "width"
++          ? change.dimensions.width : previous.width;
++        const height = change.setAttributes === true || change.setAttributes === "height"
++          ? change.dimensions.height : previous.height;
++        if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0
++          || (previous.width === width && previous.height === height)) continue;
++        store.setState((state) => ({
++          nodeGeometry: { ...state.nodeGeometry, [change.id]: { ...previous, width, height } },
++        }));
++      }
++    }
++    const positions = changes

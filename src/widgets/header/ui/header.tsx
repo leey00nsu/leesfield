@@ -38,7 +38,7 @@ type HeaderProps = {
 
 const headerIcons: Record<string, typeof ImageIcon> = {
   "/image": ImageIcon,
-  "/node-studio": Workflow,
+  "/spaces": Workflow,
   "/video": Clapperboard,
   "/audio": AudioLines,
   "/history": History,
@@ -58,19 +58,19 @@ export function Header({
   const publicNav = dashboardNavigation.filter((item) =>
     [
       "/image",
-      "/node-studio",
+      "/spaces",
       "/video",
       "/audio",
       "/history",
       "/model",
       "/monitoring",
       "/api-docs",
-    ].includes(item.href) && (item.href !== "/node-studio" || isAuthenticated),
+    ].includes(item.href) && (item.href !== "/spaces" || isAuthenticated),
   );
   const dashboardPrimaryNav = dashboardNavigation.filter((item) =>
     [
       "/image",
-      "/node-studio",
+      "/spaces",
       "/video",
       "/audio",
       "/history",
@@ -109,7 +109,7 @@ export function Header({
                 size="md"
                 className="h-11 rounded-full px-4 text-sm normal-case tracking-normal lg:hidden"
               >
-                <Link href="/node-studio" aria-label={tNav("nodeStudio")}>
+                <Link href="/spaces" aria-label={tNav("nodeStudio")}>
                   <Workflow className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{tNav("nodeStudio")}</span>
                 </Link>

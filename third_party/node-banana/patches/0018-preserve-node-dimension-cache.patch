@@ -1,0 +1,29 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -372,20 +372,25 @@
+     }
+     const dimensions = changes.filter((change) => change.type === "dimensions");
+     if (dimensions.length) {
+-      const measuredNodes = applyNodeChanges(dimensions, graph.nodes);
+       const current = store.getState().nodeLayout;
++      const dimensionIds = new Set(dimensions.map((change) => change.id));
++      const measuredNodes = applyNodeChanges(
++        dimensions,
++        graph.nodes.map((node) => ({ ...node, ...current[node.id] })),
++      );
+       const nodeLayout = { ...current };
+       let changed = false;
+       for (const node of measuredNodes) {
++        if (!dimensionIds.has(node.id)) continue;
+         const next = { width: node.width, height: node.height, measured: node.measured };
+         const previous = current[node.id];
+         if (
+           previous?.width !== next.width ||
+           previous?.height !== next.height ||
+           previous?.measured?.width !== next.measured?.width ||
+           previous?.measured?.height !== next.measured?.height
+         ) {
+           nodeLayout[node.id] = next;
+           changed = true;
+         }
+       }

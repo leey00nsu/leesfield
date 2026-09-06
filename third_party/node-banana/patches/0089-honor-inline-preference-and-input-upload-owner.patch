@@ -1,0 +1,61 @@
+--- a/src/leesfield/upstream-node-components.tsx
++++ b/src/leesfield/upstream-node-components.tsx
+@@ -4,6 +4,7 @@
+   useCallback,
+   useEffect,
+   useMemo,
++  useRef,
+   useState,
+   type ComponentType,
+   type ReactNode,
+@@ -839,11 +840,14 @@
+   onCloseAnnotation,
+   ...nodeProps
+ }: NodeBananaUpstreamNodeProps) {
++  const uploadEpoch = useRef(0);
++  useEffect(() => () => { uploadEpoch.current += 1; }, []);
+   const runtimeData = data as HostNodeData;
+   const kind = String(runtimeData.canonicalKind ?? "");
+   const Component = nodeBananaUpstreamComponents[kind as NodeBananaUpstreamCanonicalKind] as ComponentType<any> | undefined;
+   const commit = onUpdateNodeData ?? host?.onUpdateNodeData;
+   const update = useCallback((nodeId: string, patch: HostNodeData) => {
++    const epoch = ++uploadEpoch.current;
+     const mediaType = dataUrlMediaType(kind);
+     const mediaField = dataUrlField(kind);
+     const mediaValue = mediaField && typeof patch[mediaField] === "string" ? patch[mediaField] as string : null;
+@@ -854,14 +858,18 @@
+         dataUrl: mediaValue,
+         filename: typeof patch.filename === "string" ? patch.filename : null,
+         mimeType: mediaValue.slice(5, mediaValue.indexOf(";")) || null,
+-      }).then(({ assetId }) => {
++      }).then(({ assetId }) => {
++        // Only the current mounted input may publish through the Canvas writer.
++        if (epoch !== uploadEpoch.current) return;
+         commit?.(nodeId, {
+           __mergeCanonicalConfig: {
+             assetId,
+             ...(typeof patch.filename === "string" ? { filename: patch.filename } : {}),
+           },
+         });
+-      }).catch((error) => host.onHostError?.(error instanceof Error ? error : new Error(String(error))));
++      }).catch((error) => {
++        if (error?.name !== "AbortError" && epoch === uploadEpoch.current) host.onHostError?.(error instanceof Error ? error : new Error(String(error)));
++      });
+       return;
+     }
+     if (kind === "edit.image.annotation" && typeof patch.outputImage === "string" && patch.outputImage.startsWith("data:") && host?.onAnnotationOutput) {
+@@ -903,13 +911,7 @@
+   const adaptedNodes = useMemo(() => adaptedHostNodes(host), [host]);
+   const hostValue: NodeBananaUpstreamHostValue = useMemo(() => ({
+     ...host,
+-    // Keep the actual upstream generation settings panel available in the
+-    // hosted node body. Other upstream presenters retain the host's default
+-    // (collapsed/legacy) layout.
+-    inlineParametersEnabled: host?.inlineParametersEnabled === true
+-      || kind === "generate.image"
+-      || kind === "generate.audio"
+-      || kind === "generate.video",
++    inlineParametersEnabled: host?.inlineParametersEnabled === true,
+     nodes: adaptedNodes,
+     onUpdateNodeData: update,
+     onRegenerateNode: regenerate,

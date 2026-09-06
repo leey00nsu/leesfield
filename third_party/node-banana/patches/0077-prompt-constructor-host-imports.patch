@@ -1,0 +1,162 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -56,6 +56,8 @@
+ export type VideoInputNodeData = HostNodeData;
+ export type AnnotationNodeData = HostNodeData;
+ export type PromptNodeData = HostNodeData;
++export type PromptConstructorNodeData = HostNodeData & { template: string; outputText: string | null };
++export type AvailableVariable = { name: string; value: string; nodeId: string };
+ export type NanoBananaNodeData = HostNodeData;
+ export type GenerateVideoNodeData = HostNodeData;
+ export type GenerateAudioNodeData = HostNodeData;
+--- a/src/components/nodes/PromptConstructorNode.tsx
++++ b/src/components/nodes/PromptConstructorNode.tsx
+@@ -3,16 +3,16 @@
+ import { useCallback, useState, useEffect, useMemo, useRef, ReactNode } from "react";
+ import { Handle, Position, NodeProps, Node } from "@xyflow/react";
+ import { BaseNode } from "./BaseNode";
+-import { usePromptAutocomplete } from "@/hooks/usePromptAutocomplete";
+-import { useWorkflowStore } from "@/store/workflowStore";
+-import { PromptConstructorNodeData, PromptNodeData, LLMGenerateNodeData, AvailableVariable } from "@/types";
+-import { resolveTextSourcesThroughRouters } from "@/store/utils/connectedInputs";
+-import { parseVarTags } from "@/utils/parseVarTags";
++import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
++import { useWorkflowStore } from "../../leesfield/upstream-node-host";
++import { PromptConstructorNodeData, PromptNodeData, AvailableVariable } from "../../leesfield/upstream-node-host";
++import { parseVarTags } from "../../utils/parseVarTags";
+ 
+ type PromptConstructorNodeType = Node<PromptConstructorNodeData, "promptConstructor">;
+ 
+ export function PromptConstructorNode({ id, data, selected }: NodeProps<PromptConstructorNodeType>) {
+   const nodeData = data;
++  const writable = useWorkflowStore((state) => state.writable);
+   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+   const edges = useWorkflowStore((state) => state.edges);
+   const nodes = useWorkflowStore((state) => state.nodes);
+@@ -36,7 +36,7 @@
+       .filter((e) => e.target === id && e.targetHandle === "text" && !e.data?.hasPause)
+       .map((e) => nodes.find((n) => n.id === e.source))
+       .filter((n): n is typeof nodes[0] => n !== undefined);
+-    const connectedTextNodes = resolveTextSourcesThroughRouters(directTextNodes, nodes, edges);
++    const connectedTextNodes = directTextNodes;
+ 
+     const vars: AvailableVariable[] = [];
+     const usedNames = new Set<string>();
+@@ -61,8 +61,7 @@
+       let text: string | null = null;
+       if (node.type === "prompt") {
+         text = (node.data as PromptNodeData).prompt || null;
+-      } else if (node.type === "llmGenerate") {
+-        text = (node.data as LLMGenerateNodeData).outputText || null;
++
+       } else if (node.type === "promptConstructor") {
+         const pcData = node.data as PromptConstructorNodeData;
+         text = pcData.outputText ?? pcData.template ?? null;
+@@ -101,7 +100,7 @@
+     textareaRef,
+     localTemplate,
+     setLocalTemplate,
+-    onTemplateCommit: (newTemplate) => updateNodeData(id, { template: newTemplate }),
++    onTemplateCommit: (newTemplate) => { if (writable) updateNodeData(id, { template: newTemplate }); },
+   });
+ 
+   // Compute unresolved variables client-side
+@@ -177,7 +176,7 @@
+ 
+   const handleBlur = useCallback(() => {
+     setIsEditing(false);
+-    if (localTemplate !== nodeData.template) {
++    if (writable && localTemplate !== nodeData.template) {
+       updateNodeData(id, { template: localTemplate });
+     }
+     // Close autocomplete on blur
+@@ -214,6 +213,7 @@
+           )}
+           <textarea
+             ref={textareaRef}
++            readOnly={!writable}
+             value={localTemplate}
+             onChange={handleChange}
+             onFocus={handleFocus}
+--- a/src/hooks/usePromptAutocomplete.ts
++++ b/src/hooks/usePromptAutocomplete.ts
+@@ -1,5 +1,5 @@
+-import { useState, useCallback, useMemo, RefObject } from "react";
+-import { AvailableVariable } from "@/types";
++import { useState, useCallback, useMemo, useRef, useEffect, RefObject } from "react";
++import { AvailableVariable } from "../leesfield/upstream-node-host";
+ 
+ interface UsePromptAutocompleteOptions {
+   availableVariables: AvailableVariable[];
+@@ -32,6 +32,8 @@
+   const [autocompleteFilter, setAutocompleteFilter] = useState("");
+   const [selectedAutocompleteIndex, setSelectedAutocompleteIndex] = useState(0);
+ 
++  const cursorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
++  useEffect(() => () => { if (cursorTimer.current) clearTimeout(cursorTimer.current); }, []);
+   const filteredAutocompleteVars = useMemo(() => {
+     return availableVariables.filter((v) =>
+       v.name.toLowerCase().includes(autocompleteFilter.toLowerCase())
+@@ -57,7 +59,8 @@
+       setShowAutocomplete(false);
+ 
+       const newCursorPos = atPosition + varName.length + 1;
+-      setTimeout(() => {
++      if (cursorTimer.current) clearTimeout(cursorTimer.current);
++      cursorTimer.current = setTimeout(() => {
+         if (textareaRef.current) {
+           textareaRef.current.focus();
+           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+--- a/src/components/modals/PromptConstructorEditorModal.tsx
++++ b/src/components/modals/PromptConstructorEditorModal.tsx
+@@ -1,7 +1,7 @@
+ import { createPortal } from "react-dom";
+ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+-import { AvailableVariable } from "@/types";
+-import { usePromptAutocomplete } from "@/hooks/usePromptAutocomplete";
++import { AvailableVariable } from "../../leesfield/upstream-node-host";
++import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+ 
+ const DEFAULT_FONT_SIZE = 14;
+ const FONT_SIZE_OPTIONS = [10, 12, 14, 16, 18, 20, 24];
+@@ -157,10 +157,13 @@
+     [handleDismissConfirmation]
+   );
+ 
++  const cursorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
++  useEffect(() => () => { if (cursorTimer.current) clearTimeout(cursorTimer.current); }, [isOpen]);
++
+   // Insert @varName at cursor when clicking a variable pill
+   const handleVariablePillClick = useCallback(
+     (varName: string) => {
+-      if (!textareaRef.current) return;
++      if (readOnly || !textareaRef.current) return;
+       const ta = textareaRef.current;
+       const start = ta.selectionStart;
+       const end = ta.selectionEnd;
+@@ -169,12 +172,14 @@
+       setTemplate(newTemplate);
+ 
+       const newCursorPos = start + insertion.length;
+-      setTimeout(() => {
++      if (cursorTimer.current) clearTimeout(cursorTimer.current);
++      cursorTimer.current = setTimeout(() => {
++        if (!ta.isConnected) return;
+         ta.focus();
+         ta.setSelectionRange(newCursorPos, newCursorPos);
+       }, 0);
+     },
+-    [template]
++    [template, readOnly]
+   );
+ 
+   if (!isOpen) return null;
+@@ -311,7 +316,7 @@
+             className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg"
+             onClick={handleConfirmationBackdropClick}
+           >
+-            <div className="relative bg-neutral-800 border border-neutral-600 rounded-lg p-6 mx-4 max-w-sm shadow-xl">
++            <div ref={confirmationRef} role="dialog" aria-modal="true" aria-label="Unsaved changes" className="relative bg-neutral-800 border border-neutral-600 rounded-lg p-6 mx-4 max-w-sm shadow-xl">
+               <button
+                 onClick={handleDismissConfirmation}
+                 className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-200 transition-colors focus:outline-none"

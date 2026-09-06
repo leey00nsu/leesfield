@@ -53,38 +53,20 @@ export function ImageNodeInputReadinessView({
 
   return (
     <section aria-label={t("input.title")} aria-describedby="node-input-summary">
-      <div className="grid grid-cols-2 gap-2 text-[11px]">
-        {(["primary", "reference"] as const).map((kind) => {
-          const item = readiness[kind];
-          return (
-            <div
-              key={kind}
-              className={cn(
-                "rounded-xl border px-3 py-2.5",
-                kind === "primary"
-                  ? "border-primary/20 bg-primary/5"
-                  : "border-white/12 bg-white/[0.035]",
-              )}
-            >
-              <span className="block text-white/45">{t(`edge.${kind}`)}</span>
-              <span
-                className={cn(
-                  "mt-0.5 block font-semibold",
-                  item.missingCount > 0
-                    ? "text-amber-100"
-                    : kind === "primary"
-                      ? "text-primary"
-                      : "text-white/70",
-                )}
-              >
-                {readinessText(t, item)}
-              </span>
-              <span className="mt-1 block text-[10px] text-white/35">
-                {t("input.connected", { count: item.connectedCount })}
-              </span>
-            </div>
-          );
-        })}
+      <div className="text-[11px]">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+          <span className="block text-white/45">Image</span>
+          <span className={cn("mt-0.5 block font-semibold", readiness.missingCount > 0 ? "text-amber-100" : "text-primary") }>
+            {readinessText(t, {
+              connectedCount: readiness.connectedCount,
+              readyCount: readiness.readyCount,
+              missingCount: readiness.missingCount,
+            })}
+          </span>
+          <span className="mt-1 block text-[10px] text-white/35">
+            {t("input.connected", { count: readiness.connectedCount })}
+          </span>
+        </div>
       </div>
       <p id="node-input-summary" className="sr-only" aria-live="polite">
         {description}

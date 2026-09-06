@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { GenerationUpdatedEvent } from "@/shared/generation-events/generation-event-contract";
+import type { NodeExecutionUpdatedEvent } from "@/shared/generation-events/generation-event-contract";
 import {
   GenerationEventBroker,
   type GenerationEventListenerClient,
@@ -17,15 +17,30 @@ class FakeClient
   end = vi.fn(async () => undefined);
 }
 
-const event = (graphId: string): GenerationUpdatedEvent => ({
-  version: 1,
-  type: "generation.updated",
+const event = (graphId: string): NodeExecutionUpdatedEvent => ({
+  version: 2,
+  type: "node-execution.updated",
+  executionKind: "generation",
+  mediaType: "image",
   graphId,
   graphNodeId: `${graphId}-node`,
-  requestId: `${graphId}-request`,
+  executionId: `${graphId}-request`,
   status: "processing",
   progress: 10,
   updatedAt: "2026-08-24T12:00:00.000Z",
+});
+
+const executionEvent = (graphId: string): NodeExecutionUpdatedEvent => ({
+  version: 2,
+  type: "node-execution.updated",
+  executionKind: "media_operation",
+  mediaType: "audio",
+  graphId,
+  graphNodeId: `${graphId}-node`,
+  executionId: `${graphId}-operation`,
+  status: "completed",
+  progress: 100,
+  updatedAt: "2026-09-04T00:00:00.000Z",
 });
 
 async function flush() {
@@ -51,18 +66,25 @@ describe("GenerationEventBroker", () => {
 
     expect(createClient).toHaveBeenCalledTimes(1);
     expect(client.query).toHaveBeenCalledWith(
-      "LISTEN leesfield_generation_events_v1",
+      "LISTEN leesfield_node_execution_events_v2",
     );
 
     client.emit("notification", {
-      channel: "leesfield_generation_events_v1",
+      channel: "leesfield_node_execution_events_v2",
       payload: JSON.stringify(event("graph-1")),
     });
     expect(graphOne).toHaveBeenCalledWith(event("graph-1"));
     expect(graphTwo).not.toHaveBeenCalled();
 
     client.emit("notification", {
-      channel: "leesfield_generation_events_v1",
+      channel: "leesfield_node_execution_events_v2",
+      payload: JSON.stringify(executionEvent("graph-2")),
+    });
+    expect(graphTwo).toHaveBeenCalledWith(executionEvent("graph-2"));
+    expect(graphOne).toHaveBeenCalledTimes(1);
+
+    client.emit("notification", {
+      channel: "leesfield_node_execution_events_v2",
       payload: "malformed",
     });
     expect(graphOne).toHaveBeenCalledTimes(1);

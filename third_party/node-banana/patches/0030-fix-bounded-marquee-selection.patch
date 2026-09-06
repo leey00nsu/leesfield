@@ -1,0 +1,615 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -2,8 +2,8 @@
+ 
+ import {
+   Component,
++  Fragment,
+   useCallback,
+-  useEffect,
+   useMemo,
+   useRef,
+   useState,
+@@ -24,6 +24,7 @@
+   MiniMap,
+   Panel,
+   ReactFlow,
++  ViewportPortal,
+   type Connection,
+   type Edge,
+   type EdgeChange,
+@@ -40,6 +41,22 @@
+ } from "@xyflow/react";
+ import { createStore, type StoreApi } from "zustand/vanilla";
+ import { useStore } from "zustand";
++import {
++  FloatingActionBar as UpstreamFloatingActionBar,
++  type FloatingActionBarHostedItem,
++} from "../components/FloatingActionBar";
++import {
++  ModelSearchDialog as UpstreamModelSearchDialog,
++  type ModelSearchDialogHostedProps,
++} from "../components/modals/ModelSearchDialog";
++import {
++  ConnectionDropMenu as UpstreamConnectionDropMenu,
++  type ConnectionDropMenuHostedOption,
++} from "../components/ConnectionDropMenu";
++import {
++  NodeSearchMenu as UpstreamNodeSearchMenu,
++  type NodeSearchMenuHostedOption,
++} from "../components/NodeSearchMenu";
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+ export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
+@@ -130,6 +147,8 @@
+   createId: () => string;
+   isValidConnection?: IsValidConnection<NodeBananaRuntimeEdge>;
+   isNodeRunnable?: (nodeId: string) => boolean;
++  onRunNode?: (nodeId: string) => void | Promise<unknown>;
++  renderNodeHeader?: (node: NodeBananaRuntimeNode) => ReactNode;
+   filterPaletteItems?: (
+     items: readonly NodeBananaRuntimePaletteItem[],
+     pendingConnection: NodeBananaPendingConnection | null,
+@@ -199,13 +218,6 @@
+ function isFormTarget(target: EventTarget | null) {
+   return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+ }
+-
+-const categoryForPaletteItem = (item: NodeBananaRuntimePaletteItem) => item.category ?? (
+-  item.kind.startsWith("input.") ? (item.kind === "input.prompt" ? "Text" : "Input")
+-    : item.kind.startsWith("generate.") ? "Generate"
+-      : item.kind.startsWith("output.") ? "Output"
+-        : "Process"
+-);
+ 
+ function pointerPosition(event: MouseEvent | TouchEvent): XYPosition {
+   if ("touches" in event) {
+@@ -273,9 +285,22 @@
+   );
+ }
+ 
+-// Hosted from upstream src/components/FloatingActionBar.tsx; Leesfield only injects
+-// the supported node inventory and selected-node command.
+-function FloatingActionBar({
++// These adapters only translate Leesfield's canonical runtime contracts into
++// the actual vendored components' hosted props. UI/state remains upstream.
++function hostedPosition(root: HTMLDivElement | null, screen: XYPosition): XYPosition {
++  const rect = root?.getBoundingClientRect();
++  return { x: screen.x + (rect?.left ?? 0), y: screen.y + (rect?.top ?? 0) };
++}
++
++function hostedMenuOption(item: NodeBananaRuntimePaletteItem): NodeSearchMenuHostedOption {
++  return { type: item.kind, label: item.label, description: item.description, value: item };
++}
++
++function hostedConnectionOption(item: NodeBananaRuntimePaletteItem): ConnectionDropMenuHostedOption {
++  return { type: item.kind, label: item.label, value: item };
++}
++
++function HostedFloatingActionBar({
+   labels,
+   writable,
+   items,
+@@ -298,83 +323,25 @@
+   edgeStyle: "angular" | "curved";
+   onToggleEdgeStyle: () => void;
+ }) {
+-  const [generateOpen, setGenerateOpen] = useState(false);
+-  const [allNodesOpen, setAllNodesOpen] = useState(false);
+-  const buttonClass = "node-banana-runtime__action";
+-  const find = (kind: string) => items.find((item) => item.kind === kind);
+-  const add = (kind: string) => {
+-    const item = find(kind);
+-    if (item) onAddItem(item);
+-    setGenerateOpen(false);
+-    setAllNodesOpen(false);
+-  };
+-
+-  const categories = ["Input", "Text", "Generate", "Process", "Output"] as const;
+-
+   return (
+-    <div className="node-banana-runtime__floating-bar" role="toolbar" aria-label={labels.application} data-node-banana-component="FloatingActionBar">
+-      <button className={buttonClass} type="button" onClick={() => add("input.image")} disabled={!writable || !find("input.image")}>Image</button>
+-      <button className={buttonClass} type="button" onClick={() => add("input.video")} disabled={!writable || !find("input.video")}>Video</button>
+-      <button className={buttonClass} type="button" onClick={() => add("input.prompt")} disabled={!writable || !find("input.prompt")}>Prompt</button>
+-      <div className="node-banana-runtime__popover-anchor">
+-        <button className={buttonClass} type="button" onClick={() => setGenerateOpen((open) => !open)} disabled={!writable} aria-expanded={generateOpen}>
+-          Generate
+-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7" /></svg>
+-        </button>
+-        {generateOpen ? (
+-          <div className="node-banana-runtime__quick-menu">
+-            {items.filter((item) => item.kind.startsWith("generate.")).map((item) => (
+-              <button key={item.kind} type="button" onClick={() => add(item.kind)}>{item.label}</button>
+-            ))}
+-          </div>
+-        ) : null}
+-      </div>
+-      <button className={buttonClass} type="button" onClick={() => add("output.single")} disabled={!writable || !find("output.single")}>Output</button>
+-      <div className="node-banana-runtime__popover-anchor">
+-        <button className={buttonClass} type="button" onClick={() => setAllNodesOpen((open) => !open)} disabled={!writable} aria-expanded={allNodesOpen}>
+-          All nodes
+-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7" /></svg>
+-        </button>
+-        {allNodesOpen ? (
+-          <div className="node-banana-runtime__all-nodes-menu" role="menu" aria-label="All nodes" data-node-banana-component="AllNodesMenu">
+-            {categories.map((category, categoryIndex) => {
+-              const categoryItems = items.filter((item) => categoryForPaletteItem(item) === category);
+-              if (!categoryItems.length) return null;
+-              return (
+-                <section key={category}>
+-                  <h3 className={categoryIndex > 0 ? "node-banana-runtime__section-heading--divided" : undefined}>{category}</h3>
+-                  {categoryItems.map((item) => <button key={item.kind} type="button" role="menuitem" onClick={() => add(item.kind)}>{item.label}</button>)}
+-                </section>
+-              );
+-            })}
+-          </div>
+-        ) : null}
+-      </div>
+-      <span className="node-banana-runtime__separator" aria-hidden="true" />
+-      <button className={buttonClass} type="button" onClick={onBrowseModels}>All models</button>
+-      <span className="node-banana-runtime__separator" aria-hidden="true" />
+-      <button className="node-banana-runtime__icon-action" type="button" onClick={onToggleEdgeStyle} aria-label={"Switch to " + (edgeStyle === "angular" ? "curved" : "angular") + " connectors"}>
+-        {edgeStyle === "angular" ? (
+-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h4l4-8 4 8h4" /></svg>
+-        ) : (
+-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12c0 0 4-8 8-8s8 8 8 8" /></svg>
+-        )}
+-      </button>
+-      <span className="node-banana-runtime__separator" aria-hidden="true" />
+-      <div className="node-banana-runtime__run-group">
+-        <button type="button" onClick={onRunSelected} disabled={!writable || selectedNodeCount !== 1 || !runEnabled}>
+-          <svg aria-hidden="true" viewBox="0 0 24 24" className="node-banana-runtime__play"><path d="m8 5 11 7-11 7z" /></svg>
+-          Run
+-        </button>
+-        <button type="button" disabled aria-label="Run options">
+-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" /></svg>
+-        </button>
+-      </div>
+-    </div>
++    <UpstreamFloatingActionBar
++      hosted={{
++        ariaLabel: labels.application,
++        writable,
++        items,
++        selectedNodeCount,
++        runEnabled,
++        onAddItem: (item: FloatingActionBarHostedItem) => onAddItem(item as NodeBananaRuntimePaletteItem),
++        onBrowseModels,
++        onRunSelected,
++        edgeStyle,
++        onToggleEdgeStyle,
++      }}
++    />
+   );
+ }
+ 
+-function ModelBrowserDialog({
++function HostedModelBrowserDialog({
+   open,
+   models,
+   onChoose,
+@@ -385,124 +352,114 @@
+   onChoose: (model: NodeBananaRuntimeModelItem) => void;
+   onClose: () => void;
+ }) {
+-  const [query, setQuery] = useState("");
+-  const [mediaType, setMediaType] = useState<"all" | NodeBananaRuntimeModelItem["mediaType"]>("all");
+-  useEffect(() => {
+-    if (!open) { setQuery(""); setMediaType("all"); }
+-  }, [open]);
+-  useEffect(() => {
+-    if (!open) return;
+-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+-    window.addEventListener("keydown", close);
+-    return () => window.removeEventListener("keydown", close);
+-  }, [onClose, open]);
+-  if (!open) return null;
+-  const normalized = query.trim().toLowerCase();
+-  const visible = models.filter((model) =>
+-    (mediaType === "all" || model.mediaType === mediaType) &&
+-    (!normalized || `${model.label} ${model.provider} ${model.capabilities.join(" ")}`.toLowerCase().includes(normalized)),
++  const modelById = useMemo(() => new Map(models.map((model) => [model.key, model])), [models]);
++  const hostedModels: ModelSearchDialogHostedProps["hostedModels"] = useMemo(
++    () => models.map((model) => ({
++      id: model.key,
++      name: model.label,
++      description: null,
++      provider: model.provider as ModelSearchDialogHostedProps["hostedModels"][number]["provider"],
++      capabilities: model.capabilities as ModelSearchDialogHostedProps["hostedModels"][number]["capabilities"],
++    })),
++    [models],
+   );
+   return (
+-    <div className="node-banana-runtime__modal-backdrop" role="presentation" onMouseDown={onClose}>
+-      <section className="node-banana-runtime__model-dialog nodrag nopan" role="dialog" aria-modal="true" aria-label="All models" data-node-banana-component="ModelSearchDialog" onMouseDown={(event) => event.stopPropagation()}>
+-        <header><div><h2>All models</h2><p>Choose a model to add a generation node</p></div><button type="button" onClick={onClose} aria-label="Close models">×</button></header>
+-        <div className="node-banana-runtime__model-search"><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search models..." aria-label="Search models" /></div>
+-        <div className="node-banana-runtime__model-tabs" role="tablist">
+-          {(["all", "image", "video", "audio"] as const).map((type) => <button key={type} type="button" role="tab" aria-selected={mediaType === type} onClick={() => setMediaType(type)}>{type === "all" ? "All" : type[0].toUpperCase() + type.slice(1)}</button>)}
+-        </div>
+-        <div className="node-banana-runtime__model-list" role="listbox">
+-          {visible.map((model) => (
+-            <button key={model.key} type="button" role="option" onClick={() => onChoose(model)}>
+-              <span><strong>{model.label}</strong><small>{model.provider} · {model.mediaType}</small></span>
+-              <em>{model.capabilities.join(" · ")}</em>
+-            </button>
+-          ))}
+-          {!visible.length ? <p>No models found.</p> : null}
+-        </div>
+-      </section>
+-    </div>
++    <UpstreamModelSearchDialog
++      isOpen={open}
++      onClose={onClose}
++      title="All models"
++      hosted={{
++        hostedModels,
++        onHostedModelSelected: (model) => {
++          const selected = modelById.get(model.id);
++          if (selected) onChoose(selected);
++        },
++      }}
++    />
+   );
+ }
+ 
+-// Shared host for upstream NodeSearchMenu/ConnectionDropMenu interaction.
+-function NodeSearchMenu({
++function HostedNodeSearchMenu({
++  root,
+   labels,
+   menu,
+   items,
+-  onQuery,
+   onChoose,
+   onClose,
+ }: {
++  root: HTMLDivElement | null;
+   labels: NodeBananaCanvasLabels;
+   menu: MenuState;
+   items: readonly NodeBananaRuntimePaletteItem[];
+-  onQuery: (query: string) => void;
+   onChoose: (item: NodeBananaRuntimePaletteItem) => void;
+   onClose: () => void;
+ }) {
+-  const inputRef = useRef<HTMLInputElement>(null);
+-  useEffect(() => {
+-    inputRef.current?.focus();
+-  }, [inputRef]);
+-  if (!menu.open) return null;
+-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+-    if (event.key === "Escape") {
+-      event.preventDefault();
+-      onClose();
+-      return;
+-    }
+-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+-    event.preventDefault();
+-    const options = Array.from(
+-      event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='option']"),
+-    );
+-    if (!options.length) return;
+-    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+-    const next = event.key === "ArrowDown"
+-      ? (current + 1) % options.length
+-      : (current <= 0 ? options.length : current) - 1;
+-    options[next]?.focus();
+-  };
++  if (!menu.open || menu.pendingConnection) return null;
+   return (
+-    <div
+-      className="node-banana-runtime__menu nodrag nopan"
+-      role="dialog"
+-      aria-label={labels.addNode}
+-      data-node-banana-component={menu.pendingConnection ? "ConnectionDropMenu" : "NodeSearchMenu"}
+-      style={{ left: menu.screen.x, top: menu.screen.y }}
+-      onKeyDown={handleKeyDown}
+-    >
+-      <div className="node-banana-runtime__menu-header">
+-        <input
+-          ref={inputRef}
+-          value={menu.query}
+-          onChange={(event) => onQuery(event.target.value)}
+-          placeholder={labels.searchPlaceholder}
+-          aria-label={labels.searchPlaceholder}
+-        />
+-        <button type="button" onClick={onClose} aria-label={labels.closeMenu}>×</button>
+-      </div>
+-      <div className="node-banana-runtime__menu-items" role="listbox">
+-        {(["Input", "Text", "Generate", "Process", "Output"] as const).map((category) => {
+-          const categoryItems = items.filter((item) => categoryForPaletteItem(item) === category);
+-          if (!categoryItems.length) return null;
+-          return (
+-            <section key={category}>
+-              <h3>{category}</h3>
+-              {categoryItems.map((item) => (
+-                <button key={item.kind} type="button" role="option" onClick={() => onChoose(item)}>
+-                  <span>{item.label}</span>
+-                  {item.description ? <small>{item.description}</small> : null}
+-                </button>
+-              ))}
+-            </section>
+-          );
+-        })}
+-      </div>
+-    </div>
++    <UpstreamNodeSearchMenu
++      position={hostedPosition(root, menu.screen)}
++      onSelect={() => undefined}
++      onClose={onClose}
++      hosted={{
++        hostedOptions: items.map(hostedMenuOption),
++        hostedAriaLabel: labels.addNode,
++        hostedSearchLabel: labels.searchPlaceholder,
++        hostedCloseLabel: labels.closeMenu,
++        onHostedSelect: (option) => {
++          if (option.value && typeof option.value === "object" && "kind" in option.value) {
++            onChoose(option.value as NodeBananaRuntimePaletteItem);
++          }
++        },
++      }}
++    />
+   );
+ }
+ 
++function pendingHandleType(pending: NodeBananaPendingConnection): "image" | "text" | "video" | "audio" | "3d" | "easeCurve" | null {
++  const handleId = pending.handleId;
++  return handleId === "image" || handleId === "text" || handleId === "video" || handleId === "audio" || handleId === "3d" || handleId === "easeCurve"
++    ? handleId
++    : null;
++}
++
++function HostedConnectionDropMenu({
++  root,
++  labels,
++  menu,
++  items,
++  onChoose,
++  onClose,
++}: {
++  root: HTMLDivElement | null;
++  labels: NodeBananaCanvasLabels;
++  menu: MenuState;
++  items: readonly NodeBananaRuntimePaletteItem[];
++  onChoose: (item: NodeBananaRuntimePaletteItem) => void;
++  onClose: () => void;
++}) {
++  const pending = menu.pendingConnection;
++  if (!menu.open || !pending) return null;
++  const handleType = pendingHandleType(pending);
++  return (
++    <UpstreamConnectionDropMenu
++      position={hostedPosition(root, menu.screen)}
++      handleType={handleType}
++      connectionType={pending.handleType === "source" ? "source" : "target"}
++      onSelect={() => undefined}
++      onClose={onClose}
++      hosted={{
++        hostedOptions: items.map(hostedConnectionOption),
++        hostedAriaLabel: labels.addNode,
++        onHostedSelect: (option) => {
++          if (option.value && typeof option.value === "object" && "kind" in option.value) {
++            onChoose(option.value as NodeBananaRuntimePaletteItem);
++          }
++        },
++      }}
++    />
++  );
++}
++
+ export function NodeBananaCanvasRuntime({
+   graph,
+   nodeTypes,
+@@ -518,6 +475,8 @@
+   createId,
+   isValidConnection,
+   isNodeRunnable,
++  onRunNode,
++  renderNodeHeader,
+   filterPaletteItems,
+ }: NodeBananaCanvasProps) {
+   const store = useMemo(createInteractionStore, []);
+@@ -530,9 +489,6 @@
+   const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
+   const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
+   const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
+-  const selectedNodeId = interaction.selectedNodeIds.length === 1 ? interaction.selectedNodeIds[0] : null;
+-  const [selectedRunControlEnabled, setSelectedRunControlEnabled] = useState(false);
+-  const selectedRunControlEnabledRef = useRef(false);
+ 
+   const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
+     store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
+@@ -611,7 +567,24 @@
+       }
+       if (changed) store.setState({ nodePositions });
+     }
+-    const durableChanges = changes.filter((change) => change.type !== "select" && change.type !== "dimensions" && change.type !== "position");
++    const durableChanges: NodeChange<NodeBananaRuntimeNode>[] = [];
++    for (const change of changes) {
++      if (change.type === "select" || change.type === "dimensions" || change.type === "position") continue;
++      if (change.type !== "replace") {
++        durableChanges.push(change);
++        continue;
++      }
++      const current = graph.nodes.find((node) => node.id === change.id);
++      if (!current || dragStartRef.current) continue;
++      if (
++        current.position.x === change.item.position.x &&
++        current.position.y === change.item.position.y
++      ) continue;
++      durableChanges.push({
++        ...change,
++        item: { ...current, position: change.item.position },
++      });
++    }
+     if (!durableChanges.length || !writable) return;
+     const nodes = applyNodeChanges(durableChanges, graph.nodes);
+     const nodeIds = new Set(nodes.map((node) => node.id));
+@@ -725,45 +698,12 @@
+     setModelBrowserOpen(false);
+   }, [addNodeAtCenter, paletteItems]);
+ 
+-  useEffect(() => {
+-    const root = rootRef.current;
+-    if (!root || !selectedNodeId) {
+-      if (selectedRunControlEnabledRef.current) {
+-        selectedRunControlEnabledRef.current = false;
+-        setSelectedRunControlEnabled(false);
+-      }
+-      return;
+-    }
+-    const update = () => {
+-      const selectedNode = Array.from(root.querySelectorAll<HTMLElement>("[data-id]")).find(
+-        (candidate) => candidate.dataset.id === selectedNodeId,
+-      );
+-      const runControl = selectedNode?.querySelector<HTMLButtonElement>("[data-node-run]");
+-      const enabled = Boolean(runControl && !runControl.disabled);
+-      if (selectedRunControlEnabledRef.current === enabled) return;
+-      selectedRunControlEnabledRef.current = enabled;
+-      setSelectedRunControlEnabled(enabled);
+-    };
+-    update();
+-    const observer = new MutationObserver(update);
+-    observer.observe(root, {
+-      subtree: true,
+-      childList: true,
+-      attributes: true,
+-      attributeFilter: ["disabled"],
+-    });
+-    return () => observer.disconnect();
+-  }, [selectedNodeId]);
+-
+   const runSelectedNode = useCallback(() => {
+     const selectedId = store.getState().selectedNodeIds[0];
+     if (!selectedId || store.getState().selectedNodeIds.length !== 1) return;
+     if (isNodeRunnable && !isNodeRunnable(selectedId)) return;
+-    const node = rootRef.current?.querySelector<HTMLElement>('[data-id="' + CSS.escape(selectedId) + '"]');
+-    const runControl = node?.querySelector<HTMLButtonElement>("[data-node-run]");
+-    if (!runControl || runControl.disabled) return;
+-    runControl.click();
+-  }, [isNodeRunnable, store]);
++    onRunNode?.(selectedId);
++  }, [isNodeRunnable, onRunNode, store]);
+ 
+   const undo = useCallback(() => {
+     if (!writable) return;
+@@ -850,10 +790,8 @@
+   }, [copy, openCenteredMenu, paste, redo, removeSelection, store, undo]);
+ 
+   const availableItems = useMemo(() => {
+-    const base = filterPaletteItems ? filterPaletteItems(paletteItems, interaction.menu.pendingConnection) : paletteItems;
+-    const query = interaction.menu.query.trim().toLowerCase();
+-    return query ? base.filter((item) => `${item.label} ${item.description ?? ""} ${item.mediaType ?? ""}`.toLowerCase().includes(query)) : base;
+-  }, [filterPaletteItems, interaction.menu.pendingConnection, interaction.menu.query, paletteItems]);
++    return filterPaletteItems ? filterPaletteItems(paletteItems, interaction.menu.pendingConnection) : paletteItems;
++  }, [filterPaletteItems, interaction.menu.pendingConnection, paletteItems]);
+ 
+   const visibleNodes = useMemo(() => {
+     const selected = new Set(interaction.selectedNodeIds);
+@@ -902,7 +840,11 @@
+                 { zoom: 0.8 },
+               );
+             } else {
+-              void instance.fitView({ minZoom: 0.2, maxZoom: 1, padding: 0.2 });
++              void instance.fitView({
++                minZoom: 0.1,
++                maxZoom: 1,
++                padding: typeof window !== "undefined" && window.innerWidth <= 640 ? 0.4 : 0.2,
++              });
+             }
+           }, 120);
+         }}
+@@ -947,7 +889,11 @@
+         fitViewOptions={{
+           minZoom: graph.nodes.length <= 1 ? 0.65 : 0.2,
+           maxZoom: 1,
+-          padding: graph.nodes.length <= 1 ? 0.08 : 0.2,
++          padding: graph.nodes.length <= 1
++            ? 0.08
++            : typeof window !== "undefined" && window.innerWidth <= 640
++              ? 0.4
++              : 0.2,
+         }}
+         proOptions={{ hideAttribution: true }}
+         minZoom={graph.nodes.length <= 1 ? 0.65 : 0.1}
+@@ -970,8 +916,17 @@
+         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--node-banana-grid, #404040)" />
+         <MiniMap pannable zoomable ariaLabel={labels.fitView} nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} />
+         <Controls showInteractive={false} />
++        {renderNodeHeader ? (
++          <ViewportPortal>
++            {visibleNodes.map((node) => (
++              <Fragment key={`header-${node.id}`}>
++                {renderNodeHeader(node)}
++              </Fragment>
++            ))}
++          </ViewportPortal>
++        ) : null}
+         <Panel position="bottom-center">
+-          <FloatingActionBar
++          <HostedFloatingActionBar
+             labels={labels}
+             writable={writable}
+             items={paletteItems}
+@@ -979,7 +934,7 @@
+             runEnabled={
+               interaction.selectedNodeIds.length === 1 &&
+               (isNodeRunnable?.(interaction.selectedNodeIds[0]) ?? true) &&
+-              selectedRunControlEnabled
++              Boolean(onRunNode)
+             }
+             onAddItem={addNodeAtCenter}
+             onBrowseModels={() => setModelBrowserOpen(true)}
+@@ -989,7 +944,7 @@
+           />
+         </Panel>
+       </ReactFlow>
+-      <ModelBrowserDialog open={modelBrowserOpen} models={modelItems} onChoose={addModelAtCenter} onClose={() => setModelBrowserOpen(false)} />
++      <HostedModelBrowserDialog open={modelBrowserOpen} models={modelItems} onChoose={addModelAtCenter} onClose={() => setModelBrowserOpen(false)} />
+       {interaction.selectedNodeIds.length > 1 ? (
+         <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes" data-node-banana-component="MultiSelectToolbar">
+           <span>{interaction.selectedNodeIds.length} selected</span>
+@@ -1025,17 +980,31 @@
+         </div>
+       ) : null}
+       {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
+-      <NodeSearchMenu
+-        labels={labels}
+-        menu={interaction.menu}
+-        items={availableItems}
+-        onQuery={(query) => store.setState({ menu: { ...interaction.menu, query } })}
+-        onChoose={chooseNode}
+-        onClose={() => {
+-          store.setState({ menu: closedMenu });
+-          rootRef.current?.focus();
+-        }}
+-      />
++      {interaction.menu.pendingConnection ? (
++        <HostedConnectionDropMenu
++          root={rootRef.current}
++          labels={labels}
++          menu={interaction.menu}
++          items={availableItems}
++          onChoose={chooseNode}
++          onClose={() => {
++            store.setState({ menu: closedMenu });
++            rootRef.current?.focus();
++          }}
++        />
++      ) : (
++        <HostedNodeSearchMenu
++          root={rootRef.current}
++          labels={labels}
++          menu={interaction.menu}
++          items={availableItems}
++          onChoose={chooseNode}
++          onClose={() => {
++            store.setState({ menu: closedMenu });
++            rootRef.current?.focus();
++          }}
++        />
++      )}
+     </div>
+   );
+ }

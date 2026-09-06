@@ -1,0 +1,921 @@
+--- a/src/components/edges/EditableEdge.tsx
++++ b/src/components/edges/EditableEdge.tsx
+@@ -8,15 +8,39 @@
+   getBezierPath,
+   useReactFlow,
+ } from "@xyflow/react";
+-import { useWorkflowStore } from "@/store/workflowStore";
+-import { NanoBananaNodeData, WorkflowEdgeData } from "@/types";
++import { useWorkflowStore } from "../../leesfield/upstream-node-host";
++import type { NanoBananaNodeData, WorkflowEdgeData } from "../../leesfield/upstream-node-host";
+ import { getSharedGradientId } from "./SharedEdgeGradients";
+ 
+ interface EdgeData extends WorkflowEdgeData {
+   offsetX?: number;
+   offsetY?: number;
++  edgeStyle?: "angular" | "curved";
++  isConnectedToSelection?: boolean;
++  isTargetLoading?: boolean;
++  onEdgeDataChange?: (edgeId: string, patch: Record<string, unknown>) => void;
+ }
+ 
++export type EditableEdgeHostedProps = {
++  edgeStyle?: "angular" | "curved";
++  isConnectedToSelection?: boolean;
++  isTargetLoading?: boolean;
++  onEdgeDataChange?: (edgeId: string, patch: Record<string, unknown>) => void;
++};
++
++export type EditableEdgeProps = EdgeProps & { hosted?: EditableEdgeHostedProps };
++
++function useOptionalReactFlow() {
++  try {
++    return useReactFlow();
++  } catch {
++    // The hosted presenter can be rendered in isolation (for example while a
++    // canvas shell is being measured). Dragging simply has no-op semantics
++    // until React Flow supplies its store.
++    return null;
++  }
++}
++
+ // Colors for different connection types (dimmed for softer appearance)
+ const EDGE_COLORS: Record<string, string> = {
+   image: "#0d9668", // Green for image connections
+@@ -48,13 +72,15 @@
+   targetHandleId,
+   source,
+   target,
+-}: EdgeProps) {
+-  const { setEdges } = useReactFlow();
+-  const edgeStyle = useWorkflowStore((state) => state.edgeStyle);
++  hosted,
++}: EditableEdgeProps) {
++  const reactFlow = useOptionalReactFlow();
++  const setEdges = reactFlow?.setEdges ?? (() => undefined);
++  const storeEdgeStyle = useWorkflowStore((state) => state.edgeStyle);
+   const [isDragging, setIsDragging] = useState(false);
+ 
+   // Narrow selector: returns boolean, only re-renders when selection relevance changes
+-  const isConnectedToSelection = useWorkflowStore((state) =>
++  const storeIsConnectedToSelection = useWorkflowStore((state) =>
+     state.nodes.some((n) => n.selected && (n.id === source || n.id === target))
+   );
+ 
+@@ -64,11 +90,14 @@
+   const hasPause = edgeData?.hasPause ?? false;
+ 
+   // Narrow selector: only re-renders when target loading status changes
+-  const isTargetLoading = useWorkflowStore((state) => {
++  const storeIsTargetLoading = useWorkflowStore((state) => {
+     const targetNode = state.nodes.find((n) => n.id === target);
+     if (targetNode?.type !== "nanoBanana") return false;
+     return (targetNode.data as NanoBananaNodeData).status === "loading";
+   });
++  const edgeStyle = hosted?.edgeStyle ?? edgeData?.edgeStyle ?? storeEdgeStyle;
++  const isConnectedToSelection = hosted?.isConnectedToSelection ?? edgeData?.isConnectedToSelection ?? storeIsConnectedToSelection;
++  const isTargetLoading = hosted?.isTargetLoading ?? edgeData?.isTargetLoading ?? storeIsTargetLoading;
+ 
+   // Determine edge color based on handle type (magenta for loop edges, orange if paused)
+   const edgeColor = useMemo(() => {
+@@ -187,21 +216,17 @@
+         const deltaX = moveEvent.clientX - startX;
+         const deltaY = moveEvent.clientY - startY;
+ 
+-        setEdges((edges) =>
+-          edges.map((edge) => {
+-            if (edge.id === id) {
+-              return {
+-                ...edge,
+-                data: {
+-                  ...edge.data,
+-                  offsetX: direction === "horizontal" ? startOffsetX + deltaX : startOffsetX,
+-                  offsetY: direction === "vertical" ? startOffsetY + deltaY : startOffsetY,
+-                },
+-              };
+-            }
+-            return edge;
+-          })
+-        );
++        const patch = {
++          offsetX: direction === "horizontal" ? startOffsetX + deltaX : startOffsetX,
++          offsetY: direction === "vertical" ? startOffsetY + deltaY : startOffsetY,
++        };
++        if (hosted?.onEdgeDataChange ?? edgeData?.onEdgeDataChange) {
++          (hosted?.onEdgeDataChange ?? edgeData?.onEdgeDataChange)?.(id, patch);
++        } else {
++          setEdges((edges) =>
++            edges.map((edge) => edge.id === id ? { ...edge, data: { ...edge.data, ...patch } } : edge)
++          );
++        }
+       };
+ 
+       const handleMouseUp = () => {
+@@ -213,7 +238,7 @@
+       document.addEventListener("mousemove", handleMouseMove);
+       document.addEventListener("mouseup", handleMouseUp);
+     },
+-    [id, offsetX, offsetY, setEdges]
++    [edgeData?.onEdgeDataChange, hosted?.onEdgeDataChange, id, offsetX, offsetY, setEdges]
+   );
+ 
+   return (
+@@ -281,7 +306,12 @@
+ 
+       {/* Pause indicator near target connection point */}
+       {hasPause && (
+-        <g transform={`translate(${targetX - 24}, ${targetY})`}>
++        <g
++          transform={`translate(${targetX - 24}, ${targetY})`}
++          role="img"
++          aria-label="Paused edge"
++          data-node-banana-component="PauseIndicator"
++        >
+           {/* Background circle */}
+           <circle
+             r={10}
+--- a/src/components/EdgeToolbar.tsx
++++ b/src/components/EdgeToolbar.tsx
+@@ -1,17 +1,38 @@
+ "use client";
+ 
+-import { useWorkflowStore } from "@/store/workflowStore";
+-import { WorkflowEdgeData } from "@/types";
++import { useWorkflowStore } from "../leesfield/upstream-node-host";
++import type { WorkflowEdgeData } from "../leesfield/upstream-node-host";
+ import { useMemo, useEffect, useState, useRef } from "react";
+ 
+-export function EdgeToolbar() {
++export type EdgeToolbarHostedEdge = {
++  id: string;
++  source?: string;
++  target?: string;
++  sourceHandle?: string | null;
++  targetHandle?: string | null;
++  data?: WorkflowEdgeData & Record<string, unknown>;
++};
++
++export type EdgeToolbarHostedProps = {
++  edge: EdgeToolbarHostedEdge | null;
++  position: { x: number; y: number } | null;
++  writable?: boolean;
++  ariaLabel?: string;
++  onTogglePause: (edgeId: string) => void;
++  onDelete: (edgeId: string) => void;
++  onLoopCountChange?: (edgeId: string, delta: number) => void;
++};
++
++export type EdgeToolbarProps = { hosted?: EdgeToolbarHostedProps };
++
++export function EdgeToolbar({ hosted }: EdgeToolbarProps = {}) {
+   const { edges, toggleEdgePause, removeEdge, setLoopCount } = useWorkflowStore();
+   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
+   const previousSelectedEdgeId = useRef<string | null>(null);
+ 
+   const selectedEdge = useMemo(
+-    () => edges.find((edge) => edge.selected),
+-    [edges]
++    () => hosted?.edge ?? edges.find((edge) => edge.selected) ?? null,
++    [edges, hosted?.edge]
+   );
+ 
+   // Helper function to compute the image connection sequence number
+@@ -51,6 +72,11 @@
+ 
+   // Track mouse position when edge selection changes
+   useEffect(() => {
++    if (hosted) {
++      setClickPosition(hosted.position);
++      previousSelectedEdgeId.current = hosted.edge?.id ?? null;
++      return;
++    }
+     const handleMouseDown = (e: MouseEvent) => {
+       // Check if clicking on an edge
+       const target = e.target as Element;
+@@ -61,33 +87,37 @@
+ 
+     document.addEventListener('mousedown', handleMouseDown);
+     return () => document.removeEventListener('mousedown', handleMouseDown);
+-  }, []);
++  }, [hosted]);
+ 
+   // Reset click position when edge is deselected
+   useEffect(() => {
++    if (hosted) return;
+     if (!selectedEdge && previousSelectedEdgeId.current) {
+       setClickPosition(null);
+     }
+     previousSelectedEdgeId.current = selectedEdge?.id || null;
+-  }, [selectedEdge]);
++  }, [hosted, selectedEdge]);
+ 
+-  const toolbarPosition = clickPosition;
++  const toolbarPosition = hosted ? hosted.position : clickPosition;
+ 
+   const handleTogglePause = () => {
+     if (selectedEdge) {
+-      toggleEdgePause(selectedEdge.id);
++      if (hosted) hosted.onTogglePause(selectedEdge.id);
++      else toggleEdgePause(selectedEdge.id);
+     }
+   };
+ 
+   const handleLoopCountChange = (delta: number) => {
+     if (selectedEdge) {
+-      setLoopCount(selectedEdge.id, loopCount + delta);
++      if (hosted) hosted.onLoopCountChange?.(selectedEdge.id, delta);
++      else setLoopCount(selectedEdge.id, loopCount + delta);
+     }
+   };
+ 
+   const handleDelete = () => {
+     if (selectedEdge) {
+-      removeEdge(selectedEdge.id);
++      if (hosted) hosted.onDelete(selectedEdge.id);
++      else removeEdge(selectedEdge.id);
+     }
+   };
+ 
+@@ -99,7 +129,10 @@
+ 
+   return (
+     <div
+-      className="fixed z-[100] flex items-center gap-1 bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-1"
++      className="fixed z-[100] flex items-center gap-1 bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-1 node-banana-runtime__edge-toolbar"
++      role="toolbar"
++      aria-label={hosted?.ariaLabel ?? "Selected edge"}
++      data-node-banana-component="EdgeToolbar"
+       style={{
+         left: toolbarPosition.x,
+         top: toolbarPosition.y,
+@@ -115,6 +148,7 @@
+         <>
+           <span className="text-[10px] font-medium text-fuchsia-300 px-1.5">Loop</span>
+           <button
++            type="button"
+             onClick={() => handleLoopCountChange(-1)}
+             disabled={loopCount <= 1}
+             className="p-1 rounded hover:bg-neutral-700 text-fuchsia-300 hover:text-fuchsia-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+@@ -126,6 +160,7 @@
+           </button>
+           <span className="text-[11px] font-mono text-fuchsia-100 min-w-[20px] text-center">{loopCount}</span>
+           <button
++            type="button"
+             onClick={() => handleLoopCountChange(1)}
+             disabled={loopCount >= 100}
+             className="p-1 rounded hover:bg-neutral-700 text-fuchsia-300 hover:text-fuchsia-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+@@ -141,6 +176,9 @@
+       {!isLoop && (
+         <button
+           onClick={handleTogglePause}
++          type="button"
++          disabled={hosted?.writable === false}
++          aria-label={hasPause ? "Remove pause" : "Add pause"}
+         className={`p-1.5 rounded hover:bg-neutral-700 transition-colors ${
+           hasPause
+             ? "text-amber-400 hover:text-amber-300"
+@@ -163,6 +201,9 @@
+       )}
+       <button
+         onClick={handleDelete}
++        type="button"
++        disabled={hosted?.writable === false}
++        aria-label="Delete edge"
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-red-400 transition-colors"
+         title="Delete"
+       >
+--- a/src/components/MultiSelectToolbar.tsx
++++ b/src/components/MultiSelectToolbar.tsx
+@@ -1,25 +1,61 @@
+ "use client";
+ 
+ import { useReactFlow } from "@xyflow/react";
+-import { useWorkflowStore } from "@/store/workflowStore";
++import { useWorkflowStore } from "../leesfield/upstream-node-host";
+ import { useMemo, useCallback } from "react";
+-import JSZip from "jszip";
+ import type {
+   ImageInputNodeData,
+   AnnotationNodeData,
+   NanoBananaNodeData,
+   OutputNodeData,
+-} from "@/types";
++} from "../leesfield/upstream-node-host";
+ 
+ const STACK_GAP = 20;
+ 
+-export function MultiSelectToolbar() {
+-  const { nodes, onNodesChange, createGroup, removeNodesFromGroup } = useWorkflowStore();
+-  const { getViewport } = useReactFlow();
++export type MultiSelectToolbarHostedNode = {
++  id: string;
++  type?: string;
++  position: { x: number; y: number };
++  selected?: boolean;
++  groupId?: string;
++  style?: Record<string, unknown>;
++  measured?: { width?: number; height?: number };
++  width?: number;
++  height?: number;
++  data?: Record<string, unknown>;
++};
+ 
++export type MultiSelectToolbarHostedProps = {
++  nodes: readonly MultiSelectToolbarHostedNode[];
++  viewport?: { x: number; y: number; zoom: number };
++  writable?: boolean;
++  ariaLabel?: string;
++  onNodesChange: (changes: readonly { type: "position"; id: string; position: { x: number; y: number } }[]) => void;
++  onCopy?: (nodeIds: string[]) => void;
++  onDelete?: (nodeIds: string[]) => void;
++  onCreateGroup?: (nodeIds: string[]) => void;
++  onUngroup?: (nodeIds: string[]) => void;
++  onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
++};
++
++export type MultiSelectToolbarProps = { hosted?: MultiSelectToolbarHostedProps };
++
++function useOptionalReactFlow() {
++  try {
++    return useReactFlow();
++  } catch {
++    return null;
++  }
++}
++
++export function MultiSelectToolbar({ hosted }: MultiSelectToolbarProps = {}) {
++  const workflow = useWorkflowStore();
++  const { nodes, onNodesChange: storeOnNodesChange, createGroup, removeNodesFromGroup } = workflow;
++  const reactFlow = useOptionalReactFlow();
++
+   const selectedNodes = useMemo(
+-    () => nodes.filter((node) => node.selected),
+-    [nodes]
++    () => (hosted?.nodes ?? nodes).filter((node) => node.selected),
++    [hosted?.nodes, nodes]
+   );
+ 
+   // Check if any selected nodes are in a group
+@@ -34,7 +70,7 @@
+   const toolbarPosition = useMemo(() => {
+     if (selectedNodes.length < 2) return null;
+ 
+-    const viewport = getViewport();
++    const viewport = hosted?.viewport ?? reactFlow?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
+ 
+     // Find bounding box of selected nodes
+     let minX = Infinity;
+@@ -54,8 +90,10 @@
+     const screenY = minY * viewport.zoom + viewport.y - 50; // 50px above the top
+ 
+     return { x: screenX, y: screenY };
+-  }, [selectedNodes, getViewport]);
++  }, [hosted?.viewport, reactFlow, selectedNodes]);
+ 
++  const applyNodeChanges = hosted?.onNodesChange ?? storeOnNodesChange;
++
+   const handleStackHorizontally = () => {
+     if (selectedNodes.length < 2) return;
+ 
+@@ -80,7 +118,7 @@
+       return change;
+     });
+ 
+-    onNodesChange(changes);
++    applyNodeChanges(changes);
+   };
+ 
+   const handleStackVertically = () => {
+@@ -107,7 +145,7 @@
+       return change;
+     });
+ 
+-    onNodesChange(changes);
++    applyNodeChanges(changes);
+   };
+ 
+   const handleArrangeAsGrid = () => {
+@@ -152,17 +190,19 @@
+       };
+     });
+ 
+-    onNodesChange(changes);
++    applyNodeChanges(changes);
+   };
+ 
+   const handleCreateGroup = () => {
+     const nodeIds = selectedNodes.map((n) => n.id);
+-    createGroup(nodeIds);
++    if (hosted?.onCreateGroup) hosted.onCreateGroup(nodeIds);
++    else createGroup(nodeIds);
+   };
+ 
+   const handleUngroup = () => {
+     const nodeIds = selectedNodes.map((n) => n.id);
+-    removeNodesFromGroup(nodeIds);
++    if (hosted?.onUngroup) hosted.onUngroup(nodeIds);
++    else removeNodesFromGroup(nodeIds);
+   };
+ 
+   const handleDownloadImages = useCallback(async () => {
+@@ -197,39 +237,51 @@
+ 
+     if (images.length === 0) return;
+ 
+-    // Create ZIP file
+-    const zip = new JSZip();
+-    images.forEach(({ data, name }) => {
+-      // Remove data URL prefix to get raw base64
+-      const base64Data = data.replace(/^data:image\/\w+;base64,/, "");
+-      zip.file(name, base64Data, { base64: true });
+-    });
++    if (hosted?.onDownloadImages) {
++      await hosted.onDownloadImages(images);
++    }
++  }, [hosted?.onDownloadImages, selectedNodes]);
+ 
+-    // Generate and download
+-    const blob = await zip.generateAsync({ type: "blob" });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement("a");
+-    link.href = url;
+-    link.download = `images-${Date.now()}.zip`;
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
+-    URL.revokeObjectURL(url);
+-  }, [selectedNodes]);
+-
+   if (!toolbarPosition || selectedNodes.length < 2) return null;
+ 
+   return (
+     <div
+       className="fixed z-[100] flex items-center gap-1 bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-1"
++      role="toolbar"
++      aria-label={hosted?.ariaLabel ?? "Selected nodes"}
++      data-node-banana-component="MultiSelectToolbar"
+       style={{
+         left: toolbarPosition.x,
+         top: toolbarPosition.y,
+         transform: "translateX(-50%)",
+       }}
+     >
++      {hosted ? <span className="px-1.5 text-[10px] text-neutral-300">{selectedNodes.length} selected</span> : null}
++      {hosted?.onCopy ? (
++        <button
++          type="button"
++          onClick={() => hosted.onCopy?.(selectedNodes.map((node) => node.id))}
++          disabled={hosted.writable === false}
++          className="rounded px-1.5 py-1 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
++        >
++          Copy
++        </button>
++      ) : null}
++      {hosted?.onDelete ? (
++        <button
++          type="button"
++          onClick={() => hosted.onDelete?.(selectedNodes.map((node) => node.id))}
++          disabled={hosted.writable === false}
++          className="rounded px-1.5 py-1 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
++        >
++          Delete
++        </button>
++      ) : null}
++      {hosted?.onCopy || hosted?.onDelete ? <div className="w-px h-4 bg-neutral-600 mx-0.5" /> : null}
+       <button
++        type="button"
+         onClick={handleStackHorizontally}
++        disabled={hosted?.writable === false}
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+         title="Stack horizontally (H)"
+       >
+@@ -238,7 +290,9 @@
+         </svg>
+       </button>
+       <button
++        type="button"
+         onClick={handleStackVertically}
++        disabled={hosted?.writable === false}
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+         title="Stack vertically (V)"
+       >
+@@ -247,7 +301,9 @@
+         </svg>
+       </button>
+       <button
++        type="button"
+         onClick={handleArrangeAsGrid}
++        disabled={hosted?.writable === false}
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+         title="Arrange as grid (G)"
+       >
+@@ -262,7 +318,9 @@
+       {/* Group/Ungroup buttons */}
+       {someInGroup ? (
+         <button
++          type="button"
+           onClick={handleUngroup}
++          disabled={hosted?.writable === false || (hosted != null && !hosted.onUngroup)}
+           className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+           title="Remove from group"
+         >
+@@ -272,7 +330,9 @@
+         </button>
+       ) : (
+         <button
++          type="button"
+           onClick={handleCreateGroup}
++          disabled={hosted?.writable === false || (hosted != null && !hosted.onCreateGroup)}
+           className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+           title="Create group"
+         >
+@@ -287,7 +347,9 @@
+ 
+       {/* Download images button */}
+       <button
++        type="button"
+         onClick={handleDownloadImages}
++        disabled={hosted?.writable === false || (hosted != null && !hosted.onDownloadImages)}
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+         title="Download images as ZIP"
+       >
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -17,18 +17,15 @@
+   applyNodeChanges,
+   Background,
+   BackgroundVariant,
+-  BaseEdge,
+   Controls,
+-  getBezierPath,
+-  getSmoothStepPath,
+   MiniMap,
+   Panel,
++  ReactFlowProvider,
+   ReactFlow,
+   ViewportPortal,
+   type Connection,
+   type Edge,
+   type EdgeChange,
+-  type EdgeProps,
+   type EdgeTypes,
+   type FinalConnectionState,
+   type IsValidConnection,
+@@ -57,6 +54,18 @@
+   NodeSearchMenu as UpstreamNodeSearchMenu,
+   type NodeSearchMenuHostedOption,
+ } from "../components/NodeSearchMenu";
++import {
++  EditableEdge as UpstreamEditableEdge,
++} from "../components/edges/EditableEdge";
++import {
++  EdgeToolbar as UpstreamEdgeToolbar,
++  type EdgeToolbarHostedProps,
++} from "../components/EdgeToolbar";
++import {
++  MultiSelectToolbar as UpstreamMultiSelectToolbar,
++  type MultiSelectToolbarHostedProps,
++} from "../components/MultiSelectToolbar";
++import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+ export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
+@@ -171,6 +180,7 @@
+   selectedEdgeIds: string[];
+   nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
+   nodePositions: Record<string, XYPosition>;
++  edgeOffsets: Record<string, { offsetX: number; offsetY: number }>;
+   edgeToolbarPosition: XYPosition | null;
+   clipboard: ClipboardSnapshot | null;
+   pasteCount: number;
+@@ -196,6 +206,7 @@
+     selectedEdgeIds: [],
+     nodeLayout: {},
+     nodePositions: {},
++    edgeOffsets: {},
+     edgeToolbarPosition: null,
+     clipboard: null,
+     pasteCount: 0,
+@@ -227,64 +238,6 @@
+   return { x: event.clientX, y: event.clientY };
+ }
+ 
+-// Hosted from upstream src/components/edges/EditableEdge.tsx. Leesfield keeps
+-// only the canonical edge data and delegates the visible path/pause glyph here.
+-function HostedEditableEdge({
+-  id,
+-  sourceX,
+-  sourceY,
+-  targetX,
+-  targetY,
+-  sourcePosition,
+-  targetPosition,
+-  style,
+-  markerEnd,
+-  data,
+-}: EdgeProps<NodeBananaRuntimeEdge>) {
+-  const curved = data?.edgeStyle === "curved";
+-  const hasPause = data?.hasPause === true;
+-  const [edgePath] = curved
+-    ? getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, curvature: 0.25 })
+-    : getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 8 });
+-  const edgeColor = hasPause ? "#ea580c" : String(style?.stroke ?? "#64748b");
+-
+-  return (
+-    <>
+-      <BaseEdge
+-        id={id}
+-        path={edgePath}
+-        markerEnd={markerEnd}
+-        style={{
+-          ...style,
+-          stroke: edgeColor,
+-          strokeWidth: 3,
+-          strokeLinecap: "round",
+-          strokeLinejoin: "round",
+-        }}
+-      />
+-      <path
+-        d={edgePath}
+-        fill="none"
+-        strokeWidth={15}
+-        stroke="transparent"
+-        className="react-flow__edge-interaction"
+-      />
+-      {hasPause ? (
+-        <g
+-          transform={`translate(${targetX - 24}, ${targetY})`}
+-          role="img"
+-          aria-label="Paused edge"
+-          data-node-banana-component="PauseIndicator"
+-        >
+-          <circle r={10} fill="#27272a" stroke={edgeColor} strokeWidth={2} />
+-          <rect x={-4} y={-5} width={2.5} height={10} fill={edgeColor} rx={1} />
+-          <rect x={1.5} y={-5} width={2.5} height={10} fill={edgeColor} rx={1} />
+-        </g>
+-      ) : null}
+-    </>
+-  );
+-}
+-
+ // These adapters only translate Leesfield's canonical runtime contracts into
+ // the actual vendored components' hosted props. UI/state remains upstream.
+ function hostedPosition(root: HTMLDivElement | null, screen: XYPosition): XYPosition {
+@@ -482,7 +435,7 @@
+   const store = useMemo(createInteractionStore, []);
+   const interaction = useStore(store);
+   const runtimeEdgeTypes = useMemo<EdgeTypes>(
+-    () => ({ ...edgeTypes, editable: HostedEditableEdge }),
++    () => ({ ...edgeTypes, editable: UpstreamEditableEdge }),
+     [edgeTypes],
+   );
+   const rootRef = useRef<HTMLDivElement>(null);
+@@ -766,18 +719,56 @@
+     store.setState({ selectedNodeIds: [], selectedEdgeIds: [], edgeToolbarPosition: null });
+   }, [graph, interaction.selectedEdgeIds, interaction.selectedNodeIds, publish, store, writable]);
+ 
+-  const toggleSelectedEdgePause = useCallback(() => {
++  const applyToolbarNodeChanges = useCallback((changes: readonly { type: "position"; id: string; position: XYPosition }[]) => {
++    if (!writable || changes.length === 0) return;
++    const positions = new Map(changes.map((change) => [change.id, change.position]));
++    const nodes = graph.nodes.map((node) => positions.has(node.id)
++      ? { ...node, position: positions.get(node.id) as XYPosition }
++      : node);
++    if (nodes.every((node, index) => node.position.x === graph.nodes[index]?.position.x && node.position.y === graph.nodes[index]?.position.y)) return;
++    publish({ nodes, edges: graph.edges }, "nodes");
++  }, [graph, publish, writable]);
++
++  const toggleSelectedEdgePause = useCallback((edgeId?: string) => {
+     if (!writable) return;
+-    const selectedEdgeId = store.getState().selectedEdgeIds[0];
++    const selectedEdgeId = edgeId ?? store.getState().selectedEdgeIds[0];
+     if (!selectedEdgeId || store.getState().selectedEdgeIds.length !== 1) return;
+     publish({
+       nodes: graph.nodes,
+       edges: graph.edges.map((edge) => edge.id === selectedEdgeId
+         ? { ...edge, data: { ...edge.data, hasPause: !edge.data?.hasPause } }
++        : edge),
++    }, "edges");
++  }, [graph, publish, store, writable]);
++
++  const setSelectedEdgeLoopCount = useCallback((edgeId: string, delta: number) => {
++    if (!writable) return;
++    const selectedEdgeId = edgeId || store.getState().selectedEdgeIds[0];
++    if (!selectedEdgeId || store.getState().selectedEdgeIds.length !== 1) return;
++    const currentEdge = graph.edges.find((edge) => edge.id === selectedEdgeId);
++    if (!currentEdge?.data?.isLoop) return;
++    const currentCount = typeof currentEdge.data.loopCount === "number" ? currentEdge.data.loopCount : 3;
++    const loopCount = Math.max(1, Math.min(100, currentCount + delta));
++    if (loopCount === currentCount) return;
++    publish({
++      nodes: graph.nodes,
++      edges: graph.edges.map((edge) => edge.id === selectedEdgeId
++        ? { ...edge, data: { ...edge.data, loopCount } }
+         : edge),
+     }, "edges");
+   }, [graph, publish, store, writable]);
+ 
++  // The upstream edge exposes its segment drag through a narrow data slot.
++  // Keep that interaction ephemeral; canonical edge data only changes through
++  // the host's pause/delete callbacks.
++  const updateEdgeData = useCallback((edgeId: string, patch: Record<string, unknown>) => {
++    const offsetX = typeof patch.offsetX === "number" ? patch.offsetX : 0;
++    const offsetY = typeof patch.offsetY === "number" ? patch.offsetY : 0;
++    const current = store.getState().edgeOffsets[edgeId];
++    if (current?.offsetX === offsetX && current.offsetY === offsetY) return;
++    store.setState({ edgeOffsets: { ...store.getState().edgeOffsets, [edgeId]: { offsetX, offsetY } } });
++  }, [store]);
++
+   const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+     if (isFormTarget(event.target)) return;
+     const command = event.metaKey || event.ctrlKey;
+@@ -808,14 +799,31 @@
+       ...edge,
+       type: edge.type ?? "editable",
+       selected: selected.has(edge.id),
+-      data: { ...edge.data, edgeStyle: interaction.edgeStyle },
++      data: {
++        ...edge.data,
++        ...interaction.edgeOffsets[edge.id],
++        edgeStyle: interaction.edgeStyle,
++        isConnectedToSelection: Boolean(selected.has(edge.id) || interaction.selectedNodeIds.some((id) => id === edge.source || id === edge.target)),
++        isTargetLoading: graph.nodes.find((node) => node.id === edge.target)?.data?.executionStatus === "processing",
++        onEdgeDataChange: updateEdgeData,
++      },
+       style: edge.data?.hasPause ? { ...edge.style, stroke: "#ea580c" } : edge.style,
+     }));
+-  }, [graph.edges, interaction.edgeStyle, interaction.selectedEdgeIds]);
++  }, [graph.edges, graph.nodes, interaction.edgeOffsets, interaction.edgeStyle, interaction.selectedEdgeIds, interaction.selectedNodeIds, updateEdgeData]);
+   const selectedEdge = useMemo(
+     () => graph.edges.find((edge) => interaction.selectedEdgeIds.includes(edge.id)) ?? null,
+     [graph.edges, interaction.selectedEdgeIds],
+   );
++  const upstreamHostValue = useMemo(() => ({
++    writable,
++    nodes: visibleNodes as unknown as Record<string, unknown>[],
++    edges: visibleEdges as unknown as Record<string, unknown>[],
++    edgeStyle: interaction.edgeStyle,
++    setEdgeStyle: (style: "angular" | "curved") => store.setState({ edgeStyle: style }),
++    onNodesChange: applyToolbarNodeChanges,
++    toggleEdgePause: toggleSelectedEdgePause,
++    setLoopCount: setSelectedEdgeLoopCount,
++  }), [applyToolbarNodeChanges, interaction.edgeStyle, setSelectedEdgeLoopCount, store, toggleSelectedEdgePause, visibleEdges, visibleNodes, writable]);
+   const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+     const current = store.getState().viewport;
+     if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
+@@ -836,7 +844,9 @@
+   }), [graph.nodes.length]);
+ 
+   return (
+-    <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
++    <NodeBananaUpstreamHostProvider value={upstreamHostValue}>
++      <ReactFlowProvider>
++        <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
+       <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
+         nodes={visibleNodes}
+         edges={visibleEdges}
+@@ -950,40 +960,28 @@
+         </Panel>
+       </ReactFlow>
+       <HostedModelBrowserDialog open={modelBrowserOpen} models={modelItems} onChoose={addModelAtCenter} onClose={() => setModelBrowserOpen(false)} />
+-      {interaction.selectedNodeIds.length > 1 ? (
+-        <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes" data-node-banana-component="MultiSelectToolbar">
+-          <span>{interaction.selectedNodeIds.length} selected</span>
+-          <button type="button" onClick={copy}>Copy</button>
+-          <button type="button" onClick={removeSelection} disabled={!writable}>Delete</button>
+-        </div>
+-      ) : null}
+-      {selectedEdge && interaction.edgeToolbarPosition ? (
+-        <div
+-          className="node-banana-runtime__edge-toolbar"
+-          role="toolbar"
+-          aria-label="Selected edge"
+-          data-node-banana-component="EdgeToolbar"
+-          style={{ left: interaction.edgeToolbarPosition.x, top: interaction.edgeToolbarPosition.y }}
+-        >
+-          <button
+-            type="button"
+-            onClick={toggleSelectedEdgePause}
+-            disabled={!writable}
+-            aria-label={selectedEdge.data?.hasPause ? "Remove pause" : "Add pause"}
+-            title={selectedEdge.data?.hasPause ? "Remove pause" : "Add pause"}
+-            data-paused={selectedEdge.data?.hasPause ? "true" : "false"}
+-          >
+-            {selectedEdge.data?.hasPause ? (
+-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+-            ) : (
+-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+-            )}
+-          </button>
+-          <button type="button" onClick={removeSelection} disabled={!writable} aria-label="Delete edge">
+-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+-          </button>
+-        </div>
+-      ) : null}
++      <UpstreamMultiSelectToolbar
++        hosted={{
++          nodes: visibleNodes as unknown as MultiSelectToolbarHostedProps["nodes"],
++          viewport: interaction.viewport,
++          writable,
++          ariaLabel: "Selected nodes",
++          onNodesChange: applyToolbarNodeChanges,
++          onCopy: copy,
++          onDelete: () => removeSelection(),
++        }}
++      />
++      <UpstreamEdgeToolbar
++        hosted={{
++          edge: selectedEdge as EdgeToolbarHostedProps["edge"],
++          position: selectedEdge && interaction.edgeToolbarPosition ? interaction.edgeToolbarPosition : null,
++          writable,
++          ariaLabel: "Selected edge",
++          onTogglePause: toggleSelectedEdgePause,
++          onDelete: () => removeSelection(),
++          onLoopCountChange: setSelectedEdgeLoopCount,
++        }}
++      />
+       {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
+       {interaction.menu.pendingConnection ? (
+         <HostedConnectionDropMenu
+@@ -1010,7 +1008,9 @@
+           }}
+         />
+       )}
+-    </div>
++        </div>
++      </ReactFlowProvider>
++    </NodeBananaUpstreamHostProvider>
+   );
+ }
+ 
+--- a/src/leesfield/runtime-entry.ts
++++ b/src/leesfield/runtime-entry.ts
+@@ -78,6 +78,22 @@
+ export { FloatingNodeHeader } from "../components/nodes/FloatingNodeHeader";
+ export type { ProviderModel as NodeBananaProviderModel } from "./upstream-node-host";
+ 
++/**
++ * Node Banana v1.9.0 canvas presenters. These exports intentionally point at
++ * the vendored implementations; `canvas-runtime` only supplies the hosted
++ * props/data slots needed to bridge Leesfield's canonical graph.
++ */
++export { EditableEdge } from "../components/edges/EditableEdge";
++export type { EditableEdgeHostedProps, EditableEdgeProps } from "../components/edges/EditableEdge";
++export { EdgeToolbar } from "../components/EdgeToolbar";
++export type { EdgeToolbarHostedEdge, EdgeToolbarHostedProps, EdgeToolbarProps } from "../components/EdgeToolbar";
++export { MultiSelectToolbar } from "../components/MultiSelectToolbar";
++export type {
++  MultiSelectToolbarHostedNode,
++  MultiSelectToolbarHostedProps,
++  MultiSelectToolbarProps,
++} from "../components/MultiSelectToolbar";
++
+ export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
+ 
+ export const LEESFIELD_RUNTIME_FEATURES = [
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -30,6 +30,13 @@
+   inputSchema?: ModelInputDef[];
+   clipOrder?: string[];
+ };
++/** The edge data contract consumed by Node Banana's actual edge presenters. */
++export type WorkflowEdgeData = HostNodeData & {
++  hasPause?: boolean;
++  createdAt?: number;
++  isLoop?: boolean;
++  loopCount?: number;
++};
+ export type HostOutputGalleryMedia = {
+   type: "image" | "video" | "audio";
+   src: string;
+@@ -228,7 +235,14 @@
+   recentModels: RecentModel[];
+   trackModelUsage: (...args: any[]) => void;
+   canvasNavigationSettings: CanvasNavigationSettings;
++  edgeStyle: "angular" | "curved";
++  setEdgeStyle: (style: "angular" | "curved") => void;
+   onConnect: (...args: any[]) => void;
++  onNodesChange: (...args: any[]) => void;
++  createGroup: (...args: any[]) => void;
++  removeNodesFromGroup: (...args: any[]) => void;
++  toggleEdgePause: (...args: any[]) => void;
++  setLoopCount: (...args: any[]) => void;
+   getNodesWithComments: () => HostNodeData[];
+   markCommentViewed: (...args: any[]) => void;
+   setNavigationTarget: (...args: any[]) => void;
+@@ -293,7 +307,14 @@
+   recentModels: [],
+   trackModelUsage: noop,
+   canvasNavigationSettings: { panMode: "space", zoomMode: "altScroll", selectionMode: "click" },
++  edgeStyle: "angular",
++  setEdgeStyle: noop,
+   onConnect: noop,
++  onNodesChange: noop,
++  createGroup: noop,
++  removeNodesFromGroup: noop,
++  toggleEdgePause: noop,
++  setLoopCount: noop,
+   getNodesWithComments: () => [],
+   markCommentViewed: noop,
+   setNavigationTarget: noop,

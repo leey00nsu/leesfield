@@ -1,0 +1,29 @@
+--- a/src/components/onboarding/TutorialOverlay.tsx
++++ b/src/components/onboarding/TutorialOverlay.tsx
+@@ -194,7 +194,7 @@
+           }}
+           aria-label="Click to continue tutorial"
+           className="fixed inset-0 cursor-pointer"
+-          style={{ zIndex: 92 }}
++          style={{ zIndex: 192 }}
+         />
+       )}
+ 
+@@ -205,7 +205,7 @@
+ 
+       {/* Tutorial message - hide if current step is completed */}
+       {!currentStep.completed && (
+-        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 93 }}>
++        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 193 }}>
+           <TutorialMessage
+             message={currentStep.message}
+             position={currentStep.position}
+@@ -219,7 +219,7 @@
+       <button
+         onClick={skipTutorial}
+         className="fixed top-20 right-4 px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors pointer-events-auto"
+-        style={{ zIndex: 94 }}
++        style={{ zIndex: 194 }}
+       >
+         Skip tutorial
+       </button>

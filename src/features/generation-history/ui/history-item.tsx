@@ -32,12 +32,21 @@ const statusConfig: Record<
     icon: Loader2,
     spin: true,
   },
+  uploading: {
+    className: "border-sky-300/70 bg-sky-300 text-black",
+    icon: Loader2,
+    spin: true,
+  },
   completed: {
     className: "border-primary/80 bg-primary text-black",
     icon: CheckCircle2,
   },
   failed: {
     className: "border-red-300/70 bg-red-300 text-black",
+    icon: AlertTriangle,
+  },
+  cancelled: {
+    className: "border-white/50 bg-neutral-300 text-black",
     icon: AlertTriangle,
   },
 };
@@ -131,6 +140,11 @@ export function HistoryItem({
             <TypeIcon className="h-3 w-3" />
             {tTypes(item.type)}
           </AppBadge>
+          {item.origin ? (
+            <AppBadge variant="overlay" className="backdrop-blur">
+              {tHistory(`origins.${item.origin}`)}
+            </AppBadge>
+          ) : null}
           <AppBadge
             className={cn(
               "gap-1.5 rounded-full px-2 py-1 text-[10px] font-black uppercase",
@@ -153,16 +167,16 @@ export function HistoryItem({
           </AppBadge>
         </div>
 
-        {item.status === "failed" ? (
+        {item.status === "failed" || item.status === "cancelled" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/45 px-4 text-center">
             <AlertTriangle className="h-7 w-7 text-red-200" />
             <span className="text-xs font-bold uppercase text-red-100">
-              {tStates("failed")}
+              {tStatuses(item.status)}
             </span>
           </div>
         ) : null}
 
-        {item.status === "pending" || item.status === "processing" ? (
+        {item.status === "pending" || item.status === "processing" || item.status === "uploading" ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/35">
             <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>

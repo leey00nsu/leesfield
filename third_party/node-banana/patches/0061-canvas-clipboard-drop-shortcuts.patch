@@ -1,0 +1,285 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -71,1 +71,2 @@
+-import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
++import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
++import { KeyboardShortcutsDialog } from "../components/KeyboardShortcutsDialog";
+@@ -153,1 +154,3 @@
+-  onUngroup?: (ids: string[]) => void;
++  onUngroup?: (ids: string[]) => void;
++  onImportCanvasMedia?: (source: File | { assetId: string }, signal: AbortSignal) => Promise<{ assetId: string; mediaType: "image" | "audio" | "video" }>;
++  onInputError?: (error: Error) => void;
+@@ -249,1 +252,1 @@
+-  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
++  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='dialog'], [role='alertdialog']"));
+@@ -439,2 +442,4 @@
+-  onUngroup,
+-  graph,
++  onUngroup,
++  onImportCanvasMedia,
++  onInputError,
++  graph,
+@@ -470,1 +475,13 @@
+-  const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
++  const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
++  const [shortcutsOpen, setShortcutsOpen] = useState(false);
++  const [contentBusy, setContentBusy] = useState(false);
++  const contentController = useRef<AbortController | null>(null);
++  const contentMounted = useRef(false);
++  useEffect(() => {
++    contentMounted.current = true;
++    return () => { contentMounted.current = false; };
++  }, []);
++  useEffect(() => {
++    if (!writable) contentController.current?.abort();
++    return () => contentController.current?.abort();
++  }, [writable]);
+@@ -778,1 +790,1 @@
+-    const offset = 28 * (interaction.pasteCount + 1);
++    const offset = 50 * (interaction.pasteCount + 1);
+@@ -801,1 +813,1 @@
+-    store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
++    store.setState({ clipboard: null, pasteCount: 0, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
+@@ -869,12 +881,170 @@
+-  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+-    if (isFormTarget(event.target)) return;
+-    const command = event.metaKey || event.ctrlKey;
+-    if (command && event.key.toLowerCase() === "k") { event.preventDefault(); openCenteredMenu(); return; }
+-    if (command && event.key.toLowerCase() === "c") { event.preventDefault(); copy(); return; }
+-    if (command && event.key.toLowerCase() === "v") { event.preventDefault(); paste(); return; }
+-    if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
+-    if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
+-    if (event.key === "Escape") store.setState({ menu: closedMenu });
+-  }, [copy, openCenteredMenu, paste, redo, removeSelection, store, undo]);
+-
+-  const availableItems = useMemo(() => {
++  // Event work reads the latest committed graph after asynchronous clipboard/storage
++  // operations. A Space remount or read-only transition aborts the entire batch.
++  const contentContext = useRef({ graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia });
++  useEffect(() => {
++    contentContext.current = { graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia };
++  }, [graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia]);
++  const canvasBlocked = () => Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'));
++  const centerPosition = () => {
++    const rect = rootRef.current?.getBoundingClientRect();
++    return instanceRef.current?.screenToFlowPosition({
++      x: (rect?.left ?? 0) + (rect?.width ?? 640) / 2,
++      y: (rect?.top ?? 0) + (rect?.height ?? 480) / 2,
++    }) ?? { x: 80, y: 80 };
++  };
++  const createAt = (kind: string, position: XYPosition, centered = false) => {
++    if (!writable || graph.nodes.length >= 500) return;
++    const item = paletteItems.find((entry) => entry.kind === kind);
++    if (!item) return;
++    const width = kind === "input.prompt" ? 320 : 300;
++    const height = kind === "input.prompt" ? 220 : kind === "generate.image" || kind === "generate.video" ? 300 : 280;
++    const result = onCreateNode(item, centered ? { x: position.x - width / 2, y: position.y - height / 2 } : position, null);
++    publish({ ...graph, nodes: [...graph.nodes, result.node] }, "create");
++    store.setState({ selectedNodeIds: [result.node.id], selectedEdgeIds: [], menu: closedMenu });
++    rootRef.current?.focus();
++  };
++  const importContent = async (
++    read: () => Promise<Array<File | string | { assetId: string }>>,
++    position: XYPosition,
++    replaceSelectedImage: boolean,
++    centered: boolean,
++  ) => {
++    if (!writable || contentController.current || canvasBlocked()) return;
++    const controller = new AbortController();
++    contentController.current = controller;
++    setContentBusy(true);
++    const timeout = window.setTimeout(() => {
++      onInputError?.(new Error("CANVAS_IMPORT_TIMEOUT"));
++      controller.abort();
++    }, 120_000);
++    const replacement = replaceSelectedImage ? graph.nodes.find((node) =>
++      store.getState().selectedNodeIds.includes(node.id) && node.data.canonicalKind === "input.image") : undefined;
++    const originalConfig = replacement ? JSON.stringify(replacement.data.config) : null;
++    try {
++      const entries = await read();
++      controller.signal.throwIfAborted();
++      if (entries.length > 500) throw new Error("SPACE_NODE_LIMIT");
++      const prepared: Array<{ kind: string; config: Record<string, unknown> }> = [];
++      for (const entry of entries) {
++        controller.signal.throwIfAborted();
++        if (typeof entry === "string") {
++          if (!entry.trim()) continue;
++          if (entry.length > 20_000) throw new Error("PROMPT_TOO_LONG");
++          prepared.push({ kind: "input.prompt", config: { text: entry } });
++        } else {
++          const importer = contentContext.current.onImportCanvasMedia;
++          if (!importer) throw new Error("MEDIA_UPLOAD_UNAVAILABLE");
++          const asset = await importer(entry, controller.signal);
++          controller.signal.throwIfAborted();
++          prepared.push({ kind: `input.${asset.mediaType}`, config: { assetId: asset.assetId } });
++        }
++      }
++      const current = contentContext.current;
++      if (!current.writable || controller.signal.aborted || !prepared.length) return;
++      const replace = replacement && prepared.length === 1 && prepared[0].kind === "input.image";
++      if (replace && !current.graph.nodes.some((node) => node.id === replacement.id
++        && node.data.canonicalKind === "input.image" && JSON.stringify(node.data.config) === originalConfig)) {
++        throw new Error("PASTE_TARGET_CHANGED");
++      }
++      if (current.graph.nodes.length + prepared.length - (replace ? 1 : 0) > 500) throw new Error("SPACE_NODE_LIMIT");
++      let nodes = [...current.graph.nodes];
++      const insertedIds: string[] = [];
++      for (const [index, entry] of prepared.entries()) {
++        if (replace) {
++          nodes = nodes.map((node) => node.id === replacement.id ? {
++            ...node, data: { ...node.data, config: {
++              ...entry.config,
++              ...((node.data.config as Record<string, unknown> | undefined)?.presentation
++                ? { presentation: (node.data.config as Record<string, unknown>).presentation } : {}),
++            } },
++          } : node);
++          insertedIds.push(replacement.id);
++          continue;
++        }
++        const item = current.paletteItems.find((candidate) => candidate.kind === entry.kind);
++        if (!item) throw new Error("NODE_TYPE_UNAVAILABLE");
++        const width = entry.kind === "input.prompt" ? 320 : 300;
++        const height = entry.kind === "input.prompt" ? 220 : 280;
++        const result = current.onCreateNode(item, {
++          x: position.x + index * 240 - (centered ? width / 2 : 0),
++          y: position.y - (centered ? height / 2 : 0),
++        }, null);
++        nodes.push({ ...result.node, data: { ...result.node.data, config: entry.config } });
++        insertedIds.push(result.node.id);
++      }
++      current.publish({ ...current.graph, nodes }, "paste");
++      store.setState({ selectedNodeIds: insertedIds, selectedEdgeIds: [] });
++    } catch (error) {
++      if (!controller.signal.aborted) onInputError?.(error instanceof Error ? error : error instanceof DOMException ? Object.assign(new Error(error.message), { name: error.name }) : new Error("CANVAS_IMPORT_FAILED"));
++    } finally {
++      window.clearTimeout(timeout);
++      if (contentController.current === controller) {
++        contentController.current = null;
++        if (contentMounted.current) setContentBusy(false);
++      }
++    }
++  };
++  const readSystemClipboard = async (): Promise<Array<File | string>> => {
++    if (!navigator.clipboard?.read) {
++      if (!navigator.clipboard?.readText) throw new Error("CLIPBOARD_UNAVAILABLE");
++      return [await navigator.clipboard.readText()];
++    }
++    const items = await navigator.clipboard.read();
++    // Search all items for an image before accepting any text.
++    for (const item of items) {
++      const type = item.types.find((candidate) => candidate.startsWith("image/"));
++      if (type) return [new File([await item.getType(type)], "leesfield-pasted-image", { type })];
++    }
++    for (const item of items) if (item.types.includes("text/plain")) return [await (await item.getType("text/plain")).text()];
++    return [];
++  };
++  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
++    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229
++      || isFormTarget(event.target) || canvasBlocked() || event.altKey) return;
++    const command = event.metaKey || event.ctrlKey;
++    const key = event.key.toLowerCase();
++    if (!command && key === "?") { event.preventDefault(); setShortcutsOpen(true); return; }
++    if (command && key === "k") { event.preventDefault(); openCenteredMenu(); return; }
++    if (command && key === "c") { event.preventDefault(); copy(); return; }
++    if (command && key === "v") {
++      event.preventDefault();
++      if (interaction.clipboard?.nodes.length) paste();
++      else void importContent(readSystemClipboard, centerPosition(), true, true);
++      return;
++    }
++    if (command && key === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
++    if (command) return;
++    if (event.shiftKey) {
++      const kind = ({ p: "input.prompt", i: "input.image", g: "generate.image", v: "generate.video",
++        a: "edit.image.annotation", t: "generate.audio", y: "input.video" } as Record<string, string>)[key];
++      if (kind) { event.preventDefault(); createAt(kind, centerPosition(), true); return; }
++    }
++    if (!event.shiftKey && ["v", "h", "g"].includes(key)) {
++      const selected = graph.nodes.filter((node) => store.getState().selectedNodeIds.includes(node.id)).map((node) => ({
++        ...node, measured: store.getState().nodeLayout[node.id]?.measured ?? node.measured,
++      }));
++      if (selected.length < 2 || !writable) return;
++      event.preventDefault();
++      const sorted = [...selected].sort((a, b) => key === "v" ? a.position.y - b.position.y
++        : key === "h" ? a.position.x - b.position.x
++        : Math.floor(a.position.y / 100) - Math.floor(b.position.y / 100) || a.position.x - b.position.x);
++      const startX = Math.min(...selected.map((node) => node.position.x));
++      const startY = Math.min(...selected.map((node) => node.position.y));
++      const width = (node: NodeBananaRuntimeNode) => Number(node.style?.width) || node.measured?.width || 220;
++      const height = (node: NodeBananaRuntimeNode) => Number(node.style?.height) || node.measured?.height || 200;
++      const maxWidth = Math.max(...selected.map(width)), maxHeight = Math.max(...selected.map(height));
++      const cols = Math.ceil(Math.sqrt(selected.length));
++      let x = startX, y = startY;
++      applyToolbarNodeChanges(sorted.map((node, index) => {
++        const position = key === "g" ? { x: startX + index % cols * (maxWidth + 20), y: startY + Math.floor(index / cols) * (maxHeight + 20) } : { x, y };
++        if (key === "h") x += width(node) + 20;
++        if (key === "v") y += height(node) + 20;
++        return { type: "position" as const, id: node.id, position };
++      }));
++      return;
++    }
++    if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
++    if (event.key === "Escape") store.setState({ menu: closedMenu });
++  };
++
++  const availableItems = useMemo(() => {
+@@ -953,1 +1116,35 @@
+-        <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
++        <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas"
++          aria-busy={contentBusy}
++          onPaste={(event) => {
++            if (event.defaultPrevented || isFormTarget(event.target) || canvasBlocked()) return;
++            event.preventDefault();
++            if (interaction.clipboard?.nodes.length) { paste(); return; }
++            const files = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"));
++            const text = event.clipboardData.getData("text/plain");
++            void importContent(async () => files.length ? [files[0]] : [text], centerPosition(), true, true);
++          }}
++          onDragOver={(event) => {
++            if (event.defaultPrevented || isFormTarget(event.target) || !writable || canvasBlocked()) return;
++            event.preventDefault();
++            event.dataTransfer.dropEffect = "copy";
++          }}
++          onDrop={(event) => {
++            if (event.defaultPrevented || isFormTarget(event.target) || !writable || canvasBlocked()) return;
++            event.preventDefault();
++            event.stopPropagation();
++            const position = instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: 80, y: 80 };
++            const kind = event.dataTransfer.getData("application/node-type");
++            if (kind) { createAt(kind, position); return; }
++            const history = event.dataTransfer.getData("application/history-image");
++            if (history) {
++              try {
++                const parsed = JSON.parse(history) as { assetId?: unknown };
++                if (typeof parsed.assetId !== "string" || !parsed.assetId) throw new Error("HISTORY_ASSET_REQUIRED");
++                void importContent(async () => [{ assetId: parsed.assetId as string }], position, false, false);
++              } catch (error) { onInputError?.(error instanceof Error ? error : new Error("HISTORY_ASSET_REQUIRED")); }
++              return;
++            }
++            const files = Array.from(event.dataTransfer.files).filter((file) => /^(image|audio|video)\//.test(file.type));
++            if (files.length) void importContent(async () => files, position, false, false);
++          }}>
++          <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
+--- a/src/components/KeyboardShortcutsDialog.tsx
++++ b/src/components/KeyboardShortcutsDialog.tsx
+@@ -73,2 +73,3 @@
+-  onClose: () => void;
+-}
++  onClose: () => void;
++  hosted?: boolean;
++}
+@@ -76,1 +77,1 @@
+-export function KeyboardShortcutsDialog({ isOpen, onClose }: KeyboardShortcutsDialogProps) {
++export function KeyboardShortcutsDialog({ isOpen, onClose, hosted = false }: KeyboardShortcutsDialogProps) {
+@@ -92,1 +93,1 @@
+-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
++    <div role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+@@ -100,2 +101,3 @@
+-            onClick={onClose}
+-            className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
++            aria-label="Close keyboard shortcuts"
++            onClick={onClose}
++            className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+@@ -117,1 +119,1 @@
+-                {group.shortcuts.map((shortcut, idx) => (
++                {group.shortcuts.filter((shortcut) => !hosted || !["Run workflow", "Add LLM Text node", "Add Array node", "Add ComfyUI App node"].includes(shortcut.description)).map((shortcut, idx) => (

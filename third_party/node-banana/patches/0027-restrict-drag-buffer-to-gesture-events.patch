@@ -1,0 +1,49 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -583,6 +583,8 @@
+       if (changed) store.setState({ nodeLayout });
+     }
+-    const positions = changes.filter((change) => change.type === "position");
++    const positions = changes
++      .filter((change) => change.type === "position")
++      .filter((change) => change.dragging === true);
+     if (positions.length && dragStartRef.current) {
+       const current = store.getState().nodePositions;
+       const positionIds = new Set(positions.map((change) => change.id));
+@@ -618,11 +620,17 @@
+     publish({ nodes, edges }, removed ? "delete" : "nodes", removed);
+   }, [graph, publish, store, writable]);
+ 
+-  const commitNodeDrag = useCallback(() => {
++  const commitNodeDrag = useCallback((_event: MouseEvent | TouchEvent, draggedNode: NodeBananaRuntimeNode) => {
+     const previous = dragStartRef.current;
+     dragStartRef.current = null;
+     if (!previous || !writable) return;
+-    const positions = store.getState().nodePositions;
++    const bufferedPositions = store.getState().nodePositions;
++    const previousPosition = bufferedPositions[draggedNode.id] ?? graph.nodes.find((node) => node.id === draggedNode.id)?.position;
++    const positions = previousPosition &&
++      previousPosition.x === draggedNode.position.x &&
++      previousPosition.y === draggedNode.position.y
++      ? bufferedPositions
++      : { ...bufferedPositions, [draggedNode.id]: draggedNode.position };
+     const nodes = graph.nodes.map((node) => positions[node.id]
+       ? { ...node, position: positions[node.id] }
+       : node);
+@@ -925,8 +933,11 @@
+         onConnectEnd={onConnectEnd}
+         isValidConnection={isValidConnection}
+         onNodeDragStart={() => {
+-          dragStartRef.current = cloneGraph(graph);
+-          if (Object.keys(store.getState().nodePositions).length) {
+-            store.setState({ nodePositions: {} });
+-          }
++          const positions = store.getState().nodePositions;
++          dragStartRef.current = cloneGraph({
++            nodes: graph.nodes.map((node) => positions[node.id]
++              ? { ...node, position: positions[node.id] }
++              : node),
++            edges: graph.edges,
++          });
+         }}
+         onNodeDragStop={commitNodeDrag}

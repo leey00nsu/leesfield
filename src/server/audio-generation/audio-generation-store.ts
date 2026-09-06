@@ -3,10 +3,8 @@ import type {
   AudioGenerationResponse,
   AudioGenerationStatus,
 } from "@/features/audio-generation/model/audio-generation-types";
-import {
-  createAudioGenerationRecord,
-  getAudioGenerationByRequestId,
-} from "@/server/audio-generation/audio-generation-repository";
+import { getAudioGenerationByRequestId } from "@/server/audio-generation/audio-generation-repository";
+import { submitAudioGeneration } from "@/server/audio-generation/audio-generation-submission";
 
 export type AudioGenerationRecord = {
   id: string;
@@ -44,20 +42,10 @@ export async function createMockAudioGenerationWithLimit(
   ownerEmail: string,
   apiKeyId: string | null = null,
 ) {
-  const requestId = crypto.randomUUID();
-  const record = await createAudioGenerationRecord(
-    requestId,
-    payload,
-    ownerEmail,
-    apiKeyId,
-  );
+  const { record } = await submitAudioGeneration({ payload, ownerEmail, apiKeyId });
 
   return {
-    record: {
-      id: record.requestId,
-      status: record.status,
-      progress: record.progress,
-    } satisfies AudioGenerationRecord,
+    record: record satisfies AudioGenerationRecord,
     latest: null,
   };
 }
