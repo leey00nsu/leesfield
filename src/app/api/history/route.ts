@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
+import { InvalidHistoryCursor } from "@/server/history/lib/history-cursor";
 import { getHistory } from "@/server/history/handlers/get-history";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof InvalidHistoryCursor) return NextResponse.json({ message: error.message }, { status: 400 });
     console.error("[history] list failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },

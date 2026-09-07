@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   AudioLines,
@@ -15,6 +15,7 @@ import type {
   GenerationHistoryItem,
   GenerationHistoryStatus,
 } from "@/entities/generation/model/types";
+import { AppButton } from "@/shared/ui/app-button";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { cn } from "@/shared/lib/utils";
@@ -78,7 +79,6 @@ export function HistoryItem({
   const StatusIcon = status.icon;
   const TypeIcon = type.icon;
   const previewUrl = item.thumbnailUrl ?? item.resultUrl;
-  const isVideo = item.type === "video";
   const isAudio = item.type === "audio";
 
   const dateFormatter = useMemo(
@@ -105,29 +105,12 @@ export function HistoryItem({
     >
       <div className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]">
         {previewUrl ? (
-          isVideo ? (
-            <video
-              src={previewUrl}
-              className="h-full w-full object-cover"
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            />
-          ) : isAudio ? (
+          isAudio ? (
             <div className="flex h-full items-center justify-center bg-card">
               <AudioLines className="h-12 w-12 text-primary" />
             </div>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt={tHistory("previewAlt")}
-              loading="lazy"
-              decoding="async"
-              fetchPriority="low"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035] group-focus-within:scale-[1.035]"
-            />
+            <HistoryMedia key={previewUrl} url={previewUrl} type={item.type === "video" ? "video" : "image"} alt={tHistory("previewAlt")} />
           )
         ) : (
           <div className="absolute inset-0 bg-white/[0.045]" />
@@ -225,4 +208,22 @@ export function HistoryItemSkeleton({
       </div>
     </article>
   );
+}
+
+function HistoryMedia({ url, type, alt }: { url: string; type: "image" | "video"; alt: string }) {
+  const t = useTranslations("history.media");
+  const actions = useTranslations("common.actions");
+  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
+  const className = cn("h-full w-full object-cover transition-opacity motion-reduce:transition-none", state !== "loaded" && "opacity-0");
+  return <>
+    {state === "loading" && <AppSkeleton role="status" aria-label={t("loading")} className="absolute inset-0 rounded-none motion-reduce:animate-none" />}
+    {type === "video" ? <video key={attempt} src={url} className={className} muted loop playsInline preload="metadata" onLoadedData={() => setState("loaded")} onError={() => setState("error")} /> :
+      // eslint-disable-next-line @next/next/no-img-element
+      <img key={attempt} src={url} alt={alt} loading="lazy" decoding="async" fetchPriority="low" className={className} onLoad={() => setState("loaded")} onError={() => setState("error")} />}
+    {state === "error" && <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card p-4 text-center text-sm">
+      <span role="status">{t("error")}</span>
+      <AppButton size="sm" variant="surface" onClick={() => { setState("loading"); setAttempt(value => value + 1); }}>{actions("retry")}</AppButton>
+    </div>}
+  </>;
 }

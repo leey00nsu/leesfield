@@ -1,0 +1,44 @@
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createIntlWrapper } from "@/test-utils/intl";
+import { useHistoryQuery } from "./use-history-query";
+import { fetchHistory } from "../api/history-api";
+import type { GenerationHistoryResponse } from "@/entities/generation/model/types";
+vi.mock("../api/history-api", () => ({ fetchHistory: vi.fn() }));
+const fetchMock = vi.mocked(fetchHistory);
+const params = { type: "all" as const, query: "", sort: "date_desc" as const, status: "all", limit: 24 };
+const page = (id: string, nextCursor: string | null): GenerationHistoryResponse => ({ items: [{ id, type: "image", status: "completed", prompt: id, createdAt: "2026-09-07", resultUrl: "/test.png", model: null, thumbnailUrl: null, errorMessage: null }], total: 2, limit: 24, offset: 0, nextCursor });
+beforeEach(() => fetchMock.mockReset());
+describe("history infinite query", () => {
+  it("retains the first page while a later page is pending, failed, and retried", async () => {
+    let reject!: (error: Error) => void;
+    fetchMock.mockResolvedValueOnce(page("first", "next"));
+    const { result } = renderHook(() => useHistoryQuery(params), { wrapper: createIntlWrapper() });
+    await waitFor(() => expect(result.current.data?.pages[0].items[0].id).toBe("first"));
+    fetchMock.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; })).mockRejectedValueOnce(new Error("timeout"));
+    act(() => { void result.current.fetchNextPage(); });
+    await waitFor(() => expect(result.current.isFetchingNextPage).toBe(true));
+    expect(result.current.data?.pages[0].items[0].id).toBe("first");
+    act(() => reject(new Error("timeout")));
+    await waitFor(() => expect(result.current.isFetchNextPageError).toBe(true), { timeout: 3000 });
+    expect(result.current.data?.pages).toHaveLength(1);
+    fetchMock.mockResolvedValueOnce(page("second", null));
+    await act(async () => { await result.current.fetchNextPage(); });
+    await waitFor(() => expect(result.current.data?.pages.flatMap(p => p.items).map(i => i.id)).toEqual(["first", "second"]));
+    expect(result.current.hasNextPage).toBe(false);
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "next" }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+  it("aborts an old filter and never mixes its late response into the new filter", async () => {
+    let finish!: (value: GenerationHistoryResponse) => void;
+    let oldSignal!: AbortSignal;
+    fetchMock.mockImplementationOnce((_params, options) => { oldSignal = options!.signal!; return new Promise(resolve => { finish = resolve; }); });
+    const { result, rerender } = renderHook(({ query }) => useHistoryQuery({ ...params, query }), { wrapper: createIntlWrapper(), initialProps: { query: "old" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fetchMock.mockResolvedValueOnce(page("new", null));
+    rerender({ query: "new" });
+    await waitFor(() => expect(result.current.data?.pages[0].items[0].id).toBe("new"));
+    expect(oldSignal.aborted).toBe(true);
+    await act(async () => finish(page("old", null)));
+    expect(result.current.data?.pages[0].items[0].id).toBe("new");
+  });
+});

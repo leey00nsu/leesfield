@@ -1,38 +1,19 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import type {
-  GenerationHistorySort,
-  GenerationHistoryType,
-} from "@/entities/generation/model/types";
-import { fetchHistory } from "@/features/generation-history/api/history-api";
+import { fetchHistory, type HistoryQueryParams } from "../api/history-api";
 
-export interface UseHistoryQueryParams {
-  type: GenerationHistoryType;
-  query: string;
-  sort: GenerationHistorySort;
-  limit: number;
-  offset: number;
-}
-
-const HISTORY_QUERY_KEY = "history";
-
+export type UseHistoryQueryParams = Omit<HistoryQueryParams, "offset" | "cursor">;
+export const historyKeys = { all: ["history"] as const, list: (params: UseHistoryQueryParams) => ["history", params] as const };
 export function useHistoryQuery(params: UseHistoryQueryParams) {
   const t = useTranslations("history");
-  const { type, query, sort, limit, offset } = params;
-  const queryResult = useQuery({
-    queryKey: [HISTORY_QUERY_KEY, type, query, sort, limit, offset],
-    queryFn: ({ signal }) =>
-      fetchHistory({ type, query, sort, limit, offset }, { signal }),
+  const result = useInfiniteQuery({
+    queryKey: historyKeys.list(params),
+    queryFn: ({ signal, pageParam }) => fetchHistory({ ...params, cursor: pageParam }, { signal }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
     staleTime: 10_000,
     gcTime: 5 * 60_000,
     retry: 1,
-    placeholderData: keepPreviousData,
   });
-
-  return {
-    data: queryResult.data ?? null,
-    isLoading: queryResult.isLoading,
-    refetch: queryResult.refetch,
-    error: queryResult.error ? t("error") : null,
-  };
+  return { ...result, error: result.error ? t("error") : null };
 }

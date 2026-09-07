@@ -1,0 +1,24 @@
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { it, expect, vi } from "vitest";
+import { createIntlWrapper } from "@/test-utils/intl";
+import { useGenerationHistoryList } from "./use-generation-history-list";
+import { fetchHistory } from "../api/history-api";
+vi.mock("../api/history-api", () => ({ fetchHistory: vi.fn() }));
+const status = vi.hoisted(() => ({ activeCount: 1, latestUpdatedAt: "a" }));
+vi.mock("./use-history-status-query", () => ({ useHistoryStatusQuery: () => ({ data: { ...status } }) }));
+it("updates loaded items after a status event and removes deleted items from the cache", async () => {
+  const item = { id: "a", type: "image" as const, status: "processing" as const, prompt: "a", createdAt: "2026-09-07", resultUrl: null, model: null, thumbnailUrl: null, errorMessage: null };
+  const initial = { items: [item], total: 1, offset: 0, limit: 24, nextCursor: null };
+  vi.mocked(fetchHistory).mockResolvedValue(initial);
+  const { result, rerender } = renderHook(() => useGenerationHistoryList({ type: "all", query: "", sort: "date_desc" }), { wrapper: createIntlWrapper() });
+  await waitFor(() => expect(result.current.items[0]?.status).toBe("processing"));
+  vi.mocked(fetchHistory).mockResolvedValue({ ...initial, items: [{ ...item, status: "completed", resultUrl: "/api/media-assets/a/read" }] });
+  status.activeCount = 0; status.latestUpdatedAt = "b";
+  rerender();
+  await waitFor(() => expect(result.current.items[0]?.status).toBe("completed"));
+  expect(result.current.items).toHaveLength(1);
+  vi.mocked(fetchHistory).mockResolvedValue({ ...initial, items: [], total: 0 });
+  await act(async () => { await result.current.removeItem(item); });
+  await waitFor(() => expect(result.current.items).toHaveLength(0));
+  expect(result.current.total).toBe(0);
+});

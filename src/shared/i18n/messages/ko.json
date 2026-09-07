@@ -39,7 +39,8 @@
       "loadPreset": "프리셋 불러오기",
       "clear": "비우기",
       "reset": "초기화",
-      "comingSoon": "준비 중"
+      "comingSoon": "준비 중",
+      "retry": "다시 시도"
     },
     "labels": {
       "filterOptions": "필터 옵션",
@@ -567,6 +568,10 @@
       "failed": "실패",
       "generating": "생성 중…",
       "unknownDate": "알 수 없음"
+    },
+    "media": {
+      "loading": "미디어를 불러오는 중",
+      "error": "미디어를 불러오지 못했습니다."
     }
   },
   "monitoringDashboard": {

@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { prisma } from "@/server/db/prisma";
-import { mediaAssetService } from "@/server/media-assets/media-asset-service";
+import { compareHistory, cursorWhere, decodeHistoryCursor, encodeHistoryCursor } from "../lib/history-cursor";
 import {
   buildAudioWhere,
   buildImageWhere,
@@ -41,13 +41,7 @@ async function resolvedAsset(
   assetId: string | null | undefined,
   fallbackUrl: string | null,
 ) {
-  if (!assetId) return { assetId: null, url: fallbackUrl };
-  try {
-    const asset = await mediaAssetService.get(ownerEmail, assetId);
-    return { assetId: asset.id, url: asset.url };
-  } catch {
-    return { assetId, url: fallbackUrl };
-  }
+  return { assetId: assetId ?? null, url: fallbackUrl };
 }
 
 function graphProvenance(record: {
@@ -93,7 +87,7 @@ async function imageItem(ownerEmail: string, record: {
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
-    thumbnailUrl: completed ? asset.url : null,
+    thumbnailUrl: completed && asset.url ? asset.url : null,
     inputImages: extractInputImages(record.requestParams),
     errorMessage: record.status === "failed" ? record.errorMessage : null,
   };
@@ -196,15 +190,21 @@ export async function getHistory(
   ownerEmail: string,
 ): Promise<HistoryResponse> {
   const query = parseHistoryQuery(searchParams);
-  const cappedOffset = Math.min(query.offset, 200);
-  const take = query.limit + cappedOffset;
+  const status = searchParams.get("status") ?? "all";
+  const validStatus = ["pending", "processing", "uploading", "completed", "failed", "cancelled"].includes(status) ? status : "all";
+  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus]);
+  const cursor = decodeHistoryCursor(searchParams.get("cursor"), scope);
+  const pageOffset = cursor ? 0 : query.offset;
+  const take = query.limit + pageOffset + 1;
+  const filter = validStatus === "all" ? {} : { status: validStatus as GenerationHistoryItem["status"] };
+  const asc = query.sort === "date_asc";
   const orderBy = { createdAt: query.sort === "date_asc" ? "asc" : "desc" } as const;
   const graphNode = { select: { graphId: true } } as const;
 
   const imagePromise = query.type === "all" || query.type === "image"
     ? Promise.all([
         prisma.imageGeneration.findMany({
-          where: { ownerEmail, ...buildImageWhere(query) }, orderBy, take,
+          where: { ownerEmail, ...filter, AND: [buildImageWhere(query), cursorWhere(cursor, 0, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, requestParams: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
@@ -212,13 +212,13 @@ export async function getHistory(
             images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
           },
         }),
-        prisma.imageGeneration.count({ where: { ownerEmail, ...buildImageWhere(query) } }),
+        prisma.imageGeneration.count({ where: { ownerEmail, ...filter, ...buildImageWhere(query) } }),
       ])
     : emptyPage;
   const videoPromise = query.type === "all" || query.type === "video"
     ? Promise.all([
         prisma.videoGeneration.findMany({
-          where: { ownerEmail, ...buildVideoWhere(query) }, orderBy, take,
+          where: { ownerEmail, ...filter, AND: [buildVideoWhere(query), cursorWhere(cursor, 1, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, requestParams: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
@@ -226,13 +226,13 @@ export async function getHistory(
             videos: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
           },
         }),
-        prisma.videoGeneration.count({ where: { ownerEmail, ...buildVideoWhere(query) } }),
+        prisma.videoGeneration.count({ where: { ownerEmail, ...filter, ...buildVideoWhere(query) } }),
       ])
     : emptyPage;
   const audioPromise = query.type === "all" || query.type === "audio"
     ? Promise.all([
         prisma.audioGeneration.findMany({
-          where: { ownerEmail, ...buildAudioWhere(query) }, orderBy, take,
+          where: { ownerEmail, ...filter, AND: [buildAudioWhere(query), cursorWhere(cursor, 2, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, requestParams: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
@@ -240,13 +240,13 @@ export async function getHistory(
             audios: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
           },
         }),
-        prisma.audioGeneration.count({ where: { ownerEmail, ...buildAudioWhere(query) } }),
+        prisma.audioGeneration.count({ where: { ownerEmail, ...filter, ...buildAudioWhere(query) } }),
       ])
     : emptyPage;
-  const editWhere = operationWhere(query, ownerEmail);
+  const editWhere = { ...operationWhere(query, ownerEmail), ...(validStatus !== "all" && validStatus !== "completed" ? { id: { in: [] as string[] } } : {}) };
   const operationPromise = Promise.all([
     prisma.mediaOperation.findMany({
-      where: editWhere, orderBy, take,
+      where: { ...editWhere, AND: [cursorWhere(cursor, 3, "id", asc)] }, orderBy: [orderBy, { id: asc ? "asc" : "desc" }], take,
       select: {
         id: true, graphId: true, graphNodeId: true, type: true, configVersion: true,
         parameters: true, progress: true, createdAt: true, updatedAt: true,
@@ -288,7 +288,7 @@ export async function getHistory(
       durationMs: toHistoryDurationMs(operation.createdAt, operation.updatedAt, "completed"),
       progress: operation.progress,
       resultUrl: asset.url,
-      thumbnailUrl: output.type === "image" ? asset.url : null,
+      thumbnailUrl: output.type === "image" && asset.url ? asset.url : null,
       inputImages: [],
       inputAudios: [],
       errorMessage: null,
@@ -299,15 +299,14 @@ export async function getHistory(
     ...(await Promise.all(videos.map((record) => videoItem(ownerEmail, record)))),
     ...(await Promise.all(audios.map((record) => audioItem(ownerEmail, record)))),
     ...operationItems,
-  ].sort((a, b) => {
-    const delta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    return query.sort === "date_asc" ? delta : -delta;
-  });
+  ].sort((a, b) => compareHistory(a, b, asc));
+  const page = items.slice(pageOffset, pageOffset + query.limit);
 
   return {
-    items: items.slice(cappedOffset, cappedOffset + query.limit),
+    items: page,
+    nextCursor: items.length > pageOffset + query.limit && page.length ? encodeHistoryCursor(page[page.length - 1], scope) : null,
     total: imageTotal + videoTotal + audioTotal + operationTotal,
     limit: query.limit,
-    offset: cappedOffset,
+    offset: pageOffset,
   };
 }

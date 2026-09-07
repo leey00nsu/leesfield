@@ -152,6 +152,9 @@ async function toAssetDto(
   } else if (asset.storageProvider === "legacy_url") {
     url = asset.legacyUrl ?? asset.storageUrl ?? "";
     if (!url) throw new MediaStorageUnavailableError();
+  } else if (asset.storageUrl) {
+    // Leemage stores permanent URLs; only old records without one need resolution.
+    url = asset.storageUrl;
   } else {
     try {
       url = await storage.resolveReadUrl(asset.storageObjectId, asset.storageUrl);

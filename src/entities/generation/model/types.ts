@@ -42,4 +42,5 @@ export interface GenerationHistoryResponse {
   total: number;
   limit: number;
   offset: number;
+  nextCursor?: string | null;
 }

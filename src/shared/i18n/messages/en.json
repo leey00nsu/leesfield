@@ -39,7 +39,8 @@
       "loadPreset": "Load Preset",
       "clear": "Clear",
       "reset": "Reset",
-      "comingSoon": "Coming soon"
+      "comingSoon": "Coming soon",
+      "retry": "Retry"
     },
     "labels": {
       "filterOptions": "Filter options",
@@ -567,6 +568,10 @@
       "failed": "FAILED",
       "generating": "Generating...",
       "unknownDate": "Unknown"
+    },
+    "media": {
+      "loading": "Loading media",
+      "error": "Unable to load media."
     }
   },
   "monitoringDashboard": {

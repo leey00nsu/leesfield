@@ -143,3 +143,18 @@ describe("HistoryItem", () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(1);
   });
 });
+
+it("reveals each media independently and retries only the failed card", () => {
+  const item = { type: "image" as const, status: "completed" as const, prompt: "test", createdAt: "2026-09-07", model: null, thumbnailUrl: null, errorMessage: null };
+  renderWithIntl(<><HistoryItem item={{ ...item, id: "a", resultUrl: "https://media.example/a.png" }} /><HistoryItem item={{ ...item, id: "b", resultUrl: "https://media.example/b.png" }} /></>);
+  const [first, second] = screen.getAllByRole("img");
+  expect(screen.getAllByRole("status", { name: "미디어를 불러오는 중" })).toHaveLength(2);
+  fireEvent.load(first);
+  expect(first).not.toHaveClass("opacity-0");
+  expect(second).toHaveClass("opacity-0");
+  fireEvent.error(second);
+  expect(screen.getByText("미디어를 불러오지 못했습니다.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(screen.getAllByRole("img")[1]).toHaveAttribute("src", "https://media.example/b.png");
+  expect(screen.getAllByRole("img")[0]).toBe(first);
+});

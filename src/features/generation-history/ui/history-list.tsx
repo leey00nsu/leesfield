@@ -82,7 +82,7 @@ export function HistoryList({
     >
       {items.map((item, index) => (
         <HistoryItem
-          key={`${item.type}-${item.id}`}
+          key={`${item.origin ?? "generation"}-${item.type}-${item.id}`}
           item={item}
           onDeleted={onDeleteItem}
           onSelect={onSelectItem}

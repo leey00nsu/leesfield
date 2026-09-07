@@ -132,6 +132,7 @@ describe("GenerationHistoryScreen", () => {
         },
       ],
       total: 2,
+      hasNextPage: true,
       isLoading: false,
       error: null,
       sentinelRef: { current: null },
@@ -160,7 +161,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "실패" }));
-    expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");
+    expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
 
     fireEvent.click(screen.getByRole("button", { name: "전체" }));
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
@@ -178,6 +179,7 @@ describe("GenerationHistoryScreen", () => {
         },
       ],
       total: 2,
+      hasNextPage: true,
       isLoading: true,
       error: null,
       sentinelRef: { current: null },
@@ -464,4 +466,13 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("입력 파일 없음")).toBeInTheDocument();
     expect(screen.getByText("결과 없음")).toBeInTheDocument();
   });
+});
+
+it("keeps loaded cards visible on a subsequent page failure", () => {
+  const retry = vi.fn();
+  useGenerationHistoryListMock.mockReturnValue({ items: [detailFixture], total: 2, hasNextPage: true, isLoading: false, error: "failed", sentinelRef: { current: null }, removeItem: vi.fn(), retry });
+  renderWithIntl(<GenerationHistoryScreen />);
+  expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(retry).toHaveBeenCalledOnce();
 });

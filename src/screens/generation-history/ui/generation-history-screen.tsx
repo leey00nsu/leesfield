@@ -22,6 +22,7 @@ import type {
   GenerationHistoryStatus,
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
+import { HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
@@ -131,17 +132,15 @@ export function GenerationHistoryScreen() {
     useState<GenerationHistoryItem | null>(null);
   const debouncedQuery = useDebouncedValue(searchInput, 350);
   const query = debouncedQuery.trim();
-  const { items, total, isLoading, error, sentinelRef, removeItem } =
+  const { items, isLoading, isFetchingNextPage, hasNextPage, error, sentinelRef, removeItem, retry } =
     useGenerationHistoryList({
       type,
       sort,
       query,
+      status: statusFilter,
     });
 
-  const displayItems =
-    statusFilter === "all"
-      ? items
-      : items.filter((item) => item.status === statusFilter);
+  const displayItems = items;
   const hasFilteredState = query.length > 0 || statusFilter !== "all";
 
   return (
@@ -227,9 +226,10 @@ export function GenerationHistoryScreen() {
       </section>
 
       <div className="w-full">
-        {error ? (
+        {error && items.length === 0 ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-4 text-sm text-red-200">
             {tHistory("error")}
+            <AppButton onClick={() => void retry()} variant="surface">{tCommonActions("retry")}</AppButton>
           </div>
         ) : (
           <HistoryList
@@ -244,7 +244,7 @@ export function GenerationHistoryScreen() {
             }
           />
         )}
-        {!error && items.length > 0 && items.length < total && (
+        {items.length > 0 && (hasNextPage || error) && (
           <div className="mt-6 flex flex-col items-center gap-3">
             <div
               ref={sentinelRef}
@@ -252,10 +252,11 @@ export function GenerationHistoryScreen() {
               aria-hidden="true"
               className="h-8 w-full max-w-xs"
             />
-            {isLoading && (
-              <span className="text-xs font-sans uppercase tracking-widest text-gray-500">
-                {tCommonActions("loading")}
-              </span>
+            {error && <AppButton variant="surface" onClick={() => void retry()}>{tCommonActions("retry")}</AppButton>}
+            {isFetchingNextPage && (
+              <div role="status" aria-label={tCommonActions("loading")} className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+                {Array.from({ length: 4 }, (_, index) => <HistoryItemSkeleton key={index} className="h-56" />)}
+              </div>
             )}
           </div>
         )}
@@ -322,7 +323,7 @@ function HistoryDetailOverlay({
   const hydratedItem = hydrateHistoryItem(item, detail);
   const previewUrl = hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl;
   const canUseImageReference =
-    hydratedItem.type === "image" && Boolean(hydratedItem.resultUrl);
+    hydratedItem.type === "image" && Boolean(hydratedItem.resultUrl?.match(/^https?:\/\//));
   const dateFormatter = new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "2-digit",

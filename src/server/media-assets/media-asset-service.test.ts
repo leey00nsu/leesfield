@@ -334,14 +334,31 @@ describe("mediaAssetService", () => {
     });
     await expect(
       service.confirmUpload("owner@example.com", "upload_1", {}),
-    ).resolves.toMatchObject({ id: "asset_1", url: "https://read.example/file_1" });
+    ).resolves.toMatchObject({ id: "asset_1", url: "https://storage.example/file_1" });
     expect(storageMocks.confirm).not.toHaveBeenCalled();
   });
 
-  it("lists an owner-scoped cursor page with fresh read URLs", async () => {
+  it("reads stored URLs without storage access and resolves only missing legacy data", async () => {
+    repositoryMocks.getAsset.mockResolvedValueOnce(asset);
+    await expect(service.get("owner@example.com", "asset_1")).resolves.toMatchObject({ url: asset.storageUrl });
+    expect(repositoryMocks.getAsset).toHaveBeenCalledWith("owner@example.com", "asset_1");
+    expect(storageMocks.resolveReadUrl).not.toHaveBeenCalled();
+    repositoryMocks.getAsset.mockResolvedValueOnce({ ...asset, storageUrl: null });
+    await expect(service.get("owner@example.com", "asset_1")).resolves.toMatchObject({ url: "https://read.example/file_1" });
+    expect(storageMocks.resolveReadUrl).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an inaccessible asset before returning its permanent URL", async () => {
+    repositoryMocks.getAsset.mockRejectedValueOnce(new Error("not found"));
+    await expect(service.get("another-owner", "asset_1")).rejects.toThrow("not found");
+    expect(repositoryMocks.getAsset).toHaveBeenCalledWith("another-owner", "asset_1");
+    expect(storageMocks.resolveReadUrl).not.toHaveBeenCalled();
+  });
+
+  it("lists an owner-scoped cursor page using stored permanent URLs", async () => {
     repositoryMocks.listAssets.mockResolvedValue([
       asset,
-      { ...asset, id: "asset_2", storageObjectId: "file_2" },
+      { ...asset, id: "asset_2", storageObjectId: "file_2", storageUrl: "https://storage.example/file_2" },
       { ...asset, id: "asset_3", storageObjectId: "file_3" },
     ]);
     storageMocks.resolveReadUrl
@@ -351,11 +368,12 @@ describe("mediaAssetService", () => {
     await expect(service.list("owner@example.com", { type: "image", limit: 2 }))
       .resolves.toMatchObject({
         items: [
-          { id: "asset_1", url: "https://read.example/file_1" },
-          { id: "asset_2", url: "https://read.example/file_2" },
+          { id: "asset_1", url: "https://storage.example/file_1" },
+          { id: "asset_2", url: "https://storage.example/file_2" },
         ],
         nextCursor: "asset_2",
       });
+    expect(storageMocks.resolveReadUrl).not.toHaveBeenCalled();
     expect(repositoryMocks.listAssets).toHaveBeenCalledWith("owner@example.com", {
       type: "image",
       limit: 2,

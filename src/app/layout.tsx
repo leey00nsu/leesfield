@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "@/app/providers";
 import "./globals.css";
+import { getSession } from "@/server/auth/session";
 
 const paperlogy = localFont({
   src: "./fonts/Paperlogy-7Bold.ttf",
@@ -71,11 +72,13 @@ export default async function RootLayout({
   const locale = await getLocale();
   const messages = await getMessages();
   const timeZone = "UTC";
+  const session = await getSession();
+  const accountKey = session.isLoggedIn ? session.adminEmail ?? "authenticated" : "anonymous";
 
   return (
     <html lang={locale} className="dark">
       <body className={`${pretendard.variable} ${paperlogy.variable} antialiased`}>
-        <Providers locale={locale} messages={messages} timeZone={timeZone}>
+        <Providers key={accountKey} locale={locale} messages={messages} timeZone={timeZone}>
           {children}
         </Providers>
       </body>

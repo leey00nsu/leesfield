@@ -48,6 +48,21 @@ function clientAndProject() {
   return { client: cachedClient, projectId: config.projectId };
 }
 
+// Only share work that is still in flight; signed URL lifetimes are not assumed.
+const projectReads = new WeakMap<LeemageClient, Map<string, ReturnType<LeemageClient["projects"]["get"]>>>();
+function readProject(client: LeemageClient, projectId: string) {
+  let reads = projectReads.get(client);
+  if (!reads) { reads = new Map(); projectReads.set(client, reads); }
+  let pending = reads.get(projectId);
+  if (!pending) {
+    pending = client.projects.get(projectId);
+    reads.set(projectId, pending);
+    const release = () => { if (reads.get(projectId) === pending) reads.delete(projectId); };
+    void pending.then(release, release);
+  }
+  return pending;
+}
+
 function fileUrl(file: FileResponse, fallback: string) {
   return file.url ?? file.variants.find((variant) => variant.url)?.url ?? fallback;
 }
@@ -83,6 +98,7 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
       contentType: input.mimeType,
       fileSize: input.bytes,
     };
+    projectReads.get(client)?.delete(projectId);
     const result = await client.files.confirm(projectId, request);
     return {
       objectId: result.file.id,
@@ -94,7 +110,7 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
   inspect: inspectMediaUrl,
   async resolveReadUrl(objectId, fallbackUrl) {
     const { client, projectId } = clientAndProject();
-    const project = await client.projects.get(projectId);
+    const project = await readProject(client, projectId);
     const file = project.files.find((candidate) => candidate.id === objectId);
     if (!file) throw new MediaStorageUnavailableError();
     const resolved = file.url ?? file.variants.find((variant) => variant.url)?.url ?? fallbackUrl;
@@ -103,6 +119,7 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
   },
   async delete(objectId) {
     const { client, projectId } = clientAndProject();
+    projectReads.get(client)?.delete(projectId);
     await client.files.delete(projectId, objectId);
   },
 };

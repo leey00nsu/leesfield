@@ -9,7 +9,9 @@ export interface HistoryQueryParams {
   query: string;
   sort: GenerationHistorySort;
   limit: number;
-  offset: number;
+  offset?: number;
+  cursor?: string | null;
+  status?: string;
 }
 
 function buildHistoryUrl(params: HistoryQueryParams) {
@@ -18,7 +20,9 @@ function buildHistoryUrl(params: HistoryQueryParams) {
   if (params.query) searchParams.set("query", params.query);
   if (params.sort) searchParams.set("sort", params.sort);
   searchParams.set("limit", String(params.limit));
-  searchParams.set("offset", String(params.offset));
+  if (params.offset !== undefined) searchParams.set("offset", String(params.offset));
+  if (params.cursor) searchParams.set("cursor", params.cursor);
+  if (params.status) searchParams.set("status", params.status);
 
   return `/api/history?${searchParams.toString()}`;
 }

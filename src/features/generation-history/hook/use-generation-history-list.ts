@@ -1,178 +1,59 @@
-import { useEffect, useReducer, useRef, type RefObject } from "react";
-import type {
-  GenerationHistoryItem,
-  GenerationHistorySort,
-  GenerationHistoryType,
-} from "@/entities/generation/model/types";
-import { useHistoryQuery } from "@/features/generation-history/hook/use-history-query";
-import { useHistoryStatusQuery } from "@/features/generation-history/hook/use-history-status-query";
-
-const DEFAULT_LIMIT = 24;
-
-interface GenerationHistoryListState {
-  offset: number;
-  items: GenerationHistoryItem[];
-  total: number;
-}
-
-type GenerationHistoryListAction =
-  | { type: "reset" }
-  | { type: "setOffset"; offset: number }
-  | { type: "replace"; items: GenerationHistoryItem[]; total: number }
-  | { type: "append"; items: GenerationHistoryItem[]; total: number }
-  | { type: "remove"; key: string };
-
-const initialState: GenerationHistoryListState = {
-  offset: 0,
-  items: [],
-  total: 0,
-};
-
-function reducer(
-  state: GenerationHistoryListState,
-  action: GenerationHistoryListAction,
-): GenerationHistoryListState {
-  switch (action.type) {
-    case "reset":
-      return { offset: 0, items: [], total: 0 };
-    case "setOffset":
-      return { ...state, offset: Math.max(action.offset, 0) };
-    case "replace":
-      return { ...state, items: action.items, total: action.total };
-    case "append": {
-      // API 페이지가 겹치는 경우를 대비해 동일 항목을 제거한다.
-      const merged = [...state.items];
-      const seen = new Set(
-        state.items.map((item) => `${item.type}-${item.id}`),
-      );
-      for (const item of action.items) {
-        const key = `${item.type}-${item.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        merged.push(item);
-      }
-      return { ...state, items: merged, total: action.total };
-    }
-    case "remove": {
-      const nextItems = state.items.filter(
-        (item) => `${item.type}-${item.id}` !== action.key,
-      );
-      if (nextItems.length === state.items.length) return state;
-      return {
-        ...state,
-        items: nextItems,
-        total: Math.max(0, state.total - 1),
-      };
-    }
-    default:
-      return state;
-  }
-}
+import { useEffect, useRef } from "react";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import type { GenerationHistoryItem, GenerationHistoryResponse, GenerationHistorySort, GenerationHistoryType } from "@/entities/generation/model/types";
+import { historyKeys, useHistoryQuery } from "./use-history-query";
+import { useHistoryStatusQuery } from "./use-history-status-query";
 
 export interface UseGenerationHistoryListOptions {
   type: GenerationHistoryType;
   sort: GenerationHistorySort;
   query: string;
+  status?: string;
   limit?: number;
 }
-
-export interface UseGenerationHistoryListResult {
-  items: GenerationHistoryItem[];
-  total: number;
-  isLoading: boolean;
-  error: string | null;
-  sentinelRef: RefObject<HTMLDivElement | null>;
-  removeItem: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
-}
-
-export function useGenerationHistoryList({
-  type,
-  sort,
-  query,
-  limit = DEFAULT_LIMIT,
-}: UseGenerationHistoryListOptions): UseGenerationHistoryListResult {
-  const [state, dispatch] = useReducer(reducer, initialState);
+export function useGenerationHistoryList({ type, sort, query, status = "all", limit = 24 }: UseGenerationHistoryListOptions) {
+  const client = useQueryClient();
+  const result = useHistoryQuery({ type, sort, query, status, limit });
+  const { data, refetch, fetchNextPage, isFetching, hasNextPage, error } = result;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  // 옵저버가 연속으로 트리거되는 상황을 막기 위한 플래그.
-  const isFetchingNextRef = useRef(false);
-  const lastStatusTokenRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    // 검색 조건이 바뀌면 페이지네이션 상태를 초기화한다.
-    dispatch({ type: "reset" });
-    isFetchingNextRef.current = false;
-    lastStatusTokenRef.current = null;
-  }, [type, sort, query]);
-
-  const { data, isLoading, error, refetch } = useHistoryQuery({
-    type,
-    query,
-    sort,
-    limit,
-    offset: state.offset,
+  const lastStatus = useRef<string | null>(null);
+  const { data: statusData } = useHistoryStatusQuery({ type, query });
+  const seen = new Set<string>();
+  const items = (data?.pages.flatMap(page => page.items) ?? []).filter(item => {
+    const key = [item.origin ?? "generation", item.type, item.id].join(":");
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
   });
-  const { data: statusData } = useHistoryStatusQuery({
-    type,
-    query,
-  });
-
-  useEffect(() => {
-    if (!data) return;
-    dispatch({
-      type: state.offset === 0 ? "replace" : "append",
-      items: data.items,
-      total: data.total,
-    });
-    isFetchingNextRef.current = false;
-  }, [data, state.offset]);
-
-  useEffect(() => {
-    if (error) {
-      isFetchingNextRef.current = false;
-    }
-  }, [error]);
-
+  useEffect(() => { lastStatus.current = null; }, [type, query, sort, status]);
   useEffect(() => {
     if (!statusData) return;
-    const token = `${statusData.activeCount}:${statusData.latestUpdatedAt ?? "none"}`;
-    if (lastStatusTokenRef.current && lastStatusTokenRef.current !== token) {
-      void refetch();
-    }
-    lastStatusTokenRef.current = token;
-  }, [statusData, refetch]);
-
-  const removeItem = (item: Pick<GenerationHistoryItem, "id" | "type">) => {
-    dispatch({ type: "remove", key: `${item.type}-${item.id}` });
-  };
-
+    const token = JSON.stringify([statusData.activeCount, statusData.latestUpdatedAt]);
+    // Keep a pending change until the current page fetch finishes.
+    if (isFetching) return;
+    if (lastStatus.current !== null && lastStatus.current !== token) void refetch();
+    lastStatus.current = token;
+  }, [statusData, isFetching, refetch]);
   useEffect(() => {
     const target = sentinelRef.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (error) return;
-        if (isLoading) return;
-        if (state.total === 0 || state.items.length >= state.total) return;
-        if (isFetchingNextRef.current) return;
-        isFetchingNextRef.current = true;
-        dispatch({ type: "setOffset", offset: Math.max(state.offset, state.items.length) });
-      },
-      { rootMargin: "200px" },
-    );
-
+    if (!target || !hasNextPage || isFetching || error) return;
+    let requested = false;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries[0]?.isIntersecting || requested) return;
+      requested = true;
+      void fetchNextPage({ cancelRefetch: false });
+    }, { rootMargin: "200px" });
     observer.observe(target);
     return () => observer.disconnect();
-  }, [error, isLoading, limit, state.items.length, state.total]);
-
-  return {
-    items: state.items,
-    total: state.total,
-    isLoading,
-    error,
-    sentinelRef,
-    removeItem,
+  }, [hasNextPage, isFetching, error, fetchNextPage, items.length]);
+  const removeItem = async (item: Pick<GenerationHistoryItem, "id" | "type">) => {
+    await client.cancelQueries({ queryKey: historyKeys.all });
+    client.setQueriesData<InfiniteData<GenerationHistoryResponse>>({ queryKey: historyKeys.all }, old => {
+      if (!old) return old;
+      const found = old.pages.some(page => page.items.some(row => row.id === item.id && row.type === item.type));
+      if (!found) return old;
+      return { ...old, pages: old.pages.map(page => ({ ...page, total: Math.max(0, page.total - 1), items: page.items.filter(row => row.id !== item.id || row.type !== item.type) })) };
+    });
+    void client.invalidateQueries({ queryKey: historyKeys.all });
   };
+  return { items, total: data?.pages[0]?.total ?? 0, isLoading: result.isLoading, isFetchingNextPage: result.isFetchingNextPage, isRefreshing: result.isRefetching, hasNextPage, error, sentinelRef, removeItem, retry: () => result.isFetchNextPageError ? fetchNextPage() : refetch() };
 }

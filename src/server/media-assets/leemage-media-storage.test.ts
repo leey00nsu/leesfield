@@ -21,6 +21,25 @@ describe("leemageMediaStorageAdapter", () => {
     vi.unmock("leemage-sdk");
   });
 
+  it("shares concurrent fallback reads and releases completed or failed requests", async () => {
+    let release!: (value: unknown) => void;
+    const get = vi.fn().mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    vi.doMock("leemage-sdk", () => ({ LeemageClient: class { projects = { get }; } }));
+    process.env.LEEMAGE_API_KEY = "key"; process.env.LEEMAGE_PROJECT_ID = "project";
+    const { leemageMediaStorageAdapter: storage } = await import("./leemage-media-storage");
+    const a = storage.resolveReadUrl("a", null);
+    const b = storage.resolveReadUrl("b", null);
+    expect(get).toHaveBeenCalledTimes(1);
+    release({ files: [{ id: "a", url: "https://read/a", variants: [] }, { id: "b", url: null, variants: [{ url: "https://read/large", width: 1024, height: 1024 }, { url: "https://read/small", width: 256, height: 256 }] }] });
+    await expect(a).resolves.toBe("https://read/a");
+    await expect(b).resolves.toBe("https://read/large");
+    get.mockRejectedValueOnce(new Error("offline"));
+    await expect(storage.resolveReadUrl("a", null)).rejects.toThrow("offline");
+    get.mockResolvedValueOnce({ files: [{ id: "a", url: "https://read/refreshed", variants: [] }] });
+    await expect(storage.resolveReadUrl("a", null)).resolves.toBe("https://read/refreshed");
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
   it("fails before Graph media work when durable storage is unavailable", async () => {
     delete process.env.LEEMAGE_API_KEY;
     delete process.env.LEEMAGE_PROJECT_ID;
