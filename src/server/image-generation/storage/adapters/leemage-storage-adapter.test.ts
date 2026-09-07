@@ -48,9 +48,10 @@ describe("leemageStorageAdapter", () => {
       expect.objectContaining({
         type: "image",
         storageObjectId: "image-file-1",
-        storageUrl: "https://cdn.example.com/image.webp",
-        mimeType: "image/webp",
-        bytes: 384,
+        storageUrl: "https://cdn.example.com/original.png",
+        mimeType: "image/png",
+        bytes: 512,
+        imageVariants: expect.objectContaining({display: expect.objectContaining({url: "https://cdn.example.com/image.webp", bytes: 384})}),
         width: 1024,
         height: 768,
       }),
@@ -63,7 +64,8 @@ describe("leemageStorageAdapter", () => {
       "node-banana-placeholder-한글",
     );
     expect(upload).toHaveBeenCalledTimes(3);
-    for (const [, file] of upload.mock.calls) {
+    for (const [, file, options] of upload.mock.calls) {
+      expect(options).toEqual({variants: [{sizeLabel: "source", format: "webp"}]});
       expect(file.name).toMatch(/^leesfield-[a-f0-9]{64}\.[a-z0-9]+$/);
     }
   });

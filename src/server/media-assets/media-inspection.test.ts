@@ -30,6 +30,7 @@ describe("media inspection", () => {
       width: 640,
       height: 360,
       durationMs: null,
+      isAnimated: null,
     });
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://storage.example/file",

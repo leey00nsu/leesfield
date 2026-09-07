@@ -104,3 +104,6 @@
 0104-canvas-localization.patch
 0105-canvas-localized-search.patch
 0106-selection-label-spacing.patch
+0107-persisted-image-presentations.patch
+0108-node-upload-progress.patch
+0109-shared-brand-logo.patch

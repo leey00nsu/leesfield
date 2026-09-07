@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import type { NodeProps, NodeTypes } from "@xyflow/react";
@@ -483,8 +484,21 @@ export function NodeBananaStudio({
     });
   }, [effectiveWritable, publishRuntimeGraph]);
 
+  const hasMissingInput = useCallback((nodeId: string) => {
+    const graph = runtimeGraphRef.current;
+    const seen = new Set<string>();
+    const visit = (id: string): boolean => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      const node = graph.nodes.find(node => node.id === id);
+      if (node && resolveHostedNodeData(id, node.data as Record<string, unknown>)?.missingMedia) return true;
+      return graph.edges.filter(edge => edge.target === id).some(edge => visit(edge.source));
+    };
+    return graph.edges.filter(edge => edge.target === nodeId).some(edge => visit(edge.source));
+  }, [resolveHostedNodeData]);
+
   const runUpstreamNode = useCallback(async (nodeId: string) => {
-    if (!effectiveWritable) return undefined;
+    if (!effectiveWritable || hasMissingInput(nodeId)) return undefined;
     const node = runtimeGraphRef.current.nodes.find((candidate) => candidate.id === nodeId);
     const kind = typeof node?.data.canonicalKind === "string" ? node.data.canonicalKind : "";
     if (findNodeDefinition(kind)?.executionMode === "none") return undefined;
@@ -520,7 +534,7 @@ export function NodeBananaStudio({
     } finally {
       runningNodeIdsRef.current.delete(nodeId);
     }
-  }, [effectiveWritable, onHostError, onRegenerateNode, publishRuntimeGraph, resolveHostedNodeData, updateUpstreamNodeData]);
+  }, [effectiveWritable, hasMissingInput, onHostError, onRegenerateNode, publishRuntimeGraph, resolveHostedNodeData, updateUpstreamNodeData]);
 
   const applyHostedSplitTemplate = useCallback((nodeId: string, options: { template: HostedSplitTemplate; replaceConfirmed?: boolean }) => {
     if (!effectiveWritable) throw new Error("This Space is read-only.");
@@ -631,11 +645,12 @@ export function NodeBananaStudio({
         nodeId,
         catalog,
       );
+      if (hasMissingInput(nodeId)) return {ready: false, reasons: ["INPUT_NOT_READY"]};
       return effectiveWritable
         ? readiness
         : { ...readiness, ready: false, reasons: [effectiveReason ?? "READ_ONLY"] };
     },
-    [catalog, effectiveReason, effectiveWritable],
+    [catalog, effectiveReason, effectiveWritable, hasMissingInput],
   );
 
   const renderInputHistory = useCallback((
@@ -814,6 +829,9 @@ export function NodeBananaStudio({
 
   const HostedUpstreamNode = useMemo(() => {
     function HostedUpstreamNodeComponent(props: NodeProps) {
+      const tMedia = useTranslations("nodeStudio.mediaNodes");
+      const [uploading, setUploading] = useState(false);
+      const uploadVersion = useRef(0);
       const contextRuntime = useContext(NodeBananaHostedRuntimeContext) as typeof hostedRuntimeRef.current | null;
       const current = contextRuntime ?? hostedRuntimeRef.current;
       const runtimeNode = runtimeGraphRef.current.nodes.find((node) => node.id === props.id);
@@ -836,6 +854,12 @@ export function NodeBananaStudio({
           reason: readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
         };
       }, [current]);
+      const uploadInput = useCallback<NonNullable<typeof current.onInputMediaUpload>>(async input => {
+        const version = ++uploadVersion.current;
+        setUploading(true);
+        try { return await current.onInputMediaUpload!(input); }
+        finally { if (uploadVersion.current === version) setUploading(false); }
+      }, [current]);
       const nodeHost = useMemo(() => ({
         ...current.comments,
         recentModels: current.recentModels,
@@ -854,15 +878,16 @@ export function NodeBananaStudio({
         materializeSplitGridCells: current.materializeSplitGridCells,
         isRunning,
         resolveNodeData,
-        onInputMediaUpload: current.onInputMediaUpload,
+        onInputMediaUpload: current.onInputMediaUpload ? uploadInput : undefined,
         onAnnotationOutput: current.onAnnotationOutput,
         onHostError: current.onHostError,
         onOutputGalleryRemove: current.onOutputGalleryRemove,
         onOutputGalleryExtract: current.onOutputGalleryExtract,
         renderInputHistory: current.renderInputHistory,
         getNodeRunReadiness,
-      }), [current, getNodeRunReadiness, isRunning, resolveNodeData]);
+      }), [current, uploadInput, getNodeRunReadiness, isRunning, resolveNodeData]);
       return (
+        <>
         <NodeBananaUpstreamNode
           {...props}
           host={nodeHost}
@@ -871,6 +896,9 @@ export function NodeBananaStudio({
           onOpenAnnotation={current.onOpenAnnotation}
           onCloseAnnotation={current.onCloseAnnotation}
         />
+        {resolved?.missingMedia ? <div role="status" className="nodrag nopan absolute inset-x-2 top-8 z-40 rounded-lg bg-background/95 px-3 py-2 text-xs text-muted-foreground pointer-events-none">{tMedia("missingFile")}</div> : null}
+        {(uploading || props.data.mediaUploading) ? <div role="status" aria-live="polite" aria-label={tMedia("uploading")} className="nodrag nopan absolute inset-0 z-50 flex items-center justify-center gap-2 rounded-2xl bg-black/55 text-sm text-white backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin" />{tMedia("uploading")}</div> : null}
+        </>
       );
     }
     return HostedUpstreamNodeComponent;
@@ -1025,12 +1053,12 @@ export function NodeBananaStudio({
     [currentImageEdges, currentImageNodes],
   );
   const getNodeRunReadiness = useCallback(
-    (nodeId: string) => resolveNodeRunReadiness(
+    (nodeId: string) => hasMissingInput(nodeId) ? {ready: false, reasons: ["INPUT_NOT_READY"] as import("../model/node-run-readiness").NodeRunReadinessReason[]} : resolveNodeRunReadiness(
       runtimeGraphToCanonicalDocument(canonicalRef.current, runtimeGraphRef.current),
       nodeId,
       catalog,
     ),
-    [catalog],
+    [catalog, hasMissingInput],
   );
   const getNodePromptInput = useCallback((nodeId: string) => {
     return resolveNodePromptInput(runtimeGraphRef.current, nodeId);

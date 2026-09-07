@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useMemo, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -344,8 +345,8 @@ export function MonitoringRequestDetailDialog({
                         className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
                       >
                         {detail.type === "image" ? (
-                          <img
-                            src={asset.url}
+                          <VariantImage
+                            asset={asset}
                             alt={`result-${index + 1}`}
                             className="h-48 w-full object-contain bg-black/70"
                             loading="lazy"

@@ -1,0 +1,37 @@
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -494,9 +494,23 @@
+     const node = state.nodeLookup.get(nodeId);
+     return (node?.measured?.width ?? node?.width ?? 350) * state.transform[2] < 200;
+   }, [nodeId]));
++  const roles = useFlowStore(useCallback(state => src ? (state.nodeLookup.get(nodeId)?.data.imagePresentations as Record<string, {list: string[]; display: string[]}> | undefined)?.[src] : undefined, [nodeId, src]));
++  const candidates: string[] | undefined = roles?.[small ? "list" : "display"];
++  const signature = candidates?.join("|");
++  const [selected, setSelected] = useState<{key: string; url: string} | null>(null);
++  useEffect(() => {
++    if (!candidates?.length || !signature) return;
++    let active = true;
++    let index = 0;
++    const image = new Image();
++    const load = () => { image.src = candidates[index]; };
++    image.onerror = () => { if (active && index + 1 < candidates.length) {index += 1; setSelected({key: signature, url: candidates[index]}); load();} };
++    load();
++    return () => {active = false; image.onerror = null; image.onload = null; image.src = "";};
++  }, [signature]);
+   const [thumbnail, setThumbnailState] = useState<{ source: string; url: string } | null>(null);
+   useEffect(() => {
+-    if (!src) return;
++    if (!src || candidates?.length) return;
+     let active = true;
+     const cached = getThumbnail(src);
+     let promise = cached ? Promise.resolve(cached) : getPending(src);
+@@ -510,7 +524,8 @@
+     }
+     void promise.then((url) => { if (active) setThumbnailState({ source: src, url }); }).catch(() => undefined);
+     return () => { active = false; };
+-  }, [src]);
++  }, [src, signature]);
++  if (candidates?.length) return selected && selected.key === signature ? selected.url : candidates[0];
+   return src ? (small && thumbnail?.source === src ? thumbnail.url : src) : null;
+ }
+ 

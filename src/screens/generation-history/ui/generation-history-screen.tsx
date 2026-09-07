@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { useEffect, useRef, useState } from "react";
@@ -6,7 +7,8 @@ import {
   AudioLines,
   Copy,
   Download,
-  Edit,
+  Trash2,
+  Loader2,
   Grid2X2,
   Image as ImageIcon,
   RotateCcw,
@@ -38,7 +40,7 @@ import {
   AppSortSelect,
 } from "@/shared/ui/app-filter-toolbar";
 import { AppTabs } from "@/shared/ui/app-tabs";
-import { AppEyebrow } from "@/shared/ui/app-typography";
+import { AppConfirmDialog, AppConfirmDialogContent, AppConfirmDialogHeader, AppConfirmDialogTitle, AppConfirmDialogDescription, AppConfirmDialogFooter, AppConfirmDialogCancel, AppConfirmDialogAction } from "@/shared/ui/app-confirm-dialog";
 import { appToast } from "@/shared/ui/app-toast";
 import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
@@ -110,6 +112,7 @@ function hydrateHistoryItem(
     durationMs: detail.durationMs,
     progress: detail.progress,
     resultUrl,
+    imageVariants: detail.assets[0]?.imageVariants ?? item.imageVariants,
     thumbnailUrl:
       detail.type === "image" ? resultUrl : (item.thumbnailUrl ?? resultUrl),
     inputImages: detail.inputImages,
@@ -281,13 +284,7 @@ export function GenerationHistoryScreen() {
               }),
             )
           }
-          onEditImage={(item) =>
-            router.push(
-              buildHistoryGenerationUrl(item, "/image", {
-                includeImageReference: true,
-              }),
-            )
-          }
+          onDeleted={async (item) => { await removeItem(item); setSelectedItem(null); }}
         />
       ) : null}
     </AppPageShell>
@@ -299,14 +296,19 @@ function HistoryDetailOverlay({
   onClose,
   onRecreate,
   onCreateVideo,
-  onEditImage,
+  onDeleted,
 }: {
   item: GenerationHistoryItem;
   onClose: () => void;
   onRecreate: (item: GenerationHistoryItem) => void;
   onCreateVideo: (item: GenerationHistoryItem) => void;
-  onEditImage: (item: GenerationHistoryItem) => void;
+  onDeleted: (item: GenerationHistoryItem) => void | Promise<void>;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteRef = useRef(false);
+  const modalBusyRef = useRef(false);
+  modalBusyRef.current = confirmDelete || deleting;
   const locale = useLocale();
   const tHistory = useTranslations("history");
   const tActions = useTranslations("history.detailActions");
@@ -321,7 +323,7 @@ function HistoryDetailOverlay({
   const dialogRef = useRef<HTMLDivElement>(null);
   const detail = detailQuery.data ?? null;
   const hydratedItem = hydrateHistoryItem(item, detail);
-  const previewUrl = hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl;
+  const previewUrl = hydratedItem.resultUrl ?? hydratedItem.thumbnailUrl;
   const canUseImageReference =
     hydratedItem.type === "image" && Boolean(hydratedItem.resultUrl?.match(/^https?:\/\//));
   const dateFormatter = new Intl.DateTimeFormat(locale, {
@@ -378,7 +380,7 @@ function HistoryDetailOverlay({
     dialogRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !modalBusyRef.current) {
         onClose();
       }
     };
@@ -485,6 +487,21 @@ function HistoryDetailOverlay({
       )}
     </div>
   );
+
+  const historyEndpoint = "/api/history/" + encodeURIComponent(item.id) + "?" + new URLSearchParams({type: item.type, origin: item.origin ?? "generation"});
+  const handleDelete = async () => {
+    if (deleteRef.current) return;
+    deleteRef.current = true;
+    setDeleting(true);
+    try {
+      const response = await fetch(historyEndpoint, {method: "DELETE"});
+      if (!response.ok) throw new Error("DELETE_FAILED");
+      appToast.success(tHistory("toasts.deleteSuccess"));
+      setConfirmDelete(false);
+      await onDeleted(item);
+    } catch { appToast.error(tHistory("toasts.deleteError")); }
+    finally {deleteRef.current = false; setDeleting(false);}
+  };
 
   const handleCopyPrompt = async () => {
     const copied = await copyTextToClipboard(hydratedItem.prompt);
@@ -665,10 +682,9 @@ function HistoryDetailOverlay({
               <audio src={previewUrl} controls className="w-full" />
             </div>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <VariantImage
               data-testid="history-detail-preview-media"
-              src={previewUrl}
+              asset={{url: previewUrl, imageVariants: hydratedItem.imageVariants}}
               alt={tHistory("previewAlt")}
               onClick={(event) => event.stopPropagation()}
               className="max-h-[86vh] max-w-full rounded-2xl object-contain shadow-[0_24px_120px_rgba(0,0,0,0.55)]"
@@ -689,20 +705,7 @@ function HistoryDetailOverlay({
       <AppDetailRail
         data-testid="history-detail-rail"
         header={
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-black">
-                <Sparkles className="h-5 w-5" />
-              </span>
-              <div>
-                <AppEyebrow className="text-[0.68rem]">
-                  {tTypes(hydratedItem.type)}
-                </AppEyebrow>
-                <div className="mt-1 font-semibold text-white">
-                  {formatFallback(hydratedItem.model)}
-                </div>
-              </div>
-            </div>
+          <div className="flex justify-end">
             <AppButton
               type="button"
               variant="ghost"
@@ -739,19 +742,8 @@ function HistoryDetailOverlay({
                 {tActions("video")}
               </AppButton>
               {hydratedItem.resultUrl ? (
-                <AppButton
-                  asChild
-                  variant="surface"
-                  className="h-11 rounded-xl"
-                >
-                  <a
-                    href={hydratedItem.resultUrl}
-                    download
-                    aria-label={tActions("download")}
-                  >
-                    <Download className="h-4 w-4" />
-                    {tActions("download")}
-                  </a>
+                <AppButton asChild variant="surface" className="h-11 rounded-xl">
+                  <a href={historyEndpoint} download aria-label={tActions("download")}><Download className="h-4 w-4" />{tActions("download")}</a>
                 </AppButton>
               ) : null}
               <AppButton
@@ -766,12 +758,12 @@ function HistoryDetailOverlay({
               <AppButton
                 type="button"
                 variant="surface"
-                disabled={!canUseImageReference}
-                onClick={() => onEditImage(hydratedItem)}
-                className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={deleting || ["pending", "processing", "uploading"].includes(hydratedItem.status)}
+                onClick={() => setConfirmDelete(true)}
+                className="h-11 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <Edit className="h-4 w-4" />
-                {tActions("edit")}
+                <Trash2 className="h-4 w-4" />
+                {tHistory("deleteDialog.confirm")}
               </AppButton>
             </div>
           </div>
@@ -803,6 +795,15 @@ function HistoryDetailOverlay({
           ]}
         />
       </AppDetailRail>
+      <AppConfirmDialog open={confirmDelete} onOpenChange={(open) => {if (!deleting) setConfirmDelete(open);}}>
+        <AppConfirmDialogContent>
+          <AppConfirmDialogHeader><AppConfirmDialogTitle>{tHistory("deleteDialog.title")}</AppConfirmDialogTitle><AppConfirmDialogDescription>{tHistory("deleteDialog.preserveAssetsDescription")}</AppConfirmDialogDescription></AppConfirmDialogHeader>
+          <AppConfirmDialogFooter>
+            <AppConfirmDialogCancel disabled={deleting}>{tCommonActions("cancel")}</AppConfirmDialogCancel>
+            <AppConfirmDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={deleting} onClick={(event) => {event.preventDefault(); void handleDelete();}}>{deleting && <Loader2 className="h-4 w-4 animate-spin" />}{tHistory("deleteDialog.confirm")}</AppConfirmDialogAction>
+          </AppConfirmDialogFooter>
+        </AppConfirmDialogContent>
+      </AppConfirmDialog>
     </div>
   );
 }

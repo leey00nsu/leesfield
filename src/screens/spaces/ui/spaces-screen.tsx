@@ -11,8 +11,7 @@ import { AppInput } from "@/shared/ui/app-input";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { AppResourceList } from "@/shared/ui/app-resource-list";
 import { AppCard } from "@/shared/ui/app-card";
-import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
-import { AppFilterToolbar, AppSearchField } from "@/shared/ui/app-filter-toolbar";
+import { AppFilterToolbar, AppSearchField, AppSortSelect } from "@/shared/ui/app-filter-toolbar";
 import { ResourceRowLink, resourceRowInteractiveClassName } from "@/shared/ui/brand/resource-row-link/resource-row-link";
 import { rememberSpaceListEntry, restoreSpaceListScroll } from "@/features/node-studio/model/space-navigation";
 import { AppDialog, AppDialogContent, AppDialogTitle, AppDialogDescription } from "@/shared/ui/app-dialog";
@@ -79,14 +78,17 @@ export function SpacesScreen() {
       <AppFilterToolbar>
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
           <AppSearchField value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("search")} aria-label={t("search")} containerClassName="sm:max-w-sm" />
-          <AppSelectRoot value={sort} onValueChange={setSort}>
-            <AppSelectTrigger aria-label={t("sort")} className="w-full sm:w-40" style={{ height: 40 }}><AppSelectValue /></AppSelectTrigger>
-            <AppSelectContent>
-              <AppSelectItem value="updated">{t("updated")}</AppSelectItem>
-              <AppSelectItem value="created">{t("created")}</AppSelectItem>
-              <AppSelectItem value="name">{t("nameSort")}</AppSelectItem>
-            </AppSelectContent>
-          </AppSelectRoot>
+          <AppSortSelect
+            value={sort}
+            onValueChange={setSort}
+            ariaLabel={t("sort")}
+            className="w-full sm:w-40"
+            options={[
+              { value: "updated", label: t("updated") },
+              { value: "created", label: t("created") },
+              { value: "name", label: t("nameSort") },
+            ]}
+          />
           <span role="status" className="shrink-0 text-xs text-muted-foreground sm:ml-2">{term ? t("filteredCount", { count: spaces.length, total: query.data?.length ?? 0 }) : t("count", { count: spaces.length })}</span>
         </div>
         <AppButton variant="brand" size="toolbar" onClick={() => begin({ kind: "create" })} disabled={busy}><Plus aria-hidden="true" />{t("new")}</AppButton>

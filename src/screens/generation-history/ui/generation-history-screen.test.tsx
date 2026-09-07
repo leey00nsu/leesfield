@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -248,7 +248,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByRole("button", { name: "다시 생성" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "다운로드" })).toHaveAttribute(
       "href",
-      "https://example.com/result.png",
+      "/api/history/history-detail-1?type=image&origin=generation",
     );
 
     fireEvent.click(within(screen.getByRole("dialog", { name: "결과 상세" })).getByRole("button", { name: "비디오로 생성" }));
@@ -256,10 +256,8 @@ describe("GenerationHistoryScreen", () => {
       "/video?prompt=medium+shot+editorial+result&model=flux2-klein-9b&initImage=https%3A%2F%2Fexample.com%2Fresult.png",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "편집" }));
-    expect(routerPushMock).toHaveBeenCalledWith(
-      "/image?prompt=medium+shot+editorial+result&model=flux2-klein-9b&initImage=https%3A%2F%2Fexample.com%2Fresult.png",
-    );
+    expect(screen.queryByRole("button", {name: "편집"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "삭제"})).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "업스케일" })).toBeDisabled();
   });
@@ -390,7 +388,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("asset warning")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "다운로드" })).toHaveAttribute(
       "href",
-      "https://example.com/detail-result.png",
+      "/api/history/history-detail-1?type=image&origin=generation",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "비디오로 생성" }));
@@ -475,4 +473,18 @@ it("keeps loaded cards visible on a subsequent page failure", () => {
   expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");
   fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
   expect(retry).toHaveBeenCalledOnce();
+});
+
+it("requires confirmation, preserves detail on cancellation/failure, and removes after success", async () => {
+ const removeItem=vi.fn();useGenerationHistoryListMock.mockReturnValue({items:[detailFixture],total:1,isLoading:false,error:null,sentinelRef:{current:null},removeItem});useMonitoringRequestDetailMock.mockReturnValue({data:null});
+ const fetchMock=vi.fn().mockResolvedValueOnce(new Response(null,{status:500})).mockResolvedValueOnce(new Response(null,{status:204}));vi.stubGlobal("fetch",fetchMock);
+ try {
+ renderWithIntl(<GenerationHistoryScreen />);fireEvent.click(screen.getByTestId("history-list"));
+ expect(screen.queryByText("flux2-klein-9b")).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"삭제"}));expect(fetchMock).not.toHaveBeenCalled();
+ fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"취소"}));expect(screen.getByRole("dialog",{name:"결과 상세"})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"삭제"}));fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"}));
+ await waitFor(()=>expect(fetchMock).toHaveBeenCalledTimes(1));await waitFor(()=>expect(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"})).not.toBeDisabled());expect(removeItem).not.toHaveBeenCalled();
+ fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"}));await waitFor(()=>expect(removeItem).toHaveBeenCalledWith(detailFixture));await waitFor(()=>expect(screen.queryByRole("dialog",{name:"결과 상세"})).not.toBeInTheDocument());
+ } finally {vi.unstubAllGlobals();}
 });

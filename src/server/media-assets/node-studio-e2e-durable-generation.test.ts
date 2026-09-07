@@ -101,7 +101,7 @@ describe("E2E provider fixtures retain durable generation storage", () => {
     mocks.upload.mockResolvedValue({ id: "stored-background", url: "https://storage.example/background", mimeType: "image/png", size: 100, variants: [] });
     await processMediaOperationJobs();
     expect(mocks.upload).toHaveBeenCalledWith("project-test", expect.objectContaining({ type: "image/png" }), {
-      variants: [{ format: "png", sizeLabel: "source" }],
+      variants: [{ format: "webp", sizeLabel: "source" }],
     });
     expect(mocks.completeOperation).toHaveBeenCalledWith("test@example.com", "operation-test", [
       expect.objectContaining({ storageObjectId: "stored-background", storageUrl: "https://storage.example/background" }),

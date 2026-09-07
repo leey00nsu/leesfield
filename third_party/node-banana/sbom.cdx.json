@@ -3790,9 +3790,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/leemage-sdk@0.1.1",
+      "bom-ref": "pkg:npm/leemage-sdk@0.2.0",
       "name": "leemage-sdk",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "licenses": [
         {
           "license": {
@@ -3800,7 +3800,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/leemage-sdk@0.1.1",
+      "purl": "pkg:npm/leemage-sdk@0.2.0",
       "properties": []
     },
     {

@@ -1,3 +1,4 @@
+import { parseImageVariants, type ImageVariants } from "@/shared/media-assets/image-variants";
 import { prisma } from "@/server/db/prisma";
 import {
   extractInputAudios,
@@ -6,6 +7,7 @@ import {
 } from "@/server/history/lib/history-query";
 
 export type MonitoringRequestAsset = {
+  imageVariants?: ImageVariants | null;
   url: string;
   width: number | null;
   height: number | null;
@@ -78,6 +80,7 @@ export async function getMonitoringRequestDetail(
         images: {
           select: {
             url: true,
+            asset: {select: {imageVariants: true}},
             width: true,
             height: true,
           },
@@ -106,6 +109,7 @@ export async function getMonitoringRequestDetail(
       referenceText: null,
       assets: record.images.map((image) => ({
         url: image.url,
+        imageVariants: parseImageVariants(image.asset?.imageVariants),
         width: image.width ?? null,
         height: image.height ?? null,
         durationSec: null,

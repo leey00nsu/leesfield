@@ -1,3 +1,4 @@
+import type { ImageVariants } from "@/shared/media-assets/image-variants";
 export type GenerationHistoryType = "image" | "video" | "audio" | "all";
 export type GenerationHistorySort = "date_desc" | "date_asc";
 export type GenerationHistoryStatus =
@@ -9,6 +10,7 @@ export type GenerationHistoryStatus =
   | "cancelled";
 
 export interface GenerationHistoryItem {
+  imageVariants?: ImageVariants | null;
   id: string;
   type: "image" | "video" | "audio";
   origin?: "generation" | "edit";

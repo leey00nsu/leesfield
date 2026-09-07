@@ -605,6 +605,7 @@ async function handleImageRecord(record: {
           100,
           result.result,
           result.errorMessage,
+          result.artifacts,
         );
       }
     } else {

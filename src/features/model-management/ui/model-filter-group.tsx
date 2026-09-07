@@ -26,8 +26,7 @@ export function ModelFilterGroup({ children }: { children: ReactNode }) {
   }, []);
   if (!mobile)
     return (
-      <div className="grid gap-2">
-        <p className="text-sm font-medium">{t("title")}</p>
+      <div role="group" aria-label={t("title")}>
         {children}
       </div>
     );

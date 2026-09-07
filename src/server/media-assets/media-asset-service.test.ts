@@ -18,6 +18,7 @@ import type { MediaStorageAdapter } from "./media-storage";
 const now = new Date("2026-09-03T10:00:00.000Z");
 
 const asset: MediaAssetRecord = {
+  imageVariants: null,
   id: "asset_1",
   version: 1,
   ownerEmail: "owner@example.com",

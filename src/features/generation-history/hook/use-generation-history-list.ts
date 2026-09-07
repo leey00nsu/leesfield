@@ -54,6 +54,7 @@ export function useGenerationHistoryList({ type, sort, query, status = "all", li
       return { ...old, pages: old.pages.map(page => ({ ...page, total: Math.max(0, page.total - 1), items: page.items.filter(row => row.id !== item.id || row.type !== item.type) })) };
     });
     void client.invalidateQueries({ queryKey: historyKeys.all });
+    void client.invalidateQueries({ queryKey: ["media-assets"] });
   };
   return { items, total: data?.pages[0]?.total ?? 0, isLoading: result.isLoading, isFetchingNextPage: result.isFetchingNextPage, isRefreshing: result.isRefetching, hasNextPage, error, sentinelRef, removeItem, retry: () => result.isFetchNextPageError ? fetchNextPage() : refetch() };
 }

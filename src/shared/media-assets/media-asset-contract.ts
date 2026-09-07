@@ -1,3 +1,4 @@
+import type { ImageVariants } from "@/shared/media-assets/image-variants";
 import { z } from "zod";
 
 export const mediaTypeSchema = z.enum(["image", "audio", "video"]);
@@ -97,6 +98,7 @@ export type UpdateMediaOperationInput = z.infer<typeof updateMediaOperationSchem
 export type ListMediaAssetsInput = z.infer<typeof listMediaAssetsSchema>;
 
 export type MediaAssetDto = {
+  imageVariants?: ImageVariants | null;
   id: string;
   version: number;
   type: MediaType;

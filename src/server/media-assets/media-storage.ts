@@ -1,3 +1,4 @@
+import type { ImageVariants } from "@/shared/media-assets/image-variants";
 import type { MediaType } from "@/shared/media-assets/media-asset-contract";
 
 export type StoragePresignResult = {
@@ -19,6 +20,7 @@ export type StorageConfirmInput = {
 };
 
 export type StorageConfirmedFile = {
+  imageVariants?: ImageVariants | null;
   objectId: string;
   mimeType: string;
   bytes: number;
@@ -26,6 +28,7 @@ export type StorageConfirmedFile = {
 };
 
 export type InspectedMedia = {
+  isAnimated?: boolean | null;
   detectedMimeType: string;
   width: number | null;
   height: number | null;

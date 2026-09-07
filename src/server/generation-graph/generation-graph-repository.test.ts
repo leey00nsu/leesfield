@@ -250,13 +250,13 @@ describe("generationGraphRepository", () => {
       .rejects.toMatchObject({ reason: "GRAPH_OUTPUT_INVALID" });
   });
 
-  it("accepts a completed output asset produced by the same node", async () => {
+  it.each(["completed", "failed"])("preserves owned output references with status %s", async (status) => {
     mocks.tx.generationGraph.findFirst.mockResolvedValue({ version: 1, nodes: [] });
     mocks.tx.mediaAsset.findMany.mockResolvedValue([{
       id: "asset_1",
       ownerEmail: "owner@example.com",
       type: "image",
-      status: "completed",
+      status, storageUrl: status === "failed" ? null : "https://store/a", legacyUrl: null,
       graphNodeOutputs: [{ graphNodeId: "image_1" }],
       imageGenerationImage: null,
       videoGenerationVideo: null,

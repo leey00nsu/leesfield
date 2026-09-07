@@ -1,3 +1,4 @@
+import { imageUrlsFor, parseImageVariants } from "@/shared/media-assets/image-variants";
 import type { Prisma } from "@prisma/client";
 
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
@@ -66,7 +67,7 @@ async function imageItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
-  images: Array<{ assetId: string | null; url: string }>;
+  images: Array<{ assetId: string | null; url: string; asset?: {imageVariants: unknown} | null }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.images[0];
   const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
@@ -87,7 +88,8 @@ async function imageItem(ownerEmail: string, record: {
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
-    thumbnailUrl: completed && asset.url ? asset.url : null,
+    imageVariants: completed ? parseImageVariants(output?.asset?.imageVariants) : null,
+    thumbnailUrl: completed && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output?.asset?.imageVariants}, "list")[0] : null,
     inputImages: extractInputImages(record.requestParams),
     errorMessage: record.status === "failed" ? record.errorMessage : null,
   };
@@ -209,7 +211,7 @@ export async function getHistory(
             requestId: true, status: true, prompt: true, requestParams: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
-            images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
+            images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: {select: {imageVariants: true}} } },
           },
         }),
         prisma.imageGeneration.count({ where: { ownerEmail, ...filter, ...buildImageWhere(query) } }),
@@ -254,7 +256,7 @@ export async function getHistory(
         outputs: {
           where: { status: "completed", ...(query.type === "all" ? {} : { type: query.type }) },
           orderBy: { createdAt: "asc" }, take: 1,
-          select: { id: true, type: true, storageUrl: true, legacyUrl: true },
+          select: { id: true, type: true, storageUrl: true, legacyUrl: true, imageVariants: true },
         },
       },
     }),
@@ -288,7 +290,8 @@ export async function getHistory(
       durationMs: toHistoryDurationMs(operation.createdAt, operation.updatedAt, "completed"),
       progress: operation.progress,
       resultUrl: asset.url,
-      thumbnailUrl: output.type === "image" && asset.url ? asset.url : null,
+      imageVariants: output.type === "image" ? parseImageVariants(output.imageVariants) : null,
+      thumbnailUrl: output.type === "image" && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output.imageVariants}, "list")[0] : null,
       inputImages: [],
       inputAudios: [],
       errorMessage: null,

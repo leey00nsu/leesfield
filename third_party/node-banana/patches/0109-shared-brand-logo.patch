@@ -1,0 +1,52 @@
+--- a/src/components/ProjectSetupModal.tsx
++++ b/src/components/ProjectSetupModal.tsx
+@@ -1,5 +1,6 @@
+ "use client";
+ 
++import { CanvasBrandLogo } from "../leesfield/branding";
+ import { useCanvasTranslation } from "../leesfield/localization";
+ import { useHostedProjectSettings } from "../leesfield/hosted-project-settings";
+ export type { HostedDefaultKind, HostedNodeDefaults, HostedProjectSettingsProps } from "../leesfield/hosted-project-settings";
+@@ -73,7 +74,7 @@
+       >
+         <div className="px-8 pt-8 pb-0 shrink-0">
+           <div className="flex items-center gap-2 mb-5">
+-            <img src="/logo-blue.svg" alt="" className="w-6 h-6" />
++            <CanvasBrandLogo iconOnly />
+ 
+             <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">{tc("Space Settings")}</h2>
+           </div>
+--- a/src/components/quickstart/QuickstartInitialView.tsx
++++ b/src/components/quickstart/QuickstartInitialView.tsx
+@@ -1,5 +1,6 @@
+ "use client";
+ 
++import { CanvasBrandLogo } from "../../leesfield/branding";
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+ interface QuickstartInitialViewProps {
+@@ -23,10 +24,7 @@
+         <div className="flex-1 flex flex-col">
+           <div className="mb-4">
+             <div className="flex items-center gap-2">
+-              <img src="/logo-blue.svg" alt="" className="w-7 h-7" />
+-              <h1 className="text-2xl font-medium text-neutral-100">
+-                Leesfield
+-              </h1>
++              <h1><CanvasBrandLogo /></h1>
+             </div>
+           </div>
+ 
+--- /dev/null
++++ b/src/leesfield/branding.tsx
+@@ -0,0 +1,10 @@
++"use client";
++
++import { createContext, useContext, type ReactNode } from "react";
++
++const BrandContext = createContext<{full: ReactNode; icon: ReactNode}>({full: null, icon: null});
++export const CanvasBrandProvider = BrandContext.Provider;
++export function CanvasBrandLogo({iconOnly = false}: {iconOnly?: boolean}) {
++  const brand = useContext(BrandContext);
++  return iconOnly ? brand.icon : brand.full;
++}

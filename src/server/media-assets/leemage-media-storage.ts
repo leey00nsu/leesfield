@@ -1,3 +1,4 @@
+import { imageUploadOptions, mapUploadedImage } from "./image-upload-policy";
 import {
   LeemageClient,
   type ConfirmRequest,
@@ -92,6 +93,7 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
   async confirm(input) {
     const { client, projectId } = clientAndProject();
     const request: ConfirmRequest = {
+      ...imageUploadOptions(input.mimeType),
       fileId: input.objectId,
       objectName: input.objectName,
       fileName: input.fileName,
@@ -105,6 +107,7 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
       mimeType: result.file.mimeType,
       bytes: result.file.size,
       url: fileUrl(result.file, input.objectUrl),
+      ...(input.mimeType.startsWith("image/") ? mapUploadedImage(result.file, { url: input.objectUrl }) : {}),
     };
   },
   inspect: inspectMediaUrl,
@@ -123,3 +126,19 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
     await client.files.delete(projectId, objectId);
   },
 };
+
+// Used only for owner-scoped history results, including legacy rows without file IDs.
+export async function deleteHistoryStorageFile(objectId: string | null, url: string | null) {
+  const { client, projectId } = clientAndProject();
+  if (!objectId) {
+    if (!url) throw new MediaStorageUnavailableError();
+    const project = await readProject(client, projectId);
+    const file = project.files.find(file => file.url === url || file.thumbnail?.url === url || file.variants.some(variant => variant.url === url));
+    if (!file) return; // An already removed legacy object is an idempotent success.
+    objectId = file.id;
+  }
+  try { await client.files.delete(projectId, objectId); }
+  catch (error) {
+    if (!(error && typeof error === "object" && "status" in error && error.status === 404)) throw error;
+  }
+}

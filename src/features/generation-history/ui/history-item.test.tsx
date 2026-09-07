@@ -158,3 +158,15 @@ it("reveals each media independently and retries only the failed card", () => {
   expect(screen.getAllByRole("img")[1]).toHaveAttribute("src", "https://media.example/b.png");
   expect(screen.getAllByRole("img")[0]).toBe(first);
 });
+
+it("falls back thumbnail to display to original once per card", () => {
+  const image = (url: string) => ({url, mimeType: "image/webp", bytes: 20, width: 100, height: 100});
+  renderWithIntl(<HistoryItem item={{id: "variants", type: "image", status: "completed", prompt: "test", model: null, createdAt: "2026-09-07", resultUrl: "https://example.com/original.png", thumbnailUrl: "https://example.com/thumb.webp", errorMessage: null, imageVariants: {version: 1, isAnimated: false, thumbnail: image("https://example.com/thumb.webp"), display: image("https://example.com/display.webp")}}} />);
+  expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.com/thumb.webp");
+  fireEvent.error(screen.getByRole("img"));
+  expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.com/display.webp");
+  fireEvent.error(screen.getByRole("img"));
+  expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.com/original.png");
+  fireEvent.error(screen.getByRole("img"));
+  expect(screen.getByRole("button", {name: "다시 시도"})).toBeInTheDocument();
+});

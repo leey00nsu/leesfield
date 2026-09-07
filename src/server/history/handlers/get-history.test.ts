@@ -102,6 +102,9 @@ describe("getHistory durable provenance", () => {
       updatedAt: new Date("2026-09-03T10:00:05.000Z"),
       images: [{ assetId: "asset-generation", url: "https://permanent.example/generation" }],
     }]);
+    const versions = {version: 1, isAnimated: false, display: {url: "https://permanent.example/display.webp", mimeType: "image/webp", bytes: 300, width: 1200, height: 800}, thumbnail: {url: "https://permanent.example/thumb.webp", mimeType: "image/webp", bytes: 30, width: 480, height: 320}};
+    const rows = await mocks.imageFindMany();
+    rows[0].images[0].asset = {imageVariants: versions};
     mocks.imageCount.mockResolvedValue(1);
     mocks.operationFindMany.mockResolvedValue([{
       id: "operation-1",
@@ -144,7 +147,8 @@ describe("getHistory durable provenance", () => {
       graphNodeId: "node-deleted",
       sourceAssetIds: ["source-1"],
       resultUrl: "https://permanent.example/generation",
-      thumbnailUrl: "https://permanent.example/generation",
+      thumbnailUrl: "https://permanent.example/thumb.webp",
+      imageVariants: versions,
     });
     expect(mocks.imageFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ ownerEmail: "owner@example.com" }),

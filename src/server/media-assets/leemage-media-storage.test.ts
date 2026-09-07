@@ -97,11 +97,11 @@ describe("leemageMediaStorageAdapter", () => {
         bytes: 33,
         objectUrl: "https://storage.example/file_1",
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       objectId: "file_1",
       mimeType: "image/png",
       bytes: 33,
-      url: "https://read.example/file_1",
+      url: "https://storage.example/file_1",
     });
     await expect(
       leemageMediaStorageAdapter.resolveReadUrl("file_1", null),
@@ -109,7 +109,7 @@ describe("leemageMediaStorageAdapter", () => {
     await leemageMediaStorageAdapter.delete("file_1");
 
     expect(presign).toHaveBeenCalledWith("project_1", expect.objectContaining({ fileSize: 33, fileName: signed.fileName }));
-    expect(confirm).toHaveBeenCalledWith("project_1", expect.objectContaining({ fileId: "file_1", fileName: signed.fileName }));
+    expect(confirm).toHaveBeenCalledWith("project_1", expect.objectContaining({ fileId: "file_1", fileName: signed.fileName, variants: [{sizeLabel: "source", format: "webp"}] }));
     expect(remove).toHaveBeenCalledWith("project_1", "file_1");
   });
 });

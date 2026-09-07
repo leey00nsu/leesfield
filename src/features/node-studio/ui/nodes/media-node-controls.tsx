@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -68,9 +69,8 @@ function MediaPreview({ asset, compact = false }: { asset: MediaAssetDto; compac
     );
   }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={asset.url}
+    <VariantImage
+      asset={asset} purpose={compact ? "list" : "display"}
       alt=""
       loading="lazy"
       className={cn("aspect-video w-full rounded-lg bg-black/45 object-contain", compact && "max-h-20")}

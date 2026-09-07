@@ -1,3 +1,4 @@
+import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/server/db/prisma";
@@ -31,6 +32,7 @@ const assetSelect = {
   storageProvider: true,
   storageObjectId: true,
   storageUrl: true,
+  imageVariants: true,
   legacyUrl: true,
   mimeType: true,
   bytes: true,
@@ -216,6 +218,7 @@ async function completeServerOperation(
           storageProvider: artifact.storageProvider,
           storageObjectId: artifact.storageObjectId,
           storageUrl: artifact.storageUrl,
+          imageVariants: parseImageVariants(artifact.imageVariants) ?? undefined,
           mimeType: artifact.mimeType,
           bytes: BigInt(artifact.bytes),
           width: artifact.width,
@@ -602,6 +605,7 @@ async function completeUpload(input: {
         storageProvider: session.storageProvider,
         storageObjectId: input.confirmed.objectId,
         storageUrl: input.confirmed.url,
+        imageVariants: parseImageVariants(input.confirmed.imageVariants ? { ...input.confirmed.imageVariants, isAnimated: input.inspected.isAnimated ?? input.confirmed.imageVariants.isAnimated } : null) ?? undefined,
         mimeType: input.inspected.detectedMimeType,
         bytes: BigInt(input.confirmed.bytes),
         width: input.inspected.width,

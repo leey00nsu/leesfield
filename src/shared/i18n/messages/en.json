@@ -558,7 +558,8 @@
     "deleteDialog": {
       "title": "Delete history item",
       "description": "This action cannot be undone. Storage files will be deleted as well.",
-      "confirm": "Delete"
+      "confirm": "Delete",
+      "preserveAssetsDescription": "Delete this result and its files? Files used in Spaces will also be deleted. This cannot be undone."
     },
     "toasts": {
       "deleteSuccess": "Deleted.",
@@ -1202,7 +1203,8 @@
         "generation": "Generation",
         "media_operation": "Edit",
         "legacy_generation": "Legacy generation"
-      }
+      },
+      "missingFile": "File not found. It was deleted or is unavailable. Please replace the file."
     },
     "execution": {
       "title": "Generation execution",

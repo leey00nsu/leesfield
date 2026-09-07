@@ -1,3 +1,4 @@
+import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/server/db/prisma";
@@ -472,6 +473,7 @@ async function completeGeneration(
           storageProvider: artifact.storageProvider,
           storageObjectId: artifact.storageObjectId,
           storageUrl: artifact.storageUrl,
+          imageVariants: parseImageVariants(artifact.imageVariants) ?? undefined,
           mimeType: artifact.mimeType,
           bytes: BigInt(artifact.bytes),
           width: artifact.width,

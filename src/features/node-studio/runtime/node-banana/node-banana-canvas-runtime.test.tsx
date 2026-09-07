@@ -161,7 +161,7 @@ describe("NodeBananaCanvasRuntime", () => {
     flow.renders = 0;
   });
 
-  it("indexed image inputs offer Assets and ignore results after picker cancellation", async () => {
+  it("indexed image inputs show upload progress and ignore results after picker cancellation", async () => {
     let resolve!: (value: {assetId: string; mediaType: "image"}) => void;
     const importer = vi.fn().mockImplementation(() => new Promise(done => { resolve = done; }));
     const changed = renderRuntime({ nodes: [{ id: "compare", type: "canonicalNode", position: { x: 0, y: 0 }, data: {} }], edges: [] }, vi.fn(), true, undefined, undefined, {
@@ -171,11 +171,13 @@ describe("NodeBananaCanvasRuntime", () => {
     });
     fireEvent(screen.getByRole("application"), new CustomEvent("node-banana-port-menu", { bubbles: true, detail: { nodeId: "compare", handleId: "image-1", handleType: "target", x: 100, y: 100 } }));
     fireEvent.click(screen.getByRole("button", { name: "Assets" }));
-    fireEvent.click(screen.getByRole("button", { name: "fixture-select" }));
+    fireEvent.change(document.querySelector('input[type="file"]')!, {target: {files: [new File(["image"], "upload.png", {type: "image/png"})]}});
     await waitFor(() => expect(importer).toHaveBeenCalledOnce());
+    expect((flow.props?.nodes as {data: {mediaUploading?: boolean}}[])[0].data.mediaUploading).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "fixture-cancel" }));
     expect(importer.mock.calls[0][1].aborted).toBe(true);
     await act(async () => resolve({assetId:"late",mediaType:"image"}));
+    expect((flow.props?.nodes as {data: {mediaUploading?: boolean}}[])[0].data.mediaUploading).toBeUndefined();
     expect(changed).not.toHaveBeenCalled();
   });
 

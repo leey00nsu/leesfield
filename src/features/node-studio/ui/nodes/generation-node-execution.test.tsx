@@ -167,7 +167,7 @@ describe("GenerationNodeExecution", () => {
     );
 
     expect(await screen.findByRole("img", { name: "최신 생성 결과" })).toHaveAttribute(
-      "data-src",
+      "src",
       "https://example.com/asset-old.png",
     );
     await user.click(screen.getByRole("button", { name: "결과 1 선택" }));

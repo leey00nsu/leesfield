@@ -1,0 +1,10 @@
+import {beforeEach, expect, it, vi} from "vitest";
+const mocks=vi.hoisted(()=>({find:vi.fn(),update:vi.fn(),remove:vi.fn()}));
+vi.mock("@/server/db/prisma",()=>({prisma:{mediaAsset:{findMany:mocks.find,update:mocks.update}}}));
+vi.mock("@/server/media-assets/leemage-media-storage",()=>({deleteHistoryStorageFile:mocks.remove}));
+import {deleteHistoryFiles} from "./delete-history-files";
+const asset={id:"asset",status:"completed",storageProvider:"leemage",storageObjectId:"file",storageUrl:"https://store/a",legacyUrl:null};
+beforeEach(()=>{vi.resetAllMocks();mocks.find.mockResolvedValue([asset]);mocks.update.mockResolvedValue({});mocks.remove.mockResolvedValue(undefined);});
+it("deletes the storage object and retains a missing identity for graph references",async()=>{await deleteHistoryFiles("owner",[{id:"row",assetId:"asset",url:asset.storageUrl}]);expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({ownerEmail:"owner"})}));expect(mocks.remove).toHaveBeenCalledExactlyOnceWith("file",asset.storageUrl);expect(mocks.update).toHaveBeenLastCalledWith(expect.objectContaining({data:expect.objectContaining({status:"failed",storageUrl:null,legacyUrl:null})}));});
+it("restores readable metadata and rejects when remote deletion fails",async()=>{mocks.remove.mockRejectedValue(new Error("network"));await expect(deleteHistoryFiles("owner",[{id:"row",assetId:"asset"}])).rejects.toThrow("network");expect(mocks.update).toHaveBeenLastCalledWith({where:{id:"asset"},data:{status:"completed"}});});
+it("skips tombstones on retry and resolves legacy URLs without an asset",async()=>{mocks.find.mockResolvedValue([{...asset,status:"failed",storageUrl:null}]);await deleteHistoryFiles("owner",[{id:"r",assetId:"asset"},{id:"legacy",url:"https://store/old"}]);expect(mocks.remove).toHaveBeenCalledExactlyOnceWith(null,"https://store/old");});

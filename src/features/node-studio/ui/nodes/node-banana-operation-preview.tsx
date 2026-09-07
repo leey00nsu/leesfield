@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -29,8 +30,7 @@ export function NodeBananaOperationPreview({
       data-preview-state={output ? "output" : asset ? "input" : "empty"}
     >
       {asset?.type === "image" ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={asset.url} alt={output ? tc("Operation result") : tc("Operation source")} className="absolute inset-0 h-full w-full object-contain" />
+        <VariantImage asset={asset} alt={output ? tc("Operation result") : tc("Operation source")} className="absolute inset-0 h-full w-full object-contain" />
       ) : asset?.type === "video" ? (
         <video src={asset.url} controls playsInline preload="metadata" className="absolute inset-0 h-full w-full object-contain" />
       ) : asset?.type === "audio" ? (

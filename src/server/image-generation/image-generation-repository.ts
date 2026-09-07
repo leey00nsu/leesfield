@@ -1,3 +1,5 @@
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
+import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
@@ -53,8 +55,21 @@ export async function saveImageGenerationResult(
   status: ImageGenerationStatus,
   progress: number,
   result?: ImageGenerationResponse["result"],
-  errorMessage?: string
+  errorMessage?: string,
+  artifacts?: GeneratedMediaArtifact[],
 ) {
+  if (artifacts?.length) {
+    await prisma.$transaction(async tx => {
+      const generation = await tx.imageGeneration.update({where: {id: generationId}, data: {status, progress, errorMessage: errorMessage ?? null}, select: {ownerEmail: true}});
+      if (!generation.ownerEmail) throw new Error("GENERATION_OWNER_REQUIRED");
+      await tx.imageGenerationImage.deleteMany({where: {generationId}});
+      for (const artifact of artifacts) {
+        const asset = await tx.mediaAsset.create({data: {ownerEmail: generation.ownerEmail, type: "image", origin: "generation", storageProvider: artifact.storageProvider, storageObjectId: artifact.storageObjectId, storageUrl: artifact.storageUrl, mimeType: artifact.mimeType, bytes: BigInt(artifact.bytes), width: artifact.width, height: artifact.height, imageVariants: parseImageVariants(artifact.imageVariants) ?? undefined}, select: {id: true}});
+        await tx.imageGenerationImage.create({data: {generationId, assetId: asset.id, url: artifact.storageUrl, width: artifact.width, height: artifact.height}});
+      }
+    });
+    return;
+  }
   const operations: Prisma.PrismaPromise<unknown>[] = [
     prisma.imageGeneration.update({
       where: { id: generationId },

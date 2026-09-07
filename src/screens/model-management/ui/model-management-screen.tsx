@@ -807,11 +807,7 @@ export function ModelManagementScreen() {
             </AppFilterGroup>
           </ModelFilterGroup>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap lg:max-w-none lg:flex-[1_1_34rem]">
-            <label className="grid min-w-0 gap-2 sm:flex-1">
-              <span className="text-sm font-medium">
-                {tCommonLabels("searchPlaceholder")}
-              </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:max-w-none lg:flex-[1_1_34rem]">
               <AppSearchField
                 aria-label={tCommonLabels("searchPlaceholder")}
                 containerClassName="sm:min-w-[18rem] sm:flex-[1_1_18rem]"
@@ -819,11 +815,6 @@ export function ModelManagementScreen() {
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder={tCommonLabels("searchPlaceholder")}
               />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium">
-                {tModel("sort.label")}
-              </span>
               <AppSortSelect
                 value={sort}
                 onValueChange={(value) => setSort(value as ModelSortOption)}
@@ -834,7 +825,6 @@ export function ModelManagementScreen() {
                   label: tModel(`sort.${option}`),
                 }))}
               />
-            </label>
             <AppButton
               type="button"
               variant="surface"

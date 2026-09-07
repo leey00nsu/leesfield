@@ -98,6 +98,14 @@ const graph: GenerationGraphSnapshotDto = {
 };
 
 describe("NodeStudioWorkspace", () => {
+  it.each([404, 503])("distinguishes missing files from network errors (%s)", async (status) => {
+    outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map(() => ({error: {status}, isError: true})));
+    const snapshot: GenerationGraphSnapshotDto = {...graph, nodes: [{id: "input", kind: "input.image", configVersion: 1, position: {x: 0, y: 0}, config: {assetId: "deleted"}, selectedOutputAssetId: null}]};
+    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
+    const props = mocks.nodeStudio.mock.lastCall?.[0] as {resolveUpstreamNodeData: (id: string, data: Record<string, unknown>) => Record<string, unknown>};
+    expect(props.resolveUpstreamNodeData("input", {})).toMatchObject({missingMedia: status === 404, image: null});
+  });
+
   it.each(["newer upload", "history", "unmount"])("does not replace an input after %s supersedes an upload", async (scenario) => {
     const inputGraph: GenerationGraphSnapshotDto = { ...graph, nodes: [{ id: "input", kind: "input.image", configVersion: 1, position: { x: 0, y: 0 }, config: { assetId: null }, selectedOutputAssetId: null }] };
     const pending: Array<(value: unknown) => void> = [];

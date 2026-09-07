@@ -43,6 +43,22 @@ describe("Node Banana adaptive image lifecycle", () => {
     vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers();
   });
 
+  it("uses persisted roles without downloading or recompressing the original", () => {
+    const roles = {list: ["https://media.example/thumb.webp", "https://media.example/display.webp", original], display: ["https://media.example/display.webp", original]};
+    const wrapper = ({children}: {children: ReactNode}) => <ReactFlowProvider initialNodes={[{id: "image", data: {imagePresentations: {[original]: roles}}, position: {x: 0, y: 0}, width: 100}]}>{children}</ReactFlowProvider>;
+    const {result} = renderHook(() => useImage(original), {wrapper});
+    expect(result.current.src).toBe(roles.list[0]);
+    expect(DeferredImage.instances[0].src).toBe(roles.list[0]);
+    expect(getPending(original)).toBeUndefined();
+    expect(drawImage).not.toHaveBeenCalled();
+    act(() => DeferredImage.instances[0].onerror!());
+    expect(result.current.src).toBe(roles.display[0]);
+    act(() => DeferredImage.instances[0].onerror!());
+    expect(result.current.src).toBe(original);
+    act(() => result.current.store.setState({transform: [0, 0, 3]}));
+    expect(result.current.src).toBe(roles.display[0]);
+  });
+
   it("switches below effective width 200, prioritizes measured width, and restores the exact original at 200", async () => {
     const { result } = renderHook(() => useImage(original), { wrapper: FlowWrapper });
     expect(result.current.src).toBe(original);

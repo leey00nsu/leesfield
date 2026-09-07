@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -30,7 +31,7 @@ function AssetPreview({ asset }: { asset: MediaAssetDto }) {
     return <video muted playsInline preload="metadata" src={asset.url} className="aspect-video w-full rounded bg-black/45 object-contain" />;
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={asset.url} alt="" loading="lazy" className="aspect-video w-full rounded bg-black/45 object-contain" />;
+  return <VariantImage asset={asset} purpose="list" alt="" loading="lazy" className="aspect-video w-full rounded bg-black/45 object-contain" />;
 }
 
 export function NodeBananaInputHistoryControl({

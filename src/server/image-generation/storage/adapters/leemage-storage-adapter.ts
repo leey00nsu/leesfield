@@ -1,7 +1,8 @@
+import { imageUploadOptions, mapUploadedImage, detectImageAnimation } from "@/server/media-assets/image-upload-policy";
 import { readFile } from "fs/promises";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
 import path from "path";
-import { LeemageClient, type ImageFormat, type UploadableFile } from "leemage-sdk";
+import { LeemageClient, type FileResponse, type UploadableFile } from "leemage-sdk";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 import type {
@@ -12,7 +13,6 @@ import type {
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 const PLACEHOLDER_FILE = "sample-image.png";
-const DEFAULT_VARIANTS = [{ sizeLabel: "source", format: "webp" }] as const;
 const MISSING_LEEMAGE_MESSAGE =
   "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
 
@@ -82,6 +82,8 @@ function getLeemageClient() {
 
 function resolveContentType(fileName: string) {
   const ext = path.extname(fileName).toLowerCase();
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".avif") return "image/avif";
   if (ext === ".png") return "image/png";
   if (ext === ".webp") return "image/webp";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
@@ -89,6 +91,8 @@ function resolveContentType(fileName: string) {
 }
 
 function resolveExtension(contentType: string) {
+  if (contentType === "image/gif") return "gif";
+  if (contentType === "image/avif") return "avif";
   if (contentType === "image/png") return "png";
   if (contentType === "image/webp") return "webp";
   if (contentType === "image/jpeg") return "jpg";
@@ -148,53 +152,14 @@ function buildResultFromDataUrls(
   };
 }
 
-function mapFileToImage(
-  file: {
-    url: string | null;
-    variants: Array<{ url: string; width: number; height: number }>;
-  },
-  fallbackWidth: number,
-  fallbackHeight: number
-) {
-  const variant = file.variants.find((item) => item.url) ?? file.variants[0];
-  const url = variant?.url ?? file.url;
-
-  if (!url) {
-    throw new Error("업로드된 이미지 URL을 찾을 수 없습니다.");
-  }
-
-  return {
-    url,
-    width: variant?.width ?? fallbackWidth,
-    height: variant?.height ?? fallbackHeight,
-  };
+function mapFileToImage(file: FileResponse, width: number, height: number) {
+  const mapped = mapUploadedImage(file, { width, height });
+  return { url: mapped.url, width: mapped.width ?? width, height: mapped.height ?? height };
 }
 
-function mapFileToArtifact(
-  file: Awaited<ReturnType<ReturnType<typeof getLeemageClient>["files"]["upload"]>>,
-  fallbackWidth: number,
-  fallbackHeight: number,
-) {
-  const variant = file.variants.find((item) => item.url) ?? file.variants[0];
-  const storageUrl = variant?.url ?? file.url;
-  if (!storageUrl) throw new Error("업로드된 이미지 URL을 찾을 수 없습니다.");
-  const format = variant?.format?.toLowerCase();
-  return {
-    type: "image" as const,
-    storageProvider: "leemage" as const,
-    storageObjectId: file.id,
-    storageUrl,
-    mimeType:
-      format === "jpg" || format === "jpeg"
-        ? "image/jpeg"
-        : format === "png" || format === "avif" || format === "webp"
-          ? `image/${format}`
-          : file.mimeType,
-    bytes: variant?.size ?? file.size,
-    width: variant?.width ?? fallbackWidth,
-    height: variant?.height ?? fallbackHeight,
-    durationMs: null,
-  };
+function mapFileToArtifact(file: FileResponse, width: number, height: number, isAnimated: boolean | null = null): GeneratedMediaArtifact {
+  const { url, ...metadata } = mapUploadedImage(file, { width, height, isAnimated });
+  return { type: "image", storageProvider: "leemage", storageObjectId: file.id, storageUrl: url, ...metadata, durationMs: null };
 }
 
 export async function uploadGeneratedImages(
@@ -214,7 +179,7 @@ export async function uploadGeneratedImages(
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name);
         return client.files.upload(projectId, file, {
-          variants: [...DEFAULT_VARIANTS],
+          ...imageUploadOptions(contentType),
         });
       })
     );
@@ -224,7 +189,10 @@ export async function uploadGeneratedImages(
       result: {
         images: uploads.map((file) => mapFileToImage(file, width, height)),
       },
-      artifacts: uploads.map((file) => mapFileToArtifact(file, width, height)),
+      artifacts: uploads.map((file, index) => {
+        const source = parseDataUrl(dataUrls[index]);
+        return mapFileToArtifact(file, width, height, detectImageAnimation(source.buffer, source.contentType));
+      }),
     };
   } catch (error) {
     return {
@@ -246,11 +214,10 @@ export async function uploadMediaOperationImages(
     images.map(({ dataUrl }, index) => {
       const { contentType, buffer } = parseDataUrl(dataUrl);
       const extension = resolveExtension(contentType);
-      const format: ImageFormat = extension === "jpg" ? "jpeg" : extension as ImageFormat;
       return client.files.upload(
         projectId,
         buildUploadFile(buffer, `${requestId}-${index + 1}.${extension}`),
-        { variants: [{ sizeLabel: "source", format }] },
+        imageUploadOptions(contentType),
       );
     }),
   );
@@ -258,6 +225,7 @@ export async function uploadMediaOperationImages(
     file,
     images[index]?.width ?? 1,
     images[index]?.height ?? 1,
+    detectImageAnimation(parseDataUrl(images[index].dataUrl).buffer, parseDataUrl(images[index].dataUrl).contentType),
   ));
 }
 
@@ -282,7 +250,7 @@ export async function resolveGenerationResult(
         )}`;
         const file = buildUploadFile(buffer, name);
         return client.files.upload(projectId, file, {
-          variants: [...DEFAULT_VARIANTS],
+          ...imageUploadOptions(contentType),
         });
       })
     );

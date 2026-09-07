@@ -189,6 +189,8 @@ async function assertCanonicalAssets(
       ownerEmail: true,
       type: true,
       status: true,
+      storageUrl: true,
+      legacyUrl: true,
       graphNodeOutputs: { select: { graphNodeId: true } },
       imageGenerationImage: {
         select: { generation: { select: { graphNodeId: true } } },
@@ -207,7 +209,7 @@ async function assertCanonicalAssets(
     return (
       !asset ||
       asset.ownerEmail !== ownerEmail ||
-      asset.status !== "completed" ||
+      (asset.status !== "completed" && !(asset.status === "failed" && asset.storageUrl === null && asset.legacyUrl === null)) ||
       asset.type !== selection.type
     );
   });
@@ -227,9 +229,9 @@ async function assertCanonicalAssets(
     return (
       !asset ||
       asset.ownerEmail !== ownerEmail ||
-      asset.status !== "completed" ||
+      (asset.status !== "completed" && !(asset.status === "failed" && asset.storageUrl === null && asset.legacyUrl === null)) ||
       asset.type !== expectedType ||
-      !sourceNodeIds.includes(selection.nodeId)
+      !(asset.status === "failed" && asset.storageUrl === null && asset.legacyUrl === null) && !sourceNodeIds.includes(selection.nodeId)
     );
   });
   if (invalidInput || invalidOutput) {

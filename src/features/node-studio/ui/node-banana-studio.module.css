@@ -219,6 +219,8 @@
 }
 
 .runtime :global(.node-banana-runtime__run-group) {
+  flex-shrink: 0;
+  white-space: nowrap;
   display: flex;
   overflow: hidden;
   border: 1px solid rgb(115 115 115);
@@ -227,6 +229,11 @@
 }
 
 .runtime :global(.node-banana-runtime__run-group button) {
+  flex-shrink: 0;
+  width: auto;
+  min-width: max-content;
+  white-space: nowrap;
+  line-height: 1;
   display: inline-flex;
   height: 1.75rem;
   align-items: center;

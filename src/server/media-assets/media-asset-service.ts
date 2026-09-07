@@ -1,3 +1,4 @@
+import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { ZodError } from "zod";
 
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
@@ -164,6 +165,7 @@ async function toAssetDto(
     }
   }
   return {
+    imageVariants: parseImageVariants(asset.imageVariants),
     id: asset.id,
     version: asset.version,
     type: asset.type,

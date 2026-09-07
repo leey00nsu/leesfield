@@ -1,0 +1,39 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -779,12 +779,14 @@
+   const closeAssets=useCallback(()=>{const restoreFocus=assetRequestRef.current!==null;assetController.current?.abort(); assetRequestRef.current=null;setAssetRequest(null);if(restoreFocus)requestAnimationFrame(()=>rootRef.current?.focus());},[]);
+   useEffect(()=>{closeAssets();return ()=>{assetController.current?.abort();assetRequestRef.current=null;};},[writable,contextId,closeAssets]);
+   useEffect(()=>{const input=mediaFileRef.current;input?.addEventListener("cancel",closeAssets);return ()=>input?.removeEventListener("cancel",closeAssets);},[closeAssets]);
++  const [mediaUpload, setMediaUpload] = useState<{nodeId: string; controller: AbortController} | null>(null);
+   const selectConnectionMedia=async (source:File|{assetId:string})=>{
+     const request=assetRequestRef.current; if(!request || !contentContext.current.writable) return;
+     assetController.current?.abort(); const controller=new AbortController();assetController.current=controller;
+     const original = contentContext.current.graph.nodes.find(node => node.id === request.menu.pendingConnection?.nodeId);
+     const replaceInput = request.menu.pendingConnection?.handleType === "source" && original?.data.canonicalKind === "input." + request.mediaType;
+     const originalConfig = JSON.stringify(original?.data.config);
++    if (source instanceof File) setMediaUpload({nodeId: request.menu.pendingConnection?.nodeId ?? "", controller});
+     try {
+       const imported=await contentContext.current.onImportCanvasMedia?.(source,controller.signal);
+       const current=contentContext.current;
+@@ -805,6 +807,7 @@
+       current.publish({nodes:[...current.graph.nodes,result.node],edges:[...current.graph.edges,result.edge]},"create");
+       closeAssets();
+     } catch(error) { if(!controller.signal.aborted) {onInputError?.(error instanceof Error?error:new Error("MEDIA_IMPORT_FAILED"));closeAssets();} }
++    finally {setMediaUpload(current => current?.controller === controller ? null : current);}
+   };
+   const chooseNode = useCallback((item: NodeBananaRuntimePaletteItem) => {
+     let result: CreateNodeResult;
+@@ -1166,11 +1169,12 @@
+         style: { ...node.style, width: ownEntry(interaction.nodeGeometry, node.id).width, height: ownEntry(interaction.nodeGeometry, node.id).height },
+         data: { ...node.data, _settingsPanelHeight: ownEntry(interaction.nodeGeometry, node.id).settingsPanelHeight },
+       } : {}),
++      data: { ...node.data, ...(ownEntry(interaction.nodeGeometry, node.id) ? {_settingsPanelHeight: ownEntry(interaction.nodeGeometry, node.id).settingsPanelHeight} : {}), ...(mediaUpload?.nodeId === node.id ? {mediaUploading: true} : {}) },
+       position: ownEntry(interaction.nodePositions, node.id) ?? node.position,
+       groupId: graph.groups?.find((group) => group.memberNodeIds.includes(node.id))?.id,
+       selected: selected.has(node.id),
+     }));
+-  }, [graph.nodes, graph.groups, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
++  }, [mediaUpload, graph.nodes, graph.groups, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
+   const visibleEdges = useMemo(() => {
+     const selected = new Set(interaction.selectedEdgeIds);
+     return graph.edges.map((edge) => ({

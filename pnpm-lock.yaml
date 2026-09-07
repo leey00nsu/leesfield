@@ -102,8 +102,8 @@ importers:
         specifier: 10.0.12
         version: 10.0.12
       leemage-sdk:
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: ^0.2.0
+        version: 0.2.0
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.3)
@@ -3529,8 +3529,8 @@ packages:
     resolution: {integrity: sha512-MbjN408fEndfiQXbFQ1vnd+1NoLDsnQW41410oQBXiyXDMYH5z505juWa4KUE1LqxRC7DgOgZDbKLxHIwm27hA==}
     engines: {node: '>=0.10'}
 
-  leemage-sdk@0.1.1:
-    resolution: {integrity: sha512-hqvg/+u8tyn5y+3w8N5S6XX5VgnSuC1MqpPbGE2DCrwDjfBA1jVOspyRAgVyBcqlPDqHjZL71PFYbVLURH08UA==}
+  leemage-sdk@0.2.0:
+    resolution: {integrity: sha512-pK5cIOVEPXvHwPVgvypxC5LU4RNtYGzaxHQCAiE4oiOqVNCN2dXc9R3BZWsFZU8y6ERCapHiZr07g9LawP+zpQ==}
     engines: {node: '>=18.0.0'}
 
   levn@0.4.1:
@@ -8149,7 +8149,7 @@ snapshots:
     dependencies:
       language-subtag-registry: 0.3.23
 
-  leemage-sdk@0.1.1: {}
+  leemage-sdk@0.2.0: {}
 
   levn@0.4.1:
     dependencies:

@@ -1,4 +1,5 @@
 "use client";
+import { imageUrlsFor } from "@/shared/media-assets/image-variants";
 
 import { useTranslations } from "next-intl";
 
@@ -333,12 +334,13 @@ export function NodeStudioWorkspace({
     [executionOutputAssetIds, inputAssetIds, selectedOutputAssetIds],
   );
   const assetQueries = useMediaAssetList(allAssetIds);
+  const missingAssetIds = useMemo(() => new Set(allAssetIds.filter((_, index) => { const error = assetQueries[index]?.error; return error && typeof error === "object" && "status" in error && error.status === 404; })), [allAssetIds, assetQueries]);
   const resolvedAssets = useMemo(
     () => new Map<string, MediaAssetDto>([
-      ...assetQueries.flatMap((query, index) => query.data ? [[allAssetIds[index], query.data] as const] : []),
-      ...Object.entries(assetOverrides),
+      ...assetQueries.flatMap((query, index) => query.data && !missingAssetIds.has(allAssetIds[index]) ? [[allAssetIds[index], query.data] as const] : []),
+      ...Object.entries(assetOverrides).filter(([id]) => !missingAssetIds.has(id)),
     ]),
-    [allAssetIds, assetOverrides, assetQueries],
+    [allAssetIds, assetOverrides, assetQueries, missingAssetIds],
   );
 
   useEffect(() => {
@@ -518,6 +520,11 @@ export function NodeStudioWorkspace({
     return resolve(nodeId, portId, new Set());
   }, [currentOutputAssetsForPort, resolvedAssets]);
 
+  const imagePresentations = useMemo(() => Object.fromEntries([...resolvedAssets.values()].filter(asset => asset.type === "image" && asset.imageVariants).flatMap(asset => {
+    const roles = {list: imageUrlsFor(asset, "list"), display: imageUrlsFor(asset, "display")};
+    return [[asset.url, roles], [getMediaAssetContentUrl(asset.id), roles]];
+  })), [resolvedAssets]);
+
   const resolveUpstreamNodeData = useCallback((nodeId: string, runtimeData: Record<string, unknown>) => {
     const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) return null;
@@ -652,6 +659,8 @@ export function NodeStudioWorkspace({
       : null;
     const outputBytes = primaryOutputAsset?.bytes ? Number(primaryOutputAsset.bytes) : null;
     const base = {
+      missingMedia: [inputAssetId, node.selectedOutputAssetId, ...(latest?.outputAssetIds ?? [])].some(id => id && missingAssetIds.has(id)),
+      imagePresentations,
       ...modelProjection,
       ...executionPatch,
       outputDimensions,
@@ -838,7 +847,7 @@ export function NodeStudioWorkspace({
       default:
         return { ...runtimeData, ...base };
     }
-  }, [audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
+  }, [missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
 
   const handleHostError = useCallback((error: Error) => {
     setHostError(error.message);

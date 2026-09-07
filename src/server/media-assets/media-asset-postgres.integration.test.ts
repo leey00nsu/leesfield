@@ -25,6 +25,27 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail } });
   });
 
+  it("round-trips original and derived image roles without storage reads", async () => {
+    const { createMediaAssetService } = await import("./media-asset-service");
+    const imageVariants = {version: 1 as const, isAnimated: null, display: {url: "https://storage.example/display.webp", mimeType: "image/webp", bytes: 300, width: 1200, height: 800}, thumbnail: {url: "https://storage.example/thumb.webp", mimeType: "image/webp", bytes: 30, width: 480, height: 320}};
+    const session = await mediaAssetRepository.createUploadSession(ownerEmail, {intendedType: "image", fileName: "original.png", declaredMimeType: "image/png", declaredBytes: 1000, sortOrder: 0}, {objectId: "image-" + suffix, objectName: "image.png", objectUrl: "https://storage.example/original.png", presignedUrl: "https://upload.example/image", expiresAt: new Date(Date.now()+60000)}, BigInt(100000));
+    await mediaAssetRepository.claimUpload(ownerEmail, session.id, new Date());
+    const asset = await mediaAssetRepository.completeUpload({ownerEmail, uploadId: session.id, confirmed: {objectId: "image-" + suffix, url: "https://storage.example/original.png", mimeType: "image/png", bytes: 1000, imageVariants}, inspected: {detectedMimeType: "image/png", width: 1200, height: 800, durationMs: null, isAnimated: false}, now: new Date()});
+    expect(asset).toMatchObject({bytes: BigInt(1000), imageVariants: {...imageVariants, isAnimated: false}});
+    const service = createMediaAssetService(mediaAssetRepository, {name: "leemage", assertAvailable() {}, presign: async () => {throw new Error("unexpected");}, confirm: async () => {throw new Error("unexpected");}, inspect: async () => {throw new Error("unexpected");}, delete: async () => {throw new Error("unexpected");}, resolveReadUrl: async () => {throw new Error("Unexpected remote read");}} as Parameters<typeof createMediaAssetService>[1]);
+    const page = await service.list(ownerEmail, {type: "image"});
+    expect(page.items).toContainEqual(expect.objectContaining({id: asset.id, url: "https://storage.example/original.png", bytes: "1000", imageVariants: {...imageVariants, isAnimated: false}}));
+    await prisma.mediaAsset.delete({where: {id: asset.id}});
+    const {saveImageGenerationResult} = await import("@/server/image-generation/image-generation-repository");
+    const generation = await prisma.imageGeneration.create({data: {ownerEmail, requestId: "f062-"+suffix, prompt: "test", status: "processing", progress: 10, modelKey: "test", requestParams: {}, aspectRatio: "1200x800", imageCount: 1, steps: 1}});
+    try {
+      await saveImageGenerationResult(generation.id, "completed", 100, undefined, undefined, [{type: "image", storageProvider: "leemage", storageObjectId: "generated-"+suffix, storageUrl: "https://storage.example/original.png", mimeType: "image/png", bytes: 1000, width: 1200, height: 800, durationMs: null, imageVariants}]);
+      const result = await prisma.imageGenerationImage.findFirst({where: {generationId: generation.id}, include: {asset: true}});
+      expect(result).toMatchObject({url: "https://storage.example/original.png", asset: {imageVariants, bytes: BigInt(1000)}});
+    } finally {await prisma.imageGeneration.delete({where: {id: generation.id}}); await prisma.mediaAsset.deleteMany({where: {ownerEmail, storageObjectId: "generated-"+suffix}});}
+
+  });
+
   it("preserves legacy Audio Edit output provenance and its asset after Graph deletion", async () => {
     await prisma.generationGraph.create({
       data: {

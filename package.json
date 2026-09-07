@@ -62,7 +62,7 @@
     "iron-session": "^8.0.4",
     "jszip": "3.10.1",
     "konva": "10.0.12",
-    "leemage-sdk": "^0.1.1",
+    "leemage-sdk": "^0.2.0",
     "lucide-react": "^0.562.0",
     "mediabunny": "1.31.0",
     "motion": "^12.38.0",

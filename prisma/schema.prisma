@@ -291,6 +291,7 @@ model AudioGenerationAudio {
 }
 
 model MediaAsset {
+  imageVariants        Json?
   id                   String                      @id @default(cuid())
   version              Int                         @default(1)
   ownerEmail           String

@@ -1,6 +1,6 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
@@ -52,7 +52,7 @@ function CompactAssetPreview({ asset }: { asset: MediaAssetDto }) {
   if (asset.type === "image") {
     return (
       <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
-        <Image src={asset.url} alt="" fill sizes="32px" unoptimized className="object-cover" />
+        <VariantImage asset={asset} purpose="list" alt="" className="absolute inset-0 h-full w-full object-cover" />
       </span>
     );
   }
@@ -69,7 +69,7 @@ function AssetPreview({ asset, label }: { asset: MediaAssetDto; label: string })
   if (asset.type === "image") {
     return (
       <div className="relative aspect-square max-h-64 overflow-hidden rounded-xl border border-white/10 bg-black/30">
-        <Image src={asset.url} alt={label} fill sizes="(max-width: 768px) 80vw, 360px" unoptimized className="object-contain" />
+        <VariantImage asset={asset} alt={label} className="absolute inset-0 h-full w-full object-contain" />
       </div>
     );
   }
@@ -120,7 +120,7 @@ function OutputChoice({
       onClick={onSelect}
     >
       {asset.type === "image" ? (
-        <Image src={asset.url} alt="" fill sizes="56px" unoptimized className="object-cover" />
+        <VariantImage asset={asset} purpose="list" alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : asset.type === "video" ? (
         <Video className="h-5 w-5" aria-hidden="true" />
       ) : (

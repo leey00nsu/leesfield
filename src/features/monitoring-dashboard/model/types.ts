@@ -1,3 +1,4 @@
+import type { ImageVariants } from "@/shared/media-assets/image-variants";
 export type MonitoringType = "all" | "image" | "video" | "audio";
 
 export type MonitoringStatusFilter =
@@ -49,6 +50,7 @@ export type MonitoringRequestItem = {
 };
 
 export type MonitoringRequestAsset = {
+  imageVariants?: ImageVariants | null;
   url: string;
   width: number | null;
   height: number | null;

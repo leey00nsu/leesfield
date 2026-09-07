@@ -1,3 +1,4 @@
+import { detectImageAnimation } from "./image-upload-policy";
 import { fileTypeFromBuffer } from "file-type";
 
 import type { MediaType } from "@/shared/media-assets/media-asset-contract";
@@ -197,6 +198,7 @@ export async function inspectMediaUrl(
   const resolvedDuration = durationMs(buffer, detectedMimeType);
   return {
     detectedMimeType,
+    isAnimated: input.expectedType === "image" ? detectImageAnimation(buffer, detectedMimeType) : null,
     width: dimensions?.width ?? null,
     height: dimensions?.height ?? null,
     durationMs: resolvedDuration,

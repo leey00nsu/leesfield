@@ -1,4 +1,6 @@
 "use client";
+import { AppCanvasBrandProvider } from "@/shared/ui/app-canvas-brand-provider";
+
 
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,10 +44,10 @@ export function Providers({
         messages={messages}
         timeZone={timeZone}
       >
-        <CloseLabelProvider><AppCanvasLocalizationProvider>
+        <AppCanvasBrandProvider><CloseLabelProvider><AppCanvasLocalizationProvider>
           {children}
           <AppToaster />
-        </AppCanvasLocalizationProvider></CloseLabelProvider>
+        </AppCanvasLocalizationProvider></CloseLabelProvider></AppCanvasBrandProvider>
       </NextIntlClientProvider>
     </QueryClientProvider>
   );

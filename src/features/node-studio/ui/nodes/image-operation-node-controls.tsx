@@ -1,4 +1,5 @@
 "use client";
+import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -360,8 +361,7 @@ export function ImageOperationNodeControls({
       {kind === "edit.image.gif" ? (
         <div className="flex h-16 gap-1 overflow-x-auto rounded border border-neutral-700 bg-neutral-900/40 p-1" data-node-banana-component="FrameFilmstrip">
           {frameAssets.length ? frameAssets.map((query, index) => query.data?.type === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={query.data.id} src={query.data.url} alt={`Frame ${index + 1}`} className="aspect-square h-full shrink-0 rounded object-cover" />
+            <VariantImage key={query.data.id} asset={query.data} purpose="list" alt={`Frame ${index + 1}`} className="aspect-square h-full shrink-0 rounded object-cover" />
           ) : null) : (
             <span className="m-auto text-[10px] text-neutral-500">{tc("Connect image frames")}</span>
           )}
