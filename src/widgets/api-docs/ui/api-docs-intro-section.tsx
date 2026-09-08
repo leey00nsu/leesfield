@@ -31,27 +31,27 @@ export function ApiDocsIntroSection({
         }
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-[10px] font-medium text-foreground/36">
               {tSidebar("baseUrl")}
             </p>
-            <p className="mt-2 break-all font-mono text-sm text-white/78">
+            <p className="mt-2 break-all font-mono text-sm text-foreground/78">
               {apiBaseUrl}
             </p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-[10px] font-medium text-foreground/36">
               {tSidebar("general")}
             </p>
-            <p className="mt-2 text-sm text-white/70">
+            <p className="mt-2 text-sm text-foreground/70">
               {tSidebar("nav.authentication")}
             </p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-black/18 p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-white/36">
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-[10px] font-medium text-foreground/36">
               {tSidebar("version")}
             </p>
-            <p className="mt-2 text-sm text-white/70">{apiVersion}</p>
+            <p className="mt-2 text-sm text-foreground/70">{apiVersion}</p>
           </div>
         </div>
       </AppDocsSectionCard>

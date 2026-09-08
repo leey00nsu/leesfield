@@ -1,5 +1,5 @@
-import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { renderWithIntl } from "@/test-utils/intl";
 
@@ -34,4 +34,18 @@ describe("GenerationCanvas", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("result content")).not.toBeInTheDocument();
   });
+});
+
+it("shows the waiting state and elapsed time only while a job is running", () => {
+  vi.useFakeTimers();
+  try {
+    const view = renderWithIntl(<GenerationCanvas isGenerating status="pending" />);
+    expect(screen.getByText("대기 중…")).toBeVisible();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(screen.getByText("이 화면에서 2초 경과")).toBeVisible();
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
 });

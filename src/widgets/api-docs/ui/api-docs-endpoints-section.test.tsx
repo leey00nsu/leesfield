@@ -2,9 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiDocsEndpointsSection } from "@/widgets/api-docs/ui/api-docs-endpoints-section";
-import type {
-  ApiSection,
-} from "@/features/api-docs/model/openapi-helpers";
+import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { renderWithIntl } from "@/test-utils/intl";
 
 const appToastCopiedMock = vi.hoisted(() => vi.fn());
@@ -25,7 +23,7 @@ const apiSections: ApiSection[] = [
       {
         id: "post-image",
         method: "POST",
-        path: "/api/external/image-generation",
+        path: "/api/external/generations",
         description: "Creates an image generation request.",
         request: {
           schema: null,
@@ -80,6 +78,19 @@ describe("ApiDocsEndpointsSection", () => {
         openApiDocument={null}
       />,
     );
+
+    await user.click(screen.getByRole("tab", { name: "JavaScript" }));
+    expect(screen.getByRole("tab", { name: "JavaScript" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tabpanel").textContent).toContain("fetch(");
+
+    expect(
+      screen
+        .getByRole("tab", { name: "JavaScript" })
+        .closest("[data-slot=tabs]"),
+    ).toHaveAttribute("data-horizontal");
 
     const copyButton = screen.getByRole("button", { name: "코드 복사" });
     await user.click(copyButton);

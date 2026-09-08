@@ -61,6 +61,7 @@
       "steps": "스텝",
       "imageCount": "이미지 수",
       "guidanceScale": "가이던스",
+      "advancedOptions": "상세 옵션",
       "settings": "설정",
       "moreControls": "추가 조정",
       "modeChoice": "모드",
@@ -131,7 +132,7 @@
       "announcement": "스페이스가 추가되었어요",
       "headlineSecondFirst": "하나의",
       "headlineSecondLast": "인터페이스로",
-      "primaryAction": "AI 생성 시작",
+      "primaryAction": "생성",
       "secondaryAction": "스페이스 살펴보기",
       "headlineInterface": "인터페이스",
       "headlineSuffix": "로",
@@ -260,7 +261,10 @@
       "emptyDescription": "",
       "generating": "생성 중…",
       "failedTitle": "생성에 실패했습니다",
-      "failedDescription": "잠시 후 다시 시도해주세요."
+      "failedDescription": "잠시 후 다시 시도해주세요.",
+      "queued": "대기 중…",
+      "uploading": "업로드 중…",
+      "waitingTime": "이 화면에서 {seconds}초 경과"
     },
     "actions": {
       "gridDisabled": "그리드 (비활성)",
@@ -465,7 +469,12 @@
     "filters": {
       "search": "히스토리 검색",
       "searchPlaceholder": "프롬프트, 모델, 태그 검색…",
-      "sort": "히스토리 정렬"
+      "sort": "히스토리 정렬",
+      "autoplay": "자동재생",
+      "model": "모델",
+      "allModels": "전체 모델",
+      "prompt": "프롬프트",
+      "promptPlaceholder": "프롬프트 검색…"
     },
     "subtitle": "생성한 결과와 작업 상태를 확인하고, 이전 설정으로 다시 생성하세요.",
     "error": "히스토리를 불러오지 못했습니다.",
@@ -544,7 +553,17 @@
       "warningMessage": "경고 메시지",
       "openAsset": "열기",
       "noInputAsset": "입력 파일 없음",
-      "noResultAsset": "결과 없음"
+      "noResultAsset": "결과 없음",
+      "generationSettings": "요청 설정",
+      "settingsSnapshot": "작업 제출 당시 저장된 설정입니다.",
+      "settingsLoading": "설정을 불러오는 중…",
+      "settingsError": "설정을 불러오지 못했습니다.",
+      "settingsMissing": "기록된 설정이 없습니다.",
+      "settingsJson": "JSON 보기",
+      "parameterFile": "첨부 파일",
+      "parameterEmpty": "값 없음",
+      "parameterTrue": "사용",
+      "parameterFalse": "사용 안 함"
     },
     "detailActions": {
       "recreate": "다시 생성",
@@ -833,8 +852,10 @@
         "warnings": "{count}개 항목을 확인하세요.",
         "errors": {
           "required": "Space URL을 입력해주세요.",
-          "failed": "가져오기에 실패했습니다."
-        }
+          "failed": "가져오기에 실패했습니다.",
+          "noPublicApi": "이 스페이스는 공개 Gradio API를 제공하지 않습니다."
+        },
+        "inputUnclear": "공개 API의 입력 조건을 완전히 확인할 수 없습니다. 아래 항목은 생성 시 필수 입력으로 처리됩니다."
       },
       "dialog": {
         "createTitle": "모델 추가",
@@ -950,19 +971,19 @@
     "subtitle": "REST API 레퍼런스",
     "intro": {
       "titleFallback": "leesfield API",
-      "descriptionFallback": "leesfield 외부 REST API 문서입니다. 이미지/비디오 생성과 모델 조회를 제공합니다.",
+      "descriptionFallback": "leesfield 외부 API의 공통 규격입니다. API 키로 모델 목록과 입력 스키마를 조회한 뒤 이미지·비디오·오디오 생성 작업을 요청합니다. 실제 등록 모델과 입력 조건은 인증된 API에서만 제공됩니다.",
       "highlights": {
         "latency": {
-          "title": "낮은 지연",
-          "description": "최적화된 추론 파이프라인으로 빠르게 생성합니다."
+          "title": "모델 조회",
+          "description": "API 키로 모델 목록과 필요한 입력 조건을 확인합니다."
         },
         "security": {
-          "title": "보안",
-          "description": "스코프된 API 키로 안전하게 보호합니다."
+          "title": "생성 요청",
+          "description": "조회한 모델 ID와 dynamicParams로 생성 작업을 요청합니다."
         },
         "restful": {
-          "title": "RESTful",
-          "description": "일관된 REST 구조로 쉽게 연동할 수 있습니다."
+          "title": "결과 조회",
+          "description": "반환된 작업 ID로 진행 상태와 결과를 조회합니다."
         }
       }
     },
@@ -977,10 +998,8 @@
         "introduction": "소개",
         "authentication": "인증",
         "errors": "오류",
-        "images": "이미지",
-        "videos": "비디오",
-        "audio": "오디오",
-        "models": "모델"
+        "models": "모델",
+        "generations": "AI 생성"
       },
       "baseUrl": "기본 URL",
       "version": "버전"
@@ -1019,21 +1038,16 @@
       "exampleFieldMessage": "필수 입력입니다."
     },
     "openapi": {
-      "infoDescription": "leesfield 외부 REST API 문서입니다. 이미지/비디오/오디오 생성과 모델 조회를 제공합니다.",
+      "infoDescription": "leesfield 외부 API의 공통 규격입니다. API 키로 모델 목록과 입력 스키마를 조회한 뒤 이미지·비디오·오디오 생성 작업을 요청합니다. 실제 등록 모델과 입력 조건은 인증된 API에서만 제공됩니다.",
       "tags": {
-        "images": "이미지 생성",
-        "videos": "비디오 생성",
-        "audio": "오디오 생성",
-        "models": "모델 목록"
+        "generations": "AI 생성",
+        "models": "모델 조회"
       },
       "paths": {
-        "imageGeneration": "이미지 생성 요청을 생성합니다.",
-        "videoGeneration": "비디오 생성 요청을 생성합니다.",
-        "audioGeneration": "오디오 생성 요청을 생성합니다.",
-        "imageStatus": "이미지 생성 결과를 조회합니다.",
-        "videoStatus": "비디오 생성 결과를 조회합니다.",
-        "audioStatus": "오디오 생성 결과를 조회합니다.",
-        "models": "사용 가능한 생성 모델 목록을 조회합니다."
+        "generation": "type과 모델 ID를 선택하고, prompt를 포함한 모든 모델 입력을 dynamicParams에 전달합니다. JSON 또는 multipart를 지원합니다.",
+        "status": "현재 API 키 소유자의 생성 작업 상태와 결과를 조회합니다.",
+        "models": "사용 가능한 활성 모델의 ID·이름·매체를 조회합니다.",
+        "modelSchema": "선택한 모델의 dynamicParams JSON Schema와 파일 입력 정보를 조회합니다. 파일은 URL/data URL 값 또는 file:<파라미터 이름> multipart 파트로 전달합니다."
       }
     },
     "endpoints": {

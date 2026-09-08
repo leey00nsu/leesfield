@@ -403,7 +403,7 @@ describe("generation worker", () => {
     );
   });
 
-  it("processImageJobs updates status when completed with skipDbSave", async () => {
+  it.each([false,true])("processImageJobs completes old and versioned snapshots (%s)", async (versioned) => {
     const mockRecord = {
       id: "img-db-id",
       requestId: "img-request-id",
@@ -422,6 +422,8 @@ describe("generation worker", () => {
       progress: 0,
     };
 
+    if (versioned) mockRecord.requestParams = {requestVersion:2,model:'z-image-turbo',dynamicParams:{width:512,height:512,steps:5,imageCount:1,seed:''},parameterDefinitions:['width','height','steps','imageCount','seed'].map(key=>({key,inputKey:key,target:'top'}))} as unknown as typeof mockRecord.requestParams;
+
     (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([mockRecord]);
@@ -437,6 +439,7 @@ describe("generation worker", () => {
 
     await processImageJobs();
 
+    expect(mockValidateImagePayload.mock.calls.at(-1)?.[0]).toMatchObject({width:512,height:512,steps:5});
     expect(updateImageGenerationStatus).toHaveBeenCalledWith(
       "img-db-id",
       "completed",
@@ -454,6 +457,7 @@ describe("generation worker", () => {
       graphNodeId: "node-1",
       prompt: "hello",
       requestParams: {
+        dynamicParams: { first_frame: null, references: ["https://example.com/a.png"], options: { count: 2 } },
         model: "z-image-turbo",
         width: 512,
         height: 512,
@@ -498,6 +502,7 @@ describe("generation worker", () => {
 
     expect(mockGetMediaAsset).toHaveBeenCalledWith("owner@example.com", "asset-input");
     expect(mockValidateImagePayload).toHaveBeenCalledWith(expect.objectContaining({
+      dynamicParams: { first_frame: null, references: ["https://example.com/a.png"], options: { count: 2 } },
       initImages: ["https://signed.example/input.png"],
     }));
     expect(mockMarkUploading).toHaveBeenCalledWith("image", "img-graph-db-id");

@@ -1,3 +1,4 @@
+import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
@@ -15,6 +16,7 @@ export async function createVideoGenerationRecord(
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
 ) {
   const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
+    dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
     model: payload.model,
     prompt: payload.prompt,
     initImage: payload.initImage || null,
@@ -34,7 +36,7 @@ export async function createVideoGenerationRecord(
       apiKeyId,
       graphNodeId,
       prompt: payload.prompt,
-      requestParams,
+      requestParams: await snapshotRequest('video', requestParams as Record<string, unknown>),
       modelKey: payload.model,
       status: "pending",
       progress: 0,

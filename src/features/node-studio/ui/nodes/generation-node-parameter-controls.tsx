@@ -1,4 +1,6 @@
 "use client";
+import { Switch } from "@/shared/ui/brand/switch/switch";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import type {
   RuntimeAudioModel,
@@ -117,7 +119,7 @@ export function GenerationNodeParameterControls({
         const label = `${parameterLabel(key, config)}${config.required ? " *" : ""}`;
         const value = (dynamic ? dynamicValues[key] : values[key]) ?? config.default ?? "";
         const options = normalizeRuntimeParameterOptions(config.options);
-        const baseClass = "h-10 rounded-xl border-white/10 bg-black/30 text-sm normal-case tracking-normal text-white";
+        const baseClass = "w-full text-sm normal-case tracking-normal";
 
         return (
           <label key={key} className="grid gap-1 text-[10px] uppercase tracking-[0.12em] text-white/45">
@@ -146,12 +148,11 @@ export function GenerationNodeParameterControls({
                 </AppSelectContent>
               </AppSelectRoot>
             ) : config.ui === "toggle" ? (
-              <input
-                type="checkbox"
+              <Switch
                 checked={Boolean(value)}
                 disabled={disabled}
-                className="h-4 w-4 accent-primary"
-                onChange={(event) => update(key, event.target.checked, dynamic)}
+
+                onCheckedChange={checked => update(key, checked, dynamic)}
               />
             ) : config.ui === "range" || typeof value === "number" || typeof config.default === "number" ? (
               <AppInput
@@ -168,7 +169,7 @@ export function GenerationNodeParameterControls({
                 }}
               />
             ) : config.ui === "textarea" ? (
-              <textarea
+              <AppTextarea
                 value={String(value)}
                 rows={2}
                 disabled={disabled}

@@ -4,7 +4,6 @@ import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MonitoringKpiCards } from "@/features/monitoring-dashboard/ui/monitoring-kpi-cards";
-import { MonitoringStatsChart } from "@/features/monitoring-dashboard/ui/monitoring-stats-chart";
 import { MonitoringRequestTable } from "@/features/monitoring-dashboard/ui/monitoring-request-table";
 import {
   createRangeFromDays,
@@ -250,10 +249,11 @@ export function MonitoringDashboardScreen() {
         <MonitoringKpiCards
           data={overviewQuery.data ?? null}
           stats={stats}
+          statsLoading={statsQuery.isLoading}
           isLoading={overviewQuery.isLoading}
         />
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(24rem,0.75fr)]">
+        <div className="w-full min-w-0">
           <MonitoringRequestTable
             items={requestsQuery.data?.items ?? []}
             total={requestsQuery.data?.total ?? 0}
@@ -269,7 +269,6 @@ export function MonitoringDashboardScreen() {
             updatedAt={updatedAt}
             timeZone={filters.tz}
           />
-          <MonitoringStatsChart data={stats} isLoading={statsQuery.isLoading} />
         </div>
       </div>
     </AppPageShell>

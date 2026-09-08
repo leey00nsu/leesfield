@@ -241,7 +241,7 @@ export function MediaInputNodeControls({
           size="md"
           surface="editor"
           padding="none"
-          className="flex max-h-[min(720px,calc(100vh-2rem))] flex-col overflow-hidden"
+          className="flex h-[min(720px,calc(100dvh-2rem))] flex-col overflow-hidden"
           aria-label={`${mediaType} history`}
           data-node-banana-component="HistoryAssetDialog"
         >
@@ -262,7 +262,7 @@ export function MediaInputNodeControls({
                 <input autoFocus value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder={tc("Search history...")} className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none" />
               </label>
             </div>
-            <div className="grid min-h-40 flex-1 grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3">
+            <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3">
               {visibleAssets.map((asset) => (
                 <button
                   key={asset.id}

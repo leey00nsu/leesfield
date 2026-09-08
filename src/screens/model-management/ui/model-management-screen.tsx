@@ -1,27 +1,29 @@
 "use client";
+import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
+import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { ModelFilterGroup } from "@/features/model-management/ui/model-filter-group";
 
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AudioLines,
   Grid2X2,
   Image as ImageIcon,
-  Loader2,
   Plus,
   RefreshCw,
   Video,
-  X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { gradioDiagnosticMessage } from "@/shared/model-catalog/gradio-diagnostic-message";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   filterModelCatalog,
   type ModelCatalogFilterType,
   type ModelCatalogItem,
 } from "@/features/model-management/model/model-catalog";
-import { ModelList } from "@/features/model-management/ui/model-list";
+import { ModelList, ModelListLoading } from "@/features/model-management/ui/model-list";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppConfirmDialog,
@@ -37,13 +39,12 @@ import {
   AppDialog,
   AppDialogActionButton,
   AppDialogCancelButton,
-  AppDialogClose,
   AppDialogContent,
+  AppDialogBody,
   AppDialogDangerButton,
   AppDialogDescription,
   AppDialogFooter,
-  AppDialogHeader,
-  AppDialogIconButton,
+  AppDialogHeading,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import {
@@ -349,17 +350,28 @@ function sortModelCatalogItems(
 }
 
 export function ModelManagementScreen() {
+  const locale = useLocale();
   const tModel = useTranslations("model");
   const tAdmin = useTranslations("model.admin");
   const tCommonLabels = useTranslations("common.labels");
   const [type, setType] = useState<ModelCatalogFilterType>("all");
   const [searchInput, setSearchInput] = useState("");
   const [sort, setSort] = useState<ModelSortOption>("latest");
-  const [records, setRecords] = useState<AdminModelRecord[]>([]);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const modelsQuery = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: async ({ signal }) => {
+      const response = await fetch("/api/admin/models?includeInactive=true", { cache: "no-store", signal });
+      if (!response.ok) throw new Error("LOAD_FAILED");
+      const data = await response.json() as { items?: AdminModelRecord[] };
+      return data.items ?? [];
+    },
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
+  const records = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data]);
+  const loadState = modelsQuery.isPending ? "loading" : modelsQuery.isError && !modelsQuery.data ? "error" : "ready";
+  const loadError = modelsQuery.isError ? tAdmin("errors.load") : null;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [draft, setDraft] = useState<ModelDraft>(() => buildDraft("image"));
@@ -398,29 +410,12 @@ export function ModelManagementScreen() {
     [displayItems, query, sort, type],
   );
 
-  const loadModels = useCallback(async () => {
-    setLoadState("loading");
-    setLoadError(null);
-    try {
-      const response = await fetch("/api/admin/models?includeInactive=true", {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        throw new Error("LOAD_FAILED");
-      }
-      const data = (await response.json()) as { items?: AdminModelRecord[] };
-      setRecords(Array.isArray(data.items) ? data.items : []);
-      setLoadState("ready");
-    } catch (error) {
-      console.error("[model-management] load failed", error);
-      setLoadError(tAdmin("errors.load"));
-      setLoadState("error");
-    }
-  }, [tAdmin]);
-
-  useEffect(() => {
-    void loadModels();
-  }, [loadModels]);
+  const loadModels = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-models"] }),
+      queryClient.invalidateQueries({ queryKey: ["runtime-models"] }),
+    ]);
+  };
 
   const resetDialogState = useCallback(() => {
     setJsonErrors({});
@@ -555,6 +550,22 @@ export function ModelManagementScreen() {
       return;
     }
 
+    const parameterIssues = parameterConfigurationIssues(parametersResult.parsed);
+    if (parameterIssues.length) {
+      setJsonErrors({...nextJsonErrors, parameters: parameterIssues.map(issue => issue.name + ": " + (locale === "ko" ? "타입·기본값·범위·선택값을 확인하세요." : "Check the type, default, range and choices.")).join("\n")});
+      setSaveError(tAdmin("errors.json"));
+      return;
+    }
+    try {
+      const mapped = getGradioContract({ providerConfig: providerConfigResult.parsed, parameters: parametersResult.parsed });
+      if (mapped && draft.isActive) {
+        assertGradioExecutable(mapped);
+        if (mapped.output?.media !== draft.type) throw new Error("HF_CONTRACT_MEDIA");
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : tAdmin("errors.json"));
+      return;
+    }
     setSaveError(null);
     setIsSaving(true);
 
@@ -708,7 +719,7 @@ export function ModelManagementScreen() {
       };
 
       if (!response.ok || !data.draft) {
-        setImportError(tAdmin("import.errors.failed"));
+        setImportError(tAdmin(data.message === "SPACE_API_NOT_FOUND" ? "import.errors.noPublicApi" : "import.errors.failed"));
         return;
       }
 
@@ -729,16 +740,7 @@ export function ModelManagementScreen() {
   const content = (() => {
     if (loadState === "loading") {
       return (
-        <AppCard
-          variant="editorial-flat"
-          radius="lg"
-          className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
-        >
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="text-xs font-sans uppercase tracking-widest text-gray-500">
-            {tAdmin("status.loading")}
-          </p>
-        </AppCard>
+        <ModelListLoading label={tAdmin("status.loading")} />
       );
     }
 
@@ -857,32 +859,22 @@ export function ModelManagementScreen() {
         open={dialogOpen}
         onOpenChange={(open) => (!open ? closeDialog() : undefined)}
       >
-        <AppDialogContent showCloseButton={false}>
-          <AppDialogHeader>
-            <div>
+        <AppDialogContent stableHeight showCloseButton={false}>
+          <AppDialogHeading>
               <AppDialogDescription>
                 {dialogMode === "create"
                   ? tAdmin("dialog.createTitle")
                   : tAdmin("dialog.editTitle")}
               </AppDialogDescription>
-              <AppDialogTitle>
+              <AppDialogTitle className="truncate">
                 {draft.label || draft.key || tAdmin("dialog.untitled")}
               </AppDialogTitle>
               <p className="mt-1 text-xs font-sans text-gray-500">
                 {draft.key ? `#${draft.key}` : tAdmin("dialog.helper")}
               </p>
-            </div>
-            <AppDialogClose asChild>
-              <AppDialogIconButton
-                type="button"
-                aria-label={tAdmin("dialog.close")}
-              >
-                <X className="h-4 w-4" />
-              </AppDialogIconButton>
-            </AppDialogClose>
-          </AppDialogHeader>
+          </AppDialogHeading>
 
-          <div className="mt-6 space-y-6">
+          <AppDialogBody className="space-y-6">
             {dialogMode === "create" ? (
               <div className="rounded-2xl border border-white/10 bg-background-dark/60 p-4">
                 <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
@@ -962,16 +954,15 @@ export function ModelManagementScreen() {
                         {tAdmin("import.action")}
                       </AppButton>
                       {importError ? (
-                        <span className="text-xs text-red-300">
+                        <span role="alert" className="text-xs text-destructive">
                           {importError}
                         </span>
                       ) : null}
                     </div>
                     {importWarnings.length > 0 ? (
-                      <p className="mt-3 text-xs text-amber-200">
-                        {tAdmin("import.warnings", {
-                          count: importWarnings.length,
-                        })}
+                      <p role="alert" className="mt-3 text-xs text-destructive">
+                        {importWarnings.some(reason=>reason.startsWith("OPTIONAL_LABEL_REVIEW:")) ? tAdmin("import.inputUnclear") : tAdmin("import.warnings", { count: importWarnings.length })}
+                        <span className="mt-2 block whitespace-pre-wrap">{importWarnings.map(reason=>gradioDiagnosticMessage(reason,locale)).join("\n")}</span>
                       </p>
                     ) : null}
                   </div>
@@ -1090,7 +1081,7 @@ export function ModelManagementScreen() {
             {deleteError || saveError ? (
               <p className="text-xs text-red-300">{deleteError ?? saveError}</p>
             ) : null}
-          </div>
+          </AppDialogBody>
 
           <AppDialogFooter>
             {dialogMode === "edit" ? (

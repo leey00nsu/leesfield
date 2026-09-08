@@ -23,12 +23,13 @@ describe("ApiDocsWidget", () => {
     expect(document.getElementById("introduction")).toBeTruthy();
     expect(document.getElementById("authentication")).toBeTruthy();
     expect(document.getElementById("errors")).toBeTruthy();
-    expect(document.getElementById("images")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("모델별 입력");
+    expect(document.getElementById("generations")).toBeTruthy();
     expect(
-      document.getElementById("post-/api/external/image-generation"),
+      document.getElementById("post-/api/external/generations"),
     ).toBeTruthy();
-    expect(document.getElementById("videos")).toBeTruthy();
-    expect(document.getElementById("audio")).toBeTruthy();
+    expect(document.getElementById("videos")).toBeNull();
+    expect(document.getElementById("audio")).toBeNull();
     expect(document.getElementById("models")).toBeTruthy();
     expect(
       screen.getByRole("heading", { level: 1, name: "leesfield API" }),
@@ -38,7 +39,7 @@ describe("ApiDocsWidget", () => {
     expect(container.querySelector(".sticky")).toBeTruthy();
     expect(
       screen.getAllByRole("link", {
-        name: /POST\/api\/external\/image-generation/i,
+        name: /POST\/api\/external\/generations/i,
       }).length,
     ).toBeGreaterThanOrEqual(1);
     expect(

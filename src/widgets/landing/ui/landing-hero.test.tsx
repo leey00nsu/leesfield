@@ -39,6 +39,7 @@ vi.mock("@paper-design/shaders-react", () => ({
 vi.mock("motion/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("motion/react")>()),
   motion: {
+    linearGradient: (await importOriginal<typeof import("motion/react")>()).motion.linearGradient,
     p: (await importOriginal<typeof import("motion/react")>()).motion.p,
     span: (await importOriginal<typeof import("motion/react")>()).motion.span,
     div: ({
@@ -75,7 +76,7 @@ describe("LandingHero", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("link", { name: "생성" })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "생성" }).find(link => link.getAttribute("href")?.includes("?type="))!).toHaveAttribute(
       "href",
       expect.stringContaining("/generate?type=audio"),
     );
@@ -98,7 +99,8 @@ describe("LandingHero", () => {
     expect(
       screen.getByTestId(["warp", "shader"].join("-")),
     ).toBeInTheDocument();
-    expect(panel).toHaveClass("bg-[#07090a]");
+    expect(panel.className).toContain("radial-gradient");
+    expect(screen.getByTestId("landing-hero-composer-motion")).toHaveAttribute("data-motion-initial", JSON.stringify({y:28,scale:0.98}));
     expect(panel).not.toHaveClass("border");
     expect(panel).not.toHaveClass("border-white/10");
     const previewBorderMotion = screen.getByTestId(
@@ -188,7 +190,7 @@ describe("LandingHero", () => {
       "sm:whitespace-nowrap",
     );
     expect(
-      headline.querySelector(".lf-text-generate-word"),
+      headline.querySelector("[data-title-step]"),
     ).toBeInTheDocument();
 
     expect(screen.getByRole("tab", { name: "이미지" })).toHaveAttribute(
@@ -208,7 +210,7 @@ describe("LandingHero", () => {
     expect(
       screen.getByRole("textbox", { name: "프롬프트" }),
     ).not.toHaveAttribute("readonly");
-    expect(screen.getByRole("link", { name: "생성" })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "생성" }).find(link => link.getAttribute("href")?.includes("?type="))!).toHaveAttribute(
       "href",
       expect.stringContaining("/generate?type=image"),
     );

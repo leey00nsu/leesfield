@@ -10,6 +10,7 @@ import { AppCard } from "@/shared/ui/app-card";
 
 type HistoryListProps = {
   items: GenerationHistoryItem[];
+  autoplay?: boolean;
   isLoading?: boolean;
   emptyMessage?: string;
   onDeleteItem?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
@@ -36,6 +37,7 @@ function getHistoryTileClass(index: number) {
 
 export function HistoryList({
   items,
+  autoplay = true,
   isLoading = false,
   emptyMessage,
   onDeleteItem,
@@ -84,6 +86,7 @@ export function HistoryList({
         <HistoryItem
           key={`${item.origin ?? "generation"}-${item.type}-${item.id}`}
           item={item}
+          autoplay={autoplay}
           onDeleted={onDeleteItem}
           onSelect={onSelectItem}
           className={cn("min-h-0", getHistoryTileClass(index))}

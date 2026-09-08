@@ -176,6 +176,7 @@ async function audioItem(ownerEmail: string, record: {
 function operationWhere(query: HistoryQuery, ownerEmail: string): Prisma.MediaOperationWhereInput {
   return {
     ownerEmail,
+    ...(query.model || query.prompt ? {id:{in:[] as string[]}} : {}),
     status: "completed",
     outputs: {
       some: {
@@ -194,7 +195,7 @@ export async function getHistory(
   const query = parseHistoryQuery(searchParams);
   const status = searchParams.get("status") ?? "all";
   const validStatus = ["pending", "processing", "uploading", "completed", "failed", "cancelled"].includes(status) ? status : "all";
-  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus]);
+  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus, ...(query.model || query.prompt ? [query.model ?? "", query.prompt ?? ""] : [])]);
   const cursor = decodeHistoryCursor(searchParams.get("cursor"), scope);
   const pageOffset = cursor ? 0 : query.offset;
   const take = query.limit + pageOffset + 1;

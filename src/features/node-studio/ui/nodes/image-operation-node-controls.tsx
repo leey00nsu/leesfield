@@ -1,4 +1,6 @@
 "use client";
+import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
+import { Switch } from "@/shared/ui/brand/switch/switch";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
@@ -231,18 +233,14 @@ export function ImageOperationNodeControls({
           {mode === "exact" ? <>
             <Field label={tc("Width")} value={number(parameters.width, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ width: value })} />
             <Field label={tc("Height")} value={number(parameters.height, 1024)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ height: value })} />
-            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Fit")}<select value={typeof parameters.fit === "string" ? parameters.fit : "contain"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ fit: event.target.value })}>
-                <option value="contain">{tc("Contain")}</option><option value="cover">{tc("Cover")}</option><option value="stretch">{tc("Stretch")}</option>
-              </select>
+            <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Fit")}<AppChoiceSelect label={tc("Fit")} value={typeof parameters.fit === "string" ? parameters.fit : "contain"} disabled={!writable} onValueChange={fit => updateParameters({fit})} options={["contain","cover","stretch"].map(value=>({value,label:tc(value === "contain" ? "Contain" : value === "cover" ? "Cover" : "Stretch")}))} />
             </label>
             <label className="col-span-2 grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Pad color")}<input type="text" value={typeof parameters.padColor === "string" ? parameters.padColor : "#00000000"} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-black/25 px-2 text-xs normal-case tracking-normal text-white outline-none focus:border-primary/70" onChange={(event) => updateParameters({ padColor: event.target.value })} />
             </label>
           </> : null}
           {mode === "maxEdge" ? <Field label={tc("Max edge")} value={number(parameters.maxEdge, 2048)} min={1} max={8192} disabled={!writable} onChange={(value) => updateParameters({ maxEdge: value })} /> : null}
           {mode === "scale" ? <Field label={tc("Scale %")} value={number(parameters.scalePct, 100)} min={1} max={800} disabled={!writable} onChange={(value) => updateParameters({ scalePct: value })} /> : null}
-          <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Format")}<select value={format} disabled={!writable} className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white" onChange={(event) => updateParameters({ format: event.target.value })}>
-              <option value="keep">{tc("Keep")}</option><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option>
-            </select>
+          <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Format")}<AppChoiceSelect label={tc("Format")} value={format} disabled={!writable} onValueChange={format => updateParameters({format})} options={[{value:"keep",label:tc("Keep")},{value:"png",label:"PNG"},{value:"jpeg",label:"JPEG"},{value:"webp",label:"WebP"}]} />
           </label>
           {format === "jpeg" || format === "webp" ? <Field label={tc("Quality")} value={number(parameters.quality, 0.92)} min={0.1} max={1} step={0.05} disabled={!writable} onChange={(value) => updateParameters({ quality: value })} /> : null}
         </div>
@@ -263,8 +261,8 @@ export function ImageOperationNodeControls({
           <Field label="FPS" value={number(parameters.fps, 8)} min={1} max={60} disabled={!writable} onChange={(value) => updateParameters({ fps: value })} />
           <Field label={tc("Colors")} value={number(parameters.colorCount, 128)} min={2} max={256} disabled={!writable} onChange={(value) => updateParameters({ colorCount: value })} />
           <Field label={tc("Loop count")} value={number(parameters.loopCount, 0)} min={0} max={65_535} disabled={!writable} onChange={(value) => updateParameters({ loopCount: value })} />
-          <label className="flex items-center gap-2 self-end pb-2 text-[11px] text-white/60"><input type="checkbox" checked={parameters.dither === true} disabled={!writable} onChange={(event) => updateParameters({ dither: event.target.checked })} />{tc("Dither")}</label>
-          <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60"><input type="checkbox" checked={targetMaxBytes !== null} disabled={!writable} onChange={(event) => updateParameters({ targetMaxBytes: event.target.checked ? 128 * 1024 : null })} />{tc("Target ≤")}</label>
+          <label className="flex items-center gap-2 self-end pb-2 text-[11px] text-white/60"><Switch checked={parameters.dither === true} disabled={!writable} onCheckedChange={dither => updateParameters({dither})} />{tc("Dither")}</label>
+          <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60"><Switch checked={targetMaxBytes !== null} disabled={!writable} onCheckedChange={checked => updateParameters({targetMaxBytes:checked ? 128 * 1024 : null})} />{tc("Target ≤")}</label>
           {targetMaxBytes !== null ? <div className="col-span-2"><Field label={tc("Target (KB)")} value={Math.round(targetMaxBytes / 1024)} min={1} max={102_400} disabled={!writable} onChange={(value) => updateParameters({ targetMaxBytes: value * 1024 })} /></div> : null}
         </div>
       );

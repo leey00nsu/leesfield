@@ -1,4 +1,5 @@
 "use client";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -267,7 +268,7 @@ export const GenerationNode = memo(function GenerationNode({ id, data, selected 
         <div className="mt-3 grid gap-3" data-generation-section="authoring">
           <label className="grid gap-1 text-[10px] uppercase tracking-[0.12em] text-white/45" data-generation-section="prompt">
             {t("node.promptLabel")}
-            <textarea
+            <AppTextarea
               value={effectivePrompt}
               rows={3}
               maxLength={20_000}

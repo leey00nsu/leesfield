@@ -307,3 +307,21 @@ describe("validateImageGenerationPayload input capability metadata", () => {
     });
   });
 });
+
+describe("Gradio 계약 입력",()=>{
+ it.each(["image","video","audio"])("%s의 nullable와 JSON을 보존하고 알 수 없는 값을 거절한다",async(type)=>{
+ const contract={version:1,mappingConfirmed:true,apiName:"/generate",inputs:[
+ {name:"first_frame",label:"Frame",kind:"file",schema:{},confirmed:true,required:true,nullable:true},
+ {name:"options",label:"Options",kind:"json",schema:{type:"object",properties:{count:{type:"integer"}},required:["count"],additionalProperties:false},required:true,nullable:false}],
+ output:{media:type,path:[0],multiple:false},diagnostics:[],reviewed:true};
+ mockGetModelCatalog.mockResolvedValue([{type,key:"contract",providerConfig:{gradio_contract:contract}}]);
+ const validators=await import("@/server/model-catalog/generation-validation");
+ const validate=type==="image"?validators.validateImageGenerationPayload:type==="video"?validators.validateVideoGenerationPayload:validators.validateAudioGenerationPayload;
+ const dynamicParams={first_frame:null,options:{count:2}};
+ const result=await validate({model:"contract",prompt:"demo",dynamicParams});
+ expect(result.success).toBe(true);
+ if(result.success) expect(result.data.dynamicParams).toEqual(dynamicParams);
+ expect((await validate({model:"contract",dynamicParams:{...dynamicParams,extra:true}})).success).toBe(false);
+ expect((await validate({model:"contract",dynamicParams:{first_frame:null,options:{count:"bad"}}})).success).toBe(false);
+ });
+});

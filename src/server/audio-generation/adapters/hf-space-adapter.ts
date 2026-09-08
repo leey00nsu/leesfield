@@ -1,3 +1,5 @@
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { executeGradioContract } from "@/server/hf-space/contract-executor";
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
@@ -920,6 +922,14 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
 
   async generate(payload: AudioGenerationFormValues) {
     const { config, model } = await getSpaceConfig(payload.model);
+    if (getGradioContract(model)) {
+      await ensureSpaceRunning(config);
+      const client = await getClient(config);
+      const refs = await executeGradioContract(client, model, payload, config, "audio");
+      const urls = await Promise.all(refs.map(ref => fetchAudioDataUrl(ref, config.spaceUrl, Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS))));
+      return { audios: urls };
+    }
+
     await ensureSpaceRunning(config);
     const client = await getClient(config);
     const apiInfo = (await client.view_api().catch(() => null)) as ViewApiResponse | null;

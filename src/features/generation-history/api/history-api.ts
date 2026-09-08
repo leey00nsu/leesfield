@@ -7,6 +7,8 @@ import type {
 export interface HistoryQueryParams {
   type: GenerationHistoryType;
   query: string;
+  model?: string;
+  prompt?: string;
   sort: GenerationHistorySort;
   limit: number;
   offset?: number;
@@ -17,6 +19,8 @@ export interface HistoryQueryParams {
 function buildHistoryUrl(params: HistoryQueryParams) {
   const searchParams = new URLSearchParams();
   if (params.type) searchParams.set("type", params.type);
+  if (params.model) searchParams.set("model", params.model);
+  if (params.prompt) searchParams.set("prompt", params.prompt);
   if (params.query) searchParams.set("query", params.query);
   if (params.sort) searchParams.set("sort", params.sort);
   searchParams.set("limit", String(params.limit));

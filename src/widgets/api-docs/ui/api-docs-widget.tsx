@@ -1,3 +1,4 @@
+import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { useTranslations } from "next-intl";
 import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
 import { buildApiSections } from "@/features/api-docs/model/openapi-helpers";
@@ -20,8 +21,8 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
   const introDescription = t("intro.descriptionFallback");
 
   return (
-    <div className="pb-20">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-6 pt-6 sm:px-10 lg:flex-row lg:items-start">
+    <AppPageShell className="px-6 sm:px-10">
+      <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-start">
         <ApiDocsSidebar apiVersion={apiVersion} apiSections={apiSections} />
 
         <div className="min-w-0 flex-1">
@@ -32,15 +33,9 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
               apiVersion={apiVersion}
             />
 
-            <div className="h-px bg-white/10" />
-
             <ApiDocsAuthSection />
 
-            <div className="h-px bg-white/10" />
-
             <ApiDocsErrorSection />
-
-            <div className="h-px bg-white/10" />
 
             {apiSections.length ? (
               <ApiDocsEndpointsSection
@@ -49,13 +44,13 @@ export function ApiDocsWidget({ openApiDocument }: ApiDocsWidgetProps) {
                 openApiDocument={openApiDocument}
               />
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-card px-5 py-5 text-sm text-gray-300">
+              <div className="rounded-2xl border border-border bg-card px-5 py-5 text-sm text-foreground/80">
                 {tStates("missingEndpoints")}
               </div>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </AppPageShell>
   );
 }

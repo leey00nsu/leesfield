@@ -87,6 +87,72 @@ describe("VideoGenerationForm", () => {
     vi.unstubAllGlobals();
   });
 
+  it("계약 비디오 모델에서 선택적 프레임 없이 원본 설정으로 제출한다", async()=>{
+    const user=userEvent.setup();
+    const model={...runtimeVideoModelsFixture[0],providerConfig:{...runtimeVideoModelsFixture[0].providerConfig,gradio_contract:{
+      version:1,apiName:"/generate",inputs:[{name:"prompt",label:"Prompt",schema:{type:"string"},kind:"string",canonical:"prompt",required:true,nullable:false},{name:"duration",label:"Seconds",schema:{type:"number"},kind:"number",required:false,nullable:false,default:5}],
+      output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true}}};
+    vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}),{status:200,headers:{"Content-Type":"application/json"}})));
+    renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+    await user.type(screen.getByRole("textbox"),"moving lights");
+    await user.click(screen.getByRole("button",{name:/상세 옵션/}));
+    fireEvent.change(screen.getByLabelText("Seconds"),{target:{value:"7"}});
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({prompt:"moving lights",dynamicParams:{duration:7}}));
+  });
+
+
+  it("필수 프레임을 넣어야 생성할 수 있고 제거하면 다시 비활성화한다", async()=>{
+    const user=userEvent.setup();
+    const model={...runtimeVideoModelsFixture[0],providerConfig:{...runtimeVideoModelsFixture[0].providerConfig,gradio_contract:{
+      version:1,apiName:"/generate",inputs:[
+       {name:"prompt",label:"Prompt",schema:{type:"string"},kind:"string",canonical:"prompt",required:true,nullable:false},
+       {name:"in_1",label:"First Frame (optional)",schema:{},kind:"file",required:true,nullable:false}
+      ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:false}}};
+    vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}),{status:200})));
+    const {container}=renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+    const submit=screen.getByRole("button",{name:"생성"});
+    expect(submit).toBeDisabled();
+    await user.type(screen.getByRole("textbox"),"moving lights");
+    expect(submit).toBeDisabled();
+    fireEvent.submit(container.querySelector("form")!);
+    expect(startGenerationMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button",{name:/상세 옵션/}));
+    expect(screen.getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
+    await user.upload(screen.getByLabelText("First Frame"),new File(["test"],"frame.png",{type:"image/png"}));
+    await user.keyboard("{Escape}");
+    expect(submit).toBeEnabled();
+    await user.click(screen.getByRole("button",{name:/상세 옵션/}));
+    await user.click(screen.getByRole("button",{name:"제거"}));
+    await user.keyboard("{Escape}");
+    expect(submit).toBeDisabled();
+  });
+
+
+  it("API에서 선택 프롬프트여도 생성 화면은 빈 입력과 공백 제출을 차단한다",async()=>{
+    const user=userEvent.setup();
+    const model={...runtimeVideoModelsFixture[0],providerConfig:{...runtimeVideoModelsFixture[0].providerConfig,gradio_contract:{
+      version:1,apiName:"/generate",inputs:[{name:"prompt",label:"Prompt",schema:{type:"string"},kind:"string",canonical:"prompt",required:false,nullable:false,default:""}],
+      output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:false}}};
+    vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}),{status:200})));
+    const {container}=renderWithIntl(<VideoGenerationForm isAuthenticated />);
+    await waitForModels();
+    const submit=screen.getByRole("button",{name:"생성"});
+    const prompt=screen.getByRole("textbox");
+    expect(submit).toBeDisabled();
+    await user.type(prompt,"   ");
+    expect(submit).toBeDisabled();
+    fireEvent.submit(container.querySelector("form")!);
+    expect(startGenerationMock).not.toHaveBeenCalled();
+    await user.type(prompt,"moving lights");
+    expect(submit).toBeEnabled();
+    await user.clear(prompt);
+    expect(submit).toBeDisabled();
+  });
+
   it("쿼리 파라미터로 prompt/model/initImage를 초기화한다", async () => {
     navigationMocks.searchParams = new URLSearchParams();
     navigationMocks.searchParams.set("prompt", "query prompt");
@@ -138,8 +204,9 @@ describe("VideoGenerationForm", () => {
     );
     expect(screen.queryByTestId("shared-prompt-meta")).not.toBeInTheDocument();
     expect(dock).toHaveTextContent("모델 선택");
-    expect(dock).toHaveTextContent("이미지 필요");
-    expect(dock).toHaveTextContent("3.5s");
+    expect(dock).toHaveTextContent("상세 옵션");
+    expect(dock).not.toHaveTextContent("이미지 필요");
+    expect(dock).not.toHaveTextContent("3.5s");
     expect(within(dock).queryByRole("slider")).toBeNull();
     expect(screen.getByRole("button", { name: /Wan 2\.2/i })).toHaveAttribute(
       "aria-haspopup",

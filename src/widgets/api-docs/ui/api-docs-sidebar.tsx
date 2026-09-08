@@ -137,15 +137,17 @@ export function ApiDocsSidebar({
     <>
       <AppCard
         variant="plain"
-        className="flex rounded-[1.25rem] border-white/10 bg-card p-4 lg:hidden"
+        className="flex rounded-[1.25rem] border-border bg-card p-4 lg:hidden"
       >
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">
+              <div className="text-sm font-semibold text-foreground">
                 {t("reference")}
               </div>
-              <div className="mt-1 text-[11px] text-white/38">{apiVersion}</div>
+              <div className="mt-1 text-[11px] text-foreground/38">
+                {apiVersion}
+              </div>
             </div>
             <AppButton
               type="button"
@@ -184,8 +186,8 @@ export function ApiDocsSidebar({
                       className={cn(
                         "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
                         isActive
-                          ? "border-primary/35 bg-primary/10 text-primary"
-                          : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                          ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
+                          : "border-border bg-black/16 text-foreground/58 hover:bg-interaction-hover hover:text-foreground",
                       )}
                       onClick={() => setMobileNavOpen(false)}
                     >
@@ -208,8 +210,8 @@ export function ApiDocsSidebar({
                         className={cn(
                           "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
                           isActive
-                            ? "border-primary/35 bg-primary/10 text-primary"
-                            : "border-white/10 bg-black/16 text-white/58 hover:bg-white/[0.04] hover:text-white",
+                            ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
+                            : "border-border bg-black/16 text-foreground/58 hover:bg-interaction-hover hover:text-foreground",
                         )}
                         onClick={() => setMobileNavOpen(false)}
                       >
@@ -223,8 +225,8 @@ export function ApiDocsSidebar({
                           className={cn(
                             "ml-4 inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 font-mono text-xs transition-colors",
                             activeSectionId === operation.id
-                              ? "border-primary/35 bg-primary/10 text-primary"
-                              : "border-white/10 bg-black/16 text-white/50 hover:bg-white/[0.04] hover:text-white",
+                              ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
+                              : "border-border bg-black/16 text-foreground/50 hover:bg-interaction-hover hover:text-foreground",
                           )}
                           onClick={() => setMobileNavOpen(false)}
                         >
@@ -241,7 +243,7 @@ export function ApiDocsSidebar({
                 })}
                 {!filteredGeneralItems.length &&
                 !filteredEndpointItems.length ? (
-                  <span className="inline-flex min-h-10 items-center rounded-xl border border-white/10 px-3 text-sm text-white/36">
+                  <span className="inline-flex min-h-10 items-center rounded-xl border border-border px-3 text-sm text-foreground/36">
                     {t("noResults")}
                   </span>
                 ) : null}
@@ -254,15 +256,15 @@ export function ApiDocsSidebar({
       <aside className="hidden w-72 shrink-0 lg:flex">
         <AppCard
           variant="plain"
-          className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.25rem] border-white/10 bg-card p-4"
+          className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.25rem] border-border bg-card p-4"
         >
           <div className="mb-4 flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-semibold text-foreground">
                   {t("reference")}
                 </div>
-                <div className="mt-1 text-[11px] text-white/38">
+                <div className="mt-1 text-[11px] text-foreground/38">
                   {apiVersion}
                 </div>
               </div>
@@ -275,7 +277,7 @@ export function ApiDocsSidebar({
           </div>
           <nav className="app-scrollbar flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
             <div className="flex flex-col gap-2">
-              <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/36">
+              <h3 className="px-1 text-[10px] font-medium text-foreground/36">
                 {t("general")}
               </h3>
               <div className="flex flex-col gap-1">
@@ -289,8 +291,8 @@ export function ApiDocsSidebar({
                       className={cn(
                         "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
                         isActive
-                          ? "border-primary/25 bg-primary/10 text-primary"
-                          : "border-transparent text-white/48 hover:border-white/8 hover:bg-white/[0.035] hover:text-white",
+                          ? "border-data-accent/25 bg-data-accent/10 text-data-accent-foreground"
+                          : "border-transparent text-foreground/48 hover:border-border hover:bg-interaction-hover hover:text-foreground",
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
@@ -302,7 +304,7 @@ export function ApiDocsSidebar({
             </div>
 
             <div className="flex flex-col gap-2">
-              <h3 className="px-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/36">
+              <h3 className="px-1 text-[10px] font-medium text-foreground/36">
                 {t("endpoints")}
               </h3>
               <div className="flex flex-col gap-1">
@@ -323,8 +325,8 @@ export function ApiDocsSidebar({
                         className={cn(
                           "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium transition-colors",
                           isActive
-                            ? "border-primary/25 bg-primary/10 text-primary"
-                            : "border-transparent text-white/60 hover:border-white/8 hover:bg-white/[0.035] hover:text-white",
+                            ? "border-data-accent/25 bg-data-accent/10 text-data-accent-foreground"
+                            : "border-transparent text-foreground/60 hover:border-border hover:bg-interaction-hover hover:text-foreground",
                         )}
                       >
                         <a
@@ -337,7 +339,7 @@ export function ApiDocsSidebar({
                         {item.operations.length ? (
                           <button
                             type="button"
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-current/70 transition-colors hover:bg-white/10 hover:text-white"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-current/70 transition-colors hover:bg-white/10 hover:text-foreground"
                             aria-label={item.label}
                             aria-expanded={isExpanded}
                             onClick={() => toggleSection(item.id)}
@@ -352,7 +354,7 @@ export function ApiDocsSidebar({
                         ) : null}
                       </div>
                       {isExpanded && item.operations.length ? (
-                        <div className="ml-6 flex flex-col gap-0.5 border-l border-white/8 pl-3">
+                        <div className="ml-6 flex flex-col gap-0.5 border-l border-border pl-3">
                           {item.operations.map((operation) => {
                             const isOperationActive =
                               activeSectionId === operation.id;
@@ -363,8 +365,8 @@ export function ApiDocsSidebar({
                                 className={cn(
                                   "grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors",
                                   isOperationActive
-                                    ? "bg-white/[0.07] text-primary"
-                                    : "text-white/42 hover:bg-white/[0.035] hover:text-white/78",
+                                    ? "bg-white/[0.07] text-data-accent-foreground"
+                                    : "text-foreground/42 hover:bg-interaction-hover hover:text-foreground/78",
                                 )}
                               >
                                 <span className="font-sans text-[10px] font-bold uppercase">
@@ -383,7 +385,7 @@ export function ApiDocsSidebar({
                 })}
                 {!filteredGeneralItems.length &&
                 !filteredEndpointItems.length ? (
-                  <div className="px-2 py-3 text-xs text-white/36">
+                  <div className="px-2 py-3 text-xs text-foreground/36">
                     {t("noResults")}
                   </div>
                 ) : null}

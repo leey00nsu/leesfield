@@ -1,0 +1,12 @@
+--- a/src/leesfield/canvas-runtime.tsx
++++ b/src/leesfield/canvas-runtime.tsx
+@@ -404,7 +404,8 @@
+ }
+ 
+ function pendingHandleType(pending: NodeBananaPendingConnection): "image" | "text" | "video" | "audio" | "3d" | "easeCurve" | null {
+-  const rawHandleId = pending.handleId;
++  // Reference inputs accept images; retain the original handle ID for edge creation.
++  const rawHandleId = pending.handleId === "reference" ? "image" : pending.handleId;
+   const handleId = rawHandleId?.match(/^(image|video|audio)(?:-|$)/)?.[1] ?? rawHandleId;
+   return handleId === "image" || handleId === "text" || handleId === "video" || handleId === "audio" || handleId === "3d" || handleId === "easeCurve"
+     ? handleId

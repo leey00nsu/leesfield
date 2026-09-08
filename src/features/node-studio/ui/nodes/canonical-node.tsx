@@ -1,4 +1,5 @@
 "use client";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -111,7 +112,7 @@ function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNod
     ? incoming.text ?? ""
     : typeof config.text === "string" ? config.text : "";
   return (
-    <textarea
+    <AppTextarea
       data-node-banana-component="PromptNode"
       value={value}
       rows={6}

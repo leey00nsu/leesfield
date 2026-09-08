@@ -1,3 +1,5 @@
+import { formParameterIssues } from "@/shared/model-catalog/parameter-contract";
+import { getGradioContract, gradioInputValues, formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 import type {
   RuntimeAudioModel,
@@ -89,6 +91,7 @@ export function createRuntimeImageSchema(
     height: z.number().int(),
     initImages: z.array(z.string()).optional(),
     model: z.string().min(1),
+    dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
     imageCount: z.number().int(),
     steps: z.number().int(),
     modeChoice: z.string().optional(),
@@ -99,6 +102,12 @@ export function createRuntimeImageSchema(
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
+    if (model && getGradioContract(model)) {
+      try { gradioInputValues(getGradioContract(model)!, data); }
+      catch (error) { ctx.addIssue({code:"custom",path:["dynamicParams"],message:error instanceof Error ? error.message : "HF_CONTRACT_INVALID"}); }
+      return;
+    }
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -235,6 +244,7 @@ export function createRuntimeVideoSchema(
     prompt: z.string().min(1, promptRequired),
     initImage: initImageSchema.optional().or(z.literal("")),
     model: z.string().min(1),
+    dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
     aspectRatio: z.string().min(1),
     resolution: z.number().int(),
     durationSec: z.number(),
@@ -246,6 +256,12 @@ export function createRuntimeVideoSchema(
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
+    if (model && getGradioContract(model)) {
+      try { gradioInputValues(getGradioContract(model)!, data); }
+      catch (error) { ctx.addIssue({code:"custom",path:["dynamicParams"],message:error instanceof Error ? error.message : "HF_CONTRACT_INVALID"}); }
+      return;
+    }
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -392,6 +408,7 @@ export function createRuntimeAudioSchema(
   const schema = z.object({
     prompt: z.string().min(1, promptRequired),
     model: z.string().min(1),
+    dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
     voice: z.string().optional().or(z.literal("")),
     speed: z.number().optional(),
     seed: z.string().optional().or(z.literal("")),
@@ -409,13 +426,17 @@ export function createRuntimeAudioSchema(
     temperature: z.number().optional(),
     topK: z.number().optional(),
     repetitionPenalty: z.number().optional(),
-    dynamicParams: z
-      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-      .optional(),
+
   });
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
+    if (model && getGradioContract(model)) {
+      try { gradioInputValues(getGradioContract(model)!, data); }
+      catch (error) { ctx.addIssue({code:"custom",path:["dynamicParams"],message:error instanceof Error ? error.message : "HF_CONTRACT_INVALID"}); }
+      return;
+    }
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

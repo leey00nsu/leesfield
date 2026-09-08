@@ -113,6 +113,7 @@ describe("NodeStudioScreen", () => {
   it("uses a safe list fallback for a direct editor URL", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await screen.findByTestId("workspace");
     await user.click(screen.getByRole("button", { name: "back to list" }));
     expect(mocks.replace).toHaveBeenCalledWith("/spaces");
     expect(mocks.back).not.toHaveBeenCalled();
@@ -120,6 +121,7 @@ describe("NodeStudioScreen", () => {
   it("removes the newly created Space when saving a Quickstart preset fails", async () => {
     mocks.update.mockRejectedValueOnce(new Error("save failed"));
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await screen.findByTestId("workspace");
     const preset = { name: "Failed preset", nodes: [{ id: "p", type: "prompt", position: { x: 0, y: 0 }, data: { prompt: "example" } }], edges: [] };
     await act(async () => { await expect(mocks.workspace.mock.lastCall?.[0].onCreatePreset(preset)).rejects.toThrow("save failed"); });
     expect(mocks.remove).toHaveBeenCalledWith(graphB.id);
@@ -133,10 +135,11 @@ describe("NodeStudioScreen", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "스페이스 목록으로" })).toHaveAttribute("href", "/spaces");
   });
-  it("does not expose an unguarded recovery link when background queries fail over a cached editor", () => {
+  it("does not expose an unguarded recovery link when background queries fail over a cached editor", async () => {
     mocks.useList.mockReturnValue({ data: list, isLoading: false, isError: true, refetch: vi.fn() });
     mocks.useDetail.mockReturnValue({ data: graphA, isLoading: false, isError: true, refetch: vi.fn() });
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await screen.findByTestId("workspace");
     expect(screen.getByTestId("workspace")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "스페이스 목록으로" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -147,6 +150,7 @@ describe("NodeStudioScreen", () => {
     rememberSpaceListEntry("graph-a");
     window.history.pushState(null, "");
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
+    await screen.findByTestId("workspace");
     await user.click(screen.getByRole("button", { name: "back to list" }));
     expect(mocks.back).toHaveBeenCalledOnce();
     expect(mocks.push).not.toHaveBeenCalled();
@@ -168,6 +172,7 @@ describe("NodeStudioScreen", () => {
   it("명시한 Space를 복원하고 다른 상세 route로 이동한다", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen />);
+    await screen.findByTestId("workspace");
 
     expect(screen.getByTestId("workspace")).toHaveTextContent("Graph A");
     await user.click(screen.getByRole("button", { name: "open Graph B" }));
@@ -177,6 +182,7 @@ describe("NodeStudioScreen", () => {
   it("Graph를 생성하고 입력 title을 mutation에 전달한다", async () => {
     const user = userEvent.setup();
     renderWithIntl(<NodeStudioScreen />);
+    await screen.findByTestId("workspace");
 
     await user.click(screen.getByRole("button", { name: "new workflow" }));
 
@@ -187,6 +193,7 @@ describe("NodeStudioScreen", () => {
     const user = userEvent.setup();
     mocks.create.mockRejectedValue(new Error("network"));
     renderWithIntl(<NodeStudioScreen />);
+    await screen.findByTestId("workspace");
 
     await user.click(screen.getByRole("button", { name: "new workflow" }));
 

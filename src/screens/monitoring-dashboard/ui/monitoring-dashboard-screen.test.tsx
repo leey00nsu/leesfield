@@ -168,7 +168,7 @@ describe("MonitoringDashboardScreen", () => {
     const { container } = renderWithIntl(<MonitoringDashboardScreen />);
 
     expect(screen.getByText("성공률")).toBeInTheDocument();
-    expect(screen.getByText("활성 작업")).toBeInTheDocument();
+    expect(screen.queryByText("활성 작업")).not.toBeInTheDocument();
     expect(screen.getAllByText("요청 수").length).toBeGreaterThan(0);
     expect(screen.getByText("최근 작업")).toBeInTheDocument();
     expect(screen.getByText("트래픽 & 오류")).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.getByText("99.42%")).not.toHaveClass("font-serif");
     expect(
       container.querySelectorAll("[data-monitoring-kpi-chart]"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(container.querySelector("[data-monitoring-usage-pie]")).toBeTruthy();
     expect(screen.getAllByText("이미지").length).toBeGreaterThan(1);
     expect(screen.getAllByText("비디오").length).toBeGreaterThan(1);

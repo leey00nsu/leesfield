@@ -1,4 +1,6 @@
 "use client";
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
+import { AppDialogBody } from "@/shared/ui/app-dialog";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useMemo, type ReactNode } from "react";
@@ -9,7 +11,7 @@ import {
   AppDialogClose,
   AppDialogContent,
   AppDialogDescription,
-  AppDialogHeader,
+  AppDialogHeading,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { cn } from "@/shared/lib/utils";
@@ -198,21 +200,19 @@ export function MonitoringRequestDetailDialog({
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="lg">
-        <AppDialogHeader className="flex-col items-start gap-2 pr-12">
+      <AppDialogContent size="lg" stableHeight showCloseButton={false}>
+        <AppDialogHeading>
           <AppDialogDescription>
             {t("requests.detailSubtitle")}
           </AppDialogDescription>
           <AppDialogTitle className="mt-0">
             {t("requests.detailTitle")}
           </AppDialogTitle>
-        </AppDialogHeader>
+        </AppDialogHeading>
 
+        <AppDialogBody>
         {shouldFetchDetail && detailQuery.isLoading && !detail ? (
-          <div
-            data-testid="monitoring-detail-loading"
-            className="mt-6 h-48 rounded-xl border border-white/10 bg-background-dark/50"
-          />
+          <div data-testid="monitoring-detail-loading" className="space-y-6 py-4" aria-busy="true"><div className="grid grid-cols-3 gap-3">{Array.from({length:6},(_,i)=><AppSkeleton key={i} className="h-12" />)}</div><AppSkeleton className="h-32" /><AppSkeleton className="h-48" /></div>
         ) : shouldFetchDetail && detailQuery.error && !detail ? (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {t("requests.detailFetchError")}
@@ -404,7 +404,8 @@ export function MonitoringRequestDetailDialog({
           </div>
         ) : null}
 
-        <div className="mt-6 flex justify-end">
+        </AppDialogBody>
+        <div className="flex justify-end">
           <AppDialogClose asChild>
             <AppButton type="button" variant="surface">
               {t("requests.detailClose")}

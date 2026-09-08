@@ -1,4 +1,5 @@
 "use client";
+import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -166,7 +167,7 @@ export function NodeBananaFloatingNodeHeader({
           </button>
           {commentOpen ? (
             <div className="absolute right-0 top-full z-[60] mt-1 w-64 rounded border border-neutral-600 bg-neutral-800 p-2 shadow-xl">
-              <textarea
+              <AppTextarea
                 autoFocus
                 value={comment}
                 maxLength={4_000}

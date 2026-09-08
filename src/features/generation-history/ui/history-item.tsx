@@ -1,7 +1,7 @@
 "use client";
 
 import { imageUrlsFor } from "@/shared/media-assets/image-variants";
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import {
   AlertTriangle,
   AudioLines,
@@ -61,10 +61,12 @@ const typeConfig = {
 
 export function HistoryItem({
   item,
+  autoplay = true,
   onSelect,
   className,
 }: {
   item: GenerationHistoryItem;
+  autoplay?: boolean;
   onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
   onSelect?: (item: GenerationHistoryItem) => void;
   className?: string;
@@ -108,14 +110,13 @@ export function HistoryItem({
       )}
     >
       <div className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]">
-        {previewUrl ? (
-          isAudio ? (
-            <div className="flex h-full items-center justify-center bg-card">
-              <AudioLines className="h-12 w-12 text-primary" />
+        {isAudio ? (
+            <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-4 overflow-hidden bg-card p-6">
+              <AudioLines className="h-8 w-8 shrink-0 text-primary" />
+              <p className="line-clamp-4 max-w-full break-words text-center text-sm leading-6 text-foreground">{item.prompt}</p>
             </div>
-          ) : (
-            <HistoryMedia key={candidates.join("|")} urls={candidates} type={item.type === "video" ? "video" : "image"} alt={tHistory("previewAlt")} />
-          )
+          ) : previewUrl ? (
+            <HistoryMedia key={candidates.join("|")} urls={candidates} type={item.type === "video" ? "video" : "image"} alt={tHistory("previewAlt")} autoplay={autoplay} />
         ) : (
           <div className="absolute inset-0 bg-white/[0.045]" />
         )}
@@ -214,18 +215,34 @@ export function HistoryItemSkeleton({
   );
 }
 
-function HistoryMedia({ urls, type, alt }: { urls: string[]; type: "image" | "video"; alt: string }) {
+function HistoryMedia({ urls, type, alt, autoplay }: { urls: string[]; type: "image" | "video"; alt: string; autoplay: boolean }) {
   const t = useTranslations("history.media");
   const actions = useTranslations("common.actions");
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [candidate, setCandidate] = useState(0);
   const url = urls[candidate];
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.01 });
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [url, attempt]);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (autoplay && visible) void video.play()?.catch(() => {});
+    else video.pause();
+  }, [autoplay, visible, url, attempt]);
   const failed = () => { if (candidate + 1 < urls.length) {setCandidate(candidate + 1); setState("loading");} else setState("error"); };
   const className = cn("h-full w-full object-cover transition-opacity motion-reduce:transition-none", state !== "loaded" && "opacity-0");
   return <>
     {state === "loading" && <AppSkeleton role="status" aria-label={t("loading")} className="absolute inset-0 rounded-none motion-reduce:animate-none" />}
-    {type === "video" ? <video key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedData={() => setState("loaded")} onError={failed} /> :
+    {type === "video" ? <video ref={videoRef} autoPlay={autoplay && visible} key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedData={() => setState("loaded")} onError={failed} /> :
       // eslint-disable-next-line @next/next/no-img-element
       <img key={`${candidate}-${attempt}`} src={url} alt={alt} loading="lazy" decoding="async" fetchPriority="low" className={className} onLoad={() => setState("loaded")} onError={failed} />}
     {state === "error" && <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card p-4 text-center text-sm">

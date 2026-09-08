@@ -1,4 +1,7 @@
 "use client";
+import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
+import { Switch } from "@/shared/ui/brand/switch/switch";
+import { AppRangeSlider } from "@/shared/ui/app-range-slider";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -149,11 +152,10 @@ export function VideoOperationNodeControls({
             onChange={(repeat) => updateParameters({ repeat })}
           />
           <label className="flex items-center gap-2 text-[11px] text-white/60">
-            <input
-              type="checkbox"
+            <Switch
               checked={stripAudio}
               disabled={!writable}
-              onChange={(event) => updateParameters({ stripAudio: event.target.checked })}
+              onCheckedChange={stripAudio => updateParameters({stripAudio})}
             />{tc("Remove all source and soundtrack audio")}</label>
         </div>
       );
@@ -164,42 +166,17 @@ export function VideoOperationNodeControls({
       const endSeconds = Math.min(durationSeconds, number(parameters.endMs, 5_000) / 1_000);
       return (
         <div className="grid gap-2">
-          <div className="relative h-5" data-node-banana-component="TrimRange">
-            <div className="pointer-events-none absolute inset-x-0 top-2 h-1.5 rounded-full bg-neutral-700" />
-            <input
-              type="range"
-              aria-label={tc("Trim start")}
-              min={0}
-              max={durationSeconds}
-              step={0.1}
-              value={Math.min(startSeconds, endSeconds)}
-              disabled={!writable}
-              className="nodrag absolute inset-0 w-full accent-primary"
-              onChange={(event) => updateParameters({ startMs: Math.round(Number(event.target.value) * 1_000) })}
-            />
-            <input
-              type="range"
-              aria-label={tc("Trim end")}
-              min={0}
-              max={durationSeconds}
-              step={0.1}
-              value={Math.max(startSeconds, endSeconds)}
-              disabled={!writable}
-              className="nodrag absolute inset-0 w-full accent-primary"
-              onChange={(event) => updateParameters({ endMs: Math.round(Number(event.target.value) * 1_000) })}
-            />
-          </div>
+          <AppRangeSlider labels={[tc("Trim start"),tc("Trim end")]} min={0} max={durationSeconds} step={0.1} value={[Math.min(startSeconds,endSeconds),Math.max(startSeconds,endSeconds)]} disabled={!writable} onValueChange={([start,end])=>updateParameters({startMs:Math.round(start*1000),endMs:Math.round(end*1000)})} />
           <div className="flex justify-between font-mono text-[10px] text-neutral-400">
             <span>{tc("Start")}{startSeconds.toFixed(1)}s</span>
             <span>{tc("Duration")}{Math.max(0, endSeconds - startSeconds).toFixed(1)}s</span>
             <span>{tc("End")}{endSeconds.toFixed(1)}s</span>
           </div>
           <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60">
-            <input
-              type="checkbox"
+            <Switch
               checked={stripAudio}
               disabled={!writable}
-              onChange={(event) => updateParameters({ stripAudio: event.target.checked })}
+              onCheckedChange={stripAudio => updateParameters({stripAudio})}
             />{tc("Remove embedded audio")}</label>
         </div>
       );
@@ -242,15 +219,7 @@ export function VideoOperationNodeControls({
           disabled={!controlsWritable}
           onChange={(value) => updateParameters({ outputDurationMs: Math.round(value * 1_000) })}
         />
-        <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Curve")}<select
-            value={preset}
-          disabled={!controlsWritable}
-            className="h-8 rounded-lg border border-white/10 bg-[#111412] px-2 text-xs normal-case tracking-normal text-white"
-            onChange={(event) => updateParameters({ easingPreset: event.target.value === "custom" ? null : event.target.value })}
-          >
-            {easingPresets.map((name) => <option key={name} value={name}>{name}</option>)}
-            <option value="custom">{tc("Custom bezier")}</option>
-          </select>
+        <label className="grid gap-1 text-[10px] uppercase tracking-[0.1em] text-white/45">{tc("Curve")}<AppChoiceSelect label={tc("Curve")} value={preset} disabled={!controlsWritable} onValueChange={value => updateParameters({easingPreset:value === "custom" ? null : value})} options={[...easingPresets.map(value=>({value,label:value})),{value:"custom",label:tc("Custom bezier")}]} />
         </label>
         {preset === "custom" ? bezier.map((value, index) => (
           <NumberField

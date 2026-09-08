@@ -1,4 +1,6 @@
 "use client";
+import { AppTextarea } from "@/shared/ui/app-form-control";
+import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -71,20 +73,9 @@ export function NodeBananaPromptEditor({
         <div className="mx-6 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-neutral-700 bg-neutral-900/30">
           <div className="flex h-12 shrink-0 items-center gap-3 border-b border-neutral-700 bg-neutral-900 px-4">
             <label className="sr-only" htmlFor="node-banana-prompt-font-size">{t("fontSize")}</label>
-            <select
-              id="node-banana-prompt-font-size"
-              value={fontSize}
-              className="rounded border border-neutral-700 bg-neutral-900/50 px-2 py-1 text-sm text-neutral-300 outline-none focus:ring-1 focus:ring-neutral-600"
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setFontSize(next);
-                window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(next));
-              }}
-            >
-              {FONT_SIZES.map((size) => <option key={size} value={size}>{size}px</option>)}
-            </select>
+            <AppChoiceSelect label={t("fontSize")} value={String(fontSize)} onValueChange={value=>{const next=Number(value);setFontSize(next);window.localStorage.setItem(FONT_SIZE_STORAGE_KEY,String(next));}} options={FONT_SIZES.map(size=>({value:String(size),label:size+"px"}))} />
           </div>
-          <textarea
+          <AppTextarea
             autoFocus
             value={draft}
             maxLength={20_000}

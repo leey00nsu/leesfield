@@ -4,13 +4,13 @@ import { useLandingReducedMotion as useReducedMotion } from "./use-landing-reduc
 import { useVerticalMediaRail } from "@/shared/ui/generation-media-rail";
 import Image from "next/image";
 import { motion } from "motion/react";
+import { LandingTitleMotion, titleInitialStyle } from "./landing-title-motion";
 import { LayoutTextFlip } from "./aceternity-layout-text-flip";
 import { BrandUnplug } from "./brand-unplug";
-import models from "./landing-models.json";
+import models from "@/shared/config/brand-models.json";
 import { useState } from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppButton } from "@/shared/ui/app-button";
@@ -37,9 +37,10 @@ function TextGenerateLine({
     <span className="block whitespace-normal sm:whitespace-nowrap">
       {words.map((word, index) => (
         <span
+          data-title-step={startIndex + index}
           key={`${word}-${index}`}
-          className="lf-text-generate-word"
-          style={{ "--word-index": startIndex + index } as CSSProperties}
+          className="inline-block"
+          style={titleInitialStyle}
         >
           {word}
           {index < words.length - 1 ? "\u00a0" : null}
@@ -93,10 +94,11 @@ export function LandingHero({
             aria-label={fullHeadline}
             className="text-[clamp(1.65rem,4.6vw,4.4rem)] leading-[1.15]"
           >
-            <span aria-hidden="true">
+            <LandingTitleMotion>
               <span className="flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-5">
                 <LayoutTextFlip
                   text={headlineFirst}
+                  textGroups={[headlineFirst.split(" ")[0], headlineFirst.split(" ").slice(1).join(" ")]}
                   words={flipModels.map((model) => model.name)}
                   renderWord={(_name, index) => (
                     <span className="flex size-full items-center justify-center leading-none">
@@ -116,17 +118,19 @@ export function LandingHero({
               <span className="flex items-center justify-center gap-[0.16em]">
                 <TextGenerateLine
                   text={t("headlineSecondFirst")}
-                  startIndex={3}
+                  startIndex={2}
                 />
                 <span
-                  className="lf-text-generate-word inline-flex"
-                  style={{ "--word-index": 3 } as CSSProperties}
+                  data-title-step={2}
+                  className="inline-flex"
+                  style={titleInitialStyle}
                 >
                   <BrandUnplug />
                 </span>
                 <span
-                  className="lf-text-generate-word"
-                  style={{ "--word-index": 4 } as CSSProperties}
+                  data-title-step={3}
+                  className="inline-block"
+                  style={titleInitialStyle}
                 >
                   <span className="lf-brand-gradient-text">
                     {t("headlineInterface")}
@@ -134,7 +138,7 @@ export function LandingHero({
                   {t("headlineSuffix")}
                 </span>
               </span>
-            </span>
+            </LandingTitleMotion>
           </AppHeading>
           <motion.p
             {...entry(0.76)}
@@ -164,7 +168,7 @@ export function LandingHero({
         <div
           role="region"
           aria-label={t("preview.label")}
-          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] bg-[#07090a] p-6 sm:p-8 lg:p-10"
+          className="relative mt-10 w-full max-w-6xl overflow-hidden rounded-[1.5rem] bg-[radial-gradient(ellipse_at_top_right,#5386bb,#10376c_55%,#08172c)] p-6 sm:p-8 lg:p-10"
         >
           <LandingHeroMotionLayer
             testId="landing-hero-preview-border-motion"
@@ -179,7 +183,7 @@ export function LandingHero({
             <WarpShaderPanel className="absolute inset-0" />
           </LandingHeroMotionLayer>
 
-          <LandingHeroMotionLayer testId="landing-hero-composer-motion">
+          <LandingHeroMotionLayer glass testId="landing-hero-composer-motion">
             <TabsPrimitive.Root
               value={media}
               onValueChange={(value) => setMedia(value as typeof media)}

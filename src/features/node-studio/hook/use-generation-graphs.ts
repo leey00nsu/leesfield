@@ -43,6 +43,7 @@ function toSummary(graph: GenerationGraphSnapshotDto): GenerationGraphSummaryDto
 export function useGenerationGraphList() {
   return useQuery({
     queryKey: graphKeys.list,
+    staleTime: 15_000,
     queryFn: ({ signal }) => listGenerationGraphs(signal),
   });
 }

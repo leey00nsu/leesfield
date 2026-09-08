@@ -32,6 +32,7 @@ describe("getMonitoringRequestDetail", () => {
       requestParams: {
         inputAudio: "data:audio/wav;base64,UklGRg==",
         referenceText: "reference words",
+        dynamicParams: {speaker:"Ryan",seed:0},
       },
       createdAt,
       updatedAt,
@@ -54,6 +55,7 @@ describe("getMonitoringRequestDetail", () => {
       errorMessage: null,
       warningMessage: null,
       inputAudios: ["data:audio/wav;base64,UklGRg=="],
+      requestParameters: {dynamicParams:{speaker:"Ryan",seed:0}},
       referenceText: "reference words",
       assets: [
         {

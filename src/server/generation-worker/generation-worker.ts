@@ -1,3 +1,6 @@
+import { restoreRequest } from '@/server/generation-request/request-snapshot';
+import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
+import { z } from "zod";
 import { prisma } from "@/server/db/prisma";
 import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";
 import {
@@ -192,10 +195,7 @@ async function buildImagePayload(
   },
   runtime: ImageRuntimeState,
 ) {
-  const params =
-    record.requestParams && typeof record.requestParams === "object"
-      ? (record.requestParams as Record<string, unknown>)
-      : {};
+  const params = restoreRequest(record.requestParams);
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
@@ -212,6 +212,7 @@ async function buildImagePayload(
 
   return {
     prompt: record.prompt,
+    dynamicParams: params.dynamicParams === undefined ? undefined : z.record(z.string(),jsonValueSchema).parse(params.dynamicParams),
     width: normalizeNumber(params.width, defaults.width),
     height: normalizeNumber(params.height, defaults.height),
     initImages,
@@ -240,10 +241,7 @@ async function buildVideoPayload(
   },
   runtime: VideoRuntimeState,
 ) {
-  const params =
-    record.requestParams && typeof record.requestParams === "object"
-      ? (record.requestParams as Record<string, unknown>)
-      : {};
+  const params = restoreRequest(record.requestParams);
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
@@ -260,6 +258,7 @@ async function buildVideoPayload(
 
   return {
     prompt: record.prompt,
+    dynamicParams: params.dynamicParams === undefined ? undefined : z.record(z.string(),jsonValueSchema).parse(params.dynamicParams),
     initImage,
     model,
     aspectRatio:
@@ -282,10 +281,7 @@ function buildAudioPayload(
   },
   runtime: AudioRuntimeState,
 ) {
-  const params =
-    record.requestParams && typeof record.requestParams === "object"
-      ? (record.requestParams as Record<string, unknown>)
-      : {};
+  const params = restoreRequest(record.requestParams);
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
@@ -397,7 +393,7 @@ function buildAudioPayload(
       typeof params.repetitionPenalty === "number"
         ? params.repetitionPenalty
         : undefined,
-    dynamicParams,
+    dynamicParams: params.dynamicParams === undefined ? dynamicParams : z.record(z.string(),jsonValueSchema).parse(params.dynamicParams),
   };
 }
 

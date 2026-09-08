@@ -1,0 +1,414 @@
+--- a/src/leesfield/inputs.tsx
++++ b/src/leesfield/inputs.tsx
+@@ -0,0 +1,10 @@
++"use client";
++import {createContext,useContext,type ComponentType,type ComponentProps,type SelectHTMLAttributes,type InputHTMLAttributes,type ReactNode} from "react";
++type InputComponents={Select:ComponentType<SelectHTMLAttributes<HTMLSelectElement>>;Input:ComponentType<InputHTMLAttributes<HTMLInputElement>>;Textarea:ComponentType<ComponentProps<"textarea">>;Range:ComponentType<{value:number[];min:number;max:number;step:number;disabled?:boolean;labels:string[];onValueChange:(value:number[])=>void}>};
++const fallback:InputComponents={Select:props=><select {...props}/>,Input:props=><input {...props}/>,Textarea:props=><textarea {...props}/>,Range:({value,labels,onValueChange,...props})=><div>{value.map((item,index)=><input key={index} type="range" aria-label={labels[index]} value={item} {...props} onChange={event=>onValueChange(value.map((current,at)=>at===index?Number(event.target.value):current))}/>)}</div>};
++const Context=createContext(fallback);
++export function CanvasInputProvider({value,children}:{value:InputComponents;children:ReactNode}){return <Context.Provider value={value}>{children}</Context.Provider>}
++export function CanvasSelect(props:SelectHTMLAttributes<HTMLSelectElement>){const {Select}=useContext(Context);return <Select {...props}/>}
++export function CanvasInput(props:InputHTMLAttributes<HTMLInputElement>){const {Input}=useContext(Context);return <Input {...props}/>}
++export function CanvasTextarea(props:ComponentProps<"textarea">){const {Textarea}=useContext(Context);return <Textarea {...props}/>}
++export function CanvasRange(props:ComponentProps<InputComponents["Range"]>){const {Range}=useContext(Context);return <Range {...props}/>}
+--- a/src/components/modals/ModelSearchDialog.tsx
++++ b/src/components/modals/ModelSearchDialog.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -559 +561 @@
+-            <select
++            <CanvasSelect
+@@ -571 +573 @@
+-            </select>
++            </CanvasSelect>
+--- a/src/components/modals/PromptConstructorEditorModal.tsx
++++ b/src/components/modals/PromptConstructorEditorModal.tsx
+@@ -1,0 +1 @@
++import { CanvasSelect, CanvasTextarea } from "../../leesfield/inputs";
+@@ -95,0 +97 @@
++      if (activeDialog()?.querySelector('[role="listbox"]')) return;
+@@ -194 +196 @@
+-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tc("Edit Prompt Constructor")} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
++      <div ref={dialogRef} data-canvas-dialog-content="" role="dialog" aria-modal="true" aria-label={tc("Edit Prompt Constructor")} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
+@@ -209 +211 @@
+-            <select
++            <CanvasSelect
+@@ -219 +221 @@
+-            </select>
++            </CanvasSelect>
+@@ -241 +243 @@
+-            <textarea
++            <CanvasTextarea
+--- a/src/components/modals/PromptEditorModal.tsx
++++ b/src/components/modals/PromptEditorModal.tsx
+@@ -1,0 +1 @@
++import { CanvasSelect, CanvasTextarea } from "../../leesfield/inputs";
+@@ -60,0 +62 @@
++      if (activeDialog()?.querySelector('[role="listbox"]')) return;
+@@ -139 +141 @@
+-      <div ref={dialogRef} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
++      <div ref={dialogRef} data-canvas-dialog-content="" className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
+@@ -150 +152 @@
+-            <select
++            <CanvasSelect
+@@ -161 +163 @@
+-            </select>
++            </CanvasSelect>
+@@ -165 +167 @@
+-          <textarea
++          <CanvasTextarea
+--- a/src/components/nodes/ArrayNode.tsx
++++ b/src/components/nodes/ArrayNode.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -236 +238 @@
+-          <select
++          <CanvasSelect
+@@ -244 +246 @@
+-          </select>
++          </CanvasSelect>
+@@ -314 +316 @@
+-                <input
++                <CanvasInput
+@@ -321 +323 @@
+-                <input
++                <CanvasInput
+--- a/src/components/nodes/ComfyAppParameters.tsx
++++ b/src/components/nodes/ComfyAppParameters.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect, CanvasInput, CanvasTextarea } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -175 +177 @@
+-        <select
++        <CanvasSelect
+@@ -189 +191 @@
+-        </select>
++        </CanvasSelect>
+@@ -201 +203 @@
+-        <input
++        <CanvasInput
+@@ -218 +220 @@
+-        <textarea
++        <CanvasTextarea
+--- a/src/components/nodes/ConditionalSwitchNode.tsx
++++ b/src/components/nodes/ConditionalSwitchNode.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -334 +336 @@
+-            <select
++            <CanvasSelect
+@@ -343 +345 @@
+-            </select>
++            </CanvasSelect>
+--- a/src/components/nodes/EaseCurveNode.tsx
++++ b/src/components/nodes/EaseCurveNode.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -237 +239 @@
+-          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">{tc("Curve")}<select
++          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">{tc("Curve")}<CanvasSelect
+@@ -246 +248 @@
+-            </select>
++            </CanvasSelect>
+--- a/src/components/nodes/FloatingNodeHeader.tsx
++++ b/src/components/nodes/FloatingNodeHeader.tsx
+@@ -1,0 +2,2 @@
++import { CanvasTextarea } from "../../leesfield/inputs";
++
+@@ -531 +533 @@
+-                <textarea
++                <CanvasTextarea
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -1,0 +2,2 @@
++import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
++
+@@ -494 +496 @@
+-                    <select
++                    <CanvasSelect
+@@ -505 +507 @@
+-                    </select>
++                    </CanvasSelect>
+@@ -509 +511 @@
+-                    <select
++                    <CanvasSelect
+@@ -519 +521 @@
+-                    </select>
++                    </CanvasSelect>
+@@ -527 +529 @@
+-                      <select
++                      <CanvasSelect
+@@ -537 +539 @@
+-                      </select>
++                      </CanvasSelect>
+@@ -545 +547 @@
+-                      <input
++                      <CanvasInput
+@@ -557 +559 @@
+-                      <input
++                      <CanvasInput
+--- a/src/components/nodes/GifEncoderNode.tsx
++++ b/src/components/nodes/GifEncoderNode.tsx
+@@ -1,0 +2 @@
++import { CanvasInput } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -359 +361 @@
+-              <input
++              <CanvasInput
+@@ -368 +370 @@
+-              <input
++              <CanvasInput
+--- a/src/components/nodes/ImageResizeNode.tsx
++++ b/src/components/nodes/ImageResizeNode.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -208 +210 @@
+-            <select
++            <CanvasSelect
+@@ -216 +218 @@
+-            </select>
++            </CanvasSelect>
+@@ -220 +222 @@
+-                <input
++                <CanvasInput
+--- a/src/components/nodes/LLMFallbackPopover.tsx
++++ b/src/components/nodes/LLMFallbackPopover.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -112 +114 @@
+-        <select
++        <CanvasSelect
+@@ -122 +124 @@
+-        </select>
++        </CanvasSelect>
+@@ -125 +127 @@
+-        <select
++        <CanvasSelect
+@@ -135 +137 @@
+-        </select>
++        </CanvasSelect>
+--- a/src/components/nodes/LLMGenerateNode.tsx
++++ b/src/components/nodes/LLMGenerateNode.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -163 +165 @@
+-                <select
++                <CanvasSelect
+@@ -171 +173 @@
+-                </select>
++                </CanvasSelect>
+@@ -177 +179 @@
+-                <select
++                <CanvasSelect
+@@ -185 +187 @@
+-                </select>
++                </CanvasSelect>
+@@ -192 +194 @@
+-                <input
++                <CanvasInput
+@@ -207 +209 @@
+-                <input
++                <CanvasInput
+@@ -240 +242 @@
+-                  <input
++                  <CanvasInput
+@@ -255 +257 @@
+-                  <input
++                  <CanvasInput
+--- a/src/components/nodes/ModelParameters.tsx
++++ b/src/components/nodes/ModelParameters.tsx
+@@ -1,0 +2,2 @@
++import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
++
+@@ -349 +351 @@
+-        <select
++        <CanvasSelect aria-label={displayName}
+@@ -373 +375 @@
+-        </select>
++        </CanvasSelect>
+@@ -388 +390 @@
+-        <input
++        <CanvasInput
+--- a/src/components/nodes/PromptConstructorNode.tsx
++++ b/src/components/nodes/PromptConstructorNode.tsx
+@@ -1,0 +2,2 @@
++import { CanvasTextarea } from "../../leesfield/inputs";
++
+@@ -221 +223 @@
+-          <textarea
++          <CanvasTextarea
+--- a/src/components/nodes/PromptNode.tsx
++++ b/src/components/nodes/PromptNode.tsx
+@@ -1,0 +2 @@
++import { CanvasTextarea } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -125 +127 @@
+-        <textarea
++        <CanvasTextarea
+--- a/src/components/nodes/SwitchNode.tsx
++++ b/src/components/nodes/SwitchNode.tsx
+@@ -1,0 +2,2 @@
++import { CanvasInput } from "../../leesfield/inputs";
++
+@@ -190 +192 @@
+-                  <input
++                  <CanvasInput
+--- a/src/components/nodes/VideoStitchNode.tsx
++++ b/src/components/nodes/VideoStitchNode.tsx
+@@ -1,0 +2,2 @@
++import { CanvasInput } from "../../leesfield/inputs";
++
+@@ -600 +602 @@
+-              <input
++              <CanvasInput
+--- a/src/components/nodes/VideoTrimNode.tsx
++++ b/src/components/nodes/VideoTrimNode.tsx
+@@ -1,0 +2 @@
++import { CanvasInput, CanvasRange } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -141,18 +142,0 @@
+-  const handleStartChange = useCallback(
+-    (e: React.ChangeEvent<HTMLInputElement>) => {
+-      const val = parseFloat(e.target.value);
+-      const clamped = Math.min(val, endTime - 0.1);
+-      updateNodeData(id, { startTime: Math.max(0, clamped) });
+-    },
+-    [id, updateNodeData, endTime]
+-  );
+-
+-  const handleEndChange = useCallback(
+-    (e: React.ChangeEvent<HTMLInputElement>) => {
+-      const val = parseFloat(e.target.value);
+-      const clamped = Math.max(val, startTime + 0.1);
+-      updateNodeData(id, { endTime: Math.min(duration > 0 ? duration : clamped, clamped) });
+-    },
+-    [id, updateNodeData, startTime, duration]
+-  );
+-
+@@ -171,2 +154,0 @@
+-  const startPct = duration > 0 ? (startTime / duration) * 100 : 0;
+-  const endPct = duration > 0 ? (endTime / duration) * 100 : 100;
+@@ -328,24 +310 @@
+-            <div className="nodrag nowheel relative h-5 flex items-center trim-slider-container">
+-              {/* Make only the slider thumbs interactive, not the full-width invisible input bodies */}
+-              <style>{`
+-                .trim-slider-container input[type="range"] {
+-                  pointer-events: none;
+-                }
+-                .trim-slider-container input[type="range"]::-webkit-slider-thumb {
+-                  pointer-events: all;
+-                  cursor: pointer;
+-                }
+-                .trim-slider-container input[type="range"]::-moz-range-thumb {
+-                  pointer-events: all;
+-                  cursor: pointer;
+-                }
+-              `}</style>
+-
+-              {/* Track background */}
+-              <div className="absolute left-0 right-0 h-1.5 bg-neutral-700 rounded-full" />
+-
+-              {/* Highlighted trim range */}
+-              <div
+-                className="absolute h-1.5 bg-blue-500/60 rounded-full pointer-events-none"
+-                style={{ left: `${startPct}%`, right: `${100 - endPct}%` }}
+-              />
++            <CanvasRange disabled={!writable || nodeData.status === "loading" || isRunning} value={[startTime,endTime]} min={0} max={duration > 0 ? duration : 100} step={0.1} labels={[tc("Start"),tc("End")]} onValueChange={([start,end])=>updateNodeData(id,{startTime:Math.max(0,Math.min(start,end-0.1)),endTime:Math.max(end,start+0.1)})} />
+@@ -353,35 +311,0 @@
+-              {/* Start slider (higher z-index so it's draggable when both thumbs overlap at 0) */}
+-              <input
+-                type="range"
+-                min={0}
+-                max={duration > 0 ? duration : 100}
+-                step={0.1}
+-                value={startTime}
+-                onChange={handleStartChange}
+-                className="absolute w-full h-full opacity-0 nodrag"
+-                style={{ zIndex: 3 }}
+-              />
+-
+-              {/* End slider */}
+-              <input
+-                type="range"
+-                min={0}
+-                max={duration > 0 ? duration : 100}
+-                step={0.1}
+-                value={endTime}
+-                onChange={handleEndChange}
+-                className="absolute w-full h-full opacity-0 nodrag"
+-                style={{ zIndex: 2 }}
+-              />
+-
+-              {/* Visual thumb indicators */}
+-              <div
+-                className="absolute w-3 h-3 bg-white rounded-full border-2 border-blue-500 pointer-events-none"
+-                style={{ left: `calc(${startPct}% - 6px)`, zIndex: 4 }}
+-              />
+-              <div
+-                className="absolute w-3 h-3 bg-white rounded-full border-2 border-blue-500 pointer-events-none"
+-                style={{ left: `calc(${endPct}% - 6px)`, zIndex: 4 }}
+-              />
+-            </div>
+-
+@@ -409 +333 @@
+-            <input
++            <CanvasInput
+--- a/src/components/quickstart/PromptWorkflowView.tsx
++++ b/src/components/quickstart/PromptWorkflowView.tsx
+@@ -1,0 +2 @@
++import { CanvasTextarea } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -116 +118 @@
+-          <textarea
++          <CanvasTextarea
+--- a/src/components/quickstart/TemplateExplorerView.tsx
++++ b/src/components/quickstart/TemplateExplorerView.tsx
+@@ -1,0 +2 @@
++import { CanvasSelect } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -282 +284 @@
+-          <label className="text-sm text-neutral-300">{tc("Starting content")}<select aria-label={tc("Starting content")} value={contentLevel} onChange={(event) => setContentLevel(event.target.value as "empty" | "minimal")} disabled={isLoading} className="ml-2 bg-neutral-700 rounded p-2">
++          <label className="text-sm text-neutral-300">{tc("Starting content")}<CanvasSelect aria-label={tc("Starting content")} value={contentLevel} onChange={(event) => setContentLevel(event.target.value as "empty" | "minimal")} disabled={isLoading} className="ml-2 bg-neutral-700 rounded p-2">
+@@ -284 +286 @@
+-            </select>
++            </CanvasSelect>
+--- a/src/components/settings/ComfySettingsTab.tsx
++++ b/src/components/settings/ComfySettingsTab.tsx
+@@ -1,0 +2 @@
++import { CanvasInput } from "../../leesfield/inputs";
+@@ -2,0 +4 @@
++
+@@ -325 +327 @@
+-            <input
++            <CanvasInput
+@@ -353 +355 @@
+-        <input
++        <CanvasInput
+--- a/src/components/splitgrid/TemplateNodes.tsx
++++ b/src/components/splitgrid/TemplateNodes.tsx
+@@ -1,0 +2,2 @@
++import { CanvasTextarea } from "../../leesfield/inputs";
++
+@@ -271 +273 @@
+-    <textarea
++    <CanvasTextarea

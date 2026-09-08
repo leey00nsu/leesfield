@@ -1,4 +1,5 @@
 "use client";
+import { CanvasProviders } from "@/shared/ui/canvas-providers";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,14 +13,15 @@ import {
   useGenerationGraphList,
   useSyncGenerationGraphCache,
 } from "@/features/node-studio/hook/use-generation-graphs";
-import { NodeStudioWorkspace } from "@/features/node-studio/ui/node-studio-workspace";
+import dynamic from "next/dynamic";
+const NodeStudioWorkspace = dynamic(() => import("@/features/node-studio/ui/node-studio-workspace").then(m => m.NodeStudioWorkspace), { loading: () => <WorkspaceLoading /> });
 import { attachSpaceReturnEntry, hasSpaceListReturnEntry } from "@/features/node-studio/model/space-navigation";
 import { updateGenerationGraph } from "@/features/node-studio/api/generation-graph-api";
 import { quickstartSpaceTemplate } from "@/features/node-studio/model/quickstart-space-template";
 import type { HostedPresetWorkflow } from "@node-banana-runtime/runtime-entry";
 
 export function NodeStudioScreen({ spaceId }: { spaceId?: string }) {
-  return <NodeStudioScreenContent spaceId={spaceId} />;
+  return <CanvasProviders><NodeStudioScreenContent spaceId={spaceId} /></CanvasProviders>;
 }
 
 function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
@@ -152,4 +154,9 @@ function NodeStudioError({ label, onRetry }: { label: string; onRetry: () => voi
       </div>
     </div>
   );
+}
+
+function WorkspaceLoading() {
+ const t = useTranslations("nodeStudio.host");
+ return <NodeStudioLoading label={t("loadingSpace")} />;
 }

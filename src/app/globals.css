@@ -201,135 +201,7 @@
     border-color: var(--creative-surface-border);
   }
 
-  .lf-motion-rise {
-    animation: lf-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .lf-text-generate-word {
-    display: inline-block;
-    opacity: 0;
-    filter: blur(8px);
-    transform: translateY(0.16em);
-    animation: lf-text-generate 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    animation-delay: calc(var(--word-index, 0) * 96ms);
-    will-change: opacity, filter, transform;
-  }
-
-  .lf-shader-fade-in {
-    animation: lf-shader-fade 1050ms ease-out both;
-  }
-
-  .lf-motion-card-a,
-  .lf-motion-card-b,
-  .lf-motion-card-c,
-  .lf-motion-card-d {
-    will-change: transform;
-  }
-
-  .lf-motion-card-a {
-    animation: lf-card-drift-a 8s cubic-bezier(0.25, 1, 0.5, 1) infinite
-      alternate;
-  }
-
-  .lf-motion-card-b {
-    animation: lf-card-drift-b 9s cubic-bezier(0.25, 1, 0.5, 1) infinite
-      alternate;
-  }
-
-  .lf-motion-card-c {
-    animation: lf-card-drift-c 7s cubic-bezier(0.25, 1, 0.5, 1) infinite
-      alternate;
-  }
-
-  .lf-motion-card-d {
-    animation: lf-card-drift-d 8.5s cubic-bezier(0.25, 1, 0.5, 1) infinite
-      alternate;
-  }
-
-  @keyframes lf-rise {
-    from {
-      opacity: 0;
-      transform: translateY(14px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes lf-text-generate {
-    to {
-      opacity: 1;
-      filter: blur(0);
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes lf-shader-fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes lf-card-drift-a {
-    from {
-      transform: translate3d(-4px, 8px, 0) rotate(-7deg);
-    }
-    to {
-      transform: translate3d(8px, -4px, 0) rotate(-4deg);
-    }
-  }
-
-  @keyframes lf-card-drift-b {
-    from {
-      transform: translate3d(2px, -6px, 0) rotate(1deg);
-    }
-    to {
-      transform: translate3d(-6px, 6px, 0) rotate(3deg);
-    }
-  }
-
-  @keyframes lf-card-drift-c {
-    from {
-      transform: translate3d(0, 7px, 0) scale(0.98);
-    }
-    to {
-      transform: translate3d(6px, -5px, 0) scale(1.02);
-    }
-  }
-
-  @keyframes lf-card-drift-d {
-    from {
-      transform: translate3d(5px, 7px, 0) rotate(2deg);
-    }
-    to {
-      transform: translate3d(-5px, -5px, 0) rotate(5deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lf-motion-rise,
-    .lf-text-generate-word,
-    .lf-shader-fade-in,
-    .lf-motion-card-a,
-    .lf-motion-card-b,
-    .lf-motion-card-c,
-    .lf-motion-card-d {
-      animation: none;
-      will-change: auto;
-    }
-
-    .lf-text-generate-word {
-      opacity: 1;
-      filter: none;
-      transform: none;
-    }
-  }
 }
-
 /* Embedded media forms retain their controllers and result state between tabs. */
 .generation-embedded {
   display: flex;
@@ -398,8 +270,8 @@
   min-height: 100%;
 }
 
-.lf-brand-gradient-text { background: linear-gradient(90deg, var(--brand-gradient-start), var(--brand-gradient-highlight), var(--brand-gradient-start)); background-size: 300% 100%; background-clip: text; color: transparent; animation: lf-brand-gradient 1.5s linear infinite alternate; }
-@keyframes lf-brand-gradient { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+.lf-brand-gradient-text { background: linear-gradient(90deg, var(--brand-gradient-start), var(--brand-gradient-highlight), var(--brand-gradient-start)); background-size: 300% 100%; background-clip: text; color: transparent;  }
+
 @media (prefers-reduced-motion: reduce) { .lf-brand-gradient-text { animation: none; background-position: 50% 50%; } }
 
 /* This local preview has no editable inputs: let pointer gestures reach the node. */
@@ -424,26 +296,23 @@
 [data-generation-action],
 .node-banana-runtime__run-group > button:first-child,
 .spaces-canvas button[data-canvas-action="run"] {
-  background-image: linear-gradient(#061b3b24, #061b3b24), linear-gradient(115deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
-  background-size: 100% 100%, 300% 100%;
-  animation: lf-generation-gradient 3.5s ease-in-out infinite alternate;
+  background-image: linear-gradient(#061b3b24, #061b3b24), linear-gradient(90deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
+  background-size: 100% 100%, max(1080px, 300%) 100%;
+
   color: #fff;
   text-shadow: 0 1px 5px #001a4d66;
 }
 [data-generation-action]:hover,
 .node-banana-runtime__run-group > button:first-child:not(:disabled):hover,
 .spaces-canvas button[data-canvas-action="run"]:not(:disabled):hover {
-  background-image: linear-gradient(#061b3b10, #061b3b10), linear-gradient(115deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
+  background-image: linear-gradient(#061b3b10, #061b3b10), linear-gradient(90deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
 }
 [data-generation-action]:is(:disabled, [aria-disabled="true"], [aria-busy="true"]),
 .node-banana-runtime__run-group > button:first-child:disabled,
 .spaces-canvas button[data-canvas-action="run"]:disabled {
-  animation-play-state: paused;
+  /* Playback is controlled by AppMotionEffects. */
 }
-@keyframes lf-generation-gradient {
-  from { background-position: 0% 50%, 0% 50%; }
-  to { background-position: 0% 50%, 100% 50%; }
-}
+
 @media (prefers-reduced-motion: reduce) {
   [data-generation-action],
   .node-banana-runtime__run-group > button:first-child,
@@ -456,8 +325,47 @@
 /* Uniform glass frame for the generation workspace; input surface stays opaque. */
 .generation-embedded .generation-media-shell,
 .generation-embedded [data-app-prompt-field][data-surface="hero"] {
-  background: rgba(255, 255, 255, 0.065);
-  border-color: rgba(255, 255, 255, 0.19);
-  box-shadow: inset 0 0 0 1px #ffffff06, 0 0 28px #347ff414;
+  background: linear-gradient(180deg, #ffffff0d, #ffffff03), rgba(255, 255, 255, 0.085);
+  border-color: rgba(255, 255, 255, 0.23);
+  box-shadow: inset 0 1px 0 #ffffff14, inset 0 -1px 0 #ffffff06;
   backdrop-filter: blur(24px);
+}
+
+/* Selected controls share the brand accent without changing the neutral surface. */
+[data-slot="switch"][data-checked] { background-color: var(--data-accent); }
+[data-slot="dropdown-menu-radio-item"][data-checked],
+[data-slot="select-item"][data-selected] { color: var(--data-accent); }
+
+/* Neutral item feedback is shared by lists and portaled Base UI menus.
+   Keep the pinned Copy Singer component sources unchanged. */
+:root { --interaction-hover: rgb(255 255 255 / 8%); }
+@theme inline { --color-interaction-hover: var(--interaction-hover); }
+
+[class~="group/resource-row"]:is(:hover, :focus-within),
+:is([data-slot="select-item"], [data-slot="dropdown-menu-item"],
+    [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"],
+    [data-slot="dropdown-menu-sub-trigger"]):not([data-disabled]):not([aria-disabled="true"]):not([data-variant="destructive"]):is(:focus, [data-highlighted], [data-popup-open], [data-open]) {
+  background-color: var(--interaction-hover);
+}
+:is([data-slot="select-item"][data-selected],
+    [data-slot="dropdown-menu-radio-item"][data-checked],
+    [data-slot="dropdown-menu-checkbox-item"][data-checked]) {
+  color: var(--data-accent-foreground);
+}
+:is([data-slot="select-item"][data-selected],
+    [data-slot="dropdown-menu-radio-item"][data-checked],
+    [data-slot="dropdown-menu-checkbox-item"][data-checked]) :is(span, svg) {
+  color: inherit;
+}
+[data-slot="dropdown-menu-item"][data-variant="destructive"]:not([data-disabled]):is(:focus, [data-highlighted]) {
+  background-color: color-mix(in srgb, var(--destructive) 20%, transparent);
+  color: var(--destructive);
+}
+
+/* Static initial state; Motion owns the glass entrance timeline. */
+.landing-composer .generation-media-shell,
+.landing-composer [data-app-prompt-field][data-surface="hero"] { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+ .landing-composer .generation-media-shell,
+ .landing-composer [data-app-prompt-field][data-surface="hero"] { opacity: 1; }
 }

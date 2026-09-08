@@ -11,6 +11,8 @@ export type HistorySort = GenerationHistorySort;
 export type HistoryQuery = {
   type: HistoryType;
   query: string;
+  model?: string;
+  prompt?: string;
   sort: HistorySort;
   limit: number;
   offset: number;
@@ -55,6 +57,8 @@ export function parseHistoryQuery(
   return {
     type,
     query,
+    ...(searchParams.get("model")?.trim() ? {model:searchParams.get("model")!.trim()} : {}),
+    ...(searchParams.get("prompt")?.trim() ? {prompt:searchParams.get("prompt")!.trim()} : {}),
     sort,
     limit: clamp(limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT),
     offset: Math.max(offset ?? 0, 0),
@@ -64,6 +68,12 @@ export function parseHistoryQuery(
 export function buildImageWhere(
   query: HistoryQuery,
 ): Prisma.ImageGenerationWhereInput {
+  if (query.model || query.prompt) return {
+    AND: [
+      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
+    ],
+  };
   if (!query.query) return {};
 
   return {
@@ -87,6 +97,12 @@ export function buildImageWhere(
 export function buildVideoWhere(
   query: HistoryQuery,
 ): Prisma.VideoGenerationWhereInput {
+  if (query.model || query.prompt) return {
+    AND: [
+      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
+    ],
+  };
   if (!query.query) return {};
 
   return {
@@ -110,6 +126,12 @@ export function buildVideoWhere(
 export function buildAudioWhere(
   query: HistoryQuery,
 ): Prisma.AudioGenerationWhereInput {
+  if (query.model || query.prompt) return {
+    AND: [
+      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
+    ],
+  };
   if (!query.query) return {};
 
   return {

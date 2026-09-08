@@ -138,8 +138,9 @@ describe("ImageGenerationForm", () => {
     expect(dock).not.toHaveTextContent("1:1");
     expect(dock).not.toHaveTextContent("1K");
     expect(dock).not.toHaveTextContent("Draw");
-    expect(dock).toHaveTextContent("출력 크기");
-    expect(dock).toHaveTextContent("이미지 수");
+    expect(dock).toHaveTextContent("상세 옵션");
+    expect(dock).not.toHaveTextContent("출력 크기");
+    expect(dock).not.toHaveTextContent("이미지 수");
     expect(within(dock).queryByRole("spinbutton", { name: "너비" })).toBeNull();
     expect(within(dock).queryByRole("spinbutton", { name: "높이" })).toBeNull();
     expect(screen.queryByText("준비 완료")).not.toBeInTheDocument();
@@ -210,7 +211,7 @@ describe("ImageGenerationForm", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("필수 입력값이 비어 있으면 오류 메시지를 표시한다", async () => {
+  it("빈 프롬프트에서는 생성 버튼을 비활성화한다", async () => {
     const startGeneration = vi.fn();
     const reset = vi.fn();
 
@@ -227,18 +228,11 @@ describe("ImageGenerationForm", () => {
 
     expect(screen.queryByTestId("shared-prompt-feedback")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "생성" }));
-
-    expect(
-      await screen.findByText("프롬프트를 입력해주세요."),
-    ).toBeInTheDocument();
-    const feedback = screen.getByTestId("shared-prompt-feedback");
-    expect(screen.getByTestId("shared-prompt-form-surface")).toContainElement(
-      feedback,
-    );
-    expect(feedback).toContainElement(
-      screen.getByText("프롬프트를 입력해주세요."),
-    );
+    const submit=screen.getByRole("button", { name: "생성" });
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+    await user.type(within(screen.getByRole("region", {name:"작업 입력"})).getByRole("textbox"), "sunset");
+    expect(submit).toBeEnabled();
     expect(startGeneration).not.toHaveBeenCalled();
   });
 
@@ -326,14 +320,14 @@ describe("ImageGenerationForm", () => {
     await user.click(
       await screen.findByRole("button", { name: /FLUX\.2 Klein 9B/i }),
     );
-    await user.click(await screen.findByRole("button", { name: /설정/i }));
+    await user.click(await screen.findByRole("button", { name: /상세 옵션/i }));
 
     expect(await screen.findByText("모드")).toBeInTheDocument();
     expect(await screen.findByText("가이던스")).toBeInTheDocument();
     expect(await screen.findByText("프롬프트 보강")).toBeInTheDocument();
   });
 
-  it("GPT Image 2 모델들에서는 설정 패널을 노출하지 않는다", async () => {
+  it("GPT Image 2 모델들에서는 빈 상세 옵션을 열 수 없다", async () => {
     mockUseImageGeneration.mockReturnValue({
       state: { status: "idle", progress: 0 },
       startGeneration: vi.fn(),
@@ -352,6 +346,7 @@ describe("ImageGenerationForm", () => {
       await user.click(gptButton as HTMLButtonElement);
 
       await waitFor(() => {
+        expect(screen.getByRole("button", {name:"상세 옵션"})).toBeDisabled();
         expect(
           screen.queryByRole("heading", { name: "설정" }),
         ).not.toBeInTheDocument();

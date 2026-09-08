@@ -88,7 +88,9 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
       let sectionId = tagIdMap.get(tag);
       if (!sectionId) {
         const baseSlug = slugifyTag(tag);
-        sectionId = ensureUniqueSlug(baseSlug || `section-${tagIdMap.size + 1}`);
+        sectionId = ensureUniqueSlug(
+          baseSlug || `section-${tagIdMap.size + 1}`,
+        );
         tagIdMap.set(tag, sectionId);
       }
       const section = sections.get(tag) ?? {
@@ -118,8 +120,8 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
     (tag) => !orderedTags.includes(tag),
   );
 
-  const orderedSections = [...orderedTags, ...remainingTags].map(
-    (tag) => sections.get(tag)!,
+  const orderedSections = [...orderedTags, ...remainingTags].map((tag) =>
+    sections.get(tag)!,
   );
 
   orderedSections.forEach((section) => {
@@ -170,6 +172,8 @@ export function buildExampleFromSchema(
   const resolved = resolveSchema(schema, document ?? null);
   if (!resolved) return null;
   if (resolved.example !== undefined) return resolved.example;
+  if (resolved.default !== undefined) return resolved.default;
+  if (resolved.const !== undefined) return resolved.const;
   if (resolved.format === "binary") {
     const key = hintKey?.toLowerCase() ?? "";
     if (key.includes("video")) return "sample.mp4";
@@ -181,15 +185,35 @@ export function buildExampleFromSchema(
     return resolved.enum[0];
   }
   if (resolved.oneOf && resolved.oneOf.length > 0) {
-    return buildExampleFromSchema(resolved.oneOf[0], document, hintKey, examples);
+    return buildExampleFromSchema(
+      resolved.oneOf[0],
+      document,
+      hintKey,
+      examples,
+    );
   }
   if (resolved.anyOf && resolved.anyOf.length > 0) {
-    return buildExampleFromSchema(resolved.anyOf[0], document, hintKey, examples);
+    return buildExampleFromSchema(
+      resolved.anyOf[0],
+      document,
+      hintKey,
+      examples,
+    );
   }
   if (resolved.allOf && resolved.allOf.length > 0) {
+    if (resolved.type === "string")
+      return buildStringExample(hintKey, examples);
+    if (resolved.type === "number" || resolved.type === "integer")
+      return resolved.minimum ?? buildNumberExample(hintKey);
+    if (resolved.type === "boolean") return true;
     const merged = resolved.allOf.reduce<Record<string, unknown>>(
       (acc, item) => {
-        const example = buildExampleFromSchema(item, document, hintKey, examples);
+        const example = buildExampleFromSchema(
+          item,
+          document,
+          hintKey,
+          examples,
+        );
         if (example && typeof example === "object" && !Array.isArray(example)) {
           Object.assign(acc, example);
         }
@@ -205,7 +229,7 @@ export function buildExampleFromSchema(
       return buildStringExample(hintKey, examples);
     case "number":
     case "integer":
-      return buildNumberExample(hintKey);
+      return resolved.minimum ?? buildNumberExample(hintKey);
     case "boolean":
       return true;
     case "array": {
@@ -236,7 +260,7 @@ function buildStringExample(hintKey?: string, examples?: ExampleStrings) {
   if (key.includes("id")) return `${hintKey ?? "id"}_01`;
   if (key.includes("status")) return "processing";
   if (key.includes("email")) return "admin@leesfield.ai";
-  if (key.includes("model")) return "image-core";
+  if (key.includes("model")) return "<MODEL_ID>";
   if (key.includes("prompt")) return examples?.samplePrompt ?? "Sample prompt";
   if (key.includes("audio")) return "sample.mp3";
   if (key.includes("url")) {
@@ -292,8 +316,8 @@ function extractRequestInfo(
   }
 
   const preferredContentTypes = [
-    "multipart/form-data",
     "application/json",
+    "multipart/form-data",
     "application/x-www-form-urlencoded",
   ];
   const preferredType = preferredContentTypes.find(
@@ -322,7 +346,10 @@ function resolveRequestBody(
     const refName = requestBody.$ref.split("/").pop();
     if (!refName) return null;
     const resolved = document.components?.requestBodies?.[refName] ?? null;
-    if (resolved && isReferenceObject(resolved as OpenApiOperation["requestBody"])) {
+    if (
+      resolved &&
+      isReferenceObject(resolved as OpenApiOperation["requestBody"])
+    ) {
       return null;
     }
     return resolved as OpenApiRequestBody | null;
@@ -335,9 +362,9 @@ function isReferenceObject(
 ): value is { $ref: string } {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "$ref" in value &&
-      typeof (value as { $ref?: unknown }).$ref === "string",
+    typeof value === "object" &&
+    "$ref" in value &&
+    typeof (value as { $ref?: unknown }).$ref === "string",
   );
 }
 
@@ -412,9 +439,6 @@ function resolveSchema(
     const resolved = document?.components?.schemas?.[name] ?? null;
     return resolveSchema(resolved, document);
   }
-  if ("allOf" in schema && schema.allOf && schema.allOf.length > 0) {
-    return resolveSchema(schema.allOf[0], document) ?? (schema as OpenApiSchema);
-  }
   return schema;
 }
 
@@ -443,7 +467,11 @@ function extractExample(
   if (content.example !== undefined) return content.example;
   if (content.examples) {
     const firstExample = Object.values(content.examples)[0];
-    if (firstExample && "value" in firstExample && firstExample.value !== undefined) {
+    if (
+      firstExample &&
+      "value" in firstExample &&
+      firstExample.value !== undefined
+    ) {
       return firstExample.value;
     }
   }

@@ -1,47 +1,39 @@
-import { Header } from "@/widgets/header/ui/header";
+import Link from "next/link";
 import { LoginForm } from "@/features/auth/login/ui/login-form";
 import { getTranslations } from "next-intl/server";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
+import { LoginVisual } from "./login-visual";
+
 type LoginScreenProps = { returnTo?: string };
+
 export async function LoginScreen({ returnTo = "/" }: LoginScreenProps) {
   const t = await getTranslations("auth.login");
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Header variant="public" />
-      <main className="flex min-h-[calc(100svh-4rem)] flex-1 items-center">
-        <section
-          aria-label={t("panelLabel")}
-          className="mx-auto grid w-full max-w-[72rem] gap-10 px-5 py-14 sm:px-7 sm:py-20 lg:grid-cols-[minmax(0,.9fr)_minmax(20rem,.58fr)] lg:items-center lg:px-8"
-        >
-          <div
-            className="hidden min-h-[28rem] items-center justify-center lg:flex"
-            aria-hidden="true"
-          >
-            <div className="flex flex-col items-center gap-6">
-              <AppBrandLogo
-                variant="icon"
-                size="lg"
-                markClassName="h-28 w-28"
-              />
-              <p className="text-sm text-muted-foreground">
-                {t("platform")}
-              </p>
-            </div>
-          </div>
-          <div className="mx-auto flex w-full max-w-sm flex-col text-center lg:mx-0 lg:text-left">
-            <AppBrandLogo size="sm" className="mx-auto lg:mx-0" />
-            <h1 className="mt-3 break-keep text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.05em] sm:text-[2.75rem] lg:text-5xl">
+    <main className="min-h-svh bg-background p-5 sm:p-8 lg:p-10">
+      <section
+        aria-label={t("panelLabel")}
+        className="mx-auto grid min-h-[calc(100svh-2.5rem)] w-full max-w-[1600px] items-stretch gap-10 sm:min-h-[calc(100svh-4rem)] lg:min-h-[calc(100svh-5rem)] lg:grid-cols-2 lg:gap-16"
+      >
+        <div className="flex items-center justify-center py-12 sm:px-6 lg:py-16">
+          <div className="w-full max-w-md text-left">
+            <Link href="/" className="inline-flex rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+              <AppBrandLogo size="sm" />
+            </Link>
+            <h1 className="mt-8 break-keep text-balance text-4xl font-semibold leading-tight tracking-[-0.045em] sm:text-5xl">
               {t("headline")}
             </h1>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            <p className="mt-5 text-sm leading-7 text-muted-foreground sm:text-base">
               {t("subtitle")}
             </p>
-            <div className="mt-8 w-full">
+            <div className="mt-10">
               <LoginForm returnTo={returnTo} />
             </div>
           </div>
-        </section>
-      </main>
-    </div>
+        </div>
+        <div className="relative hidden min-h-[36rem] overflow-hidden rounded-3xl bg-card lg:block" aria-hidden="true">
+          <LoginVisual />
+        </div>
+      </section>
+    </main>
   );
 }

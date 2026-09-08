@@ -1,4 +1,9 @@
 "use client";
+import { useState } from "react";
+import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
+import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -110,8 +115,6 @@ const visibleAdvancedAudioFields = new Set<AudioFieldName>([
   "voiceInstruction",
 ]);
 
-const dockChipClass =
-  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
 const studioPreviewShellClass =
   "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
 const studioResultFrameClass =
@@ -245,11 +248,6 @@ export function AudioGenerationForm({
 
   const promptValue = useWatch({ control: form.control, name: "prompt" }) ?? "";
   const formValues = useWatch({ control: form.control });
-  const voice = useWatch({ control: form.control, name: "voice" }) ?? "";
-  const speaker = useWatch({ control: form.control, name: "speaker" }) ?? "";
-  const speed =
-    useWatch({ control: form.control, name: "speed" }) ??
-    audioGenerationDefaults.speed;
   const inputAudio =
     useWatch({ control: form.control, name: "inputAudio" }) ??
     audioGenerationDefaults.inputAudio;
@@ -263,6 +261,12 @@ export function AudioGenerationForm({
       : defaultModelKey
     : "";
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
+  const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
+  const [promptWasEdited, setPromptWasEdited] = useState(false);
+  const promptFeedbackSubmitted = form.formState.isSubmitted;
+  const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
+  const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
   const activeDefaults = useMemo<
     Partial<Record<AudioFieldName, string | number | boolean | undefined>>
   >(
@@ -348,6 +352,7 @@ export function AudioGenerationForm({
       }
     }
 
+    if (getGradioContract(model)) { form.setValue("dynamicParams", {}); return; }
     form.reset({
       ...audioGenerationDefaults,
       ...currentValues,
@@ -398,6 +403,7 @@ export function AudioGenerationForm({
     if (isGenerating) {
       reset();
     }
+    form.setValue("dynamicParams", {});
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
@@ -437,6 +443,7 @@ export function AudioGenerationForm({
       return;
     }
 
+    if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
     void form.handleSubmit((values) => {
       const resolvedVoiceDefault = String(
         getResolvedDefaultValue("voice") ?? "",
@@ -1135,15 +1142,19 @@ export function AudioGenerationForm({
                         className="min-h-[160px]"
                         placeholder={tAudio("promptPlaceholder")}
                         {...field}
+ onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
                       />
                     </AppFormControl>
                   }
                   feedback={
-                    fieldState.error ? (
+                    gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                       <AppFormMessage className="text-xs text-red-400" />
                     ) : undefined
                   }
-                  footerLeft={
+                  footerLeft={gradioContract ? <>
+<GenerationModelSection modality="audio" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+</> : (
                     <>
                       {!isGuest && hasModels ? (
                         <GenerationModelSection
@@ -1153,42 +1164,14 @@ export function AudioGenerationForm({
                           onSelect={handleSelectModel}
                         />
                       ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className={cn(
-                            dockChipClass,
-                            "min-w-[13rem] max-w-[13rem] cursor-not-allowed justify-between opacity-70",
-                          )}
-                        >
-                          <span className="min-w-0 flex flex-col items-start leading-tight">
-                            <span className="text-[10px] font-semibold uppercase text-white/42">
-                              {tGeneration("modelSelect")}
-                            </span>
-                            <span className="max-w-[13rem] truncate font-medium">
-                              {isModelLoading
-                                ? tGeneration("modelLoading")
-                                : isGuest
-                                  ? tGeneration("modelLoginRequired")
-                                  : tGeneration("modelUnavailable")}
-                            </span>
-                          </span>
-                        </button>
+                        <GenerationModelSection modality="audio" items={[]} activeId={null} onSelect={() => {}} disabled loading={isModelLoading} selectionLabel={isGuest ? tGeneration("modelLoginRequired") : tGeneration("modelUnavailable")} />
                       )}
-                      <GenerationSettingsPopover
-                        label={tLabels("settings")}
-                        summary={
-                          parameterKeys.includes("speaker") && speaker?.trim()
-                            ? speaker.trim()
-                            : parameterKeys.includes("voice") &&
-                                voice?.trim() &&
-                                voice !== activeDefaults.voice
-                              ? voice
-                              : `${speed}x`
-                        }
+                      <GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined}
+                        label={tLabels("advancedOptions")}
+                        summary={tLabels("advancedOptions")}
                         icon={<SlidersHorizontal className="h-4 w-4" />}
                       >
-                        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
+                        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto p-1">
                           {primaryParameterKeys.map((key) =>
                             renderAudioField(key),
                           )}
@@ -1209,8 +1192,8 @@ export function AudioGenerationForm({
                         </div>
                       </GenerationSettingsPopover>
                     </>
-                  }
-                  footerRight={
+                  )}
+footerRight={
                     <>
                       <AppButton
                         variant="generate"
@@ -1219,7 +1202,7 @@ export function AudioGenerationForm({
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
-                            (isModelLoading || !hasModels || !canSubmit))
+                            (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
                         className="min-w-24"
                         onClick={

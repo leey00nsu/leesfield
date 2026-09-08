@@ -1,6 +1,8 @@
 export interface HistoryStatusQueryParams {
   type: string;
   query: string;
+  model?: string;
+  prompt?: string;
 }
 
 export interface HistoryStatusResponse {
@@ -12,6 +14,8 @@ export interface HistoryStatusResponse {
 function buildHistoryStatusUrl(params: HistoryStatusQueryParams) {
   const searchParams = new URLSearchParams();
   if (params.type) searchParams.set("type", params.type);
+  if (params.model) searchParams.set("model", params.model);
+  if (params.prompt) searchParams.set("prompt", params.prompt);
   if (params.query) searchParams.set("query", params.query);
 
   return `/api/history/status?${searchParams.toString()}`;

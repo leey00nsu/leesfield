@@ -1,24 +1,13 @@
-export type VideoGenerationStatus =
-  | "pending"
-  | "processing"
-  | "uploading"
-  | "completed"
-  | "failed"
-  | "cancelled";
+import type { z } from "zod";
+import type {
+  generationStatusSchema,
+  statusResponseSchemas,
+} from "@/shared/api/external-contract";
 
-export interface VideoGenerationResult {
-  videos: Array<{
-    url: string;
-    width?: number;
-    height?: number;
-    durationSec?: number;
-  }>;
-}
-
-export interface VideoGenerationResponse {
-  requestId: string;
-  status: VideoGenerationStatus;
-  progress: number;
-  result?: VideoGenerationResult;
-  errorMessage?: string;
-}
+export type VideoGenerationStatus = z.infer<typeof generationStatusSchema>;
+export type VideoGenerationResponse = z.infer<
+  typeof statusResponseSchemas.video
+>;
+export type VideoGenerationResult = NonNullable<
+  VideoGenerationResponse["result"]
+>;

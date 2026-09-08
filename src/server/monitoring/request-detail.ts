@@ -1,3 +1,4 @@
+import { requestSettings } from "./request-settings";
 import { parseImageVariants, type ImageVariants } from "@/shared/media-assets/image-variants";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -15,6 +16,7 @@ export type MonitoringRequestAsset = {
 };
 
 export type MonitoringRequestDetail = {
+  requestParameters?: Record<string, unknown> | null;
   id: string;
   type: "image" | "video" | "audio";
   status: string;
@@ -97,6 +99,7 @@ export async function getMonitoringRequestDetail(
       type: "image",
       status: record.status,
       model: record.modelKey ?? null,
+      requestParameters: requestSettings(record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
@@ -148,6 +151,7 @@ export async function getMonitoringRequestDetail(
       type: "audio",
       status: record.status,
       model: record.modelKey ?? null,
+      requestParameters: requestSettings(record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
@@ -199,6 +203,7 @@ export async function getMonitoringRequestDetail(
     type: "video",
     status: record.status,
     model: record.modelKey ?? null,
+      requestParameters: requestSettings(record.requestParams),
     prompt: record.prompt,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

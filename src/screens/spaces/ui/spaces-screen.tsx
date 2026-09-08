@@ -1,4 +1,5 @@
 "use client";
+import { ResourceListLoading } from "@/shared/ui/resource-list-loading";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -94,7 +95,7 @@ export function SpacesScreen() {
         <AppButton variant="brand" size="toolbar" onClick={() => begin({ kind: "create" })} disabled={busy}><Plus aria-hidden="true" />{t("new")}</AppButton>
       </AppFilterToolbar>
       {error && !action ? <p role="alert" className="text-destructive">{t(error)}</p> : null}
-      {query.isLoading ? <AppCard variant="editorial-flat" radius="lg" className="p-8 text-sm text-muted-foreground" role="status">{t("loading")}</AppCard> : null}
+      {query.isLoading ? <ResourceListLoading label={t("loading")} /> : null}
       {query.isError ? <AppCard variant="editorial-flat" radius="lg" className="p-8" role="alert"><p>{t("loadError")}</p><AppButton variant="surface" className="mt-4" onClick={() => void query.refetch()}>{t("retry")}</AppButton></AppCard> : null}
       {!query.isLoading && !query.isError && !query.data?.length ? <AppCard variant="editorial-flat" radius="lg" className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center">
         <Workflow className="size-8 text-muted-foreground" aria-hidden />
@@ -127,9 +128,9 @@ export function SpacesScreen() {
           <AppDialogDescription>{action?.kind === "delete" ? t("deleteDescription", { title: action.title }) : t("namePrompt")}</AppDialogDescription>
           <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void confirm(); }}>
             {action?.kind !== "delete" ? <AppInput aria-label={t("name")} autoFocus maxLength={120} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /> : null}
-            {error ? <p role="alert" className="text-red-300">{t(error)}</p> : null}
+            <div className="min-h-10" aria-live="polite">{error ? <p role="alert" className="text-red-300">{t(error)}</p> : null}</div>
             <div className="flex justify-end gap-2"><AppButton type="button" variant="surface" disabled={busy} onClick={() => setAction(null)}>{t("cancel")}</AppButton>
-              <AppButton type="submit" variant={action?.kind === "delete" ? "danger" : "brand"} disabled={busy || (action?.kind !== "delete" && !name.trim())}>{busy ? t("busy") : action?.kind === "delete" ? t("delete") : t("save")}</AppButton></div>
+              <AppButton type="submit" className="min-w-28" variant={action?.kind === "delete" ? "danger" : "brand"} disabled={busy || (action?.kind !== "delete" && !name.trim())}>{busy ? t("busy") : action?.kind === "delete" ? t("delete") : t("save")}</AppButton></div>
           </form>
         </AppDialogContent>
       </AppDialog>

@@ -1,665 +1,147 @@
 import {
   OpenAPIRegistry,
-  OpenApiGeneratorV3,
-  extendZodWithOpenApi,
+  OpenApiGeneratorV31,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import { modelCatalog } from "@/features/model-management/model/model-catalog";
-
-extendZodWithOpenApi(z);
-
-const registry = new OpenAPIRegistry();
-
-registry.registerComponent("securitySchemes", "ApiKeyAuth", {
-  type: "apiKey",
-  in: "header",
-  name: "X-API-Key",
-});
-
-const errorResponseSchema = z.object({
-  message: z.string(),
-  errors: z.unknown().optional(),
-  requestId: z.string().optional(),
-});
-
-const generationResponseSchema = z.object({
-  requestId: z.string(),
-  status: z.string(),
-  progress: z.number(),
-});
-
-const imageResultSchema = z.object({
-  images: z.array(
-    z.object({
-      url: z.string(),
-      width: z.number().optional(),
-      height: z.number().optional(),
-    }),
-  ),
-});
-
-const videoResultSchema = z.object({
-  videos: z.array(
-    z.object({
-      url: z.string(),
-      width: z.number().optional(),
-      height: z.number().optional(),
-      durationSec: z.number().optional(),
-    }),
-  ),
-});
-
-const imageStatusResponseSchema = z.object({
-  requestId: z.string(),
-  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
-  progress: z.number(),
-  result: imageResultSchema.optional(),
-  errorMessage: z.string().optional(),
-});
-
-const videoStatusResponseSchema = z.object({
-  requestId: z.string(),
-  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
-  progress: z.number(),
-  result: videoResultSchema.optional(),
-  errorMessage: z.string().optional(),
-});
-
-const audioResultSchema = z.object({
-  audios: z.array(
-    z.object({
-      url: z.string(),
-      durationSec: z.number().optional(),
-    }),
-  ),
-});
-
-const audioStatusResponseSchema = z.object({
-  requestId: z.string(),
-  status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
-  progress: z.number(),
-  result: audioResultSchema.optional(),
-  errorMessage: z.string().optional(),
-});
-
-const modelResponseSchema = z.object({
-  items: z.array(z.unknown()),
-});
+import {
+  apiKeyHeader,
+  apiPaths,
+  errorResponseSchema,
+  externalGenerationRequestSchema,
+  externalGenerationMultipartSchema,
+  externalGenerationResponseSchema,
+  externalGenerationStatusSchema,
+  externalModelsResponseSchema,
+  externalModelInputResponseSchema,
+  modelQuerySchema,
+} from "@/shared/api/external-contract";
 
 export type OpenApiTranslations = {
   infoDescription?: string;
-  tags?: {
-    images?: string;
-    videos?: string;
-    audio?: string;
-    models?: string;
-  };
+  tags?: { generations?: string; models?: string };
   paths?: {
-    imageGeneration?: string;
-    videoGeneration?: string;
-    audioGeneration?: string;
-    imageStatus?: string;
-    videoStatus?: string;
-    audioStatus?: string;
+    generation?: string;
+    status?: string;
     models?: string;
+    modelSchema?: string;
   };
 };
 
-const imageGenerationFormDataSchema = z.object({
-  prompt: z.string(),
-  width: z.number().int(),
-  height: z.number().int(),
-  initImages: z
-    .array(z.string().openapi({ type: "string", format: "binary" }))
-    .optional(),
-  model: z
-    .string()
-    .openapi({
-      description: "Use /api/external/models to fetch available model keys.",
-    }),
-  imageCount: z.number().int(),
-  steps: z.number().int(),
-  modeChoice: z.string().optional(),
-  guidanceScale: z.number().optional(),
-  promptUpsampling: z.boolean().optional(),
-  seed: z.string().optional(),
-});
-
-const videoGenerationFormDataSchema = z.object({
-  prompt: z.string(),
-  initImage: z
-    .string()
-    .optional()
-    .openapi({ type: "string", format: "binary" }),
-  model: z
-    .string()
-    .openapi({
-      description: "Use /api/external/models to fetch available model keys.",
-    }),
-  aspectRatio: z.string(),
-  resolution: z.number().int(),
-  durationSec: z.number(),
-  fps: z.number().int(),
-  steps: z.number().int(),
-  guidanceScale: z.number(),
-  seed: z.string().optional(),
-});
-
-const audioGenerationFormDataSchema = z.object({
-  prompt: z.string(),
-  model: z
-    .string()
-    .openapi({
-      description: "Use /api/external/models to fetch available model keys.",
-    }),
-  voice: z.string().optional(),
-  speed: z.number().optional(),
-  seed: z.string().optional(),
-  inputAudio: z
-    .string()
-    .optional()
-    .openapi({ type: "string", format: "binary" }),
-  referenceText: z.string().optional(),
-});
-
-registry.register("ErrorResponse", errorResponseSchema);
-registry.register("GenerationResponse", generationResponseSchema);
-registry.register("ModelResponse", modelResponseSchema);
-
-registry.registerPath({
-  method: "post",
-  path: "/api/external/image-generation",
-  tags: ["Images"],
-  description: "Creates an image generation request.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    body: {
-      required: true,
-      content: {
-        "multipart/form-data": {
-          schema: imageGenerationFormDataSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: generationResponseSchema,
-        },
-      },
-    },
-    400: {
-      description: "Invalid request",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidRequest: {
-              value: {
-                message: "INVALID_REQUEST",
-                errors: {
-                  formErrors: [],
-                  fieldErrors: {
-                    prompt: ["프롬프트를 입력해주세요."],
-                  },
-                },
-              },
-            },
-            invalidFormData: {
-              value: {
-                message: "INVALID_FORM_DATA",
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "post",
-  path: "/api/external/video-generation",
-  tags: ["Videos"],
-  description: "Creates a video generation request.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    body: {
-      required: true,
-      content: {
-        "multipart/form-data": {
-          schema: videoGenerationFormDataSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: generationResponseSchema,
-        },
-      },
-    },
-    400: {
-      description: "Invalid request",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidRequest: {
-              value: {
-                message: "INVALID_REQUEST",
-                errors: {
-                  formErrors: [],
-                  fieldErrors: {
-                    prompt: ["프롬프트를 입력해주세요."],
-                  },
-                },
-              },
-            },
-            invalidFormData: {
-              value: {
-                message: "INVALID_FORM_DATA",
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "post",
-  path: "/api/external/audio-generation",
-  tags: ["Audio"],
-  description: "Creates an audio generation request.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    body: {
-      required: true,
-      content: {
-        "multipart/form-data": {
-          schema: audioGenerationFormDataSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: generationResponseSchema,
-        },
-      },
-    },
-    400: {
-      description: "Invalid request",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidRequest: {
-              value: {
-                message: "INVALID_REQUEST",
-                errors: {
-                  formErrors: [],
-                  fieldErrors: {
-                    prompt: ["프롬프트를 입력해주세요."],
-                  },
-                },
-              },
-            },
-            invalidFormData: {
-              value: {
-                message: "INVALID_FORM_DATA",
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/external/image-generation/{requestId}",
-  tags: ["Images"],
-  description: "Fetches image generation status.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    params: z.object({
-      requestId: z.string(),
-    }),
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: imageStatusResponseSchema,
-        },
-      },
-    },
-    401: {
-      description: "API key required",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Invalid or revoked API key",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalid: { value: { message: "INVALID_API_KEY" } },
-            revoked: { value: { message: "API_KEY_REVOKED" } },
-          },
-        },
-      },
-    },
-    404: {
-      description: "Not found",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "NOT_FOUND",
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/external/video-generation/{requestId}",
-  tags: ["Videos"],
-  description: "Fetches video generation status.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    params: z.object({
-      requestId: z.string(),
-    }),
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: videoStatusResponseSchema,
-        },
-      },
-    },
-    401: {
-      description: "API key required",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Invalid or revoked API key",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalid: { value: { message: "INVALID_API_KEY" } },
-            revoked: { value: { message: "API_KEY_REVOKED" } },
-          },
-        },
-      },
-    },
-    404: {
-      description: "Not found",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "NOT_FOUND",
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/external/audio-generation/{requestId}",
-  tags: ["Audio"],
-  description: "Fetches audio generation status.",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    params: z.object({
-      requestId: z.string(),
-    }),
-  },
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: audioStatusResponseSchema,
-          example: {
-            requestId: "audio_request_01",
-            status: "completed",
-            progress: 100,
-            result: {
-              audios: [
-                {
-                  url: "https://cdn.leesfield.ai/sample.mp3",
-                  durationSec: 4,
-                },
-              ],
-            },
-          },
-        },
-      },
-    },
-    401: {
-      description: "API key required",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Invalid or revoked API key",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalid: { value: { message: "INVALID_API_KEY" } },
-            revoked: { value: { message: "API_KEY_REVOKED" } },
-          },
-        },
-      },
-    },
-    404: {
-      description: "Not found",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "NOT_FOUND",
-          },
-        },
-      },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/external/models",
-  tags: ["Models"],
-  description: "Fetches available generation models.",
-  security: [{ ApiKeyAuth: [] }],
-  responses: {
-    200: {
-      description: "OK",
-      content: {
-        "application/json": {
-          schema: modelResponseSchema,
-          example: { items: modelCatalog },
-        },
-      },
-    },
-    401: {
-      description: "Unauthorized",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          example: {
-            message: "API_KEY_REQUIRED",
-          },
-        },
-      },
-    },
-    403: {
-      description: "Forbidden",
-      content: {
-        "application/json": {
-          schema: errorResponseSchema,
-          examples: {
-            invalidApiKey: {
-              value: {
-                message: "INVALID_API_KEY",
-              },
-            },
-            revokedApiKey: {
-              value: {
-                message: "API_KEY_REVOKED",
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
+/** Public protocol only. Never load instance catalog data into this document. */
 export function getOpenApiDocument(translations?: OpenApiTranslations) {
-  const generator = new OpenApiGeneratorV3(registry.definitions);
-  const tags = {
-    images: translations?.tags?.images ?? "Image generation",
-    videos: translations?.tags?.videos ?? "Video generation",
-    audio: translations?.tags?.audio ?? "Audio generation",
-    models: translations?.tags?.models ?? "Model catalog",
+  const registry = new OpenAPIRegistry();
+  registry.registerComponent("securitySchemes", "ApiKeyAuth", {
+    type: "apiKey",
+    in: "header",
+    name: apiKeyHeader,
+  });
+  const security = [{ ApiKeyAuth: [] }];
+  const json = (schema: z.ZodType) => ({ "application/json": { schema } });
+  const error = (description: string) => ({
+    description,
+    content: json(errorResponseSchema),
+  });
+  const authErrors = {
+    401: error("API key required"),
+    403: error("Invalid or revoked API key"),
   };
-  const paths = {
-    imageGeneration:
-      translations?.paths?.imageGeneration ??
-      "Creates an image generation request. Model keys are available via /api/external/models.",
-    videoGeneration:
-      translations?.paths?.videoGeneration ??
-      "Creates a video generation request. Model keys are available via /api/external/models.",
-    audioGeneration:
-      translations?.paths?.audioGeneration ??
-      "Creates an audio generation request. Model keys are available via /api/external/models.",
-    imageStatus:
-      translations?.paths?.imageStatus ??
-      "Fetches image generation status.",
-    videoStatus:
-      translations?.paths?.videoStatus ??
-      "Fetches video generation status.",
-    audioStatus:
-      translations?.paths?.audioStatus ??
-      "Fetches audio generation status.",
-    models:
+  registry.registerPath({
+    method: "post",
+    path: apiPaths.generations,
+    tags: ["Generations"],
+    security,
+    description:
+      translations?.paths?.generation ??
+      "Create an image, video or audio job. Query the authenticated model list and its input schema first. All model inputs belong in dynamicParams.",
+    request: {
+      body: {
+        required: true,
+        content: {
+          "application/json": { schema: externalGenerationRequestSchema },
+          "multipart/form-data": { schema: externalGenerationMultipartSchema },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Job accepted",
+        content: json(externalGenerationResponseSchema),
+      },
+      ...authErrors,
+      400: error("Invalid model input or media type mismatch"),
+      404: error("Model unavailable"),
+      413: error("File exceeds upload limit"),
+      415: error("Use application/json or multipart/form-data"),
+      500: error("Generation submission failed"),
+    },
+  });
+  registry.registerPath({
+    method: "get",
+    path: apiPaths.generations + "/{requestId}",
+    tags: ["Generations"],
+    security,
+    description:
+      translations?.paths?.status ??
+      "Fetch the current API key owner's job status and results.",
+    request: { params: z.object({ requestId: z.string().min(1) }) },
+    responses: {
+      200: {
+        description: "Job status and media-specific result",
+        content: json(externalGenerationStatusSchema),
+      },
+      ...authErrors,
+      404: error("Job not found"),
+    },
+  });
+  registry.registerPath({
+    method: "get",
+    path: apiPaths.models,
+    tags: ["Models"],
+    security,
+    description:
       translations?.paths?.models ??
-      "Fetches available generation models.",
-  };
-
-  const result = generator.generateDocument({
-    openapi: "3.0.0",
+      "List active models available to the authenticated caller. Model data is not included in this public document.",
+    request: { query: modelQuerySchema },
+    responses: {
+      200: {
+        description: "Model summaries",
+        content: json(externalModelsResponseSchema),
+      },
+      ...authErrors,
+      400: error("Invalid query"),
+    },
+  });
+  registry.registerPath({
+    method: "get",
+    path: apiPaths.modelSchema,
+    tags: ["Models"],
+    security,
+    description:
+      translations?.paths?.modelSchema ??
+      "Fetch the selected model's dynamicParams JSON Schema and file fields. Send files as URL/data URL values, or file:<parameterName> multipart parts.",
+    request: { params: z.object({ modelId: z.string().min(1) }) },
+    responses: {
+      200: {
+        description: "Private model input schema",
+        content: json(externalModelInputResponseSchema),
+      },
+      ...authErrors,
+      404: error("Model unavailable"),
+    },
+  });
+  const document = new OpenApiGeneratorV31(
+    registry.definitions,
+  ).generateDocument({
+    openapi: "3.1.0",
     info: {
-      title: "LeesField API",
-      version: "1.0.0",
-      description:
-        translations?.infoDescription ??
-        "This document describes the LeesField API.",
+      title: "leesfield API",
+      version: "2.0.0",
+      description: translations?.infoDescription,
     },
     tags: [
-      { name: "Images", description: tags.images },
-      { name: "Videos", description: tags.videos },
-      { name: "Audio", description: tags.audio },
-      { name: "Models", description: tags.models },
+      { name: "Generations", description: translations?.tags?.generations },
+      { name: "Models", description: translations?.tags?.models },
     ],
   });
-
-  const updateDescription = (
-    path: string,
-    method: "get" | "post",
-    description?: string,
-  ) => {
-    if (!description) return;
-    const existingPath = result.paths[path];
-    const existingOperation = existingPath?.[method];
-    if (!existingOperation) return;
-    result.paths[path] = {
-      ...existingPath,
-      [method]: {
-        ...existingOperation,
-        description,
-      },
-    };
-  };
-
-  updateDescription(
-    "/api/external/image-generation",
-    "post",
-    paths.imageGeneration,
-  );
-  updateDescription(
-    "/api/external/video-generation",
-    "post",
-    paths.videoGeneration,
-  );
-  updateDescription(
-    "/api/external/audio-generation",
-    "post",
-    paths.audioGeneration,
-  );
-  updateDescription(
-    "/api/external/image-generation/{requestId}",
-    "get",
-    paths.imageStatus,
-  );
-  updateDescription(
-    "/api/external/video-generation/{requestId}",
-    "get",
-    paths.videoStatus,
-  );
-  updateDescription(
-    "/api/external/audio-generation/{requestId}",
-    "get",
-    paths.audioStatus,
-  );
-  updateDescription("/api/external/models", "get", paths.models);
-
-  return result;
+  return { ...document, paths: document.paths ?? {} };
 }

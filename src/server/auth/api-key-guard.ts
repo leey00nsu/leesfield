@@ -1,3 +1,5 @@
+import { apiKeyHeader } from "@/shared/api/external-contract";
+import { buildErrorResponse } from "@/server/http/response";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db/prisma";
 import { hashApiKey } from "@/server/api-key/lib/api-key-service";
@@ -10,14 +12,11 @@ export type ApiKeyAuthContext = {
 export async function requireApiKey(
   request: Request,
 ): Promise<ApiKeyAuthContext | NextResponse> {
-  const rawKey = request.headers.get("x-api-key") ?? request.headers.get("X-API-Key");
+  const rawKey = request.headers.get(apiKeyHeader);
   const apiKey = rawKey?.trim() ?? "";
 
   if (!apiKey) {
-    return NextResponse.json(
-      { message: "API_KEY_REQUIRED" },
-      { status: 401 },
-    );
+    return buildErrorResponse("API_KEY_REQUIRED", 401);
   }
 
   const keyHash = hashApiKey(apiKey);
@@ -26,17 +25,11 @@ export async function requireApiKey(
   });
 
   if (!record) {
-    return NextResponse.json(
-      { message: "INVALID_API_KEY" },
-      { status: 403 },
-    );
+    return buildErrorResponse("INVALID_API_KEY", 403);
   }
 
   if (record.status !== "active") {
-    return NextResponse.json(
-      { message: "API_KEY_REVOKED" },
-      { status: 403 },
-    );
+    return buildErrorResponse("API_KEY_REVOKED", 403);
   }
 
   void prisma.apiKey

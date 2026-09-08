@@ -107,3 +107,7 @@
 0107-persisted-image-presentations.patch
 0108-node-upload-progress.patch
 0109-shared-brand-logo.patch
+0110-shared-canvas-inputs.patch
+0111-canvas-shared-dialogs-i18n.patch
+0113-reference-image-menu.patch
+0114-connected-image-preview.patch

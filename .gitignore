@@ -57,3 +57,6 @@ next-env.d.ts
 
 # generated from the immutable Node Banana snapshot + Leesfield patches
 /.generated/
+
+# Isolated production performance builds
+.next-perf-*/

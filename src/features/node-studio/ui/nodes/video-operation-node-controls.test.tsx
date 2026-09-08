@@ -62,7 +62,7 @@ describe("VideoOperationNodeControls", () => {
     renderControls("edit.video.stitch", { repeat: 2, stripAudio: false });
 
     expect(screen.getByRole("spinbutton", { name: "Sequence repeat" })).toHaveValue(2);
-    const stripAudio = screen.getByRole("checkbox", {
+    const stripAudio = screen.getByRole("switch", {
       name: "Remove all source and soundtrack audio",
     });
     expect(stripAudio).not.toBeChecked();
@@ -80,7 +80,7 @@ describe("VideoOperationNodeControls", () => {
       bezier: [0.1, 0.2, 0.8, 0.9],
     });
 
-    expect(screen.getByRole("combobox", { name: "Curve" })).toHaveValue("custom");
+    expect(screen.getByRole("combobox", { name: "Curve" })).toHaveTextContent("Custom bezier");
     expect(screen.getByRole("spinbutton", { name: "Output (s)" })).toHaveValue(2.5);
 
     fireEvent.change(screen.getByRole("spinbutton", { name: "Bezier 2" }), {

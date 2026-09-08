@@ -6,8 +6,8 @@ import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 const exampleUrl = apiBaseUrl
-  ? `${apiBaseUrl}/v1/models`
-  : "<API_BASE_URL>/v1/models";
+  ? `${apiBaseUrl}/api/external/models`
+  : "<API_BASE_URL>/api/external/models";
 
 export function ApiDocsAuthSection() {
   const t = useTranslations("apiDocs.auth");
@@ -17,44 +17,43 @@ export function ApiDocsAuthSection() {
       <AppDocsSectionCard
         title={
           <span className="flex items-center gap-3">
-            <KeyRound className="h-5 w-5 text-primary" />
+            <KeyRound className="h-5 w-5 text-data-accent-foreground" />
             {t("title")}
           </span>
         }
         description={t.rich("description", {
           link: (chunks) => (
-            <Link href="/api-key" className="text-primary hover:underline">
+            <Link
+              href="/api-key"
+              className="text-data-accent-foreground hover:underline"
+            >
               {chunks}
             </Link>
           ),
         })}
         action={
-          <AppButton
-            asChild
-            variant="surface"
-            size="sm"
-            className="rounded-full border-white/10 px-3 text-[11px] font-bold uppercase tracking-wider"
-          >
+          <AppButton asChild variant="brand" size="sm">
             <Link href="/api-key">{t("viewKey")}</Link>
           </AppButton>
         }
       >
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-white/8 bg-black/18 p-5">
-            <p className="text-sm text-white/60">
+          <div className="rounded-2xl border border-border bg-muted/30 p-5">
+            <p className="text-sm text-foreground/60">
               {t.rich("includeHeader", {
                 header: (chunks) => (
-                  <code className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-primary">
+                  <code className="rounded border border-data-accent/20 bg-data-accent/10 px-1.5 py-0.5 font-mono text-data-accent-foreground">
                     {chunks}
                   </code>
                 ),
               })}
             </p>
-            <div className="mt-4 rounded-xl border border-white/8 bg-black/52 p-4 font-mono text-sm text-white/76">
-              <span className="text-primary">curl</span> {exampleUrl} \
+            <div className="mt-4 rounded-xl border border-border bg-background p-4 font-mono text-sm text-foreground/76">
+              <span className="text-data-accent-foreground">curl</span>{" "}
+              {exampleUrl} \
               <div className="mt-1 pl-4">
                 -H{" "}
-                <span className="text-white/78">
+                <span className="text-foreground/78">
                   &quot;X-API-Key: lf_live_...&quot;
                 </span>
               </div>
@@ -62,7 +61,7 @@ export function ApiDocsAuthSection() {
           </div>
           <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
             <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
-            <p className="text-sm leading-6 text-white/58">
+            <p className="text-sm leading-6 text-foreground/58">
               {t("warning")}
             </p>
           </div>

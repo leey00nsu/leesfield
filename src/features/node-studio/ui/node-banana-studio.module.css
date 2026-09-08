@@ -165,10 +165,10 @@
   font-size: 0.6875rem;
 }
 
-.runtime :global(.node-banana-runtime__quick-menu button:hover),
-.runtime :global(.node-banana-runtime__quick-menu button:focus-visible) {
+.runtime :global(.node-banana-runtime__quick-menu button:not(:disabled):hover),
+.runtime :global(.node-banana-runtime__quick-menu button:not(:disabled):focus-visible) {
   color: white;
-  background: var(--border);
+  background: var(--interaction-hover);
   outline: none;
 }
 
@@ -211,10 +211,10 @@
   font-size: 0.6875rem;
 }
 
-.runtime :global(.node-banana-runtime__all-nodes-menu button:hover),
-.runtime :global(.node-banana-runtime__all-nodes-menu button:focus-visible) {
+.runtime :global(.node-banana-runtime__all-nodes-menu button:not(:disabled):hover),
+.runtime :global(.node-banana-runtime__all-nodes-menu button:not(:disabled):focus-visible) {
   color: white;
-  background: var(--border);
+  background: var(--interaction-hover);
   outline: none;
 }
 
@@ -329,10 +329,10 @@
   font-size: 0.75rem;
 }
 
-.runtime :global(.node-banana-runtime__menu-items button:hover),
-.runtime :global(.node-banana-runtime__menu-items button:focus-visible) {
+.runtime :global(.node-banana-runtime__menu-items button:not(:disabled):hover),
+.runtime :global(.node-banana-runtime__menu-items button:not(:disabled):focus-visible) {
   color: white;
-  background: var(--border);
+  background: var(--interaction-hover);
   outline: none;
 }
 
@@ -447,9 +447,9 @@
   text-align: left;
 }
 
-.runtime :global(.node-banana-runtime__model-list > button:hover),
-.runtime :global(.node-banana-runtime__model-list > button:focus-visible) {
-  background: var(--border);
+.runtime :global(.node-banana-runtime__model-list > button:not(:disabled):hover),
+.runtime :global(.node-banana-runtime__model-list > button:not(:disabled):focus-visible) {
+  background: var(--interaction-hover);
   outline: none;
 }
 

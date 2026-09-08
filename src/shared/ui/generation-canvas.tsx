@@ -1,5 +1,6 @@
+"use client";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 
@@ -45,7 +46,7 @@ export function GenerationCanvas({
       {isGenerating && (
         <div role="status" className="absolute inset-0 z-20 bg-[#090b0d]">
           <AppSkeleton surface="media" className="absolute inset-0 rounded-none motion-reduce:animate-none" data-testid="generation-skeleton" />
-          <span className="sr-only">{t("generating")}</span>
+          <GenerationProgress status={status} />
         </div>
       )}
 
@@ -59,4 +60,19 @@ export function GenerationCanvas({
       )}
     </div>
   );
+}
+
+function GenerationProgress({ status }: { status: string }) {
+  const t = useTranslations("generation.canvas");
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const label = status === "pending" ? t("queued") : status === "uploading" ? t("uploading") : t("generating");
+  return <div className="relative flex size-full flex-col items-center justify-center gap-2 text-sm text-foreground">
+    <span>{label}</span>
+    <span aria-live="off" className="text-xs tabular-nums text-muted-foreground">{t("waitingTime", { seconds })}</span>
+  </div>;
 }

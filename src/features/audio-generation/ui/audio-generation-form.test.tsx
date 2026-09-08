@@ -409,8 +409,8 @@ describe("AudioGenerationForm", () => {
     );
     expect(screen.queryByTestId("shared-prompt-meta")).not.toBeInTheDocument();
     expect(dock).toHaveTextContent("모델 선택");
-    expect(dock).toHaveTextContent("설정");
-    expect(dock).toHaveTextContent("1x");
+    expect(dock).toHaveTextContent("상세 옵션");
+    expect(dock).not.toHaveTextContent("1x");
     expect(within(dock).queryByRole("slider")).toBeNull();
     expect(within(dock).queryByLabelText("Sample audio")).toBeNull();
     expect(
@@ -429,7 +429,7 @@ describe("AudioGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await waitForModels();
-    await user.click(screen.getByRole("button", { name: /설정/i }));
+    await user.click(screen.getByRole("button", { name: /상세 옵션/i }));
 
     expect(
       screen.getByRole("slider", { name: "Playback Rate" }),
@@ -652,7 +652,7 @@ describe("AudioGenerationForm", () => {
       ),
       "hello clone",
     );
-    await user.click(screen.getByRole("button", { name: /설정/i }));
+    await user.click(screen.getByRole("button", { name: /상세 옵션/i }));
     expectLabelToBeRequired("Sample audio");
     expectLabelToBeRequired("샘플 문장");
     await user.upload(
@@ -711,7 +711,7 @@ describe("AudioGenerationForm", () => {
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
     await screen.findByRole("button", { name: /Qwen 3\.5 TTS Mode/i });
-    await user.click(screen.getByRole("button", { name: /설정/i }));
+    await user.click(screen.getByRole("button", { name: /상세 옵션/i }));
 
     expect(screen.getAllByText("Mode").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Language").length).toBeGreaterThan(0);
@@ -803,7 +803,7 @@ describe("AudioGenerationForm", () => {
       ),
       "clone this voice",
     );
-    await user.click(screen.getByRole("button", { name: /설정/i }));
+    await user.click(screen.getByRole("button", { name: /상세 옵션/i }));
 
     expect(
       screen.getByRole("combobox", { name: "Model Size" }),

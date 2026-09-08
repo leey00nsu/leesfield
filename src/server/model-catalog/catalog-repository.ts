@@ -1,3 +1,4 @@
+import { normalizeGradioModel } from "@/shared/model-catalog/gradio-contract";
 import { prisma } from "@/server/db/prisma";
 
 export type ModelCatalogQuery = {
@@ -5,12 +6,14 @@ export type ModelCatalogQuery = {
 };
 
 export async function listModelCatalogRecords(params: ModelCatalogQuery = {}) {
-  return prisma.modelCatalog.findMany({
+  const records = await prisma.modelCatalog.findMany({
     where: params.includeInactive ? undefined : { isActive: true },
     orderBy: [{ type: "asc" }, { key: "asc" }],
   });
+  return records.map(normalizeGradioModel);
 }
 
 export async function getModelCatalogRecordByKey(key: string) {
-  return prisma.modelCatalog.findUnique({ where: { key } });
+  const record = await prisma.modelCatalog.findUnique({ where: { key } });
+  return record ? normalizeGradioModel(record) : null;
 }

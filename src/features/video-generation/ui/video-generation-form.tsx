@@ -1,12 +1,16 @@
 "use client";
+import { useState } from "react";
+import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
+import { SlidersHorizontal } from "lucide-react";
+import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Clock3,
   Download,
   ExternalLink,
-  Image as ImageIcon,
   ImagePlus,
   Sparkles,
   Video,
@@ -178,6 +182,12 @@ export function VideoGenerationForm({
       : defaultModelKey
     : "";
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
+  const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
+  const [promptWasEdited, setPromptWasEdited] = useState(false);
+  const promptFeedbackSubmitted = form.formState.isSubmitted;
+  const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
+  const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
   const durationRange = getRuntimeVideoParamRange(
     activeRuntimeModel,
     "durationSec",
@@ -277,6 +287,7 @@ export function VideoGenerationForm({
     if (isGenerating) {
       reset();
     }
+    form.setValue("dynamicParams", {});
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
@@ -320,6 +331,7 @@ export function VideoGenerationForm({
       return;
     }
 
+    if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
     void form.handleSubmit((values) => startGeneration(values))(event);
   };
 
@@ -422,15 +434,16 @@ export function VideoGenerationForm({
                         className="min-h-[160px]"
                         placeholder={tVideo("promptPlaceholder")}
                         {...field}
+ onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
                       />
                     </AppFormControl>
                   }
                   feedback={
-                    fieldState.error ? (
+                    gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                       <AppFormMessage className="text-xs text-red-400" />
                     ) : undefined
                   }
-                  attachments={
+                  attachments={gradioContract ? undefined : (
                     <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
                       {initImageValue ? (
                         <div className="flex flex-wrap gap-2">
@@ -472,8 +485,11 @@ export function VideoGenerationForm({
                         <ImagePlus className="h-5 w-5" />
                       </AppButton>
                     </div>
-                  }
-                  footerLeft={
+                  )}
+footerLeft={gradioContract ? <>
+<GenerationModelSection modality="video" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+</> : (
                     <>
                       {!isGuest && hasModels ? (
                         <GenerationModelSection
@@ -483,28 +499,9 @@ export function VideoGenerationForm({
                           onSelect={handleSelectModel}
                         />
                       ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className={cn(
-                            dockChipClass,
-                            "min-w-[13rem] max-w-[13rem] cursor-not-allowed justify-between opacity-70",
-                          )}
-                        >
-                          <span className="min-w-0 flex flex-col items-start leading-tight">
-                            <span className="text-[10px] font-semibold uppercase text-white/42">
-                              {tGeneration("modelSelect")}
-                            </span>
-                            <span className="max-w-[13rem] truncate font-medium">
-                              {isModelLoading
-                                ? tGeneration("modelLoading")
-                                : isGuest
-                                  ? tGeneration("modelLoginRequired")
-                                  : tGeneration("modelUnavailable")}
-                            </span>
-                          </span>
-                        </button>
+                        <GenerationModelSection modality="video" items={[]} activeId={null} onSelect={() => {}} disabled loading={isModelLoading} selectionLabel={isGuest ? tGeneration("modelLoginRequired") : tGeneration("modelUnavailable")} />
                       )}
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-1">
                       <span className={dockChipClass}>
                         <Video className="h-4 w-4" />
                         {supportsInitImage
@@ -514,11 +511,7 @@ export function VideoGenerationForm({
                           : tVideo("mode.textOnly")}
                       </span>
                       {showDuration ? (
-                        <GenerationSettingsPopover
-                          label={tLabels("durationSec")}
-                          summary={`${durationSec}s`}
-                          icon={<Clock3 className="h-4 w-4" />}
-                        >
+                        <div>
                           <AppFormControllerField
                             control={form.control}
                             name="durationSec"
@@ -554,22 +547,19 @@ export function VideoGenerationForm({
                               </AppFormItem>
                             )}
                           />
-                        </GenerationSettingsPopover>
+                        </div>
                       ) : null}
                       {showSizeNotice ? (
-                        <GenerationSettingsPopover
-                          label={tLabels("outputSize")}
-                          summary="Auto"
-                          icon={<ImageIcon className="h-4 w-4" />}
-                        >
+                        <div>
                           <p className="text-sm leading-relaxed text-gray-300">
                             {tVideo("sizeNotice")}
                           </p>
-                        </GenerationSettingsPopover>
+                        </div>
                       ) : null}
+</div></GenerationSettingsPopover>
                     </>
-                  }
-                  footerRight={
+                  )}
+footerRight={
                     <>
                       <AppButton
                         variant="generate"
@@ -578,7 +568,7 @@ export function VideoGenerationForm({
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
-                            (isModelLoading || !hasModels || !canSubmit))
+                            (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
                         className="min-w-24"
                         onClick={

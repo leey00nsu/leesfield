@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
+import { AppCloseButton } from "./app-close-button";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   Dialog,
@@ -45,11 +46,13 @@ export function AppDialogContent({
   className,
   overlayClassName,
   size = "md",
+  stableHeight = false,
   surface = "default",
   padding = "default",
   ...props
 }: ComponentProps<typeof DialogContent> & {
   size?: AppDialogSize;
+  stableHeight?: boolean;
   surface?: AppDialogSurface;
   padding?: AppDialogPadding;
 }) {
@@ -64,6 +67,9 @@ export function AppDialogContent({
         "w-[calc(100%-2rem)]",
         (surface === "editor" || surface === "canvas") && "z-[10001]",
         appDialogSizeClassNames[size],
+        "[scrollbar-gutter:stable]",
+        stableHeight && "h-[min(760px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden",
+        size === "full" && surface === "media" && "max-h-none rounded-none border-0 bg-black/88 text-white ring-0",
         appDialogSurfaceClassNames[surface],
         appDialogPaddingClassNames[padding],
         className,
@@ -80,7 +86,7 @@ export function AppDialogHeader({
   return (
     <div
       data-app-dialog-header=""
-      className={cn("flex items-start justify-between gap-4", className)}
+      className={cn("flex shrink-0 items-start justify-between gap-4", className)}
       {...props}
     />
   );
@@ -166,7 +172,7 @@ export function AppDialogCancelButton({
       data-app-dialog-cancel-button=""
       variant={variant}
       size={size}
-      className={cn("px-5 font-semibold", className)}
+      className={cn("min-w-24 px-5 font-semibold", className)}
       {...props}
     />
   );
@@ -202,4 +208,12 @@ export function AppDialogDangerButton({
       {...props}
     />
   );
+}
+
+export function AppDialogHeading({children, className}: ComponentProps<"div">) {
+ return <AppDialogHeader className={cn("gap-4", className)}><div className="min-w-0 flex-1 space-y-2">{children}</div><AppDialogClose asChild><AppCloseButton /></AppDialogClose></AppDialogHeader>;
+}
+
+export function AppDialogBody({className, ...props}: ComponentProps<"div">) {
+ return <div className={cn("min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]", className)} {...props} />;
 }

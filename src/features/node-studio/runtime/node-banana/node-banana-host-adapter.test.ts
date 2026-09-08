@@ -302,6 +302,11 @@ describe("Node Banana v1.9 host adapter", () => {
       images: [sourceKind === "input.image" ? "https://cdn.test/image-upstream" : "https://cdn.test/image-local"],
       text: "upstream prompt",
     });
+    expect(result.nodes.find(node => node.id === "pass-image")?.data).toMatchObject({
+      image: sourceKind === "input.image" ? "https://cdn.test/image-upstream" : "https://cdn.test/image-local",
+      hasConnectedImage: sourceKind === "input.image",
+      config: { assetId: "image-local" },
+    });
     expect(result.getConnectedInputs("pass-image").images).toEqual(sourceKind === "input.image" ? ["https://cdn.test/image-upstream"] : []);
   });
 
@@ -323,7 +328,9 @@ describe("Node Banana v1.9 host adapter", () => {
       { id: "text-in", sourceNodeId: "empty-text", sourcePortId: "text", targetNodeId: "local-text", targetPortId: "text", hasPause },
     ]), resolver);
     expect(connected.getConnectedInputs("consumer")).toMatchObject({ images: [], text: null });
+    expect(connected.nodes.find(node => node.id === "local")?.data).toMatchObject({ image: null, hasConnectedImage: true });
     const disconnected = adaptNodeBananaHostGraph(graph(nodes, consumerEdges), resolver);
+    expect(disconnected.nodes.find(node => node.id === "local")?.data).toMatchObject({ image: "https://cdn.test/image-local", hasConnectedImage: false });
     expect(disconnected.getConnectedInputs("consumer")).toMatchObject({ images: ["https://cdn.test/image-local"], text: "local prompt" });
   });
 

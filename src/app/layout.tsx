@@ -6,7 +6,7 @@ import "./globals.css";
 import { getSession } from "@/server/auth/session";
 
 const paperlogy = localFont({
-  src: "./fonts/Paperlogy-7Bold.ttf",
+  src: "./fonts/paperlogy-brand.woff2",
   variable: "--font-paperlogy",
   display: "swap",
   weight: "700",

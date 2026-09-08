@@ -1,0 +1,540 @@
+--- a/src/leesfield/inputs.tsx
++++ b/src/leesfield/inputs.tsx
+@@ -1,6 +1,9 @@
+ "use client";
+ import {createContext,useContext,type ComponentType,type ComponentProps,type SelectHTMLAttributes,type InputHTMLAttributes,type ReactNode} from "react";
+-type InputComponents={Select:ComponentType<SelectHTMLAttributes<HTMLSelectElement>>;Input:ComponentType<InputHTMLAttributes<HTMLInputElement>>;Textarea:ComponentType<ComponentProps<"textarea">>;Range:ComponentType<{value:number[];min:number;max:number;step:number;disabled?:boolean;labels:string[];onValueChange:(value:number[])=>void}>};
++export type CanvasDialogProps={children:ReactNode;onClose:()=>void;title:string;componentName?:string;closeLabel?:string;className?:string;contentRef?:import("react").Ref<HTMLDivElement>;};
++export type CanvasTabBarProps={value:string;onValueChange:(value:string)=>void;label:string;items:{value:string;label:string}[];};
++export type CanvasButtonProps=ComponentProps<"button"> & {primary?:boolean};
++type InputComponents={Button?:ComponentType<CanvasButtonProps>;Dialog?:ComponentType<CanvasDialogProps>;TabBar?:ComponentType<CanvasTabBarProps>;Select:ComponentType<SelectHTMLAttributes<HTMLSelectElement>>;Input:ComponentType<InputHTMLAttributes<HTMLInputElement>>;Textarea:ComponentType<ComponentProps<"textarea">>;Range:ComponentType<{value:number[];min:number;max:number;step:number;disabled?:boolean;labels:string[];onValueChange:(value:number[])=>void}>};
+ const fallback:InputComponents={Select:props=><select {...props}/>,Input:props=><input {...props}/>,Textarea:props=><textarea {...props}/>,Range:({value,labels,onValueChange,...props})=><div>{value.map((item,index)=><input key={index} type="range" aria-label={labels[index]} value={item} {...props} onChange={event=>onValueChange(value.map((current,at)=>at===index?Number(event.target.value):current))}/>)}</div>};
+ const Context=createContext(fallback);
+ export function CanvasInputProvider({value,children}:{value:InputComponents;children:ReactNode}){return <Context.Provider value={value}>{children}</Context.Provider>}
+@@ -8,3 +11,8 @@
+ export function CanvasInput(props:InputHTMLAttributes<HTMLInputElement>){const {Input}=useContext(Context);return <Input {...props}/>}
+ export function CanvasTextarea(props:ComponentProps<"textarea">){const {Textarea}=useContext(Context);return <Textarea {...props}/>}
+ export function CanvasRange(props:ComponentProps<InputComponents["Range"]>){const {Range}=useContext(Context);return <Range {...props}/>}
++
++export function CanvasDialog(props:CanvasDialogProps){const {Dialog}=useContext(Context);return Dialog?<Dialog {...props}/>:<div role="dialog" aria-label={props.title} data-node-banana-component={props.componentName} ref={props.contentRef} className={props.className}><button aria-label={props.closeLabel ?? "Close"} onClick={props.onClose}>×</button>{props.children}</div>}
++export function CanvasTabBar(props:CanvasTabBarProps){const {TabBar}=useContext(Context);return TabBar?<TabBar {...props}/>:<div role="tablist" aria-label={props.label}>{props.items.map(item=><button key={item.value} role="tab" aria-selected={props.value===item.value} onClick={()=>props.onValueChange(item.value)}>{item.label}</button>)}</div>}
++
++export function CanvasButton(props:CanvasButtonProps){const {Button}=useContext(Context);const {primary,...rest}=props;return Button?<Button {...props}/>:<button {...rest}/> }
+--- a/src/components/modals/ModelSearchDialog.tsx
++++ b/src/components/modals/ModelSearchDialog.tsx
+@@ -1,5 +1,5 @@
+ "use client";
+-import { CanvasSelect } from "../../leesfield/inputs";
++import { CanvasDialog, CanvasSelect } from "../../leesfield/inputs";
+ 
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+@@ -214,33 +214,6 @@
+     [supportedModels, selectModel, onClose, trackModelUsage]
+   );
+ 
+-  // Handle escape key
+-  useEffect(() => {
+-    const handleKeyDown = (e: KeyboardEvent) => {
+-      if (e.key === "Escape") {
+-        onClose();
+-      }
+-    };
+-
+-    if (isOpen) {
+-      window.addEventListener("keydown", handleKeyDown);
+-    }
+-
+-    return () => {
+-      window.removeEventListener("keydown", handleKeyDown);
+-    };
+-  }, [isOpen, onClose]);
+-
+-  // Handle backdrop click
+-  const handleBackdropClick = useCallback(
+-    (e: React.MouseEvent<HTMLDivElement>) => {
+-      if (e.target === e.currentTarget) {
+-        onClose();
+-      }
+-    },
+-    [onClose]
+-  );
+-
+   // Get provider badge color
+   const getProviderBadgeColor = (provider: ProviderType) => {
+     switch (provider) {
+@@ -264,6 +237,9 @@
+   // Get provider display name
+   const getProviderDisplayName = (provider: ProviderType) => {
+     switch (provider) {
++      case "hf_space": return "Hugging Face";
++      case "codex_bridge": return "Codex Bridge";
++      case "codex_cli": return "Codex CLI";
+       case "gemini":
+         return "Gemini";
+       case "replicate":
+@@ -381,41 +357,7 @@
+   if (!isOpen) return null;
+ 
+   const dialogContent = (
+-    <div
+-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+-      onClick={handleBackdropClick}
+-    >
+-      <div role="dialog"
+-        aria-modal="true"
+-        aria-label={title}
+-        data-node-banana-component="ModelSearchDialog"
+-        className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col mx-4">
+-        {/* Header */}
+-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-700">
+-          <h2 className="text-lg font-semibold text-neutral-100">
+-            {title}
+-          </h2>
+-          <button
+-            onClick={onClose}
+-            aria-label={tc("Close models")}
+-            className="p-1.5 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 rounded transition-colors"
+-          >
+-            <svg
+-              className="w-5 h-5"
+-              fill="none"
+-              stroke="currentColor"
+-              viewBox="0 0 24 24"
+-            >
+-              <path
+-                strokeLinecap="round"
+-                strokeLinejoin="round"
+-                strokeWidth={2}
+-                d="M6 18L18 6M6 6l12 12"
+-              />
+-            </svg>
+-          </button>
+-        </div>
+-
++    <CanvasDialog componentName="ModelSearchDialog" closeLabel={tc("Close models")} title={tc(title)} onClose={onClose} className="w-full max-w-5xl h-[min(760px,calc(100dvh-2rem))] flex flex-col overflow-hidden">
+         {/* Filter Bar */}
+         <div className="px-6 py-4 border-b border-neutral-700">
+           <div className="flex flex-col sm:flex-row gap-3">
+@@ -443,120 +385,9 @@
+                 placeholder={tc("Search models...")}
+                 className="w-full pl-10 pr-4 py-2 text-sm bg-neutral-700 border border-neutral-600 rounded text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+               />
+-            </div>
+-
+-            {/* Provider Filter - Icon Buttons (only show available providers) */}
+-            <div className="flex items-center gap-0.5 bg-neutral-700/50 rounded p-0.5">
+-              <button
+-                onClick={() => setProviderFilter("all")}
+-                title={tc("All Providers")}
+-                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+-                  providerFilter === "all"
+-                    ? "bg-neutral-600 text-neutral-100"
+-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+-                }`}
+-              >{tc("All")}</button>
+-              {availableProviders.has("gemini") && (
+-                <button
+-                  onClick={() => setProviderFilter("gemini")}
+-                  title="Gemini"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "gemini"
+-                      ? "bg-green-500/20 text-green-300"
+-                      : "text-neutral-400 hover:text-green-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <GeminiIcon />
+-                </button>
+-              )}
+-              {availableProviders.has("replicate") && (
+-                <button
+-                  onClick={() => setProviderFilter("replicate")}
+-                  title="Replicate"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "replicate"
+-                      ? "bg-blue-500/20 text-blue-300"
+-                      : "text-neutral-400 hover:text-blue-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <ReplicateIcon />
+-                </button>
+-              )}
+-              {availableProviders.has("fal") && (
+-                <button
+-                  onClick={() => setProviderFilter("fal")}
+-                  title="fal.ai"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "fal"
+-                      ? "bg-yellow-500/20 text-yellow-300"
+-                      : "text-neutral-400 hover:text-yellow-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <FalIcon />
+-                </button>
+-              )}
+-              {availableProviders.has("kie") && (
+-                <button
+-                  onClick={() => setProviderFilter("kie")}
+-                  title="Kie.ai"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "kie"
+-                      ? "bg-orange-500/20 text-orange-300"
+-                      : "text-neutral-400 hover:text-orange-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <KieIcon />
+-                </button>
+-              )}
+-              {availableProviders.has("wavespeed") && (
+-                <button
+-                  onClick={() => setProviderFilter("wavespeed")}
+-                  title="WaveSpeed"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "wavespeed"
+-                      ? "bg-purple-500/20 text-purple-300"
+-                      : "text-neutral-400 hover:text-purple-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <WaveSpeedIcon />
+-                </button>
+-              )}
+-              {availableProviders.has("openai") && (
+-                <button
+-                  onClick={() => setProviderFilter("openai")}
+-                  title="OpenAI"
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === "openai"
+-                      ? "bg-teal-500/20 text-teal-300"
+-                      : "text-neutral-400 hover:text-teal-300 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <OpenAIIcon />
+-                </button>
+-              )}
+-              {[...availableProviders].filter((provider) => !["gemini", "replicate", "fal", "kie", "wavespeed", "openai"].includes(provider)).map((provider) => (
+-                <button
+-                  key={provider}
+-                  type="button"
+-                  onClick={() => setProviderFilter(provider)}
+-                  title={getProviderDisplayName(provider)}
+-                  aria-label={getProviderDisplayName(provider)}
+-                  aria-pressed={providerFilter === provider}
+-                  className={`p-2 rounded transition-colors ${
+-                    providerFilter === provider
+-                      ? "bg-neutral-600 text-neutral-100"
+-                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+-                  }`}
+-                >
+-                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+-                    <rect x="3" y="3" width="18" height="7" rx="2" />
+-                    <rect x="3" y="14" width="18" height="7" rx="2" />
+-                    <path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" strokeLinecap="round" />
+-                  </svg>
+-                </button>
+-              ))}
+             </div>
+ 
++            <CanvasSelect aria-label={tc("Provider")} value={providerFilter} onChange={event=>setProviderFilter(event.target.value as ProviderType | "all")}><option value="all">{tc("All Providers")}</option>{[...availableProviders].map(provider=><option key={provider} value={provider}>{getProviderDisplayName(provider)}</option>)}</CanvasSelect>
+             {/* Capability Filter */}
+             <CanvasSelect
+               aria-label={tc("Model capability")}
+@@ -878,10 +709,9 @@
+         {/* Footer with model count */}
+         {!isLoading && !error && models.length > 0 && (
+           <div className="px-6 py-3 border-t border-neutral-700 text-xs text-neutral-400">
+-            {models.length}{tc("model")}{models.length !== 1 ? "s" : ""}{tc("found")}</div>
++            {tc("{count} models found").replace("{count}", String(models.length))}</div>
+         )}
+-      </div>
+-    </div>
++    </CanvasDialog>
+   );
+ 
+   // Use portal to render outside React Flow stacking context
+--- a/src/components/ProjectSetupModal.tsx
++++ b/src/components/ProjectSetupModal.tsx
+@@ -1,5 +1,6 @@
+ "use client";
+ 
++import { CanvasButton, CanvasDialog, CanvasTabBar } from "../leesfield/inputs";
+ import { CanvasBrandLogo } from "../leesfield/branding";
+ import { useCanvasTranslation } from "../leesfield/localization";
+ import { useHostedProjectSettings } from "../leesfield/hosted-project-settings";
+@@ -55,49 +56,8 @@
+   const tc = useCanvasTranslation();
+  const { activeTab, setActiveTab, name, setName, localNodeDefaults, setLocalNodeDefaults, localCanvasSettings, setLocalCanvasSettings, localInline, setLocalInline, pickerKind, setPickerKind, busy, error, conflict, defaultsEdited, inlineEdited, dialogRef, closeRef, handleSave, writable, models, nodeDefaultsLoading, nodeDefaultsError, onRetryNodeDefaults, renderModelPicker } = useHostedProjectSettings(props);
+   return (
+-    <div
+-      ref={dialogRef}
+-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+-      onClick={(e) => {
+-        if (e.target === e.currentTarget) closeRef.current();
+-      }}
+-      onWheelCapture={(e) => e.stopPropagation()}
+-    >
+-      <div
+-        className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] border border-neutral-700 shadow-2xl overflow-clip flex flex-col max-h-[80vh]"
+-        onKeyDown={(event) => {
+-          if (event.key === "Enter" && !event.nativeEvent.isComposing && event.target instanceof HTMLInputElement && !busy && !nodeDefaultsLoading && name.trim()) {
+-            event.preventDefault(); void handleSave();
+-          }
+-        }}
+-        role="dialog" aria-modal="true" aria-labelledby="node-banana-settings-title" data-node-banana-component="ProjectSetupModal"
+-      >
+-        <div className="px-8 pt-8 pb-0 shrink-0">
+-          <div className="flex items-center gap-2 mb-5">
+-            <CanvasBrandLogo iconOnly />
+-
+-            <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">{tc("Space Settings")}</h2>
+-          </div>
+-
+-          {/* Tab Bar */}
+-          <div role="tablist" aria-label={tc("Settings sections")} className="flex gap-1.5 p-1 bg-neutral-900/50 rounded-lg">
+-          <button
+-            role="tab" aria-selected={activeTab === "project"} onClick={() => setActiveTab("project")}
+-            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "project" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+-          >{tc("Space")}</button>
+-
+-
+-          <button
+-            role="tab" aria-selected={activeTab === "nodeDefaults"} onClick={() => setActiveTab("nodeDefaults")}
+-            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "nodeDefaults" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+-          >{tc("Node Defaults")}</button>
+-          <button
+-            role="tab" aria-selected={activeTab === "canvas"} onClick={() => setActiveTab("canvas")}
+-            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "canvas" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+-          >{tc("Canvas")}</button>
+-          </div>
+-        </div>
+-
++    <CanvasDialog componentName="ProjectSetupModal" contentRef={dialogRef} title={tc("Space Settings")} onClose={()=>closeRef.current()} className="max-w-2xl h-[min(760px,calc(100dvh-2rem))] flex flex-col overflow-hidden">
++        <div className="px-6 pt-4"><CanvasTabBar value={activeTab} onValueChange={value=>setActiveTab(value as typeof activeTab)} label={tc("Settings sections")} items={[{value:"project",label:tc("Space")},{value:"nodeDefaults",label:tc("Node Defaults")},{value:"canvas",label:tc("Canvas")}]} /></div>
+         {/* Scrollable tab content area */}
+         <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5">
+ 
+@@ -299,28 +259,16 @@
+ 
+         {/* Fixed footer */}
+         <div className="flex justify-end gap-2 px-8 py-5 border-t border-neutral-700/50 shrink-0">
+-          <button
+-            onClick={() => closeRef.current()}
+-            disabled={busy}
+-            className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-100 transition-colors"
+-          >{tc("Cancel")}</button>
+-          <button
+-            onClick={handleSave}
+-            disabled={conflict || busy || nodeDefaultsLoading || !name.trim()}
+-            className="px-4 py-2 text-sm bg-white text-neutral-900 rounded-lg hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+-          >
+-            {busy ? tc("Saving...") : tc("Save")}
+-          </button>
++          <CanvasButton onClick={()=>closeRef.current()} disabled={busy}>{tc("Cancel")}</CanvasButton>
++          <CanvasButton primary onClick={handleSave} disabled={conflict || busy || nodeDefaultsLoading || !name.trim()}>{busy ? tc("Saving...") : tc("Save")}</CanvasButton>
+         </div>
+-      </div>
+ 
+-
+       {pickerKind && renderModelPicker?.(pickerKind, (id) => {
+         if (!models.some((model) => model.id === id && model.mediaKind === pickerKind)) return;
+         defaultsEdited.current = true;
+         setLocalNodeDefaults((previous) => ({ ...previous, [pickerKind]: id }));
+         setPickerKind(null);
+       }, () => setPickerKind(null))}
+-    </div>
++    </CanvasDialog>
+   );
+ }
+--- a/src/leesfield/hosted-project-settings.ts
++++ b/src/leesfield/hosted-project-settings.ts
+@@ -44,25 +44,6 @@
+  closeRef.current = () => { if (!busy) onClose(); };
+  const defaultsSnapshot = JSON.stringify(nodeDefaults);
+  useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
+- useEffect(() => {
+-   if (pickerKind) return;
+-   const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+-   const dialog = dialogRef.current;
+-   const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
+-   controls()[0]?.focus();
+-   const keydown = (event: KeyboardEvent) => {
+-     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
+-     if (event.key === "Tab") {
+-       const items = controls(), first = items[0], last = items.at(-1);
+-       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+-       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+-     }
+-   };
+-   const focus = (event: FocusEvent) => { if (event.target instanceof Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
+-   window.addEventListener("keydown", keydown, true);
+-   document.addEventListener("focusin", focus);
+-   return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
+- }, [pickerKind]);
+  const handleSave = async () => {
+    if (conflict || busy) return;
+    setBusy(true); setError(null);
+--- a/src/components/nodes/ControlPanel.tsx
++++ b/src/components/nodes/ControlPanel.tsx
+@@ -15,6 +15,7 @@
+  * Displays controls for the currently selected node
+  */
+ export function ControlPanel() {
++  const tc = useCanvasTranslation();
+   const selectedNode = useWorkflowStore((state) => {
+     const selected = state.nodes.filter((n) => n.selected);
+     return selected.length === 1 ? selected[0] : null;
+@@ -40,7 +41,7 @@
+   }
+ 
+   return createPortal(
+-    <div data-node-banana-component="ControlPanel" role="region" aria-label={getNodeTypeTitle(selectedNode.type as NodeType)} className="fixed top-0 right-3 sm:right-6 h-screen z-[90] flex items-center pointer-events-none">
++    <div data-node-banana-component="ControlPanel" role="region" aria-label={tc(getNodeTypeTitle(selectedNode.type as NodeType))} className="fixed top-0 right-3 sm:right-6 h-screen z-[90] flex items-center pointer-events-none">
+       <div
+         className="w-80 max-w-[calc(100vw-24px)] bg-neutral-800 border border-neutral-700 rounded-xl max-h-[80vh] overflow-y-auto pointer-events-auto transition-opacity duration-200 nowheel"
+         style={{
+@@ -57,7 +58,7 @@
+         <div className="p-4">
+           {/* Header */}
+           <h3 className="text-sm font-medium text-neutral-200">
+-            {getNodeTypeTitle(selectedNode.type as NodeType)}
++            {tc(getNodeTypeTitle(selectedNode.type as NodeType))}
+           </h3>
+ 
+           {/* Node-specific controls */}
+--- a/src/leesfield/port-handle.tsx
++++ b/src/leesfield/port-handle.tsx
+@@ -1,4 +1,5 @@
+ "use client";
++import { useCanvasTranslation } from "./localization";
+ import { Handle as FlowHandle, useNodeId, useNodeConnections, type HandleProps } from "@xyflow/react";
+ import { useRef, type ComponentProps, type SyntheticEvent } from "react";
+ import { useWorkflowStore } from "./upstream-node-host";
+@@ -6,6 +7,7 @@
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">{type === "text" ? <path d="M5 5h14M12 5v14M8 19h8"/> : type === "audio" ? <path d="M4 10v4m4-8v12m4-15v18m4-15v12m4-8v4"/> : type === "video" ? <><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 9 5-3v12l-5-3"/></> : type === "upload" ? <><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></> : type === "assets" ? <path d="M3 7h7l2 2h9v11H3zM3 7V4h7l2 3"/> : <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>}</svg>;
+ }
+ export function Handle(props: ComponentProps<typeof FlowHandle> & HandleProps) {
++ const tc = useCanvasTranslation();
+  const nodeId = useNodeId();
+  const connected = useNodeConnections({ handleType: props.type, handleId: props.id ?? undefined }).length > 0;
+  const writable = useWorkflowStore(state => state.writable);
+@@ -26,7 +28,7 @@
+   style={{ ...props.style, width: 30, height: 30, borderRadius: "50%", border: "1px solid rgb(82 82 82)", background: "rgb(38 38 38)", zIndex: 30 }}
+   isConnectable={enabled} isConnectableStart={enabled && props.isConnectableStart !== false} isConnectableEnd={enabled && props.isConnectableEnd !== false}
+   role="button" tabIndex={enabled ? 0 : -1} aria-disabled={!enabled}
+-  aria-label={"Connect " + media + " " + (props.type === "source" ? "output" : "input")}
++  aria-label={tc(props.type === "source" ? "Connect {media} output" : "Connect {media} input").replace("{media}",tc(media))}
+   onPointerDown={event => { start.current = { x: event.clientX, y: event.clientY }; }}
+   onClick={event => {
+    const origin = start.current;
+--- a/src/components/ConnectionDropMenu.tsx
++++ b/src/components/ConnectionDropMenu.tsx
+@@ -968,7 +968,7 @@
+       }}
+     >
+       <div className="px-2 py-1.5 border-b border-neutral-700">
+-        <span className="text-[10px] text-neutral-400 uppercase tracking-wide">{tc("Add")}{handleType}{tc("node")}</span>
++        <span className="text-[10px] text-neutral-400 uppercase tracking-wide">{tc("Add {media} node").replace("{media}",tc(handleType ?? ""))}</span>
+       </div>
+       <div className="py-1">
+         {options.map((option, index) => (
+@@ -1071,7 +1071,7 @@
+       style={{ position: "fixed", width:220, maxWidth:"calc(100vw - 24px)", maxHeight:"70vh", overflowY:"auto", left:Math.max(12,Math.min(position.x-110,window.innerWidth-232)), top:Math.max(12,Math.min(position.y,window.innerHeight*0.3-12)) }}
+     >
+       <div className="border-b border-neutral-700 px-2 py-1.5">
+-        <span className="text-[10px] uppercase tracking-wide text-neutral-400">{tc("Add")}{handleType ?? "node"}{tc("node")}</span>
++        <span className="text-[10px] uppercase tracking-wide text-neutral-400">{handleType ? tc("Add {media} node").replace("{media}",tc(handleType)) : tc("Add node")}</span>
+       </div>
+       <input aria-label={tc("Search connections")} placeholder={tc("Search...")} value={query} onChange={event=>{setQuery(event.target.value);setSelectedIndex(0);}} className="m-2 rounded border border-neutral-600 bg-neutral-900 px-2 py-1 text-xs"/>
+       {visibleOptions.length === 0 && <p className="p-3 text-xs text-neutral-400">{tc("No compatible nodes.")}</p>}
+--- a/src/components/quickstart/QuickstartBackButton.tsx
++++ b/src/components/quickstart/QuickstartBackButton.tsx
+@@ -1,5 +1,6 @@
+ "use client";
+ 
++import { useCanvasTranslation } from "../../leesfield/localization";
+ interface QuickstartBackButtonProps {
+   onClick: () => void;
+   disabled?: boolean;
+@@ -9,6 +10,7 @@
+   onClick,
+   disabled = false,
+ }: QuickstartBackButtonProps) {
++  const tc = useCanvasTranslation();
+   return (
+     <button
+       onClick={onClick}
+@@ -32,7 +34,7 @@
+           d="M10 19l-7-7m0 0l7-7m-7 7h18"
+         />
+       </svg>
+-      <span>Back</span>
++      <span>{tc("Back")}</span>
+     </button>
+   );
+ }
+--- a/src/components/quickstart/TemplateCard.tsx
++++ b/src/components/quickstart/TemplateCard.tsx
+@@ -72,7 +72,7 @@
+             {/* eslint-disable-next-line @next/next/no-img-element */}
+             <img
+               src={previewImage}
+-              alt={`${template.name} preview`}
++              alt={`${tc(template.name)} preview`}
+               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hoverImage ? "group-hover:opacity-0" : ""}`}
+               style={{ imageRendering: "auto" }}
+             />
+@@ -81,7 +81,7 @@
+               /* eslint-disable-next-line @next/next/no-img-element */
+               <img
+                 src={hoverImage}
+-                alt={`${template.name} hover preview`}
++                alt={`${tc(template.name)} hover preview`}
+                 className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                 style={{ imageRendering: "auto" }}
+               />
+@@ -107,7 +107,7 @@
+         {/* Header row */}
+         <div className="flex items-start justify-between gap-2 mb-1">
+           <h3 className="text-sm font-medium text-neutral-200 truncate">
+-            {template.name}
++            {tc(template.name)}
+           </h3>
+           <span
+             className={`
+@@ -115,13 +115,13 @@
+               ${CATEGORY_COLORS[template.category]}
+             `}
+           >
+-            {CATEGORY_LABELS[template.category]}
++            {tc(CATEGORY_LABELS[template.category])}
+           </span>
+         </div>
+ 
+         {/* Description */}
+         <p className="text-xs text-neutral-400 line-clamp-2 flex-1">
+-          {template.description}
++          {tc(template.description)}
+         </p>
+ 
+         {/* Provider tags and node count */}
+--- a/src/components/quickstart/TemplateExplorerView.tsx
++++ b/src/components/quickstart/TemplateExplorerView.tsx
+@@ -83,8 +83,8 @@
+       if (debouncedSearch) {
+         const searchLower = debouncedSearch.toLowerCase();
+         const matchesSearch =
+-          preset.name.toLowerCase().includes(searchLower) ||
+-          preset.description.toLowerCase().includes(searchLower);
++          (preset.name + " " + tc(preset.name)).toLowerCase().includes(searchLower) ||
++          (preset.description + " " + tc(preset.description)).toLowerCase().includes(searchLower);
+         if (!matchesSearch) return false;
+       }
+ 
+@@ -216,7 +216,7 @@
+                     }
+                   `}
+                 >
+-                  {option.label}
++                  {tc(option.label)}
+                 </button>
+               ))}
+             </div>

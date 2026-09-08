@@ -61,14 +61,14 @@ describe("GenerationScreen", () => {
     }));
     const user = userEvent.setup();
     const view = renderWithIntl(<GenerationScreen isAuthenticated />);
-    await user.type(screen.getByRole("textbox", { name: "image" }), "my draft");
+    await user.type(await screen.findByRole("textbox", { name: "image" }), "my draft");
     await user.click(screen.getByRole("button", { name: "Start image" }));
     await user.click(screen.getByRole("tab", { name: "오디오" }));
     navigation.params = new URLSearchParams("type=audio");
     view.rerender(<GenerationScreen isAuthenticated />);
     expect(screen.queryByRole("textbox", { name: "image" })).toBeNull();
     await user.type(
-      screen.getByRole("textbox", { name: "audio" }),
+      await screen.findByRole("textbox", { name: "audio" }),
       "audio draft",
     );
     navigation.params = new URLSearchParams("type=image");

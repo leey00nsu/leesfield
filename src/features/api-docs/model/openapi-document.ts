@@ -8,8 +8,16 @@ import {
   type OpenApiMessages,
 } from "@/features/api-docs/model/openapi-translations";
 
+const documents = new Map<string, ReturnType<typeof getOpenApiDocument>>();
+
 export const getOpenApiDocumentForApiDocs = cache(async () => {
   const messages = (await getMessages()) as OpenApiMessages;
   const translations = getOpenApiTranslations(messages);
-  return getOpenApiDocument(translations);
+  const key = JSON.stringify(translations);
+  const existing = documents.get(key);
+  if (existing) return existing;
+  const document = getOpenApiDocument(translations);
+  if (documents.size >= 4) documents.clear();
+  documents.set(key, document);
+  return document;
 });

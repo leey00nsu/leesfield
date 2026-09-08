@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { ApiKeyView } from "@/features/api-key-management/hook/use-api-key-management";
 import {
   AppDialog,
@@ -9,7 +8,7 @@ import {
   AppDialogDangerButton,
   AppDialogDescription,
   AppDialogFooter,
-  AppDialogIconButton,
+  AppDialogHeading,
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { AppInput } from "@/shared/ui/app-input";
@@ -50,9 +49,8 @@ export function ApiKeyEditModal({
       open={open}
       onOpenChange={(nextOpen) => (!nextOpen ? onClose() : undefined)}
     >
-      <AppDialogContent size="sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+      <AppDialogContent size="sm" showCloseButton={false}>
+        <AppDialogHeading>
             <AppDialogDescription>
               {t("editTitle")}
             </AppDialogDescription>
@@ -62,16 +60,7 @@ export function ApiKeyEditModal({
             <p className="mt-2 rounded-xl border border-white/10 bg-black/28 px-3 py-2 font-mono text-xs text-white/44">
               {apiKey.maskedKey}
             </p>
-          </div>
-          <AppDialogClose asChild>
-            <AppDialogIconButton
-              type="button"
-              aria-label={t("close")}
-            >
-              <X className="h-4 w-4" />
-            </AppDialogIconButton>
-          </AppDialogClose>
-        </div>
+        </AppDialogHeading>
         <div className="mt-6 space-y-3">
           <AppLabel className="text-xs font-semibold text-white/52">
             {t("keyLabel")}
@@ -81,9 +70,8 @@ export function ApiKeyEditModal({
             value={label}
             onChange={(event) => onLabelChange(event.target.value)}
             inputSize="lg"
-            className="focus-visible:ring-0"
           />
-          {error ? <p className="text-xs text-red-300">{error}</p> : null}
+          <div className="min-h-8" aria-live="polite">{error ? <p className="text-xs text-red-300">{error}</p> : null}</div>
         </div>
         <AppDialogFooter className="justify-between">
           <AppDialogDangerButton

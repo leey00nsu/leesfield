@@ -1,22 +1,13 @@
-export type AudioGenerationStatus =
-  | "pending"
-  | "processing"
-  | "uploading"
-  | "completed"
-  | "failed"
-  | "cancelled";
+import type { z } from "zod";
+import type {
+  generationStatusSchema,
+  statusResponseSchemas,
+} from "@/shared/api/external-contract";
 
-export interface AudioGenerationResult {
-  audios: Array<{
-    url: string;
-    durationSec?: number;
-  }>;
-}
-
-export interface AudioGenerationResponse {
-  requestId: string;
-  status: AudioGenerationStatus;
-  progress: number;
-  result?: AudioGenerationResult;
-  errorMessage?: string;
-}
+export type AudioGenerationStatus = z.infer<typeof generationStatusSchema>;
+export type AudioGenerationResponse = z.infer<
+  typeof statusResponseSchemas.audio
+>;
+export type AudioGenerationResult = NonNullable<
+  AudioGenerationResponse["result"]
+>;

@@ -58,6 +58,7 @@ export type MonitoringRequestAsset = {
 };
 
 export type MonitoringRequestDetail = {
+  requestParameters?: Record<string, unknown> | null;
   id: string;
   type: "image" | "video" | "audio";
   status: string;

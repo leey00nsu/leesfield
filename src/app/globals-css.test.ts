@@ -30,15 +30,9 @@ describe("global CSS boundaries", () => {
     }
   });
 
-  it("keeps the legacy shader keyframes available without relying on hero wrapper CSS", () => {
-    expect(globalsCss).toContain("@keyframes lf-shader-fade");
-    expect(globalsCss).not.toContain(".lf-hero-shader-fade");
-  });
-
-  it("keeps motion helpers global because keyframes and pseudo selectors are global concerns", () => {
-    expect(globalsCss).toContain(".lf-text-generate-word");
-    expect(globalsCss).toContain(".lf-motion-card-a");
-    expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
+  it("leaves application timelines to Motion", () => {
+    expect(globalsCss).not.toContain("@keyframes");
+    expect(globalsCss).not.toMatch(/animation:\s*lf-/);
   });
 
   it("keeps project scrollbar treatment available globally", () => {

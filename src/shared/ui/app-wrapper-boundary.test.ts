@@ -170,10 +170,8 @@ describe("app-* design wrapper boundaries", () => {
         return [];
 
       const contents = readFileSync(filePath, "utf8");
-      const localSurfaceOverride =
-        /<AppDialogContent[^>]*className=["'][^"']*(?:max-w-|rounded-|border-|bg-|shadow-|p-\d|p-0)/.test(
-          contents,
-        );
+      const modalClasses = contents.match(/<AppDialogContent[^>]*className=["']([^"']*)/)?.[1] ?? "";
+      const localSurfaceOverride = modalClasses.split(/\s+/).some(token => /^(?:max-w-|rounded-|border-|bg-|shadow-|p-\d)/.test(token));
       return localSurfaceOverride ? [relativePath] : [];
     });
 
@@ -191,7 +189,7 @@ describe("app-* design wrapper boundaries", () => {
         return [];
       }
       const contents = readFileSync(filePath, "utf8");
-      if (!contents.includes('role="dialog"')) return [];
+      if (!/<[^>]*\srole="dialog"/.test(contents)) return [];
       return allowedDirectRoleDialogs.includes(relativePath)
         ? []
         : [relativePath];
@@ -224,7 +222,7 @@ describe("app-* design wrapper boundaries", () => {
     expect(apiKeyModal).toContain("AppDialogActionButton");
     expect(apiKeyModal).toContain("AppDialogCancelButton");
     expect(apiKeyModal).toContain("AppDialogDangerButton");
-    expect(apiKeyModal).toContain("AppDialogIconButton");
+    expect(apiKeyModal).toContain("AppDialogHeading");
     expect(apiKeyModal).not.toContain("rounded-full border border-white/10");
     expect(apiKeyModal).not.toContain("hover:bg-white/6");
     expect(apiKeyModal).not.toContain("hover:bg-primary");
@@ -232,7 +230,7 @@ describe("app-* design wrapper boundaries", () => {
     expect(modelScreen).toContain("AppDialogActionButton");
     expect(modelScreen).toContain("AppDialogCancelButton");
     expect(modelScreen).toContain("AppDialogDangerButton");
-    expect(modelScreen).toContain("AppDialogIconButton");
+    expect(modelScreen).toContain("AppDialogHeading");
   });
 
   it("keeps repeated form and action surfaces behind app wrapper variants", () => {

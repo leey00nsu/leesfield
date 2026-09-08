@@ -1,0 +1,20 @@
+/* Position, scale and blur share a timeline so emphasis follows the centre. */
+.marquee {
+  position: relative;
+  align-self: center;
+  width: min(100%, 36rem);
+  height: 7rem;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+}
+.item {
+  position: absolute;
+  top: 50%;
+  width: clamp(3rem, 10vw, 4rem);
+  height: clamp(3rem, 10vw, 4rem);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee { display: flex; justify-content: center; align-items: center; gap: 1rem; mask-image: none; }
+  .item { position: static; width: min(10vw, 3rem); height: min(10vw, 3rem); animation: none; will-change: auto; }
+}

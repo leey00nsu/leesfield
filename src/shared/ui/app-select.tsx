@@ -1,6 +1,6 @@
 "use client";
 import type { ComponentProps } from "react";
-import { SelectTrigger } from "@/shared/ui/select";
+import { SelectContent, SelectTrigger } from "@/shared/ui/select";
 export type AppSelectTriggerSurface = "default" | "toolbar";
 export type AppSelectTriggerSize = "sm" | "md";
 export function AppSelectTrigger({
@@ -22,10 +22,13 @@ export function AppSelectTrigger({
 }
 export {
   Select as AppSelectRoot,
-  SelectContent as AppSelectContent,
   SelectGroup as AppSelectGroup,
   SelectItem as AppSelectItem,
   SelectLabel as AppSelectLabel,
   SelectSeparator as AppSelectSeparator,
   SelectValue as AppSelectValue,
 } from "@/shared/ui/select";
+
+export function AppSelectContent(props: ComponentProps<typeof SelectContent>) {
+ return <SelectContent positionerClassName="z-[11000]" {...props} />;
+}

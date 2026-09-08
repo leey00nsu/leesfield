@@ -272,14 +272,14 @@ describe("NodeStudioWorkspace", () => {
     const title = screen.getByRole("textbox", { name: "Space name" });
     await user.clear(title);
     await user.type(title, "Renamed");
-    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(mocks.update).toHaveBeenLastCalledWith({
+    await waitFor(() => expect(mocks.update).toHaveBeenLastCalledWith({
       schemaVersion: 3, groups: [],
       title: "Renamed",
       nodes: [],
       edges: [],
-    });
+    }));
   });
 
   it("v2 Graph를 Node Banana runtime과 writer v2 autosave에 연결한다", () => {

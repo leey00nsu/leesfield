@@ -1,3 +1,4 @@
+import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -126,4 +127,12 @@ describe("ApiKeyManagementScreen", () => {
     });
     expect(screen.getByText("Legacy")).toBeInTheDocument();
   });
+});
+
+it("API 키 편집은 공통 닫기 버튼 하나만 표시한다", async()=> {
+ const close=vi.fn();const user=userEvent.setup();
+ renderWithIntl(<ApiKeyEditModal open apiKey={{id:"key",createdAtLabel:"2026-01-10",lastUsedLabel:"—",label:"Test",maskedKey:"lf_...test",status:"active",lastUsedAt:null,createdAt:"2026-01-10T00:00:00Z",revokedAt:null}} label="Test" error={null} isSaving={false} isRevoking={false} onLabelChange={vi.fn()} onClose={close} onSave={vi.fn()} onRevoke={vi.fn()}/>);
+ expect(screen.getAllByRole("button",{name:"닫기"})).toHaveLength(1);
+ const button=screen.getByRole("button",{name:"닫기"});expect(button).toHaveClass("rounded-md");expect(button.querySelectorAll("svg")).toHaveLength(1);
+ await user.click(button);expect(close).toHaveBeenCalledOnce();
 });

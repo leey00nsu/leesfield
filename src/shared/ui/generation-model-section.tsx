@@ -5,6 +5,7 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { GenerationModality } from "@/shared/generation/generation-presets";
 import { cn } from "@/shared/lib/utils";
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppPopover,
@@ -30,6 +31,7 @@ interface GenerationModelSectionProps<T extends string> {
   onSelect: (id: T) => void;
   className?: string;
   disabled?: boolean;
+  loading?: boolean;
 }
 
 export function GenerationModelSection<T extends string>({
@@ -42,6 +44,7 @@ export function GenerationModelSection<T extends string>({
   onSelect,
   className,
   disabled = false,
+  loading = false,
 }: GenerationModelSectionProps<T>) {
   const t = useTranslations("generation");
   const tPicker = useTranslations("generation.modelPicker");
@@ -102,7 +105,7 @@ export function GenerationModelSection<T extends string>({
         }}
         variant="ghost"
         className={cn(
-          "h-auto min-h-12 w-full justify-start rounded-xl px-3 py-2.5 text-left hover:bg-white/[0.06]",
+          "h-auto min-h-12 w-full justify-start rounded-xl px-3 py-2.5 text-left hover:bg-interaction-hover",
           isActive && "bg-data-accent/15 ring-1 ring-inset ring-data-accent/40 hover:bg-data-accent/25",
         )}
       >
@@ -128,24 +131,26 @@ export function GenerationModelSection<T extends string>({
 
   return (
     <AppPopover open={isOpen} onOpenChange={handleOpenChange}>
-      <div className={cn("relative", className)}>
+      <div className={cn("relative w-60 max-w-full", className)}>
         <AppPopoverTrigger asChild>
           <AppButton
             type="button"
             variant="surface"
             size="md"
-            disabled={disabled}
+            disabled={disabled || loading}
+            aria-busy={loading}
+            aria-label={loading ? t("modelLoading") : undefined}
             aria-haspopup="dialog"
             aria-expanded={isOpen}
             className={cn(
-              "min-w-0 justify-between",
+              "w-full min-w-0 justify-between",
               activeModel && "border-primary",
             )}
           >
             <span className="min-w-0 flex flex-col items-start leading-tight">
               <span className="sr-only">{resolvedTitle}</span>
               <span className="max-w-[13rem] truncate font-medium">
-                {selectionLabel ?? activeModel?.name ?? resolvedTitle}
+                {loading ? <AppSkeleton className="h-4 w-32" /> : selectionLabel ?? activeModel?.name ?? resolvedTitle}
               </span>
             </span>
             <ChevronDown className="h-4 w-4 text-primary" />

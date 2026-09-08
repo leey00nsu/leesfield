@@ -1288,6 +1288,19 @@ export function adaptNodeBananaHostGraph(
   nodes = nodes.map((node) => {
     const values = valuesForNode(node.id, edges, new Map(nodes.map((candidate) => [candidate.id, candidate])));
     projectConnectedFields(node, connected, values);
+    if (node.data.canonicalKind === "input.image") {
+      const sources = new Map(nodes.map((candidate) => [candidate.id, candidate]));
+      const linked = edges.some((edge) => edge.target === node.id &&
+        edge.data.targetPortId === "reference" && !edge.data.isLoop && !isSplitCellReference(edge, sources));
+      node.data.hasConnectedImage = linked;
+      if (linked) {
+        const image = sourceValuesFor(node, "image", sources, edges, new Set()).find((value) => value.type === "image");
+        node.data.image = image?.value ?? null;
+        node.data.imageRef = image?.assetId ?? null;
+        node.data.filename = null;
+        node.data.dimensions = null;
+      }
+    }
     return node;
   });
 

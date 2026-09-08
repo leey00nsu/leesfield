@@ -77,7 +77,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
       data-model-row=""
       data-default={item.isDefault ? "true" : "false"}
       className={cn(
-        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b px-4 py-5 md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_2rem]",
+        modelRowLayoutClassName,
         onEdit && resourceRowInteractiveClassName,
       )}
     >
@@ -152,3 +152,5 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
     </article>
   );
 }
+
+export const modelRowLayoutClassName = "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b px-4 py-5 md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_2rem]";

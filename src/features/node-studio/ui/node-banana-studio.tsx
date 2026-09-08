@@ -845,6 +845,14 @@ export function NodeBananaStudio({
         return {
           ...latest,
           ...(current.resolveUpstreamNodeData?.(nodeId, latest) ?? {}),
+          ...(() => {
+            const preview = current.upstreamHostGraph.nodes.find(node => node.id === nodeId)?.data;
+            return preview?.canonicalKind === "input.image" ? {
+              image: preview.image, imageRef: preview.imageRef,
+              filename: preview.filename, dimensions: preview.dimensions,
+              hasConnectedImage: preview.hasConnectedImage,
+            } : {};
+          })(),
         };
       }, [current]);
       const getNodeRunReadiness = useCallback((nodeId: string) => {

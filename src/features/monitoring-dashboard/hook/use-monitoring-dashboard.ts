@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type {
   MonitoringFilters,
   MonitoringMetric,
@@ -36,6 +36,7 @@ export function useMonitoringOverview(filters: MonitoringFilters) {
     staleTime: 5_000,
     gcTime: 5 * 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
     refetchInterval: POLL_INTERVAL_MS,
   });
 }
@@ -48,6 +49,7 @@ export function useMonitoringStats(filters: MonitoringFilters) {
     staleTime: 10_000,
     gcTime: 5 * 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -69,6 +71,7 @@ export function useMonitoringRequests(
     staleTime: 3_000,
     gcTime: 5 * 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
     // Pause polling while browsing older pages to avoid unexpected table jumps.
     refetchInterval: pagination.offset === 0 ? POLL_INTERVAL_MS : false,
   });
@@ -101,6 +104,7 @@ export function useMonitoringTop(
     staleTime: 10_000,
     gcTime: 5 * 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -111,5 +115,6 @@ export function useMonitoringApiKeys() {
     staleTime: 30_000,
     gcTime: 10 * 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 }

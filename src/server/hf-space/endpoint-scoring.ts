@@ -1,3 +1,5 @@
+import { gradioLabel } from "@/server/hf-space/import-contract";
+
 type EndpointScoringParameter = {
   parameter_name?: string;
   label?: string;
@@ -13,7 +15,7 @@ export function hasAudioEndpointSignal(
   const parameters = endpoint?.parameters ?? [];
   return parameters.some((parameter) => {
     const rawTargets = [parameter.parameter_name ?? "", parameter.label ?? ""]
-      .map((value) => value.toLowerCase().trim())
+      .map((value) => gradioLabel(value).toLowerCase().trim())
       .filter(Boolean);
     const normalizedTargets = rawTargets.map((value) => value.replace(/[_-]+/g, " "));
     const tokenLists = normalizedTargets.map((value) =>
@@ -49,6 +51,8 @@ export function scoreEndpointCandidate(
   const normalizedName = apiName.toLowerCase();
   const parameters = endpoint?.parameters ?? [];
   let score = 0;
+  if (outputTypes.some(type => ["image", "gallery", "video", "audio"].includes(type))) score += 100;
+  if (/profile|toggle|prepare|depthmap|scene[s]?$|train|load|change|preview/.test(normalizedName)) score -= 100;
 
   if (outputTypes.some((type) => type.includes("audio"))) {
     score += 10;

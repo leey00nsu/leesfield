@@ -1,4 +1,10 @@
 "use client";
+import { useState } from "react";
+import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
+import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
+import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
@@ -10,8 +16,6 @@ import {
   Download,
   ExternalLink,
   ImagePlus,
-  Layers,
-  Maximize2,
   SlidersHorizontal,
   Sparkles,
   X,
@@ -66,8 +70,6 @@ type ImageGenerationFormProps = {
   isAuthenticated: boolean;
 };
 
-const dockChipClass =
-  "inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-black/16 px-3 text-sm font-medium text-white/82";
 const studioPreviewShellClass =
   "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
 const studioResultFrameClass =
@@ -173,12 +175,6 @@ export function ImageGenerationForm({
     });
   }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
-  const width =
-    useWatch({ control: form.control, name: "width" }) ??
-    imageGenerationDefaults.width;
-  const height =
-    useWatch({ control: form.control, name: "height" }) ??
-    imageGenerationDefaults.height;
   const imageCount =
     useWatch({ control: form.control, name: "imageCount" }) ??
     imageGenerationDefaults.imageCount;
@@ -201,6 +197,12 @@ export function ImageGenerationForm({
     : "";
 
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
+  const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
+  const [promptWasEdited, setPromptWasEdited] = useState(false);
+  const promptFeedbackSubmitted = form.formState.isSubmitted;
+  const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
+  const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
   const widthRange = getRuntimeImageParamRange(activeRuntimeModel, "width");
   const heightRange = getRuntimeImageParamRange(activeRuntimeModel, "height");
   const stepsRange = getRuntimeImageParamRange(activeRuntimeModel, "steps");
@@ -408,6 +410,7 @@ export function ImageGenerationForm({
     if (isGenerating) {
       reset();
     }
+    form.setValue("dynamicParams", {});
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
@@ -458,6 +461,7 @@ export function ImageGenerationForm({
       return;
     }
 
+    if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
     void form.handleSubmit((values) => startGeneration(values))(event);
   };
   return (
@@ -577,15 +581,16 @@ export function ImageGenerationForm({
                               className="min-h-[160px]"
                               placeholder={tImage("promptPlaceholder")}
                               {...field}
+ onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
                             />
                           </AppFormControl>
                         }
                         feedback={
-                          fieldState.error ? (
+                          gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                             <AppFormMessage className="text-xs text-red-400" />
                           ) : undefined
                         }
-                        attachments={
+                        attachments={gradioContract ? undefined : (
                           <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
                             {initImagePreviews.length > 0 ? (
                               <div className="flex flex-wrap gap-2">
@@ -635,8 +640,11 @@ export function ImageGenerationForm({
                               <ImagePlus className="h-5 w-5" />
                             </AppButton>
                           </div>
-                        }
-                        footerLeft={
+                        )}
+footerLeft={gradioContract ? <>
+<GenerationModelSection modality="image" items={modelOptions} activeId={activeModel} onSelect={handleSelectModel} />
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+</> : (
                           <>
                             {!isGuest && hasModels ? (
                               <GenerationModelSection
@@ -646,34 +654,11 @@ export function ImageGenerationForm({
                                 onSelect={handleSelectModel}
                               />
                             ) : (
-                              <button
-                                type="button"
-                                disabled
-                                className={cn(
-                                  dockChipClass,
-                                  "min-w-[13rem] max-w-[13rem] cursor-not-allowed justify-between opacity-70",
-                                )}
-                              >
-                                <span className="min-w-0 flex flex-col items-start leading-tight">
-                                  <span className="text-[10px] font-semibold uppercase text-white/42">
-                                    {tGeneration("modelSelect")}
-                                  </span>
-                                  <span className="max-w-[13rem] truncate font-medium">
-                                    {isModelLoading
-                                      ? tGeneration("modelLoading")
-                                      : isGuest
-                                        ? tGeneration("modelLoginRequired")
-                                        : tGeneration("modelUnavailable")}
-                                  </span>
-                                </span>
-                              </button>
+                              <GenerationModelSection modality="image" items={[]} activeId={null} onSelect={() => {}} disabled loading={isModelLoading} selectionLabel={isGuest ? tGeneration("modelLoginRequired") : tGeneration("modelUnavailable")} />
                             )}
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!(showSizeControls || showModeChoice || showSteps || showGuidanceScale || showPromptUpsampling || showSeed || (getRuntimeImageParamConfig(activeRuntimeModel, "imageCount")?.ui !== "hidden" && imageCountRange.min !== imageCountRange.max))} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-1">
                             {showSizeControls ? (
-                              <GenerationSettingsPopover
-                                label={tLabels("outputSize")}
-                                summary={`${width} × ${height}`}
-                                icon={<Maximize2 className="h-4 w-4" />}
-                              >
+                              <div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   {widthConfig?.ui !== "hidden" ? (
                                     <AppFormControllerField
@@ -732,13 +717,9 @@ export function ImageGenerationForm({
                                     />
                                   ) : null}
                                 </div>
-                              </GenerationSettingsPopover>
+                              </div>
                             ) : null}
-                            <GenerationSettingsPopover
-                              label={tLabels("imageCount")}
-                              summary={`${imageCount}`}
-                              icon={<Layers className="h-4 w-4" />}
-                            >
+                            {getRuntimeImageParamConfig(activeRuntimeModel, "imageCount")?.ui !== "hidden" && imageCountRange.min !== imageCountRange.max ? <div>
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-sm font-semibold text-gray-300">
                                   {tLabels("imageCount")}
@@ -775,21 +756,13 @@ export function ImageGenerationForm({
                                   </AppButton>
                                 </div>
                               </div>
-                            </GenerationSettingsPopover>
+                            </div> : null}
                             {showModeChoice ||
                             showSteps ||
                             showGuidanceScale ||
                             showPromptUpsampling ||
                             showSeed ? (
-                              <GenerationSettingsPopover
-                                label={tLabels("settings")}
-                                summary={
-                                  showSteps
-                                    ? `${tLabels("steps")} ${steps}`
-                                    : tLabels("settings")
-                                }
-                                icon={<SlidersHorizontal className="h-4 w-4" />}
-                              >
+                              <div>
                                 <div className="flex flex-col gap-5">
                                   {showModeChoice ? (
                                     <AppFormControllerField
@@ -801,11 +774,7 @@ export function ImageGenerationForm({
                                             {tLabels("modeChoice")}
                                           </AppFormLabel>
                                           <AppFormControl>
-                                            <select
-                                              value={field.value ?? ""}
-                                              onChange={field.onChange}
-                                              className="h-11 rounded-xl border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white"
-                                            >
+                                            <AppSelectRoot value={field.value ?? ""} onValueChange={field.onChange}><AppSelectTrigger aria-label={tLabels("modeChoice")} className="w-full"><AppSelectValue /></AppSelectTrigger><AppSelectContent position="popper">
                                               {modeOptions.map((option) => {
                                                 const optionValue = String(
                                                   getRuntimeParameterOptionValue(
@@ -813,17 +782,17 @@ export function ImageGenerationForm({
                                                   ),
                                                 );
                                                 return (
-                                                  <option
+                                                  <AppSelectItem
                                                     key={optionValue}
                                                     value={optionValue}
                                                   >
                                                     {getRuntimeParameterOptionLabel(
                                                       option,
                                                     )}
-                                                  </option>
+                                                  </AppSelectItem>
                                                 );
                                               })}
-                                            </select>
+                                            </AppSelectContent></AppSelectRoot>
                                           </AppFormControl>
                                         </AppFormItem>
                                       )}
@@ -950,6 +919,7 @@ export function ImageGenerationForm({
                                           <AppFormControl>
                                             <div className="flex items-center gap-2">
                                               <AppInput
+                                                type="number" step={seedConfig?.step ?? 1} min={seedConfig?.min} max={seedConfig?.max}
                                                 placeholder={tImage(
                                                   "seedPlaceholder",
                                                 )}
@@ -974,11 +944,12 @@ export function ImageGenerationForm({
                                     />
                                   ) : null}
                                 </div>
-                              </GenerationSettingsPopover>
+                              </div>
                             ) : null}
+</div></GenerationSettingsPopover>
                           </>
-                        }
-                        footerRight={
+                        )}
+footerRight={
                           <>
                             <AppButton
                               variant="generate"
@@ -987,7 +958,7 @@ export function ImageGenerationForm({
                               disabled={
                                 isGenerating ||
                                 (isAuthenticated &&
-                                  (isModelLoading || !hasModels))
+                                  (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !mappingPrompt.trim())))
                               }
                               className="min-w-24"
                               onClick={

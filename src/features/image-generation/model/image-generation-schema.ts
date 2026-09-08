@@ -1,3 +1,4 @@
+import { formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 import {
   defaultModelKey,
@@ -22,6 +23,7 @@ const imageGenerationBaseSchema = z.object({
   height: z.number().int(),
   initImages: z.array(z.string()).optional(),
   model: z.string().min(1),
+  dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
   imageCount: z.number().int(),
   steps: z.number().int(),
   modeChoice: z.string().optional(),

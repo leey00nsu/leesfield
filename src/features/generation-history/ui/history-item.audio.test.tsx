@@ -29,6 +29,7 @@ describe("HistoryItem audio", () => {
     );
 
     expect(document.querySelector("audio")).toBeNull();
+    expect(screen.getByText("hello audio")).toHaveClass("line-clamp-4");
     expect(screen.getByText("오디오")).toBeInTheDocument();
     expect(screen.getByText("완료")).toBeInTheDocument();
     expect(screen.getByText("qwen-tts")).toBeInTheDocument();

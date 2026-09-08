@@ -1,3 +1,4 @@
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -23,6 +24,7 @@ import {
 interface MonitoringStatsChartProps {
   data: MonitoringStatsRow[];
   isLoading: boolean;
+  compact?: boolean;
 }
 
 type ChartDatum = {
@@ -32,7 +34,7 @@ type ChartDatum = {
   errorRatePct: number;
 };
 
-const CHART_HEIGHT = 260;
+
 
 function ChartTooltip({
   active,
@@ -71,7 +73,9 @@ function ChartTooltip({
 export function MonitoringStatsChart({
   data,
   isLoading,
+  compact = false,
 }: MonitoringStatsChartProps) {
+  const chartHeight = compact ? 150 : 260;
   const t = useTranslations("monitoringDashboard");
   const locale = useLocale();
   const tooltipLabels = useMemo(
@@ -118,7 +122,7 @@ export function MonitoringStatsChart({
   return (
     <AppCard variant="editorial-flat" radius="lg" padding="lg">
       <div className="flex flex-col gap-2">
-        <div className="text-xl font-semibold text-white">
+        <div className={compact ? "text-sm font-semibold text-white/70" : "text-xl font-semibold text-white"}>
           {t("stats.title")}
         </div>
         <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
@@ -128,17 +132,17 @@ export function MonitoringStatsChart({
 
       <div className="mt-6">
         {isLoading ? (
-          <div className="h-[260px] rounded-xl border border-white/10 bg-background-dark/50" />
+          <AppSkeleton style={{ height: chartHeight }} className="w-full rounded-xl" />
         ) : chartData.length === 0 ? (
-          <div className="flex h-[260px] items-center justify-center rounded-xl border border-white/10 bg-background-dark/50 text-sm text-gray-400">
+          <div style={{height:chartHeight}} className="flex items-center justify-center rounded-xl border border-white/10 bg-transparent text-sm text-gray-400">
             {t("stats.empty")}
           </div>
         ) : (
           <AppChartContainer
             role="img"
             aria-label={t("stats.aria")}
-            className="border-white/8 bg-black/16"
-            height={CHART_HEIGHT}
+            className="border-0 bg-transparent"
+            height={chartHeight}
           >
             <AreaChart
               data={chartData}

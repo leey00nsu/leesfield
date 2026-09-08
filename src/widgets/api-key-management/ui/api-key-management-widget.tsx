@@ -1,4 +1,5 @@
 "use client";
+import { ResourceListLoading } from "@/shared/ui/resource-list-loading";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { ApiKeyList } from "@/features/api-key-management/ui/api-key-list";
@@ -90,7 +91,7 @@ export function ApiKeyManagementWidget() {
             {t("list.error")}
           </AppCard>
         ) : null}
-        <ApiKeyList
+        {list.isLoading ? <ResourceListLoading label={t("list.loading")} /> : <ApiKeyList
           items={list.filteredKeys.map((item) => ({
             id: item.id,
             name: item.label,
@@ -107,7 +108,7 @@ export function ApiKeyManagementWidget() {
                 ? t("list.search")
                 : t("list.default")
           }
-        />
+        />}
       </div>
 
       <ApiKeyEditModal

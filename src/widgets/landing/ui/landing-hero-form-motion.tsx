@@ -10,6 +10,7 @@ type LandingHeroMotionLayerProps = {
   className?: string;
   "data-layer"?: string;
   testId: string;
+  glass?: boolean;
 };
 
 const landingHeroFadeTransition = {
@@ -23,6 +24,7 @@ export function LandingHeroMotionLayer({
   className,
   "data-layer": dataLayer,
   testId,
+  glass = false,
 }: LandingHeroMotionLayerProps) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -31,8 +33,8 @@ export function LandingHeroMotionLayer({
       data-layer={dataLayer}
       data-testid={testId}
       className={cn("relative", className)}
-      initial={shouldReduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={shouldReduceMotion ? false : glass ? {y: 28, scale: 0.98} : { opacity: 0 }}
+      animate={glass ? {y: 0, scale: 1} : { opacity: 1 }}
       transition={{
         delay: shouldReduceMotion ? 0 : landingHeroFadeTransition.delay,
         duration: shouldReduceMotion ? 0 : landingHeroFadeTransition.duration,

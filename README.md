@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/logo-blue.svg" alt="leesfield rounded favicon" width="96" height="96">
+  <img src="public/favicon.svg" alt="leesfield rounded favicon" width="96" height="96">
 </p>
 
 <h1 align="center">
@@ -76,9 +76,9 @@ pnpm dev
 
 ![leesfield landing page](public/screenshots/landing.png)
 
-### 이미지 생성 페이지
+### AI 생성 페이지
 
-![leesfield image generation page](public/screenshots/image-generation.png)
+![leesfield AI 생성 페이지](public/screenshots/ai-generation.png)
 
 ## 주요 기능
 
@@ -306,15 +306,30 @@ pnpm sbom:generate
 모델별 `provider` 값에 따라 API 호출 어댑터가 선택됩니다.
 현재 이미지 호출 어댑터는 `hf_space`, `codex_cli`, `codex_bridge`이며, provider별 설정은 모델 카탈로그(DB)에서 관리합니다. `codex_bridge` token 값은 DB가 아니라 env로만 읽습니다.
 
-외부 API 엔드포인트:
+외부 API 엔드포인트(모두 `X-API-Key` 인증 필요):
 
-- `POST /api/external/image-generation`
-- `GET /api/external/image-generation/{requestId}`
-- `POST /api/external/video-generation`
-- `GET /api/external/video-generation/{requestId}`
-- `POST /api/external/audio-generation`
-- `GET /api/external/audio-generation/{requestId}`
-- `GET /api/external/models`
+- `GET /api/external/models?type=image`: 활성 모델 ID·이름·매체
+- `GET /api/external/models/{modelId}/schema`: 모델별 `dynamicParams` JSON Schema 및 파일 입력 정보
+- `POST /api/external/generations`: 통합 생성 요청
+- `GET /api/external/generations/{requestId}`: 현재 API 키 소유자의 작업 상태·결과
+
+공개 `/api-docs`와 `/api/openapi`는 공통 API 계약만 제공합니다. 실제 등록 모델, 모델 키, 입력 기본값이나 provider 설정을 포함하지 않습니다. 모델 목록에서 받은 ID로 입력 스키마를 조회하고, 해당 스키마의 필수·선택 입력을 `dynamicParams`에 전달합니다.
+
+```json
+{
+  "type": "image",
+  "model": "<모델 목록에서 받은 ID>",
+  "dynamicParams": {
+    "<스키마에 표시된 프롬프트 입력 이름>": "A quiet blue hour"
+  }
+}
+```
+
+- `type`은 `image`, `video`, `audio`이며 선택한 모델의 매체와 일치해야 합니다.
+- prompt, seed, 크기, 생성 스텝, 입력 이미지·오디오 등은 모두 모델별 입력입니다. 실제 키 이름은 스키마 응답을 따릅니다.
+- JSON에서 파일은 URL/data URL로 전달합니다. multipart는 `type`, `model`, JSON 문자열 `dynamicParams`와 `file:<입력 이름>` 파일 파트를 지원합니다. 배열 입력은 같은 파일 파트를 반복합니다.
+- 파일 파트는 개당 10 MiB까지이며, 같은 입력을 JSON 값과 파일 파트에 중복 지정할 수 없습니다.
+- 기존 매체별 `/api/external/*-generation` 경로는 통합 경로로 교체되었습니다. 기존 호출자는 새 경로와 본문 형식으로 변경해야 합니다. 웹의 내부 매체별 API는 유지합니다.
 
 ## 프로젝트 구조
 
@@ -392,3 +407,7 @@ docker compose restart postgres  # 재시작
 [MIT License](LICENSE)
 
 랜딩에서는 스페이스와 같은 React Flow 엔진의 4노드 캔버스로 로컬 예제를 조작할 수 있습니다. 예제 변경은 저장되지 않으며 생성 API를 호출하지 않습니다. 랜딩은 Copy Singer BentoGrid와 Aceternity UI의 Layout Text Flip·무음 Terminal을 사용하며 출처와 통합 차이는 COPY_SINGER_UI.md에서 확인할 수 있습니다.
+
+### 요청 설정 기록
+
+생성 실행 payload는 기존 구조를 유지합니다. 히스토리용 요청 설정은 제출 시점의 모델 입력 이름과 값을 단순 JSON으로 별도 기록합니다. 표시를 위해 실행 입력을 분해하거나 재조립하지 않습니다. 요청 설정은 최종 provider 전송 데이터나 무작위 시드의 실제 결과를 의미하지 않습니다. 기존 v2 기록은 읽기 호환하며 새 요청에는 parameterDefinitions를 저장하지 않습니다. 결과 파일의 너비·높이는 별도 메타데이터입니다.

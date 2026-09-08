@@ -66,13 +66,13 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
 
   return (
     <AppForm {...form}>
-      <form className="flex min-w-0 flex-col gap-3" onSubmit={onSubmit}>
+      <form className="flex min-w-0 flex-col gap-6" onSubmit={onSubmit}>
         <AppFormControllerField
           control={form.control}
           name="email"
           render={({ field }) => (
             <AppFormItem>
-              <AppFormLabel className="sr-only">
+              <AppFormLabel className="text-sm text-foreground">
                 {tForm("emailLabel")}
               </AppFormLabel>
               <AppFormControl>
@@ -95,7 +95,7 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
           name="password"
           render={({ field }) => (
             <AppFormItem>
-              <AppFormLabel className="sr-only">
+              <AppFormLabel className="text-sm text-foreground">
                 {tForm("passwordLabel")}
               </AppFormLabel>
               <AppFormControl>

@@ -1,3 +1,4 @@
+import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
@@ -17,6 +18,7 @@ export async function createImageGenerationRecord(
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
 ) {
   const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
+    dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
     model: payload.model,
     prompt: payload.prompt,
     width: payload.width,
@@ -38,7 +40,7 @@ export async function createImageGenerationRecord(
       apiKeyId,
       graphNodeId,
       prompt: payload.prompt,
-      requestParams,
+      requestParams: await snapshotRequest('image', requestParams as Record<string, unknown>),
       modelKey: payload.model,
       aspectRatio: `${payload.width}x${payload.height}`,
       imageCount: payload.imageCount,

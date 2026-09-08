@@ -138,7 +138,7 @@ describe("ImageOperationNodeControls", () => {
 
     renderControls("edit.image.gif", { fps: 8, loopCount: 0, colorCount: 128, dither: false, targetMaxBytes: 131072 });
     expect(screen.getByRole("spinbutton", { name: "Loop count" })).toHaveValue(0);
-    expect(screen.getByRole("checkbox", { name: "Dither" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Dither" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Target (KB)" })).toHaveValue(128);
   });
 });

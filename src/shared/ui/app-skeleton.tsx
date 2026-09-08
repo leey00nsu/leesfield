@@ -1,3 +1,4 @@
+import styles from "./app-skeleton.module.css";
 import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -22,7 +23,7 @@ export function AppSkeleton({
   return (
     <Skeleton
       data-app-skeleton=""
-      className={cn(appSkeletonSurfaceClassNames[surface], className)}
+      className={cn(appSkeletonSurfaceClassNames[surface], className, styles.skeleton)}
       {...props}
     />
   );

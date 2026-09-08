@@ -1,0 +1,4 @@
+.skeleton {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--brand-gradient-start) 16%, transparent), color-mix(in srgb, var(--brand-gradient-highlight) 32%, transparent), color-mix(in srgb, var(--brand-gradient-start) 16%, transparent));
+  background-size: max(1080px, 300%) 100%;
+}

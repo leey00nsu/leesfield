@@ -1,5 +1,8 @@
+import { modelQuerySchema } from "@/shared/api/external-contract";
+import { externalModelsResponseSchema } from "@/shared/api/external-contract";
+import { buildInvalidRequestResponse } from "@/server/http/response";
 import { NextResponse } from "next/server";
-import { requireApiKey } from "@/server/auth/api-key-guard";
+import { withExternalApi } from "@/server/external-api/route-handler";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 
 export const dynamic = "force-dynamic";
@@ -11,34 +14,42 @@ function getSearchParam(searchParams: URLSearchParams, key: string) {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireApiKey(request);
-  if (auth instanceof NextResponse) {
-    return auth;
-  }
+  return withExternalApi(request, async () => {
+    const { searchParams } = new URL(request.url);
+    const queryResult = modelQuerySchema.safeParse({
+      type: getSearchParam(searchParams, "type") || undefined,
+      q: getSearchParam(searchParams, "q"),
+    });
+    if (!queryResult.success)
+      return buildInvalidRequestResponse(queryResult.error.flatten());
+    const { type, q: query = "" } = queryResult.data;
 
-  const { searchParams } = new URL(request.url);
-  const type = getSearchParam(searchParams, "type");
-  const query = getSearchParam(searchParams, "q");
+    const catalog = await getModelCatalog();
+    const normalizedQuery = query.toLowerCase();
+    const items = catalog.filter((item) => {
+      if (!item.isActive || (type && item.type !== type)) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+      const target = `${item.label} ${item.key}`.toLowerCase();
+      return target.includes(normalizedQuery);
+    });
 
-  const catalog = await getModelCatalog();
-  const normalizedQuery = query.toLowerCase();
-  const items = catalog.filter((item) => {
-    if (type && item.type !== type) {
-      return false;
-    }
-    if (!normalizedQuery) {
-      return true;
-    }
-    const target = `${item.label} ${item.key}`.toLowerCase();
-    return target.includes(normalizedQuery);
-  });
-
-  return NextResponse.json(
-    { items },
-    {
-      headers: {
-        "Cache-Control": "no-store",
+    return NextResponse.json(
+      externalModelsResponseSchema.parse({
+        items: items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          type: item.type,
+        })),
+      }),
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
       },
-    },
-  );
+    );
+  });
 }

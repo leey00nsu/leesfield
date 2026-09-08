@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -158,7 +158,7 @@ describe("legacy Node Banana body presenters", () => {
     }
   });
 
-  it("keeps the upstream operation-specific controls instead of a generic parameter form", () => {
+  it("keeps the upstream operation-specific controls instead of a generic parameter form", async () => {
     const probes: ReadonlyArray<[keyof typeof bodySelector, string]> = [
       ["edit.image.annotation", "button"],
       ["edit.image.resize", '[role="group"][aria-label="크기 조절 방식"]'],
@@ -166,15 +166,15 @@ describe("legacy Node Banana body presenters", () => {
       ["edit.image.splitGrid", 'input[aria-label="행"]'],
       ["edit.image.gif", '[data-node-banana-component="FrameFilmstrip"]'],
       ["edit.video.stitch", '[data-node-banana-component="ClipFilmstrip"]'],
-      ["edit.video.trim", '[data-node-banana-component="TrimRange"]'],
+      ["edit.video.trim", 'input[type="range"]'],
       ["edit.video.frameGrab", '[role="group"][aria-label="프레임 위치"]'],
-      ["edit.video.easeCurve", "select"],
+      ["edit.video.easeCurve", '[role="combobox"]'],
     ];
 
     for (const [kind, selector] of probes) {
       const view = renderNode(kind);
       const body = view.container.querySelector(bodySelector[kind]);
-      expect(body?.querySelector(selector), `${kind}: ${selector}`).not.toBeNull();
+      await waitFor(() => expect(body?.querySelector(selector), `${kind}: ${selector}`).not.toBeNull());
       view.unmount();
     }
   });

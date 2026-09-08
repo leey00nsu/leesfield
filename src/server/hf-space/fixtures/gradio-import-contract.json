@@ -1,0 +1,454 @@
+[
+  {
+    "id": "fixture/false-api",
+    "config": {
+      "components": [
+        {
+          "id": 1,
+          "type": "textbox",
+          "props": {
+            "label": "prompt"
+          }
+        },
+        {
+          "id": 2,
+          "type": "image",
+          "props": {}
+        }
+      ],
+      "dependencies": [
+        {
+          "api_name": false,
+          "inputs": [],
+          "outputs": []
+        },
+        {
+          "api_name": "generate",
+          "inputs": [
+            1
+          ],
+          "outputs": [
+            2
+          ]
+        }
+      ]
+    },
+    "info": {
+      "named_endpoints": {
+        "/generate": {
+          "parameters": [
+            {
+              "parameter_name": "prompt",
+              "label": "prompt",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Image"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "fixture/i18n-label",
+    "config": {
+      "components": [
+        {
+          "id": 1,
+          "type": "textbox",
+          "props": {
+            "label": {
+              "en": "Prompt",
+              "ko": "프롬프트"
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "audio",
+          "props": {}
+        }
+      ],
+      "dependencies": [
+        {
+          "api_name": "generate",
+          "inputs": [
+            1
+          ],
+          "outputs": [
+            2
+          ]
+        }
+      ]
+    },
+    "info": {
+      "named_endpoints": {
+        "/generate": {
+          "parameters": [
+            {
+              "parameter_name": "prompt",
+              "label": {
+                "en": "Prompt",
+                "ko": "프롬프트"
+              },
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Audio"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "fixture/anonymous-workflow",
+    "config": {
+      "components": [
+        {
+          "id": 1,
+          "type": "textbox",
+          "props": {
+            "label": "Prompt"
+          }
+        },
+        {
+          "id": 2,
+          "type": "image",
+          "props": {
+            "label": "Optional first frame"
+          }
+        },
+        {
+          "id": 3,
+          "type": "textbox",
+          "props": {
+            "label": "Option 2"
+          }
+        },
+        {
+          "id": 4,
+          "type": "textbox",
+          "props": {
+            "label": "Option 3"
+          }
+        },
+        {
+          "id": 5,
+          "type": "textbox",
+          "props": {
+            "label": "Option 4"
+          }
+        },
+        {
+          "id": 6,
+          "type": "textbox",
+          "props": {
+            "label": "Option 5"
+          }
+        },
+        {
+          "id": 7,
+          "type": "textbox",
+          "props": {
+            "label": "Option 6"
+          }
+        },
+        {
+          "id": 8,
+          "type": "textbox",
+          "props": {
+            "label": "Option 7"
+          }
+        },
+        {
+          "id": 9,
+          "type": "textbox",
+          "props": {
+            "label": "Option 8"
+          }
+        },
+        {
+          "id": 10,
+          "type": "video",
+          "props": {}
+        }
+      ],
+      "dependencies": [
+        {
+          "api_name": "output_video",
+          "inputs": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "outputs": [
+            10
+          ]
+        }
+      ]
+    },
+    "info": {
+      "named_endpoints": {
+        "/output_video": {
+          "parameters": [
+            {
+              "parameter_name": "in_0",
+              "label": "Prompt",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_1",
+              "label": "Optional first frame",
+              "component": "Image",
+              "type": {
+                "title": "FileData",
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                }
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_2",
+              "label": "Option 2",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_3",
+              "label": "Option 3",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_4",
+              "label": "Option 4",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_5",
+              "label": "Option 5",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_6",
+              "label": "Option 6",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_7",
+              "label": "Option 7",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            },
+            {
+              "parameter_name": "in_8",
+              "label": "Option 8",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Video"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "fixture/opaque-output",
+    "config": {
+      "components": [
+        {
+          "id": 1,
+          "type": "textbox",
+          "props": {
+            "label": "prompt"
+          }
+        },
+        {
+          "id": 2,
+          "type": "api",
+          "props": {}
+        }
+      ],
+      "dependencies": [
+        {
+          "api_name": "generate",
+          "inputs": [
+            1
+          ],
+          "outputs": [
+            2
+          ]
+        }
+      ]
+    },
+    "info": {
+      "named_endpoints": {
+        "/generate": {
+          "parameters": [
+            {
+              "parameter_name": "prompt",
+              "label": "prompt",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Api"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "fixture/endpoint-choice",
+    "config": {
+      "components": [
+        {
+          "id": 1,
+          "type": "textbox",
+          "props": {
+            "label": "prompt"
+          }
+        },
+        {
+          "id": 2,
+          "type": "image",
+          "props": {}
+        },
+        {
+          "id": 3,
+          "type": "textbox",
+          "props": {
+            "label": "prompt"
+          }
+        },
+        {
+          "id": 4,
+          "type": "image",
+          "props": {}
+        }
+      ],
+      "dependencies": [
+        {
+          "api_name": "depthmap",
+          "inputs": [
+            1
+          ],
+          "outputs": [
+            2
+          ]
+        },
+        {
+          "api_name": "infer",
+          "inputs": [
+            3
+          ],
+          "outputs": [
+            4
+          ]
+        }
+      ]
+    },
+    "info": {
+      "named_endpoints": {
+        "/depthmap": {
+          "parameters": [
+            {
+              "parameter_name": "prompt",
+              "label": "prompt",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Image"
+            }
+          ]
+        },
+        "/infer": {
+          "parameters": [
+            {
+              "parameter_name": "prompt",
+              "label": "prompt",
+              "component": "Textbox",
+              "type": {
+                "type": "string"
+              },
+              "parameter_has_default": false
+            }
+          ],
+          "returns": [
+            {
+              "component": "Image"
+            }
+          ]
+        }
+      }
+    }
+  }
+]

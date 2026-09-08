@@ -199,3 +199,5 @@ describe("history-query", () => {
     });
   });
 });
+
+it('combines exact model and prompt-only search for every media type',()=>{ const query=parseHistoryQuery(new URLSearchParams({model:'wan',prompt:' rain '}));for(const build of [buildImageWhere,buildVideoWhere,buildAudioWhere]) expect(build(query)).toEqual({AND:[{OR:[{modelKey:'wan'},{requestParams:{path:['model'],equals:'wan'}}]},{prompt:{contains:'rain',mode:'insensitive'}}]}); });

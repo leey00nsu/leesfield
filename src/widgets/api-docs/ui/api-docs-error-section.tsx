@@ -39,7 +39,7 @@ export function ApiDocsErrorSection() {
       <AppDocsSectionCard
         title={
           <span className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-primary" />
+            <AlertTriangle className="h-5 w-5 text-data-accent-foreground" />
             {t("title")}
           </span>
         }
@@ -49,27 +49,27 @@ export function ApiDocsErrorSection() {
           {errorCards.map((card) => (
             <div
               key={card.status}
-              className="rounded-2xl border border-white/8 bg-black/18 p-5"
+              className="rounded-2xl border border-border bg-muted/30 p-5"
             >
               <div className="flex items-center gap-3">
                 <AppBadge variant="muted" size="md">
                   {card.status}
                 </AppBadge>
-                <h3 className="text-sm font-bold text-white">
+                <h3 className="text-sm font-bold text-foreground">
                   {t(`cards.${card.key}.title`)}
                 </h3>
               </div>
-              <p className="mt-3 text-sm leading-6 text-white/58">
+              <p className="mt-3 text-sm leading-6 text-foreground/58">
                 {t(`cards.${card.key}.description`)}
               </p>
             </div>
           ))}
         </div>
-        <div className="mt-4 rounded-2xl border border-white/8 bg-black/58 p-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/38">
+        <div className="mt-4 rounded-2xl border border-border bg-background p-5">
+          <p className="text-[10px] font-medium text-foreground/38">
             {t("exampleTitle")}
           </p>
-          <pre className="mt-3 overflow-x-auto text-sm text-white/76">
+          <pre className="mt-3 overflow-x-auto text-sm text-foreground/76">
             {errorResponseSnippet}
           </pre>
         </div>

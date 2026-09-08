@@ -51,9 +51,15 @@ vi.mock("next-intl/server", () => ({
   },
 }));
 
+vi.mock("./login-visual", () => ({
+  LoginVisual: () => <div data-testid="warp-shader-panel" />,
+}));
+
 describe("LoginScreen", () => {
   it("does not render the private workspace helper sentence", async () => {
     render(await LoginScreen({}));
+    expect(screen.getByTestId("warp-shader-panel")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "leesfield" })).toHaveAttribute("href", "/");
 
     expect(screen.getByRole("heading", { name: "Log in to leesfield" })).toBeInTheDocument();
     expect(

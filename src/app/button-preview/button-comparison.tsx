@@ -8,7 +8,7 @@ import styles from "./comparison.module.css";
 function PreviewButton({ variant }: { variant: "warp" | "gradient" }) {
   return (
     <AppButton variant="generate" className={styles.generate}>
-      {variant === "warp" ? <><WarpShaderPanel className={styles.warp} /><span className={styles.glass} aria-hidden /></> : <span className={styles.gradient} aria-hidden />}
+      {variant === "warp" ? <><WarpShaderPanel className={styles.warp} /><span className={styles.glass} aria-hidden /></> : <span data-preview-gradient="" className={styles.gradient} aria-hidden />}
       <span className={styles.label}>생성 <Sparkles size={20} /></span>
     </AppButton>
   );

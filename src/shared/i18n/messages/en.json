@@ -61,6 +61,7 @@
       "steps": "Steps",
       "imageCount": "Images",
       "guidanceScale": "Guidance",
+      "advancedOptions": "Advanced options",
       "settings": "Settings",
       "moreControls": "More controls",
       "modeChoice": "Mode",
@@ -131,7 +132,7 @@
       "announcement": "Spaces is here",
       "headlineSecondFirst": "One",
       "headlineSecondLast": "interface",
-      "primaryAction": "Start creating",
+      "primaryAction": "Generate",
       "secondaryAction": "Explore Spaces",
       "headlineInterface": "interface",
       "headlineSuffix": "",
@@ -260,7 +261,10 @@
       "emptyDescription": "",
       "generating": "Generating...",
       "failedTitle": "Generation failed",
-      "failedDescription": "Please try again later."
+      "failedDescription": "Please try again later.",
+      "queued": "Queued…",
+      "uploading": "Uploading…",
+      "waitingTime": "Waiting on this screen for {seconds}s"
     },
     "actions": {
       "gridDisabled": "Grid (disabled)",
@@ -465,7 +469,12 @@
     "filters": {
       "search": "Search history",
       "searchPlaceholder": "Search by prompt, model, or tags...",
-      "sort": "Sort history"
+      "sort": "Sort history",
+      "autoplay": "Autoplay",
+      "model": "Model",
+      "allModels": "All models",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Search prompts…"
     },
     "subtitle": "Review your results and job status, and generate again with previous settings.",
     "error": "Failed to load history.",
@@ -544,7 +553,17 @@
       "warningMessage": "Warning message",
       "openAsset": "Open",
       "noInputAsset": "No input asset",
-      "noResultAsset": "No result yet"
+      "noResultAsset": "No result yet",
+      "generationSettings": "Request settings",
+      "settingsSnapshot": "Settings recorded when this job was submitted.",
+      "settingsLoading": "Loading settings…",
+      "settingsError": "Could not load settings.",
+      "settingsMissing": "No settings were recorded.",
+      "settingsJson": "View JSON",
+      "parameterFile": "Attached file",
+      "parameterEmpty": "No value",
+      "parameterTrue": "Enabled",
+      "parameterFalse": "Disabled"
     },
     "detailActions": {
       "recreate": "Recreate",
@@ -833,8 +852,10 @@
         "warnings": "{count} fields need review.",
         "errors": {
           "required": "Space URL is required.",
-          "failed": "Import failed."
-        }
+          "failed": "Import failed.",
+          "noPublicApi": "This Space does not provide a public Gradio API."
+        },
+        "inputUnclear": "The public API input requirements are unclear. The following inputs are treated as required when generating."
       },
       "dialog": {
         "createTitle": "Create Model",
@@ -950,19 +971,19 @@
     "subtitle": "REST API Reference",
     "intro": {
       "titleFallback": "leesfield API",
-      "descriptionFallback": "External REST API documentation for leesfield. Provides image/video generation and model listing.",
+      "descriptionFallback": "The public leesfield API protocol. Use an API key to fetch available models and their input schemas before requesting image, video or audio generation. Instance model data is only available through authenticated APIs.",
       "highlights": {
         "latency": {
-          "title": "Low latency",
-          "description": "Generate fast with an optimized inference pipeline."
+          "title": "Discover models",
+          "description": "Use your API key to fetch model IDs and input requirements."
         },
         "security": {
-          "title": "Security",
-          "description": "Protected with scoped API keys."
+          "title": "Create a job",
+          "description": "Submit the model ID and dynamicParams to generate media."
         },
         "restful": {
-          "title": "RESTful",
-          "description": "Integrate easily with a consistent REST structure."
+          "title": "Fetch results",
+          "description": "Use the returned job ID to retrieve progress and results."
         }
       }
     },
@@ -977,10 +998,8 @@
         "introduction": "Introduction",
         "authentication": "Authentication",
         "errors": "Errors",
-        "images": "Images",
-        "videos": "Videos",
-        "audio": "Audio",
-        "models": "Models"
+        "models": "Models",
+        "generations": "AI generation"
       },
       "baseUrl": "Base URL",
       "version": "Version"
@@ -1019,21 +1038,16 @@
       "exampleFieldMessage": "Required field."
     },
     "openapi": {
-      "infoDescription": "External REST API documentation for leesfield. Provides image/video/audio generation and model listing.",
+      "infoDescription": "The public leesfield API protocol. Use an API key to fetch available models and their input schemas before requesting image, video or audio generation. Instance model data is only available through authenticated APIs.",
       "tags": {
-        "images": "Image generation",
-        "videos": "Video generation",
-        "audio": "Audio generation",
-        "models": "Model catalog"
+        "generations": "AI generation",
+        "models": "Model discovery"
       },
       "paths": {
-        "imageGeneration": "Creates an image generation request.",
-        "videoGeneration": "Creates a video generation request.",
-        "audioGeneration": "Creates an audio generation request.",
-        "imageStatus": "Fetches the image generation result.",
-        "videoStatus": "Fetches the video generation result.",
-        "audioStatus": "Fetches the audio generation result.",
-        "models": "Fetches available generation models."
+        "generation": "Choose type and model ID. Send every model input, including prompt, in dynamicParams. Supports JSON and multipart.",
+        "status": "Fetch job status and results belonging to the current API key owner.",
+        "models": "List active model IDs, labels and media types.",
+        "modelSchema": "Fetch the selected model's dynamicParams JSON Schema and file input definitions. Use URL/data URL values or file:<parameterName> multipart parts for files."
       }
     },
     "endpoints": {

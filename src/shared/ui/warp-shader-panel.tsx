@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { Warp } from "@paper-design/shaders-react";
 import { cn } from "@/shared/lib/utils";
 
@@ -32,13 +33,15 @@ export function WarpShaderPanel({
   }, []);
 
   return (
-    <div
+    <motion.div
+      initial={fadeIn ? { opacity: 0 } : false}
+      animate={{ opacity: fadeIn ? .75 : 1 }}
+      transition={{ duration: reduceMotion ? 0 : 1, delay: reduceMotion ? 0 : .15, ease: [.22, 1, .36, 1] }}
       aria-hidden="true"
       className={cn(
         "grid isolate overflow-hidden bg-[#07090a]",
         className,
-        fadeIn &&
-          "animate-in fade-in fill-mode-forwards opacity-75 delay-150 duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none",
+
       )}
       data-testid="warp-shader-panel"
     >
@@ -70,6 +73,6 @@ export function WarpShaderPanel({
         className="pointer-events-none [grid-area:1/1] bg-[#07090a]/35"
         data-testid="warp-shader-scrim"
       />
-    </div>
+    </motion.div>
   );
 }

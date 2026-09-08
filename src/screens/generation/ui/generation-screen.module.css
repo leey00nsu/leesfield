@@ -1,0 +1,6 @@
+.shell :global(.generation-composer-layout) { min-height: 576px; }
+.shell :global(.generation-media-rail) { flex-direction: row !important; }
+@media (min-width: 640px) {
+  .shell :global(.generation-composer-layout) { min-height: 336px; }
+  .shell :global(.generation-media-rail) { flex-direction: column !important; }
+}

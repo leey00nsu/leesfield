@@ -8,23 +8,25 @@ export interface UseGenerationHistoryListOptions {
   type: GenerationHistoryType;
   sort: GenerationHistorySort;
   query: string;
+  model?: string;
+  prompt?: string;
   status?: string;
   limit?: number;
 }
-export function useGenerationHistoryList({ type, sort, query, status = "all", limit = 24 }: UseGenerationHistoryListOptions) {
+export function useGenerationHistoryList({ type, sort, query, model, prompt, status = "all", limit = 24 }: UseGenerationHistoryListOptions) {
   const client = useQueryClient();
-  const result = useHistoryQuery({ type, sort, query, status, limit });
+  const result = useHistoryQuery({ type, sort, query, model, prompt, status, limit });
   const { data, refetch, fetchNextPage, isFetching, hasNextPage, error } = result;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const lastStatus = useRef<string | null>(null);
-  const { data: statusData } = useHistoryStatusQuery({ type, query });
+  const { data: statusData } = useHistoryStatusQuery({ type, query, model, prompt });
   const seen = new Set<string>();
   const items = (data?.pages.flatMap(page => page.items) ?? []).filter(item => {
     const key = [item.origin ?? "generation", item.type, item.id].join(":");
     if (seen.has(key)) return false;
     seen.add(key); return true;
   });
-  useEffect(() => { lastStatus.current = null; }, [type, query, sort, status]);
+  useEffect(() => { lastStatus.current = null; }, [type, query, model, prompt, sort, status]);
   useEffect(() => {
     if (!statusData) return;
     const token = JSON.stringify([statusData.activeCount, statusData.latestUpdatedAt]);

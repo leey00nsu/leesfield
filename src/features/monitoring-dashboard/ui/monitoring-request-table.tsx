@@ -1,3 +1,4 @@
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { useMemo, useState } from "react";
 import {
   flexRender,
@@ -137,7 +138,7 @@ export function MonitoringRequestTable({
             <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-sans uppercase text-gray-400">
               {row.original.type}
             </span>
-            <span>{row.original.model ?? "-"}</span>
+            <span className="max-w-72 truncate" title={row.original.model ?? undefined}>{row.original.model ?? "-"}</span>
           </div>
         ),
       },
@@ -154,7 +155,7 @@ export function MonitoringRequestTable({
         id: "duration",
         header: t("requests.columns.duration"),
         cell: ({ row }) => (
-          <span className="text-primary">
+          <span className="whitespace-nowrap text-primary">
             {formatDuration(row.original.durationMs)}
           </span>
         ),
@@ -174,11 +175,11 @@ export function MonitoringRequestTable({
             <div className="text-right">
               <span
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold",
+                  "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-xs font-semibold",
                   status.className,
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {status.label}
               </span>
             </div>
@@ -253,12 +254,12 @@ export function MonitoringRequestTable({
                 key={index}
                 className="grid min-w-[720px] grid-cols-[1.35fr_1fr_1fr_0.75fr_0.85fr_2rem] items-center gap-4 rounded-lg border border-white/[0.045] px-3 py-3"
               >
-                <span className="h-4 rounded-full bg-white/10" />
-                <span className="h-4 rounded-full bg-white/8" />
-                <span className="h-4 rounded-full bg-white/8" />
-                <span className="h-4 rounded-full bg-white/8" />
-                <span className="h-6 rounded-full bg-white/10" />
-                <span className="h-4 rounded-full bg-white/8" />
+                <AppSkeleton className="h-4 rounded-full bg-white/10" />
+                <AppSkeleton className="h-4 rounded-full bg-white/8" />
+                <AppSkeleton className="h-4 rounded-full bg-white/8" />
+                <AppSkeleton className="h-4 rounded-full bg-white/8" />
+                <AppSkeleton className="h-6 rounded-full bg-white/10" />
+                <AppSkeleton className="h-4 rounded-full bg-white/8" />
               </div>
             ))}
           </div>
@@ -279,9 +280,10 @@ export function MonitoringRequestTable({
                       <th
                         key={header.id}
                         className={cn(
-                          "px-4 py-3",
-                          header.id === "status" && "text-right",
+                          "whitespace-nowrap px-4 py-3",
+                          header.id === "status" && "min-w-32 text-right",
                           header.id === "open" && "w-12 text-right",
+                          header.id === "duration" && "min-w-24",
                         )}
                       >
                         {header.isPlaceholder
@@ -299,7 +301,7 @@ export function MonitoringRequestTable({
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="group cursor-pointer transition-colors hover:bg-white/[0.045] focus-within:bg-white/[0.045]"
+                    className="group cursor-pointer transition-colors hover:bg-interaction-hover focus-within:bg-interaction-hover"
                     role="button"
                     tabIndex={0}
                     onClick={() => handleOpenDetail(row.original)}

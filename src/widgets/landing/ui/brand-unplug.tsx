@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { motion } from "motion/react";
 import { Unplug } from "lucide-react";
 import { useLandingReducedMotion } from "./use-landing-reduced-motion";
 
@@ -15,27 +16,14 @@ export function BrandUnplug() {
       stroke={`url(#${id})`}
     >
       <defs>
-        <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
-          {!reduced && (
-            <>
-              <animate
-                attributeName="x1"
-                values="-100%;0%;-100%"
-                dur="3s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="x2"
-                values="100%;200%;100%"
-                dur="3s"
-                repeatCount="indefinite"
-              />
-            </>
-          )}
+        <motion.linearGradient id={id} y1="0%" y2="100%"
+          initial={false}
+          animate={{ x1: reduced ? "0%" : ["-100%", "0%"], x2: reduced ? "100%" : ["100%", "200%"] }}
+          transition={{ duration: 1.5, ease: "linear", repeat: reduced ? 0 : Infinity, repeatType: "reverse" }}>
           <stop stopColor="var(--brand-gradient-start)" />
           <stop offset="0.5" stopColor="var(--brand-gradient-highlight)" />
           <stop offset="1" stopColor="var(--brand-gradient-start)" />
-        </linearGradient>
+        </motion.linearGradient>
       </defs>
     </Unplug>
   );

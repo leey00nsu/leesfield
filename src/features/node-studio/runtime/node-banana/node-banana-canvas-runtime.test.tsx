@@ -161,7 +161,7 @@ describe("NodeBananaCanvasRuntime", () => {
     flow.renders = 0;
   });
 
-  it("indexed image inputs show upload progress and ignore results after picker cancellation", async () => {
+  it.each(["image", "image-1", "reference"])("%s inputs share media menus, progress and cancellation", async (handleId) => {
     let resolve!: (value: {assetId: string; mediaType: "image"}) => void;
     const importer = vi.fn().mockImplementation(() => new Promise(done => { resolve = done; }));
     const changed = renderRuntime({ nodes: [{ id: "compare", type: "canonicalNode", position: { x: 0, y: 0 }, data: {} }], edges: [] }, vi.fn(), true, undefined, undefined, {
@@ -169,7 +169,9 @@ describe("NodeBananaCanvasRuntime", () => {
       renderAssetPicker: (_type, select, close) => <><button onClick={() => select("asset")}>fixture-select</button><button onClick={close}>fixture-cancel</button></>,
       onCreateNode: (_item, position, pending) => ({ node: { id: "input-new", type: "canonicalNode", position, data: {} }, edge: { id: "edge-new", source: "input-new", target: pending!.nodeId, targetHandle: pending!.handleId } }),
     });
-    fireEvent(screen.getByRole("application"), new CustomEvent("node-banana-port-menu", { bubbles: true, detail: { nodeId: "compare", handleId: "image-1", handleType: "target", x: 100, y: 100 } }));
+    fireEvent(screen.getByRole("application"), new CustomEvent("node-banana-port-menu", { bubbles: true, detail: { nodeId: "compare", handleId, handleType: "target", x: 100, y: 100 } }));
+    expect(screen.getByRole("button", {name:"Upload"})).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name:"Image Input"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Assets" }));
     fireEvent.change(document.querySelector('input[type="file"]')!, {target: {files: [new File(["image"], "upload.png", {type: "image/png"})]}});
     await waitFor(() => expect(importer).toHaveBeenCalledOnce());
@@ -259,7 +261,7 @@ describe("NodeBananaCanvasRuntime", () => {
     expect(screen.queryByText("Stale model")).not.toBeInTheDocument();
     expect(screen.queryByText("Excluded 3D")).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "3D" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("fal.ai"));
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "fal" } });
     expect(screen.queryByText("Recently Used")).not.toBeInTheDocument();
     expect(screen.queryByText("Allowed video")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Allowed image/ }));
@@ -270,7 +272,7 @@ describe("NodeBananaCanvasRuntime", () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 
-  it("filters host providers with real buttons and keeps same-ID recent identities separate", () => {
+  it("filters host providers with the provider selector and keeps same-ID recent identities separate", () => {
     const selected = vi.fn();
     render(<NodeBananaUpstreamHostProvider value={{
       hostedModels: [
@@ -284,12 +286,12 @@ describe("NodeBananaCanvasRuntime", () => {
     }}><ModelSearchDialog isOpen onClose={vi.fn()} onModelSelected={selected} /></NodeBananaUpstreamHostProvider>);
     expect(screen.getByText("Space recent")).toBeInTheDocument();
     expect(screen.getByText("Bridge recent")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "hf_space" }));
-    expect(screen.getByRole("button", { name: "hf_space" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "hf_space" } });
+    expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("hf_space");
     expect(screen.getByText("Space model")).toBeInTheDocument();
     expect(screen.queryByText("Bridge model")).not.toBeInTheDocument();
     expect(screen.queryByText("Bridge recent")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "codex_bridge" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "codex_bridge" } });
     expect(screen.getByText("Bridge model")).toBeInTheDocument();
     expect(screen.queryByText("Space model")).not.toBeInTheDocument();
     expect(screen.queryByText("Space recent")).not.toBeInTheDocument();

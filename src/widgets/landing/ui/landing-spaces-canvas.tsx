@@ -1,4 +1,5 @@
 "use client";
+import { CanvasProviders } from "@/shared/ui/canvas-providers";
 import { createContext, useContext, useMemo, type ComponentProps } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -122,7 +123,7 @@ export function createDemoGraph(prompt: string) {
   };
 }
 
-export default function LandingSpacesCanvas() {
+function LandingSpacesCanvasContent() {
   const t = useTranslations("inferenceLanding.spaces");
   const initial = useMemo(() => createDemoGraph(t("prompt")), [t]);
   const [nodes, , onNodesChange] = useNodesState(initial.nodes);
@@ -188,3 +189,5 @@ export default function LandingSpacesCanvas() {
     </div>
   );
 }
+
+export default function LandingSpacesCanvas() { return <CanvasProviders><LandingSpacesCanvasContent /></CanvasProviders>; }

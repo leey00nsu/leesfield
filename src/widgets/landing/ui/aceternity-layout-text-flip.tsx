@@ -1,16 +1,19 @@
 "use client";
 // Source: Aceternity Layout Text Flip. Keep layers mounted and decoded before cycling.
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { titleInitialStyle } from "./landing-title-motion";
 import { motion } from "motion/react";
 import { useLandingReducedMotion } from "./use-landing-reduced-motion";
 
 export function LayoutTextFlip({
   text,
   words,
+  textGroups = [text],
   duration = 1800,
   renderWord,
 }: {
   text: string;
+  textGroups?: string[];
   words: string[];
   duration?: number;
   renderWord?: (word: string, index: number) => ReactNode;
@@ -52,18 +55,21 @@ export function LayoutTextFlip({
   }, [duration, reduced, wordKey, words.length]);
   return (
     <>
-      <motion.span
-        className="shrink-0"
-        initial={reduced ? false : { opacity: 0, filter: "blur(5px)", y: 8 }}
-        animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
-        transition={{ duration: reduced ? 0 : 0.72 }}
-      >
-        {text}
-      </motion.span>
-      <motion.span
-        initial={reduced ? false : { opacity: 0, y: 8, filter: "blur(5px)" }}
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: reduced ? 0 : 0.72 }}
+      <span className="shrink-0">
+        {textGroups.map((group, index) => (
+          <span
+            key={index}
+            className="inline-block"
+            data-title-step={index}
+            style={titleInitialStyle}
+          >
+            {index > 0 ? "\u00a0" : null}{group}
+          </span>
+        ))}
+      </span>
+      <span
+        data-title-step={textGroups.length - 1}
+        style={titleInitialStyle}
         ref={slot}
         className="relative inline-flex size-[0.85em] shrink-0 items-center justify-center overflow-visible leading-none"
       >
@@ -83,7 +89,7 @@ export function LayoutTextFlip({
             {renderWord ? renderWord(word, index) : word}
           </motion.span>
         ))}
-      </motion.span>
+      </span>
     </>
   );
 }

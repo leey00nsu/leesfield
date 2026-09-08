@@ -119,6 +119,17 @@ afterEach(() => {
 });
 
 describe("ModelManagementScreen", () => {
+  it("reuses the cached catalog on return navigation", async () => {
+    mockFetch();
+    const view = renderWithIntl(<ModelManagementScreen />);
+    await screen.findByText(imageModel!.label);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    view.rerender(<div />);
+    view.rerender(<ModelManagementScreen />);
+    expect(screen.getByText(imageModel!.label)).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("모델 타입 필터가 동작한다", async () => {
     expect(imageModel).toBeDefined();
     expect(videoModel).toBeDefined();
@@ -301,7 +312,7 @@ describe("ModelManagementScreen", () => {
         json: async () => ({
           apiNames: ["/toggle_mode", "/run_generation"],
           resolvedApiName: "/run_generation",
-          warnings: [],
+          warnings: ["OPTIONAL_LABEL_REVIEW:in_1"],
           draft: {
             type: "audio",
             key: "leey00nsu-qwen-3-5-tts-faster-gradio",
@@ -314,6 +325,7 @@ describe("ModelManagementScreen", () => {
               space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
               api_name: "/run_generation",
               timeout_ms: 300000,
+              output: { media: "audio", path: [0], multiple: false },
             },
             parameters: {
               prompt: { ui: "textarea", required: true },
@@ -353,8 +365,31 @@ describe("ModelManagementScreen", () => {
         screen.getAllByDisplayValue(/run_generation/).length,
       ).toBeGreaterThan(0);
       expect(screen.getByDisplayValue(/supports_input_audio/)).toBeTruthy();
+      expect(screen.getByText(/API에는 생략 또는 null 허용이 명시되지 않았습니다/)).toBeVisible();
+      expect(screen.getByRole("alert")).toHaveClass("text-destructive");
+      expect(screen.getByRole("alert")).toHaveTextContent("공개 API의 입력 조건");
+      expect(screen.queryByText("이 스페이스는 공개 Gradio API를 제공하지 않습니다.")).not.toBeInTheDocument();
+      expect(screen.queryByText(/OPTIONAL_LABEL_REVIEW/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Gradio 계약 보정")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/계약 검토 완료/)).not.toBeInTheDocument();
+      const providerJson = screen.getByDisplayValue(/timeout_ms/);
+      expect(providerJson).not.toBeDisabled();
+      fireEvent.change(providerJson, { target: { value: JSON.stringify({ space_id: "example/tts", api_name: "/speak", output: { media: "audio", path: [1], multiple: false } }) } });
+      expect(providerJson).toHaveValue(JSON.stringify({ space_id: "example/tts", api_name: "/speak", output: { media: "audio", path: [1], multiple: false } }));
       expect(screen.getByDisplayValue(/referenceText/)).toBeTruthy();
       expect(screen.getByDisplayValue(/inputAudio/)).toBeTruthy();
     });
   }, 15_000);
+  it("공개 API가 없는 경우 빨간 안내를 표시한다",async()=>{
+    vi.stubGlobal("fetch",vi.fn()
+      .mockResolvedValueOnce({ok:true,json:async()=>({items:records})})
+      .mockResolvedValueOnce({ok:false,json:async()=>({message:"SPACE_API_NOT_FOUND"})}));
+    const user=userEvent.setup();renderWithIntl(<ModelManagementScreen />);
+    await screen.findAllByText(audioModel!.label);
+    await user.click(screen.getByRole("button",{name:"모델 추가"}));
+    fireEvent.change(screen.getByPlaceholderText("https://huggingface.co/spaces/owner/space"),{target:{value:"https://huggingface.co/spaces/example/app"}});
+    await user.click(screen.getByRole("button",{name:"가져오기"}));
+    expect(await screen.findByText("이 스페이스는 공개 Gradio API를 제공하지 않습니다.")).toHaveClass("text-destructive");
+  });
+
 });

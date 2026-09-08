@@ -1,4 +1,18 @@
 "use client";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/shared/ui/brand/tabs/tabs";
+import {
+  AppCodeSnippet,
+  CodeBlock,
+  CodeBlockHeader,
+  CodeBlockBody,
+  CodeBlockItem,
+  CodeBlockContent,
+} from "@/shared/ui/app-code-block";
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
@@ -31,11 +45,11 @@ const apiBaseUrl =
 const methodsWithBody = new Set(["POST", "PUT", "PATCH"]);
 
 const methodStyles: Record<string, string> = {
-  GET: "bg-white/10 text-white",
-  POST: "bg-primary text-black shadow-[0_0_10px_rgba(52,127,244,0.3)]",
-  PUT: "bg-white/10 text-white",
-  PATCH: "bg-white/10 text-white",
-  DELETE: "bg-destructive text-white",
+  GET: "bg-white/10 text-foreground",
+  POST: "border-data-accent/25 bg-data-accent/15 text-data-accent-foreground",
+  PUT: "bg-white/10 text-foreground",
+  PATCH: "bg-white/10 text-foreground",
+  DELETE: "bg-destructive text-foreground",
 };
 
 function formatJson(value: unknown) {
@@ -110,7 +124,7 @@ export function ApiDocsEndpointsSection({
     <>
       {apiSections.map((section) => {
         const Icon = getEndpointIcon(section);
-        const isVideo = section.id.includes("video");
+
         const sectionTitle = tagIdMap[section.title]
           ? tNav(tagIdMap[section.title])
           : section.title;
@@ -120,23 +134,13 @@ export function ApiDocsEndpointsSection({
               eyebrow={<AppBadge variant="muted">{section.id}</AppBadge>}
               title={
                 <span className="flex items-center gap-3">
-                  <Icon className="h-5 w-5 text-primary" />
+                  <Icon className="h-5 w-5 text-data-accent-foreground" />
                   {sectionTitle}
                 </span>
               }
               action={
-                <AppBadge
-                  variant={isVideo ? "primary" : "muted"}
-                  className={cn(
-                    "px-2 py-0.5 text-[10px]",
-                    isVideo
-                      ? "bg-primary text-black"
-                      : "border border-white/5 bg-white/10 text-gray-400",
-                  )}
-                >
-                  {isVideo
-                    ? tCommonLabels("beta")
-                    : tCommonLabels("version", { version: apiVersion })}
+                <AppBadge variant="muted">
+                  {tCommonLabels("version", { version: apiVersion })}
                 </AppBadge>
               }
             >
@@ -185,94 +189,131 @@ export function ApiDocsEndpointsSection({
                             variant="muted"
                             size="md"
                             className={cn(
-                              "rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider",
+                              "px-2.5 py-1 text-xs font-medium",
                               methodStyles[operation.method] ??
-                                "bg-white/10 text-white",
+                                "bg-white/10 text-foreground",
                             )}
                           >
                             {operation.method}
                           </AppBadge>
-                          <code className="font-mono text-lg text-white">
+                          <code className="min-w-0 break-all font-mono text-sm text-foreground sm:text-base">
                             {operation.path}
                           </code>
                         </div>
                         {operation.description ? (
-                          <p className="text-gray-400 leading-relaxed max-w-3xl">
+                          <p className="text-muted-foreground leading-relaxed max-w-3xl">
                             {operation.description}
                           </p>
                         ) : null}
                       </div>
 
-                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
-                        <div className="flex flex-col gap-4 border-b border-white/5 bg-black px-4 py-3 md:flex-row md:items-center md:justify-between">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-sans uppercase tracking-wider text-gray-500">
-                              {tSnippets("title")}
-                            </span>
-                            <p className="text-xs text-gray-500">
-                              {tSnippets("description")}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-sans uppercase tracking-wider text-gray-500">
-                              {tSnippets("languageLabel")}
-                            </span>
-                            <div className="flex flex-wrap gap-2">
-                              {orderedLanguages.map((language) => {
-                                const isActive = language === selectedLanguage;
-                                return (
-                                  <AppButton
-                                    key={language}
-                                    type="button"
-                                    size="pill-sm"
-                                    variant={isActive ? "primary" : "tab"}
-                                    className="font-bold uppercase tracking-wider"
-                                    aria-pressed={isActive}
-                                    onClick={() =>
-                                      setSnippetLanguagesById((prev) => ({
-                                        ...prev,
-                                        [operation.id]: language,
-                                      }))
+                      <CodeBlock
+                        value={selectedLanguage}
+                        data={[
+                          {
+                            language: selectedLanguage,
+                            filename: "",
+                            code: snippet,
+                          },
+                        ]}
+                        className="h-auto min-w-0"
+                      >
+                        <Tabs
+                          data-horizontal=""
+                          value={selectedLanguage}
+                          onValueChange={(value) =>
+                            setSnippetLanguagesById((prev) => ({
+                              ...prev,
+                              [operation.id]: value as SnippetLanguage,
+                            }))
+                          }
+                          className="min-w-0 flex-col gap-0 bg-background"
+                        >
+                          <CodeBlockHeader className="flex min-w-0 flex-col items-start gap-4 bg-muted/40 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground">
+                                {tSnippets("title")}
+                              </span>
+                              <p className="text-xs text-muted-foreground">
+                                {tSnippets("description")}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground">
+                                {tSnippets("languageLabel")}
+                              </span>
+                              <TabsList
+                                aria-label={tSnippets("languageLabel")}
+                                className="h-auto flex-wrap"
+                              >
+                                {orderedLanguages.map((language) => {
+                                  return (
+                                    <TabsTrigger
+                                      key={language}
+                                      value={language}
+                                      className="data-active:bg-data-accent/15 data-active:text-data-accent-foreground dark:data-active:bg-data-accent/15 dark:data-active:text-data-accent-foreground"
+                                    >
+                                      {tSnippets(`languages.${language}`)}
+                                    </TabsTrigger>
+                                  );
+                                })}
+                              </TabsList>
+                              <AppButton
+                                type="button"
+                                size="pill-sm"
+                                variant="surface"
+                                className="text-xs font-semibold"
+                                onClick={() =>
+                                  handleCopySnippet(operation.id, snippet)
+                                }
+                              >
+                                {copiedOperationId === operation.id ? (
+                                  <Check className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                                {copiedOperationId === operation.id
+                                  ? tSnippets("copied")
+                                  : tSnippets("copy")}
+                              </AppButton>
+                            </div>
+                          </CodeBlockHeader>
+                          <CodeBlockBody>
+                            {(item) => (
+                              <TabsContent
+                                key={item.language}
+                                value={selectedLanguage}
+                                className="min-w-0"
+                              >
+                                <CodeBlockItem
+                                  value={item.language}
+                                  lineNumbers={false}
+                                  className="min-w-0 [&_pre]:overflow-x-auto"
+                                >
+                                  <CodeBlockContent
+                                    language={
+                                      selectedLanguage === "curl"
+                                        ? "bash"
+                                        : selectedLanguage
                                     }
                                   >
-                                    {tSnippets(`languages.${language}`)}
-                                  </AppButton>
-                                );
-                              })}
-                            </div>
-                            <AppButton
-                              type="button"
-                              size="pill-sm"
-                              variant="surface"
-                              className="text-xs font-semibold"
-                              onClick={() =>
-                                handleCopySnippet(operation.id, snippet)
-                              }
-                            >
-                              {copiedOperationId === operation.id ? (
-                                <Check className="h-3.5 w-3.5" />
-                              ) : (
-                                <Copy className="h-3.5 w-3.5" />
-                              )}
-                              {copiedOperationId === operation.id
-                                ? tSnippets("copied")
-                                : tSnippets("copy")}
-                            </AppButton>
-                          </div>
-                        </div>
-                        <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
-                          {snippet}
-                        </pre>
-                      </div>
+                                    {item.code}
+                                  </CodeBlockContent>
+                                </CodeBlockItem>
+                              </TabsContent>
+                            )}
+                          </CodeBlockBody>
+                        </Tabs>
+                      </CodeBlock>
 
                       {request?.properties?.length ? (
-                        <div className="rounded-2xl border border-white/8 bg-transparent shadow-none">
-                          <div className="border-b border-white/8 px-6 py-4">
-                            <span className="text-xs font-bold uppercase tracking-wider text-gray-300 font-mono">
+                        <div className="rounded-lg border border-border bg-transparent shadow-none">
+                          <div className="border-b border-border px-6 py-4">
+                            <span className="text-xs font-medium text-foreground/80 font-mono">
                               {tEndpoints("requestParams")}
                             </span>
                           </div>
-                          <div className="divide-y divide-white/5">
+                          <div className="divide-y divide-border">
                             {request.properties.map((param) => (
                               <div
                                 key={param.name}
@@ -280,12 +321,12 @@ export function ApiDocsEndpointsSection({
                               >
                                 <div className="flex flex-col gap-1">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <code className="font-mono font-bold text-primary">
+                                    <code className="font-mono font-medium text-foreground">
                                       {param.name}
                                     </code>
                                     <AppBadge
                                       variant="muted"
-                                      className="rounded bg-white/10 px-2 py-0.5 font-sans uppercase text-gray-400"
+                                      className="rounded bg-white/10 px-2 py-0.5 font-sans uppercase text-muted-foreground"
                                     >
                                       {param.typeLabel}
                                     </AppBadge>
@@ -296,7 +337,7 @@ export function ApiDocsEndpointsSection({
                                       "w-fit self-start rounded-full bg-transparent px-2.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider",
                                       param.required
                                         ? "border border-destructive/25 text-destructive"
-                                        : "border border-white/12 text-gray-500",
+                                        : "border border-white/12 text-muted-foreground",
                                     )}
                                   >
                                     {param.required
@@ -306,7 +347,7 @@ export function ApiDocsEndpointsSection({
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   {param.description ? (
-                                    <p className="text-sm text-gray-400">
+                                    <p className="text-sm text-muted-foreground">
                                       {param.description}
                                     </p>
                                   ) : null}
@@ -318,21 +359,19 @@ export function ApiDocsEndpointsSection({
                       ) : null}
 
                       {requestExample ? (
-                        <div className="overflow-hidden rounded-2xl border border-white/5 bg-black shadow-lg">
-                          <div className="flex items-center justify-between border-b border-white/5 bg-black px-4 py-2">
-                            <span className="text-[10px] font-sans uppercase tracking-wider text-gray-500">
+                        <div className="overflow-hidden rounded-md border border-border bg-background">
+                          <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2">
+                            <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground">
                               {tEndpoints("requestExample")}
                             </span>
                           </div>
-                          <pre className="app-scrollbar overflow-x-auto p-6 text-sm text-gray-300">
-                            {formatJson(requestExample)}
-                          </pre>
+                          <AppCodeSnippet code={formatJson(requestExample)} />
                         </div>
                       ) : null}
 
                       {operation.responses.length ? (
                         <div className="flex flex-col gap-3">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          <span className="text-[10px] font-medium text-muted-foreground">
                             {tEndpoints("responseExample")}
                           </span>
                           <div className="grid gap-3 md:grid-cols-2">
@@ -346,30 +385,31 @@ export function ApiDocsEndpointsSection({
                                 <div
                                   key={response.status}
                                   data-testid="api-response-card"
-                                  className="rounded-xl border border-white/5 bg-surface-dark p-4"
+                                  className="rounded-xl border border-border bg-surface-dark p-4"
                                 >
                                   <div className="flex items-center gap-3">
                                     <AppBadge
                                       variant="muted"
                                       size="md"
-                                      className="px-2.5 py-1 text-gray-300"
+                                      className="px-2.5 py-1 text-foreground/80"
                                     >
                                       {response.status}
                                     </AppBadge>
-                                    <span className="text-sm font-semibold text-white">
+                                    <span className="text-sm font-semibold text-foreground">
                                       {response.description ??
                                         tEndpoints("response")}
                                     </span>
                                   </div>
-                                  <pre className="app-scrollbar mt-3 max-h-48 overflow-auto text-xs text-gray-400">
-                                    {formatJson(
+                                  <AppCodeSnippet
+                                    className="app-scrollbar mt-3 max-h-48 overflow-auto [&_pre]:text-xs"
+                                    code={formatJson(
                                       responsePayload ?? {
                                         message:
                                           response.description ??
                                           tEndpoints("responseFallback"),
                                       },
                                     )}
-                                  </pre>
+                                  />
                                 </div>
                               );
                             })}

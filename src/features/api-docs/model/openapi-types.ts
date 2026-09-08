@@ -7,7 +7,7 @@ import type {
   RequestBodyObject,
   ResponseObject,
   SchemaObject,
-} from "openapi3-ts/oas30";
+} from "openapi3-ts/oas31";
 
 export type OpenApiDocument = OpenAPIObject;
 export type OpenApiPathItem = PathItemObject;

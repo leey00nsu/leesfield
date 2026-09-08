@@ -1,3 +1,4 @@
+import { formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 
 type TranslationFn = (
@@ -26,7 +27,7 @@ const audioGenerationBaseSchema = z.object({
   topK: z.number().optional(),
   repetitionPenalty: z.number().optional(),
   dynamicParams: z
-    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .record(z.string(), formJsonValueSchema)
     .optional(),
 });
 

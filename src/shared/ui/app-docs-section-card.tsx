@@ -28,21 +28,21 @@ export function AppDocsSectionCard({
       <AppCardContent className={cn("p-0", bodyClassName)}>
         <div
           className={cn(
-            "flex flex-col gap-4 border-b border-white/8 px-5 py-5 sm:flex-row sm:items-start sm:justify-between",
+            "flex flex-col gap-4 border-b border-border px-5 py-5 sm:flex-row sm:items-start sm:justify-between",
             headerClassName,
           )}
         >
           <div className="min-w-0">
             {eyebrow ? (
-              <div className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary/80">
+              <div className="mb-3 text-xs font-medium text-muted-foreground">
                 {eyebrow}
               </div>
             ) : null}
-            <div className="text-lg font-semibold tracking-[-0.02em] text-white sm:text-xl">
+            <div className="text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl">
               {title}
             </div>
             {description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/58">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {description}
               </p>
             ) : null}

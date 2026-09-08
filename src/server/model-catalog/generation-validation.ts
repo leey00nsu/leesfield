@@ -1,5 +1,15 @@
+import { formParameterIssues } from "@/shared/model-catalog/parameter-contract";
+import { generationBodySchema } from "@/shared/api/generation-input";
+import {
+  assertGradioExecutable,
+  getGradioContract,
+  gradioInputValues,
+} from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
-import { hasRuntimeParameterOption } from "@/shared/model-catalog/parameter-options";
+import {
+  normalizeRuntimeParameterOptions,
+  hasRuntimeParameterOption,
+} from "@/shared/model-catalog/parameter-options";
 import { resolveRuntimeParameterLabel } from "@/shared/model-catalog/runtime-utils";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
@@ -17,8 +27,7 @@ type TranslationFn = (
 ) => string;
 
 type SafeParseResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: z.ZodError<T> };
+  { success: true; data: T } | { success: false; error: z.ZodError<T> };
 
 type NumericRange = {
   min: number;
@@ -77,22 +86,27 @@ const audioFallbackRanges: Record<
 const buildInitImageSchema = (t?: TranslationFn) =>
   z
     .string()
-    .refine((value) => {
-      const trimmed = value.trim();
-      if (!trimmed) return true;
-      if (trimmed.startsWith("data:")) {
-        return /^data:[^;]+;base64,/.test(trimmed);
-      }
-      if (/^https?:\/\//.test(trimmed)) {
-        try {
-          const url = new URL(trimmed);
-          return url.protocol === "http:" || url.protocol === "https:";
-        } catch {
-          return false;
+    .refine(
+      (value) => {
+        const trimmed = value.trim();
+        if (!trimmed) return true;
+        if (trimmed.startsWith("data:")) {
+          return /^data:[^;]+;base64,/.test(trimmed);
         }
-      }
-      return false;
-    }, t ? t("initImageInvalid") : "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.")
+        if (/^https?:\/\//.test(trimmed)) {
+          try {
+            const url = new URL(trimmed);
+            return url.protocol === "http:" || url.protocol === "https:";
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      },
+      t
+        ? t("initImageInvalid")
+        : "initImage는 data URL(base64) 또는 http(s) URL이어야 합니다.",
+    )
     .describe("data URL(base64) 또는 http(s) 이미지 URL");
 
 function resolveNumber(value: unknown, fallback: number) {
@@ -115,7 +129,50 @@ function getParamConfig(
   key: string,
 ): ParameterConfig | undefined {
   const param = parameters[key];
-  return param && typeof param === "object" ? (param as ParameterConfig) : undefined;
+  return param && typeof param === "object"
+    ? (param as ParameterConfig)
+    : undefined;
+}
+
+// Model settings drive runtime refinements below and the schema metadata together.
+// Legacy defaults are UI suggestions, not server-applied defaults: expose examples.
+function numberInput(
+  models: { parameters: unknown }[],
+  key: string,
+  schema: z.ZodNumber,
+  fallback: NumericRange,
+) {
+  if (models.length !== 1) return schema;
+  const config = getParamConfig(
+    models[0].parameters as Record<string, unknown>,
+    key,
+  );
+  const range = resolveRange(
+    config as Record<string, unknown> | undefined,
+    fallback,
+  );
+  return schema.openapi({
+    minimum: range.min,
+    maximum: range.max,
+    "x-step": range.step,
+    "x-step-base": range.min,
+    ...(typeof config?.default === "number" ? { example: config.default } : {}),
+  });
+}
+function selectionInput<T extends z.ZodType>(
+  models: { parameters: unknown }[],
+  key: string,
+  schema: T,
+): T {
+  if (models.length !== 1) return schema;
+  const config = getParamConfig(
+    models[0].parameters as Record<string, unknown>,
+    key,
+  );
+  const options = normalizeRuntimeParameterOptions(config?.options);
+  return schema.openapi(
+    options ? { enum: options.map((option) => option.value) } : {},
+  );
 }
 
 function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
@@ -123,9 +180,7 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
   const invalidModelMessage = t
     ? t("invalidModel")
     : "지원하지 않는 모델입니다.";
-  const promptRequired = t
-    ? t("promptRequired")
-    : "프롬프트를 입력해주세요.";
+  const promptRequired = t ? t("promptRequired") : "프롬프트를 입력해주세요.";
   const labelMap = {
     width: t ? t("labels.width") : "너비",
     height: t ? t("labels.height") : "높이",
@@ -134,32 +189,66 @@ function buildImageSchema(models: ImageModelCatalogItem[], t?: TranslationFn) {
     guidanceScale: t ? t("labels.guidanceScale") : "가이던스",
   };
   const rangeMessage = (label: string, min: number, max: number) =>
-    t ? t("range", { label, min, max }) : `${label}는 ${min}~${max} 범위여야 합니다.`;
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
   const stepMessage = (label: string, step: number) =>
-    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
+    t
+      ? t("step", { label, step })
+      : `${label}는 ${step} 단위로 입력해야 합니다.`;
   const initImageUnsupported = t
     ? t("initImageUnsupported")
     : "선택한 모델은 이미지 입력을 지원하지 않습니다.";
   const maxInputImagesMessage = (limit: number) =>
-    t ? t("maxInputImages", { limit }) : `이미지는 최대 ${limit}장까지 업로드할 수 있습니다.`;
-  const unsupportedMode = t ? t("unsupportedMode") : "지원하지 않는 모드입니다.";
+    t
+      ? t("maxInputImages", { limit })
+      : `이미지는 최대 ${limit}장까지 업로드할 수 있습니다.`;
+  const unsupportedMode = t
+    ? t("unsupportedMode")
+    : "지원하지 않는 모드입니다.";
 
-  const schema = z.object({
+  const schema = generationBodySchema("image").extend({
     prompt: z.string().min(1, promptRequired),
-    width: z.number().int(),
-    height: z.number().int(),
+    width: numberInput(
+      models,
+      "width",
+      z.number().int(),
+      imageFallbackRanges.size,
+    ),
+    height: numberInput(
+      models,
+      "height",
+      z.number().int(),
+      imageFallbackRanges.size,
+    ),
     initImages: z.array(z.string()).optional(),
     model: z.string().min(1),
-    imageCount: z.number().int(),
-    steps: z.number().int(),
-    modeChoice: z.string().optional(),
-    guidanceScale: z.number().optional(),
+    imageCount: numberInput(
+      models,
+      "imageCount",
+      z.number().int(),
+      imageFallbackRanges.count,
+    ),
+    steps: numberInput(
+      models,
+      "steps",
+      z.number().int(),
+      imageFallbackRanges.steps,
+    ),
+    modeChoice: selectionInput(models, "modeChoice", z.string()).optional(),
+    guidanceScale: numberInput(
+      models,
+      "guidanceScale",
+      z.number(),
+      imageFallbackRanges.guidance,
+    ).optional(),
     promptUpsampling: z.boolean().optional(),
     seed: z.string().optional().or(z.literal("")),
   });
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -296,9 +385,13 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
   const intOnlyMessage = (label: string) =>
     t ? t("intOnly", { label }) : `${label}는 정수만 허용됩니다.`;
   const rangeMessage = (label: string, min: number, max: number) =>
-    t ? t("range", { label, min, max }) : `${label}는 ${min}~${max} 범위여야 합니다.`;
+    t
+      ? t("range", { label, min, max })
+      : `${label}는 ${min}~${max} 범위여야 합니다.`;
   const stepMessage = (label: string, step: number) =>
-    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
+    t
+      ? t("step", { label, step })
+      : `${label}는 ${step} 단위로 입력해야 합니다.`;
   const initImageNeeded = t
     ? t("initImageNeeded")
     : "선택한 모델은 이미지 입력이 필요합니다.";
@@ -312,21 +405,37 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
     ? t("unsupportedResolution")
     : "지원하지 않는 해상도입니다.";
 
-  const schema = z.object({
+  const schema = generationBodySchema("video").extend({
     prompt: z.string().min(1, promptRequired),
     initImage: initImageSchema.optional().or(z.literal("")),
     model: z.string().min(1),
-    aspectRatio: z.string().min(1),
-    resolution: z.number().int(),
-    durationSec: z.number(),
-    fps: z.number().int(),
-    steps: z.number().int(),
-    guidanceScale: z.number(),
+    aspectRatio: selectionInput(models, "aspectRatio", z.string().min(1)),
+    resolution: selectionInput(models, "resolution", z.number().int()),
+    durationSec: numberInput(
+      models,
+      "durationSec",
+      z.number(),
+      videoFallbackRanges.duration,
+    ),
+    fps: numberInput(models, "fps", z.number().int(), videoFallbackRanges.fps),
+    steps: numberInput(
+      models,
+      "steps",
+      z.number().int(),
+      videoFallbackRanges.steps,
+    ),
+    guidanceScale: numberInput(
+      models,
+      "guidanceScale",
+      z.number(),
+      videoFallbackRanges.guidance,
+    ),
     seed: z.string().optional().or(z.literal("")),
   });
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -407,7 +516,13 @@ function buildVideoSchema(models: VideoModelCatalogItem[], t?: TranslationFn) {
       }
     };
 
-    validateRange(data.durationSec, durationRange, ["durationSec"], labels.durationSec, true);
+    validateRange(
+      data.durationSec,
+      durationRange,
+      ["durationSec"],
+      labels.durationSec,
+      true,
+    );
     validateRange(data.steps, stepsRange, ["steps"], labels.steps);
     validateRange(
       data.guidanceScale,
@@ -460,8 +575,12 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
       ? t("range", { label, min, max })
       : `${label}는 ${min}~${max} 범위여야 합니다.`;
   const stepMessage = (label: string, step: number) =>
-    t ? t("step", { label, step }) : `${label}는 ${step} 단위로 입력해야 합니다.`;
-  const unsupportedVoice = t ? t("unsupportedVoice") : "지원하지 않는 음성입니다.";
+    t
+      ? t("step", { label, step })
+      : `${label}는 ${step} 단위로 입력해야 합니다.`;
+  const unsupportedVoice = t
+    ? t("unsupportedVoice")
+    : "지원하지 않는 음성입니다.";
   const inputAudioUnsupported = t
     ? t("inputAudioUnsupported")
     : "선택한 모델은 오디오 입력을 지원하지 않습니다.";
@@ -470,26 +589,61 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     : "레퍼런스 텍스트를 입력해주세요.";
   const unsupportedSelection = "지원하지 않는 선택값입니다.";
 
-  const schema = z.object({
+  const schema = generationBodySchema("audio").extend({
     prompt: z.string().min(1, promptRequired),
     model: z.string().min(1),
-    voice: z.string().optional().or(z.literal("")),
-    speed: z.number().optional(),
+    voice: selectionInput(models, "voice", z.string())
+      .optional()
+      .or(z.literal("")),
+    speed: numberInput(
+      models,
+      "speed",
+      z.number(),
+      audioFallbackRanges.speed,
+    ).optional(),
     seed: z.string().optional().or(z.literal("")),
     inputAudio: z.string().optional().or(z.literal("")),
     referenceText: z.string().optional().or(z.literal("")),
-    modeChoice: z.string().optional().or(z.literal("")),
-    language: z.string().optional().or(z.literal("")),
-    speaker: z.string().optional().or(z.literal("")),
+    modeChoice: selectionInput(models, "modeChoice", z.string())
+      .optional()
+      .or(z.literal("")),
+    language: selectionInput(models, "language", z.string())
+      .optional()
+      .or(z.literal("")),
+    speaker: selectionInput(models, "speaker", z.string())
+      .optional()
+      .or(z.literal("")),
     streamMode: z.boolean().optional(),
-    referencePreset: z.string().optional().or(z.literal("")),
+    referencePreset: selectionInput(models, "referencePreset", z.string())
+      .optional()
+      .or(z.literal("")),
     customInstruction: z.string().optional().or(z.literal("")),
     voiceInstruction: z.string().optional().or(z.literal("")),
     xvecOnly: z.boolean().optional(),
-    chunkSize: z.number().optional(),
-    temperature: z.number().optional(),
-    topK: z.number().optional(),
-    repetitionPenalty: z.number().optional(),
+    chunkSize: numberInput(
+      models,
+      "chunkSize",
+      z.number(),
+      audioFallbackRanges.chunkSize,
+    ).optional(),
+    temperature: numberInput(
+      models,
+      "temperature",
+      z.number(),
+      audioFallbackRanges.temperature,
+    ).optional(),
+    topK: numberInput(
+      models,
+      "topK",
+      z.number(),
+      audioFallbackRanges.topK,
+    ).optional(),
+    repetitionPenalty: numberInput(
+      models,
+      "repetitionPenalty",
+      z.number(),
+      audioFallbackRanges.repetitionPenalty,
+    ).optional(),
     dynamicParams: z
       .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
       .optional(),
@@ -497,6 +651,7 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
 
   return schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
+    if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (!model) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -571,7 +726,11 @@ function buildAudioSchema(models: AudioModelCatalogItem[], t?: TranslationFn) {
     }
 
     const referenceTextConfig = getParamConfig(parameters, "referenceText");
-    if (referenceTextConfig?.required && inputAudio && !(data.referenceText?.trim())) {
+    if (
+      referenceTextConfig?.required &&
+      inputAudio &&
+      !data.referenceText?.trim()
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["referenceText"],
@@ -732,6 +891,61 @@ function buildNoModelsResult<TOutput>(message: string) {
   return result;
 }
 
+function mappedPayloadSchema(model: {
+  key: string;
+  type: string;
+  providerConfig: unknown;
+  parameters?: unknown;
+}) {
+  const contract = getGradioContract(model);
+  if (!contract) return null;
+  return generationBodySchema(model.type as "image" | "video" | "audio")
+    .extend({
+      model: z.string(),
+      prompt: z.string().default(""),
+      dynamicParams: z.record(z.string(), z.unknown()).optional(),
+      width: z.number().int().default(1024),
+      height: z.number().int().default(1024),
+      imageCount: z.number().int().default(1),
+      steps: z.number().int().default(1),
+      aspectRatio: z.string().default("16:9"),
+      resolution: z.number().int().default(720),
+      durationSec: z.number().default(3),
+      fps: z.number().int().default(16),
+      guidanceScale: z.number().default(1),
+    })
+    .superRefine((data, ctx) => {
+      try {
+        assertGradioExecutable(contract);
+        if (!contract.output || contract.output.media !== model?.type)
+          throw new Error("HF_CONTRACT_MEDIA");
+        gradioInputValues(contract, data);
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dynamicParams"],
+          message:
+            error instanceof Error ? error.message : "HF_CONTRACT_INVALID",
+        });
+      }
+    });
+}
+
+/** Runtime validation and OpenAPI use this same per-model factory. */
+export function getModelGenerationSchema(
+  model: ImageModelCatalogItem | VideoModelCatalogItem | AudioModelCatalogItem,
+  t?: TranslationFn,
+) {
+  return (
+    mappedPayloadSchema(model) ??
+    (model.type === "image"
+      ? buildImageSchema([model], t)
+      : model.type === "video"
+        ? buildVideoSchema([model], t)
+        : buildAudioSchema([model], t))
+  );
+}
+
 export async function validateImageGenerationPayload(
   payload: unknown,
   t?: TranslationFn,
@@ -744,7 +958,14 @@ export async function validateImageGenerationPayload(
     const message = t ? t("noModels") : "등록된 이미지 모델이 없습니다.";
     return buildNoModelsResult<ImageGenerationFormValues>(message);
   }
-  const schema = buildImageSchema(imageModels, t);
+  const key =
+    payload && typeof payload === "object"
+      ? (payload as { model?: unknown }).model
+      : undefined;
+  const selected = imageModels.find((model) => model.key === key);
+  const schema = selected
+    ? getModelGenerationSchema(selected, t)
+    : buildImageSchema(imageModels, t);
   const parsed = schema.safeParse(payload);
   return parsed as SafeParseResult<ImageGenerationFormValues>;
 }
@@ -761,7 +982,14 @@ export async function validateVideoGenerationPayload(
     const message = t ? t("noModels") : "등록된 비디오 모델이 없습니다.";
     return buildNoModelsResult<VideoGenerationFormValues>(message);
   }
-  const schema = buildVideoSchema(videoModels, t);
+  const key =
+    payload && typeof payload === "object"
+      ? (payload as { model?: unknown }).model
+      : undefined;
+  const selected = videoModels.find((model) => model.key === key);
+  const schema = selected
+    ? getModelGenerationSchema(selected, t)
+    : buildVideoSchema(videoModels, t);
   const parsed = schema.safeParse(payload);
   return parsed as SafeParseResult<VideoGenerationFormValues>;
 }
@@ -778,7 +1006,14 @@ export async function validateAudioGenerationPayload(
     const message = t ? t("noModels") : "등록된 오디오 모델이 없습니다.";
     return buildNoModelsResult<AudioGenerationFormValues>(message);
   }
-  const schema = buildAudioSchema(audioModels, t);
+  const key =
+    payload && typeof payload === "object"
+      ? (payload as { model?: unknown }).model
+      : undefined;
+  const selected = audioModels.find((model) => model.key === key);
+  const schema = selected
+    ? getModelGenerationSchema(selected, t)
+    : buildAudioSchema(audioModels, t);
   const parsed = schema.safeParse(payload);
   return parsed as SafeParseResult<AudioGenerationFormValues>;
 }

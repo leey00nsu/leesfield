@@ -1,3 +1,5 @@
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { executeGradioContract } from "@/server/hf-space/contract-executor";
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
@@ -359,6 +361,14 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
   },
   async generate(payload: ImageGenerationFormValues) {
     const { config, model, providerConfig } = await getSpaceConfig(payload.model);
+    if (getGradioContract(model)) {
+      await ensureSpaceRunning(config);
+      const client = await getClient(config);
+      const refs = await executeGradioContract(client, model, payload, config, "image");
+      const urls = await Promise.all(refs.map(ref => fetchImageDataUrl(ref, config.spaceUrl, Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS))));
+      return { images: urls };
+    }
+
     await ensureSpaceRunning(config);
     const client = await getClient(config);
     const { seedValue, randomize } = parseSeed(payload.seed);

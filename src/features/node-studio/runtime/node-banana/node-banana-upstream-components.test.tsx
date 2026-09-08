@@ -1,7 +1,10 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { AppCanvasInputProvider } from "@/shared/ui/app-canvas-input-provider";
+import { act, cleanup, fireEvent, render as baseRender, screen, waitFor, within } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NodeBananaUpstreamHostProvider, useWorkflowStore, useVideoAutoplay } from "@node-banana-runtime/upstream-node-host";
+
+const render = (ui: Parameters<typeof baseRender>[0], options?: Parameters<typeof baseRender>[1]) => baseRender(ui, {wrapper:AppCanvasInputProvider,...options});
 
 const panelSelection = vi.hoisted(() => ({ nodes: [] as Array<Record<string, unknown>> }));
 vi.mock("@xyflow/react", async (importOriginal) => ({
@@ -354,7 +357,7 @@ const upstreamPresenterContracts: readonly PresenterContract[] = [
     assertBody: (body) => {
       expect(body.querySelector('[data-clip-id="stitch-edge-1"]')).not.toBeNull();
       expect(body.querySelector('[data-clip-id="stitch-edge-2"]')).not.toBeNull();
-      expect(within(body).getByRole("checkbox", { name: "Strip audio" })).not.toBeChecked();
+      expect(within(body).getByRole("switch", { name: "Strip audio" })).not.toBeChecked();
       expect(within(body).getByRole("button", { name: "Stitch" })).toBeEnabled();
     },
     exercise: (body) => fireEvent.click(within(body).getByRole("button", { name: "2x" })),
@@ -376,16 +379,16 @@ const upstreamPresenterContracts: readonly PresenterContract[] = [
       ],
     },
     assertBody: (body) => {
-      expect(body.querySelectorAll('.trim-slider-container input[type="range"]')).toHaveLength(2);
+      expect(within(body).getAllByRole("slider")).toHaveLength(2);
       expect(within(body).getByText("Duration")).toBeVisible();
-      expect(within(body).getByRole("checkbox", { name: "Strip audio" })).not.toBeChecked();
+      expect(within(body).getByRole("switch", { name: "Strip audio" })).not.toBeChecked();
       expect(within(body).getByRole("button", { name: "Trim" })).toBeEnabled();
     },
     exercise: (body) => {
       const [start] = within(body).getAllByRole("slider");
       fireEvent.change(start, { target: { value: "2" } });
     },
-    expectedUpdate: { nodeId: "node-edit.video.trim", patch: { config: { parameters: { startMs: 2_000 } } } },
+    expectedUpdate: { nodeId: "node-edit.video.trim", patch: { config: { parameters: { startMs: 2_000, endMs: 5000 } } } },
   },
   {
     kind: "edit.video.frameGrab",
@@ -404,7 +407,7 @@ const upstreamPresenterContracts: readonly PresenterContract[] = [
       expect(body.querySelector("video[controls]")).not.toBeNull();
       expect(within(body).getByTitle("Clear video")).toBeEnabled();
       expect(within(body).getByRole("spinbutton", { name: "Output duration" })).toHaveValue(1.5);
-      expect(within(body).getByRole("combobox", { name: "Easing preset" })).toHaveValue("easeInOutSine");
+      expect(within(body).getByRole("combobox", { name: "Easing preset" })).toHaveTextContent("easeInOutSine");
       expect(within(body).getByRole("button", { name: "Run" })).toBeEnabled();
     },
     exercise: (body) => {
@@ -634,7 +637,7 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
       assertBody: () => undefined,
     }, onUpdateNodeData, vi.fn());
 
-    fireEvent.click(within(view.body).getByRole("checkbox", { name: "Strip audio" }));
+    fireEvent.click(within(view.body).getByRole("switch", { name: "Strip audio" }));
     expect(onUpdateNodeData).toHaveBeenCalledWith(
       "node-edit.video.stitch",
       expect.objectContaining({ config: expect.objectContaining({ parameters: expect.objectContaining({ stripAudio: true }) }) }),
@@ -658,7 +661,7 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
       assertBody: () => undefined,
     }, onUpdateNodeData, vi.fn());
 
-    fireEvent.click(within(view.body).getByRole("checkbox", { name: "Strip audio" }));
+    fireEvent.click(within(view.body).getByRole("switch", { name: "Strip audio" }));
     expect(onUpdateNodeData).toHaveBeenCalledWith(
       "node-edit.video.trim",
       expect.objectContaining({ config: expect.objectContaining({ parameters: expect.objectContaining({ stripAudio: true }) }) }),
@@ -917,6 +920,23 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog", { name: "Edit Prompt" })).not.toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
+  });
+
+
+  it("keeps the canvas font menu inside the editor focus boundary and dismisses only the menu", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    render(<ReactFlowProvider>
+      <NodeBananaUpstreamHeader runtimeData={{canonicalKind:"input.prompt", id:"font-menu", config:{text:"Prompt"}}} position={{x:0,y:30}} width={300} selected onUpdateNodeData={vi.fn()} />
+    </ReactFlowProvider>);
+    await user.click(screen.getByTitle("Expand editor"));
+    await user.click(screen.getByRole("combobox", {name:"Prompt font size"}));
+    const list = await screen.findByRole("listbox");
+    expect(list.closest("[data-canvas-dialog-content]")).not.toBeNull();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", {name:"Edit Prompt"})).toBeVisible();
+    await user.click(screen.getByRole("combobox", {name:"Prompt font size"}));
+    await user.click(await screen.findByRole("option", {name:"18px"}));
+    expect(screen.getByRole("textbox", {name:"Prompt text"})).toHaveStyle({fontSize:"18px"});
   });
 
   it("traps expanded prompt and confirmation focus, dismisses one Escape layer, and resets after discard", () => {

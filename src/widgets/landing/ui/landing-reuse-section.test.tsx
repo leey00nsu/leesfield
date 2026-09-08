@@ -26,7 +26,7 @@ describe("LandingReuseSection", () => {
       "/api-docs",
     );
     expect(screen.getByText(/POST/)).toHaveTextContent(
-      "/api/external/image-generation",
+      "/api/external/generations",
     );
   });
 });

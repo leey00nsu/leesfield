@@ -1,3 +1,4 @@
+import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
@@ -22,7 +23,7 @@ export async function createAudioGenerationRecord(
     requestParams[key] =
       typeof value === "string"
         ? value.trim() || null
-        : value;
+        : JSON.parse(JSON.stringify(value));
   });
 
   return prisma.audioGeneration.create({
@@ -31,7 +32,7 @@ export async function createAudioGenerationRecord(
       ownerEmail,
       apiKeyId,
       prompt: payload.prompt,
-      requestParams: requestSnapshot ?? requestParams,
+      requestParams: await snapshotRequest('audio', requestSnapshot ?? requestParams),
       modelKey: payload.model,
       graphNodeId,
       status: "pending",

@@ -33,7 +33,7 @@ export function LandingReuseSection() {
           typingSpeed={12}
           initialDelay={300}
           commands={[
-            'const response = await fetch("/api/external/image-generation", {\n  method: "POST",\n  headers: {\n    "x-api-key": apiKey,\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({\n    model: modelKey,\n    prompt: "A quiet blue hour",\n  }),\n});\n\nconst { requestId } = await response.json();\nconst status = await fetch(\n  `/api/external/image-generation/${requestId}`,\n  { headers: { "x-api-key": apiKey } },\n);',
+            'const response = await fetch("/api/external/generations", {\n  method: "POST",\n  headers: {\n    "x-api-key": apiKey,\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({\n    type: "image",\n    model: modelId,\n    dynamicParams: { prompt: "A quiet blue hour" },\n  }),\n});\n\nconst { requestId } = await response.json();\nconst status = await fetch(\n  `/api/external/generations/${requestId}`,\n  { headers: { "x-api-key": apiKey } },\n);',
           ]}
           className="max-w-none px-0"
         />

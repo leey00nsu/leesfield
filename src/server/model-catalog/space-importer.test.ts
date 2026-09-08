@@ -44,11 +44,11 @@ describe("importModelDraftFromSpace", () => {
         title: "Qwen3 TTS",
         components: [
           { id: 1, type: "audio", props: { label: "Reference Audio" } },
-          { id: 2, type: "textbox", props: { label: "Reference Text", lines: 2 } },
-          { id: 3, type: "textbox", props: { label: "Target Text", lines: 4 } },
+          { id: 2, type: "textbox", api_info: { type: "string" }, props: { label: "Reference Text", lines: 2 } },
+          { id: 3, type: "textbox", api_info: { type: "string" }, props: { label: "Target Text", lines: 4 } },
           {
             id: 4,
-            type: "dropdown",
+            type: "dropdown", api_info: { type: "string" },
             props: {
               label: "Language",
               choices: ["Auto", "Korean"],
@@ -57,7 +57,7 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 5,
-            type: "checkbox",
+            type: "checkbox", api_info: { type: "boolean" },
             props: {
               label:
                 "Use x-vector only (No reference text needed, but lower quality)",
@@ -66,7 +66,7 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 6,
-            type: "dropdown",
+            type: "dropdown", api_info: { type: "string" },
             props: { label: "Model Size", choices: ["0.6B", "1.7B"], value: "1.7B" },
           },
           { id: 7, type: "audio", props: { label: "Generated Audio" } },
@@ -181,11 +181,11 @@ describe("importModelDraftFromSpace", () => {
         space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
         title: "Faster Qwen3 TTS",
         components: [
-          { id: 1, type: "textbox", props: { label: "Text", lines: 4 } },
+          { id: 1, type: "textbox", api_info: { type: "string" }, props: { label: "Text", lines: 4 } },
           { id: 2, type: "audio", props: { label: "Reference Audio" } },
           {
             id: 3,
-            type: "textbox",
+            type: "textbox", api_info: { type: "string" },
             props: {
               label: "Reference Transcript (for advanced ICL mode)",
               lines: 4,
@@ -314,10 +314,10 @@ describe("importModelDraftFromSpace", () => {
         space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
         title: "Faster Qwen3 TTS",
         components: [
-          { id: 1, type: "textbox", props: { label: "Text", lines: 4 } },
+          { id: 1, type: "textbox", api_info: { type: "string" }, props: { label: "Text", lines: 4 } },
           {
             id: 2,
-            type: "dropdown",
+            type: "dropdown", api_info: { type: "string" },
             props: { label: "Language", choices: ["English", "Korean"], value: "English" },
           },
           {
@@ -331,13 +331,13 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 4,
-            type: "checkbox",
+            type: "checkbox", api_info: { type: "boolean" },
             props: { label: "Streaming", value: true },
           },
           { id: 5, type: "audio", props: { label: "Reference Audio" } },
           {
             id: 6,
-            type: "dropdown",
+            type: "dropdown", api_info: { type: "string" },
             props: {
               label: "Reference Preset",
               choices: ["ref_audio_1", "ref_audio_3"],
@@ -346,7 +346,7 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 7,
-            type: "textbox",
+            type: "textbox", api_info: { type: "string" },
             props: {
               label: "Reference Transcript (for advanced ICL mode)",
               lines: 4,
@@ -355,7 +355,7 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 8,
-            type: "dropdown",
+            type: "dropdown", api_info: { type: "string" },
             props: {
               label: "Speaker",
               choices: ["Vivian", "Serena"],
@@ -364,37 +364,37 @@ describe("importModelDraftFromSpace", () => {
           },
           {
             id: 9,
-            type: "textbox",
+            type: "textbox", api_info: { type: "string" },
             props: { label: "Custom Instruction", lines: 4 },
           },
           {
             id: 10,
-            type: "textbox",
+            type: "textbox", api_info: { type: "string" },
             props: { label: "Voice Instruction", lines: 4 },
           },
           {
             id: 11,
-            type: "checkbox",
+            type: "checkbox", api_info: { type: "boolean" },
             props: { label: "xvec only", value: false },
           },
           {
             id: 12,
-            type: "slider",
+            type: "slider", api_info: { type: "number" },
             props: { label: "Chunk Size", minimum: 40, maximum: 200, step: 10, value: 120 },
           },
           {
             id: 13,
-            type: "slider",
+            type: "slider", api_info: { type: "number" },
             props: { label: "Temperature", minimum: 0.1, maximum: 1.2, step: 0.1, value: 0.7 },
           },
           {
             id: 14,
-            type: "slider",
+            type: "slider", api_info: { type: "number" },
             props: { label: "Top K", minimum: 1, maximum: 100, step: 1, value: 20 },
           },
           {
             id: 15,
-            type: "slider",
+            type: "slider", api_info: { type: "number" },
             props: {
               label: "Repetition Penalty",
               minimum: 1,
@@ -505,7 +505,7 @@ describe("importModelDraftFromSpace", () => {
         space_id: "leey00nsu/qwen-3.5-tts-faster-gradio",
         title: "Faster Qwen3 TTS",
         components: [
-          { id: 1, type: "textbox", props: { label: "Text", lines: 4 } },
+          { id: 1, type: "textbox", api_info: { type: "string" }, props: { label: "Text", lines: 4 } },
           { id: 2, type: "audio", props: { label: "Reference Audio" } },
           { id: 3, type: "audio", props: { label: "Generated Audio" } },
         ],

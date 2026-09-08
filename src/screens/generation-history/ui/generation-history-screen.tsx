@@ -1,8 +1,12 @@
 "use client";
+import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
+import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
+
+import { HistoryRequestSettings } from "./history-request-settings";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   AudioLines,
   Copy,
@@ -12,8 +16,8 @@ import {
   Grid2X2,
   Image as ImageIcon,
   RotateCcw,
-  Sparkles,
-  X,
+  Square,
+  SquareCheck,
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -24,12 +28,13 @@ import type {
   GenerationHistoryStatus,
   GenerationHistoryType,
 } from "@/entities/generation/model/types";
-import { HistoryItemSkeleton } from "@/features/generation-history/ui/history-item";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
 import type { MonitoringRequestDetail } from "@/features/monitoring-dashboard/model/types";
 import { AppDetailRail, AppDetailSection } from "@/shared/ui/app-detail-rail";
+import { AppDialog, AppDialogContent, AppDialogTitle, AppDialogClose } from "@/shared/ui/app-dialog";
+import { AppCloseButton } from "@/shared/ui/app-close-button";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppExpandableText } from "@/shared/ui/app-expandable-text";
 import {
@@ -130,6 +135,9 @@ export function GenerationHistoryScreen() {
   const [type, setType] = useState<GenerationHistoryType>("all");
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
   const [sort, setSort] = useState<GenerationHistorySort>("date_desc");
+  const catalog = useRuntimeModelCatalog();
+  const [model, setModel] = useState("all");
+  const [autoplay, setAutoplay] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const [selectedItem, setSelectedItem] =
     useState<GenerationHistoryItem | null>(null);
@@ -139,18 +147,20 @@ export function GenerationHistoryScreen() {
     useGenerationHistoryList({
       type,
       sort,
-      query,
+      query: "",
+      prompt: query,
+      model: model === "all" ? undefined : model,
       status: statusFilter,
     });
 
   const displayItems = items;
-  const hasFilteredState = query.length > 0 || statusFilter !== "all";
+  const hasFilteredState = query.length > 0 || model !== "all" || statusFilter !== "all";
 
   return (
     <AppPageShell className="relative flex flex-col gap-6">
       <h1 className="sr-only">{tHistory("title.leading") + " " + tHistory("title.accent")}</h1>
       <section className="flex w-full flex-col gap-6">
-        <AppFilterToolbar>
+        <AppFilterToolbar className="lg:flex-col lg:items-stretch">
           <AppFilterGroup>
             <AppFilterToggle
               onClick={() => {
@@ -201,17 +211,24 @@ export function GenerationHistoryScreen() {
             >
               {tHistory("statuses.failed")}
             </AppFilterToggle>
+            {(type === "all" || type === "video") && <AppFilterToggle role="checkbox" aria-checked={autoplay} active={autoplay} onClick={() => setAutoplay(value => !value)} icon={autoplay ? <SquareCheck className="h-4 w-4" /> : <Square className="h-4 w-4" />}>{tHistory("filters.autoplay")}</AppFilterToggle>}
           </AppFilterGroup>
 
           <div
             data-testid="history-filter-trailing-controls"
-            className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:ml-auto lg:w-[43rem] lg:flex-none"
+            className="flex w-full min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center"
           >
+            <AppSelectRoot value={model} onValueChange={value => setModel(value ?? "all")}>
+              <AppSelectTrigger aria-label={tHistory("filters.model")} className="h-14 w-full sm:w-64"><AppSelectValue /></AppSelectTrigger>
+              <AppSelectContent><AppSelectItem value="all">{tHistory("filters.allModels")}</AppSelectItem>
+                {catalog.items.map(item => <AppSelectItem key={item.key} value={item.key}>{item.label}</AppSelectItem>)}
+              </AppSelectContent>
+            </AppSelectRoot>
             <AppSearchField
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder={tHistory("filters.searchPlaceholder")}
-              aria-label={tHistory("filters.search")}
+              placeholder={tHistory("filters.promptPlaceholder")}
+              aria-label={tHistory("filters.prompt")}
               containerClassName="sm:flex-1"
             />
             <AppSortSelect
@@ -235,7 +252,7 @@ export function GenerationHistoryScreen() {
             <AppButton onClick={() => void retry()} variant="surface">{tCommonActions("retry")}</AppButton>
           </div>
         ) : (
-          <HistoryList
+          <HistoryList autoplay={autoplay}
             items={displayItems}
             isLoading={isLoading && items.length === 0}
             onDeleteItem={removeItem}
@@ -257,8 +274,8 @@ export function GenerationHistoryScreen() {
             />
             {error && <AppButton variant="surface" onClick={() => void retry()}>{tCommonActions("retry")}</AppButton>}
             {isFetchingNextPage && (
-              <div role="status" aria-label={tCommonActions("loading")} className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
-                {Array.from({ length: 4 }, (_, index) => <HistoryItemSkeleton key={index} className="h-56" />)}
+              <div role="status" aria-label={tCommonActions("loading")} className="flex h-12 items-center justify-center">
+                <Loader2 aria-hidden="true" className="size-5 animate-spin text-muted-foreground motion-reduce:animate-none" />
               </div>
             )}
           </div>
@@ -320,7 +337,6 @@ function HistoryDetailOverlay({
     item.id,
     item.origin !== "edit",
   );
-  const dialogRef = useRef<HTMLDivElement>(null);
   const detail = detailQuery.data ?? null;
   const hydratedItem = hydrateHistoryItem(item, detail);
   const previewUrl = hydratedItem.resultUrl ?? hydratedItem.thumbnailUrl;
@@ -373,24 +389,6 @@ function HistoryDetailOverlay({
   const thumbnailUrl =
     hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl ?? null;
   const warningMessage = detail?.warningMessage ?? null;
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !modalBusyRef.current) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
 
   const settingsRows = [
     {
@@ -575,6 +573,7 @@ function HistoryDetailOverlay({
   const settingsTab = (
     <AppDetailSection className="p-4">
       {renderRows(settingsRows)}
+      <HistoryRequestSettings parameters={detail?.requestParameters} loading={detailQuery.isLoading} error={detailQuery.isError} />
     </AppDetailSection>
   );
 
@@ -649,14 +648,13 @@ function HistoryDetailOverlay({
   );
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={tHistory("detail.title")}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 grid bg-black/88 text-white lg:grid-cols-[1fr_25rem]"
-    >
+    <AppDialog open onOpenChange={(open, details) => {
+      if (!open) { if (modalBusyRef.current) details.cancel(); else onClose(); }
+    }}>
+    <AppDialogContent size="full" surface="media" padding="none" showCloseButton={false}
+      aria-describedby={undefined}
+      className="grid gap-0 lg:grid-cols-[1fr_25rem]">
+      <AppDialogTitle className="sr-only">{tHistory("detail.title")}</AppDialogTitle>
       <div
         data-testid="history-detail-preview-backdrop"
         role="presentation"
@@ -706,16 +704,7 @@ function HistoryDetailOverlay({
         data-testid="history-detail-rail"
         header={
           <div className="flex justify-end">
-            <AppButton
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={onClose}
-              aria-label={tActions("close")}
-              className="rounded-full"
-            >
-              <X className="h-4 w-4" />
-            </AppButton>
+            <AppDialogClose asChild><AppCloseButton aria-label={tActions("close")} /></AppDialogClose>
           </div>
         }
         footer={
@@ -749,18 +738,9 @@ function HistoryDetailOverlay({
               <AppButton
                 type="button"
                 variant="surface"
-                disabled
-                className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <Sparkles className="h-4 w-4" />
-                {tActions("upscale")}
-              </AppButton>
-              <AppButton
-                type="button"
-                variant="surface"
                 disabled={deleting || ["pending", "processing", "uploading"].includes(hydratedItem.status)}
                 onClick={() => setConfirmDelete(true)}
-                className="h-11 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-45"
+                className="col-span-2 h-11 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <Trash2 className="h-4 w-4" />
                 {tHistory("deleteDialog.confirm")}
@@ -804,6 +784,7 @@ function HistoryDetailOverlay({
           </AppConfirmDialogFooter>
         </AppConfirmDialogContent>
       </AppConfirmDialog>
-    </div>
+    </AppDialogContent>
+    </AppDialog>
   );
 }

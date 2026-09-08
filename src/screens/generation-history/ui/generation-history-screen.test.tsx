@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
@@ -7,6 +8,8 @@ const useGenerationHistoryListMock = vi.fn();
 const useMonitoringRequestDetailMock = vi.fn();
 const routerPushMock = vi.hoisted(() => vi.fn());
 const clipboardWriteTextMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog",()=>({useRuntimeModelCatalog:()=>({items:[{key:"test-model",label:"Test model"}]})}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -79,6 +82,17 @@ describe("GenerationHistoryScreen", () => {
     });
   });
 
+  it("separates model and prompt filters and defaults video autoplay on", async () => {
+    useGenerationHistoryListMock.mockReturnValue({items:[],isLoading:false,isFetchingNextPage:false,hasNextPage:false,error:null,sentinelRef:{current:null},removeItem:vi.fn(),retry:vi.fn()});
+    const user=userEvent.setup();renderWithIntl(<GenerationHistoryScreen />);
+    const toggle=screen.getByRole('checkbox',{name:'자동재생'});expect(toggle).toHaveAttribute('aria-checked','true');await user.click(toggle);expect(toggle).toHaveAttribute('aria-checked','false');
+    screen.getByRole('combobox',{name:'모델'}).focus();
+    await user.keyboard('{ArrowDown}');
+    await user.click(await screen.findByRole('option',{name:'Test model'}));
+    fireEvent.change(screen.getByPlaceholderText('프롬프트 검색…'),{target:{value:'rain'}});
+    await waitFor(()=>expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(expect.objectContaining({query:'',model:'test-model',prompt:'rain'})));
+  });
+
   it("shows an audio filter and requests audio history when selected", () => {
     useGenerationHistoryListMock.mockReturnValue({
       items: [],
@@ -141,18 +155,16 @@ describe("GenerationHistoryScreen", () => {
 
     renderWithIntl(<GenerationHistoryScreen />);
 
-    expect(screen.getByPlaceholderText("프롬프트, 모델, 태그 검색…")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("프롬프트 검색…")).toBeInTheDocument();
     expect(
       screen
-        .getByPlaceholderText("프롬프트, 모델, 태그 검색…")
+        .getByPlaceholderText("프롬프트 검색…")
         .closest("[data-app-search-field]"),
     ).toHaveClass("sm:flex-1");
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toBeInTheDocument();
     expect(screen.getByTestId("history-filter-trailing-controls")).toHaveClass(
       "sm:items-center",
-      "lg:ml-auto",
-      "lg:w-[43rem]",
-      "lg:flex-none",
+      "w-full",
     );
     expect(screen.getByRole("combobox", { name: "히스토리 정렬" })).toHaveClass(
       "h-14",
@@ -259,7 +271,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.queryByRole("button", {name: "편집"})).not.toBeInTheDocument();
     expect(screen.getByRole("button", {name: "삭제"})).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "업스케일" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "업스케일" })).not.toBeInTheDocument();
   });
 
   it("closes the detail overlay from the preview backdrop but not from media or rail clicks", () => {
@@ -288,7 +300,7 @@ describe("GenerationHistoryScreen", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("locks body scroll while detail overlay is open and closes on Escape", () => {
+  it("uses the shared modal and closes on Escape", async () => {
     useGenerationHistoryListMock.mockReturnValue({
       items: [detailFixture],
       total: 1,
@@ -304,9 +316,10 @@ describe("GenerationHistoryScreen", () => {
     fireEvent.click(screen.getByTestId("history-list"));
 
     expect(screen.getByRole("dialog", { name: "결과 상세" })).toBeInTheDocument();
-    expect(document.body.style.overflow).toBe("hidden");
+    expect(screen.getByRole("dialog", {name:"결과 상세"})).toHaveAttribute("data-app-dialog-content");
+    expect(screen.getByRole("button", {name:"닫기"})).not.toHaveClass("rounded-full");
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog", {name:"결과 상세"}), { key: "Escape" });
 
     expect(
       screen.queryByRole("dialog", { name: "결과 상세" }),
@@ -482,6 +495,8 @@ it("requires confirmation, preserves detail on cancellation/failure, and removes
  renderWithIntl(<GenerationHistoryScreen />);fireEvent.click(screen.getByTestId("history-list"));
  expect(screen.queryByText("flux2-klein-9b")).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"삭제"}));expect(fetchMock).not.toHaveBeenCalled();
+ fireEvent.keyDown(screen.getByRole("alertdialog"),{key:"Escape"});expect(screen.getByRole("dialog",{name:"결과 상세"})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"삭제"}));
  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"취소"}));expect(screen.getByRole("dialog",{name:"결과 상세"})).toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"삭제"}));fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"}));
  await waitFor(()=>expect(fetchMock).toHaveBeenCalledTimes(1));await waitFor(()=>expect(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"})).not.toBeDisabled());expect(removeItem).not.toHaveBeenCalled();

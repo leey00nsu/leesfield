@@ -1,23 +1,13 @@
-export type ImageGenerationStatus =
-  | "pending"
-  | "processing"
-  | "uploading"
-  | "completed"
-  | "failed"
-  | "cancelled";
+import type { z } from "zod";
+import type {
+  generationStatusSchema,
+  statusResponseSchemas,
+} from "@/shared/api/external-contract";
 
-export interface ImageGenerationResult {
-  images: Array<{
-    url: string;
-    width?: number;
-    height?: number;
-  }>;
-}
-
-export interface ImageGenerationResponse {
-  requestId: string;
-  status: ImageGenerationStatus;
-  progress: number;
-  result?: ImageGenerationResult;
-  errorMessage?: string;
-}
+export type ImageGenerationStatus = z.infer<typeof generationStatusSchema>;
+export type ImageGenerationResponse = z.infer<
+  typeof statusResponseSchemas.image
+>;
+export type ImageGenerationResult = NonNullable<
+  ImageGenerationResponse["result"]
+>;

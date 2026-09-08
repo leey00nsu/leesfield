@@ -11,6 +11,8 @@ import {
 export interface UseHistoryStatusQueryParams {
   type: GenerationHistoryType;
   query: string;
+  model?: string;
+  prompt?: string;
 }
 
 const HISTORY_STATUS_QUERY_KEY = "history-status";
@@ -18,11 +20,11 @@ const HISTORY_STATUS_POLL_INTERVAL_MS = 2000;
 
 export function useHistoryStatusQuery(params: UseHistoryStatusQueryParams) {
   const t = useTranslations("history");
-  const { type, query } = params;
+  const { type, query, model, prompt } = params;
   const queryResult = useQuery({
-    queryKey: [HISTORY_STATUS_QUERY_KEY, type, query],
+    queryKey: [HISTORY_STATUS_QUERY_KEY, type, query, model, prompt],
     queryFn: ({ signal }) =>
-      fetchHistoryStatus({ type, query }, { signal }),
+      fetchHistoryStatus({ type, query, model, prompt }, { signal }),
     staleTime: 0,
     gcTime: 5 * 60_000,
     retry: 1,
@@ -30,7 +32,7 @@ export function useHistoryStatusQuery(params: UseHistoryStatusQueryParams) {
       const data = currentQuery.state.data as HistoryStatusResponse | undefined;
       return data?.hasActive ? HISTORY_STATUS_POLL_INTERVAL_MS : false;
     },
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
   });
 
   return {

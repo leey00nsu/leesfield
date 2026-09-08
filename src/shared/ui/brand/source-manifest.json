@@ -4,7 +4,8 @@
   "transforms": [
     "cn import path",
     "direct UI imports without barrels",
-    "Dialog/Sheet close text uses host-supplied localized CloseLabel; original text restored for source parity"
+    "Dialog/Sheet close text uses host-supplied localized CloseLabel; original text restored for source parity",
+    "Select portal container and positioner class accept host modal focus/stacking; removed for source parity"
   ],
   "files": [
     {
@@ -29,7 +30,7 @@
       "source": "src/shared/ui/select/select.tsx",
       "target": "src/shared/ui/brand/select/select.tsx",
       "sourceSha256": "90a8ec65aaf8266fc75f297d00835cbac5f0d7422ace3ebd979a145c7eba045a",
-      "adaptedSha256": "c78595357451654737575a0c7e6ac85257149de53cf9680ac8f8f2738531a9ea"
+      "adaptedSha256": "21a1f8fee131e533f651f96b0abae9f3c91d9bb5ff52d19f7ed94e3a8b96c5b2"
     },
     {
       "source": "src/shared/ui/dialog/dialog.tsx",

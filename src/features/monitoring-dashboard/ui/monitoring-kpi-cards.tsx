@@ -1,5 +1,7 @@
+import { AppSkeleton } from "@/shared/ui/app-skeleton";
+import { MonitoringStatsChart } from "./monitoring-stats-chart";
 import { useMemo, type ReactNode } from "react";
-import { Activity, BarChart3, CheckCircle2, Timer } from "lucide-react";
+import { Activity, CheckCircle2, Timer } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -33,6 +35,7 @@ interface MonitoringKpiCardsProps {
   data: MonitoringOverview | null;
   stats?: MonitoringStatsRow[];
   isLoading: boolean;
+  statsLoading?: boolean;
 }
 
 const cardTitle = "text-sm font-semibold text-white/70";
@@ -56,20 +59,19 @@ function KpiChart({
   chartId,
   formatDay,
   formatValue,
+  isLoading,
 }: {
   data: KpiChartDatum[];
+  isLoading: boolean;
   label: string;
   chartId: string;
   formatDay: (value: string) => string;
   formatValue: (value: number) => string;
 }) {
-  const chartData =
-    data.length > 0
-      ? data
-      : Array.from({ length: 7 }, (_, index) => ({
-          day: `${index + 1}`,
-          value: 0,
-        }));
+  const t = useTranslations("monitoringDashboard");
+  if (isLoading) return <AppSkeleton className="h-28 w-full rounded-lg" />;
+  if (!data.length) return <div className="flex h-28 items-center justify-center text-xs text-muted-foreground">{t("stats.empty")}</div>;
+  const chartData = data;
 
   return (
     <AppChartContainer
@@ -298,12 +300,12 @@ function UsagePieChart({
 export function MonitoringKpiCards({
   data,
   stats = [],
+  statsLoading = false,
   isLoading,
 }: MonitoringKpiCardsProps) {
   const t = useTranslations("monitoringDashboard");
   const locale = useLocale();
 
-  const activeCount = data ? formatCompactNumber(data.activeCount) : "-";
   const totalCount = data ? formatCompactNumber(data.totalCount) : "-";
   const avgLatency = data ? formatDuration(data.avgLatencyMs) : "-";
   const successRateValue = data ? Math.max(0, 1 - data.errorRate) : 0;
@@ -329,10 +331,6 @@ export function MonitoringKpiCards({
     day: item.day,
     value: Number(((1 - item.errorRate) * 100).toFixed(2)),
   }));
-  const totalData = stats.map((item) => ({
-    day: item.day,
-    value: item.total,
-  }));
   const latencyData = stats.map((item) => ({
     day: item.day,
     value: Math.max(0, Math.round(item.avgLatencyMs ?? 0)),
@@ -346,6 +344,7 @@ export function MonitoringKpiCards({
         icon={CheckCircle2}
         visual={
           <KpiChart
+            isLoading={statsLoading}
             data={successData}
             label={t("kpi.successRate")}
             chartId="kpi-success-rate"
@@ -354,26 +353,14 @@ export function MonitoringKpiCards({
           />
         }
       />
-      <StatCard
-        title={t("kpi.active")}
-        value={isLoading ? "..." : activeCount}
-        icon={BarChart3}
-        visual={
-          <KpiChart
-            data={totalData}
-            label={t("kpi.active")}
-            chartId="kpi-active"
-            formatDay={formatDay}
-            formatValue={formatCompactNumber}
-          />
-        }
-      />
+      <MonitoringStatsChart data={stats} isLoading={statsLoading} compact />
       <StatCard
         title={t("kpi.avgLatency")}
         value={isLoading ? "..." : avgLatency}
         icon={Timer}
         visual={
           <KpiChart
+            isLoading={statsLoading}
             data={latencyData}
             label={t("kpi.avgLatency")}
             chartId="kpi-latency"

@@ -1,3 +1,4 @@
+import { formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 import {
   defaultVideoModelKey,
@@ -44,6 +45,7 @@ const buildVideoGenerationBaseSchema = (t?: TranslationFn) => {
     prompt: z.string().min(1, promptRequired),
     initImage: initImageSchema.optional().or(z.literal("")),
     model: z.string().min(1),
+  dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
     aspectRatio: z.string().min(1),
     resolution: z.number().int(),
     durationSec: z.number(),

@@ -1,3 +1,5 @@
+import { assessGradioSupport, normalizeGradioModel } from "@/shared/model-catalog/gradio-contract";
+import { buildImportContract, gradioLabel } from "@/server/hf-space/import-contract";
 import { Client } from "@gradio/client";
 import {
   scoreEndpointCandidate,
@@ -44,6 +46,7 @@ type DraftPayload = {
 };
 
 type ImportResult = {
+  support: ReturnType<typeof assessGradioSupport>;
   spaceId: string;
   apiNames: string[];
   resolvedApiName: string;
@@ -124,7 +127,8 @@ const FALLBACK_AUDIO_PARAMETERS: Record<string, ParameterConfig> = {
   referenceText: { ui: "textarea" },
 };
 
-function normalizeApiName(name: string) {
+function normalizeApiName(name: string | false) {
+  if (typeof name !== "string") return "";
   return name.startsWith("/") ? name : `/${name}`;
 }
 
@@ -205,7 +209,7 @@ function resolveBoolean(value: unknown, fallback?: boolean) {
 }
 
 function resolveComponentLabel(componentProps: Record<string, unknown>) {
-  return resolveString(componentProps.label, "");
+  return gradioLabel(componentProps.label);
 }
 
 function parseSpaceIdFromUrl(spaceUrl: string) {
@@ -392,13 +396,17 @@ export async function importModelDraftFromSpace(
     ? { token: tokenValue as `hf_${string}` }
     : undefined;
   const client = await connectWithTimeout(spaceRef, clientOptions);
-  const apiInfo = await client.view_api();
+  let metadataTimer: ReturnType<typeof setTimeout> | undefined;
+  const apiInfo = await Promise.race([client.view_api(), new Promise<never>((_, reject) => { metadataTimer = setTimeout(() => reject(new Error("SPACE_METADATA_TIMEOUT")), CONNECT_TIMEOUT_MS); })]).finally(() => clearTimeout(metadataTimer));
   const config = client.config;
   if (!config) {
     throw new Error("SPACE_CONFIG_NOT_FOUND");
   }
 
   const named = apiInfo?.named_endpoints ?? {};
+  for (const endpoint of Object.values(named)) {
+    for (const param of endpoint.parameters ?? []) { param.label = gradioLabel(param.label, param.parameter_name); }
+  }
   const apiNames = Object.keys(named).map(normalizeApiName);
   if (apiNames.length === 0) {
     throw new Error("SPACE_API_NOT_FOUND");
@@ -550,7 +558,9 @@ export async function importModelDraftFromSpace(
   });
 
   // 4) 모델 타입/파라미터/메타 구성
-  const modelType = detectModelType(outputTypes, hasVideoParam, hasAudioParam);
+  const contract = buildImportContract(resolvedApiName, endpoint, config);
+  warnings.push(...contract.diagnostics);
+  const modelType = contract.output?.media ?? detectModelType(outputTypes, hasVideoParam, hasAudioParam);
   const spaceId = config.space_id || spaceRef;
   const key = normalizeKey(spaceId.replace("/", "-")) || normalizeKey(spaceUrl);
   const label = resolveString(config.title, spaceId);
@@ -570,12 +580,12 @@ export async function importModelDraftFromSpace(
     parameters.inputAudio.ui = "upload";
   }
 
-  const normalizedParameters =
+  const normalizedParameters: Record<string, ParameterConfig> =
     modelType === "image"
       ? { ...FALLBACK_IMAGE_PARAMETERS, ...parameters }
       : modelType === "video"
         ? { ...FALLBACK_VIDEO_PARAMETERS, ...parameters }
-        : parameters;
+        : { prompt: { ui: "hidden" as const, required: false }, ...parameters };
 
   const width = resolveNumber(
     getDefaultFromParam(normalizedParameters.width),
@@ -638,6 +648,7 @@ export async function importModelDraftFromSpace(
 
   const providerConfig: Record<string, unknown> = {
     space_id: spaceId,
+    gradio_contract: contract,
     api_name: resolvedApiName,
     timeout_ms: DEFAULT_TIMEOUT_MS,
   };
@@ -663,10 +674,11 @@ export async function importModelDraftFromSpace(
   };
 
   return {
+    support: assessGradioSupport(contract),
     spaceId,
     apiNames,
     resolvedApiName,
-    draft,
+    draft: normalizeGradioModel(draft),
     warnings,
   };
 }

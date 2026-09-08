@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { AppButton } from "@/shared/ui/app-button";
 import {
@@ -11,6 +11,8 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 type GenerationSettingsPopoverProps = {
+  disabled?: boolean;
+  onBlockedOpen?: () => void;
   label: string;
   summary: string;
   icon?: ReactNode;
@@ -21,6 +23,8 @@ type GenerationSettingsPopoverProps = {
 };
 
 export function GenerationSettingsPopover({
+  disabled = false,
+  onBlockedOpen,
   label,
   summary,
   icon,
@@ -29,30 +33,42 @@ export function GenerationSettingsPopover({
   align = "start",
   side = "top",
 }: GenerationSettingsPopoverProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <AppPopover>
+    <AppPopover
+      open={!disabled && !onBlockedOpen && open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen && onBlockedOpen) {
+          setOpen(false);
+          onBlockedOpen();
+          return;
+        }
+        setOpen(nextOpen);
+      }}
+    >
       <AppPopoverTrigger asChild>
         <AppButton
+          disabled={disabled}
           type="button"
           variant="surface"
           className={cn("min-w-max", className)}
         >
           {icon}
           <span className="flex flex-col items-start leading-tight">
-            <span className="sr-only">{label}</span>
+            {label !== summary && <span className="sr-only">{label}</span>}
             <span>{summary}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-white/46" />
         </AppButton>
       </AppPopoverTrigger>
-      <AppPopoverContent
+      {!onBlockedOpen && <AppPopoverContent
         align={align}
         side={side}
         sideOffset={12}
         className="w-[min(22rem,calc(100vw-2rem))]"
       >
         {children}
-      </AppPopoverContent>
+      </AppPopoverContent>}
     </AppPopover>
   );
 }

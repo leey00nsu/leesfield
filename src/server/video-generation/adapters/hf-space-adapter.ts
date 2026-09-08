@@ -1,3 +1,5 @@
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { executeGradioContract } from "@/server/hf-space/contract-executor";
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
@@ -368,6 +370,14 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
   },
   async generate(payload: VideoGenerationFormValues) {
     const { config, model } = await getSpaceConfig(payload.model);
+    if (getGradioContract(model)) {
+      await ensureSpaceRunning(config);
+      const client = await getClient(config);
+      const refs = await executeGradioContract(client, model, payload, config, "video");
+      const urls = await Promise.all(refs.map(ref => fetchVideoDataUrl(ref, config.spaceUrl, Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS))));
+      return { videos: urls };
+    }
+
     const supportsInitImage = resolveRuntimeVideoSupportsInitImage(model);
     const initImage = payload.initImage?.trim() ? payload.initImage : null;
 

@@ -1,3 +1,7 @@
+import {
+  errorResponseSchema,
+  generationResponseSchema,
+} from "@/shared/api/external-contract";
 import { NextResponse } from "next/server";
 
 const NO_STORE_HEADERS = {
@@ -10,10 +14,7 @@ type GenerationRecord = {
   progress: number;
 };
 
-export function jsonWithNoStore<T>(
-  body: T,
-  init: ResponseInit = {},
-) {
+export function jsonWithNoStore<T>(body: T, init: ResponseInit = {}) {
   const headers = {
     ...NO_STORE_HEADERS,
     ...(init.headers ?? {}),
@@ -22,30 +23,29 @@ export function jsonWithNoStore<T>(
 }
 
 export function buildGenerationSuccessResponse(record: GenerationRecord) {
-  return jsonWithNoStore({
-    requestId: record.id,
-    status: record.status,
-    progress: record.progress,
-  });
+  return jsonWithNoStore(
+    generationResponseSchema.parse({
+      requestId: record.id,
+      status: record.status,
+      progress: record.progress,
+    }),
+  );
 }
 
 export function buildInvalidRequestResponse(errors: unknown) {
   return jsonWithNoStore(
-    { message: "INVALID_REQUEST", errors },
+    errorResponseSchema.parse({ message: "INVALID_REQUEST", errors }),
     { status: 400 },
   );
 }
 
 export function buildErrorResponse(message: string, status = 500) {
-  return jsonWithNoStore({ message }, { status });
+  return jsonWithNoStore(errorResponseSchema.parse({ message }), { status });
 }
 
-export function buildConcurrentLimitResponse(
-  requestId?: string,
-  status = 429,
-) {
+export function buildConcurrentLimitResponse(requestId?: string, status = 429) {
   return jsonWithNoStore(
-    { message: "IN_PROGRESS_ALREADY", requestId },
+    errorResponseSchema.parse({ message: "IN_PROGRESS_ALREADY", requestId }),
     { status },
   );
 }

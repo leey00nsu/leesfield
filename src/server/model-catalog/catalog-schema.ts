@@ -1,3 +1,11 @@
+import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
+import {
+  gradioContractSchema,
+  getGradioContract,
+  normalizeGradioModel,
+  jsonValueSchema,
+  assertGradioExecutable,
+} from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 
 const parameterUiOptions = [
@@ -37,6 +45,13 @@ const hfParameterBindingSchema = z
     valueType: z.enum(["string", "number", "boolean", "file"]),
     canonicalKey: z.string().min(1).optional(),
     order: z.number().int().nonnegative(),
+    kind: z
+      .enum(["string", "number", "boolean", "file", "files", "gallery", "json"])
+      .optional(),
+    schema: z.record(z.string(), z.unknown()).optional(),
+    nullable: z.boolean().optional(),
+    component: z.string().optional(),
+    media: z.enum(["image", "video", "audio"]).optional(),
   })
   .strict();
 
@@ -48,7 +63,7 @@ const parameterSchema = z
     min: z.number().optional(),
     max: z.number().optional(),
     step: z.number().optional(),
-    default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    default: jsonValueSchema.optional(),
     options: z.array(parameterOptionInputSchema).optional(),
     binding: hfParameterBindingSchema.optional(),
   })
@@ -108,6 +123,7 @@ const audioParametersSchema = z
 const hfSpaceConfigSchema = z
   .object({
     space_id: z.string().min(1),
+    gradio_contract: gradioContractSchema.optional(),
     api_name: z.string().min(1),
     timeout_ms: z.number().int().positive().optional(),
     space_url: z.string().min(1).optional(),
@@ -135,12 +151,14 @@ export const codexBridgeConfigSchema = z
   })
   .strict();
 
-export const backgroundRemovalCapabilitySchema = z.object({
-  version: z.number().int().positive().default(1),
-  api_name: z.string().trim().min(1),
-  input_parameter: z.string().trim().min(1).default("image"),
-  output_mime_type: z.literal("image/png").default("image/png"),
-}).strict();
+export const backgroundRemovalCapabilitySchema = z
+  .object({
+    version: z.number().int().positive().default(1),
+    api_name: z.string().trim().min(1),
+    input_parameter: z.string().trim().min(1).default("image"),
+    output_mime_type: z.literal("image/png").default("image/png"),
+  })
+  .strict();
 
 const imageMetaSchema = z.object({
   pipeline: z.string().min(1),
@@ -150,9 +168,12 @@ const imageMetaSchema = z.object({
   default_steps: z.number().int().positive(),
   concurrent_limit: z.number().int().positive().nullable().optional(),
   max_input_images: z.number().int().nonnegative(),
-  operations: z.object({
-    background_removal: backgroundRemovalCapabilitySchema.optional(),
-  }).strict().optional(),
+  operations: z
+    .object({
+      background_removal: backgroundRemovalCapabilitySchema.optional(),
+    })
+    .strict()
+    .optional(),
 });
 
 const videoMetaSchema = z.object({
@@ -298,15 +319,53 @@ const audioModelInputSchema = baseModelInputSchema.extend({
   meta: audioMetaSchema,
 });
 
+const normalizeStoredModel = (value: unknown) => {
+  try {
+    return value && typeof value === "object"
+      ? normalizeGradioModel(
+          value as { providerConfig?: unknown; parameters?: unknown },
+        )
+      : value;
+  } catch {
+    return value;
+  } // Let the schema report invalid legacy data as a validation error.
+};
+
 export const modelCatalogSchema = z.array(
-  z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]),
+  z.preprocess(
+    normalizeStoredModel,
+    z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]),
+  ),
 );
 
-export const modelCatalogInputSchema = z.union([
-  imageModelProviderInputSchema,
-  videoModelInputSchema,
-  audioModelInputSchema,
-]);
+export const modelCatalogInputSchema = z.preprocess(
+  normalizeStoredModel,
+  z
+    .union([
+      imageModelProviderInputSchema,
+      videoModelInputSchema,
+      audioModelInputSchema,
+    ])
+    .superRefine((model, ctx) => {
+      for (const issue of parameterConfigurationIssues(model.parameters)) ctx.addIssue({code:"custom",path:["parameters",issue.name],message:"Invalid parameter configuration: "+issue.reason});
+      if (model.provider !== "hf_space") return;
+      try {
+        const contract = getGradioContract(model);
+        if (contract && model.isActive !== false) {
+          assertGradioExecutable(contract);
+          if (contract.output?.media !== model.type)
+            throw new Error("HF_CONTRACT_MEDIA");
+        }
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["providerConfig"],
+          message:
+            error instanceof Error ? error.message : "HF_MAPPING_INVALID",
+        });
+      }
+    }),
+);
 
 export type ModelCatalogItem = z.infer<typeof modelCatalogSchema>[number];
 export type ImageModelCatalogItem = z.infer<typeof imageModelProviderSchema>;
@@ -314,9 +373,7 @@ export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
 export type AudioModelCatalogItem = z.infer<typeof audioModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];
 export type ModelCatalogInput = z.infer<typeof modelCatalogInputSchema>;
-export type CodexBridgeProviderConfig = z.infer<
-  typeof codexBridgeConfigSchema
->;
+export type CodexBridgeProviderConfig = z.infer<typeof codexBridgeConfigSchema>;
 
 export type ModelCatalogParams = {
   includeInactive?: boolean;
