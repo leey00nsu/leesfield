@@ -1,3 +1,4 @@
+diff --git a/src/components/splitgrid/TemplateNodes.tsx b/src/components/splitgrid/TemplateNodes.tsx
 --- a/src/components/splitgrid/TemplateNodes.tsx
 +++ b/src/components/splitgrid/TemplateNodes.tsx
 @@ -301,7 +301,7 @@

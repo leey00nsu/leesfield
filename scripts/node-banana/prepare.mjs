@@ -67,10 +67,10 @@ await mkdir(join(generatedRoot, "src/leesfield"), { recursive: true });
 
 for (const patchName of patchNames) {
   const patchPath = join(patchesRoot, patchName);
-  runCaptured("patch", ["--batch", "--forward", "--dry-run", "-p1", "-i", patchPath], {
+  runCaptured("patch", ["--batch", "--forward", "--fuzz=0", "--dry-run", "-p1", "-i", patchPath], {
     cwd: generatedRoot,
   });
-  runCaptured("patch", ["--batch", "--forward", "-p1", "-i", patchPath], {
+  runCaptured("patch", ["--batch", "--forward", "--fuzz=0", "-p1", "-i", patchPath], {
     cwd: generatedRoot,
   });
 }

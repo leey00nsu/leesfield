@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -596,11 +596,16 @@
@@ -22,4 +23,3 @@
            }, 120);
          }}
          onNodesChange={onNodesChange}
-

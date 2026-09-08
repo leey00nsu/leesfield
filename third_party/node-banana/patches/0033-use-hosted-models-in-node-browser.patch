@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -211,6 +211,7 @@
@@ -16,6 +17,7 @@
    nodes: [],
    edges: [],
    currentNodeIds: [],
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
 @@ -1130,18 +1130,19 @@
@@ -34,9 +36,10 @@
      if (!isOpen) {
        setSearchQuery("");
 -      setCapabilityFilter("all");
-+      setCapabilityFilter(initialCapabilityFilter ?? "all");
-     }
+-    }
 -  }, [isOpen]);
++      setCapabilityFilter(initialCapabilityFilter ?? "all");
++    }
 +  }, [initialCapabilityFilter, isOpen]);
  
    useEffect(() => {
@@ -60,6 +63,7 @@
 +  }
    return <StandaloneModelSearchDialog {...props} />;
  }
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -76,6 +76,7 @@
@@ -70,6 +74,7 @@
  
  export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
  
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -403,7 +403,7 @@
@@ -81,6 +86,7 @@
      if (Object.hasOwn(patch, key)) transientPatch[key] = patch[key];
    }
    const outputField = kind === "generate.image" || kind === "edit.image.annotation" || kind === "edit.image.resize"
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
 --- a/src/components/nodes/GenerateImageNode.tsx
 +++ b/src/components/nodes/GenerateImageNode.tsx
 @@ -194,7 +194,7 @@
@@ -92,6 +98,7 @@
  
    const handleToggleParams = useCallback(() => {
      updateNodeData(id, { parametersExpanded: !isParamsExpanded });
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
 --- a/src/components/nodes/GenerateVideoNode.tsx
 +++ b/src/components/nodes/GenerateVideoNode.tsx
 @@ -159,7 +159,7 @@
@@ -103,6 +110,7 @@
  
    const handleToggleParams = useCallback(() => {
      updateNodeData(id, { parametersExpanded: !isParamsExpanded });
+diff --git a/src/components/nodes/GenerateAudioNode.tsx b/src/components/nodes/GenerateAudioNode.tsx
 --- a/src/components/nodes/GenerateAudioNode.tsx
 +++ b/src/components/nodes/GenerateAudioNode.tsx
 @@ -174,7 +174,7 @@

@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -147,6 +147,8 @@
@@ -44,10 +45,11 @@
      if (!durableChanges.length || !writable) return;
      const nodes = applyNodeChanges(durableChanges, graph.nodes);
      const nodeIds = new Set(nodes.map((node) => node.id));
-@@ -516,6 +537,25 @@
+@@ -515,6 +536,25 @@
+     const removed = durableChanges.some((change) => change.type === "remove");
      publish({ nodes, edges }, removed ? "delete" : "nodes", removed);
    }, [graph, interaction.selectedNodeIds, publish, store, writable]);
- 
++
 +  const commitNodeDrag = useCallback(() => {
 +    const previous = dragStartRef.current;
 +    dragStartRef.current = null;
@@ -66,18 +68,17 @@
 +    }
 +    store.setState({ nodePositions: {} });
 +  }, [graph, publish, recordUndo, store, writable]);
-+
+ 
    const onEdgesChange = useCallback((changes: EdgeChange<NodeBananaRuntimeEdge>[]) => {
      const selection = changes.filter((change) => change.type === "select");
-     if (selection.length) {
-@@ -689,9 +729,21 @@
+@@ -689,8 +729,20 @@
        nodes: graph.nodes.filter((node) => !nodes.has(node.id)),
        edges: graph.edges.filter((edge) => !edges.has(edge.id) && !nodes.has(edge.source) && !nodes.has(edge.target)),
      }, "delete");
 -    store.setState({ selectedNodeIds: [], selectedEdgeIds: [] });
 +    store.setState({ selectedNodeIds: [], selectedEdgeIds: [], edgeToolbarPosition: null });
    }, [graph, interaction.selectedEdgeIds, interaction.selectedNodeIds, publish, store, writable]);
- 
++
 +  const toggleSelectedEdgePause = useCallback(() => {
 +    if (!writable) return;
 +    const selectedEdgeId = store.getState().selectedEdgeIds[0];
@@ -89,10 +90,9 @@
 +        : edge),
 +    }, "edges");
 +  }, [graph, publish, store, writable]);
-+
+ 
    const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
      if (isFormTarget(event.target)) return;
-     const command = event.metaKey || event.ctrlKey;
 @@ -714,13 +766,22 @@
      return graph.nodes.map((node) => ({
        ...node,

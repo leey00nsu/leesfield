@@ -1,8 +1,7 @@
 diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -39,6 +39,15 @@ export type {
-   VideoOperationResult,
+@@ -40,6 +40,15 @@
    VideoOperationResultItem,
  } from "./video-operation-processors";
  

@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -17,13 +17,17 @@
@@ -18,10 +19,12 @@
    type EdgeTypes,
    type FinalConnectionState,
    type IsValidConnection,
-@@ -211,6 +215,64 @@
+@@ -209,6 +213,64 @@
+     return { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 };
+   }
    return { x: event.clientX, y: event.clientY };
- }
- 
++}
++
 +// Hosted from upstream src/components/edges/EditableEdge.tsx. Leesfield keeps
 +// only the canonical edge data and delegates the visible path/pause glyph here.
 +function HostedEditableEdge({
@@ -78,11 +81,9 @@
 +      ) : null}
 +    </>
 +  );
-+}
-+
+ }
+ 
  // Hosted from upstream src/components/FloatingActionBar.tsx; Leesfield only injects
- // the supported node inventory and selected-node command.
- function FloatingActionBar({
 @@ -460,6 +522,10 @@
  }: NodeBananaCanvasProps) {
    const store = useMemo(createInteractionStore, []);
@@ -117,7 +118,8 @@
          onInit={(instance) => {
            instanceRef.current = instance;
            window.setTimeout(() => {
-@@ -893,7 +961,7 @@
+@@ -891,7 +959,7 @@
+           const screen = { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
            openMenu(screen, instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: 80, y: 80 }, null);
          }}
 -        defaultEdgeOptions={{ type: interaction.edgeStyle === "angular" ? "step" : "default" }}

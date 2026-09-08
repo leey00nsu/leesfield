@@ -1,3 +1,4 @@
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 --- a/src/components/Header.tsx
 +++ b/src/components/Header.tsx
 @@ -35,7 +35,8 @@
@@ -19,6 +20,7 @@
        <header data-node-banana-component="Header" className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0">
          <div className="flex items-center gap-2">
            {brand ?? <span className="text-2xl font-semibold text-neutral-100 tracking-tight">Spaces</span>}
+diff --git a/src/leesfield/hosted-space-browser.tsx b/src/leesfield/hosted-space-browser.tsx
 --- a/src/leesfield/hosted-space-browser.tsx
 +++ b/src/leesfield/hosted-space-browser.tsx
 @@ -1,14 +1,20 @@

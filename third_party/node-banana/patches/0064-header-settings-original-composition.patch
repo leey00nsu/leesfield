@@ -1,13 +1,20 @@
 diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 --- a/src/components/Header.tsx
 +++ b/src/components/Header.tsx
-@@ -1,428 +1,270 @@
--"use client";
--
+@@ -1,178 +1,93 @@
+ "use client";
+ 
 -import { useState, useMemo, useCallback } from "react";
 -import { useWorkflowStore } from "@/store/workflowStore";
 -import { useShallow } from "zustand/shallow";
--import { ProjectSetupModal } from "./ProjectSetupModal";
++// Hosted Header: preserve the supported upstream groups, icons and comments UI.
++// Approved exclusions: provider cost, filesystem save/open-directory, AI revert,
++// welcome/quickstart, and external creator/support links. Host props own Space actions.
++
++import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
++
++import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+ import { ProjectSetupModal } from "./ProjectSetupModal";
 -import { CostIndicator } from "./CostIndicator";
 -import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 -import { WorkflowBrowserModal } from "./WorkflowBrowserModal";
@@ -154,292 +161,6 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 -        console.error("Failed to open directory:", result.error);
 -        alert(`Failed to open project folder: ${result.error || "Unknown error"}`);
 -        return;
--      }
--    } catch (error) {
--      console.error("Failed to open directory:", error);
--      alert("Failed to open project folder. Please try again.");
--    }
--  };
--
--
--  const handleRevertAIChanges = useCallback(() => {
--    const confirmed = window.confirm(
--      "Are you sure? This will restore your previous workflow."
--    );
--    if (confirmed) {
--      revertToSnapshot();
--    }
--  }, [revertToSnapshot]);
--
--  const settingsButtons = (
--    <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-neutral-700/50">
--      <button
--        onClick={handleOpenSettings}
--        className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
--        title="Project settings"
--      >
--        <svg
--          className="w-4 h-4"
--          fill="none"
--          viewBox="0 0 24 24"
--          stroke="currentColor"
--          strokeWidth={2}
--        >
--          <path
--            strokeLinecap="round"
--            strokeLinejoin="round"
--            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
--          />
--          <path
--            strokeLinecap="round"
--            strokeLinejoin="round"
--            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
--          />
--        </svg>
--      </button>
--    </div>
--  );
--
--  return (
--    <>
--      <ProjectSetupModal
--        isOpen={showProjectModal}
--        onClose={() => setShowProjectModal(false)}
--        onSave={handleProjectSave}
--        mode={projectModalMode}
--      />
--      <WorkflowBrowserModal
--        isOpen={showWorkflowBrowser}
--        onClose={() => setShowWorkflowBrowser(false)}
--        onWorkflowLoaded={async (workflow, dirPath) => {
--          setShowWorkflowBrowser(false);
--          await loadWorkflow(workflow, dirPath);
--        }}
--      />
--      <header className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0">
--        <div className="flex items-center gap-2">
--          <button
--            onClick={() => setShowQuickstart(true)}
--            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
--            title="Open welcome screen"
--          >
--            <img src="/banana_icon.png" alt="Banana" className="w-6 h-6" />
--            <h1 className="text-2xl font-semibold text-neutral-100 tracking-tight">
--              Node Banana
--            </h1>
--          </button>
--
--          <div className="flex items-center gap-2 ml-4 pl-4 border-l border-neutral-700">
--            {isProjectConfigured ? (
--              <>
--                <span className="text-sm text-neutral-300">{workflowName}</span>
--                <span className="text-neutral-600">|</span>
--                <CostIndicator />
--
--                {/* File operations group */}
--                <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
--                  <button
--                    onClick={() => canSave ? saveToFile() : handleOpenSettings()}
--                    disabled={isSaving}
--                    className="relative p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors disabled:opacity-50"
--                    title={isSaving ? "Saving..." : canSave ? "Save project" : "Configure save location"}
--                    data-tutorial="save-button"
--                  >
--                    <svg
--                      className="w-4 h-4"
--                      fill="none"
--                      viewBox="0 0 24 24"
--                      stroke="currentColor"
--                      strokeWidth={1.5}
--                    >
--                      <path
--                        strokeLinecap="round"
--                        strokeLinejoin="round"
--                        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
--                      />
--                    </svg>
--                    {hasUnsavedChanges && !isSaving && (
--                      <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-neutral-900" />
--                    )}
--                  </button>
--                  {saveDirectoryPath && (
--                    <button
--                      onClick={handleOpenDirectory}
--                      className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
--                      title="Open Project Folder"
--                    >
--                      <svg
--                        className="w-4 h-4"
--                        fill="none"
--                        viewBox="0 0 24 24"
--                        stroke="currentColor"
--                        strokeWidth={2}
--                      >
--                        <path
--                          strokeLinecap="round"
--                          strokeLinejoin="round"
--                          d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
--                        />
--                      </svg>
--                    </button>
--                  )}
--                  <button
--                    onClick={handleOpenFile}
--                    className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
--                    title="Open project"
--                  >
--                    <svg
--                      className="w-4 h-4"
--                      fill="none"
--                      viewBox="0 0 24 24"
--                      stroke="currentColor"
--                      strokeWidth={2}
--                    >
--                      <path
--                        strokeLinecap="round"
--                        strokeLinejoin="round"
--                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
--                      />
--                    </svg>
--                  </button>
--                </div>
--
--                {settingsButtons}
--              </>
--            ) : (
--              <>
--                <span className="text-sm text-neutral-500 italic">Untitled</span>
--
--                {/* File operations group */}
--                <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
--                  <button
--                    onClick={handleNewProject}
--                    className="relative p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
--                    title="Save project"
--                    data-tutorial="save-button"
--                  >
--                    <svg
--                      className="w-4 h-4"
--                      fill="none"
--                      viewBox="0 0 24 24"
--                      stroke="currentColor"
--                      strokeWidth={1.5}
--                    >
--                      <path
--                        strokeLinecap="round"
--                        strokeLinejoin="round"
--                        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
--                      />
--                    </svg>
--                    <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-neutral-900" />
--                  </button>
--                  <button
--                    onClick={handleOpenFile}
--                    className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
--                    title="Open project"
--                  >
--                    <svg
--                      className="w-4 h-4"
--                      fill="none"
--                      viewBox="0 0 24 24"
--                      stroke="currentColor"
--                      strokeWidth={2}
--                    >
--                      <path
--                        strokeLinecap="round"
--                        strokeLinejoin="round"
--                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
--                      />
--                    </svg>
--                  </button>
--                </div>
--
--                {settingsButtons}
--              </>
--            )}
--          </div>
--        </div>
--
--        <div className="flex items-center gap-3 text-xs">
--          {previousWorkflowSnapshot && (
--            <button
--              onClick={handleRevertAIChanges}
--              className="px-2.5 py-1.5 text-xs text-neutral-300 hover:text-neutral-100 bg-neutral-700/50 hover:bg-neutral-700 border border-neutral-600 rounded transition-colors"
--              title="Restore workflow from before AI changes"
--            >
--              Revert AI Changes
--            </button>
--          )}
--          <CommentsNavigationIcon />
--          <span className="text-neutral-400">
--            {isProjectConfigured ? (
--              isSaving ? (
--                "Saving..."
--              ) : lastSavedAt ? (
--                `Saved ${formatTime(lastSavedAt)}`
--              ) : (
--                "Not saved"
--              )
--            ) : (
--              "Not saved"
--            )}
--          </span>
--          <span className="text-neutral-500">·</span>
--          <a
--            href="https://x.com/ReflctWillie"
--            target="_blank"
--            rel="noopener noreferrer"
--            className="text-neutral-400 hover:text-neutral-200 transition-colors"
--          >
--            Made by Willie
--          </a>
--          <span className="text-neutral-500">·</span>
--          <button
--            onClick={() => setShortcutsDialogOpen(true)}
--            className="text-neutral-400 hover:text-neutral-200 transition-colors"
--            title="Keyboard shortcuts (?)"
--          >
--            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
--              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75A2.25 2.25 0 014.5 4.5h15a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25V6.75z" />
--              <path strokeLinecap="round" strokeLinejoin="round" d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8" />
--            </svg>
--          </button>
--          <span className="text-neutral-500">·</span>
--          <a
--            href="https://discord.com/invite/89Nr6EKkTf"
--            target="_blank"
--            rel="noopener noreferrer"
--            className="text-neutral-400 hover:text-neutral-200 transition-colors"
--            title="Support"
--          >
--            <svg
--              className="w-4 h-4"
--              fill="currentColor"
--              viewBox="0 0 24 24"
--              xmlns="http://www.w3.org/2000/svg"
--            >
--              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
--            </svg>
--          </a>
--        </div>
--      </header>
--      <KeyboardShortcutsDialog
--        isOpen={shortcutsDialogOpen}
--        onClose={() => setShortcutsDialogOpen(false)}
--      />
--    </>
--  );
--}
-+"use client";
-+
-+// Hosted Header: preserve the supported upstream groups, icons and comments UI.
-+// Approved exclusions: provider cost, filesystem save/open-directory, AI revert,
-+// welcome/quickstart, and external creator/support links. Host props own Space actions.
-+
-+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
-+
-+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
-+import { ProjectSetupModal } from "./ProjectSetupModal";
 +import type { HostedProjectSettingsProps } from "./ProjectSetupModal";
 +import type { NodeBananaCanvasSettings } from "../leesfield/canvas-runtime";
 +
@@ -507,41 +228,44 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 +        const items = controls(), first = items[0], last = items.at(-1);
 +        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
 +        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-+      }
+       }
+-    } catch (error) {
+-      console.error("Failed to open directory:", error);
+-      alert("Failed to open project folder. Please try again.");
+-    }
+-  };
+-
+-
+-  const handleRevertAIChanges = useCallback(() => {
+-    const confirmed = window.confirm(
+-      "Are you sure? This will restore your previous workflow."
+-    );
+-    if (confirmed) {
+-      revertToSnapshot();
+-    }
+-  }, [revertToSnapshot]);
+-
 +    };
 +    const focus = (event: FocusEvent) => { if (event.target instanceof Node && !auxiliaryDialogRef.current?.contains(event.target)) controls()[0]?.focus(); };
 +    window.addEventListener("keydown", keydown, true); document.addEventListener("focusin", focus);
 +    return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
 +  }, [newWorkflowOpen, browserOpen]);
 +  const openSettings = () => setSettingsOpen(true);
-+  const settingsButtons = (
-+    <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-neutral-700/50">
-+      <button
+   const settingsButtons = (
+     <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-neutral-700/50">
+       <button
+-        onClick={handleOpenSettings}
 +        onClick={openSettings}
-+        className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+         className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+-        title="Project settings"
 +        title="Space settings" aria-label="Space settings"
-+      >
-+        <svg
-+          className="w-4 h-4"
-+          fill="none"
-+          viewBox="0 0 24 24"
-+          stroke="currentColor"
-+          strokeWidth={2}
-+        >
-+          <path
-+            strokeLinecap="round"
-+            strokeLinejoin="round"
-+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-+          />
-+          <path
-+            strokeLinecap="round"
-+            strokeLinejoin="round"
-+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-+          />
-+        </svg>
-+      </button>
-+    </div>
-+  );
+       >
+         <svg
+           className="w-4 h-4"
+@@ -195,50 +110,34 @@
+       </button>
+     </div>
+   );
 +  const createWorkflow = (event: FormEvent<HTMLFormElement>) => {
 +    event.preventDefault();
 +    const name = newWorkflowName.trim();
@@ -550,9 +274,40 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 +    setNewWorkflowOpen(false);
 +    setNewWorkflowName("Untitled Space");
 +  };
-+
-+  return (
-+    <>
+ 
+   return (
+     <>
+-      <ProjectSetupModal
+-        isOpen={showProjectModal}
+-        onClose={() => setShowProjectModal(false)}
+-        onSave={handleProjectSave}
+-        mode={projectModalMode}
+-      />
+-      <WorkflowBrowserModal
+-        isOpen={showWorkflowBrowser}
+-        onClose={() => setShowWorkflowBrowser(false)}
+-        onWorkflowLoaded={async (workflow, dirPath) => {
+-          setShowWorkflowBrowser(false);
+-          await loadWorkflow(workflow, dirPath);
+-        }}
+-      />
+-      <header className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0">
+-        <div className="flex items-center gap-2">
+-          <button
+-            onClick={() => setShowQuickstart(true)}
+-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+-            title="Open welcome screen"
+-          >
+-            <img src="/banana_icon.png" alt="Banana" className="w-6 h-6" />
+-            <h1 className="text-2xl font-semibold text-neutral-100 tracking-tight">
+-              Node Banana
+-            </h1>
+-          </button>
+-
+-          <div className="flex items-center gap-2 ml-4 pl-4 border-l border-neutral-700">
+-            {isProjectConfigured ? (
+-              <>
+-                <span className="text-sm text-neutral-300">{workflowName}</span>
 +      <header data-node-banana-component="Header" className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0 gap-2 max-sm:h-auto max-sm:min-h-11 max-sm:flex-wrap max-sm:py-2">
 +        <div className="flex items-center gap-2 min-w-0 max-sm:flex-wrap">
 +          {brand ?? <span className="text-2xl font-semibold text-neutral-100 tracking-tight">Spaces</span>}
@@ -560,85 +315,202 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 +          <div className="flex items-center gap-2 ml-4 pl-4 max-sm:gap-1 max-sm:ml-1 max-sm:pl-1 border-l border-neutral-700">
 +
 +                <input className="text-sm text-neutral-300 bg-transparent min-w-0 w-36 max-sm:w-20" aria-label="Space name" maxLength={120} value={title} disabled={!writable} onChange={(event) => onTitleChange(event.target.value)} />
-+                <span className="text-neutral-600">|</span>
+                 <span className="text-neutral-600">|</span>
+-                <CostIndicator />
 +
-+
-+                {/* File operations group */}
-+                <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
-+                  <button
+ 
+                 {/* File operations group */}
+                 <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
+                   <button
+-                    onClick={() => canSave ? saveToFile() : handleOpenSettings()}
+-                    disabled={isSaving}
 +                    onClick={onSave}
 +                    disabled={!writable || saving}
-+                    className="relative p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors disabled:opacity-50"
+                     className="relative p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors disabled:opacity-50"
+-                    title={isSaving ? "Saving..." : canSave ? "Save project" : "Configure save location"}
 +                    title={saving ? "Saving..." : "Save space"} aria-label={saving ? "Saving space" : "Save space"}
-+                    data-tutorial="save-button"
-+                  >
-+                    <svg
-+                      className="w-4 h-4"
-+                      fill="none"
-+                      viewBox="0 0 24 24"
-+                      stroke="currentColor"
-+                      strokeWidth={1.5}
-+                    >
-+                      <path
-+                        strokeLinecap="round"
-+                        strokeLinejoin="round"
-+                        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
-+                      />
-+                    </svg>
+                     data-tutorial="save-button"
+                   >
+                     <svg
+@@ -254,35 +153,15 @@
+                         d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+                       />
+                     </svg>
+-                    {hasUnsavedChanges && !isSaving && (
 +                    {hasUnsavedChanges && !saving && (
-+                      <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-neutral-900" />
-+                    )}
-+                  </button>
+                       <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-neutral-900" />
+                     )}
+                   </button>
+-                  {saveDirectoryPath && (
+-                    <button
+-                      onClick={handleOpenDirectory}
+-                      className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+-                      title="Open Project Folder"
+-                    >
+-                      <svg
+-                        className="w-4 h-4"
+-                        fill="none"
+-                        viewBox="0 0 24 24"
+-                        stroke="currentColor"
+-                        strokeWidth={2}
+-                      >
+-                        <path
+-                          strokeLinecap="round"
+-                          strokeLinejoin="round"
+-                          d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+-                        />
+-                      </svg>
+-                    </button>
+-                  )}
 +                  
-+                  <button
+                   <button
+-                    onClick={handleOpenFile}
 +                    onClick={() => setBrowserOpen(true)}
-+                    className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+                     className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+-                    title="Open project"
 +                    title="Open space" aria-label="Open space"
-+                  >
-+                    <svg
-+                      className="w-4 h-4"
-+                      fill="none"
-+                      viewBox="0 0 24 24"
-+                      stroke="currentColor"
-+                      strokeWidth={2}
-+                    >
-+                      <path
-+                        strokeLinecap="round"
-+                        strokeLinejoin="round"
-+                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-+                      />
-+                    </svg>
-+                  </button>
-+                </div>
-+
+                   >
+                     <svg
+                       className="w-4 h-4"
+@@ -300,129 +179,92 @@
+                   </button>
+                 </div>
+ 
 +              <button className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors [&_svg]:w-4 [&_svg]:h-4 [&_svg]:fill-none [&_svg]:stroke-current" type="button" onClick={() => setNewWorkflowOpen(true)} disabled={creating} aria-label="New space" title="New space">
 +                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>
 +              </button>
 +              <button className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors [&_svg]:w-4 [&_svg]:h-4 [&_svg]:fill-none [&_svg]:stroke-current" type="button" onClick={onDelete} disabled={deleting} aria-label="Delete space" title="Delete space">
 +                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.11 48.11 0 0 0-14.456 0m10.978-.397v-.916c0-1.18-.91-2.164-2.09-2.201a51.96 51.96 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" /></svg>
 +              </button>
-+                {settingsButtons}
+                 {settingsButtons}
+-              </>
+-            ) : (
+-              <>
+-                <span className="text-sm text-neutral-500 italic">Untitled</span>
+-
+-                {/* File operations group */}
+-                <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
+-                  <button
+-                    onClick={handleNewProject}
+-                    className="relative p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+-                    title="Save project"
+-                    data-tutorial="save-button"
+-                  >
+-                    <svg
+-                      className="w-4 h-4"
+-                      fill="none"
+-                      viewBox="0 0 24 24"
+-                      stroke="currentColor"
+-                      strokeWidth={1.5}
+-                    >
+-                      <path
+-                        strokeLinecap="round"
+-                        strokeLinejoin="round"
+-                        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+-                      />
+-                    </svg>
+-                    <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-neutral-900" />
+-                  </button>
+-                  <button
+-                    onClick={handleOpenFile}
+-                    className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+-                    title="Open project"
+-                  >
+-                    <svg
+-                      className="w-4 h-4"
+-                      fill="none"
+-                      viewBox="0 0 24 24"
+-                      stroke="currentColor"
+-                      strokeWidth={2}
+-                    >
+-                      <path
+-                        strokeLinecap="round"
+-                        strokeLinejoin="round"
+-                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+-                      />
+-                    </svg>
+-                  </button>
+-                </div>
+-
+-                {settingsButtons}
+-              </>
+-            )}
 +
-+          </div>
-+        </div>
-+
-+        <div className="flex items-center gap-3 text-xs">
+           </div>
+         </div>
+ 
+         <div className="flex items-center gap-3 text-xs">
+-          {previousWorkflowSnapshot && (
+-            <button
+-              onClick={handleRevertAIChanges}
+-              className="px-2.5 py-1.5 text-xs text-neutral-300 hover:text-neutral-100 bg-neutral-700/50 hover:bg-neutral-700 border border-neutral-600 rounded transition-colors"
+-              title="Restore workflow from before AI changes"
+-            >
+-              Revert AI Changes
+-            </button>
+-          )}
+-          <CommentsNavigationIcon />
+-          <span className="text-neutral-400">
+-            {isProjectConfigured ? (
+-              isSaving ? (
+-                "Saving..."
+-              ) : lastSavedAt ? (
+-                `Saved ${formatTime(lastSavedAt)}`
+-              ) : (
+-                "Not saved"
+-              )
+-            ) : (
+-              "Not saved"
+-            )}
+-          </span>
+-          <span className="text-neutral-500">·</span>
+-          <a
+-            href="https://x.com/ReflctWillie"
+-            target="_blank"
+-            rel="noopener noreferrer"
+-            className="text-neutral-400 hover:text-neutral-200 transition-colors"
+-          >
+-            Made by Willie
+-          </a>
 +          
 +          {commentsNavigation}
 +          <span className="text-neutral-400" role="status">{saveLabel}</span>
-+          <span className="text-neutral-500">·</span>
-+          <button
+           <span className="text-neutral-500">·</span>
+           <button
+-            onClick={() => setShortcutsDialogOpen(true)}
 +            onClick={() => setShortcutsOpen(true)}
-+            className="text-neutral-400 hover:text-neutral-200 transition-colors"
+             className="text-neutral-400 hover:text-neutral-200 transition-colors"
+-            title="Keyboard shortcuts (?)"
 +            title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"
-+          >
-+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75A2.25 2.25 0 014.5 4.5h15a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25V6.75z" />
-+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8" />
-+            </svg>
-+          </button>
-+        </div>
-+      </header>
+           >
+             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75A2.25 2.25 0 014.5 4.5h15a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25V6.75z" />
+               <path strokeLinecap="round" strokeLinejoin="round" d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8" />
+             </svg>
+           </button>
+-          <span className="text-neutral-500">·</span>
+-          <a
+-            href="https://discord.com/invite/89Nr6EKkTf"
+-            target="_blank"
+-            rel="noopener noreferrer"
+-            className="text-neutral-400 hover:text-neutral-200 transition-colors"
+-            title="Support"
+-          >
+-            <svg
+-              className="w-4 h-4"
+-              fill="currentColor"
+-              viewBox="0 0 24 24"
+-              xmlns="http://www.w3.org/2000/svg"
+-            >
+-              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+-            </svg>
+-          </a>
+         </div>
+       </header>
+-      <KeyboardShortcutsDialog
+-        isOpen={shortcutsDialogOpen}
+-        onClose={() => setShortcutsDialogOpen(false)}
+-      />
 +      {newWorkflowOpen ? (
 +        <div ref={auxiliaryDialogRef} className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setNewWorkflowOpen(false)}>
 +          <form className="node-banana-hosted__dialog" role="dialog" aria-modal="true" aria-labelledby="node-banana-new-workflow-title" onSubmit={createWorkflow} onMouseDown={(event) => event.stopPropagation()}>
@@ -671,9 +543,9 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 +      </div>}
 +      {settingsOpen && <ProjectSetupModal {...settingsProps} title={title} writable={writable} canvasSettings={canvasSettings} onCanvasSettingsChange={onCanvasSettingsChange} onTitleChange={onTitleChange} onClose={() => setSettingsOpen(false)} />}
 +      <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
-+    </>
-+  );
-+}
+     </>
+   );
+ }
 +
 +export function CommentsNavigationIcon({ count: totalCount, unreadCount: unviewedCount, onNavigate: handleClick }: { count: number; unreadCount: number; onNavigate: () => void }) {
 +  // Don't render if no comments
@@ -703,8 +575,8 @@ diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
-@@ -1,1317 +1,411 @@
--"use client";
+@@ -1,42 +1,6 @@
+ "use client";
 -
 -import { useState, useEffect } from "react";
 -import { generateWorkflowId, useWorkflowStore } from "@/store/workflowStore";
@@ -743,52 +615,29 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -    { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
 -  ],
 -};
--
--// Provider icons
--const GeminiIcon = () => (
--  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
--    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
--  </svg>
--);
--
--const ReplicateIcon = () => (
--  <svg className="w-4 h-4" viewBox="0 0 1000 1000" fill="currentColor">
--    <polygon points="1000,427.6 1000,540.6 603.4,540.6 603.4,1000 477,1000 477,427.6" />
--    <polygon points="1000,213.8 1000,327 364.8,327 364.8,1000 238.4,1000 238.4,213.8" />
--    <polygon points="1000,0 1000,113.2 126.4,113.2 126.4,1000 0,1000 0,0" />
--  </svg>
--);
--
--const FalIcon = () => (
--  <svg className="w-4 h-4" viewBox="0 0 1855 1855" fill="currentColor">
--    <path fillRule="evenodd" clipRule="evenodd" d="M1181.65 78C1212.05 78 1236.42 101.947 1239.32 131.261C1265.25 392.744 1480.07 600.836 1750.02 625.948C1780.28 628.764 1805 652.366 1805 681.816V1174.18C1805 1203.63 1780.28 1227.24 1750.02 1230.05C1480.07 1255.16 1265.25 1463.26 1239.32 1724.74C1236.42 1754.05 1212.05 1778 1181.65 1778H673.354C642.951 1778 618.585 1754.05 615.678 1724.74C589.754 1463.26 374.927 1255.16 104.984 1230.05C74.7212 1227.24 50 1203.63 50 1174.18V681.816C50 652.366 74.7213 628.764 104.984 625.948C374.927 600.836 589.754 392.744 615.678 131.261C618.585 101.946 642.951 78 673.353 78H1181.65ZM402.377 926.561C402.377 1209.41 638.826 1438.71 930.501 1438.71C1222.18 1438.71 1458.63 1209.41 1458.63 926.561C1458.63 643.709 1222.18 414.412 930.501 414.412C638.826 414.412 402.377 643.709 402.377 926.561Z" />
--  </svg>
--);
--
--const WaveSpeedIcon = () => (
--  <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor">
--    <path d="M308.946 153.758C314.185 153.758 318.268 158.321 317.516 163.506C306.856 237.02 270.334 302.155 217.471 349.386C211.398 354.812 203.458 357.586 195.315 357.586H127.562C117.863 357.586 110.001 349.724 110.001 340.025V333.552C110.001 326.82 113.882 320.731 119.792 317.505C176.087 286.779 217.883 232.832 232.32 168.537C234.216 160.09 241.509 153.758 250.167 153.758H308.946Z" />
--    <path d="M183.573 153.758C188.576 153.758 192.592 157.94 192.069 162.916C187.11 210.12 160.549 250.886 122.45 275.151C116.916 278.676 110 274.489 110 267.928V171.318C110 161.62 117.862 153.758 127.56 153.758H183.573Z" />
--    <path d="M414.815 153.758C425.503 153.758 433.734 163.232 431.799 173.743C420.697 234.038 398.943 290.601 368.564 341.414C362.464 351.617 351.307 357.586 339.419 357.586H274.228C266.726 357.586 262.611 348.727 267.233 342.819C306.591 292.513 334.86 233.113 348.361 168.295C350.104 159.925 357.372 153.758 365.922 153.758H414.815Z" />
--  </svg>
--);
--
--// Get provider icon component
++import { type ReactNode, useEffect, useRef, useState } from "react";
++import type { NodeBananaCanvasSettings } from "../leesfield/canvas-runtime";
+ 
+ // Provider icons
+ const GeminiIcon = () => (
+@@ -68,7 +32,7 @@
+ );
+ 
+ // Get provider icon component
 -const getProviderIcon = (provider: ProviderType) => {
--  switch (provider) {
--    case "gemini":
--      return <GeminiIcon />;
--    case "replicate":
--      return <ReplicateIcon />;
--    case "fal":
--      return <FalIcon />;
--    case "wavespeed":
--      return <WaveSpeedIcon />;
--    default:
++const getProviderIcon = (provider: string | undefined) => {
+   switch (provider) {
+     case "gemini":
+       return <GeminiIcon />;
+@@ -79,328 +43,93 @@
+     case "wavespeed":
+       return <WaveSpeedIcon />;
+     default:
 -      return null;
--  }
--};
--
++      return <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2" /><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" /></svg>;
+   }
+ };
+ 
 -interface ProjectSetupModalProps {
 -  isOpen: boolean;
 -  onClose: () => void;
@@ -796,7 +645,25 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -  mode: "new" | "settings";
 -}
 -
--export function ProjectSetupModal({
++export type HostedDefaultKind = "image" | "video" | "audio";
++export type HostedNodeDefaults = Partial<Record<HostedDefaultKind, string>>;
++export type HostedProjectSettingsProps = {
++  nodeDefaults?: HostedNodeDefaults;
++  models?: readonly { id: string; name: string; mediaKind: HostedDefaultKind; provider?: string }[];
++  onSaveNodeDefaults?: (defaults: HostedNodeDefaults) => Promise<void>;
++  nodeDefaultsLoading?: boolean;
++  nodeDefaultsError?: string | null;
++  onRetryNodeDefaults?: () => void;
++  inlineParametersEnabled?: boolean;
++  onInlineParametersChange?: (enabled: boolean) => void | Promise<void>;
++  renderModelPicker?: (kind: HostedDefaultKind, onSelect: (id: string) => void, onClose: () => void) => ReactNode;
++};
++
++// Approved exclusions: provider credentials/env-status, filesystem directory and
++// external storage, provider concurrency, ComfyUI settings, and LLM defaults.
++// ProjectSetupModal's original shell, tabs, default-model cards, Canvas controls,
++// inline parameter switch, and footer. Host callbacks replace provider/filesystem effects.
+ export function ProjectSetupModal({
 -  isOpen,
 -  onClose,
 -  onSave,
@@ -1105,35 +972,107 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -
 -  if (!isOpen) return null;
 -
--  return (
--    <div
--      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
--      onClick={(e) => {
--        if (e.target === e.currentTarget) onClose();
--      }}
--      onWheelCapture={(e) => e.stopPropagation()}
--    >
--      <div
++ title, writable, canvasSettings, onCanvasSettingsChange, onTitleChange, onClose,
++ nodeDefaults = {}, models = [], onSaveNodeDefaults, nodeDefaultsLoading = false,
++ nodeDefaultsError, onRetryNodeDefaults, inlineParametersEnabled = true,
++ onInlineParametersChange, renderModelPicker,
++}: HostedProjectSettingsProps & {
++ title: string; writable: boolean; canvasSettings: NodeBananaCanvasSettings;
++ onCanvasSettingsChange: (settings: NodeBananaCanvasSettings) => void;
++ onTitleChange: (title: string) => void; onClose: () => void;
++}) {
++ const [activeTab, setActiveTab] = useState<"project" | "nodeDefaults" | "canvas">("project");
++ const [name, setName] = useState(title);
++ const [localNodeDefaults, setLocalNodeDefaults] = useState(nodeDefaults);
++ const [localCanvasSettings, setLocalCanvasSettings] = useState(canvasSettings);
++ const [localInline, setLocalInline] = useState(inlineParametersEnabled);
++ const [pickerKind, setPickerKind] = useState<HostedDefaultKind | null>(null);
++ const [busy, setBusy] = useState(false);
++ const [error, setError] = useState<string | null>(null);
++ const [conflict, setConflict] = useState(false);
++ const defaultsEdited = useRef(false);
++ const dialogRef = useRef<HTMLDivElement>(null);
++ const closeRef = useRef(onClose);
++ closeRef.current = onClose;
++ const defaultsSnapshot = JSON.stringify(nodeDefaults);
++ useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
++ useEffect(() => {
++   if (pickerKind) return;
++   const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++   const dialog = dialogRef.current;
++   const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
++   controls()[0]?.focus();
++   const keydown = (event: KeyboardEvent) => {
++     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
++     if (event.key === "Tab") {
++       const items = controls(), first = items[0], last = items.at(-1);
++       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
++       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
++     }
++   };
++   const focus = (event: FocusEvent) => { if (event.target instanceof Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
++   window.addEventListener("keydown", keydown, true);
++   document.addEventListener("focusin", focus);
++   return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
++ }, [pickerKind]);
++ const handleSave = async () => {
++   if (conflict || busy) return;
++   setBusy(true); setError(null);
++   try {
++     if (defaultsEdited.current) {
++       if (!onSaveNodeDefaults) throw new Error("Node defaults are unavailable.");
++       for (const kind of ["image", "video", "audio"] as const) {
++         if (localNodeDefaults[kind] && !models.some((model) => model.id === localNodeDefaults[kind] && model.mediaKind === kind)) throw new Error("Select an available model before saving.");
++       }
++       await onSaveNodeDefaults(localNodeDefaults);
++     }
++     if (localInline !== inlineParametersEnabled) await onInlineParametersChange?.(localInline);
++     onCanvasSettingsChange(localCanvasSettings);
++     if (writable) onTitleChange(name.trim());
++     onClose();
++   } catch (cause) { if (cause instanceof Error && "code" in cause && cause.code === "SPACE_PREFERENCES_CONFLICT") setConflict(true); setError(cause instanceof Error ? cause.message : "Could not save settings. Please try again."); }
++   finally { setBusy(false); }
++ };
+   return (
+     <div
++      ref={dialogRef}
+       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+       onClick={(e) => {
+         if (e.target === e.currentTarget) onClose();
+@@ -408,45 +137,35 @@
+       onWheelCapture={(e) => e.stopPropagation()}
+     >
+       <div
 -        className="bg-neutral-800 rounded-xl w-[580px] border border-neutral-700 shadow-2xl overflow-clip flex flex-col max-h-[80vh]"
 -        onKeyDown={handleKeyDown}
--      >
--        <div className="px-8 pt-8 pb-0 shrink-0">
--          <div className="flex items-center gap-2 mb-5">
++        className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] border border-neutral-700 shadow-2xl overflow-clip flex flex-col max-h-[80vh]"
++        role="dialog" aria-modal="true" aria-labelledby="node-banana-settings-title" data-node-banana-component="ProjectSetupModal"
+       >
+         <div className="px-8 pt-8 pb-0 shrink-0">
+           <div className="flex items-center gap-2 mb-5">
 -            <img src="/banana_icon.png" alt="" className="w-6 h-6" />
 -            <h2 className="text-xl font-medium text-neutral-100">
 -              {mode === "new" ? "New Project" : "Project Settings"}
--            </h2>
--          </div>
--
--          {/* Tab Bar */}
++
++            <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">
++              Space Settings
+             </h2>
+           </div>
+ 
+           {/* Tab Bar */}
 -          <div className="flex gap-1.5 p-1 bg-neutral-900/50 rounded-lg">
--          <button
++          <div role="tablist" aria-label="Settings sections" className="flex gap-1.5 p-1 bg-neutral-900/50 rounded-lg">
+           <button
 -            onClick={() => setActiveTab("project")}
--            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "project" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
--          >
++            role="tab" aria-selected={activeTab === "project"} onClick={() => setActiveTab("project")}
+             className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "project" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+           >
 -            Project
--          </button>
--          <button
++            Space
+           </button>
++
++
+           <button
 -            onClick={() => setActiveTab("providers")}
 -            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "providers" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
 -          >
@@ -1147,37 +1086,33 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -          </button>
 -          <button
 -            onClick={() => setActiveTab("nodeDefaults")}
--            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "nodeDefaults" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
--          >
--            Node Defaults
--          </button>
--          <button
++            role="tab" aria-selected={activeTab === "nodeDefaults"} onClick={() => setActiveTab("nodeDefaults")}
+             className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "nodeDefaults" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+           >
+             Node Defaults
+           </button>
+           <button
 -            onClick={() => setActiveTab("canvas")}
--            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "canvas" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
--          >
--            Canvas
--          </button>
--          </div>
--        </div>
--
--        {/* Scrollable tab content area */}
--        <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5">
--
--        {/* Project Tab Content */}
--        {activeTab === "project" && (
--          <div className="space-y-4">
--            <div>
--              <label className="block text-sm text-neutral-400 mb-1">
++            role="tab" aria-selected={activeTab === "canvas"} onClick={() => setActiveTab("canvas")}
+             className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "canvas" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
+           >
+             Canvas
+@@ -462,62 +181,16 @@
+           <div className="space-y-4">
+             <div>
+               <label className="block text-sm text-neutral-400 mb-1">
 -                Project Name
--              </label>
--              <input
--                type="text"
--                value={name}
--                onChange={(e) => setName(e.target.value)}
++                Space name
+               </label>
+               <input
+                 type="text"
+                 value={name}
+                 onChange={(e) => setName(e.target.value)}
 -                placeholder="my-project"
--                autoFocus
--                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-neutral-100 text-sm focus:outline-none focus:border-neutral-500"
--              />
++                placeholder="Untitled Space" aria-label="Space name" maxLength={120} disabled={!writable}
+                 autoFocus
+                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-neutral-100 text-sm focus:outline-none focus:border-neutral-500"
+               />
 -            </div>
 -
 -            <div>
@@ -1224,32 +1159,32 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${!externalStorage ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
 -                </button>
 -              </label>
--            </div>
--
--            <div className="pt-2 border-t border-neutral-700">
--              <label className="flex items-center justify-between gap-3 cursor-pointer">
--                <div>
--                  <span className="text-sm text-neutral-200">Show model settings on nodes</span>
--                  <p className="text-xs text-neutral-400">
--                    Show model parameters inside generation nodes instead of the side panel
--                  </p>
--                </div>
--                <button
--                  type="button"
+             </div>
+ 
+             <div className="pt-2 border-t border-neutral-700">
+@@ -530,440 +203,48 @@
+                 </div>
+                 <button
+                   type="button"
 -                  role="switch"
 -                  aria-checked={inlineParametersEnabled}
 -                  onClick={() => setInlineParameters(!inlineParametersEnabled)}
 -                  className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${inlineParametersEnabled ? "bg-blue-500" : "bg-neutral-600"}`}
--                >
++                  role="switch" aria-label="Show model settings on nodes"
++                  aria-checked={localInline}
++                  onClick={() => setLocalInline(!localInline)}
++                  className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${localInline ? "bg-blue-500" : "bg-neutral-600"}`}
+                 >
 -                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${inlineParametersEnabled ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
--                </button>
--              </label>
--            </div>
--
++                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${localInline ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                 </button>
+               </label>
+             </div>
+ 
 -            {error && <p className="text-sm text-red-400">{error}</p>}
--          </div>
--        )}
--
+           </div>
+         )}
+ 
 -        {/* Providers Tab Content */}
 -        {activeTab === "providers" && (
 -          <div className="space-y-3">
@@ -1602,25 +1537,39 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
 -              <div className="flex items-center justify-between">
 -                <span className="text-sm font-medium text-neutral-100">Default Image Model</span>
--                <div className="flex items-center gap-2">
++        {activeTab === "nodeDefaults" && <div className="space-y-3">
++          {nodeDefaultsLoading && <p role="status" className="text-xs text-neutral-400">Loading defaults...</p>}
++          {nodeDefaultsError && <div role="alert" className="text-sm text-red-400">{nodeDefaultsError}<button type="button" onClick={onRetryNodeDefaults}>Retry</button></div>}
++          {(["image", "video", "audio"] as const).map((kind) => (
++            
++            <div key={kind} className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
++              <div className="flex items-center justify-between gap-2 flex-wrap">
++                <span className="text-sm font-medium text-neutral-100">Default {kind === "image" ? "Image" : kind === "video" ? "Video" : "Audio"} Model</span>
+                 <div className="flex items-center gap-2">
 -                  {localNodeDefaults.generateImage?.selectedModel ? (
--                    <>
--                      <div className="flex items-center gap-1.5 text-xs text-neutral-300">
++                  {localNodeDefaults[kind] ? (
+                     <>
+                       <div className="flex items-center gap-1.5 text-xs text-neutral-300">
 -                        {getProviderIcon(localNodeDefaults.generateImage.selectedModel.provider)}
--                        <span className="truncate max-w-[150px]">
++                        {getProviderIcon(models.find((model) => model.id === localNodeDefaults[kind])?.provider)}
+                         <span className="truncate max-w-[150px]">
 -                          {localNodeDefaults.generateImage.selectedModel.displayName}
--                        </span>
--                      </div>
--                      <button
++                          {models.find((model) => model.id === localNodeDefaults[kind])?.name ?? localNodeDefaults[kind]}
+                         </span>
+                       </div>
+                       <button
 -                        type="button"
 -                        onClick={() => setShowImageModelDialog(true)}
--                        className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
--                      >
--                        Change
--                      </button>
--                      <button
++                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
++                        onClick={() => setPickerKind(kind)}
+                         className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
+                       >
+                         Change
+                       </button>
+                       <button
 -                        type="button"
--                        onClick={() => {
++                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
+                         onClick={() => {
 -                          const { generateImage, ...rest } = localNodeDefaults;
 -                          setLocalNodeDefaults(rest);
 -                        }}
@@ -1670,28 +1619,26 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -                        onClick={() => {
 -                          const { generateVideo, ...rest } = localNodeDefaults;
 -                          setLocalNodeDefaults(rest);
--                        }}
--                        className="text-xs text-neutral-400 hover:text-neutral-200"
--                      >
--                        Clear
--                      </button>
--                    </>
--                  ) : (
--                    <>
--                      <span className="text-xs text-neutral-400">None set (select on first use)</span>
--                      <button
++                          defaultsEdited.current = true;
++                          setLocalNodeDefaults((previous) => { const next = { ...previous }; delete next[kind]; return next; });
+                         }}
+                         className="text-xs text-neutral-400 hover:text-neutral-200"
+                       >
+@@ -974,8 +255,8 @@
+                     <>
+                       <span className="text-xs text-neutral-400">None set (select on first use)</span>
+                       <button
 -                        type="button"
 -                        onClick={() => setShowVideoModelDialog(true)}
--                        className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
--                      >
--                        Select Model
--                      </button>
--                    </>
--                  )}
--                </div>
--              </div>
--            </div>
--
++                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
++                        onClick={() => setPickerKind(kind)}
+                         className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
+                       >
+                         Select Model
+@@ -986,166 +267,17 @@
+               </div>
+             </div>
+ 
 -            {/* LLM Section */}
 -            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
 -              <div className="flex flex-col gap-3">
@@ -1845,136 +1792,121 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -        )}
 -
 -        {/* Canvas Tab Content */}
--        {activeTab === "canvas" && (
--          <div className="space-y-3">
--            <p className="text-xs text-neutral-400">Configure how you navigate and interact with the canvas.</p>
--            {/* Pan Mode */}
--            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
--              <div className="flex flex-col gap-3">
++
++          ))}
++          <button type="button" className="text-xs text-neutral-400 hover:text-neutral-200" disabled={busy || nodeDefaultsLoading} onClick={() => { defaultsEdited.current = true; setLocalNodeDefaults({}); }}>Reset defaults</button>
++        </div>}
+         {activeTab === "canvas" && (
+           <div className="space-y-3">
+             <p className="text-xs text-neutral-400">Configure how you navigate and interact with the canvas.</p>
+             {/* Pan Mode */}
+             <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+               <div className="flex flex-col gap-3">
 -                <div className="flex items-center justify-between">
--                  <span className="text-sm font-medium text-neutral-100">Pan Mode</span>
--                  <p className="text-xs text-neutral-400">
--                    {localCanvasSettings.panMode === "space" && "Hold Space and drag to pan"}
--                    {localCanvasSettings.panMode === "middleMouse" && "Click and drag with middle mouse button"}
--                    {localCanvasSettings.panMode === "always" && "Pan without holding any keys"}
--                  </p>
--                </div>
--                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
--                  {([
++                <div className="flex items-center justify-between gap-2 flex-wrap">
+                   <span className="text-sm font-medium text-neutral-100">Pan Mode</span>
+                   <p className="text-xs text-neutral-400">
+                     {localCanvasSettings.panMode === "space" && "Hold Space and drag to pan"}
+@@ -1155,14 +287,14 @@
+                 </div>
+                 <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
+                   {([
 -                    { value: "space" as PanMode, label: "Space + Drag" },
 -                    { value: "middleMouse" as PanMode, label: "Middle Mouse" },
 -                    { value: "always" as PanMode, label: "Always On" },
--                  ] as const).map((option) => (
--                    <button
--                      key={option.value}
--                      type="button"
++                    { value: "space" as const, label: "Space + Drag" },
++                    { value: "middleMouse" as const, label: "Middle Mouse" },
++                    { value: "always" as const, label: "Always On" },
+                   ] as const).map((option) => (
+                     <button
+                       key={option.value}
+                       type="button"
 -                      onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, panMode: option.value })}
--                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
--                        localCanvasSettings.panMode === option.value
--                          ? "bg-neutral-700 text-neutral-100 font-medium"
--                          : "text-neutral-400 hover:text-neutral-300"
--                      }`}
--                    >
--                      {option.label}
--                    </button>
--                  ))}
--                </div>
--              </div>
--            </div>
--
--            {/* Zoom Mode */}
--            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
--              <div className="flex flex-col gap-3">
++                      aria-pressed={localCanvasSettings.panMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, panMode: option.value })}
+                       className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
+                         localCanvasSettings.panMode === option.value
+                           ? "bg-neutral-700 text-neutral-100 font-medium"
+@@ -1179,7 +311,7 @@
+             {/* Zoom Mode */}
+             <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+               <div className="flex flex-col gap-3">
 -                <div className="flex items-center justify-between">
--                  <span className="text-sm font-medium text-neutral-100">Zoom Mode</span>
--                  <p className="text-xs text-neutral-400">
--                    {localCanvasSettings.zoomMode === "altScroll" && "Hold Alt and scroll to zoom"}
--                    {localCanvasSettings.zoomMode === "ctrlScroll" && "Hold Ctrl/Cmd and scroll to zoom"}
--                    {localCanvasSettings.zoomMode === "scroll" && "Scroll to zoom without modifier keys"}
--                  </p>
--                </div>
--                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
--                  {([
++                <div className="flex items-center justify-between gap-2 flex-wrap">
+                   <span className="text-sm font-medium text-neutral-100">Zoom Mode</span>
+                   <p className="text-xs text-neutral-400">
+                     {localCanvasSettings.zoomMode === "altScroll" && "Hold Alt and scroll to zoom"}
+@@ -1189,14 +321,14 @@
+                 </div>
+                 <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
+                   {([
 -                    { value: "altScroll" as ZoomMode, label: "Alt + Scroll" },
 -                    { value: "ctrlScroll" as ZoomMode, label: "Ctrl + Scroll" },
 -                    { value: "scroll" as ZoomMode, label: "Scroll" },
--                  ] as const).map((option) => (
--                    <button
--                      key={option.value}
--                      type="button"
++                    { value: "altScroll" as const, label: "Alt + Scroll" },
++                    { value: "ctrlScroll" as const, label: "Ctrl + Scroll" },
++                    { value: "scroll" as const, label: "Scroll" },
+                   ] as const).map((option) => (
+                     <button
+                       key={option.value}
+                       type="button"
 -                      onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, zoomMode: option.value })}
--                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
--                        localCanvasSettings.zoomMode === option.value
--                          ? "bg-neutral-700 text-neutral-100 font-medium"
--                          : "text-neutral-400 hover:text-neutral-300"
--                      }`}
--                    >
--                      {option.label}
--                    </button>
--                  ))}
--                </div>
--              </div>
--            </div>
--
--            {/* Selection Mode */}
--            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
--              <div className="flex flex-col gap-3">
++                      aria-pressed={localCanvasSettings.zoomMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, zoomMode: option.value })}
+                       className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
+                         localCanvasSettings.zoomMode === option.value
+                           ? "bg-neutral-700 text-neutral-100 font-medium"
+@@ -1213,7 +345,7 @@
+             {/* Selection Mode */}
+             <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+               <div className="flex flex-col gap-3">
 -                <div className="flex items-center justify-between">
--                  <span className="text-sm font-medium text-neutral-100">Selection Mode</span>
--                  <p className="text-xs text-neutral-400">
--                    {localCanvasSettings.selectionMode === "click" && "Click to select nodes"}
--                    {localCanvasSettings.selectionMode === "altDrag" && "Hold Alt and drag to select"}
--                    {localCanvasSettings.selectionMode === "shiftDrag" && "Hold Shift and drag to select"}
--                  </p>
--                </div>
--                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
--                  {([
++                <div className="flex items-center justify-between gap-2 flex-wrap">
+                   <span className="text-sm font-medium text-neutral-100">Selection Mode</span>
+                   <p className="text-xs text-neutral-400">
+                     {localCanvasSettings.selectionMode === "click" && "Click to select nodes"}
+@@ -1223,14 +355,14 @@
+                 </div>
+                 <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
+                   {([
 -                    { value: "click" as SelectionMode, label: "Click" },
 -                    { value: "altDrag" as SelectionMode, label: "Alt + Drag" },
 -                    { value: "shiftDrag" as SelectionMode, label: "Shift + Drag" },
--                  ] as const).map((option) => (
--                    <button
--                      key={option.value}
--                      type="button"
++                    { value: "click" as const, label: "Click" },
++                    { value: "altDrag" as const, label: "Alt + Drag" },
++                    { value: "shiftDrag" as const, label: "Shift + Drag" },
+                   ] as const).map((option) => (
+                     <button
+                       key={option.value}
+                       type="button"
 -                      onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, selectionMode: option.value })}
--                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
--                        localCanvasSettings.selectionMode === option.value
--                          ? "bg-neutral-700 text-neutral-100 font-medium"
--                          : "text-neutral-400 hover:text-neutral-300"
--                      }`}
--                    >
--                      {option.label}
--                    </button>
--                  ))}
--                </div>
--              </div>
--            </div>
--          </div>
--        )}
--
--        </div>
--
--        {/* Fixed footer */}
--        <div className="flex justify-end gap-2 px-8 py-5 border-t border-neutral-700/50 shrink-0">
--          <button
--            onClick={onClose}
--            className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-100 transition-colors"
--          >
--            Cancel
--          </button>
--          <button
--            onClick={handleSave}
++                      aria-pressed={localCanvasSettings.selectionMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, selectionMode: option.value })}
+                       className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
+                         localCanvasSettings.selectionMode === option.value
+                           ? "bg-neutral-700 text-neutral-100 font-medium"
+@@ -1246,6 +378,7 @@
+           </div>
+         )}
+ 
++        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+         </div>
+ 
+         {/* Fixed footer */}
+@@ -1258,60 +391,21 @@
+           </button>
+           <button
+             onClick={handleSave}
 -            disabled={activeTab === "project" && (isValidating || isBrowsing)}
--            className="px-4 py-2 text-sm bg-white text-neutral-900 rounded-lg hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
--          >
++            disabled={conflict || busy || nodeDefaultsLoading || !name.trim()}
+             className="px-4 py-2 text-sm bg-white text-neutral-900 rounded-lg hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+           >
 -            {activeTab === "project"
 -              ? (isValidating ? "Validating..." : mode === "new" ? "Create" : "Save")
 -              : "Save"
 -            }
--          </button>
--        </div>
--      </div>
--
++            {busy ? "Saving..." : "Save"}
+           </button>
+         </div>
+       </div>
+ 
 -      {/* Model Selection Dialogs */}
 -      {showImageModelDialog && (
 -        <ModelSearchDialog
@@ -2018,410 +1950,6 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 -          initialCapabilityFilter="video"
 -        />
 -      )}
--    </div>
--  );
--}
-+"use client";
-+import { type ReactNode, useEffect, useRef, useState } from "react";
-+import type { NodeBananaCanvasSettings } from "../leesfield/canvas-runtime";
-+
-+// Provider icons
-+const GeminiIcon = () => (
-+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-+    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
-+  </svg>
-+);
-+
-+const ReplicateIcon = () => (
-+  <svg className="w-4 h-4" viewBox="0 0 1000 1000" fill="currentColor">
-+    <polygon points="1000,427.6 1000,540.6 603.4,540.6 603.4,1000 477,1000 477,427.6" />
-+    <polygon points="1000,213.8 1000,327 364.8,327 364.8,1000 238.4,1000 238.4,213.8" />
-+    <polygon points="1000,0 1000,113.2 126.4,113.2 126.4,1000 0,1000 0,0" />
-+  </svg>
-+);
-+
-+const FalIcon = () => (
-+  <svg className="w-4 h-4" viewBox="0 0 1855 1855" fill="currentColor">
-+    <path fillRule="evenodd" clipRule="evenodd" d="M1181.65 78C1212.05 78 1236.42 101.947 1239.32 131.261C1265.25 392.744 1480.07 600.836 1750.02 625.948C1780.28 628.764 1805 652.366 1805 681.816V1174.18C1805 1203.63 1780.28 1227.24 1750.02 1230.05C1480.07 1255.16 1265.25 1463.26 1239.32 1724.74C1236.42 1754.05 1212.05 1778 1181.65 1778H673.354C642.951 1778 618.585 1754.05 615.678 1724.74C589.754 1463.26 374.927 1255.16 104.984 1230.05C74.7212 1227.24 50 1203.63 50 1174.18V681.816C50 652.366 74.7213 628.764 104.984 625.948C374.927 600.836 589.754 392.744 615.678 131.261C618.585 101.946 642.951 78 673.353 78H1181.65ZM402.377 926.561C402.377 1209.41 638.826 1438.71 930.501 1438.71C1222.18 1438.71 1458.63 1209.41 1458.63 926.561C1458.63 643.709 1222.18 414.412 930.501 414.412C638.826 414.412 402.377 643.709 402.377 926.561Z" />
-+  </svg>
-+);
-+
-+const WaveSpeedIcon = () => (
-+  <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor">
-+    <path d="M308.946 153.758C314.185 153.758 318.268 158.321 317.516 163.506C306.856 237.02 270.334 302.155 217.471 349.386C211.398 354.812 203.458 357.586 195.315 357.586H127.562C117.863 357.586 110.001 349.724 110.001 340.025V333.552C110.001 326.82 113.882 320.731 119.792 317.505C176.087 286.779 217.883 232.832 232.32 168.537C234.216 160.09 241.509 153.758 250.167 153.758H308.946Z" />
-+    <path d="M183.573 153.758C188.576 153.758 192.592 157.94 192.069 162.916C187.11 210.12 160.549 250.886 122.45 275.151C116.916 278.676 110 274.489 110 267.928V171.318C110 161.62 117.862 153.758 127.56 153.758H183.573Z" />
-+    <path d="M414.815 153.758C425.503 153.758 433.734 163.232 431.799 173.743C420.697 234.038 398.943 290.601 368.564 341.414C362.464 351.617 351.307 357.586 339.419 357.586H274.228C266.726 357.586 262.611 348.727 267.233 342.819C306.591 292.513 334.86 233.113 348.361 168.295C350.104 159.925 357.372 153.758 365.922 153.758H414.815Z" />
-+  </svg>
-+);
-+
-+// Get provider icon component
-+const getProviderIcon = (provider: string | undefined) => {
-+  switch (provider) {
-+    case "gemini":
-+      return <GeminiIcon />;
-+    case "replicate":
-+      return <ReplicateIcon />;
-+    case "fal":
-+      return <FalIcon />;
-+    case "wavespeed":
-+      return <WaveSpeedIcon />;
-+    default:
-+      return <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2" /><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" /></svg>;
-+  }
-+};
-+
-+export type HostedDefaultKind = "image" | "video" | "audio";
-+export type HostedNodeDefaults = Partial<Record<HostedDefaultKind, string>>;
-+export type HostedProjectSettingsProps = {
-+  nodeDefaults?: HostedNodeDefaults;
-+  models?: readonly { id: string; name: string; mediaKind: HostedDefaultKind; provider?: string }[];
-+  onSaveNodeDefaults?: (defaults: HostedNodeDefaults) => Promise<void>;
-+  nodeDefaultsLoading?: boolean;
-+  nodeDefaultsError?: string | null;
-+  onRetryNodeDefaults?: () => void;
-+  inlineParametersEnabled?: boolean;
-+  onInlineParametersChange?: (enabled: boolean) => void | Promise<void>;
-+  renderModelPicker?: (kind: HostedDefaultKind, onSelect: (id: string) => void, onClose: () => void) => ReactNode;
-+};
-+
-+// Approved exclusions: provider credentials/env-status, filesystem directory and
-+// external storage, provider concurrency, ComfyUI settings, and LLM defaults.
-+// ProjectSetupModal's original shell, tabs, default-model cards, Canvas controls,
-+// inline parameter switch, and footer. Host callbacks replace provider/filesystem effects.
-+export function ProjectSetupModal({
-+ title, writable, canvasSettings, onCanvasSettingsChange, onTitleChange, onClose,
-+ nodeDefaults = {}, models = [], onSaveNodeDefaults, nodeDefaultsLoading = false,
-+ nodeDefaultsError, onRetryNodeDefaults, inlineParametersEnabled = true,
-+ onInlineParametersChange, renderModelPicker,
-+}: HostedProjectSettingsProps & {
-+ title: string; writable: boolean; canvasSettings: NodeBananaCanvasSettings;
-+ onCanvasSettingsChange: (settings: NodeBananaCanvasSettings) => void;
-+ onTitleChange: (title: string) => void; onClose: () => void;
-+}) {
-+ const [activeTab, setActiveTab] = useState<"project" | "nodeDefaults" | "canvas">("project");
-+ const [name, setName] = useState(title);
-+ const [localNodeDefaults, setLocalNodeDefaults] = useState(nodeDefaults);
-+ const [localCanvasSettings, setLocalCanvasSettings] = useState(canvasSettings);
-+ const [localInline, setLocalInline] = useState(inlineParametersEnabled);
-+ const [pickerKind, setPickerKind] = useState<HostedDefaultKind | null>(null);
-+ const [busy, setBusy] = useState(false);
-+ const [error, setError] = useState<string | null>(null);
-+ const [conflict, setConflict] = useState(false);
-+ const defaultsEdited = useRef(false);
-+ const dialogRef = useRef<HTMLDivElement>(null);
-+ const closeRef = useRef(onClose);
-+ closeRef.current = onClose;
-+ const defaultsSnapshot = JSON.stringify(nodeDefaults);
-+ useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
-+ useEffect(() => {
-+   if (pickerKind) return;
-+   const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-+   const dialog = dialogRef.current;
-+   const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
-+   controls()[0]?.focus();
-+   const keydown = (event: KeyboardEvent) => {
-+     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
-+     if (event.key === "Tab") {
-+       const items = controls(), first = items[0], last = items.at(-1);
-+       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-+       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-+     }
-+   };
-+   const focus = (event: FocusEvent) => { if (event.target instanceof Node && dialog && !dialog.contains(event.target)) controls()[0]?.focus(); };
-+   window.addEventListener("keydown", keydown, true);
-+   document.addEventListener("focusin", focus);
-+   return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
-+ }, [pickerKind]);
-+ const handleSave = async () => {
-+   if (conflict || busy) return;
-+   setBusy(true); setError(null);
-+   try {
-+     if (defaultsEdited.current) {
-+       if (!onSaveNodeDefaults) throw new Error("Node defaults are unavailable.");
-+       for (const kind of ["image", "video", "audio"] as const) {
-+         if (localNodeDefaults[kind] && !models.some((model) => model.id === localNodeDefaults[kind] && model.mediaKind === kind)) throw new Error("Select an available model before saving.");
-+       }
-+       await onSaveNodeDefaults(localNodeDefaults);
-+     }
-+     if (localInline !== inlineParametersEnabled) await onInlineParametersChange?.(localInline);
-+     onCanvasSettingsChange(localCanvasSettings);
-+     if (writable) onTitleChange(name.trim());
-+     onClose();
-+   } catch (cause) { if (cause instanceof Error && "code" in cause && cause.code === "SPACE_PREFERENCES_CONFLICT") setConflict(true); setError(cause instanceof Error ? cause.message : "Could not save settings. Please try again."); }
-+   finally { setBusy(false); }
-+ };
-+  return (
-+    <div
-+      ref={dialogRef}
-+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
-+      onClick={(e) => {
-+        if (e.target === e.currentTarget) onClose();
-+      }}
-+      onWheelCapture={(e) => e.stopPropagation()}
-+    >
-+      <div
-+        className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] border border-neutral-700 shadow-2xl overflow-clip flex flex-col max-h-[80vh]"
-+        role="dialog" aria-modal="true" aria-labelledby="node-banana-settings-title" data-node-banana-component="ProjectSetupModal"
-+      >
-+        <div className="px-8 pt-8 pb-0 shrink-0">
-+          <div className="flex items-center gap-2 mb-5">
-+
-+            <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">
-+              Space Settings
-+            </h2>
-+          </div>
-+
-+          {/* Tab Bar */}
-+          <div role="tablist" aria-label="Settings sections" className="flex gap-1.5 p-1 bg-neutral-900/50 rounded-lg">
-+          <button
-+            role="tab" aria-selected={activeTab === "project"} onClick={() => setActiveTab("project")}
-+            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "project" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
-+          >
-+            Space
-+          </button>
-+
-+
-+          <button
-+            role="tab" aria-selected={activeTab === "nodeDefaults"} onClick={() => setActiveTab("nodeDefaults")}
-+            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "nodeDefaults" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
-+          >
-+            Node Defaults
-+          </button>
-+          <button
-+            role="tab" aria-selected={activeTab === "canvas"} onClick={() => setActiveTab("canvas")}
-+            className={`px-3 py-1.5 text-sm rounded-md transition-all duration-150 ${activeTab === "canvas" ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50"}`}
-+          >
-+            Canvas
-+          </button>
-+          </div>
-+        </div>
-+
-+        {/* Scrollable tab content area */}
-+        <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5">
-+
-+        {/* Project Tab Content */}
-+        {activeTab === "project" && (
-+          <div className="space-y-4">
-+            <div>
-+              <label className="block text-sm text-neutral-400 mb-1">
-+                Space name
-+              </label>
-+              <input
-+                type="text"
-+                value={name}
-+                onChange={(e) => setName(e.target.value)}
-+                placeholder="Untitled Space" aria-label="Space name" maxLength={120} disabled={!writable}
-+                autoFocus
-+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-neutral-100 text-sm focus:outline-none focus:border-neutral-500"
-+              />
-+            </div>
-+
-+            <div className="pt-2 border-t border-neutral-700">
-+              <label className="flex items-center justify-between gap-3 cursor-pointer">
-+                <div>
-+                  <span className="text-sm text-neutral-200">Show model settings on nodes</span>
-+                  <p className="text-xs text-neutral-400">
-+                    Show model parameters inside generation nodes instead of the side panel
-+                  </p>
-+                </div>
-+                <button
-+                  type="button"
-+                  role="switch" aria-label="Show model settings on nodes"
-+                  aria-checked={localInline}
-+                  onClick={() => setLocalInline(!localInline)}
-+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${localInline ? "bg-blue-500" : "bg-neutral-600"}`}
-+                >
-+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${localInline ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
-+                </button>
-+              </label>
-+            </div>
-+
-+          </div>
-+        )}
-+
-+        {activeTab === "nodeDefaults" && <div className="space-y-3">
-+          {nodeDefaultsLoading && <p role="status" className="text-xs text-neutral-400">Loading defaults...</p>}
-+          {nodeDefaultsError && <div role="alert" className="text-sm text-red-400">{nodeDefaultsError}<button type="button" onClick={onRetryNodeDefaults}>Retry</button></div>}
-+          {(["image", "video", "audio"] as const).map((kind) => (
-+            
-+            <div key={kind} className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
-+              <div className="flex items-center justify-between gap-2 flex-wrap">
-+                <span className="text-sm font-medium text-neutral-100">Default {kind === "image" ? "Image" : kind === "video" ? "Video" : "Audio"} Model</span>
-+                <div className="flex items-center gap-2">
-+                  {localNodeDefaults[kind] ? (
-+                    <>
-+                      <div className="flex items-center gap-1.5 text-xs text-neutral-300">
-+                        {getProviderIcon(models.find((model) => model.id === localNodeDefaults[kind])?.provider)}
-+                        <span className="truncate max-w-[150px]">
-+                          {models.find((model) => model.id === localNodeDefaults[kind])?.name ?? localNodeDefaults[kind]}
-+                        </span>
-+                      </div>
-+                      <button
-+                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
-+                        onClick={() => setPickerKind(kind)}
-+                        className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
-+                      >
-+                        Change
-+                      </button>
-+                      <button
-+                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
-+                        onClick={() => {
-+                          defaultsEdited.current = true;
-+                          setLocalNodeDefaults((previous) => { const next = { ...previous }; delete next[kind]; return next; });
-+                        }}
-+                        className="text-xs text-neutral-400 hover:text-neutral-200"
-+                      >
-+                        Clear
-+                      </button>
-+                    </>
-+                  ) : (
-+                    <>
-+                      <span className="text-xs text-neutral-400">None set (select on first use)</span>
-+                      <button
-+                        disabled={busy || nodeDefaultsLoading || !renderModelPicker} type="button"
-+                        onClick={() => setPickerKind(kind)}
-+                        className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded transition-colors"
-+                      >
-+                        Select Model
-+                      </button>
-+                    </>
-+                  )}
-+                </div>
-+              </div>
-+            </div>
-+
-+
-+          ))}
-+          <button type="button" className="text-xs text-neutral-400 hover:text-neutral-200" disabled={busy || nodeDefaultsLoading} onClick={() => { defaultsEdited.current = true; setLocalNodeDefaults({}); }}>Reset defaults</button>
-+        </div>}
-+        {activeTab === "canvas" && (
-+          <div className="space-y-3">
-+            <p className="text-xs text-neutral-400">Configure how you navigate and interact with the canvas.</p>
-+            {/* Pan Mode */}
-+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
-+              <div className="flex flex-col gap-3">
-+                <div className="flex items-center justify-between gap-2 flex-wrap">
-+                  <span className="text-sm font-medium text-neutral-100">Pan Mode</span>
-+                  <p className="text-xs text-neutral-400">
-+                    {localCanvasSettings.panMode === "space" && "Hold Space and drag to pan"}
-+                    {localCanvasSettings.panMode === "middleMouse" && "Click and drag with middle mouse button"}
-+                    {localCanvasSettings.panMode === "always" && "Pan without holding any keys"}
-+                  </p>
-+                </div>
-+                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
-+                  {([
-+                    { value: "space" as const, label: "Space + Drag" },
-+                    { value: "middleMouse" as const, label: "Middle Mouse" },
-+                    { value: "always" as const, label: "Always On" },
-+                  ] as const).map((option) => (
-+                    <button
-+                      key={option.value}
-+                      type="button"
-+                      aria-pressed={localCanvasSettings.panMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, panMode: option.value })}
-+                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
-+                        localCanvasSettings.panMode === option.value
-+                          ? "bg-neutral-700 text-neutral-100 font-medium"
-+                          : "text-neutral-400 hover:text-neutral-300"
-+                      }`}
-+                    >
-+                      {option.label}
-+                    </button>
-+                  ))}
-+                </div>
-+              </div>
-+            </div>
-+
-+            {/* Zoom Mode */}
-+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
-+              <div className="flex flex-col gap-3">
-+                <div className="flex items-center justify-between gap-2 flex-wrap">
-+                  <span className="text-sm font-medium text-neutral-100">Zoom Mode</span>
-+                  <p className="text-xs text-neutral-400">
-+                    {localCanvasSettings.zoomMode === "altScroll" && "Hold Alt and scroll to zoom"}
-+                    {localCanvasSettings.zoomMode === "ctrlScroll" && "Hold Ctrl/Cmd and scroll to zoom"}
-+                    {localCanvasSettings.zoomMode === "scroll" && "Scroll to zoom without modifier keys"}
-+                  </p>
-+                </div>
-+                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
-+                  {([
-+                    { value: "altScroll" as const, label: "Alt + Scroll" },
-+                    { value: "ctrlScroll" as const, label: "Ctrl + Scroll" },
-+                    { value: "scroll" as const, label: "Scroll" },
-+                  ] as const).map((option) => (
-+                    <button
-+                      key={option.value}
-+                      type="button"
-+                      aria-pressed={localCanvasSettings.zoomMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, zoomMode: option.value })}
-+                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
-+                        localCanvasSettings.zoomMode === option.value
-+                          ? "bg-neutral-700 text-neutral-100 font-medium"
-+                          : "text-neutral-400 hover:text-neutral-300"
-+                      }`}
-+                    >
-+                      {option.label}
-+                    </button>
-+                  ))}
-+                </div>
-+              </div>
-+            </div>
-+
-+            {/* Selection Mode */}
-+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
-+              <div className="flex flex-col gap-3">
-+                <div className="flex items-center justify-between gap-2 flex-wrap">
-+                  <span className="text-sm font-medium text-neutral-100">Selection Mode</span>
-+                  <p className="text-xs text-neutral-400">
-+                    {localCanvasSettings.selectionMode === "click" && "Click to select nodes"}
-+                    {localCanvasSettings.selectionMode === "altDrag" && "Hold Alt and drag to select"}
-+                    {localCanvasSettings.selectionMode === "shiftDrag" && "Hold Shift and drag to select"}
-+                  </p>
-+                </div>
-+                <div className="flex gap-1 p-0.5 bg-neutral-800 rounded-md">
-+                  {([
-+                    { value: "click" as const, label: "Click" },
-+                    { value: "altDrag" as const, label: "Alt + Drag" },
-+                    { value: "shiftDrag" as const, label: "Shift + Drag" },
-+                  ] as const).map((option) => (
-+                    <button
-+                      key={option.value}
-+                      type="button"
-+                      aria-pressed={localCanvasSettings.selectionMode === option.value} onClick={() => setLocalCanvasSettings({ ...localCanvasSettings, selectionMode: option.value })}
-+                      className={`flex-1 px-2 py-1.5 text-xs rounded transition-all duration-150 ${
-+                        localCanvasSettings.selectionMode === option.value
-+                          ? "bg-neutral-700 text-neutral-100 font-medium"
-+                          : "text-neutral-400 hover:text-neutral-300"
-+                      }`}
-+                    >
-+                      {option.label}
-+                    </button>
-+                  ))}
-+                </div>
-+              </div>
-+            </div>
-+          </div>
-+        )}
-+
-+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-+        </div>
-+
-+        {/* Fixed footer */}
-+        <div className="flex justify-end gap-2 px-8 py-5 border-t border-neutral-700/50 shrink-0">
-+          <button
-+            onClick={onClose}
-+            className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-100 transition-colors"
-+          >
-+            Cancel
-+          </button>
-+          <button
-+            onClick={handleSave}
-+            disabled={conflict || busy || nodeDefaultsLoading || !name.trim()}
-+            className="px-4 py-2 text-sm bg-white text-neutral-900 rounded-lg hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-+          >
-+            {busy ? "Saving..." : "Save"}
-+          </button>
-+        </div>
-+      </div>
-+
 +
 +      {pickerKind && renderModelPicker?.(pickerKind, (id) => {
 +        if (!models.some((model) => model.id === id && model.mediaKind === pickerKind)) return;
@@ -2429,15 +1957,15 @@ diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupM
 +        setLocalNodeDefaults((previous) => ({ ...previous, [pickerKind]: id }));
 +        setPickerKind(null);
 +      }, () => setPickerKind(null))}
-+    </div>
-+  );
-+}
+     </div>
+   );
+ }
 diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 --- a/src/leesfield/hosted-header.tsx
 +++ b/src/leesfield/hosted-header.tsx
 @@ -1,200 +1,5 @@
--"use client";
--
+ "use client";
+ 
 -import { type FormEvent, type ReactNode, useState } from "react";
 -
 -import type { NodeBananaCanvasSettings } from "./canvas-runtime";
@@ -2636,12 +2164,11 @@ diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 -    </>
 -  );
 -}
-+"use client";
-+
 +// Host API only; the original component module owns all supported Header rendering.
 +export { Header as NodeBananaHostedHeader, CommentsNavigationIcon } from "../components/Header";
 +export type { NodeBananaHeaderGraph, NodeBananaHostedHeaderProps } from "../components/Header";
 diff --git a/src/leesfield/hosted-project-setup.tsx b/src/leesfield/hosted-project-setup.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/hosted-project-setup.tsx
 @@ -0,0 +1,2 @@
@@ -2650,8 +2177,14 @@ diff --git a/src/leesfield/hosted-project-setup.tsx b/src/leesfield/hosted-proje
 diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -19,1 +19,3 @@
+@@ -16,7 +16,9 @@
+   NodeBananaRuntimeNode,
+   NodeBananaRuntimePaletteItem,
+ } from "./canvas-runtime";
 -export { NodeBananaHostedHeader } from "./hosted-header";
 +export { NodeBananaHostedHeader, CommentsNavigationIcon } from "./hosted-header";
 +export { clearThumbnailCache } from "./upstream-node-host";
 +export type { HostedNodeDefaults, HostedDefaultKind } from "./hosted-project-setup";
+ export type {
+   NodeBananaHeaderGraph,
+   NodeBananaHostedHeaderProps,

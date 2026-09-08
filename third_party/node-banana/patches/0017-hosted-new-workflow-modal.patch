@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 --- a/src/leesfield/hosted-header.tsx
 +++ b/src/leesfield/hosted-header.tsx
 @@ -1,6 +1,6 @@

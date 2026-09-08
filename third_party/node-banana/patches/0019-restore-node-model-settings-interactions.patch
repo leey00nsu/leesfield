@@ -1,13 +1,14 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -56,8 +56,24 @@
+@@ -56,6 +56,22 @@
    label: string;
    description?: string;
    mediaType?: "text" | "image" | "audio" | "video" | "media";
 +  category?: "Input" | "Text" | "Generate" | "Process" | "Output";
 +  initialModelKey?: string;
- };
- 
++};
++
 +export type NodeBananaRuntimeModelItem = {
 +  key: string;
 +  label: string;
@@ -20,11 +21,9 @@
 +  panMode: "space" | "middleMouse" | "always";
 +  zoomMode: "altScroll" | "ctrlScroll" | "scroll";
 +  selectionMode: "click" | "altDrag" | "shiftDrag";
-+};
-+
+ };
+ 
  export type NodeBananaCanvasReason =
-   | "connect"
-   | "create"
 @@ -96,8 +112,10 @@
    nodeTypes: NodeTypes;
    edgeTypes?: EdgeTypes;
@@ -60,7 +59,7 @@
    onRunSelected,
    edgeStyle,
    onToggleEdgeStyle,
-@@ -198,21 +223,25 @@
+@@ -198,20 +223,24 @@
    writable: boolean;
    items: readonly NodeBananaRuntimePaletteItem[];
    selectedNodeCount: number;
@@ -81,12 +80,11 @@
      setGenerateOpen(false);
 +    setAllNodesOpen(false);
    };
- 
-+  const categories = ["Input", "Text", "Generate", "Process", "Output"] as const;
 +
++  const categories = ["Input", "Text", "Generate", "Process", "Output"] as const;
+ 
    return (
      <div className="node-banana-runtime__floating-bar" role="toolbar" aria-label={labels.application} data-node-banana-component="FloatingActionBar">
-       <button className={buttonClass} type="button" onClick={() => add("input.image")} disabled={!writable || !find("input.image")}>Image</button>
 @@ -232,15 +261,28 @@
          ) : null}
        </div>
@@ -124,10 +122,14 @@
        <span className="node-banana-runtime__separator" aria-hidden="true" />
        <button className="node-banana-runtime__icon-action" type="button" onClick={onToggleEdgeStyle} aria-label={"Switch to " + (edgeStyle === "angular" ? "curved" : "angular") + " connectors"}>
          {edgeStyle === "angular" ? (
-@@ -263,6 +305,56 @@
-   );
- }
- 
+@@ -259,6 +301,56 @@
+           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" /></svg>
+         </button>
+       </div>
++    </div>
++  );
++}
++
 +function ModelBrowserDialog({
 +  open,
 +  models,
@@ -174,13 +176,9 @@
 +          {!visible.length ? <p>No models found.</p> : null}
 +        </div>
 +      </section>
-+    </div>
-+  );
-+}
-+
- // Shared host for upstream NodeSearchMenu/ConnectionDropMenu interaction.
- function NodeSearchMenu({
-   labels,
+     </div>
+   );
+ }
 @@ -322,12 +414,21 @@
          <button type="button" onClick={onClose} aria-label={labels.closeMenu}>×</button>
        </div>
@@ -228,20 +226,20 @@
  
    const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
      store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
-@@ -472,6 +576,13 @@
-     }, "create");
+@@ -473,6 +577,13 @@
      store.setState({ selectedNodeIds: [result.node.id], selectedEdgeIds: [] });
    }, [graph, onCreateNode, publish, store, writable]);
-+
+ 
 +  const addModelAtCenter = useCallback((model: NodeBananaRuntimeModelItem) => {
 +    const item = paletteItems.find((candidate) => candidate.kind === `generate.${model.mediaType}`);
 +    if (!item) return;
 +    addNodeAtCenter({ ...item, initialModelKey: model.key });
 +    setModelBrowserOpen(false);
 +  }, [addNodeAtCenter, paletteItems]);
- 
++
    const runSelectedNode = useCallback(() => {
      const selectedId = store.getState().selectedNodeIds[0];
+     if (!selectedId || store.getState().selectedNodeIds.length !== 1) return;
 @@ -625,8 +736,17 @@
          nodesDraggable={writable}
          nodesConnectable={writable}
@@ -279,18 +277,18 @@
        {interaction.selectedNodeIds.length > 1 ? (
          <div className="node-banana-runtime__selection-toolbar" role="toolbar" aria-label="Selected nodes" data-node-banana-component="MultiSelectToolbar">
            <span>{interaction.selectedNodeIds.length} selected</span>
+diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 --- a/src/leesfield/hosted-header.tsx
 +++ b/src/leesfield/hosted-header.tsx
-@@ -1,7 +1,9 @@
+@@ -1,6 +1,8 @@
  "use client";
  
  import { type FormEvent, useState } from "react";
- 
-+import type { NodeBananaCanvasSettings } from "./canvas-runtime";
 +
++import type { NodeBananaCanvasSettings } from "./canvas-runtime";
+ 
  export type NodeBananaHeaderGraph = {
    id: string;
-   title: string;
 @@ -16,6 +18,8 @@
    writable?: boolean;
    creating?: boolean;
@@ -309,7 +307,7 @@
    onTitleChange,
    onSelectGraph,
    onCreateGraph,
-@@ -42,7 +48,17 @@
+@@ -42,6 +48,16 @@
    const [shortcutsOpen, setShortcutsOpen] = useState(false);
    const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
    const [newWorkflowName, setNewWorkflowName] = useState("Untitled Workflow");
@@ -317,16 +315,15 @@
 +  const [settingsTab, setSettingsTab] = useState<"project" | "canvas">("project");
 +  const [settingsTitle, setSettingsTitle] = useState(title);
 +  const [settingsCanvas, setSettingsCanvas] = useState(canvasSettings);
- 
++
 +  const openSettings = () => {
 +    setSettingsTitle(title);
 +    setSettingsCanvas(canvasSettings);
 +    setSettingsOpen(true);
 +  };
-+
+ 
    const createWorkflow = (event: FormEvent<HTMLFormElement>) => {
      event.preventDefault();
-     const name = newWorkflowName.trim();
 @@ -100,6 +116,9 @@
                    </div>
                  ) : null}
@@ -367,6 +364,7 @@
        {shortcutsOpen ? (
          <div className="node-banana-hosted__modal-backdrop" role="presentation" onMouseDown={() => setShortcutsOpen(false)}>
            <section className="node-banana-hosted__shortcuts" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onMouseDown={(event) => event.stopPropagation()}>
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -6,9 +6,11 @@

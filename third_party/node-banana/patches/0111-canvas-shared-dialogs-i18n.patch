@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/inputs.tsx b/src/leesfield/inputs.tsx
 --- a/src/leesfield/inputs.tsx
 +++ b/src/leesfield/inputs.tsx
 @@ -1,6 +1,9 @@
@@ -20,6 +21,7 @@
 +export function CanvasTabBar(props:CanvasTabBarProps){const {TabBar}=useContext(Context);return TabBar?<TabBar {...props}/>:<div role="tablist" aria-label={props.label}>{props.items.map(item=><button key={item.value} role="tab" aria-selected={props.value===item.value} onClick={()=>props.onValueChange(item.value)}>{item.label}</button>)}</div>}
 +
 +export function CanvasButton(props:CanvasButtonProps){const {Button}=useContext(Context);const {primary,...rest}=props;return Button?<Button {...props}/>:<button {...rest}/> }
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
 @@ -1,5 +1,5 @@
@@ -116,12 +118,10 @@
          {/* Filter Bar */}
          <div className="px-6 py-4 border-b border-neutral-700">
            <div className="flex flex-col sm:flex-row gap-3">
-@@ -443,120 +385,9 @@
-                 placeholder={tc("Search models...")}
-                 className="w-full pl-10 pr-4 py-2 text-sm bg-neutral-700 border border-neutral-600 rounded text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+@@ -445,118 +387,7 @@
                />
--            </div>
--
+             </div>
+ 
 -            {/* Provider Filter - Icon Buttons (only show available providers) */}
 -            <div className="flex items-center gap-0.5 bg-neutral-700/50 rounded p-0.5">
 -              <button
@@ -232,8 +232,8 @@
 -                  </svg>
 -                </button>
 -              ))}
-             </div>
- 
+-            </div>
+-
 +            <CanvasSelect aria-label={tc("Provider")} value={providerFilter} onChange={event=>setProviderFilter(event.target.value as ProviderType | "all")}><option value="all">{tc("All Providers")}</option>{[...availableProviders].map(provider=><option key={provider} value={provider}>{getProviderDisplayName(provider)}</option>)}</CanvasSelect>
              {/* Capability Filter */}
              <CanvasSelect
@@ -251,6 +251,7 @@
    );
  
    // Use portal to render outside React Flow stacking context
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
 @@ -1,5 +1,6 @@
@@ -312,7 +313,7 @@
          {/* Scrollable tab content area */}
          <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5">
  
-@@ -299,28 +259,16 @@
+@@ -299,21 +259,9 @@
  
          {/* Fixed footer */}
          <div className="flex justify-end gap-2 px-8 py-5 border-t border-neutral-700/50 shrink-0">
@@ -332,11 +333,11 @@
 +          <CanvasButton primary onClick={handleSave} disabled={conflict || busy || nodeDefaultsLoading || !name.trim()}>{busy ? tc("Saving...") : tc("Save")}</CanvasButton>
          </div>
 -      </div>
- 
 -
+ 
        {pickerKind && renderModelPicker?.(pickerKind, (id) => {
          if (!models.some((model) => model.id === id && model.mediaKind === pickerKind)) return;
-         defaultsEdited.current = true;
+@@ -321,6 +269,6 @@
          setLocalNodeDefaults((previous) => ({ ...previous, [pickerKind]: id }));
          setPickerKind(null);
        }, () => setPickerKind(null))}
@@ -344,6 +345,7 @@
 +    </CanvasDialog>
    );
  }
+diff --git a/src/leesfield/hosted-project-settings.ts b/src/leesfield/hosted-project-settings.ts
 --- a/src/leesfield/hosted-project-settings.ts
 +++ b/src/leesfield/hosted-project-settings.ts
 @@ -44,25 +44,6 @@
@@ -372,6 +374,7 @@
   const handleSave = async () => {
     if (conflict || busy) return;
     setBusy(true); setError(null);
+diff --git a/src/components/nodes/ControlPanel.tsx b/src/components/nodes/ControlPanel.tsx
 --- a/src/components/nodes/ControlPanel.tsx
 +++ b/src/components/nodes/ControlPanel.tsx
 @@ -15,6 +15,7 @@
@@ -400,6 +403,7 @@
            </h3>
  
            {/* Node-specific controls */}
+diff --git a/src/leesfield/port-handle.tsx b/src/leesfield/port-handle.tsx
 --- a/src/leesfield/port-handle.tsx
 +++ b/src/leesfield/port-handle.tsx
 @@ -1,4 +1,5 @@
@@ -425,6 +429,7 @@
    onPointerDown={event => { start.current = { x: event.clientX, y: event.clientY }; }}
    onClick={event => {
     const origin = start.current;
+diff --git a/src/components/ConnectionDropMenu.tsx b/src/components/ConnectionDropMenu.tsx
 --- a/src/components/ConnectionDropMenu.tsx
 +++ b/src/components/ConnectionDropMenu.tsx
 @@ -968,7 +968,7 @@
@@ -445,6 +450,7 @@
        </div>
        <input aria-label={tc("Search connections")} placeholder={tc("Search...")} value={query} onChange={event=>{setQuery(event.target.value);setSelectedIndex(0);}} className="m-2 rounded border border-neutral-600 bg-neutral-900 px-2 py-1 text-xs"/>
        {visibleOptions.length === 0 && <p className="p-3 text-xs text-neutral-400">{tc("No compatible nodes.")}</p>}
+diff --git a/src/components/quickstart/QuickstartBackButton.tsx b/src/components/quickstart/QuickstartBackButton.tsx
 --- a/src/components/quickstart/QuickstartBackButton.tsx
 +++ b/src/components/quickstart/QuickstartBackButton.tsx
 @@ -1,5 +1,6 @@
@@ -471,6 +477,7 @@
      </button>
    );
  }
+diff --git a/src/components/quickstart/TemplateCard.tsx b/src/components/quickstart/TemplateCard.tsx
 --- a/src/components/quickstart/TemplateCard.tsx
 +++ b/src/components/quickstart/TemplateCard.tsx
 @@ -72,7 +72,7 @@
@@ -516,6 +523,7 @@
          </p>
  
          {/* Provider tags and node count */}
+diff --git a/src/components/quickstart/TemplateExplorerView.tsx b/src/components/quickstart/TemplateExplorerView.tsx
 --- a/src/components/quickstart/TemplateExplorerView.tsx
 +++ b/src/components/quickstart/TemplateExplorerView.tsx
 @@ -83,8 +83,8 @@

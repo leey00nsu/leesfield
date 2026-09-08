@@ -1,3 +1,4 @@
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 --- a/src/components/Header.tsx
 +++ b/src/components/Header.tsx
 @@ -1,15 +1,12 @@
@@ -96,11 +97,12 @@
 -    setNewWorkflowOpen(false);
 -    setNewWorkflowName("Untitled Space");
 -  };
- 
+-
 -  return (
 -    <>
 -      <header data-node-banana-component="Header" className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0 gap-2 max-sm:h-auto max-sm:min-h-11 max-sm:flex-wrap max-sm:py-2">
 -        <div className="flex items-center gap-2 min-w-0 max-sm:flex-wrap">
++
 +  return (<>
 +    {settingsOpen && <ProjectSetupModal {...settingsProps} title={title} writable={writable} canvasSettings={canvasSettings} onCanvasSettingsChange={onCanvasSettingsChange} onTitleChange={onTitleChange} onClose={() => setSettingsOpen(false)} />}
 +    {browserOpen && <HostedSpaceBrowser graphs={graphs} activeGraphId={activeGraphId} onSelectGraph={onSelectGraph} onClose={() => setBrowserOpen(false)} />}
@@ -116,8 +118,8 @@
 +              <>
 +                <span className="text-sm text-neutral-300">{workflowName}</span>
                  <span className="text-neutral-600">|</span>
- 
 -
+ 
                  {/* File operations group */}
                  <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
                    <button
@@ -154,11 +156,12 @@
 -                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.11 48.11 0 0 0-14.456 0m10.978-.397v-.916c0-1.18-.91-2.164-2.09-2.201a51.96 51.96 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" /></svg>
 -              </button>
                  {settingsButtons}
+-
 +              </>
 +            ) : (
 +              <>
 +                <span className="text-sm text-neutral-500 italic">Untitled</span>
- 
++
 +                {/* File operations group */}
 +                <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
 +                  <button
@@ -240,7 +243,7 @@
 -          </form>
 -        </div>
 -      ) : null}
- 
+-
 -      {browserOpen && <div ref={auxiliaryDialogRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onMouseDown={(event) => { if (event.target === event.currentTarget) setBrowserOpen(false); }}>
 -        <section role="dialog" aria-modal="true" aria-label="Spaces" className="bg-neutral-800 rounded-xl w-[580px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto p-8 border border-neutral-700" onKeyDown={(event) => { if (event.key === "Escape") setBrowserOpen(false); }}>
 -          <h2 className="text-xl font-medium text-neutral-100 mb-5">Spaces</h2>
@@ -252,11 +255,14 @@
 -      <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
 -    </>
 -  );
++
 +    <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
 +  </>);
  }
  
  export function CommentsNavigationIcon({ count: totalCount, unreadCount: unviewedCount, onNavigate: handleClick }: { count: number; unreadCount: number; onNavigate: () => void }) {
+diff --git a/src/leesfield/hosted-space-browser.tsx b/src/leesfield/hosted-space-browser.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/hosted-space-browser.tsx
 @@ -0,0 +1,39 @@

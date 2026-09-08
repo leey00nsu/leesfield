@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -97,3 +97,5 @@
@@ -6,14 +7,15 @@
    (typeof LEESFIELD_RUNTIME_FEATURES)[number];
 +
 +export { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -1048,7 +1048,7 @@
  }
  
  export function getSplitGridTemplate(data: HostNodeData, ..._args: any[]) {
-+  return data.template && typeof data.template === "object" ? data.template : createDefaultSplitGridTemplate();
 -  return data.template && typeof data.template === "object" ? data.template : { nodes: [] };
++  return data.template && typeof data.template === "object" ? data.template : createDefaultSplitGridTemplate();
  }
  
  export function needsMaterialization(data: HostNodeData, existingIds?: Set<string>, ..._args: any[]) {
@@ -21,19 +23,20 @@
    const cols = clampGridDimension(Number(data.gridCols ?? 2));
    const cells = Array.isArray(data.cells) ? data.cells : [];
    if (cells.length !== rows * cols) return true;
-+  return existingIds ? cells.every((cell) => !existingIds.has(String(cell?.baseImageNodeId ?? ""))) : false;
 -  return existingIds ? cells.some((cell) => !existingIds.has(String(cell?.nodeId ?? cell?.id ?? ""))) : false;
++  return existingIds ? cells.every((cell) => !existingIds.has(String(cell?.baseImageNodeId ?? ""))) : false;
  }
  
  export function checkEncoderSupport() {
+diff --git a/src/components/nodes/SplitGridNode.tsx b/src/components/nodes/SplitGridNode.tsx
 --- a/src/components/nodes/SplitGridNode.tsx
 +++ b/src/components/nodes/SplitGridNode.tsx
 @@ -250,7 +250,7 @@
    const outputImages = (Array.isArray(nodeData.outputImages) ? nodeData.outputImages : []) as string[];
    const statusText = nodeData.status === "error"
      ? nodeData.error || "Error"
-+    : templateEditingDisabled && !nodeData.materializesSplitCells
 -    : templateEditingDisabled
++    : templateEditingDisabled && !nodeData.materializesSplitCells
        ? outputImages.length > 0
          ? `${outputImages.length} saved images — Images output → Gallery / GIF`
          : "Split saves images to History and the Images output"
@@ -41,8 +44,8 @@
            className="!bg-gray-500"
            style={{ zIndex: 10 }}
          />
-+        <HandleLabel label={templateEditingDisabled && !nodeData.materializesSplitCells ? "Images" : "Ref"} side="source" color="#6b7280" visible={showLabels} />
 -        <HandleLabel label={templateEditingDisabled ? "Images" : "Ref"} side="source" color="#6b7280" visible={showLabels} />
++        <HandleLabel label={templateEditingDisabled && !nodeData.materializesSplitCells ? "Images" : "Ref"} side="source" color="#6b7280" visible={showLabels} />
  
          <div className="flex flex-col gap-2 pt-3 h-full min-h-0">
            {/* Rows / Columns fields */}
@@ -50,11 +53,12 @@
            </div>
  
            {/* Status + split */}
-+          {templateEditingDisabled && !nodeData.materializesSplitCells && outputImages.length > 0 && (
 -          {templateEditingDisabled && outputImages.length > 0 && (
++          {templateEditingDisabled && !nodeData.materializesSplitCells && outputImages.length > 0 && (
              <div aria-label="Split results" className="nodrag nopan nowheel flex shrink-0 gap-1 overflow-x-auto">
                {outputImages.map((src, index) => (
                  <img key={src} src={src} alt={`Split cell ${index + 1}`} draggable={false}
+diff --git a/src/components/GroupsOverlay.tsx b/src/components/GroupsOverlay.tsx
 --- a/src/components/GroupsOverlay.tsx
 +++ b/src/components/GroupsOverlay.tsx
 @@ -476,22 +476,6 @@
@@ -84,8 +88,9 @@
  export function GroupControlsOverlay() {
    const groupIds = useWorkflowStore(useShallow((state) => Object.keys(state.groups)));
    const zoom = useStore(selectViewportZoom);
+-  const showInteractiveControls = !isOverviewZoom(zoom);
 +  const writable = useWorkflowStore((state) => state.writable);
 +  const showInteractiveControls = writable && !isOverviewZoom(zoom);
--  const showInteractiveControls = !isOverviewZoom(zoom);
  
    if (groupIds.length === 0) return null;
+ 

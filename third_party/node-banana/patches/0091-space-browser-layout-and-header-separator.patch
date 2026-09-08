@@ -1,3 +1,4 @@
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
 --- a/src/components/Header.tsx
 +++ b/src/components/Header.tsx
 @@ -86,7 +86,6 @@
@@ -8,6 +9,7 @@
  
                  {/* File operations group */}
                  <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-700/50">
+diff --git a/src/leesfield/hosted-space-browser.tsx b/src/leesfield/hosted-space-browser.tsx
 --- a/src/leesfield/hosted-space-browser.tsx
 +++ b/src/leesfield/hosted-space-browser.tsx
 @@ -35,18 +35,20 @@

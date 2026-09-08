@@ -1,6 +1,7 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -372,20 +372,25 @@
+@@ -372,11 +372,16 @@
      }
      const dimensions = changes.filter((change) => change.type === "dimensions");
      if (dimensions.length) {
@@ -18,12 +19,3 @@
          const next = { width: node.width, height: node.height, measured: node.measured };
          const previous = current[node.id];
          if (
-           previous?.width !== next.width ||
-           previous?.height !== next.height ||
-           previous?.measured?.width !== next.measured?.width ||
-           previous?.measured?.height !== next.measured?.height
-         ) {
-           nodeLayout[node.id] = next;
-           changed = true;
-         }
-       }

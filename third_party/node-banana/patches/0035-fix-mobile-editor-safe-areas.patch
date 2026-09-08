@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -821,6 +821,19 @@
@@ -50,6 +51,7 @@
          {renderNodeHeader ? (
            <ViewportPortal>
              {visibleNodes.map((node) => (
+diff --git a/src/components/AnnotationModal.tsx b/src/components/AnnotationModal.tsx
 --- a/src/components/AnnotationModal.tsx
 +++ b/src/components/AnnotationModal.tsx
 @@ -449,8 +449,8 @@

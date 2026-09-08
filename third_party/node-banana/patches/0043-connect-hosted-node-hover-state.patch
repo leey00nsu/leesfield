@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -384,7 +384,18 @@

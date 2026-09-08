@@ -1,7 +1,8 @@
 diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -49,14 +49,5 @@ export type {
+@@ -47,15 +47,6 @@
+   VideoOperationResultItem,
  } from "./video-operation-processors";
  
 -export { processAudioOperation } from "./audio-operation-processor";

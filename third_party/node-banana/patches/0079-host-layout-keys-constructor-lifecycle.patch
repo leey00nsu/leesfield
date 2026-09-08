@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/hosted-preset-types.ts b/src/leesfield/hosted-preset-types.ts
 --- a/src/leesfield/hosted-preset-types.ts
 +++ b/src/leesfield/hosted-preset-types.ts
 @@ -1,5 +1,5 @@
@@ -7,6 +8,7 @@
 +  nodes: { id: string; type: string; position: { x: number; y: number }; style?: { width?: number; height?: number }; data: Record<string, unknown> }[];
    edges: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }[];
  };
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -71,6 +71,11 @@
@@ -155,6 +157,7 @@
                : node),
              edges: graph.edges,
            });
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -958,6 +958,7 @@
@@ -165,6 +168,7 @@
    nanoBanana: { width: 300, height: 300 },
    generateVideo: { width: 300, height: 300 },
    generateAudio: { width: 300, height: 280 },
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
 @@ -21,6 +21,8 @@
@@ -188,6 +192,7 @@
  
    return (
      <>
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -158,7 +158,7 @@

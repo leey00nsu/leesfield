@@ -1,42 +1,72 @@
+diff --git a/src/components/MultiSelectToolbar.tsx b/src/components/MultiSelectToolbar.tsx
 --- a/src/components/MultiSelectToolbar.tsx
 +++ b/src/components/MultiSelectToolbar.tsx
-@@ -38,1 +38,3 @@
--  onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
-+  onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
+@@ -36,6 +36,8 @@
+   onCreateGroup?: (nodeIds: string[]) => void;
+   onUngroup?: (nodeIds: string[]) => void;
+   onDownloadImages?: (images: readonly { data: string; name: string }[]) => void | Promise<void>;
 +  onDownloadSelected?: (nodeIds: string[]) => void | Promise<void>;
 +  downloadingImages?: boolean;
-@@ -208,1 +208,5 @@
--  const handleDownloadImages = useCallback(async () => {
-+  const handleDownloadImages = useCallback(async () => {
+ };
+ 
+ export type MultiSelectToolbarProps = { hosted?: MultiSelectToolbarHostedProps };
+@@ -206,6 +208,10 @@
+   };
+ 
+   const handleDownloadImages = useCallback(async () => {
 +    if (hosted?.onDownloadSelected) {
 +      await hosted.onDownloadSelected(selectedNodes.map((node) => node.id));
 +      return;
 +    }
-@@ -243,1 +243,1 @@
+     // Extract images from selected nodes based on node type
+     const images: { data: string; name: string }[] = [];
+ 
+@@ -240,7 +246,7 @@
+     if (hosted?.onDownloadImages) {
+       await hosted.onDownloadImages(images);
+     }
 -  }, [hosted?.onDownloadImages, selectedNodes]);
 +  }, [hosted?.onDownloadImages, hosted?.onDownloadSelected, selectedNodes]);
-@@ -352,1 +352,2 @@
+ 
+   if (!toolbarPosition || selectedNodes.length < 2) return null;
+ 
+@@ -349,7 +355,8 @@
+       <button
+         type="button"
+         onClick={handleDownloadImages}
 -        disabled={hosted?.writable === false || (hosted != null && !hosted.onDownloadImages)}
 +        disabled={hosted?.writable === false || hosted?.downloadingImages || (hosted != null && !hosted.onDownloadImages && !hosted.onDownloadSelected)}
 +        aria-busy={hosted?.downloadingImages || undefined}
+         className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
+         title="Download images as ZIP"
+       >
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -164,1 +164,3 @@
--  onRunNode?: (nodeId: string) => void | Promise<unknown>;
-+  onRunNode?: (nodeId: string) => void | Promise<unknown>;
+@@ -162,6 +162,8 @@
+   isValidConnection?: IsValidConnection<NodeBananaRuntimeEdge>;
+   isNodeRunnable?: (nodeId: string) => boolean;
+   onRunNode?: (nodeId: string) => void | Promise<unknown>;
 +  onDownloadSelectedImages?: (nodeIds: string[]) => void | Promise<void>;
 +  downloadingImages?: boolean;
-@@ -441,2 +441,4 @@
--  onRunNode,
--  renderNodeHeader,
-+  onRunNode,
+   renderNodeHeader?: (node: NodeBananaRuntimeNode) => ReactNode;
+   canvasOverlay?: ReactNode;
+   filterPaletteItems?: (
+@@ -439,6 +441,8 @@
+   isValidConnection,
+   isNodeRunnable,
+   onRunNode,
 +  onDownloadSelectedImages,
 +  downloadingImages,
-+  renderNodeHeader,
-@@ -1038,2 +1038,4 @@
--          onCopy: copy,
--          onDelete: () => removeSelection(),
-+          onCopy: copy,
-+          onDelete: () => removeSelection(),
+   renderNodeHeader,
+   canvasOverlay,
+   filterPaletteItems,
+@@ -1028,6 +1032,8 @@
+           onNodesChange: applyToolbarNodeChanges,
+           onCopy: copy,
+           onDelete: () => removeSelection(),
 +          onDownloadSelected: onDownloadSelectedImages,
 +          downloadingImages,
+         }}
+       />
+       <UpstreamEdgeToolbar

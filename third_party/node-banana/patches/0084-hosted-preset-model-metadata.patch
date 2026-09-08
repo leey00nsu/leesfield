@@ -1,3 +1,4 @@
+diff --git a/src/components/quickstart/TemplateExplorerView.tsx b/src/components/quickstart/TemplateExplorerView.tsx
 --- a/src/components/quickstart/TemplateExplorerView.tsx
 +++ b/src/components/quickstart/TemplateExplorerView.tsx
 @@ -22,7 +22,8 @@

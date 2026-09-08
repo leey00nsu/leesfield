@@ -1,4 +1,6 @@
---- a/src/leesfield/hosted-tutorial-steps.ts
+diff --git a/src/leesfield/hosted-tutorial-steps.ts b/src/leesfield/hosted-tutorial-steps.ts
+new file mode 100644
+--- /dev/null
 +++ b/src/leesfield/hosted-tutorial-steps.ts
 @@ -0,0 +1,179 @@
 +export interface TutorialLink {
@@ -180,9 +182,10 @@
 +  if (step.id === "save-project") return { ...step, message: "Your Space saves automatically. Use Save to check that the latest changes reached the server." };
 +  return step;
 +});
+diff --git a/src/components/onboarding/TutorialOverlay.tsx b/src/components/onboarding/TutorialOverlay.tsx
 --- a/src/components/onboarding/TutorialOverlay.tsx
 +++ b/src/components/onboarding/TutorialOverlay.tsx
-@@ -1,40 +1,41 @@
+@@ -1,39 +1,40 @@
  "use client";
  
 -import { useEffect, useState, useRef } from "react";
@@ -212,6 +215,20 @@
 -  const demonstrateTimeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
    const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 -  const populateTimeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+-
+-  const tutorialActive = useFTUXStore((state) => state.tutorialActive);
+-  const currentTutorialStep = useFTUXStore((state) => state.currentTutorialStep);
+-  const tutorialSteps = useFTUXStore((state) => state.tutorialSteps);
+-  const completeCurrentStep = useFTUXStore((state) => state.completeCurrentStep);
+-  const nextTutorialStep = useFTUXStore((state) => state.nextTutorialStep);
+-  const skipTutorial = useFTUXStore((state) => state.skipTutorial);
+-  const connectionMenuShown = useFTUXStore((state) => state.connectionMenuShown);
+-  const nanoBananaAddedFromMenu = useFTUXStore((state) => state.nanoBananaAddedFromMenu);
+-  const tutorialSampleImage = useFTUXStore((state) => state.tutorialSampleImage);
+-
+-  const nodes = useWorkflowStore((state) => state.nodes);
+-  const edges = useWorkflowStore((state) => state.edges);
+-  const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
 +  const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
 +  const [tutorialSteps, setTutorialSteps] = useState(() => hostedTutorialSteps.map((step) => ({ ...step })));
 +  const tutorialActive = true;
@@ -230,23 +247,8 @@
 +  }, [skipTutorial]);
 +  useEffect(() => { if (currentTutorialStep >= tutorialSteps.length) closeRef.current(); }, [currentTutorialStep, tutorialSteps.length]);
  
--  const tutorialActive = useFTUXStore((state) => state.tutorialActive);
--  const currentTutorialStep = useFTUXStore((state) => state.currentTutorialStep);
--  const tutorialSteps = useFTUXStore((state) => state.tutorialSteps);
--  const completeCurrentStep = useFTUXStore((state) => state.completeCurrentStep);
--  const nextTutorialStep = useFTUXStore((state) => state.nextTutorialStep);
--  const skipTutorial = useFTUXStore((state) => state.skipTutorial);
--  const connectionMenuShown = useFTUXStore((state) => state.connectionMenuShown);
--  const nanoBananaAddedFromMenu = useFTUXStore((state) => state.nanoBananaAddedFromMenu);
--  const tutorialSampleImage = useFTUXStore((state) => state.tutorialSampleImage);
--
--  const nodes = useWorkflowStore((state) => state.nodes);
--  const edges = useWorkflowStore((state) => state.edges);
--  const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
--
    // Ensure portal rendering only happens client-side
    useEffect(() => {
-     setMounted(true);
 @@ -86,7 +87,7 @@
          // Check if any node has been executed (has output)
          actionCompleted = nodes.some((node) => {
@@ -256,7 +258,7 @@
          });
          break;
  
-@@ -164,272 +165,7 @@
+@@ -164,271 +165,6 @@
        setShowHighlight(true);
      }
    }, [tutorialActive, currentTutorialStep, tutorialSteps]);
@@ -374,7 +376,7 @@
 -            x: baseX + 750,
 -            y: baseY - 350,
 -          });
- 
+-
 -          schedule(() => {
 -            // Connect Prompt → Video (text)
 -            onConnect({
@@ -525,10 +527,10 @@
 -      };
 -    }
 -  }, [tutorialActive, currentTutorialStep, tutorialSteps, completeCurrentStep, nextTutorialStep]);
--
+ 
    // Don't render during SSR or when tutorial is inactive
    if (!mounted || !tutorialActive || currentTutorialStep >= tutorialSteps.length) {
-     return null;
+diff --git a/src/components/onboarding/TutorialMessage.tsx b/src/components/onboarding/TutorialMessage.tsx
 --- a/src/components/onboarding/TutorialMessage.tsx
 +++ b/src/components/onboarding/TutorialMessage.tsx
 @@ -1,6 +1,6 @@
@@ -548,6 +550,7 @@
        <p className="text-neutral-100 text-base leading-relaxed text-center whitespace-pre-line">{displayedText}</p>
        {links && links.length > 0 && (
          <div className="mt-3 flex flex-col gap-2">
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -106,3 +106,5 @@

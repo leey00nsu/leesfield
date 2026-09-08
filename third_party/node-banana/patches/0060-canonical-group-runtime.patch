@@ -1,39 +1,54 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -76,4 +76,10 @@
--export type NodeBananaRuntimeGraph = {
--  nodes: NodeBananaRuntimeNode[];
--  edges: NodeBananaRuntimeEdge[];
--};
+@@ -73,9 +73,15 @@
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+ export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
+ 
 +export type NodeBananaRuntimeGroup = {
 +  id: string; title: string; color: "neutral" | "blue" | "green" | "purple" | "orange" | "red";
 +  bounds: { x: number; y: number; width: number; height: number };
 +  locked: boolean; memberNodeIds: string[];
 +};
-+export type NodeBananaRuntimeGraph = {
-+  nodes: NodeBananaRuntimeNode[];
-+  edges: NodeBananaRuntimeEdge[];
+ export type NodeBananaRuntimeGraph = {
+   nodes: NodeBananaRuntimeNode[];
+   edges: NodeBananaRuntimeEdge[];
 +  groups?: NodeBananaRuntimeGroup[];
-+};
-@@ -145,1 +145,3 @@
+ };
+ 
+ export type NodeBananaPendingConnection = {
+@@ -142,7 +148,9 @@
+ 
+ export type NodeBananaCanvasProps = {
+   onUndoRecorderChange?: (recorder: ((previous: NodeBananaRuntimeGraph) => void) | null) => void;
 -  remapPastedNodes?: (nodes: NodeBananaRuntimeNode[], ids: Record<string, string>, offset: { x: number; y: number }) => NodeBananaRuntimeNode[];
 +  remapPastedNodes?: (nodes: NodeBananaRuntimeNode[], ids: Record<string, string>, offset: { x: number; y: number }, groupIds: Record<string, string>) => NodeBananaRuntimeNode[];
 +  onCreateGroup?: (ids: string[], nodes: NodeBananaRuntimeNode[]) => void;
 +  onUngroup?: (ids: string[]) => void;
-@@ -233,2 +233,3 @@
--  return {
--    nodes: graph.nodes.map((node) => ({ ...node, data: { ...node.data } })),
-+  return {
+   graph: NodeBananaRuntimeGraph;
+   nodeTypes: NodeTypes;
+   edgeTypes?: EdgeTypes;
+@@ -231,6 +239,7 @@
+ 
+ function cloneGraph(graph: NodeBananaRuntimeGraph): NodeBananaRuntimeGraph {
+   return {
 +    ...(graph.groups ? { groups: structuredClone(graph.groups) } : {}),
-+    nodes: graph.nodes.map((node) => ({ ...node, data: { ...node.data } })),
-@@ -428,2 +428,4 @@
--  remapPastedNodes,
--  graph,
-+  remapPastedNodes,
+     nodes: graph.nodes.map((node) => ({ ...node, data: { ...node.data } })),
+     edges: graph.edges.map((edge) => ({ ...edge, data: edge.data ? { ...edge.data } : edge.data })),
+   };
+@@ -426,6 +435,8 @@
+ export function NodeBananaCanvasRuntime({
+   onUndoRecorderChange,
+   remapPastedNodes,
 +  onCreateGroup,
 +  onUngroup,
-+  graph,
-@@ -473,1 +473,8 @@
+   graph,
+   nodeTypes,
+   edgeTypes,
+@@ -470,7 +481,14 @@
+   const publish = useCallback((next: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason, record = true) => {
+     if (!writable) return;
+     if (record) recordUndo(graph);
 -    onGraphChange(next, reason);
 +    const remaining = new Set(next.nodes.map((node) => node.id));
 +    const removed = new Set(graph.nodes.filter((node) => !remaining.has(node.id)).map((node) => node.id));
@@ -43,7 +58,13 @@
 +      return members.length === group.memberNodeIds.length ? [group]
 +        : members.length ? [{ ...group, memberNodeIds: members }] : [];
 +    }) } : {}) }, reason);
-@@ -625,1 +625,14 @@
+   }, [graph, onGraphChange, recordUndo, writable]);
+ 
+   const onNodesChange = useCallback((changes: NodeChange<NodeBananaRuntimeNode>[]) => {
+@@ -620,7 +638,20 @@
+     );
+     if (changed) {
+       recordUndo(previous);
 -      publish({ nodes, edges: graph.edges }, "drag", false);
 +      const movedIds = new Set(Object.keys(positions));
 +      const groups = graph.groups?.map((group) => ({ ...group,
@@ -59,14 +80,22 @@
 +        owner?.memberNodeIds.push(node.id);
 +      }
 +      publish({ nodes, edges: graph.edges, ...(groups ? { groups } : {}) }, "drag", false);
-@@ -737,2 +737,4 @@
--      clipboard: {
--        nodes: graph.nodes.filter((node) => ids.has(node.id)).map((node) => ({ ...node, selected: false })),
-+      clipboard: {
+     }
+     if (Object.keys(positions).length) store.setState({ nodePositions: {} });
+   }, [graph, publish, recordUndo, store, writable]);
+@@ -733,6 +764,8 @@
+     if (!ids.size) return;
+     store.setState({
+       clipboard: {
 +        ...(graph.groups ? { groups: graph.groups.filter((group) => group.memberNodeIds.some((id) => ids.has(id)))
 +          .map((group) => ({ ...group, bounds: { ...group.bounds }, memberNodeIds: group.memberNodeIds.filter((id) => ids.has(id)) })) } : {}),
-+        nodes: graph.nodes.filter((node) => ids.has(node.id)).map((node) => ({ ...node, selected: false })),
-@@ -747,1 +747,8 @@
+         nodes: graph.nodes.filter((node) => ids.has(node.id)).map((node) => ({ ...node, selected: false })),
+         edges: graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => ({ ...edge, selected: false })),
+       },
+@@ -744,7 +777,14 @@
+     if (!writable || !interaction.clipboard) return;
+     const offset = 28 * (interaction.pasteCount + 1);
+     const ids = new Map(interaction.clipboard.nodes.map((node) => [node.id, createId()]));
 -    const copiedNodes = remapPastedNodes?.(interaction.clipboard.nodes, Object.fromEntries(ids), { x: offset, y: offset }) ?? interaction.clipboard.nodes;
 +    if (graph.nodes.length + interaction.clipboard.nodes.length > 500
 +      || (graph.groups?.length ?? 0) + (interaction.clipboard.groups?.length ?? 0) > 500) return;
@@ -76,33 +105,58 @@
 +      memberNodeIds: group.memberNodeIds.map((id) => ids.get(id)!).filter(Boolean),
 +    }));
 +    const copiedNodes = remapPastedNodes?.(interaction.clipboard.nodes, Object.fromEntries(ids), { x: offset, y: offset }, groupIds) ?? interaction.clipboard.nodes;
-@@ -762,1 +762,3 @@
+     const nodes = copiedNodes.map((node) => ({
+       ...node,
+       id: ids.get(node.id) as string,
+@@ -759,7 +799,9 @@
+       selected: false,
+     }));
+     store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
 -    publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] }, "paste");
 +    publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges],
 +      ...(graph.groups || groups ? { groups: [...(graph.groups ?? []), ...(groups ?? [])] } : {}),
 +    }, "paste");
-@@ -852,2 +852,3 @@
--      position: interaction.nodePositions[node.id] ?? node.position,
--      selected: selected.has(node.id),
-+      position: interaction.nodePositions[node.id] ?? node.position,
+   }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, remapPastedNodes, store, writable]);
+ 
+   const removeSelection = useCallback(() => {
+@@ -851,9 +893,10 @@
+         data: { ...node.data, _settingsPanelHeight: interaction.nodeGeometry[node.id].settingsPanelHeight },
+       } : {}),
+       position: interaction.nodePositions[node.id] ?? node.position,
 +      groupId: graph.groups?.find((group) => group.memberNodeIds.includes(node.id))?.id,
-+      selected: selected.has(node.id),
-@@ -856,1 +856,1 @@
+       selected: selected.has(node.id),
+     }));
 -  }, [graph.nodes, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
 +  }, [graph.nodes, graph.groups, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
-@@ -943,2 +943,3 @@
--          dragStartRef.current = cloneGraph({
--            nodes: graph.nodes.map((node) => positions[node.id]
-+          dragStartRef.current = cloneGraph({
+   const visibleEdges = useMemo(() => {
+     const selected = new Set(interaction.selectedEdgeIds);
+     return graph.edges.map((edge) => ({
+@@ -940,6 +983,7 @@
+         onNodeDragStart={() => {
+           const positions = store.getState().nodePositions;
+           dragStartRef.current = cloneGraph({
 +            ...graph,
-+            nodes: graph.nodes.map((node) => positions[node.id]
-@@ -1035,1 +1035,3 @@
--          onDownloadSelected: onDownloadSelectedImages,
+             nodes: graph.nodes.map((node) => positions[node.id]
+               ? { ...node, position: positions[node.id] }
+               : node),
+@@ -1032,6 +1076,8 @@
+           onNodesChange: applyToolbarNodeChanges,
+           onCopy: copy,
+           onDelete: () => removeSelection(),
 +          onCreateGroup: onCreateGroup ? (ids) => onCreateGroup(ids, visibleNodes) : undefined,
 +          onUngroup,
-+          onDownloadSelected: onDownloadSelectedImages,
+           onDownloadSelected: onDownloadSelectedImages,
+           downloadingImages,
+         }}
+diff --git a/src/components/GroupsOverlay.tsx b/src/components/GroupsOverlay.tsx
 --- a/src/components/GroupsOverlay.tsx
 +++ b/src/components/GroupsOverlay.tsx
-@@ -394,1 +394,1 @@
+@@ -389,7 +389,7 @@
+ 
+               {/* Vertical context menu - appears above the three-dot button */}
+               {showMenu && (
 -                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-neutral-800/90 backdrop-blur rounded-lg py-1 min-w-[130px] shadow-lg shadow-black/30" ref={colorPickerRef}>
 +                <div data-node-banana-group-menu className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-neutral-800/90 backdrop-blur rounded-lg py-1 min-w-[130px] shadow-lg shadow-black/30" ref={colorPickerRef}>
+                   {/* Color fan - anchored to top-left corner of menu */}
+                   {showColorPicker && (
+                     <>

@@ -1,6 +1,7 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
-@@ -91,7 +91,7 @@
+@@ -89,7 +89,7 @@
   useEffect(() => { if (!nodeDefaultsLoading && !inlineEdited.current) setLocalInline(inlineParametersEnabled); }, [inlineParametersEnabled, nodeDefaultsLoading]);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -9,7 +10,7 @@
   const defaultsSnapshot = JSON.stringify(nodeDefaults);
   useEffect(() => { if (!nodeDefaultsLoading && !defaultsEdited.current) setLocalNodeDefaults(JSON.parse(defaultsSnapshot) as HostedNodeDefaults); }, [defaultsSnapshot, nodeDefaultsLoading]);
   useEffect(() => {
-@@ -136,7 +136,7 @@
+@@ -134,7 +134,7 @@
        ref={dialogRef}
        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
        onClick={(e) => {

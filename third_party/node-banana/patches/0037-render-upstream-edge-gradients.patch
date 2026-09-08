@@ -1,6 +1,7 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -66,6 +66,7 @@
+@@ -65,6 +65,7 @@
    MultiSelectToolbar as UpstreamMultiSelectToolbar,
    type MultiSelectToolbarHostedProps,
  } from "../components/MultiSelectToolbar";
@@ -8,7 +9,7 @@
  import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
  
  export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
-@@ -949,6 +950,7 @@
+@@ -928,6 +929,7 @@
          }}
          defaultEdgeOptions={{ type: "editable" }}
        >

@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/GifEncoderNode.tsx b/src/components/nodes/GifEncoderNode.tsx
 --- a/src/components/nodes/GifEncoderNode.tsx
 +++ b/src/components/nodes/GifEncoderNode.tsx
 @@ -136,47 +136,30 @@
@@ -118,6 +119,7 @@
                        ? "border-blue-400 ring-1 ring-blue-400/50"
                        : "border-neutral-600 hover:border-neutral-500"
                  }`}
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -231,6 +231,7 @@

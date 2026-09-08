@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -771,6 +771,7 @@
@@ -17,6 +18,7 @@
            {assetRequest?.picker && renderAssetPicker?.(assetRequest.mediaType,assetId=>void selectConnectionMedia({assetId}),closeAssets)}
            <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
        <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
+diff --git a/src/components/ConnectionDropMenu.tsx b/src/components/ConnectionDropMenu.tsx
 --- a/src/components/ConnectionDropMenu.tsx
 +++ b/src/components/ConnectionDropMenu.tsx
 @@ -1015,18 +1015,20 @@
@@ -52,16 +54,15 @@
  
    useEffect(() => {
      const handleClickOutside = (event: MouseEvent) => {
-@@ -1050,8 +1052,8 @@
+@@ -1050,7 +1052,7 @@
  
    useEffect(() => menuRef.current?.focus(), []);
  
 -  if (!hostedOptions.length) return null;
- 
 +
+ 
    const select = (option: ConnectionDropMenuHostedOption) => {
      onHostedSelect(option);
-     onClose();
 @@ -1065,13 +1067,15 @@
        aria-label={hostedAriaLabel}
        data-node-banana-component="ConnectionDropMenu"

@@ -1,7 +1,7 @@
 diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -15,6 +15,19 @@ export type {
+@@ -13,6 +13,19 @@
    NodeBananaRuntimePaletteItem,
  } from "./canvas-runtime";
  

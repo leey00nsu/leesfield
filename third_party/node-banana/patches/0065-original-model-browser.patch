@@ -1,3 +1,4 @@
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
 @@ -3,72 +3,14 @@
@@ -89,8 +90,7 @@
 -  }
 -  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 -}
-+type CapabilityFilter = "all" | "image" | "video" | "audio";
- 
+-
 -// Capability filter options
 -type CapabilityFilter = "all" | "image" | "video" | "3d" | "audio";
 -
@@ -102,7 +102,8 @@
 -  availableProviders?: string[];
 -  error?: string;
 -}
--
++type CapabilityFilter = "all" | "image" | "video" | "audio";
+ 
  export type ModelSearchDialogHostedProps = {
    /** Models supplied by the embedding application; no provider/API fetches are made. */
    hostedModels: readonly ProviderModel[];
@@ -172,8 +173,6 @@
    useEffect(() => {
 -    if (initialProvider) {
 -      setProviderFilter(initialProvider);
--    }
--  }, [initialProvider]);
 +    if (!isOpen) return;
 +    setProviderFilter(initialProvider ?? "all");
 +    setCapabilityFilter(initialCapabilityFilter ?? "all");
@@ -181,7 +180,30 @@
 +    setDebouncedSearch("");
 +    setRefreshError(null);
 +  }, [isOpen, initialProvider, initialCapabilityFilter]);
- 
++
++  // The authenticated host owns catalog loading, caching, and schema refresh.
++  // Keep a generation guard so a closed/reopened dialog ignores late failures.
++  useEffect(() => {
++    requestVersionRef.current += 1;
++    return () => { requestVersionRef.current += 1; };
++  }, [isOpen, catalog]);
++
++  const handleRefresh = useCallback(async () => {
++    if (!refreshCatalog) return;
++    const version = requestVersionRef.current;
++    setIsRefreshing(true);
++    setRefreshError(null);
++    try {
++      await refreshCatalog();
++    } catch (cause) {
++      if (version === requestVersionRef.current) {
++        setRefreshError(cause instanceof Error ? cause.message : "Failed to refresh models");
++      }
++    } finally {
++      if (version === requestVersionRef.current) setIsRefreshing(false);
+     }
+-  }, [initialProvider]);
+-
 -  // Fetch models
 -  const fetchModels = useCallback(async (bypassCache = false) => {
 -    // Increment version to track this request
@@ -212,28 +234,13 @@
 -
 -    setIsLoading(true);
 -    setError(null);
-+  // The authenticated host owns catalog loading, caching, and schema refresh.
-+  // Keep a generation guard so a closed/reopened dialog ignores late failures.
-+  useEffect(() => {
-+    requestVersionRef.current += 1;
-+    return () => { requestVersionRef.current += 1; };
-+  }, [isOpen, catalog]);
- 
-+  const handleRefresh = useCallback(async () => {
-+    if (!refreshCatalog) return;
-+    const version = requestVersionRef.current;
-+    setIsRefreshing(true);
-+    setRefreshError(null);
-     try {
+-
+-    try {
 -      // Build query params
 -      const params = new URLSearchParams();
 -      if (debouncedSearch) {
 -        params.set("search", debouncedSearch);
-+      await refreshCatalog();
-+    } catch (cause) {
-+      if (version === requestVersionRef.current) {
-+        setRefreshError(cause instanceof Error ? cause.message : "Failed to refresh models");
-       }
+-      }
 -      if (providerFilter !== "all") {
 -        params.set("provider", providerFilter);
 -      }
@@ -304,24 +311,21 @@
 -      }
 -      setError(err instanceof Error ? err.message : "Failed to fetch models");
 -      setModels([]);
-     } finally {
+-    } finally {
 -      // Only update loading state if this is still the current request
 -      if (thisVersion === requestVersionRef.current) {
 -        setIsLoading(false);
 -      }
-+      if (version === requestVersionRef.current) setIsRefreshing(false);
-     }
+-    }
 -  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, openaiApiKey]);
-+  }, [refreshCatalog]);
- 
+-
 -  // Fetch models when filters change
 -  useEffect(() => {
 -    if (isOpen) {
 -      fetchModels();
 -    }
 -  }, [isOpen, fetchModels]);
-+  useEffect(() => { setIsRefreshing(false); }, [isOpen, catalog]);
- 
+-
 -  // Clear all caches and re-fetch models from scratch
 -  const handleRefresh = useCallback(async () => {
 -    setIsRefreshing(true);
@@ -335,6 +339,10 @@
 -      setIsRefreshing(false);
 -    }
 -  }, [fetchModels]);
++  }, [refreshCatalog]);
++
++  useEffect(() => { setIsRefreshing(false); }, [isOpen, catalog]);
++
 +  const supportedModels = useMemo(() => catalog.filter((model) =>
 +    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "text-to-audio"].includes(cap))
 +  ), [catalog]);
@@ -363,7 +371,10 @@
 -        provider: model.provider,
 -        modelId: model.id,
 -        displayName: model.name,
--      });
++        provider: activeModel.provider,
++        modelId: activeModel.id,
++        displayName: activeModel.name,
+       });
 -
 -      // If onModelSelected is provided, use it to update an existing node
 -      if (onModelSelected) {
@@ -377,10 +388,7 @@
 -      const position = screenToFlowPosition({
 -        x: center.x + Math.random() * 100 - 50,
 -        y: center.y + Math.random() * 100 - 50,
-+        provider: activeModel.provider,
-+        modelId: activeModel.id,
-+        displayName: activeModel.name,
-       });
+-      });
 -
 -      // Determine node type based on model capabilities
 -      const isVideoModel = model.capabilities.some(
@@ -768,8 +776,13 @@
 -  }
 -  return <StandaloneModelSearchDialog {...props} />;
 -}
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -1,0 +1,2 @@
+@@ -1,4 +1,6 @@
+ export { buildCellInstances } from "../store/utils/splitGridTemplate";
 +export { ModelSearchDialog } from "../components/modals/ModelSearchDialog";
 +export type { ModelSearchDialogHostedProps } from "../components/modals/ModelSearchDialog";
+ export { GroupBackgroundsPortal, GroupControlsOverlay } from "../components/GroupsOverlay";
+ export {
+   NodeBananaCanvasErrorBoundary,

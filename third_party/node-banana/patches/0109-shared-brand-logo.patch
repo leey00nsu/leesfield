@@ -1,3 +1,4 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
 @@ -1,5 +1,6 @@
@@ -16,6 +17,7 @@
  
              <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">{tc("Space Settings")}</h2>
            </div>
+diff --git a/src/components/quickstart/QuickstartInitialView.tsx b/src/components/quickstart/QuickstartInitialView.tsx
 --- a/src/components/quickstart/QuickstartInitialView.tsx
 +++ b/src/components/quickstart/QuickstartInitialView.tsx
 @@ -1,5 +1,6 @@
@@ -37,6 +39,8 @@
              </div>
            </div>
  
+diff --git a/src/leesfield/branding.tsx b/src/leesfield/branding.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/branding.tsx
 @@ -0,0 +1,10 @@

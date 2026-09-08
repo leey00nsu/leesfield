@@ -1,3 +1,4 @@
+diff --git a/src/components/ConnectionDropMenu.tsx b/src/components/ConnectionDropMenu.tsx
 --- a/src/components/ConnectionDropMenu.tsx
 +++ b/src/components/ConnectionDropMenu.tsx
 @@ -1020,6 +1020,7 @@

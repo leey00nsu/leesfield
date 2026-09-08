@@ -1,3 +1,4 @@
+diff --git a/src/components/modals/PromptEditorModal.tsx b/src/components/modals/PromptEditorModal.tsx
 --- a/src/components/modals/PromptEditorModal.tsx
 +++ b/src/components/modals/PromptEditorModal.tsx
 @@ -1,4 +1,4 @@
@@ -65,7 +66,7 @@
 +        e.stopImmediatePropagation();
 +        if (confirmationRef.current) setShowConfirmation(false);
 +        else closeAttemptRef.current();
-       }
++      }
 +      if (e.key === 'Tab') {
 +        const items = controls(), first = items[0], last = items.at(-1);
 +        if (e.shiftKey && (document.activeElement === first || !activeDialog()?.contains(document.activeElement))) {
@@ -73,7 +74,7 @@
 +        } else if (!e.shiftKey && (document.activeElement === last || !activeDialog()?.contains(document.activeElement))) {
 +          e.preventDefault(); first?.focus();
 +        }
-+      }
+       }
      };
 -
 -    if (isOpen) {
@@ -93,14 +94,14 @@
      };
 -  }, [isOpen, handleAttemptClose]);
 +  }, [isOpen]);
- 
++
 +  useEffect(() => {
 +    if (!isOpen || !showConfirmation) return;
 +    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 +    confirmationRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
 +    return () => { if (previous?.isConnected && dialogRef.current?.contains(previous)) previous.focus(); };
 +  }, [isOpen, showConfirmation]);
-+
+ 
    const handleSubmit = useCallback(() => {
 +    if (readOnly) return;
      onSubmit(prompt);
@@ -172,6 +173,7 @@
                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400"
                  >
                    Submit
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -17,6 +17,7 @@

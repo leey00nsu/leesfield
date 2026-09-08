@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
 @@ -50,7 +50,7 @@
@@ -18,6 +19,7 @@
  
        } else if (node.type === "promptConstructor") {
          const pcData = node.data as PromptConstructorNodeData;
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -572,9 +572,9 @@
@@ -25,13 +27,15 @@
      const variables = new Map<string, { name: string; value: string; nodeId: string }>();
      for (const source of sources) if (source?.type === "prompt" && source.data.variableName) {
 -      const name = String(source.data.variableName); variables.set(name, { name, value: String(source.data.prompt ?? ""), nodeId: source.id });
-+      const name = String(source.data.variableName); variables.set(name, { name, value: String(source.data.resolvedPrompt ?? source.data.prompt ?? ""), nodeId: source.id });
-     }
+-    }
 -    for (const source of sources) for (const variable of parseVarTags(String(source?.data.outputText ?? source?.data.prompt ?? ""))) {
++      const name = String(source.data.variableName); variables.set(name, { name, value: String(source.data.resolvedPrompt ?? source.data.prompt ?? ""), nodeId: source.id });
++    }
 +    for (const source of sources) for (const variable of parseVarTags(String(source?.data.outputText ?? source?.data.resolvedPrompt ?? source?.data.prompt ?? ""))) {
        if (!variables.has(variable.name)) variables.set(variable.name, { ...variable, nodeId: String(source?.id) });
      }
      return [...variables.values()];
+diff --git a/src/components/onboarding/ElementHighlight.tsx b/src/components/onboarding/ElementHighlight.tsx
 --- a/src/components/onboarding/ElementHighlight.tsx
 +++ b/src/components/onboarding/ElementHighlight.tsx
 @@ -99,7 +99,7 @@

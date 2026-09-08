@@ -1,86 +1,26 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -182,1 +182,2 @@
--  nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
-+  nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
+@@ -180,6 +180,7 @@
+   selectedNodeIds: string[];
+   selectedEdgeIds: string[];
+   nodeLayout: Record<string, Pick<NodeBananaRuntimeNode, "width" | "height" | "measured">>;
 +  nodeGeometry: Record<string, { width: number; height: number; settingsPanelHeight: number }>;
-@@ -208,1 +208,2 @@
--    nodeLayout: {},
-+    nodeLayout: {},
+   nodePositions: Record<string, XYPosition>;
+   edgeOffsets: Record<string, { offsetX: number; offsetY: number }>;
+   edgeToolbarPosition: XYPosition | null;
+@@ -206,6 +207,7 @@
+     selectedNodeIds: [],
+     selectedEdgeIds: [],
+     nodeLayout: {},
 +    nodeGeometry: {},
-@@ -532,3 +532,20 @@
--      const current = graph.nodes.find((node) => node.id === change.id);
--      if (!current || dragStartRef.current) continue;
--      if (
-+      const current = graph.nodes.find((node) => node.id === change.id);
-+      if (!current || dragStartRef.current) continue;
-+      // Upstream BaseNode uses setNodes for resize/settings layout. Retain only
-+      // this transient geometry, never replace host data or selection wholesale.
-+      const width = change.item.width ?? change.item.style?.width;
-+      const height = change.item.height ?? change.item.style?.height;
-+      if (typeof width === "number" && Number.isFinite(width) && width > 0
-+        && typeof height === "number" && Number.isFinite(height) && height > 0) {
-+        const previous = store.getState().nodeGeometry[change.id];
-+        const panel = change.item.data?._settingsPanelHeight;
-+        const settingsPanelHeight = typeof panel === "number" && Number.isFinite(panel)
-+          ? Math.max(0, panel) : previous?.settingsPanelHeight ?? 0;
-+        if (previous?.width !== width || previous?.height !== height
-+          || previous?.settingsPanelHeight !== settingsPanelHeight) {
-+          store.setState((state) => ({
-+            nodeGeometry: { ...state.nodeGeometry, [change.id]: { width, height, settingsPanelHeight } },
-+          }));
-+        }
-+      }
-+      if (
-@@ -792,2 +792,8 @@
--      ...interaction.nodeLayout[node.id],
--      position: interaction.nodePositions[node.id] ?? node.position,
-+      ...interaction.nodeLayout[node.id],
-+      ...(interaction.nodeGeometry[node.id] ? {
-+        width: interaction.nodeGeometry[node.id].width,
-+        height: interaction.nodeGeometry[node.id].height,
-+        style: { ...node.style, width: interaction.nodeGeometry[node.id].width, height: interaction.nodeGeometry[node.id].height },
-+        data: { ...node.data, _settingsPanelHeight: interaction.nodeGeometry[node.id].settingsPanelHeight },
-+      } : {}),
-+      position: interaction.nodePositions[node.id] ?? node.position,
-@@ -796,1 +796,1 @@
--  }, [graph.nodes, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
-+  }, [graph.nodes, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
---- a/src/components/nodes/GenerateImageNode.tsx
-+++ b/src/components/nodes/GenerateImageNode.tsx
-@@ -463,1 +463,2 @@
--      fullBleed
-+      fullBleed
-+      contentClassName="flex flex-col flex-1 min-h-0 relative"
-@@ -650,1 +650,1 @@
--        className="relative w-full h-full min-h-0 overflow-hidden rounded-lg"
-+        className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg"
---- a/src/components/nodes/GenerateVideoNode.tsx
-+++ b/src/components/nodes/GenerateVideoNode.tsx
-@@ -325,1 +325,2 @@
--      fullBleed
-+      fullBleed
-+      contentClassName="flex flex-col flex-1 min-h-0 relative"
-@@ -573,1 +573,1 @@
--      <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg">
-+      <div className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg">
---- a/src/leesfield/upstream-node-host.tsx
-+++ b/src/leesfield/upstream-node-host.tsx
-@@ -429,1 +429,1 @@
--    <label className="nodrag nopan block border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
-+    <label className="nodrag nopan block shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
---- a/src/components/nodes/BaseNode.tsx
-+++ b/src/components/nodes/BaseNode.tsx
-@@ -365,1 +365,1 @@
--        <div ref={settingsPanelRef}>
-+        <div ref={settingsPanelRef} className="shrink-0">
---- a/src/leesfield/canvas-runtime.tsx
-+++ b/src/leesfield/canvas-runtime.tsx
-@@ -495,3 +495,20 @@
--      if (changed) store.setState({ nodeLayout });
--    }
--    const positions = changes
-+      if (changed) store.setState({ nodeLayout });
+     nodePositions: {},
+     edgeOffsets: {},
+     edgeToolbarPosition: null,
+@@ -491,6 +493,23 @@
+         }
+       }
+       if (changed) store.setState({ nodeLayout });
 +      // NodeResizer writes its own node through dimension changes (its onResize
 +      // callback only sizes the other selected nodes). Keep explicit resize
 +      // attributes in sync; passive ResizeObserver measurements never write here.
@@ -98,5 +38,112 @@
 +          nodeGeometry: { ...state.nodeGeometry, [change.id]: { ...previous, width, height } },
 +        }));
 +      }
-+    }
-+    const positions = changes
+     }
+     const positions = changes
+       .filter((change) => change.type === "position")
+@@ -530,6 +549,23 @@
+       }
+       const current = graph.nodes.find((node) => node.id === change.id);
+       if (!current || dragStartRef.current) continue;
++      // Upstream BaseNode uses setNodes for resize/settings layout. Retain only
++      // this transient geometry, never replace host data or selection wholesale.
++      const width = change.item.width ?? change.item.style?.width;
++      const height = change.item.height ?? change.item.style?.height;
++      if (typeof width === "number" && Number.isFinite(width) && width > 0
++        && typeof height === "number" && Number.isFinite(height) && height > 0) {
++        const previous = store.getState().nodeGeometry[change.id];
++        const panel = change.item.data?._settingsPanelHeight;
++        const settingsPanelHeight = typeof panel === "number" && Number.isFinite(panel)
++          ? Math.max(0, panel) : previous?.settingsPanelHeight ?? 0;
++        if (previous?.width !== width || previous?.height !== height
++          || previous?.settingsPanelHeight !== settingsPanelHeight) {
++          store.setState((state) => ({
++            nodeGeometry: { ...state.nodeGeometry, [change.id]: { width, height, settingsPanelHeight } },
++          }));
++        }
++      }
+       if (
+         current.position.x === change.item.position.x &&
+         current.position.y === change.item.position.y
+@@ -790,10 +826,16 @@
+     return graph.nodes.map((node) => ({
+       ...node,
+       ...interaction.nodeLayout[node.id],
++      ...(interaction.nodeGeometry[node.id] ? {
++        width: interaction.nodeGeometry[node.id].width,
++        height: interaction.nodeGeometry[node.id].height,
++        style: { ...node.style, width: interaction.nodeGeometry[node.id].width, height: interaction.nodeGeometry[node.id].height },
++        data: { ...node.data, _settingsPanelHeight: interaction.nodeGeometry[node.id].settingsPanelHeight },
++      } : {}),
+       position: interaction.nodePositions[node.id] ?? node.position,
+       selected: selected.has(node.id),
+     }));
+-  }, [graph.nodes, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
++  }, [graph.nodes, interaction.nodeGeometry, interaction.nodeLayout, interaction.nodePositions, interaction.selectedNodeIds]);
+   const visibleEdges = useMemo(() => {
+     const selected = new Set(interaction.selectedEdgeIds);
+     return graph.edges.map((edge) => ({
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -459,6 +459,7 @@
+       isExecuting={isRunning}
+       hasError={nodeData.status === "error"}
+       fullBleed
++      contentClassName="flex flex-col flex-1 min-h-0 relative"
+       settingsExpanded={inlineParametersEnabled && isParamsExpanded}
+       aspectFitMedia={nodeData.outputImage}
+       dataTutorial="generate-image-node"
+@@ -647,7 +648,7 @@
+       />
+ 
+       <div
+-        className="relative w-full h-full min-h-0 overflow-hidden rounded-lg"
++        className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg"
+         data-tutorial="generate-output-area"
+       >
+         {/* Preview area */}
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -323,6 +323,7 @@
+       isExecuting={isRunning}
+       hasError={nodeData.status === "error"}
+       fullBleed
++      contentClassName="flex flex-col flex-1 min-h-0 relative"
+       settingsExpanded={inlineParametersEnabled && isParamsExpanded}
+       aspectFitMedia={nodeData.outputVideo}
+       settingsPanel={inlineParametersEnabled ? (
+@@ -570,7 +571,7 @@
+         connected={nodeData.promptConnected === true}
+       />
+ 
+-      <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg">
++      <div className="relative w-full flex-1 min-h-0 overflow-hidden rounded-lg">
+         {/* Preview area */}
+         {nodeData.outputVideo ? (
+           <>
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -425,7 +425,7 @@
+   }, [connected, value]);
+   const displayed = connected ? connectedValue ?? "" : draft;
+   return (
+-    <label className="nodrag nopan block border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
++    <label className="nodrag nopan block shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
+       <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+         Prompt
+       </span>
+diff --git a/src/components/nodes/BaseNode.tsx b/src/components/nodes/BaseNode.tsx
+--- a/src/components/nodes/BaseNode.tsx
++++ b/src/components/nodes/BaseNode.tsx
+@@ -362,7 +362,7 @@
+         <div ref={contentRef} style={{ contain: "layout style" }} className={contentClassName ?? (fullBleed ? "flex-1 min-h-0 relative" : "px-3 pb-4 flex-1 min-h-0 overflow-visible flex flex-col")}>{children}</div>
+       </div>
+       {settingsPanel && (
+-        <div ref={settingsPanelRef}>
++        <div ref={settingsPanelRef} className="shrink-0">
+           {settingsPanel}
+         </div>
+       )}

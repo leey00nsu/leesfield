@@ -1,3 +1,4 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
 @@ -53,6 +53,7 @@

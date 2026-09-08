@@ -1,7 +1,14 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
-@@ -480,3 +480,1 @@
+@@ -477,9 +477,7 @@
+ 
+ export { useVideoAutoplay } from "../hooks/useVideoAutoplay";
+ 
 -export function useShowHandleLabels(selected?: boolean): boolean {
 -  return Boolean(selected);
 -}
 +export { useShowHandleLabels } from "../hooks/useShowHandleLabels";
+ 
+ export function useCommentNavigation(..._args: any[]): null {
+   return null;

@@ -1,9 +1,10 @@
+diff --git a/src/components/FloatingActionBar.tsx b/src/components/FloatingActionBar.tsx
 --- a/src/components/FloatingActionBar.tsx
 +++ b/src/components/FloatingActionBar.tsx
-@@ -405,2 +405,26 @@
--  const [allNodesOpen, setAllNodesOpen] = useState(false);
--  const buttonClass = "node-banana-runtime__action";
-+  const [allNodesOpen, setAllNodesOpen] = useState(false);
+@@ -402,6 +402,30 @@
+ }: FloatingActionBarHostedProps) {
+   const [generateOpen, setGenerateOpen] = useState(false);
+   const [allNodesOpen, setAllNodesOpen] = useState(false);
 +  const generateRef = useRef<HTMLDivElement>(null);
 +  const allNodesRef = useRef<HTMLDivElement>(null);
 +  useEffect(() => {
@@ -28,26 +29,34 @@
 +      document.removeEventListener("keydown", escape, true);
 +    };
 +  }, [generateOpen, allNodesOpen]);
-+  const buttonClass = "node-banana-runtime__action";
-@@ -477,5 +477,5 @@
+   const buttonClass = "node-banana-runtime__action";
+   const find = (kind: string) => items.find((item) => item.kind === kind);
+   const add = (kind: string) => {
+@@ -472,11 +496,11 @@
+       >
+         Prompt
+       </button>
 -      <div className="node-banana-runtime__popover-anchor">
--        <button
--          className={buttonClass}
--          type="button"
--          onClick={() => setGenerateOpen((open) => !open)}
 +      <div ref={generateRef} className="node-banana-runtime__popover-anchor">
-+        <button
-+          className={buttonClass}
-+          type="button"
+         <button
+           className={buttonClass}
+           type="button"
+-          onClick={() => setGenerateOpen((open) => !open)}
 +          onClick={() => { setAllNodesOpen(false); setGenerateOpen((open) => !open); }}
-@@ -520,5 +520,5 @@
+           disabled={!writable}
+           aria-expanded={generateOpen}
+         >
+@@ -513,11 +537,11 @@
+       >
+         Output
+       </button>
 -      <div className="node-banana-runtime__popover-anchor">
--        <button
--          className={buttonClass}
--          type="button"
--          onClick={() => setAllNodesOpen((open) => !open)}
 +      <div ref={allNodesRef} className="node-banana-runtime__popover-anchor">
-+        <button
-+          className={buttonClass}
-+          type="button"
+         <button
+           className={buttonClass}
+           type="button"
+-          onClick={() => setAllNodesOpen((open) => !open)}
 +          onClick={() => { setGenerateOpen(false); setAllNodesOpen((open) => !open); }}
+           disabled={!writable}
+           aria-expanded={allNodesOpen}
+         >

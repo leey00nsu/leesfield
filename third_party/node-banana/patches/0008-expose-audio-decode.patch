@@ -1,7 +1,7 @@
 diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
 --- a/src/hooks/useAudioMixing.ts
 +++ b/src/hooks/useAudioMixing.ts
-@@ -42,7 +42,9 @@ interface UseAudioMixingReturn {
+@@ -42,7 +42,9 @@
  async function decodeWithMediaBunny(
    audioBlob: Blob,
    onProgress?: (progress: AudioMixProgress) => void,
@@ -11,7 +11,7 @@ diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
    onProgress?.({ message: 'Reading audio tracks...', progress: 20 });
  
    let blobSource: BlobSource | undefined;
-@@ -69,6 +71,7 @@ async function decodeWithMediaBunny(
+@@ -69,6 +71,7 @@
      onProgress?.({ message: 'Decoding audio...', progress: 30 });
      const decodedBuffers: AudioBuffer[] = [];
      for await (const wrappedBuffer of sink.buffers(0, audioDuration)) {
@@ -19,7 +19,7 @@ diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
        if (wrappedBuffer?.buffer) {
          decodedBuffers.push(wrappedBuffer.buffer);
        }
-@@ -87,6 +90,7 @@ async function decodeWithMediaBunny(
+@@ -87,6 +90,7 @@
      if (closeable(sink)) {
        try { await sink.close(); } catch (e) { console.warn('Failed to close sink:', e); }
      }
@@ -27,7 +27,7 @@ diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
      if (closeable(input)) {
        try { await input.close(); } catch (e) { console.warn('Failed to close input:', e); }
      }
-@@ -102,18 +106,39 @@ async function decodeWithMediaBunny(
+@@ -102,15 +106,36 @@
  async function decodeWithWebAudio(
    audioBlob: Blob,
    onProgress?: (progress: AudioMixProgress) => void,
@@ -44,9 +44,9 @@ diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
      return [decoded];
    } finally {
      await audioContext.close();
-   }
- }
- 
++  }
++}
++
 +/** Decode an audio blob without applying Node Banana's video-length looping semantics. */
 +export async function decodeAudioBlobAsync(
 +  audioBlob: Blob,
@@ -61,13 +61,10 @@ diff --git a/src/hooks/useAudioMixing.ts b/src/hooks/useAudioMixing.ts
 +    }
 +    console.warn('MediaBunny audio decode failed, falling back to Web Audio API:', mediaBunnyError);
 +    return decodeWithWebAudio(audioBlob, onProgress, signal);
-+  }
-+}
-+
- /**
-  * Standalone async function to prepare audio for mixing with video.
-  * Uses MediaBunny for decoding, with Web Audio API as fallback.
-@@ -127,13 +152,7 @@ export async function prepareAudioAsync(
+   }
+ }
+ 
+@@ -127,13 +152,7 @@
    try {
      onProgress?.({ message: 'Loading audio file...', progress: 10 });
  

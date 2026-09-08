@@ -1,4 +1,6 @@
---- a/src/leesfield/hosted-preset-types.ts
+diff --git a/src/leesfield/hosted-preset-types.ts b/src/leesfield/hosted-preset-types.ts
+new file mode 100644
+--- /dev/null
 +++ b/src/leesfield/hosted-preset-types.ts
 @@ -0,0 +1,5 @@
 +export type HostedPresetWorkflow = {
@@ -6,6 +8,7 @@
 +  nodes: { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }[];
 +  edges: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }[];
 +};
+diff --git a/src/lib/quickstart/templates.ts b/src/lib/quickstart/templates.ts
 --- a/src/lib/quickstart/templates.ts
 +++ b/src/lib/quickstart/templates.ts
 @@ -1,5 +1,5 @@
@@ -16,6 +19,7 @@
  
  export type ContentLevel = "empty" | "minimal" | "full";
  
+diff --git a/src/types/quickstart.ts b/src/types/quickstart.ts
 --- a/src/types/quickstart.ts
 +++ b/src/types/quickstart.ts
 @@ -1,4 +1,4 @@
@@ -24,6 +28,7 @@
  
  export type QuickstartView = "initial" | "templates" | "vibe" | "browse";
  
+diff --git a/src/components/quickstart/TemplateCard.tsx b/src/components/quickstart/TemplateCard.tsx
 --- a/src/components/quickstart/TemplateCard.tsx
 +++ b/src/components/quickstart/TemplateCard.tsx
 @@ -1,6 +1,6 @@
@@ -34,6 +39,7 @@
  
  interface TemplateCardProps {
    template: {
+diff --git a/src/components/quickstart/QuickstartInitialView.tsx b/src/components/quickstart/QuickstartInitialView.tsx
 --- a/src/components/quickstart/QuickstartInitialView.tsx
 +++ b/src/components/quickstart/QuickstartInitialView.tsx
 @@ -3,96 +3,34 @@
@@ -182,6 +188,7 @@
            />
  
          </div>
+diff --git a/src/components/quickstart/TemplateExplorerView.tsx b/src/components/quickstart/TemplateExplorerView.tsx
 --- a/src/components/quickstart/TemplateExplorerView.tsx
 +++ b/src/components/quickstart/TemplateExplorerView.tsx
 @@ -1,15 +1,15 @@
@@ -428,7 +435,9 @@
            {/* Error */}
            {error && (
              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
---- a/src/leesfield/hosted-quickstart.tsx
+diff --git a/src/leesfield/hosted-quickstart.tsx b/src/leesfield/hosted-quickstart.tsx
+new file mode 100644
+--- /dev/null
 +++ b/src/leesfield/hosted-quickstart.tsx
 @@ -0,0 +1,44 @@
 +"use client";
@@ -475,6 +484,7 @@
 +    </div>
 +  </div>, document.body);
 +}
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -103,3 +103,6 @@

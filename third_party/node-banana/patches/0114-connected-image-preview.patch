@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/ImageInputNode.tsx b/src/components/nodes/ImageInputNode.tsx
 --- a/src/components/nodes/ImageInputNode.tsx
 +++ b/src/components/nodes/ImageInputNode.tsx
 @@ -25,7 +25,7 @@

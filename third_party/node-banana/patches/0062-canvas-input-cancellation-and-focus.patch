@@ -1,8 +1,10 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -928,2 +928,10 @@
--    try {
--      const entries = await read();
+@@ -925,8 +925,16 @@
+     const replacement = replaceSelectedImage ? graph.nodes.find((node) =>
+       store.getState().selectedNodeIds.includes(node.id) && node.data.canonicalKind === "input.image") : undefined;
+     const originalConfig = replacement ? JSON.stringify(replacement.data.config) : null;
 +    // Native clipboard promises ignore AbortSignal. Race both that read and
 +    // external importers so timeout/unmount always releases this session.
 +    const withAbort = <T,>(pending: Promise<T>): Promise<T> => new Promise((resolve, reject) => {
@@ -11,44 +13,58 @@
 +      controller.signal.addEventListener("abort", abort, { once: true });
 +      pending.then(resolve, reject).finally(() => controller.signal.removeEventListener("abort", abort));
 +    });
-+    try {
+     try {
+-      const entries = await read();
 +      const entries = await withAbort(read());
-@@ -942,1 +950,1 @@
+       controller.signal.throwIfAborted();
+       if (entries.length > 500) throw new Error("SPACE_NODE_LIMIT");
+       const prepared: Array<{ kind: string; config: Record<string, unknown> }> = [];
+@@ -939,7 +947,7 @@
+         } else {
+           const importer = contentContext.current.onImportCanvasMedia;
+           if (!importer) throw new Error("MEDIA_UPLOAD_UNAVAILABLE");
 -          const asset = await importer(entry, controller.signal);
 +          const asset = await withAbort(importer(entry, controller.signal));
-@@ -1001,1 +1009,5 @@
+           controller.signal.throwIfAborted();
+           prepared.push({ kind: `input.${asset.mediaType}`, config: { assetId: asset.assetId } });
+         }
+@@ -998,7 +1006,11 @@
+     // Search all items for an image before accepting any text.
+     for (const item of items) {
+       const type = item.types.find((candidate) => candidate.startsWith("image/"));
 -      if (type) return [new File([await item.getType(type)], "leesfield-pasted-image", { type })];
 +      if (type) {
 +        const extension = ({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif" } as Record<string, string>)[type];
 +        if (!extension) throw new Error("CLIPBOARD_IMAGE_TYPE_UNSUPPORTED");
 +        return [new File([await item.getType(type)], `leesfield-pasted-image.${extension}`, { type })];
 +      }
+     }
+     for (const item of items) if (item.types.includes("text/plain")) return [await (await item.getType("text/plain")).text()];
+     return [];
+diff --git a/src/components/KeyboardShortcutsDialog.tsx b/src/components/KeyboardShortcutsDialog.tsx
 --- a/src/components/KeyboardShortcutsDialog.tsx
 +++ b/src/components/KeyboardShortcutsDialog.tsx
-@@ -3,1 +3,1 @@
+@@ -1,6 +1,6 @@
+ "use client";
+ 
 -import { useEffect } from "react";
 +import { useEffect, useRef } from "react";
-@@ -77,1 +77,4 @@
--export function KeyboardShortcutsDialog({ isOpen, onClose, hosted = false }: KeyboardShortcutsDialogProps) {
-+export function KeyboardShortcutsDialog({ isOpen, onClose, hosted = false }: KeyboardShortcutsDialogProps) {
+ 
+ interface ShortcutItem {
+   keys: string[];
+@@ -75,22 +75,41 @@
+ }
+ 
+ export function KeyboardShortcutsDialog({ isOpen, onClose, hosted = false }: KeyboardShortcutsDialogProps) {
 +  const dialogRef = useRef<HTMLDivElement>(null);
 +  const closeRef = useRef(onClose);
 +  useEffect(() => { closeRef.current = onClose; }, [onClose]);
-@@ -78,12 +81,28 @@
--  useEffect(() => {
--    if (!isOpen) return;
+   useEffect(() => {
+     if (!isOpen) return;
 -
 -    const handleKeyDown = (e: KeyboardEvent) => {
 -      if (e.key === "Escape") {
 -        onClose();
--      }
--    };
--    window.addEventListener("keydown", handleKeyDown);
--    return () => window.removeEventListener("keydown", handleKeyDown);
--  }, [isOpen, onClose]);
--
-+  useEffect(() => {
-+    if (!isOpen) return;
 +    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 +    const dialog = dialogRef.current;
 +    const buttons = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex="0"]') ?? []);
@@ -64,8 +80,11 @@
 +        const first = items[0], last = items.at(-1);
 +        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
 +        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-+      }
-+    };
+       }
+     };
+-    window.addEventListener("keydown", handleKeyDown);
+-    return () => window.removeEventListener("keydown", handleKeyDown);
+-  }, [isOpen, onClose]);
 +    document.addEventListener("focusin", focusInside);
 +    window.addEventListener("keydown", handleKeyDown, true);
 +    return () => {
@@ -74,7 +93,12 @@
 +      if (previous?.isConnected) previous.focus();
 +    };
 +  }, [isOpen]);
-+
-@@ -93,1 +112,1 @@
+ 
+   if (!isOpen) return null;
+ 
+   return (
 -    <div role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
 +    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+       <div className="bg-neutral-800 rounded-lg w-[520px] max-h-[80vh] border border-neutral-700 shadow-xl flex flex-col overflow-hidden">
+         {/* Header */}
+         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-700">

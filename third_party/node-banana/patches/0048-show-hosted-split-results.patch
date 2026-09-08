@@ -1,22 +1,34 @@
+diff --git a/src/components/nodes/SplitGridNode.tsx b/src/components/nodes/SplitGridNode.tsx
 --- a/src/components/nodes/SplitGridNode.tsx
 +++ b/src/components/nodes/SplitGridNode.tsx
-@@ -250,1 +250,2 @@
--  const statusText = nodeData.status === "error"
+@@ -247,8 +247,13 @@
+     regenerateNode(id);
+   }, [id, regenerateNode]);
+ 
 +  const outputImages = (Array.isArray(nodeData.outputImages) ? nodeData.outputImages : []) as string[];
-+  const statusText = nodeData.status === "error"
-@@ -252,1 +252,5 @@
--    : cells.length > 0
+   const statusText = nodeData.status === "error"
+     ? nodeData.error || "Error"
 +    : templateEditingDisabled
 +      ? outputImages.length > 0
 +        ? `${outputImages.length} saved images — Images output → Gallery / GIF`
 +        : "Split saves images to History and the Images output"
-+    : cells.length > 0
-@@ -287,1 +287,1 @@
+     : cells.length > 0
+       ? cellsAreStale
+         ? "Cells out of date — Split rebuilds"
+@@ -283,7 +288,7 @@
+           className="!bg-gray-500"
+           style={{ zIndex: 10 }}
+         />
 -        <HandleLabel label="Ref" side="source" color="#6b7280" visible={showLabels} />
 +        <HandleLabel label={templateEditingDisabled ? "Images" : "Ref"} side="source" color="#6b7280" visible={showLabels} />
-@@ -418,2 +418,10 @@
+ 
+         <div className="flex flex-col gap-2 pt-3 h-full min-h-0">
+           {/* Rows / Columns fields */}
+@@ -416,7 +421,15 @@
+           </div>
+ 
+           {/* Status + split */}
 -          <div className="flex items-center justify-between gap-2">
--            <span
 +          {templateEditingDisabled && outputImages.length > 0 && (
 +            <div aria-label="Split results" className="nodrag nopan nowheel flex shrink-0 gap-1 overflow-x-auto">
 +              {outputImages.map((src, index) => (
@@ -26,4 +38,6 @@
 +            </div>
 +          )}
 +          <div className="flex shrink-0 items-center justify-between gap-2">
-+            <span
+             <span
+               className={`text-[10px] truncate ${
+                 nodeData.status === "error"

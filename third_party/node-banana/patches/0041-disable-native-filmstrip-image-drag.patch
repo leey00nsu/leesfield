@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/GifEncoderNode.tsx b/src/components/nodes/GifEncoderNode.tsx
 --- a/src/components/nodes/GifEncoderNode.tsx
 +++ b/src/components/nodes/GifEncoderNode.tsx
 @@ -77,7 +77,7 @@
@@ -9,6 +10,7 @@
    );
  }
  
+diff --git a/src/components/nodes/VideoStitchNode.tsx b/src/components/nodes/VideoStitchNode.tsx
 --- a/src/components/nodes/VideoStitchNode.tsx
 +++ b/src/components/nodes/VideoStitchNode.tsx
 @@ -485,6 +485,7 @@

@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -2,8 +2,8 @@
@@ -189,7 +190,7 @@
    open,
    models,
    onChoose,
-@@ -385,124 +352,114 @@
+@@ -385,121 +352,111 @@
    onChoose: (model: NodeBananaRuntimeModelItem) => void;
    onClose: () => void;
  }) {
@@ -350,9 +351,9 @@
 +        },
 +      }}
 +    />
-   );
- }
- 
++  );
++}
++
 +function pendingHandleType(pending: NodeBananaPendingConnection): "image" | "text" | "video" | "audio" | "3d" | "easeCurve" | null {
 +  const handleId = pending.handleId;
 +  return handleId === "image" || handleId === "text" || handleId === "video" || handleId === "audio" || handleId === "3d" || handleId === "easeCurve"
@@ -395,12 +396,9 @@
 +        },
 +      }}
 +    />
-+  );
-+}
-+
- export function NodeBananaCanvasRuntime({
-   graph,
-   nodeTypes,
+   );
+ }
+ 
 @@ -518,6 +475,8 @@
    createId,
    isValidConnection,

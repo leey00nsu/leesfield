@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -614,14 +614,13 @@
@@ -16,4 +17,3 @@
          maxZoom={4}
          onDoubleClick={(event) => {
            if ((event.target as HTMLElement).classList.contains("react-flow__pane")) {
-

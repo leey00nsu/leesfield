@@ -1,3 +1,4 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
 @@ -1,7 +1,6 @@
@@ -28,7 +29,7 @@
 -  onInlineParametersChange?: (enabled: boolean) => void | Promise<void>;
 -  renderModelPicker?: (kind: HostedDefaultKind, onSelect: (id: string) => void, onClose: () => void) => ReactNode;
 -};
- 
+-
 -// Approved exclusions: provider credentials/env-status, filesystem directory and
 -// external storage, provider concurrency, ComfyUI settings, and LLM defaults.
 -// ProjectSetupModal's original shell, tabs, default-model cards, Canvas controls,
@@ -100,6 +101,7 @@
 -   } catch (cause) { if (cause instanceof Error && "code" in cause && cause.code === "SPACE_PREFERENCES_CONFLICT") setConflict(true); setError(cause instanceof Error ? cause.message : "Could not save settings. Please try again."); }
 -   finally { setBusy(false); }
 - };
++
 +// The original supported Settings render tree consumes host-owned persistence state.
 +export function ProjectSetupModal(props: Parameters<typeof useHostedProjectSettings>[0]) {
 + const { activeTab, setActiveTab, name, setName, localNodeDefaults, setLocalNodeDefaults, localCanvasSettings, setLocalCanvasSettings, localInline, setLocalInline, pickerKind, setPickerKind, busy, error, conflict, defaultsEdited, inlineEdited, dialogRef, closeRef, handleSave, writable, models, nodeDefaultsLoading, nodeDefaultsError, onRetryNodeDefaults, renderModelPicker } = useHostedProjectSettings(props);
@@ -123,6 +125,8 @@
  
              <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">
                Space Settings
+diff --git a/src/leesfield/hosted-project-settings.ts b/src/leesfield/hosted-project-settings.ts
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/hosted-project-settings.ts
 @@ -0,0 +1,88 @@

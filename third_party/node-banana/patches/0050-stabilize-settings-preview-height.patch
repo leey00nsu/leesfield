@@ -1,22 +1,12 @@
---- a/src/components/nodes/BaseNode.tsx
-+++ b/src/components/nodes/BaseNode.tsx
-@@ -100,1 +100,0 @@
--      const heightToRemove = trackedSettingsHeightRef.current;
-@@ -112,1 +111,5 @@
--          const newHeight = Math.max(minHeight, currentHeight - heightToRemove);
-+          // A rapid collapse can cancel expansion before its height commits.
-+          const applied = node.data?._settingsPanelHeight;
-+          const heightToRemove = typeof applied === "number" && Number.isFinite(applied)
-+            ? Math.max(0, applied) : 0;
-+          const newHeight = Math.max(minHeight, currentHeight - heightToRemove);
+diff --git a/src/components/nodes/BaseNode.tsx b/src/components/nodes/BaseNode.tsx
 --- a/src/components/nodes/BaseNode.tsx
 +++ b/src/components/nodes/BaseNode.tsx
 @@ -1,7 +1,7 @@
  "use client";
  
  import { ReactNode, useCallback, useRef, useLayoutEffect } from "react";
-+import { Node, NodeResizer, OnResize, useReactFlow, useStore } from "@xyflow/react";
 -import { Node, NodeResizer, OnResize, useReactFlow } from "@xyflow/react";
++import { Node, NodeResizer, OnResize, useReactFlow, useStore } from "@xyflow/react";
  import { isPanningRef, isDraggingNodeRef, useWorkflowStore } from "../../leesfield/upstream-node-host";
  import { getMediaDimensions, calculateAspectFitSize } from "../../utils/nodeDimensions";
  
@@ -37,7 +27,7 @@
  
    const settingsPanelRef = useRef<HTMLDivElement>(null);
    const contentRef = useRef<HTMLDivElement>(null);
-@@ -92,7 +102,6 @@
+@@ -92,24 +102,22 @@
        animationTimeoutRef.current = null;
      }
  
@@ -45,7 +35,8 @@
      const ANIMATION_MS = 160;
  
      if (!settingsExpanded && trackedSettingsHeightRef.current > 0) {
-@@ -101,10 +110,6 @@
+       // --- COLLAPSE ---
+-      const heightToRemove = trackedSettingsHeightRef.current;
        trackedSettingsHeightRef.current = 0;
        isAnimatingRef.current = true;
  
@@ -56,7 +47,16 @@
  
        setNodes((nodes) =>
          nodes.map((node) => {
-@@ -120,22 +125,12 @@
+           if (node.id !== id) return node;
+           const currentHeight = getNodeDimension(node, "height");
++          // A rapid collapse can cancel expansion before its height commits.
++          const applied = node.data?._settingsPanelHeight;
++          const heightToRemove = typeof applied === "number" && Number.isFinite(applied)
++            ? Math.max(0, applied) : 0;
+           const newHeight = Math.max(minHeight, currentHeight - heightToRemove);
+           return {
+             ...applyNodeDimensions(node, getNodeDimension(node, "width"), newHeight),
+@@ -120,22 +128,12 @@
  
        animationTimeoutRef.current = setTimeout(() => {
          isAnimatingRef.current = false;
@@ -64,10 +64,10 @@
        }, ANIMATION_MS);
      } else if (settingsExpanded && settingsPanel) {
        // --- EXPAND ---
-+      // The media body retains its height throughout the panel animation.
 -      // Lock the content wrapper rigid so flex can't redistribute space as the
 -      // settings panel grows. Without this, flex-1 + min-h-0 lets the wrapper
 -      // shrink between CSS transition frames and the ResizeObserver setNodes catch-up.
++      // The media body retains its height throughout the panel animation.
        isAnimatingRef.current = true;
  
 -      if (contentEl) {
@@ -80,7 +80,7 @@
  
        animationTimeoutRef.current = setTimeout(() => {
          isAnimatingRef.current = false;
-@@ -162,13 +157,6 @@
+@@ -162,13 +160,6 @@
            );
          }
  
@@ -94,20 +94,20 @@
        }, ANIMATION_MS);
      }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-@@ -193,12 +181,6 @@
+@@ -192,12 +183,6 @@
+         // During animation, just track the height — skip setNodes to avoid
          // multiple re-renders. The expand timeout will apply one final update.
          if (isAnimatingRef.current) continue;
- 
+-
 -        // Lock content height to prevent image flicker during resize
 -        const contentEl = contentRef.current;
 -        if (contentEl) {
 -          contentEl.style.height = contentEl.offsetHeight + "px";
 -        }
--
+ 
          setNodes((nodes) =>
            nodes.map((node) => {
-             if (node.id !== id) return node;
-@@ -211,12 +193,6 @@
+@@ -211,12 +196,6 @@
            })
          );
  
@@ -120,16 +120,16 @@
        }
      });
  
-@@ -309,7 +285,7 @@
+@@ -309,7 +288,7 @@
                  ? "ring-1 ring-blue-500"
                  : ""
            }`
-+        : settingsPanel ? "relative flex flex-col w-full h-full overflow-visible" : "contents"}
 -        : "contents"}
++        : settingsPanel ? "relative flex flex-col w-full h-full overflow-visible" : "contents"}
        onDoubleClick={handleResizeHandleDblClick}
        data-tutorial={hasExpandedSettings ? dataTutorial : undefined}
      >
-@@ -322,6 +298,7 @@
+@@ -322,6 +301,7 @@
          onResize={handleResize}
        />
        <div

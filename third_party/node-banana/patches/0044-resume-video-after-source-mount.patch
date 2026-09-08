@@ -1,19 +1,28 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
-@@ -478,3 +478,1 @@
+@@ -475,9 +475,7 @@
+   return src ?? null;
+ }
+ 
 -export function useVideoAutoplay(..._args: any[]) {
 -  return useRef<HTMLVideoElement | null>(null);
 -}
 +export { useVideoAutoplay } from "../hooks/useVideoAutoplay";
+ 
+ export function useShowHandleLabels(selected?: boolean): boolean {
+   return Boolean(selected);
+diff --git a/src/hooks/useVideoAutoplay.ts b/src/hooks/useVideoAutoplay.ts
 --- a/src/hooks/useVideoAutoplay.ts
 +++ b/src/hooks/useVideoAutoplay.ts
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
 -import { useRef, useEffect } from "react";
-+import { useRef, useEffect, useState, useCallback } from "react";
 -import { useWorkflowStore } from "@/store/workflowStore";
++import { useRef, useEffect, useState, useCallback } from "react";
 +import { useWorkflowStore } from "../leesfield/upstream-node-host";
  
  /**
+  * Hook for managing video play/pause based on hover and selection state.
 @@ -19,13 +19,13 @@
  export function useVideoAutoplay(
    nodeId: string,
@@ -31,7 +40,7 @@
      if (!video) return;
  
      // Clear any pending hover timeout
-@@ -36,6 +37,7 @@
+@@ -36,6 +36,7 @@
        }
      };
  
@@ -39,7 +48,8 @@
      if (selected || isHovered) {
        // Play the video
        if (selected) {
-@@ -64,10 +65,16 @@
+@@ -63,12 +64,18 @@
+       video.pause();
        // Note: Do NOT reset currentTime - resume from current position
      }
 +    };
@@ -57,3 +67,4 @@
 +  }, [video, isHovered, selected, nodeId]);
  
    return videoRef;
+ }

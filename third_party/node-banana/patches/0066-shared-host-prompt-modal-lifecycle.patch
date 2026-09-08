@@ -1,51 +1,91 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
-@@ -411,2 +411,3 @@
--  const workflow = useMemo(() => makeWorkflowState({
--    ...value,
-+  const workflow = useMemo(() => makeWorkflowState({
+@@ -409,10 +409,11 @@
+     ? setLocalHoveredNodeId : parent.setHoveredNodeId;
+   // Nested per-node adapters share the canvas hover state, never a no-op copy.
+   const workflow = useMemo(() => makeWorkflowState({
 +    ...parent,
-+    ...value,
-@@ -415,1 +416,1 @@
+     ...value,
+     hoveredNodeId,
+     setHoveredNodeId,
 -  }), [value, hoveredNodeId, setHoveredNodeId]);
 +  }), [parent, value, hoveredNodeId, setHoveredNodeId]);
+   return <WorkflowContext.Provider value={workflow}>{children}</WorkflowContext.Provider>;
+ }
+ 
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -71,1 +71,1 @@
+@@ -68,7 +68,7 @@
+ } from "../components/MultiSelectToolbar";
+ import { SharedEdgeGradients as UpstreamSharedEdgeGradients } from "../components/edges/SharedEdgeGradients";
+ import { ReferenceEdge } from "../components/edges/ReferenceEdge";
 -import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
 +import { NodeBananaUpstreamHostProvider, type NodeBananaUpstreamHostValue } from "./upstream-node-host";
-@@ -150,1 +150,2 @@
--export type NodeBananaCanvasProps = {
-+export type NodeBananaCanvasProps = {
+ import { KeyboardShortcutsDialog } from "../components/KeyboardShortcutsDialog";
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+@@ -148,6 +148,7 @@
+ };
+ 
+ export type NodeBananaCanvasProps = {
 +  host?: NodeBananaUpstreamHostValue;
-@@ -439,1 +440,2 @@
--export function NodeBananaCanvasRuntime({
-+export function NodeBananaCanvasRuntime({
+   navigationTarget?: { nodeId: string; sequence: number } | null;
+   onUndoRecorderChange?: (recorder: ((previous: NodeBananaRuntimeGraph) => void) | null) => void;
+   remapPastedNodes?: (nodes: NodeBananaRuntimeNode[], ids: Record<string, string>, offset: { x: number; y: number }, groupIds: Record<string, string>) => NodeBananaRuntimeNode[];
+@@ -437,6 +438,7 @@
+ }
+ 
+ export function NodeBananaCanvasRuntime({
 +  host,
-@@ -490,1 +492,4 @@
--  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   navigationTarget,
+   onUndoRecorderChange,
+   remapPastedNodes,
+@@ -488,6 +490,9 @@
+   }, [navigationTarget]);
+   const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
+   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 +  const modalCount = useRef(0);
 +  const incrementModalCount = useCallback(() => { modalCount.current += 1; }, []);
 +  const decrementModalCount = useCallback(() => { modalCount.current = Math.max(0, modalCount.current - 1); }, []);
-@@ -906,1 +911,1 @@
+   const [contentBusy, setContentBusy] = useState(false);
+   const contentController = useRef<AbortController | null>(null);
+   const contentMounted = useRef(false);
+@@ -903,7 +908,7 @@
+   useEffect(() => {
+     contentContext.current = { graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia };
+   }, [graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia]);
 -  const canvasBlocked = () => Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'));
 +  const canvasBlocked = () => modalCount.current > 0 || Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'));
-@@ -1122,2 +1127,4 @@
--  const upstreamHostValue = useMemo(() => ({
--    writable,
-+  const upstreamHostValue = useMemo(() => ({
+   const centerPosition = () => {
+     const rect = rootRef.current?.getBoundingClientRect();
+     return instanceRef.current?.screenToFlowPosition({
+@@ -1120,6 +1125,8 @@
+     [graph.edges, interaction.selectedEdgeIds],
+   );
+   const upstreamHostValue = useMemo(() => ({
 +    ...host,
 +    incrementModalCount, decrementModalCount,
-+    writable,
-@@ -1131,1 +1138,1 @@
+     writable,
+     nodes: visibleNodes as unknown as Record<string, unknown>[],
+     edges: visibleEdges as unknown as Record<string, unknown>[],
+@@ -1128,7 +1135,7 @@
+     onNodesChange: applyToolbarNodeChanges,
+     toggleEdgePause: toggleSelectedEdgePause,
+     setLoopCount: setSelectedEdgeLoopCount,
 -  }), [applyToolbarNodeChanges, interaction.edgeStyle, setSelectedEdgeLoopCount, store, toggleSelectedEdgePause, visibleEdges, visibleNodes, writable]);
 +  }), [host, incrementModalCount, decrementModalCount, applyToolbarNodeChanges, interaction.edgeStyle, setSelectedEdgeLoopCount, store, toggleSelectedEdgePause, visibleEdges, visibleNodes, writable]);
+   const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+     const current = store.getState().viewport;
+     if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
+diff --git a/src/components/nodes/PromptNode.tsx b/src/components/nodes/PromptNode.tsx
 --- a/src/components/nodes/PromptNode.tsx
 +++ b/src/components/nodes/PromptNode.tsx
-@@ -30,1 +30,21 @@
--  const [varNameInput, setVarNameInput] = useState(nodeData.variableName || "");
-+  const [varNameInput, setVarNameInput] = useState(nodeData.variableName || "");
+@@ -28,29 +28,34 @@
+   // Variable naming dialog state
+   const [showVarDialog, setShowVarDialog] = useState(false);
+   const [varNameInput, setVarNameInput] = useState(nodeData.variableName || "");
 +  const variableDialogRef = useRef<HTMLDivElement>(null);
 +  useEffect(() => {
 +    if (!showVarDialog) return;
@@ -66,10 +106,13 @@
 +    document.addEventListener("focusin", focus);
 +    return () => { window.removeEventListener("keydown", keydown, true); document.removeEventListener("focusin", focus); if (previous?.isConnected) previous.focus(); };
 +  }, [showVarDialog]);
-@@ -34,1 +54,1 @@
+ 
+   // Check if this node has any incoming text connections
+   const hasIncomingTextConnection = useMemo(() => {
 -    return edges.some((edge) => edge.target === id && edge.targetHandle === "text");
 +    return edges.some((edge) => edge.target === id && edge.targetHandle === "text" && !edge.data?.hasPause);
-@@ -37,18 +57,3 @@
+   }, [edges, id]);
+ 
 -  // Track the last received text from connected LLM node to detect when it changes
 -  const lastReceivedTextRef = useRef<string | null>(null);
 -
@@ -87,27 +130,49 @@
 -      lastReceivedTextRef.current = null;
 -    }
 -  }, [hasIncomingTextConnection, id, getConnectedInputs, updateNodeData]);
--
 +  // A connected prompt is a projection, not an edit of the authored prompt.
 +  const connectedText = hasIncomingTextConnection ? getConnectedInputs(id).text : null;
-+
-@@ -75,1 +80,1 @@
+ 
+   // Sync from props when not actively editing
+   useEffect(() => {
+@@ -72,10 +77,10 @@
+ 
+   const handleBlur = useCallback(() => {
+     setIsEditing(false);
 -    if (writable && localPrompt !== nodeData.prompt) {
 +    if (writable && !hasIncomingTextConnection && localPrompt !== nodeData.prompt) {
-@@ -78,1 +83,1 @@
+       updateNodeData(id, { prompt: localPrompt });
+     }
 -  }, [id, localPrompt, nodeData.prompt, updateNodeData, writable]);
 +  }, [id, localPrompt, nodeData.prompt, updateNodeData, writable, hasIncomingTextConnection]);
-@@ -117,1 +122,1 @@
+ 
+   const handleSaveVariableName = useCallback(() => {
+     if (!writable) return;
+@@ -114,13 +119,13 @@
+         <HandleLabel label="Text" side="target" color="var(--handle-color-text)" visible={showLabels} />
+ 
+         <textarea
 -          value={localPrompt}
 +          value={hasIncomingTextConnection ? connectedText ?? "" : localPrompt}
-@@ -122,1 +127,1 @@
+           disabled={!writable || hasIncomingTextConnection}
+           onChange={handleChange}
+           onFocus={handleFocus}
+           onBlur={handleBlur}
 -          placeholder={hasIncomingTextConnection ? "Text from connected node (editable)..." : nodeData.isOptional ? "Optional prompt (leave empty to skip)..." : "Describe what to generate..."}
-+          placeholder={hasIncomingTextConnection ? "Text from connected Prompt node..." : nodeData.isOptional ? "Optional prompt (leave empty to skip)..." : "Describe what to generate..."}
-@@ -123,1 +128,1 @@
 -          className="nodrag nopan nowheel w-full h-full p-3 pb-7 text-xs leading-relaxed text-neutral-100 bg-neutral-800 rounded-t-lg resize-none focus:outline-none placeholder:text-neutral-500"
++          placeholder={hasIncomingTextConnection ? "Text from connected Prompt node..." : nodeData.isOptional ? "Optional prompt (leave empty to skip)..." : "Describe what to generate..."}
 +          className="nodrag nopan nowheel w-full h-full p-3 pb-7 text-xs leading-relaxed text-neutral-100 bg-neutral-800 rounded-t-lg resize-none focus:outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:bg-neutral-900"
-@@ -150,2 +155,2 @@
+         />
+         <div className="absolute bottom-0 left-0 right-0 z-10 px-3 py-1.5 bg-neutral-900/90 rounded-b-lg">
+           <button
+@@ -147,8 +152,8 @@
+ 
+       {/* Variable Naming Dialog - rendered via portal */}
+       {showVarDialog && createPortal(
 -        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
 -          <div className="bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-4 w-96">
 +        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" role="dialog" aria-modal="true" aria-label="Set Variable Name" onClick={(event) => { if (event.target === event.currentTarget) setShowVarDialog(false); }}>
 +          <div ref={variableDialogRef} className="bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl p-4 w-96 max-w-[calc(100vw-32px)]">
+             <h3 className="text-sm font-semibold text-neutral-100 mb-3">Set Variable Name</h3>
+             <p className="text-xs text-neutral-400 mb-3">
+               Use this prompt as a variable in PromptConstructor nodes

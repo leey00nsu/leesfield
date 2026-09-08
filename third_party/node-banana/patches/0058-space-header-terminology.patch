@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 --- a/src/leesfield/hosted-header.tsx
 +++ b/src/leesfield/hosted-header.tsx
 @@ -49,7 +49,7 @@
@@ -43,8 +44,8 @@
                  </button>
                  {browserOpen ? (
 -                  <div className="node-banana-hosted__browser" role="menu" aria-label="Workflows">
-+                  <div className="node-banana-hosted__browser" role="menu" aria-label="Spaces">
 -                    <div>Workflows</div>
++                  <div className="node-banana-hosted__browser" role="menu" aria-label="Spaces">
 +                    <div>Spaces</div>
                      {graphs.map((graph) => (
                        <button
@@ -67,8 +68,8 @@
            <form className="node-banana-hosted__dialog" role="dialog" aria-modal="true" aria-labelledby="node-banana-new-workflow-title" onSubmit={createWorkflow} onMouseDown={(event) => event.stopPropagation()}>
              <header>
 -              <h2 id="node-banana-new-workflow-title">New workflow</h2>
-+              <h2 id="node-banana-new-workflow-title">New space</h2>
 -              <button type="button" onClick={() => setNewWorkflowOpen(false)} aria-label="Close new workflow">×</button>
++              <h2 id="node-banana-new-workflow-title">New space</h2>
 +              <button type="button" onClick={() => setNewWorkflowOpen(false)} aria-label="Close new space">×</button>
              </header>
 -            <label htmlFor="node-banana-new-workflow-name">Workflow name</label>

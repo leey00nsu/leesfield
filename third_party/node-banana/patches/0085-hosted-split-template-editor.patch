@@ -1,3 +1,4 @@
+diff --git a/src/components/splitgrid/templateCatalog.tsx b/src/components/splitgrid/templateCatalog.tsx
 --- a/src/components/splitgrid/templateCatalog.tsx
 +++ b/src/components/splitgrid/templateCatalog.tsx
 @@ -68,17 +68,6 @@
@@ -18,6 +19,7 @@
      type: "annotation",
      label: "Annotate",
      title: "Annotation",
+diff --git a/src/components/splitgrid/TemplateNodes.tsx b/src/components/splitgrid/TemplateNodes.tsx
 --- a/src/components/splitgrid/TemplateNodes.tsx
 +++ b/src/components/splitgrid/TemplateNodes.tsx
 @@ -299,37 +299,7 @@
@@ -272,6 +274,7 @@
          ) : (
            <GenericBody nodeType={data.nodeType} description={entry.description} />
          )}
+diff --git a/src/components/splitgrid/SplitGridTemplateModal.tsx b/src/components/splitgrid/SplitGridTemplateModal.tsx
 --- a/src/components/splitgrid/SplitGridTemplateModal.tsx
 +++ b/src/components/splitgrid/SplitGridTemplateModal.tsx
 @@ -46,13 +46,6 @@
@@ -323,8 +326,7 @@
 -  }
 -  return seed;
 -}
-+function seedGenerateOverrides(): Record<string, unknown> { return { selectedModel: null, parameters: {} }; }
- 
+-
 -/** LLM template nodes start from the same defaults as a main-canvas LLM node */
 -function seedLlmOverrides(): Record<string, unknown> {
 -  const defaults = createDefaultNodeData("llmGenerate") as LLMGenerateNodeData;
@@ -335,7 +337,8 @@
 -    maxTokens: defaults.maxTokens,
 -  };
 -}
--
++function seedGenerateOverrides(): Record<string, unknown> { return { selectedModel: null, parameters: {} }; }
+ 
  function seedOverridesFor(type: NodeType): Record<string, unknown> {
    if (type === "nanoBanana") return seedGenerateOverrides();
 -  if (type === "llmGenerate") return seedLlmOverrides();
@@ -352,11 +355,10 @@
    const incrementModalCount = useWorkflowStore((state) => state.incrementModalCount);
    const decrementModalCount = useWorkflowStore((state) => state.decrementModalCount);
    const canvasNavigationSettings = useWorkflowStore((state) => state.canvasNavigationSettings);
-@@ -653,16 +620,6 @@
-       const fromNode = connectionState.fromNode;
+@@ -654,16 +621,6 @@
        if (!fromHandle?.id || !fromNode) return;
        const point = "changedTouches" in event ? event.changedTouches[0] : event;
--
+ 
 -      // Drop an output onto the router rail → wire it to the shared router
 -      const rect = canvasWrapperRef.current?.getBoundingClientRect();
 -      if (rect && fromHandle.type === "source") {
@@ -366,9 +368,10 @@
 -          return;
 -        }
 -      }
- 
+-
        const targetElement = event.target as HTMLElement | null;
        if (!targetElement?.closest(".react-flow__pane")) return;
+       setDropMenu({
 @@ -764,16 +721,17 @@
      return list;
    }, [rfNodes, rfEdges, routerWires]);
@@ -406,17 +409,16 @@
            <div className="min-w-0">
              <h2 className="text-base font-semibold text-neutral-100">Cell Node Set</h2>
              <p className="text-xs text-neutral-500 mt-0.5 truncate">
-@@ -838,8 +796,8 @@
+@@ -838,7 +796,7 @@
          <div ref={canvasWrapperRef} className="flex-1 min-h-0 relative bg-neutral-900">
            {/* Router wires render BEHIND the canvas so nodes occlude them, like
                normal edges (the pane is transparent, so they show in the gaps) */}
 -          <RouterWires wires={routerWires} nodes={rfNodes} size={wrapperSize} />
- 
 +
+ 
            <div className="absolute inset-0">
            <TemplateEditorContext.Provider value={editorContext}>
-             <ReactFlow
-@@ -872,13 +830,8 @@
+@@ -872,12 +830,7 @@
            </div>
  
            {/* Fixed downstream-router rail + invisible wire click targets (on top) */}
@@ -426,11 +428,10 @@
 -            size={wrapperSize}
 -            onDisconnectType={disconnectRouterType}
 -          />
- 
 +
+ 
            {/* Connection drop menu */}
            {dropMenu && (
-             <TemplateConnectionMenu
 @@ -915,6 +868,7 @@
            )}
          </div>

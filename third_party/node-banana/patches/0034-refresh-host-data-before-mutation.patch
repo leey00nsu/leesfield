@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -557,7 +557,11 @@
@@ -26,6 +27,7 @@
    }, [commit, host, kind, runtimeData]);
    const regenerate = useCallback((nodeId: string) => {
      (onRegenerateNode ?? host?.onRegenerateNode)?.(nodeId);
+diff --git a/src/components/nodes/FloatingNodeHeader.tsx b/src/components/nodes/FloatingNodeHeader.tsx
 --- a/src/components/nodes/FloatingNodeHeader.tsx
 +++ b/src/components/nodes/FloatingNodeHeader.tsx
 @@ -598,9 +598,9 @@

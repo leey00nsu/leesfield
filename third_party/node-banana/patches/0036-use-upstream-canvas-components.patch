@@ -1,6 +1,7 @@
+diff --git a/src/components/edges/EditableEdge.tsx b/src/components/edges/EditableEdge.tsx
 --- a/src/components/edges/EditableEdge.tsx
 +++ b/src/components/edges/EditableEdge.tsx
-@@ -8,15 +8,39 @@
+@@ -8,13 +8,37 @@
    getBezierPath,
    useReactFlow,
  } from "@xyflow/react";
@@ -17,8 +18,8 @@
 +  isConnectedToSelection?: boolean;
 +  isTargetLoading?: boolean;
 +  onEdgeDataChange?: (edgeId: string, patch: Record<string, unknown>) => void;
- }
- 
++}
++
 +export type EditableEdgeHostedProps = {
 +  edgeStyle?: "angular" | "curved";
 +  isConnectedToSelection?: boolean;
@@ -37,11 +38,9 @@
 +    // until React Flow supplies its store.
 +    return null;
 +  }
-+}
-+
+ }
+ 
  // Colors for different connection types (dimmed for softer appearance)
- const EDGE_COLORS: Record<string, string> = {
-   image: "#0d9668", // Green for image connections
 @@ -48,13 +72,15 @@
    targetHandleId,
    source,
@@ -134,6 +133,7 @@
            {/* Background circle */}
            <circle
              r={10}
+diff --git a/src/components/EdgeToolbar.tsx b/src/components/EdgeToolbar.tsx
 --- a/src/components/EdgeToolbar.tsx
 +++ b/src/components/EdgeToolbar.tsx
 @@ -1,17 +1,38 @@
@@ -207,9 +207,10 @@
      }
      previousSelectedEdgeId.current = selectedEdge?.id || null;
 -  }, [selectedEdge]);
-+  }, [hosted, selectedEdge]);
- 
+-
 -  const toolbarPosition = clickPosition;
++  }, [hosted, selectedEdge]);
++
 +  const toolbarPosition = hosted ? hosted.position : clickPosition;
  
    const handleTogglePause = () => {
@@ -284,6 +285,7 @@
          className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-red-400 transition-colors"
          title="Delete"
        >
+diff --git a/src/components/MultiSelectToolbar.tsx b/src/components/MultiSelectToolbar.tsx
 --- a/src/components/MultiSelectToolbar.tsx
 +++ b/src/components/MultiSelectToolbar.tsx
 @@ -1,25 +1,61 @@
@@ -319,7 +321,7 @@
 +  height?: number;
 +  data?: Record<string, unknown>;
 +};
- 
++
 +export type MultiSelectToolbarHostedProps = {
 +  nodes: readonly MultiSelectToolbarHostedNode[];
 +  viewport?: { x: number; y: number; zoom: number };
@@ -347,7 +349,7 @@
 +  const workflow = useWorkflowStore();
 +  const { nodes, onNodesChange: storeOnNodesChange, createGroup, removeNodesFromGroup } = workflow;
 +  const reactFlow = useOptionalReactFlow();
-+
+ 
    const selectedNodes = useMemo(
 -    () => nodes.filter((node) => node.selected),
 -    [nodes]
@@ -365,18 +367,17 @@
  
      // Find bounding box of selected nodes
      let minX = Infinity;
-@@ -54,8 +90,10 @@
+@@ -54,7 +90,9 @@
      const screenY = minY * viewport.zoom + viewport.y - 50; // 50px above the top
  
      return { x: screenX, y: screenY };
 -  }, [selectedNodes, getViewport]);
 +  }, [hosted?.viewport, reactFlow, selectedNodes]);
- 
-+  const applyNodeChanges = hosted?.onNodesChange ?? storeOnNodesChange;
 +
++  const applyNodeChanges = hosted?.onNodesChange ?? storeOnNodesChange;
+ 
    const handleStackHorizontally = () => {
      if (selectedNodes.length < 2) return;
- 
 @@ -80,7 +118,7 @@
        return change;
      });
@@ -429,11 +430,7 @@
 -      const base64Data = data.replace(/^data:image\/\w+;base64,/, "");
 -      zip.file(name, base64Data, { base64: true });
 -    });
-+    if (hosted?.onDownloadImages) {
-+      await hosted.onDownloadImages(images);
-+    }
-+  }, [hosted?.onDownloadImages, selectedNodes]);
- 
+-
 -    // Generate and download
 -    const blob = await zip.generateAsync({ type: "blob" });
 -    const url = URL.createObjectURL(blob);
@@ -445,7 +442,11 @@
 -    document.body.removeChild(link);
 -    URL.revokeObjectURL(url);
 -  }, [selectedNodes]);
--
++    if (hosted?.onDownloadImages) {
++      await hosted.onDownloadImages(images);
++    }
++  }, [hosted?.onDownloadImages, selectedNodes]);
+ 
    if (!toolbarPosition || selectedNodes.length < 2) return null;
  
    return (
@@ -539,6 +540,7 @@
          className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-100 transition-colors"
          title="Download images as ZIP"
        >
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -17,18 +17,15 @@
@@ -596,10 +598,12 @@
      edgeToolbarPosition: null,
      clipboard: null,
      pasteCount: 0,
-@@ -227,64 +238,6 @@
+@@ -225,64 +236,6 @@
+     return { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 };
+   }
    return { x: event.clientX, y: event.clientY };
- }
- 
+-}
+-
 -// Hosted from upstream src/components/edges/EditableEdge.tsx. Leesfield keeps
 -// only the canonical edge data and delegates the visible path/pause glyph here.
 -function HostedEditableEdge({
@@ -656,11 +660,9 @@
 -      ) : null}
 -    </>
 -  );
--}
--
+ }
+ 
  // These adapters only translate Leesfield's canonical runtime contracts into
- // the actual vendored components' hosted props. UI/state remains upstream.
- function hostedPosition(root: HTMLDivElement | null, screen: XYPosition): XYPosition {
 @@ -482,7 +435,7 @@
    const store = useMemo(createInteractionStore, []);
    const interaction = useStore(store);
@@ -670,7 +672,7 @@
      [edgeTypes],
    );
    const rootRef = useRef<HTMLDivElement>(null);
-@@ -766,18 +719,56 @@
+@@ -766,9 +719,19 @@
      store.setState({ selectedNodeIds: [], selectedEdgeIds: [], edgeToolbarPosition: null });
    }, [graph, interaction.selectedEdgeIds, interaction.selectedNodeIds, publish, store, writable]);
  
@@ -692,11 +694,10 @@
      if (!selectedEdgeId || store.getState().selectedEdgeIds.length !== 1) return;
      publish({
        nodes: graph.nodes,
-       edges: graph.edges.map((edge) => edge.id === selectedEdgeId
-         ? { ...edge, data: { ...edge.data, hasPause: !edge.data?.hasPause } }
-+        : edge),
-+    }, "edges");
-+  }, [graph, publish, store, writable]);
+@@ -777,6 +740,34 @@
+         : edge),
+     }, "edges");
+   }, [graph, publish, store, writable]);
 +
 +  const setSelectedEdgeLoopCount = useCallback((edgeId: string, delta: number) => {
 +    if (!writable) return;
@@ -711,10 +712,10 @@
 +      nodes: graph.nodes,
 +      edges: graph.edges.map((edge) => edge.id === selectedEdgeId
 +        ? { ...edge, data: { ...edge.data, loopCount } }
-         : edge),
-     }, "edges");
-   }, [graph, publish, store, writable]);
- 
++        : edge),
++    }, "edges");
++  }, [graph, publish, store, writable]);
++
 +  // The upstream edge exposes its segment drag through a narrow data slot.
 +  // Keep that interaction ephemeral; canonical edge data only changes through
 +  // the host's pause/delete callbacks.
@@ -725,10 +726,9 @@
 +    if (current?.offsetX === offsetX && current.offsetY === offsetY) return;
 +    store.setState({ edgeOffsets: { ...store.getState().edgeOffsets, [edgeId]: { offsetX, offsetY } } });
 +  }, [store]);
-+
+ 
    const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
      if (isFormTarget(event.target)) return;
-     const command = event.metaKey || event.ctrlKey;
 @@ -808,14 +799,31 @@
        ...edge,
        type: edge.type ?? "editable",
@@ -848,6 +848,7 @@
    );
  }
  
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -78,6 +78,22 @@
@@ -873,22 +874,23 @@
  export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
  
  export const LEESFIELD_RUNTIME_FEATURES = [
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
-@@ -30,6 +30,13 @@
+@@ -29,6 +29,13 @@
+   videos?: string[];
    inputSchema?: ModelInputDef[];
    clipOrder?: string[];
- };
++};
 +/** The edge data contract consumed by Node Banana's actual edge presenters. */
 +export type WorkflowEdgeData = HostNodeData & {
 +  hasPause?: boolean;
 +  createdAt?: number;
 +  isLoop?: boolean;
 +  loopCount?: number;
-+};
+ };
  export type HostOutputGalleryMedia = {
    type: "image" | "video" | "audio";
-   src: string;
 @@ -228,7 +235,14 @@
    recentModels: RecentModel[];
    trackModelUsage: (...args: any[]) => void;

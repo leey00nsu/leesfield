@@ -1,6 +1,7 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -873,25 +873,6 @@ export function NodeBananaCanvasRuntime({
+@@ -878,25 +878,6 @@
      () => graph.edges.find((edge) => interaction.selectedEdgeIds.includes(edge.id)) ?? null,
      [graph.edges, interaction.selectedEdgeIds],
    );
@@ -26,7 +27,7 @@
    const onMoveEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
      const current = store.getState().viewport;
      if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) return;
-@@ -939,7 +920,6 @@ export function NodeBananaCanvasRuntime({
+@@ -947,7 +928,6 @@
              edgeToolbarPosition: { x: event.clientX, y: event.clientY - 40 },
            });
          }}

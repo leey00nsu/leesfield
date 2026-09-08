@@ -1,6 +1,7 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -460,6 +460,9 @@ export function NodeBananaCanvasRuntime({
+@@ -460,6 +460,9 @@
    const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
    const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
    const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
@@ -10,7 +11,7 @@
  
    const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
      store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
-@@ -588,12 +591,45 @@ export function NodeBananaCanvasRuntime({
+@@ -588,12 +591,45 @@
      setModelBrowserOpen(false);
    }, [addNodeAtCenter, paletteItems]);
  
@@ -58,7 +59,7 @@
  
    const undo = useCallback(() => {
      if (!writable) return;
-@@ -787,7 +823,8 @@ export function NodeBananaCanvasRuntime({
+@@ -786,7 +822,8 @@
              selectedNodeCount={interaction.selectedNodeIds.length}
              runEnabled={
                interaction.selectedNodeIds.length === 1 &&

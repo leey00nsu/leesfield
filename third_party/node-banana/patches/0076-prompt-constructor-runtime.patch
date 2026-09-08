@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -33,6 +33,9 @@
@@ -110,6 +111,7 @@
        <PromptEditorModal
          isOpen={promptOpen}
          initialPrompt={expandedPrompt}
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
 @@ -33,7 +33,7 @@
@@ -121,6 +123,7 @@
        .map((e) => nodes.find((n) => n.id === e.source))
        .filter((n): n is typeof nodes[0] => n !== undefined);
      const connectedTextNodes = resolveTextSourcesThroughRouters(directTextNodes, nodes, edges);
+diff --git a/src/components/modals/PromptConstructorEditorModal.tsx b/src/components/modals/PromptConstructorEditorModal.tsx
 --- a/src/components/modals/PromptConstructorEditorModal.tsx
 +++ b/src/components/modals/PromptConstructorEditorModal.tsx
 @@ -1,15 +1,14 @@
@@ -149,7 +152,7 @@
    initialTemplate,
    availableVariables,
    onSubmit,
-@@ -26,31 +26,13 @@
+@@ -26,30 +26,12 @@
    const [template, setTemplate] = useState(initialTemplate);
    const [showConfirmation, setShowConfirmation] = useState(false);
    const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -165,16 +168,11 @@
 -    }
 -    return DEFAULT_FONT_SIZE;
 -  });
-+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
-+  const dialogRef = useRef<HTMLDivElement>(null);
-+  const confirmationRef = useRef<HTMLDivElement>(null);
-+  useEffect(() => { setTemplate(initialTemplate); setShowConfirmation(false); }, [isOpen, initialTemplate]);
- 
+-
 -  useEffect(() => {
 -    setTemplate(initialTemplate);
 -  }, [initialTemplate]);
-+  const hasUnsavedChanges = !readOnly && template !== initialTemplate;
- 
+-
 -  useEffect(() => {
 -    if (typeof window !== "undefined") {
 -      localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize.toString());
@@ -182,10 +180,15 @@
 -  }, [fontSize]);
 -
 -  const hasUnsavedChanges = template !== initialTemplate;
--
++  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
++  const dialogRef = useRef<HTMLDivElement>(null);
++  const confirmationRef = useRef<HTMLDivElement>(null);
++  useEffect(() => { setTemplate(initialTemplate); setShowConfirmation(false); }, [isOpen, initialTemplate]);
++
++  const hasUnsavedChanges = !readOnly && template !== initialTemplate;
+ 
    const {
      showAutocomplete,
-     autocompletePosition,
 @@ -85,11 +67,8 @@
  
    // Resolved preview
@@ -254,14 +257,14 @@
      };
 -  }, [isOpen, handleAttemptClose, showAutocomplete, closeAutocomplete]);
 +  }, [isOpen]);
- 
++
 +  useEffect(() => {
 +    if (!isOpen || !showConfirmation) return;
 +    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 +    confirmationRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
 +    return () => { if (previous?.isConnected && dialogRef.current?.contains(previous)) previous.focus(); };
 +  }, [isOpen, showConfirmation]);
-+
+ 
    const handleSubmit = useCallback(() => {
 +    if (readOnly) return;
      onSubmit(template);

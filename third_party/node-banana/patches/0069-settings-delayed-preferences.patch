@@ -1,6 +1,7 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
-@@ -86,6 +86,8 @@
+@@ -85,6 +85,8 @@
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const defaultsEdited = useRef(false);

@@ -350,17 +350,7 @@ new file mode 100644
 diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
-@@ -16,14 +16,28 @@ export type {
- export { processImageOperation } from "./image-operation-processors";
- export type {
-   AnnotationShape,
-   ImageOperationKind,
-   ImageOperationParameters,
-   ImageOperationRequest,
-   ImageOperationResult,
-   ImageOperationResultItem,
-   ResizeOperationParameters,
-   SplitGridOperationParameters,
+@@ -26,6 +26,20 @@
    GifOperationParameters,
  } from "./image-operation-processors";
  
@@ -379,16 +369,30 @@ diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 +} from "./video-operation-processors";
 +
  export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
+ 
+ export const LEESFIELD_RUNTIME_FEATURES = [
 diff --git a/src/hooks/useStitchVideos.ts b/src/hooks/useStitchVideos.ts
 --- a/src/hooks/useStitchVideos.ts
 +++ b/src/hooks/useStitchVideos.ts
-@@ -19 +19 @@ import type { Rotation } from 'mediabunny';
+@@ -16,7 +16,7 @@
+   canEncodeVideo,
+ } from 'mediabunny';
+ import type { Rotation } from 'mediabunny';
 -import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '@/lib/video-encoding';
 +import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '../lib/video-encoding';
-@@ -28 +28 @@ import {
+ import {
+   DEFAULT_BITRATE,
+   MAX_OUTPUT_FPS,
+@@ -25,7 +25,7 @@
+   BASELINE_PIXEL_LIMIT,
+   ensureEvenDimension,
+   probeVideoMetadata,
 -} from '@/lib/video-probing';
 +} from '../lib/video-probing';
-@@ -139,5 +139,6 @@ export async function stitchVideosAsync(
+ 
+ const determineEncodeParameters = async (
+   blobs: Blob[]
+@@ -140,7 +140,8 @@
    videoBlobs: Blob[],
    audioData?: AudioData | null,
    onProgress?: (progress: StitchProgress) => void,
@@ -396,37 +400,56 @@ diff --git a/src/hooks/useStitchVideos.ts b/src/hooks/useStitchVideos.ts
 +  signal?: AbortSignal,
 +  preserveEmbeddedAudio: boolean = true
  ): Promise<Blob> {
-@@ -199,6 +200,7 @@ export async function stitchVideosAsync(
-       width: safeWidth,
+   try {
+     // Initialize progress
+@@ -201,6 +202,7 @@
        height: safeHeight,
        bitrate: resolvedBitrate,
        fullCodecString: codecProfile,
 +      hardwareAcceleration: 'prefer-software',
      });
  
-@@ -221,4 +223,4 @@ export async function stitchVideosAsync(
+     if (!supportsConfig) {
+@@ -220,7 +222,7 @@
+ 
      // Extract embedded audio from source videos when no external audio override is provided
      let effectiveAudioData = audioData ?? null;
 -    if (!effectiveAudioData) {
 +    if (!effectiveAudioData && preserveEmbeddedAudio) {
        updateProgress('processing', 'Extracting audio from source videos...', 8);
-@@ -320,5 +322,5 @@ export async function stitchVideosAsync(
+       // Per-clip audio: each entry is either extracted buffers or a pending
+       // duration (seconds) for clips before the reference format is known.
+@@ -319,7 +321,7 @@
+     updateProgress('processing', 'Creating output container...', 10);
  
      let videoSource: VideoSampleSource | null = new VideoSampleSource(
 -      createAvcEncodingConfig(resolvedBitrate, safeWidth, safeHeight, codecProfile)
 +      createAvcEncodingConfig(resolvedBitrate, safeWidth, safeHeight, codecProfile, undefined, false)
      );
  
+     const bufferTarget = new BufferTarget();
 diff --git a/src/hooks/useTrimVideo.ts b/src/hooks/useTrimVideo.ts
 --- a/src/hooks/useTrimVideo.ts
 +++ b/src/hooks/useTrimVideo.ts
-@@ -16 +16 @@ import {
+@@ -13,7 +13,7 @@
+   Mp4OutputFormat,
+   getFirstEncodableAudioCodec,
+ } from 'mediabunny';
 -import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '@/lib/video-encoding';
 +import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '../lib/video-encoding';
-@@ -24 +24 @@ import {
+ import {
+   DEFAULT_BITRATE,
+   MAX_OUTPUT_FPS,
+@@ -21,7 +21,7 @@
+   FALLBACK_HEIGHT,
+   BASELINE_PIXEL_LIMIT,
+   probeVideoMetadata,
 -} from '@/lib/video-probing';
 +} from '../lib/video-probing';
-@@ -40,5 +40,6 @@ export async function trimVideoAsync(
+ 
+ // Re-export encoder support check from useStitchVideos (same encoder)
+ export { checkEncoderSupport } from './useStitchVideos';
+@@ -42,7 +42,8 @@
    startTime: number,
    endTime: number,
    onProgress?: (progress: TrimProgress) => void,
@@ -434,14 +457,18 @@ diff --git a/src/hooks/useTrimVideo.ts b/src/hooks/useTrimVideo.ts
 +  signal?: AbortSignal,
 +  preserveAudio: boolean = true
  ): Promise<Blob> {
-@@ -108,5 +109,5 @@ export async function trimVideoAsync(
+   const updateProgress = (
+     status: TrimProgress['status'],
+@@ -108,7 +109,7 @@
+       updateProgress('processing', 'Setting up encoder...', 10);
  
        videoSource = new VideoSampleSource(
 -        createAvcEncodingConfig(resolvedBitrate, safeWidth, safeHeight, codecProfile)
 +        createAvcEncodingConfig(resolvedBitrate, safeWidth, safeHeight, codecProfile, undefined, false)
        );
  
-@@ -123,6 +124,7 @@ export async function trimVideoAsync(
+       const bufferTarget = new BufferTarget();
+@@ -123,6 +124,7 @@
        let pendingAudioBuffer: AudioBuffer | null = null;
        const trimDuration = endTime - startTime;
  
@@ -449,8 +476,7 @@ diff --git a/src/hooks/useTrimVideo.ts b/src/hooks/useTrimVideo.ts
        try {
          const audioTracks = await input.getAudioTracks();
          if (audioTracks.length > 0) {
-@@ -201,7 +203,8 @@ export async function trimVideoAsync(
-         // A user Stop must not be swallowed by the graceful audio-degradation path.
+@@ -203,6 +205,7 @@
          if (audioErr instanceof DOMException && audioErr.name === "AbortError") throw audioErr;
          console.warn('Audio extraction failed, continuing without audio:', audioErr);
        }
@@ -461,20 +487,26 @@ diff --git a/src/hooks/useTrimVideo.ts b/src/hooks/useTrimVideo.ts
 diff --git a/src/hooks/useApplySpeedCurve.ts b/src/hooks/useApplySpeedCurve.ts
 --- a/src/hooks/useApplySpeedCurve.ts
 +++ b/src/hooks/useApplySpeedCurve.ts
-@@ -16,2 +16,2 @@ import type { Rotation, VideoSample } from 'mediabunny';
+@@ -13,8 +13,8 @@
+   canEncodeVideo,
+ } from 'mediabunny';
+ import type { Rotation, VideoSample } from 'mediabunny';
 -import { getEasingFunction, type EasingFunction } from '@/lib/easing-functions';
 -import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '@/lib/video-encoding';
 +import { getEasingFunction, type EasingFunction } from '../lib/easing-functions';
 +import { createAvcEncodingConfig, AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '../lib/video-encoding';
-@@ -227,6 +227,7 @@ async function applySpeedCurveCore(
-         width: targetWidth,
+ 
+ // Inlined constants (same pattern as Phase 41)
+ const DEFAULT_BITRATE = 8_000_000;
+@@ -229,6 +229,7 @@
          height: targetHeight,
          bitrate: tier.bitrate,
          fullCodecString: tier.codec,
 +        hardwareAcceleration: 'prefer-software',
        });
  
-@@ -260,7 +261,8 @@ async function applySpeedCurveCore(
+       if (supported) {
+@@ -260,7 +261,8 @@
          selectedConfig.width,
          selectedConfig.height,
          selectedConfig.codec,
@@ -483,3 +515,4 @@ diff --git a/src/hooks/useApplySpeedCurve.ts b/src/hooks/useApplySpeedCurve.ts
 +        false
        )
      );
+ 

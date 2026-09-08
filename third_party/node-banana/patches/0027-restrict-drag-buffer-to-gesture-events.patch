@@ -1,6 +1,8 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -583,6 +583,8 @@
+@@ -582,7 +582,9 @@
+       }
        if (changed) store.setState({ nodeLayout });
      }
 -    const positions = changes.filter((change) => change.type === "position");
@@ -30,7 +32,7 @@
      const nodes = graph.nodes.map((node) => positions[node.id]
        ? { ...node, position: positions[node.id] }
        : node);
-@@ -925,8 +933,11 @@
+@@ -923,10 +931,13 @@
          onConnectEnd={onConnectEnd}
          isValidConnection={isValidConnection}
          onNodeDragStart={() => {
@@ -47,3 +49,4 @@
 +          });
          }}
          onNodeDragStop={commitNodeDrag}
+         onEdgeClick={(event, edge) => {

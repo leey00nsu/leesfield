@@ -1,30 +1,61 @@
+diff --git a/src/components/ProjectSetupModal.tsx b/src/components/ProjectSetupModal.tsx
 --- a/src/components/ProjectSetupModal.tsx
 +++ b/src/components/ProjectSetupModal.tsx
-@@ -73,1 +73,1 @@
+@@ -70,7 +70,7 @@
+       >
+         <div className="px-8 pt-8 pb-0 shrink-0">
+           <div className="flex items-center gap-2 mb-5">
 -            <img src="/logo.webp" alt="" className="w-6 h-6" />
 +            <img src="/logo-blue.svg" alt="" className="w-6 h-6" />
+ 
+             <h2 id="node-banana-settings-title" className="text-xl font-medium text-neutral-100">
+               Space Settings
+diff --git a/src/components/quickstart/QuickstartInitialView.tsx b/src/components/quickstart/QuickstartInitialView.tsx
 --- a/src/components/quickstart/QuickstartInitialView.tsx
 +++ b/src/components/quickstart/QuickstartInitialView.tsx
-@@ -23,1 +23,1 @@
+@@ -20,7 +20,7 @@
+         <div className="flex-1 flex flex-col">
+           <div className="mb-4">
+             <div className="flex items-center gap-2">
 -              <img src="/logo.webp" alt="" className="w-7 h-7" />
 +              <img src="/logo-blue.svg" alt="" className="w-7 h-7" />
+               <h1 className="text-2xl font-medium text-neutral-100">
+                 Leesfield
+               </h1>
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
-@@ -337,1 +337,1 @@
+@@ -334,27 +334,27 @@
+       switch (cap) {
+         case "text-to-image":
+           color = "bg-green-500/20 text-green-300";
 -          label = "txt→img";
 +          label = "T2I";
-@@ -341,1 +341,1 @@
+           break;
+         case "image-to-image":
+           color = "bg-cyan-500/20 text-cyan-300";
 -          label = "img→img";
 +          label = "I2I";
-@@ -345,1 +345,1 @@
+           break;
+         case "text-to-video":
+           color = "bg-purple-500/20 text-purple-300";
 -          label = "txt→vid";
 +          label = "T2V";
-@@ -349,1 +349,1 @@
+           break;
+         case "image-to-video":
+           color = "bg-pink-500/20 text-pink-300";
 -          label = "img→vid";
 +          label = "I2V";
-@@ -353,1 +353,1 @@
+           break;
+         case "text-to-audio":
+           color = "bg-fuchsia-500/20 text-fuchsia-300";
 -          label = "txt→audio";
 +          label = "T2A";
-@@ -357,1 +357,1 @@
+           break;
+         case "audio-to-video":
+           color = "bg-violet-500/20 text-violet-300";
 -          label = "audio→vid";
 +          label = "A2V";
+           break;
+       }
+ 

@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -56,6 +56,8 @@
@@ -9,6 +10,7 @@
  export type NanoBananaNodeData = HostNodeData;
  export type GenerateVideoNodeData = HostNodeData;
  export type GenerateAudioNodeData = HostNodeData;
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
 @@ -3,16 +3,16 @@
@@ -78,6 +80,7 @@
              value={localTemplate}
              onChange={handleChange}
              onFocus={handleFocus}
+diff --git a/src/hooks/usePromptAutocomplete.ts b/src/hooks/usePromptAutocomplete.ts
 --- a/src/hooks/usePromptAutocomplete.ts
 +++ b/src/hooks/usePromptAutocomplete.ts
 @@ -1,5 +1,5 @@
@@ -107,6 +110,7 @@
          if (textareaRef.current) {
            textareaRef.current.focus();
            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+diff --git a/src/components/modals/PromptConstructorEditorModal.tsx b/src/components/modals/PromptConstructorEditorModal.tsx
 --- a/src/components/modals/PromptConstructorEditorModal.tsx
 +++ b/src/components/modals/PromptConstructorEditorModal.tsx
 @@ -1,7 +1,7 @@

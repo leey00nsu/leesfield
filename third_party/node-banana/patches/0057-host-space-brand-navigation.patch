@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
 --- a/src/leesfield/hosted-header.tsx
 +++ b/src/leesfield/hosted-header.tsx
 @@ -1,6 +1,6 @@
@@ -8,19 +9,26 @@
  
  import type { NodeBananaCanvasSettings } from "./canvas-runtime";
  
-@@ -13,4 +13,5 @@
+@@ -11,6 +11,7 @@
+ 
+ export type NodeBananaHostedHeaderProps = {
    title: string;
 +  brand?: ReactNode;
    graphs: readonly NodeBananaHeaderGraph[];
    activeGraphId: string;
    saveLabel: string;
-@@ -31,4 +32,5 @@
+@@ -29,6 +30,7 @@
+ 
+ export function NodeBananaHostedHeader({
    title,
 +  brand,
    graphs,
    activeGraphId,
    saveLabel,
-@@ -75,5 +77,5 @@
+@@ -72,10 +74,10 @@
+     <>
+       <header className="node-banana-hosted__header" data-node-banana-component="Header">
+         <div className="node-banana-hosted__header-left">
 -          <div className="node-banana-hosted__brand" aria-label="Node Banana">
 +          {brand ?? <div className="node-banana-hosted__brand" aria-label="Node Banana">
              <span aria-hidden="true">🍌</span>
@@ -28,3 +36,5 @@
 -          </div>
 +          </div>}
            <div className="node-banana-hosted__project">
+             <input
+               value={title}

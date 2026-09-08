@@ -1,3 +1,4 @@
+diff --git a/src/components/AnnotationModal.tsx b/src/components/AnnotationModal.tsx
 --- a/src/components/AnnotationModal.tsx
 +++ b/src/components/AnnotationModal.tsx
 @@ -2,17 +2,17 @@
@@ -8,12 +9,13 @@
 -import { useWorkflowStore } from "@/store/workflowStore";
  import {
    AnnotationShape,
--  RectangleShape,
--  CircleShape,
-   ArrowShape,
++  ArrowShape,
 +  CircleShape,
-   FreehandShape,
-+  RectangleShape,
++  FreehandShape,
+   RectangleShape,
+-  CircleShape,
+-  ArrowShape,
+-  FreehandShape,
    TextShape,
    ToolType,
 -} from "@/types";
@@ -122,6 +124,7 @@
          <Stage
            ref={stageRef}
            width={containerRef.current?.clientWidth || 800}
+diff --git a/src/components/ConnectionDropMenu.tsx b/src/components/ConnectionDropMenu.tsx
 --- a/src/components/ConnectionDropMenu.tsx
 +++ b/src/components/ConnectionDropMenu.tsx
 @@ -1,9 +1,8 @@
@@ -136,11 +139,10 @@
  import { ComfyMark } from "./icons/ComfyMark";
  
  // Actions are special menu items that trigger behavior instead of creating a node
-@@ -833,7 +832,22 @@
-     )
+@@ -834,6 +833,21 @@
    );
  }
-+
+ 
 +export type ConnectionDropMenuHostedOption = {
 +  type: string;
 +  label: string;
@@ -149,7 +151,7 @@
 +  /** Opaque host value returned unchanged to the host callback. */
 +  value?: unknown;
 +};
- 
++
 +export type ConnectionDropMenuHostedProps = {
 +  hostedOptions: readonly ConnectionDropMenuHostedOption[];
 +  onHostedSelect: (option: ConnectionDropMenuHostedOption) => void;
@@ -172,14 +174,10 @@
    position,
    handleType,
    connectionType,
-@@ -984,7 +1000,101 @@
-         <span className="text-[9px] text-neutral-500">
-           <kbd className="px-1 py-0.5 bg-neutral-700 rounded text-[8px]">↵</kbd> select
-         </span>
-+      </div>
-+    </div>
-+  );
-+}
+@@ -988,3 +1004,97 @@
+     </div>
+   );
+ }
 +
 +function HostedConnectionDropMenu({
 +  position,
@@ -245,7 +243,7 @@
 +    >
 +      <div className="border-b border-neutral-700 px-2 py-1.5">
 +        <span className="text-[10px] uppercase tracking-wide text-neutral-400">Add {handleType ?? "node"} node</span>
-       </div>
++      </div>
 +      <div className="py-1">
 +        {hostedOptions.map((option, index) => (
 +          <button
@@ -265,18 +263,19 @@
 +        <span className="text-[9px] text-neutral-500"><kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[8px]">↑↓</kbd> navigate</span>
 +        <span className="text-[9px] text-neutral-500"><kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[8px]">↵</kbd> select</span>
 +      </div>
-     </div>
-   );
- }
++    </div>
++  );
++}
 +
 +export function ConnectionDropMenu(props: ConnectionDropMenuProps) {
 +  return props.hosted
 +    ? <HostedConnectionDropMenu {...props} {...props.hosted} />
 +    : <StandaloneConnectionDropMenu {...props} />;
 +}
+diff --git a/src/components/FloatingActionBar.tsx b/src/components/FloatingActionBar.tsx
 --- a/src/components/FloatingActionBar.tsx
 +++ b/src/components/FloatingActionBar.tsx
-@@ -1,13 +1,63 @@
+@@ -1,12 +1,62 @@
  "use client";
  
  import { useRef, useState, useEffect, useMemo, useCallback } from "react";
@@ -288,7 +287,7 @@
  import { useReactFlow } from "@xyflow/react";
  import { ModelSearchDialog } from "./modals/ModelSearchDialog";
 -import { useFTUXStore, TutorialStep } from "@/store/ftuxStore";
- 
++
 +type TutorialStep = { id?: string; [key: string]: unknown };
 +
 +// The hosted runtime renders the prop-driven action bar below. Keep the
@@ -339,10 +338,9 @@
 +const useStandaloneWorkflowStore = useWorkflowStore as unknown as <T>(
 +  selector: (state: StandaloneWorkflowState) => T,
 +) => T;
-+
+ 
  // All nodes menu categories
  const ALL_NODES_CATEGORIES: { label: string; nodes: { type: NodeType; label: string }[] }[] = [
-   {
 @@ -312,7 +362,233 @@
    );
  }
@@ -600,9 +598,10 @@
 +export function FloatingActionBar({ hosted }: FloatingActionBarProps = {}) {
 +  return hosted ? <HostedFloatingActionBar {...hosted} /> : <StandaloneFloatingActionBar />;
 +}
+diff --git a/src/components/NodeSearchMenu.tsx b/src/components/NodeSearchMenu.tsx
 --- a/src/components/NodeSearchMenu.tsx
 +++ b/src/components/NodeSearchMenu.tsx
-@@ -1,16 +1,34 @@
+@@ -1,9 +1,25 @@
  "use client";
  
  import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -610,7 +609,7 @@
 -import { useSavedComfyNodes } from "@/hooks/useSavedComfyNodes";
 +import { useSavedComfyNodes, type NodeType } from "../leesfield/upstream-node-host";
  import { ALL_NODE_OPTIONS, optionKey, savedComfyOptions } from "./ConnectionDropMenu";
- 
++
 +export type NodeSearchMenuHostedOption = {
 +  type: string;
 +  label: string;
@@ -627,10 +626,10 @@
 +  hostedSearchLabel?: string;
 +  hostedCloseLabel?: string;
 +};
-+
+ 
  interface NodeSearchMenuProps {
    /** Screen position (clientX/clientY) where the menu should anchor. */
-   position: { x: number; y: number };
+@@ -11,6 +27,8 @@
    /** `savedNodeId` is set when the pick is a saved Comfy node. */
    onSelect: (type: NodeType, savedNodeId?: string) => void;
    onClose: () => void;
@@ -648,14 +647,10 @@
    const menuRef = useRef<HTMLDivElement>(null);
    const inputRef = useRef<HTMLInputElement>(null);
    const listRef = useRef<HTMLDivElement>(null);
-@@ -187,7 +205,129 @@
-           <kbd className="px-1 py-0.5 bg-neutral-700 rounded text-[8px]">↵</kbd>{" "}
-           add
-         </span>
-+      </div>
-+    </div>
-+  );
-+}
+@@ -191,3 +209,125 @@
+     </div>
+   );
+ }
 +
 +function HostedNodeSearchMenu({
 +  position,
@@ -744,7 +739,7 @@
 +          aria-label={hostedSearchLabel}
 +          className="w-full bg-transparent text-[11px] text-neutral-100 placeholder-neutral-500 outline-none"
 +        />
-       </div>
++      </div>
 +      <div ref={listRef} className="max-h-64 overflow-y-auto py-1 overscroll-contain nowheel node-banana-runtime__menu-items">
 +        {filtered.length === 0 ? (
 +          <div className="px-3 py-2 text-[11px] text-neutral-500">No matching nodes</div>
@@ -769,15 +764,16 @@
 +        <span className="text-[9px] text-neutral-500"><kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[8px]">↑↓</kbd> navigate</span>
 +        <span className="text-[9px] text-neutral-500"><kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[8px]">↵</kbd> add</span>
 +      </div>
-     </div>
-   );
- }
++    </div>
++  );
++}
 +
 +export function NodeSearchMenu(props: NodeSearchMenuProps) {
 +  return props.hosted
 +    ? <HostedNodeSearchMenu {...props} {...props.hosted} />
 +    : <StandaloneNodeSearchMenu {...props} />;
 +}
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
 @@ -2,17 +2,21 @@
@@ -795,15 +791,16 @@
  import { useReactFlow } from "@xyflow/react";
 -import { ProviderType, RecentModel } from "@/types";
 -import { ProviderModel, ModelCapability } from "@/lib/providers/types";
+-
+-// localStorage cache for models (persists across dev server restarts)
+-const MODELS_CACHE_KEY = "node-banana-models-cache";
 +import type {
 +  ModelCapability,
 +  ProviderModel,
 +  ProviderType,
 +  RecentModel,
 +} from "../../leesfield/upstream-node-host";
- 
--// localStorage cache for models (persists across dev server restarts)
--const MODELS_CACHE_KEY = "node-banana-models-cache";
++
  const MODELS_CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
 -// Cap the number of cached entries to avoid unbounded localStorage growth.
 -// Entries are pruned LRU-style (oldest timestamp first) on write.
@@ -874,19 +871,19 @@
    }
  }
  
-@@ -151,6 +133,12 @@
-   availableProviders?: string[];
+@@ -152,6 +134,12 @@
    error?: string;
  }
-+
+ 
 +export type ModelSearchDialogHostedProps = {
 +  /** Models supplied by the embedding application; no provider/API fetches are made. */
 +  hostedModels: readonly ProviderModel[];
 +  onHostedModelSelected: (model: ProviderModel) => void;
 +};
- 
++
  interface ModelSearchDialogProps {
    isOpen: boolean;
+   onClose: () => void;
 @@ -166,9 +154,11 @@
    onClearSelection?: () => void;
    /** Custom dialog title (defaults to "Browse Models") */
@@ -938,11 +935,10 @@
      for (const p of serverAvailableProviders) {
        providers.add(p as ProviderType);
      }
-@@ -1137,4 +1124,151 @@
- 
+@@ -1138,3 +1125,150 @@
    // Use portal to render outside React Flow stacking context
    return createPortal(dialogContent, document.body);
-+}
+ }
 +
 +function HostedModelSearchDialog({
 +  isOpen,
@@ -1082,7 +1078,7 @@
 +  );
 +
 +  return typeof document === "undefined" ? dialogContent : createPortal(dialogContent, document.body);
- }
++}
 +
 +export function ModelSearchDialog(props: ModelSearchDialogProps) {
 +  if (props.hosted) {
@@ -1090,6 +1086,7 @@
 +  }
 +  return <StandaloneModelSearchDialog {...props} />;
 +}
+diff --git a/src/components/modals/PromptEditorModal.tsx b/src/components/modals/PromptEditorModal.tsx
 --- a/src/components/modals/PromptEditorModal.tsx
 +++ b/src/components/modals/PromptEditorModal.tsx
 @@ -1,9 +1,6 @@
@@ -1102,7 +1099,7 @@
  const FONT_SIZE_OPTIONS = [10, 12, 14, 16, 18, 20, 24];
  
  interface PromptEditorModalProps {
-@@ -21,32 +18,13 @@
+@@ -21,31 +18,12 @@
  }) => {
    const [prompt, setPrompt] = useState(initialPrompt);
    const [showConfirmation, setShowConfirmation] = useState(false);
@@ -1125,17 +1122,16 @@
    useEffect(() => {
      setPrompt(initialPrompt);
    }, [initialPrompt]);
- 
+-
 -  // Save font size to localStorage when it changes
 -  useEffect(() => {
 -    if (typeof window !== 'undefined') {
 -      localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize.toString());
 -    }
 -  }, [fontSize]);
--
+ 
    // Track unsaved changes
    const hasUnsavedChanges = prompt !== initialPrompt;
- 
 @@ -115,6 +93,9 @@
      <div
        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -1146,9 +1142,10 @@
      >
        <div className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
          {/* Header */}
+diff --git a/src/components/nodes/AnnotationNode.tsx b/src/components/nodes/AnnotationNode.tsx
 --- a/src/components/nodes/AnnotationNode.tsx
 +++ b/src/components/nodes/AnnotationNode.tsx
-@@ -1,98 +1,36 @@
+@@ -1,97 +1,35 @@
  "use client";
  
 -import { useCallback, useRef } from "react";
@@ -1244,8 +1241,7 @@
      }
      openModal(id, imageToEdit, nodeData.annotations);
 -  }, [id, nodeData, openModal]);
-+  }, [id, nodeData, openModal, writable]);
- 
+-
 -  const handleRemove = useCallback(() => {
 -    updateNodeData(id, {
 -      sourceImage: null,
@@ -1255,10 +1251,10 @@
 -      annotations: [],
 -    });
 -  }, [id, updateNodeData]);
--
++  }, [id, nodeData, openModal, writable]);
+ 
    const displayImage = nodeData.outputImage || nodeData.sourceImage;
    const adaptiveDisplayImage = useAdaptiveImageSrc(displayImage, id);
- 
 @@ -103,14 +41,6 @@
        contentClassName="flex-1 min-h-0"
        aspectFitMedia={nodeData.outputImage}
@@ -1284,7 +1280,7 @@
          >
            <img
              src={adaptiveDisplayImage ?? undefined}
-@@ -142,42 +71,35 @@
+@@ -142,41 +71,34 @@
                downloadMedia(displayImage!, "image");
              }}
              aria-label="Download image"
@@ -1333,13 +1329,13 @@
 -            Drop, click, or connect
 +          <span className="text-xs text-neutral-400 mt-2">
 +            Connect an image node to annotate
-           </span>
++          </span>
 +          <span className="text-[10px] text-neutral-600 mt-1">
 +            Local annotation uploads are unavailable in the hosted graph.
-+          </span>
+           </span>
          </div>
        )}
-     </BaseNode>
+diff --git a/src/components/nodes/AudioInputNode.tsx b/src/components/nodes/AudioInputNode.tsx
 --- a/src/components/nodes/AudioInputNode.tsx
 +++ b/src/components/nodes/AudioInputNode.tsx
 @@ -3,19 +3,23 @@
@@ -1479,15 +1475,16 @@
          >
            <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
              <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-@@ -258,6 +270,8 @@
+@@ -257,6 +269,8 @@
+           </span>
          </div>
        )}
- 
-+      <HostedInputHistory nodeId={id} mediaType="audio" selectedAssetId={nodeData.config?.assetId ?? null} />
 +
++      <HostedInputHistory nodeId={id} mediaType="audio" selectedAssetId={nodeData.config?.assetId ?? null} />
+ 
        <Handle
          type="target"
-         position={Position.Left}
+diff --git a/src/components/nodes/BaseNode.tsx b/src/components/nodes/BaseNode.tsx
 --- a/src/components/nodes/BaseNode.tsx
 +++ b/src/components/nodes/BaseNode.tsx
 @@ -2,9 +2,8 @@
@@ -1536,6 +1533,7 @@
          minWidth={minWidth}
          minHeight={minHeight}
          lineClassName="!border-transparent"
+diff --git a/src/components/nodes/EaseCurveNode.tsx b/src/components/nodes/EaseCurveNode.tsx
 --- a/src/components/nodes/EaseCurveNode.tsx
 +++ b/src/components/nodes/EaseCurveNode.tsx
 @@ -3,13 +3,15 @@
@@ -1560,6 +1558,7 @@
  
  type EaseCurveNodeType = Node<EaseCurveNodeData, "easeCurve">;
  
+diff --git a/src/components/nodes/FloatingNodeHeader.tsx b/src/components/nodes/FloatingNodeHeader.tsx
 --- a/src/components/nodes/FloatingNodeHeader.tsx
 +++ b/src/components/nodes/FloatingNodeHeader.tsx
 @@ -3,9 +3,8 @@
@@ -1761,13 +1760,18 @@
                >
                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                    <path d="M8 5v14l11-7z" />
+diff --git a/src/components/nodes/GenerateAudioNode.tsx b/src/components/nodes/GenerateAudioNode.tsx
 --- a/src/components/nodes/GenerateAudioNode.tsx
 +++ b/src/components/nodes/GenerateAudioNode.tsx
 @@ -3,23 +3,29 @@
  import React, { useCallback, useState, useEffect, useMemo } from "react";
  import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
  import { BaseNode } from "./BaseNode";
--import { ProviderBadge } from "./ProviderBadge";
++import { HandleLabel } from "./HandleLabel";
++import { InlineParameterPanel } from "./InlineParameterPanel";
++import { ModelParameters } from "./ModelParameters";
++import { ModelSearchDialog } from "../modals/ModelSearchDialog";
+ import { ProviderBadge } from "./ProviderBadge";
 -import { ModelParameters } from "./ModelParameters";
 -import { useWorkflowStore } from "@/store/workflowStore";
 -import { GenerateAudioNodeData, ProviderType, SelectedModel, ModelInputDef } from "@/types";
@@ -1776,11 +1780,7 @@
 -import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 -import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 -import { useInlineParameters } from "@/hooks/useInlineParameters";
-+import { HandleLabel } from "./HandleLabel";
- import { InlineParameterPanel } from "./InlineParameterPanel";
-+import { ModelParameters } from "./ModelParameters";
-+import { ModelSearchDialog } from "../modals/ModelSearchDialog";
-+import { ProviderBadge } from "./ProviderBadge";
+-import { InlineParameterPanel } from "./InlineParameterPanel";
  import { SettingsTabBar } from "./SettingsTabBar";
 -import { browseRegistry } from "@/utils/browseRegistry";
 -import { downloadMedia } from "@/utils/downloadMedia";
@@ -1878,20 +1878,20 @@
  
    return (
      <>
-@@ -279,6 +279,13 @@
+@@ -278,6 +278,13 @@
+             onExpandChange={handleParametersExpandChange}
            />
          )}
- 
++
 +        <HostedGenerationPrompt
 +          nodeId={id}
 +          value={nodeData.internalPrompt}
 +          connectedValue={nodeData.prompt}
 +          connected={nodeData.promptConnected === true}
 +        />
-+
+ 
          {/* Output audio player */}
          {nodeData.outputAudio && (
-           <div className="relative group mt-2">
 @@ -412,17 +419,6 @@
          {/* Dynamic handles from schema */}
          {dynamicHandles}
@@ -1910,6 +1910,7 @@
          {/* Output audio handle */}
          <Handle
            type="source"
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
 --- a/src/components/nodes/GenerateImageNode.tsx
 +++ b/src/components/nodes/GenerateImageNode.tsx
 @@ -4,25 +4,39 @@
@@ -1967,20 +1968,20 @@
  
  /** Reorder items so they read column-first in a row-based CSS grid.
   *  e.g. [1,2,3,4,5,6,7,8] with 2 cols → [1,5,2,6,3,7,4,8] */
-@@ -51,6 +65,13 @@
+@@ -50,6 +64,13 @@
+ 
  // Image generation capabilities
  const IMAGE_CAPABILITIES: ModelCapability[] = ["text-to-image", "image-to-image"];
- 
++
 +function geminiImageModelId(value: unknown): ModelType {
 +  const candidate = typeof value === "string" ? value : "";
 +  return GEMINI_IMAGE_MODELS.some((model) => model.value === candidate)
 +    ? candidate
 +    : "nano-banana-pro";
 +}
-+
+ 
  type NanoBananaNodeType = Node<NanoBananaNodeData, "nanoBanana">;
  
- export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNodeType>) {
 @@ -185,14 +206,18 @@
        const provider = e.target.value as ProviderType;
  
@@ -2088,12 +2089,22 @@
      setIsBrowseDialogOpen(false);
    }, [id, updateNodeData]);
  
-@@ -568,21 +604,22 @@
+@@ -568,18 +604,19 @@
          </InlineParameterPanel>
        ) : undefined}
      >
 -      {/* Input handles - ALWAYS use same IDs and positions for connection stability */}
 -      {/* Image input at 35%, Text input at 65% - never changes regardless of model */}
+-      <Handle
+-        type="target"
+-        position={Position.Left}
+-        id="image"
+-        style={{ top: "35%", zIndex: 10 }}
+-        data-handletype="image"
+-        isConnectable={true}
+-      />
+-      {/* Image label */}
+-      <HandleLabel label="Image" side="target" color="var(--handle-color-image)" top="calc(35% - 18px)" visible={showLabels} />
 +      {nodeData.supportsImageInput && (
 +        <>
 +          <Handle
@@ -2110,36 +2121,26 @@
        <Handle
          type="target"
          position={Position.Left}
--        id="image"
--        style={{ top: "35%", zIndex: 10 }}
--        data-handletype="image"
--        isConnectable={true}
--      />
--      {/* Image label */}
--      <HandleLabel label="Image" side="target" color="var(--handle-color-image)" top="calc(35% - 18px)" visible={showLabels} />
--      <Handle
--        type="target"
--        position={Position.Left}
-         id="text"
-         style={{ top: "65%", zIndex: 10 }}
-         data-handletype="text"
-@@ -602,6 +639,13 @@
+@@ -601,6 +638,13 @@
+       />
        {/* Output label */}
        <HandleLabel label="Image" side="source" color="var(--handle-color-image)" visible={showLabels} />
- 
++
 +      <HostedGenerationPrompt
 +        nodeId={id}
 +        value={nodeData.internalPrompt}
 +        connectedValue={nodeData.prompt}
 +        connected={nodeData.promptConnected === true}
 +      />
-+
+ 
        <div
          className="relative w-full h-full min-h-0 overflow-hidden rounded-lg"
-         data-tutorial="generate-output-area"
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
 --- a/src/components/nodes/GenerateVideoNode.tsx
 +++ b/src/components/nodes/GenerateVideoNode.tsx
-@@ -3,27 +3,36 @@
+@@ -1,29 +1,38 @@
+ "use client";
+ 
  import React, { useCallback, useState, useEffect, useMemo } from "react";
 -import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
 +import { Handle, Position, NodeProps, Node, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
@@ -2204,7 +2205,8 @@
    }, [id, updateNodeData]);
  
    const handleParametersChange = useCallback(
-@@ -215,3 +215,7 @@
+@@ -216,6 +225,10 @@
+ 
    // Handle parameters expand/collapse - resize node height
    const { setNodes } = useReactFlow();
 +  const updateNodeInternals = useUpdateNodeInternals();
@@ -2212,6 +2214,8 @@
 +    updateNodeInternals(id);
 +  }, [id, nodeData.inputSchema, nodeData.supportsImageInput, updateNodeInternals]);
    const handleParametersExpandChange = useCallback(
+     (expanded: boolean, parameterCount: number) => {
+       // Each parameter row is ~24px, plus some padding
 @@ -256,6 +269,9 @@
      loadFn: loadVideoById,
      buildUpdate: (video, newIndex) => ({
@@ -2222,7 +2226,7 @@
        selectedVideoHistoryIndex: newIndex,
        status: "idle",
        error: null,
-@@ -355,10 +367,12 @@
+@@ -355,10 +371,12 @@
          // compatibility. Schema may only have text inputs (text-to-video models) but
          // we still need the image handle to preserve connections made before model selection.
          (() => {
@@ -2239,7 +2243,7 @@
  
            // Always include at least one image and one text handle for connection stability
            const hasImageInput = imageInputs.length > 0;
-@@ -380,7 +394,7 @@
+@@ -380,22 +398,13 @@
            if (hasImageInput) {
              imageInputs.forEach((input, index) => {
                handles.push({
@@ -2248,10 +2252,10 @@
                  type: "image",
                  label: input.label,
                  schemaName: input.name,
-@@ -388,15 +402,6 @@
+                 description: input.description || null,
                  isPlaceholder: false,
                });
-             });
+-            });
 -          } else {
 -            handles.push({
 -              id: "image",
@@ -2260,15 +2264,13 @@
 -              schemaName: null,
 -              description: "Not used by this model",
 -              isPlaceholder: true,
--            });
+             });
            }
  
-           // Add video handles from schema, or a placeholder if none exist, so a
-@@ -411,15 +416,6 @@
-                 description: input.description || null,
+@@ -412,15 +421,6 @@
                  isPlaceholder: false,
                });
--            });
+             });
 -          } else {
 -            handles.push({
 -              id: "video",
@@ -2277,10 +2279,11 @@
 -              schemaName: null,
 -              description: "Not used by this model",
 -              isPlaceholder: true,
-             });
+-            });
            }
  
-@@ -441,7 +437,7 @@
+           // Add audio handles from schema (no placeholder — audio is not a default input)
+@@ -441,7 +441,7 @@
            if (hasTextInput) {
              textInputs.forEach((input, index) => {
                handles.push({
@@ -2289,7 +2292,7 @@
                  type: "text",
                  label: input.label,
                  schemaName: input.name,
-@@ -522,71 +518,28 @@
+@@ -522,68 +522,25 @@
            return (
              <>
                {renderedHandles}
@@ -2345,6 +2348,16 @@
 -          />
 -          {/* Default image label */}
 -          <HandleLabel label="Image" side="target" color="var(--handle-color-image)" top="calc(35% - 18px)" visible={showLabels} />
+-          <Handle
+-            type="target"
+-            position={Position.Left}
+-            id="video"
+-            style={{ top: "50%", zIndex: 10 }}
+-            data-handletype="video"
+-            isConnectable={true}
+-          />
+-          {/* Default video label */}
+-          <HandleLabel label="Video" side="target" color="var(--handle-color-video)" top="calc(50% - 18px)" visible={showLabels} />
 +          {nodeData.supportsImageInput && (
 +            <>
 +              <Handle
@@ -2361,33 +2374,21 @@
            <Handle
              type="target"
              position={Position.Left}
--            id="video"
--            style={{ top: "50%", zIndex: 10 }}
--            data-handletype="video"
--            isConnectable={true}
--          />
--          {/* Default video label */}
--          <HandleLabel label="Video" side="target" color="var(--handle-color-video)" top="calc(50% - 18px)" visible={showLabels} />
--          <Handle
--            type="target"
--            position={Position.Left}
-             id="text"
-             style={{ top: "65%", zIndex: 10 }}
-             data-handletype="text"
-@@ -606,6 +559,13 @@
+@@ -605,6 +562,13 @@
+       />
        {/* Output label */}
        <HandleLabel label="Video" side="source" color="var(--handle-color-video)" visible={showLabels} />
- 
++
 +      <HostedGenerationPrompt
 +        nodeId={id}
 +        value={nodeData.internalPrompt}
 +        connectedValue={nodeData.prompt}
 +        connected={nodeData.promptConnected === true}
 +      />
-+
+ 
        <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg">
          {/* Preview area */}
-         {nodeData.outputVideo ? (
+diff --git a/src/components/nodes/GifEncoderNode.tsx b/src/components/nodes/GifEncoderNode.tsx
 --- a/src/components/nodes/GifEncoderNode.tsx
 +++ b/src/components/nodes/GifEncoderNode.tsx
 @@ -3,18 +3,19 @@
@@ -2400,18 +2401,18 @@
  import { HandleLabel } from "./HandleLabel";
 -import { generateThumbnail } from "@/utils/imageThumbnail";
  import {
--  getThumbnail,
--  setThumbnail,
 +  GifEncoderNodeData,
 +  WorkflowNode,
 +  generateThumbnail,
-   getPending,
--  setPending,
-+  getThumbnail,
-   removePending,
--} from "@/store/thumbnailCache";
++  getPending,
+   getThumbnail,
++  removePending,
 +  setPending,
-+  setThumbnail,
+   setThumbnail,
+-  getPending,
+-  setPending,
+-  removePending,
+-} from "@/store/thumbnailCache";
 +  useShowHandleLabels,
 +  useWorkflowStore,
 +} from "../../leesfield/upstream-node-host";
@@ -2488,6 +2489,7 @@
                    className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-600/80 hover:bg-red-500 rounded text-white opacity-0 group-hover:opacity-100 flex items-center justify-center"
                    title="Disconnect"
                  >
+diff --git a/src/components/nodes/ImageCompareNode.tsx b/src/components/nodes/ImageCompareNode.tsx
 --- a/src/components/nodes/ImageCompareNode.tsx
 +++ b/src/components/nodes/ImageCompareNode.tsx
 @@ -1,14 +1,12 @@
@@ -2506,18 +2508,14 @@
  
  type ImageCompareNodeType = Node<ImageCompareNodeData, "imageCompare">;
  
-@@ -18,51 +16,11 @@
+@@ -18,50 +16,10 @@
    selected,
  }: NodeProps<ImageCompareNodeType>) {
    const nodeData = data;
 -  const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
 -  const edges = useWorkflowStore((state) => state.edges);
 -  const nodes = useWorkflowStore((state) => state.nodes);
-+  // Leesfield's host adapter resolves canonical before/after ports. Trust that
-+  // port-aware projection instead of guessing from a short list of node types.
-+  const imageA = nodeData.imageA || null;
-+  const imageB = nodeData.imageB || null;
- 
+-
 -  // Collect images in real-time from connected nodes (same pattern as OutputGalleryNode)
 -  const displayImages = useMemo(() => {
 -    const connectedImages: string[] = [];
@@ -2558,10 +2556,14 @@
 -
 -  const imageA = displayImages[0] || nodeData.imageA || null;
 -  const imageB = displayImages[1] || nodeData.imageB || null;
--
++  // Leesfield's host adapter resolves canonical before/after ports. Trust that
++  // port-aware projection instead of guessing from a short list of node types.
++  const imageA = nodeData.imageA || null;
++  const imageB = nodeData.imageB || null;
+ 
    return (
      <BaseNode
-       id={id}
+diff --git a/src/components/nodes/ImageInputNode.tsx b/src/components/nodes/ImageInputNode.tsx
 --- a/src/components/nodes/ImageInputNode.tsx
 +++ b/src/components/nodes/ImageInputNode.tsx
 @@ -3,13 +3,16 @@
@@ -2682,15 +2684,16 @@
          >
            <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-@@ -157,6 +167,8 @@
+@@ -156,6 +166,8 @@
+           <span className="text-xs text-neutral-500 mt-2">{nodeData.isOptional ? "Optional" : "Drop image"}</span>
          </div>
        )}
- 
-+      <HostedInputHistory nodeId={id} mediaType="image" selectedAssetId={nodeData.config?.assetId ?? null} />
 +
++      <HostedInputHistory nodeId={id} mediaType="image" selectedAssetId={nodeData.config?.assetId ?? null} />
+ 
        {/* Handles rendered after visual content so they paint on top */}
        <Handle
-         type="target"
+diff --git a/src/components/nodes/ImageResizeNode.tsx b/src/components/nodes/ImageResizeNode.tsx
 --- a/src/components/nodes/ImageResizeNode.tsx
 +++ b/src/components/nodes/ImageResizeNode.tsx
 @@ -3,11 +3,16 @@
@@ -2714,6 +2717,7 @@
  
  type ImageResizeNodeType = Node<ImageResizeNodeData, "imageResize">;
  
+diff --git a/src/components/nodes/ModelParameters.tsx b/src/components/nodes/ModelParameters.tsx
 --- a/src/components/nodes/ModelParameters.tsx
 +++ b/src/components/nodes/ModelParameters.tsx
 @@ -1,13 +1,9 @@
@@ -2724,11 +2728,12 @@
 -import { ModelParameter } from "@/lib/providers/types";
 -import { useProviderApiKeys } from "@/store/workflowStore";
 -import { deduplicatedFetch } from "@/utils/deduplicatedFetch";
-+import type { ProviderType, ModelInputDef, ModelParameter } from "../../leesfield/upstream-node-host";
-+import { useProviderApiKeys, deduplicatedFetch } from "../../leesfield/upstream-node-host";
- 
+-
 -// localStorage cache for model schemas (persists across dev server restarts)
 -const SCHEMA_CACHE_KEY = "node-banana-schema-cache";
++import type { ProviderType, ModelInputDef, ModelParameter } from "../../leesfield/upstream-node-host";
++import { useProviderApiKeys, deduplicatedFetch } from "../../leesfield/upstream-node-host";
++
  const SCHEMA_CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
  
  interface SchemaCacheEntry {
@@ -2748,14 +2753,15 @@
 -    }
 -  } catch {
 -    // Ignore cache errors
+-  }
+-  return null;
 +  const key = `${provider}:${modelId}`;
 +  const entry = schemaCache.get(key);
 +  if (!entry) return null;
 +  if (Date.now() - entry.timestamp >= SCHEMA_CACHE_TTL) {
 +    schemaCache.delete(key);
 +    return null;
-   }
--  return null;
++  }
 +  return entry;
  }
  
@@ -2791,9 +2797,10 @@
        } finally {
          if (!cancelled) setIsLoading(false);
        }
+diff --git a/src/components/nodes/OutputGalleryNode.tsx b/src/components/nodes/OutputGalleryNode.tsx
 --- a/src/components/nodes/OutputGalleryNode.tsx
 +++ b/src/components/nodes/OutputGalleryNode.tsx
-@@ -4,17 +4,23 @@
+@@ -4,16 +4,22 @@
  import { createPortal } from "react-dom";
  import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
  import { BaseNode } from "./BaseNode";
@@ -2805,6 +2812,8 @@
 -import { downloadMedia as downloadMediaUtil } from "@/utils/downloadMedia";
 -import { useShowHandleLabels } from "@/hooks/useShowHandleLabels";
  import { HandleLabel } from "./HandleLabel";
+-
+-type MediaItem = { type: "image" | "video"; src: string };
 +import {
 +  OutputGalleryNodeData,
 +  defaultNodeDimensions,
@@ -2814,17 +2823,15 @@
 +  useWorkflowStore,
 +} from "../../leesfield/upstream-node-host";
 +import { downloadMedia as downloadMediaUtil } from "../../utils/downloadMedia";
- 
--type MediaItem = { type: "image" | "video"; src: string };
++
 +type MediaItem = { type: "image" | "video" | "audio"; src: string; assetId?: string | null };
- 
++
 +function mediaAssetId(refs: unknown, index: number) {
 +  return Array.isArray(refs) && typeof refs[index] === "string" ? refs[index] : null;
 +}
-+
+ 
  function AdaptiveGalleryThumbnail({ src, alt, nodeId }: { src: string; alt: string; nodeId: string }) {
    const adaptiveSrc = useAdaptiveImageSrc(src, nodeId);
-   return (
 @@ -45,6 +51,8 @@
    const nodeData = data;
    const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
@@ -2886,6 +2893,8 @@
 -      if (vidIndex >= 0 && vidIndex < videos.length) {
 -        videos.splice(vidIndex, 1);
 -        if (vidIndex < videoRefs.length) videoRefs.splice(vidIndex, 1);
+-      }
+-      updateNodeData(id, { videos, videoRefs });
 +      const imageCount = nodeData.images?.length || 0;
 +
 +      if (item.type === "image") {
@@ -2915,8 +2924,7 @@
 +          if (audioIndex < audioRefs.length) audioRefs.splice(audioIndex, 1);
 +        }
 +        updateNodeData(id, { audios, audioRefs });
-       }
--      updateNodeData(id, { videos, videoRefs });
++      }
      }
  
      // Adjust lightbox after removal
@@ -2944,20 +2952,20 @@
  
      // Reverse so oldest items (end of array) appear at top, newest at bottom
      const reversedImages = [...images].reverse();
-@@ -276,6 +316,13 @@
+@@ -274,6 +314,13 @@
+       const nodeId = addNode("videoInput", { x: startX, y: currentY }, { video: reversedVideos[i], filename: `gallery-video-${i + 1}.mp4` });
+       newNodeIds.push(nodeId);
        currentY += defaultNodeDimensions.videoInput.height + gap;
-     }
- 
++    }
++
 +    const reversedAudios = [...audios].reverse();
 +    for (let i = 0; i < reversedAudios.length; i++) {
 +      const nodeId = addNode("audioInput", { x: startX, y: currentY }, { audioFile: reversedAudios[i], filename: `gallery-audio-${i + 1}.mp3` });
 +      newNodeIds.push(nodeId);
 +      currentY += defaultNodeDimensions.audioInput.height + gap;
-+    }
-+
+     }
+ 
      if (newNodeIds.length > 0) {
-       setNodes((nodes) =>
-         nodes.map((n) => ({
 @@ -284,7 +331,7 @@
          }))
        );
@@ -2967,10 +2975,11 @@
  
    // Keyboard navigation for lightbox
    useEffect(() => {
-@@ -335,6 +382,15 @@
+@@ -334,6 +381,15 @@
+           style={{ top: "60%" }}
          />
          <HandleLabel label="Video" side="target" color="var(--handle-color-video)" top="calc(60% - 18px)" visible={showLabels} />
- 
++
 +        <Handle
 +          type="target"
 +          position={Position.Left}
@@ -2979,10 +2988,9 @@
 +          style={{ top: "80%" }}
 +        />
 +        <HandleLabel label="Audio" side="target" color="var(--handle-color-audio)" top="calc(80% - 18px)" visible={showLabels} />
-+
+ 
          {displayMedia.length > 0 && (
            <div className="flex items-center justify-between px-2 py-1">
-             <span className="text-neutral-400 text-[10px]">
 @@ -356,7 +412,7 @@
          {displayMedia.length === 0 ? (
            <div className="w-full flex-1 min-h-[200px] border border-dashed border-neutral-600 rounded flex items-center justify-center">
@@ -3023,6 +3031,7 @@
                ) : (
                  <img
                    src={currentItem.src}
+diff --git a/src/components/nodes/OutputNode.tsx b/src/components/nodes/OutputNode.tsx
 --- a/src/components/nodes/OutputNode.tsx
 +++ b/src/components/nodes/OutputNode.tsx
 @@ -3,15 +3,18 @@
@@ -3052,6 +3061,7 @@
  
  type OutputNodeType = Node<OutputNodeData, "output">;
  
+diff --git a/src/components/nodes/PromptNode.tsx b/src/components/nodes/PromptNode.tsx
 --- a/src/components/nodes/PromptNode.tsx
 +++ b/src/components/nodes/PromptNode.tsx
 @@ -4,16 +4,19 @@
@@ -3148,6 +3158,7 @@
                  className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
                  Save
+diff --git a/src/components/nodes/ProviderBadge.tsx b/src/components/nodes/ProviderBadge.tsx
 --- a/src/components/nodes/ProviderBadge.tsx
 +++ b/src/components/nodes/ProviderBadge.tsx
 @@ -1,5 +1,5 @@
@@ -3157,6 +3168,7 @@
  
  /** Provider badge component - shows provider icon for all providers */
  export function ProviderBadge({ provider }: { provider: ProviderType }) {
+diff --git a/src/components/nodes/RemoveBackgroundNode.tsx b/src/components/nodes/RemoveBackgroundNode.tsx
 --- a/src/components/nodes/RemoveBackgroundNode.tsx
 +++ b/src/components/nodes/RemoveBackgroundNode.tsx
 @@ -3,11 +3,14 @@
@@ -3178,6 +3190,7 @@
  
  type RemoveBackgroundNodeType = Node<RemoveBackgroundNodeData, "removeBackground">;
  
+diff --git a/src/components/nodes/SplitGridNode.tsx b/src/components/nodes/SplitGridNode.tsx
 --- a/src/components/nodes/SplitGridNode.tsx
 +++ b/src/components/nodes/SplitGridNode.tsx
 @@ -3,23 +3,24 @@
@@ -3215,18 +3228,19 @@
  
  type SplitGridNodeType = Node<SplitGridNodeData, "splitGrid">;
  
-@@ -98,6 +99,11 @@
+@@ -97,6 +98,11 @@
+   const nodes = useWorkflowStore((state) => state.nodes);
    const [showEditor, setShowEditor] = useState(false);
    const showLabels = useShowHandleLabels(selected);
- 
++
 +  useEffect(() => {
 +    expandRegistry.register(id, () => setShowEditor(true));
 +    return () => expandRegistry.unregister(id);
 +  }, [id]);
-+
+ 
    const gridRows = clampGridDimension(nodeData.gridRows);
    const gridCols = clampGridDimension(nodeData.gridCols);
-   const cellCount = gridRows * gridCols;
+diff --git a/src/components/nodes/VideoFrameGrabNode.tsx b/src/components/nodes/VideoFrameGrabNode.tsx
 --- a/src/components/nodes/VideoFrameGrabNode.tsx
 +++ b/src/components/nodes/VideoFrameGrabNode.tsx
 @@ -3,11 +3,13 @@
@@ -3247,6 +3261,7 @@
  
  type VideoFrameGrabNodeType = Node<VideoFrameGrabNodeData, "videoFrameGrab">;
  
+diff --git a/src/components/nodes/VideoInputNode.tsx b/src/components/nodes/VideoInputNode.tsx
 --- a/src/components/nodes/VideoInputNode.tsx
 +++ b/src/components/nodes/VideoInputNode.tsx
 @@ -3,12 +3,15 @@
@@ -3363,15 +3378,16 @@
          >
            <svg className="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
              <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-@@ -179,6 +189,8 @@
+@@ -178,6 +188,8 @@
+           <span className="text-xs text-neutral-500 mt-2">{nodeData.isOptional ? "Optional" : "Drop video or click"}</span>
          </div>
        )}
- 
-+      <HostedInputHistory nodeId={id} mediaType="video" selectedAssetId={nodeData.config?.assetId ?? null} />
 +
++      <HostedInputHistory nodeId={id} mediaType="video" selectedAssetId={nodeData.config?.assetId ?? null} />
+ 
        <Handle
          type="target"
-         position={Position.Left}
+diff --git a/src/components/nodes/VideoStitchNode.tsx b/src/components/nodes/VideoStitchNode.tsx
 --- a/src/components/nodes/VideoStitchNode.tsx
 +++ b/src/components/nodes/VideoStitchNode.tsx
 @@ -3,13 +3,15 @@
@@ -3405,6 +3421,7 @@
            const clip = clipMap.get(edge.id);
            if (clip) {
              ordered.push({ edgeId: edge.id, ...clip });
+diff --git a/src/components/nodes/VideoTrimNode.tsx b/src/components/nodes/VideoTrimNode.tsx
 --- a/src/components/nodes/VideoTrimNode.tsx
 +++ b/src/components/nodes/VideoTrimNode.tsx
 @@ -3,13 +3,15 @@
@@ -3429,6 +3446,7 @@
  
  type VideoTrimNodeType = Node<VideoTrimNodeData, "videoTrim">;
  
+diff --git a/src/components/splitgrid/SplitGridTemplateModal.tsx b/src/components/splitgrid/SplitGridTemplateModal.tsx
 --- a/src/components/splitgrid/SplitGridTemplateModal.tsx
 +++ b/src/components/splitgrid/SplitGridTemplateModal.tsx
 @@ -28,22 +28,23 @@
@@ -3470,6 +3488,7 @@
  
  const nodeTypes: NodeTypes = {
    splitGridTemplateNode: SplitGridTemplateNode,
+diff --git a/src/components/splitgrid/TemplateNodes.tsx b/src/components/splitgrid/TemplateNodes.tsx
 --- a/src/components/splitgrid/TemplateNodes.tsx
 +++ b/src/components/splitgrid/TemplateNodes.tsx
 @@ -21,17 +21,19 @@
@@ -3495,6 +3514,7 @@
  import { ModelSearchDialog } from "../modals/ModelSearchDialog";
  import { ModelParameters } from "../nodes/ModelParameters";
  import { InlineParameterPanel } from "../nodes/InlineParameterPanel";
+diff --git a/src/components/splitgrid/templateCatalog.tsx b/src/components/splitgrid/templateCatalog.tsx
 --- a/src/components/splitgrid/templateCatalog.tsx
 +++ b/src/components/splitgrid/templateCatalog.tsx
 @@ -8,7 +8,7 @@
@@ -3506,6 +3526,7 @@
  import { ALL_NODE_OPTIONS } from "../ConnectionDropMenu";
  
  export type TemplateHandleKind = "image" | "text";
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -56,6 +56,27 @@
@@ -3536,6 +3557,8 @@
  export const NODE_BANANA_UPSTREAM_VERSION = "1.9.0" as const;
  
  export const LEESFIELD_RUNTIME_FEATURES = [
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -0,0 +1,874 @@
@@ -4413,6 +4436,8 @@
 +  }
 +  return <NodeBananaUpstreamHostProvider value={hostValue}>{body}</NodeBananaUpstreamHostProvider>;
 +}
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -0,0 +1,1024 @@

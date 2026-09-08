@@ -1,27 +1,45 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -71,1 +71,2 @@
--import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
-+import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
+@@ -69,6 +69,7 @@
+ import { SharedEdgeGradients as UpstreamSharedEdgeGradients } from "../components/edges/SharedEdgeGradients";
+ import { ReferenceEdge } from "../components/edges/ReferenceEdge";
+ import { NodeBananaUpstreamHostProvider } from "./upstream-node-host";
 +import { KeyboardShortcutsDialog } from "../components/KeyboardShortcutsDialog";
-@@ -153,1 +154,3 @@
--  onUngroup?: (ids: string[]) => void;
-+  onUngroup?: (ids: string[]) => void;
+ 
+ export type NodeBananaRuntimeNode = Node<Record<string, unknown>, string>;
+ export type NodeBananaRuntimeEdge = Edge<Record<string, unknown>, string>;
+@@ -151,6 +152,8 @@
+   remapPastedNodes?: (nodes: NodeBananaRuntimeNode[], ids: Record<string, string>, offset: { x: number; y: number }, groupIds: Record<string, string>) => NodeBananaRuntimeNode[];
+   onCreateGroup?: (ids: string[], nodes: NodeBananaRuntimeNode[]) => void;
+   onUngroup?: (ids: string[]) => void;
 +  onImportCanvasMedia?: (source: File | { assetId: string }, signal: AbortSignal) => Promise<{ assetId: string; mediaType: "image" | "audio" | "video" }>;
 +  onInputError?: (error: Error) => void;
-@@ -249,1 +252,1 @@
+   graph: NodeBananaRuntimeGraph;
+   nodeTypes: NodeTypes;
+   edgeTypes?: EdgeTypes;
+@@ -246,7 +249,7 @@
+ }
+ 
+ function isFormTarget(target: EventTarget | null) {
 -  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 +  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='dialog'], [role='alertdialog']"));
-@@ -439,2 +442,4 @@
--  onUngroup,
--  graph,
-+  onUngroup,
+ }
+ 
+ function pointerPosition(event: MouseEvent | TouchEvent): XYPosition {
+@@ -437,6 +440,8 @@
+   remapPastedNodes,
+   onCreateGroup,
+   onUngroup,
 +  onImportCanvasMedia,
 +  onInputError,
-+  graph,
-@@ -470,1 +475,13 @@
--  const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
-+  const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
+   graph,
+   nodeTypes,
+   edgeTypes,
+@@ -468,6 +473,18 @@
+   const instanceRef = useRef<ReactFlowInstance<NodeBananaRuntimeNode, NodeBananaRuntimeEdge> | null>(null);
+   const dragStartRef = useRef<NodeBananaRuntimeGraph | null>(null);
+   const [modelBrowserOpen, setModelBrowserOpen] = useState(false);
 +  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 +  const [contentBusy, setContentBusy] = useState(false);
 +  const contentController = useRef<AbortController | null>(null);
@@ -34,25 +52,33 @@
 +    if (!writable) contentController.current?.abort();
 +    return () => contentController.current?.abort();
 +  }, [writable]);
-@@ -778,1 +790,1 @@
+ 
+   const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
+     store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
+@@ -775,7 +792,7 @@
+ 
+   const paste = useCallback(() => {
+     if (!writable || !interaction.clipboard) return;
 -    const offset = 28 * (interaction.pasteCount + 1);
 +    const offset = 50 * (interaction.pasteCount + 1);
-@@ -801,1 +813,1 @@
+     const ids = new Map(interaction.clipboard.nodes.map((node) => [node.id, createId()]));
+     if (graph.nodes.length + interaction.clipboard.nodes.length > 500
+       || (graph.groups?.length ?? 0) + (interaction.clipboard.groups?.length ?? 0) > 500) return;
+@@ -798,7 +815,7 @@
+       target: ids.get(edge.target) as string,
+       selected: false,
+     }));
 -    store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
 +    store.setState({ clipboard: null, pasteCount: 0, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
-@@ -869,12 +881,170 @@
+     publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges],
+       ...(graph.groups || groups ? { groups: [...(graph.groups ?? []), ...(groups ?? [])] } : {}),
+     }, "paste");
+@@ -866,16 +883,174 @@
+     store.setState({ edgeOffsets: { ...store.getState().edgeOffsets, [edgeId]: { offsetX, offsetY } } });
+   }, [store]);
+ 
 -  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
 -    if (isFormTarget(event.target)) return;
--    const command = event.metaKey || event.ctrlKey;
--    if (command && event.key.toLowerCase() === "k") { event.preventDefault(); openCenteredMenu(); return; }
--    if (command && event.key.toLowerCase() === "c") { event.preventDefault(); copy(); return; }
--    if (command && event.key.toLowerCase() === "v") { event.preventDefault(); paste(); return; }
--    if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
--    if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
--    if (event.key === "Escape") store.setState({ menu: closedMenu });
--  }, [copy, openCenteredMenu, paste, redo, removeSelection, store, undo]);
--
--  const availableItems = useMemo(() => {
 +  // Event work reads the latest committed graph after asynchronous clipboard/storage
 +  // operations. A Space remount or read-only transition aborts the entire batch.
 +  const contentContext = useRef({ graph, writable, publish, onCreateNode, paletteItems, onImportCanvasMedia });
@@ -176,7 +202,11 @@
 +  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
 +    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229
 +      || isFormTarget(event.target) || canvasBlocked() || event.altKey) return;
-+    const command = event.metaKey || event.ctrlKey;
+     const command = event.metaKey || event.ctrlKey;
+-    if (command && event.key.toLowerCase() === "k") { event.preventDefault(); openCenteredMenu(); return; }
+-    if (command && event.key.toLowerCase() === "c") { event.preventDefault(); copy(); return; }
+-    if (command && event.key.toLowerCase() === "v") { event.preventDefault(); paste(); return; }
+-    if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
 +    const key = event.key.toLowerCase();
 +    if (!command && key === "?") { event.preventDefault(); setShortcutsOpen(true); return; }
 +    if (command && key === "k") { event.preventDefault(); openCenteredMenu(); return; }
@@ -218,12 +248,17 @@
 +      }));
 +      return;
 +    }
-+    if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
-+    if (event.key === "Escape") store.setState({ menu: closedMenu });
+     if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelection(); }
+     if (event.key === "Escape") store.setState({ menu: closedMenu });
+-  }, [copy, openCenteredMenu, paste, redo, removeSelection, store, undo]);
 +  };
-+
-+  const availableItems = useMemo(() => {
-@@ -953,1 +1116,35 @@
+ 
+   const availableItems = useMemo(() => {
+     return filterPaletteItems ? filterPaletteItems(paletteItems, interaction.menu.pendingConnection) : paletteItems;
+@@ -950,7 +1125,41 @@
+   return (
+     <NodeBananaUpstreamHostProvider value={upstreamHostValue}>
+       <ReactFlowProvider>
 -        <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas">
 +        <div ref={rootRef} className={`node-banana-runtime ${className ?? ""}`} role="application" aria-label={labels.application} tabIndex={0} onKeyDown={onKeyDown} data-node-banana-component="WorkflowCanvas"
 +          aria-busy={contentBusy}
@@ -260,26 +295,47 @@
 +            if (files.length) void importContent(async () => files, position, false, false);
 +          }}>
 +          <KeyboardShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} hosted />
+       <ReactFlow<NodeBananaRuntimeNode, NodeBananaRuntimeEdge>
+         nodes={visibleNodes}
+         edges={visibleEdges}
+diff --git a/src/components/KeyboardShortcutsDialog.tsx b/src/components/KeyboardShortcutsDialog.tsx
 --- a/src/components/KeyboardShortcutsDialog.tsx
 +++ b/src/components/KeyboardShortcutsDialog.tsx
-@@ -73,2 +73,3 @@
--  onClose: () => void;
--}
-+  onClose: () => void;
+@@ -71,9 +71,10 @@
+ interface KeyboardShortcutsDialogProps {
+   isOpen: boolean;
+   onClose: () => void;
 +  hosted?: boolean;
-+}
-@@ -76,1 +77,1 @@
+ }
+ 
 -export function KeyboardShortcutsDialog({ isOpen, onClose }: KeyboardShortcutsDialogProps) {
 +export function KeyboardShortcutsDialog({ isOpen, onClose, hosted = false }: KeyboardShortcutsDialogProps) {
-@@ -92,1 +93,1 @@
+   useEffect(() => {
+     if (!isOpen) return;
+ 
+@@ -89,7 +90,7 @@
+   if (!isOpen) return null;
+ 
+   return (
 -    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
 +    <div role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-@@ -100,2 +101,3 @@
--            onClick={onClose}
--            className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+       <div className="bg-neutral-800 rounded-lg w-[520px] max-h-[80vh] border border-neutral-700 shadow-xl flex flex-col overflow-hidden">
+         {/* Header */}
+         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-700">
+@@ -97,6 +98,7 @@
+             Keyboard Shortcuts
+           </h2>
+           <button
 +            aria-label="Close keyboard shortcuts"
-+            onClick={onClose}
-+            className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
-@@ -117,1 +119,1 @@
+             onClick={onClose}
+             className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+           >
+@@ -114,7 +116,7 @@
+                 {group.title}
+               </h3>
+               <div className="space-y-1.5">
 -                {group.shortcuts.map((shortcut, idx) => (
 +                {group.shortcuts.filter((shortcut) => !hosted || !["Run workflow", "Add LLM Text node", "Add Array node", "Add ComfyUI App node"].includes(shortcut.description)).map((shortcut, idx) => (
+                   <div
+                     key={idx}
+                     className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/40 transition-colors"

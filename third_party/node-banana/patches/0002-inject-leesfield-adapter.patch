@@ -23,4 +23,3 @@ new file mode 100644
 +  ): () => void;
 +}
 +
-+export type CreateLeesfieldEditorAdapter = () => LeesfieldEditorAdapter;

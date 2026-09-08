@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -6,6 +6,7 @@
@@ -144,11 +145,10 @@
  }: NodeBananaCanvasProps) {
    const store = useMemo(createInteractionStore, []);
    const interaction = useStore(store);
-@@ -410,7 +447,30 @@
-     store.setState({ menu: closedMenu, selectedNodeIds: [result.node.id], selectedEdgeIds: [] });
+@@ -411,6 +448,29 @@
      rootRef.current?.focus();
    }, [graph, interaction.menu, onCreateNode, publish, store]);
-+
+ 
 +  const addNodeAtCenter = useCallback((item: NodeBananaRuntimePaletteItem) => {
 +    if (!writable) return;
 +    const rect = rootRef.current?.getBoundingClientRect();
@@ -164,7 +164,7 @@
 +    }, "create");
 +    store.setState({ selectedNodeIds: [result.node.id], selectedEdgeIds: [] });
 +  }, [graph, onCreateNode, publish, store, writable]);
- 
++
 +  const runSelectedNode = useCallback(() => {
 +    const selectedId = store.getState().selectedNodeIds[0];
 +    if (!selectedId || store.getState().selectedNodeIds.length !== 1) return;
@@ -259,6 +259,7 @@
        {!writable ? <p className="node-banana-runtime__readonly" role="status">{labels.readOnly}</p> : null}
        <RuntimeNodeMenu
          labels={labels}
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -12,6 +12,11 @@
@@ -278,6 +279,8 @@
  export type LeesfieldRuntimeFeature =
    (typeof LEESFIELD_RUNTIME_FEATURES)[number];
 -
+diff --git a/src/leesfield/hosted-header.tsx b/src/leesfield/hosted-header.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/hosted-header.tsx
 @@ -0,0 +1,128 @@
@@ -409,4 +412,3 @@
 +    </>
 +  );
 +}
-

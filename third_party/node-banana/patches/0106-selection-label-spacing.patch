@@ -1,8 +1,7 @@
 diff --git a/src/components/MultiSelectToolbar.tsx b/src/components/MultiSelectToolbar.tsx
-index 6048f29..f22b6df 100644
 --- a/src/components/MultiSelectToolbar.tsx
 +++ b/src/components/MultiSelectToolbar.tsx
-@@ -265,7 +265,7 @@ export function MultiSelectToolbar({ hosted }: MultiSelectToolbarProps = {}) {
+@@ -265,7 +265,7 @@
          transform: "translateX(-50%)",
        }}
      >

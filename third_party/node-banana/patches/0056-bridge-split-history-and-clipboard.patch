@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -4,6 +4,7 @@
@@ -8,7 +9,7 @@
    useMemo,
    useRef,
    useState,
-@@ -140,6 +140,8 @@
+@@ -140,6 +141,8 @@
  };
  
  export type NodeBananaCanvasProps = {
@@ -17,7 +18,7 @@
    graph: NodeBananaRuntimeGraph;
    nodeTypes: NodeTypes;
    edgeTypes?: EdgeTypes;
-@@ -419,6 +421,8 @@
+@@ -419,6 +422,8 @@
  }
  
  export function NodeBananaCanvasRuntime({
@@ -26,37 +27,38 @@
    graph,
    nodeTypes,
    edgeTypes,
-@@ -453,6 +457,11 @@
+@@ -452,6 +457,11 @@
+   const recordUndo = useCallback((previous: NodeBananaRuntimeGraph) => {
      store.setState((state) => ({ undo: [...state.undo.slice(-49), cloneGraph(previous)], redo: [] }));
    }, [store]);
- 
++
 +  useEffect(() => {
 +    onUndoRecorderChange?.(recordUndo);
 +    return () => onUndoRecorderChange?.(null);
 +  }, [onUndoRecorderChange, recordUndo]);
-+
+ 
    const publish = useCallback((next: NodeBananaRuntimeGraph, reason: NodeBananaCanvasReason, record = true) => {
      if (!writable) return;
-     if (record) recordUndo(graph);
-@@ -730,7 +739,8 @@
+@@ -730,7 +740,8 @@
      if (!writable || !interaction.clipboard) return;
      const offset = 28 * (interaction.pasteCount + 1);
      const ids = new Map(interaction.clipboard.nodes.map((node) => [node.id, createId()]));
+-    const nodes = interaction.clipboard.nodes.map((node) => ({
 +    const copiedNodes = remapPastedNodes?.(interaction.clipboard.nodes, Object.fromEntries(ids), { x: offset, y: offset }) ?? interaction.clipboard.nodes;
 +    const nodes = copiedNodes.map((node) => ({
--    const nodes = interaction.clipboard.nodes.map((node) => ({
        ...node,
        id: ids.get(node.id) as string,
        position: { x: node.position.x + offset, y: node.position.y + offset },
-@@ -745,7 +755,7 @@
+@@ -745,7 +756,7 @@
      }));
      store.setState({ pasteCount: interaction.pasteCount + 1, selectedNodeIds: nodes.map((node) => node.id), selectedEdgeIds: [] });
      publish({ nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] }, "paste");
-+  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, remapPastedNodes, store, writable]);
 -  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, store, writable]);
++  }, [createId, graph, interaction.clipboard, interaction.pasteCount, publish, remapPastedNodes, store, writable]);
  
    const removeSelection = useCallback(() => {
      if (!writable) return;
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -230,6 +230,8 @@
@@ -77,14 +79,15 @@
    updateGroup: noop,
    deleteGroup: noop,
    moveGroupNodes: noop,
+diff --git a/src/components/GroupsOverlay.tsx b/src/components/GroupsOverlay.tsx
 --- a/src/components/GroupsOverlay.tsx
 +++ b/src/components/GroupsOverlay.tsx
 @@ -66,9 +66,11 @@
    zoom,
    showInteractiveControls,
  }: GroupControlsProps) {
-+  const { group, updateGroup, deleteGroup, moveGroupNodes, toggleGroupLock, beginGroupInteraction, endGroupInteraction } =
 -  const { group, updateGroup, deleteGroup, moveGroupNodes, toggleGroupLock } =
++  const { group, updateGroup, deleteGroup, moveGroupNodes, toggleGroupLock, beginGroupInteraction, endGroupInteraction } =
      useWorkflowStore(
        useShallow((state) => ({
 +        beginGroupInteraction: state.beginGroupInteraction,
@@ -100,8 +103,8 @@
        setIsDragging(true);
        dragStartRef.current = { x: e.clientX, y: e.clientY };
      },
-+    [beginGroupInteraction]
 -    []
++    [beginGroupInteraction]
    );
  
    // Resize handlers
@@ -117,8 +120,8 @@
          posY: group.position.y,
        };
      },
-+    [beginGroupInteraction, group?.size, group?.position]
 -    [group?.size, group?.position]
++    [beginGroupInteraction, group?.size, group?.position]
    );
  
    useEffect(() => {
@@ -134,8 +137,8 @@
        window.removeEventListener("mousemove", handleMouseMove);
        window.removeEventListener("mouseup", handleMouseUp);
      };
-+  }, [endGroupInteraction, isDragging, groupId, group?.position, moveGroupNodes, updateGroup, zoom]);
 -  }, [isDragging, groupId, group?.position, moveGroupNodes, updateGroup, zoom]);
++  }, [endGroupInteraction, isDragging, groupId, group?.position, moveGroupNodes, updateGroup, zoom]);
  
    useEffect(() => {
      if (!isResizing || !resizeHandle) return;
@@ -151,7 +154,8 @@
        window.removeEventListener("mousemove", handleMouseMove);
        window.removeEventListener("mouseup", handleMouseUp);
      };
-+  }, [endGroupInteraction, isResizing, resizeHandle, groupId, updateGroup, zoom]);
 -  }, [isResizing, resizeHandle, groupId, updateGroup, zoom]);
++  }, [endGroupInteraction, isResizing, resizeHandle, groupId, updateGroup, zoom]);
  
    if (!group) return null;
+ 

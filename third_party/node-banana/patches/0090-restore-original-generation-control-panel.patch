@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/ControlPanel.tsx b/src/components/nodes/ControlPanel.tsx
 --- a/src/components/nodes/ControlPanel.tsx
 +++ b/src/components/nodes/ControlPanel.tsx
 @@ -1,98 +1,13 @@
@@ -169,7 +170,8 @@
    );
  }
  
--function getNodeTypeTitle(type: NodeType): string {
++
+ function getNodeTypeTitle(type: NodeType): string {
 -  const titles: Record<string, string> = {
 -    nanoBanana: "Generate Image Settings",
 -    generateVideo: "Generate Video Settings",
@@ -180,7 +182,8 @@
 -    conditionalSwitch: "Conditional Switch Settings",
 -  };
 -  return titles[type] || "Settings";
--}
++  return type === "nanoBanana" ? "Generate Image Settings" : type === "generateVideo" ? "Generate Video Settings" : "Generate Audio Settings";
+ }
  
 -// Generate Image Controls
 -function GenerateImageControls({ node }: { node: Node }) {
@@ -408,10 +411,27 @@
 -      )}
 -    </>
 -  );
-+function getNodeTypeTitle(type: NodeType): string {
-+  return type === "nanoBanana" ? "Generate Image Settings" : type === "generateVideo" ? "Generate Video Settings" : "Generate Audio Settings";
++// Keep the upstream side-panel composition; Leesfield owns catalog and schema.
++function HostedGenerationControls({ node }: { node: Node }) {
++  const [browsing, setBrowsing] = useState(false);
++  const update = useWorkflowStore((state) => state.updateNodeData);
++  const selectedModel = node.data.selectedModel as SelectedModel | undefined;
++  const mediaType = node.type === "nanoBanana" ? "image" : node.type === "generateVideo" ? "video" : "audio";
++  return <>
++    <div className="space-y-2">
++      <label className="text-xs text-neutral-400">Model</label>
++      <button type="button" onClick={() => setBrowsing(true)} className="w-full px-3 py-2 text-left text-xs bg-neutral-900 border border-neutral-700 rounded-lg hover:border-neutral-500">
++        {selectedModel?.displayName || "Browse models"}
++      </button>
++    </div>
++    {selectedModel?.modelId && <ModelParameters key={selectedModel.modelId} modelId={selectedModel.modelId} provider={selectedModel.provider}
++      parameters={(node.data.parameters ?? {}) as Record<string, unknown>}
++      onParametersChange={(parameters) => update(node.id, { parameters })} />}
++    <ModelSearchDialog isOpen={browsing} onClose={() => setBrowsing(false)} initialCapabilityFilter={mediaType}
++      onModelSelected={(model) => { update(node.id, { selectedModel: { provider: model.provider, modelId: model.id, displayName: model.name }, parameters: {} }); setBrowsing(false); }} />
++  </>;
  }
- 
+-
 -// Generate Video Controls
 -function GenerateVideoControls({ node }: { node: Node }) {
 -  const nodeData = node.data as GenerateVideoNodeData;
@@ -642,19 +662,7 @@
 -          {isRunning ? "Running..." : "Run"}
 -        </button>
 -      </div>
-+// Keep the upstream side-panel composition; Leesfield owns catalog and schema.
-+function HostedGenerationControls({ node }: { node: Node }) {
-+  const [browsing, setBrowsing] = useState(false);
-+  const update = useWorkflowStore((state) => state.updateNodeData);
-+  const selectedModel = node.data.selectedModel as SelectedModel | undefined;
-+  const mediaType = node.type === "nanoBanana" ? "image" : node.type === "generateVideo" ? "video" : "audio";
-+  return <>
-+    <div className="space-y-2">
-+      <label className="text-xs text-neutral-400">Model</label>
-+      <button type="button" onClick={() => setBrowsing(true)} className="w-full px-3 py-2 text-left text-xs bg-neutral-900 border border-neutral-700 rounded-lg hover:border-neutral-500">
-+        {selectedModel?.displayName || "Browse models"}
-+      </button>
-     </div>
+-    </div>
 -  );
 -}
 -
@@ -962,13 +970,7 @@
 -      )}
 -    </div>
 -  );
-+    {selectedModel?.modelId && <ModelParameters key={selectedModel.modelId} modelId={selectedModel.modelId} provider={selectedModel.provider}
-+      parameters={(node.data.parameters ?? {}) as Record<string, unknown>}
-+      onParametersChange={(parameters) => update(node.id, { parameters })} />}
-+    <ModelSearchDialog isOpen={browsing} onClose={() => setBrowsing(false)} initialCapabilityFilter={mediaType}
-+      onModelSelected={(model) => { update(node.id, { selectedModel: { provider: model.provider, modelId: model.id, displayName: model.name }, parameters: {} }); setBrowsing(false); }} />
-+  </>;
- }
+-}
 -
 -// Conditional Switch Controls
 -function ConditionalSwitchControls({ node }: { node: Node }) {
@@ -1105,6 +1107,7 @@
 -    </div>
 -  );
 -}
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -10,7 +10,8 @@
@@ -1139,6 +1142,7 @@
 +  };
 +  return <NodeBananaUpstreamHostProvider value={value}><ControlPanel /></NodeBananaUpstreamHostProvider>;
 +}
+diff --git a/src/leesfield/runtime-entry.ts b/src/leesfield/runtime-entry.ts
 --- a/src/leesfield/runtime-entry.ts
 +++ b/src/leesfield/runtime-entry.ts
 @@ -108,3 +108,5 @@

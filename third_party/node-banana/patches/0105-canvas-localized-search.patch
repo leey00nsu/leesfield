@@ -1,3 +1,4 @@
+diff --git a/src/components/FloatingActionBar.tsx b/src/components/FloatingActionBar.tsx
 --- a/src/components/FloatingActionBar.tsx
 +++ b/src/components/FloatingActionBar.tsx
 @@ -538,7 +538,7 @@
@@ -9,6 +10,7 @@
                    {categoryItems.map((item) => (
                      <button
                        key={item.kind}
+diff --git a/src/components/NodeSearchMenu.tsx b/src/components/NodeSearchMenu.tsx
 --- a/src/components/NodeSearchMenu.tsx
 +++ b/src/components/NodeSearchMenu.tsx
 @@ -69,7 +69,7 @@

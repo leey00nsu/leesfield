@@ -1,4 +1,6 @@
---- a/src/leesfield/inputs.tsx
+diff --git a/src/leesfield/inputs.tsx b/src/leesfield/inputs.tsx
+new file mode 100644
+--- /dev/null
 +++ b/src/leesfield/inputs.tsx
 @@ -0,0 +1,10 @@
 +"use client";
@@ -11,280 +13,688 @@
 +export function CanvasInput(props:InputHTMLAttributes<HTMLInputElement>){const {Input}=useContext(Context);return <Input {...props}/>}
 +export function CanvasTextarea(props:ComponentProps<"textarea">){const {Textarea}=useContext(Context);return <Textarea {...props}/>}
 +export function CanvasRange(props:ComponentProps<InputComponents["Range"]>){const {Range}=useContext(Context);return <Range {...props}/>}
+diff --git a/src/components/modals/ModelSearchDialog.tsx b/src/components/modals/ModelSearchDialog.tsx
 --- a/src/components/modals/ModelSearchDialog.tsx
 +++ b/src/components/modals/ModelSearchDialog.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -559 +561 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -556,7 +558,7 @@
+             </div>
+ 
+             {/* Capability Filter */}
 -            <select
 +            <CanvasSelect
-@@ -571 +573 @@
+               aria-label={tc("Model capability")}
+               value={capabilityFilter}
+               onChange={(e) =>
+@@ -568,7 +570,7 @@
+               <option value="image">{tc("Image")}</option>
+               <option value="video">{tc("Video")}</option>
+               <option value="audio">{tc("Audio")}</option>
 -            </select>
 +            </CanvasSelect>
+ 
+             {/* Refresh Cache */}
+             <button
+diff --git a/src/components/modals/PromptConstructorEditorModal.tsx b/src/components/modals/PromptConstructorEditorModal.tsx
 --- a/src/components/modals/PromptConstructorEditorModal.tsx
 +++ b/src/components/modals/PromptConstructorEditorModal.tsx
-@@ -1,0 +1 @@
+@@ -1,4 +1,5 @@
+ import { useCanvasTranslation } from "../../leesfield/localization";
 +import { CanvasSelect, CanvasTextarea } from "../../leesfield/inputs";
-@@ -95,0 +97 @@
+ import { createPortal } from "react-dom";
+ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+ import { AvailableVariable } from "../../leesfield/upstream-node-host";
+@@ -93,6 +94,7 @@
+     const controls = () => Array.from(activeDialog()?.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? []);
+     (textareaRef.current?.disabled ? controls()[0] : textareaRef.current)?.focus();
+     const handleKeyDown = (e: KeyboardEvent) => {
 +      if (activeDialog()?.querySelector('[role="listbox"]')) return;
-@@ -194 +196 @@
+       if (e.key === 'Escape') {
+         e.preventDefault();
+         e.stopImmediatePropagation();
+@@ -191,7 +193,7 @@
+       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+       onClick={handleBackdropClick}
+     >
 -      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tc("Edit Prompt Constructor")} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
 +      <div ref={dialogRef} data-canvas-dialog-content="" role="dialog" aria-modal="true" aria-label={tc("Edit Prompt Constructor")} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
-@@ -209 +211 @@
+         {/* Header */}
+         <div className="px-6 pt-6 pb-4 flex items-center gap-3">
+           <h2 className="text-xl font-semibold text-neutral-100">{tc("Edit Prompt Constructor")}</h2>
+@@ -206,7 +208,7 @@
+           {/* Toolbar */}
+           <div className="min-h-[48px] bg-neutral-900 border-b border-neutral-700 flex items-center px-4 gap-3 shrink-0 flex-wrap py-2">
+             {/* Font Size Control */}
 -            <select
 +            <CanvasSelect
-@@ -219 +221 @@
+               value={fontSize}
+               onChange={handleFontSizeChange}
+               className="text-sm py-1 px-2 border border-neutral-700 rounded bg-neutral-900/50 focus:outline-none focus:ring-1 focus:ring-neutral-600 text-neutral-300"
+@@ -216,7 +218,7 @@
+                   {size}px
+                 </option>
+               ))}
 -            </select>
 +            </CanvasSelect>
-@@ -241 +243 @@
+ 
+             {/* Divider */}
+             {availableVariables.length > 0 && (
+@@ -238,7 +240,7 @@
+ 
+           {/* Textarea with autocomplete */}
+           <div className="relative flex-1 flex flex-col">
 -            <textarea
 +            <CanvasTextarea
+               ref={textareaRef}
+                 readOnly={readOnly}
+               value={template}
+diff --git a/src/components/modals/PromptEditorModal.tsx b/src/components/modals/PromptEditorModal.tsx
 --- a/src/components/modals/PromptEditorModal.tsx
 +++ b/src/components/modals/PromptEditorModal.tsx
-@@ -1,0 +1 @@
+@@ -1,4 +1,5 @@
+ import { useCanvasTranslation } from "../../leesfield/localization";
 +import { CanvasSelect, CanvasTextarea } from "../../leesfield/inputs";
-@@ -60,0 +62 @@
+ import React, { useState, useEffect, useCallback, useRef } from 'react';
+ import { createPortal } from 'react-dom';
+ 
+@@ -58,6 +59,7 @@
+     const controls = () => Array.from(activeDialog()?.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? []);
+     (textareaRef.current?.disabled ? controls()[0] : textareaRef.current)?.focus();
+     const handleKeyDown = (e: KeyboardEvent) => {
 +      if (activeDialog()?.querySelector('[role="listbox"]')) return;
-@@ -139 +141 @@
+       if (e.key === 'Escape') {
+         e.preventDefault();
+         e.stopImmediatePropagation();
+@@ -136,7 +138,7 @@
+       aria-modal="true"
+       aria-label={tc("Edit Prompt")}
+     >
 -      <div ref={dialogRef} className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
 +      <div ref={dialogRef} data-canvas-dialog-content="" className="relative bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col mx-4">
-@@ -150 +152 @@
+         {/* Header */}
+         <div className="px-6 pt-6 pb-4">
+           <h2 className="text-xl font-semibold text-neutral-100">{tc("Edit Prompt")}</h2>
+@@ -147,7 +149,7 @@
+           {/* Toolbar - header of the box */}
+           <div className="h-12 bg-neutral-900 border-b border-neutral-700 flex items-center px-4 gap-3 shrink-0">
+             {/* Font Size Control */}
 -            <select
 +            <CanvasSelect
-@@ -161 +163 @@
+               aria-label={tc("Prompt font size")}
+               value={fontSize}
+               onChange={handleFontSizeChange}
+@@ -158,11 +160,11 @@
+                   {size}px
+                 </option>
+               ))}
 -            </select>
 +            </CanvasSelect>
-@@ -165 +167 @@
+           </div>
+ 
+           {/* Textarea */}
 -          <textarea
 +          <CanvasTextarea
+             ref={textareaRef}
+             aria-label={tc("Prompt text")}
+             disabled={readOnly}
+diff --git a/src/components/nodes/ArrayNode.tsx b/src/components/nodes/ArrayNode.tsx
 --- a/src/components/nodes/ArrayNode.tsx
 +++ b/src/components/nodes/ArrayNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -236 +238 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -233,7 +235,7 @@
+       <div className="flex flex-col gap-2 pt-3 flex-1 min-h-0">
+         <div className="flex items-center gap-2">
+           <label className="shrink-0 text-[11px] text-neutral-400">{tc("Split")}</label>
 -          <select
 +          <CanvasSelect
-@@ -244 +246 @@
+             value={nodeData.splitMode}
+             onChange={handleBasicModeChange}
+             className="nodrag nopan flex-1 min-w-0 text-[11px] py-1 px-2 bg-[#1a1a1a] rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-600 text-white"
+@@ -241,7 +243,7 @@
+             <option value="delimiter">{tc("Delimiter")}</option>
+             <option value="newline">{tc("Newline")}</option>
+             <option value="regex">{tc("Regex (Advanced)")}</option>
 -          </select>
 +          </CanvasSelect>
-@@ -314 +316 @@
+           {/* Batch mode toggle */}
+           <button
+             type="button"
+@@ -311,14 +313,14 @@
+           {showAdvanced && (
+             <div className="px-2 pt-1.5 pb-0.5 flex items-center gap-3">
+               <label className="flex items-center gap-1.5 text-[11px] text-neutral-300">
 -                <input
 +                <CanvasInput
-@@ -321 +323 @@
+                   type="checkbox"
+                   checked={nodeData.trimItems}
+                   onChange={(e) => updateSettingsAndReparse({ trimItems: e.target.checked })}
+                   className="nodrag nopan w-3 h-3 rounded bg-[#1a1a1a] text-neutral-600 focus:ring-1 focus:ring-neutral-600 focus:ring-offset-0"
+                 />{tc("Trim")}</label>
+               <label className="flex items-center gap-1.5 text-[11px] text-neutral-300">
 -                <input
 +                <CanvasInput
+                   type="checkbox"
+                   checked={nodeData.removeEmpty}
+                   onChange={(e) => updateSettingsAndReparse({ removeEmpty: e.target.checked })}
+diff --git a/src/components/nodes/ComfyAppParameters.tsx b/src/components/nodes/ComfyAppParameters.tsx
 --- a/src/components/nodes/ComfyAppParameters.tsx
 +++ b/src/components/nodes/ComfyAppParameters.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput, CanvasTextarea } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -175 +177 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -172,7 +174,7 @@
+         >
+           {label}
+         </label>
 -        <select
 +        <CanvasSelect
-@@ -189 +191 @@
+           id={controlId}
+           value={(value as string) ?? ""}
+           onChange={(e) => onChange(param.id, e.target.value || undefined)}
+@@ -186,7 +188,7 @@
+               {option}
+             </option>
+           ))}
 -        </select>
 +        </CanvasSelect>
-@@ -201 +203 @@
+       </div>
+     );
+   }
+@@ -198,7 +200,7 @@
+         className="flex items-center gap-1.5 text-[11px] text-neutral-300 cursor-pointer"
+         title={param.description}
+       >
 -        <input
 +        <CanvasInput
-@@ -218 +220 @@
+           type="checkbox"
+           checked={checked}
+           onChange={(e) => onChange(param.id, e.target.checked)}
+@@ -215,7 +217,7 @@
+         <label htmlFor={controlId} className="text-[11px] text-neutral-400" title={param.description}>
+           {label}
+         </label>
 -        <textarea
 +        <CanvasTextarea
+           id={controlId}
+           value={local}
+           rows={3}
+diff --git a/src/components/nodes/ConditionalSwitchNode.tsx b/src/components/nodes/ConditionalSwitchNode.tsx
 --- a/src/components/nodes/ConditionalSwitchNode.tsx
 +++ b/src/components/nodes/ConditionalSwitchNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -334 +336 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -331,7 +333,7 @@
+             )}
+ 
+             {/* Mode dropdown */}
 -            <select
 +            <CanvasSelect
-@@ -343 +345 @@
+               className="bg-neutral-700 text-neutral-100 text-[9px] px-1 py-0.5 rounded border border-neutral-600 outline-none"
+               value={rule.mode}
+               onChange={(e) => handleModeChange(rule.id, e.target.value as MatchMode)}
+@@ -340,7 +342,7 @@
+               <option value="contains">contains</option>
+               <option value="starts-with">starts</option>
+               <option value="ends-with">ends</option>
 -            </select>
 +            </CanvasSelect>
+ 
+             {/* Value input */}
+             <input
+diff --git a/src/components/nodes/EaseCurveNode.tsx b/src/components/nodes/EaseCurveNode.tsx
 --- a/src/components/nodes/EaseCurveNode.tsx
 +++ b/src/components/nodes/EaseCurveNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -237 +239 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -234,7 +236,7 @@
+               className="nodrag nopan h-7 rounded border border-neutral-700 bg-neutral-800 px-2 text-xs normal-case tracking-normal text-neutral-100 outline-none focus:border-blue-500 disabled:text-neutral-600"
+             />
+           </label>
 -          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">{tc("Curve")}<select
 +          <label className="grid gap-1 text-[10px] uppercase tracking-wider text-neutral-400">{tc("Curve")}<CanvasSelect
-@@ -246 +248 @@
+               aria-label={tc("Easing preset")}
+               value={easingPreset}
+               disabled={!writable || settingsInherited}
+@@ -243,7 +245,7 @@
+             >
+               {easingPresets.map((preset) => <option key={preset} value={preset}>{preset}</option>)}
+               <option value="custom">{tc("Custom bezier")}</option>
 -            </select>
 +            </CanvasSelect>
+           </label>
+         </div>
+         {(easingPreset === "custom" || nodeData.easingPreset == null) && (
+diff --git a/src/components/nodes/FloatingNodeHeader.tsx b/src/components/nodes/FloatingNodeHeader.tsx
 --- a/src/components/nodes/FloatingNodeHeader.tsx
 +++ b/src/components/nodes/FloatingNodeHeader.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasTextarea } from "../../leesfield/inputs";
 +
-@@ -531 +533 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -528,7 +530,7 @@
+             {/* Comment Edit Popover */}
+             {isEditingComment && (
+               <div className="absolute z-[60] right-0 top-full mt-1 w-64 p-2 bg-neutral-800 border border-neutral-600 rounded shadow-lg">
 -                <textarea
 +                <CanvasTextarea
+                   value={editCommentValue}
+                   disabled={!writable}
+                   onChange={(e) => setEditCommentValue(e.target.value)}
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
 --- a/src/components/nodes/GenerateImageNode.tsx
 +++ b/src/components/nodes/GenerateImageNode.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
 +
-@@ -494 +496 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -491,7 +493,7 @@
+                 const controls: React.ReactNode[] = [
+                   <div key="model" className="flex items-center gap-2">
+                     <label className="text-[11px] text-neutral-400 shrink-0">{tc("Model")}</label>
 -                    <select
 +                    <CanvasSelect
-@@ -505 +507 @@
+                       value={currentModelId}
+                       onChange={handleModelChange}
+                       data-tutorial="generate-model-selector"
+@@ -502,11 +504,11 @@
+                           {m.label}
+                         </option>
+                       ))}
 -                    </select>
 +                    </CanvasSelect>
-@@ -509 +511 @@
+                   </div>,
+                   <div key="aspect-ratio" className="flex items-center gap-2">
+                     <label className="text-[11px] text-neutral-400 shrink-0">{tc("Aspect Ratio")}</label>
 -                    <select
 +                    <CanvasSelect
-@@ -519 +521 @@
+                       value={nodeData.aspectRatio || "1:1"}
+                       onChange={handleAspectRatioChange}
+                       className="nodrag nopan flex-1 min-w-0 text-[11px] py-1 px-2 bg-[#1a1a1a] rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-600 text-white"
+@@ -516,7 +518,7 @@
+                           {ratio}
+                         </option>
+                       ))}
 -                    </select>
 +                    </CanvasSelect>
-@@ -527 +529 @@
+                   </div>,
+                 ];
+ 
+@@ -524,7 +526,7 @@
+                   controls.push(
+                     <div key="resolution" className="flex items-center gap-2">
+                       <label className="text-[11px] text-neutral-400 shrink-0">{tc("Resolution")}</label>
 -                      <select
 +                      <CanvasSelect
-@@ -537 +539 @@
+                         value={nodeData.resolution || "2K"}
+                         onChange={handleResolutionChange}
+                         className="nodrag nopan flex-1 min-w-0 text-[11px] py-1 px-2 bg-[#1a1a1a] rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-600 text-white"
+@@ -534,7 +536,7 @@
+                             {res}
+                           </option>
+                         ))}
 -                      </select>
 +                      </CanvasSelect>
-@@ -545 +547 @@
+                     </div>
+                   );
+                 }
+@@ -542,7 +544,7 @@
+                 if (currentModelId === "nano-banana-pro" || currentModelId === "nano-banana-2") {
+                   controls.push(
+                     <label key="google-search" className="flex items-center gap-1.5 text-[11px] text-neutral-300 cursor-pointer">
 -                      <input
 +                      <CanvasInput
-@@ -557 +559 @@
+                         type="checkbox"
+                         checked={nodeData.useGoogleSearch || false}
+                         onChange={handleGoogleSearchToggle}
+@@ -554,7 +556,7 @@
+                 if (currentModelId === "nano-banana-2") {
+                   controls.push(
+                     <label key="image-search" className="flex items-center gap-1.5 text-[11px] text-neutral-300 cursor-pointer">
 -                      <input
 +                      <CanvasInput
+                         type="checkbox"
+                         checked={nodeData.useImageSearch || false}
+                         onChange={handleImageSearchToggle}
+diff --git a/src/components/nodes/GifEncoderNode.tsx b/src/components/nodes/GifEncoderNode.tsx
 --- a/src/components/nodes/GifEncoderNode.tsx
 +++ b/src/components/nodes/GifEncoderNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasInput } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -359 +361 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -356,7 +358,7 @@
+               className="w-14 px-1.5 py-0.5 bg-neutral-800 rounded text-neutral-200"
+             />
+             <label className="flex items-center gap-1 text-neutral-400 cursor-pointer">
 -              <input
 +              <CanvasInput
-@@ -368 +370 @@
+                 type="checkbox"
+                 checked={nodeData.dither}
+                 onChange={(e) => updateNodeData(id, { dither: e.target.checked })}
+@@ -365,7 +367,7 @@
+ 
+           <div className="flex items-center gap-2">
+             <label className="flex items-center gap-1 text-neutral-400 cursor-pointer">
 -              <input
 +              <CanvasInput
+                 type="checkbox"
+                 checked={nodeData.targetMaxBytes !== null}
+                 onChange={(e) =>
+diff --git a/src/components/nodes/ImageResizeNode.tsx b/src/components/nodes/ImageResizeNode.tsx
 --- a/src/components/nodes/ImageResizeNode.tsx
 +++ b/src/components/nodes/ImageResizeNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -208 +210 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -205,7 +207,7 @@
+ 
+           {/* Format + quality */}
+           <div className="flex items-center gap-1">
 -            <select
 +            <CanvasSelect
-@@ -216 +218 @@
+               value={nodeData.format}
+               onChange={(e) => updateNodeData(id, { format: e.target.value as ImageResizeFormat })}
+               className="px-1.5 py-0.5 bg-neutral-800 rounded text-neutral-200"
+@@ -213,11 +215,11 @@
+               {(["keep", "png", "jpeg", "webp"] as ImageResizeFormat[]).map((f) => (
+                 <option key={f} value={f}>{formatLabel(f)}</option>
+               ))}
 -            </select>
 +            </CanvasSelect>
-@@ -220 +222 @@
+             {(nodeData.format === "jpeg" || nodeData.format === "webp") && (
+               <>
+                 <label className="text-neutral-400">Q</label>
 -                <input
 +                <CanvasInput
+                   type="range"
+                   min={0.1}
+                   max={1}
+diff --git a/src/components/nodes/LLMFallbackPopover.tsx b/src/components/nodes/LLMFallbackPopover.tsx
 --- a/src/components/nodes/LLMFallbackPopover.tsx
 +++ b/src/components/nodes/LLMFallbackPopover.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -112 +114 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -109,7 +111,7 @@
+         </h2>
+ 
+         <label className="block text-xs text-neutral-400 mb-1">{tc("Provider")}</label>
 -        <select
 +        <CanvasSelect
-@@ -122 +124 @@
+           value={provider}
+           onChange={(e) => setProvider(e.target.value as LLMProvider)}
+           className="w-full mb-3 px-2 py-1.5 text-sm bg-neutral-800 border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-600"
+@@ -119,10 +121,10 @@
+               {p.label}
+             </option>
+           ))}
 -        </select>
 +        </CanvasSelect>
-@@ -125 +127 @@
+ 
+         <label className="block text-xs text-neutral-400 mb-1">{tc("Model")}</label>
 -        <select
 +        <CanvasSelect
-@@ -135 +137 @@
+           value={model}
+           onChange={(e) => setModel(e.target.value as LLMModelType)}
+           className="w-full mb-4 px-2 py-1.5 text-sm bg-neutral-800 border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-600"
+@@ -132,7 +134,7 @@
+               {m.label}
+             </option>
+           ))}
 -        </select>
 +        </CanvasSelect>
+ 
+         <div className="flex items-center justify-between gap-2">
+           <button
+diff --git a/src/components/nodes/LLMGenerateNode.tsx b/src/components/nodes/LLMGenerateNode.tsx
 --- a/src/components/nodes/LLMGenerateNode.tsx
 +++ b/src/components/nodes/LLMGenerateNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -163 +165 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -160,7 +162,7 @@
+               {/* Provider */}
+               <div className="flex items-center gap-2">
+                 <label className="text-[11px] text-neutral-400 shrink-0">{tc("Provider")}</label>
 -                <select
 +                <CanvasSelect
-@@ -171 +173 @@
+                   value={provider}
+                   onChange={handleProviderChange}
+                   className="nodrag nopan flex-1 min-w-0 text-[11px] py-1 px-2 bg-[#1a1a1a] rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-600 text-white"
+@@ -168,13 +170,13 @@
+                   {LLM_PROVIDERS.map(p => (
+                     <option key={p.value} value={p.value}>{p.label}</option>
+                   ))}
 -                </select>
 +                </CanvasSelect>
-@@ -177 +179 @@
+               </div>
+ 
+               {/* Model */}
+               <div className="flex items-center gap-2">
+                 <label className="text-[11px] text-neutral-400 shrink-0">{tc("Model")}</label>
 -                <select
 +                <CanvasSelect
-@@ -185 +187 @@
+                   value={nodeData.model || availableModels[0].value}
+                   onChange={handleModelChange}
+                   className="nodrag nopan flex-1 min-w-0 text-[11px] py-1 px-2 bg-[#1a1a1a] rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-600 text-white"
+@@ -182,14 +184,14 @@
+                   {availableModels.map(m => (
+                     <option key={m.value} value={m.value}>{m.label}</option>
+                   ))}
 -                </select>
 +                </CanvasSelect>
-@@ -192 +194 @@
+               </div>
+ 
+               {/* Temperature */}
+               <div className="flex flex-col gap-0.5">
+                 <label className="text-[11px] text-neutral-400">{tc("Temperature:")}{(nodeData.temperature ?? 0.7).toFixed(2)}
+                 </label>
 -                <input
 +                <CanvasInput
-@@ -207 +209 @@
+                   type="range"
+                   min="0"
+                   max={provider === "anthropic" ? "1" : "2"}
+@@ -204,7 +206,7 @@
+               <div className="flex flex-col gap-0.5">
+                 <label className="text-[11px] text-neutral-400">{tc("Max Tokens:")}{(nodeData.maxTokens || 2048).toLocaleString()}
+                 </label>
 -                <input
 +                <CanvasInput
-@@ -240 +242 @@
+                   type="range"
+                   min="256"
+                   max="16384"
+@@ -237,7 +239,7 @@
+                 <div className="flex flex-col gap-0.5">
+                   <label className="text-[11px] text-neutral-400">{tc("Temperature:")}{fbTemp.toFixed(2)}
+                   </label>
 -                  <input
 +                  <CanvasInput
-@@ -255 +257 @@
+                     type="range"
+                     min="0"
+                     max={isAnthropicFb ? "1" : "2"}
+@@ -252,7 +254,7 @@
+                 <div className="flex flex-col gap-0.5">
+                   <label className="text-[11px] text-neutral-400">{tc("Max Tokens:")}{fbMaxTokens.toLocaleString()}
+                   </label>
 -                  <input
 +                  <CanvasInput
+                     type="range"
+                     min="256"
+                     max="16384"
+diff --git a/src/components/nodes/ModelParameters.tsx b/src/components/nodes/ModelParameters.tsx
 --- a/src/components/nodes/ModelParameters.tsx
 +++ b/src/components/nodes/ModelParameters.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect, CanvasInput } from "../../leesfield/inputs";
 +
-@@ -349 +351 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -346,7 +348,7 @@
+         >
+           {displayName}
+         </label>
 -        <select
 +        <CanvasSelect aria-label={displayName}
-@@ -373 +375 @@
+           value={(value as string) ?? ""}
+           onChange={(e) => {
+             const val = e.target.value;
+@@ -370,7 +372,7 @@
+               {String(opt)}
+             </option>
+           ))}
 -        </select>
 +        </CanvasSelect>
-@@ -388 +390 @@
+       </div>
+     );
+   }
+@@ -385,7 +387,7 @@
+         className="flex items-center gap-1.5 text-[11px] text-neutral-300 cursor-pointer"
+         title={param.description || undefined}
+       >
 -        <input
 +        <CanvasInput
+           type="checkbox"
+           checked={effectiveValue}
+           onChange={(e) => handleChange(e.target.checked)}
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasTextarea } from "../../leesfield/inputs";
 +
-@@ -221 +223 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -218,7 +220,7 @@
+               {highlightedContent}
+             </div>
+           )}
 -          <textarea
 +          <CanvasTextarea
+             ref={textareaRef}
+             readOnly={!writable}
+             value={localTemplate}
+diff --git a/src/components/nodes/PromptNode.tsx b/src/components/nodes/PromptNode.tsx
 --- a/src/components/nodes/PromptNode.tsx
 +++ b/src/components/nodes/PromptNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasTextarea } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -125 +127 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -122,7 +124,7 @@
+         />
+         <HandleLabel label={tc("Text")} side="target" color="var(--handle-color-text)" visible={showLabels} />
+ 
 -        <textarea
 +        <CanvasTextarea
+           value={hasIncomingTextConnection ? connectedText ?? "" : localPrompt}
+           disabled={!writable || hasIncomingTextConnection}
+           onChange={handleChange}
+diff --git a/src/components/nodes/SwitchNode.tsx b/src/components/nodes/SwitchNode.tsx
 --- a/src/components/nodes/SwitchNode.tsx
 +++ b/src/components/nodes/SwitchNode.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasInput } from "../../leesfield/inputs";
 +
-@@ -190 +192 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -187,7 +189,7 @@
+               >
+                 {/* Toggle */}
+                 <label className="relative inline-flex items-center cursor-pointer">
 -                  <input
 +                  <CanvasInput
+                     type="checkbox"
+                     className="sr-only peer"
+                     checked={sw.enabled}
+diff --git a/src/components/nodes/VideoStitchNode.tsx b/src/components/nodes/VideoStitchNode.tsx
 --- a/src/components/nodes/VideoStitchNode.tsx
 +++ b/src/components/nodes/VideoStitchNode.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasInput } from "../../leesfield/inputs";
 +
-@@ -600 +602 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -597,7 +599,7 @@
+         {orderedClips.length > 0 && (
+           <div className="shrink-0 flex items-center justify-end gap-2">
+             <label className="nodrag flex items-center gap-1.5 text-[10px] text-neutral-400">
 -              <input
 +              <CanvasInput
+                 type="checkbox"
+                 aria-label={tc("Strip audio")}
+                 checked={nodeData.stripAudio === true}
+diff --git a/src/components/nodes/VideoTrimNode.tsx b/src/components/nodes/VideoTrimNode.tsx
 --- a/src/components/nodes/VideoTrimNode.tsx
 +++ b/src/components/nodes/VideoTrimNode.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasInput, CanvasRange } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -141,18 +142,0 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ import { Handle } from "../../leesfield/port-handle";
+@@ -138,24 +140,6 @@
+   const endTime = nodeData.endTime > 0 ? nodeData.endTime : duration;
+   const trimDuration = Math.max(0, endTime - startTime);
+ 
 -  const handleStartChange = useCallback(
 -    (e: React.ChangeEvent<HTMLInputElement>) => {
 -      const val = parseFloat(e.target.value);
@@ -303,10 +713,22 @@
 -    [id, updateNodeData, startTime, duration]
 -  );
 -
-@@ -171,2 +154,0 @@
+   const handleTrim = useCallback(() => {
+     regenerateNode(id);
+   }, [id, regenerateNode]);
+@@ -168,8 +152,6 @@
+   const previewBlobUrl = useVideoBlobUrl(previewUrl);
+ 
+   // Compute slider thumb position percentages for the visual range highlight
 -  const startPct = duration > 0 ? (startTime / duration) * 100 : 0;
 -  const endPct = duration > 0 ? (endTime / duration) * 100 : 100;
-@@ -328,24 +310 @@
+ 
+   // Shared handles rendered in ALL states
+   const renderHandles = () => (
+@@ -325,65 +307,7 @@
+         {hasSourceVideo && (
+           <div className="shrink-0 flex flex-col gap-1.5 px-1">
+             {/* Dual range slider */}
 -            <div className="nodrag nowheel relative h-5 flex items-center trim-slider-container">
 -              {/* Make only the slider thumbs interactive, not the full-width invisible input bodies */}
 -              <style>{`
@@ -331,8 +753,7 @@
 -                className="absolute h-1.5 bg-blue-500/60 rounded-full pointer-events-none"
 -                style={{ left: `${startPct}%`, right: `${100 - endPct}%` }}
 -              />
-+            <CanvasRange disabled={!writable || nodeData.status === "loading" || isRunning} value={[startTime,endTime]} min={0} max={duration > 0 ? duration : 100} step={0.1} labels={[tc("Start"),tc("End")]} onValueChange={([start,end])=>updateNodeData(id,{startTime:Math.max(0,Math.min(start,end-0.1)),endTime:Math.max(end,start+0.1)})} />
-@@ -353,35 +311,0 @@
+-
 -              {/* Start slider (higher z-index so it's draggable when both thumbs overlap at 0) */}
 -              <input
 -                type="range"
@@ -367,48 +788,104 @@
 -                style={{ left: `calc(${endPct}% - 6px)`, zIndex: 4 }}
 -              />
 -            </div>
--
-@@ -409 +333 @@
++            <CanvasRange disabled={!writable || nodeData.status === "loading" || isRunning} value={[startTime,endTime]} min={0} max={duration > 0 ? duration : 100} step={0.1} labels={[tc("Start"),tc("End")]} onValueChange={([start,end])=>updateNodeData(id,{startTime:Math.max(0,Math.min(start,end-0.1)),endTime:Math.max(end,start+0.1)})} />
+ 
+             {/* Time labels */}
+             <div className="flex items-center justify-between">
+@@ -406,7 +330,7 @@
+         {/* Trim button */}
+         <div className="shrink-0 flex items-center justify-end gap-3 px-1">
+           <label className="nodrag flex items-center gap-1.5 text-[10px] text-neutral-400">
 -            <input
 +            <CanvasInput
+               type="checkbox"
+               aria-label={tc("Strip audio")}
+               checked={nodeData.stripAudio === true}
+diff --git a/src/components/quickstart/PromptWorkflowView.tsx b/src/components/quickstart/PromptWorkflowView.tsx
 --- a/src/components/quickstart/PromptWorkflowView.tsx
 +++ b/src/components/quickstart/PromptWorkflowView.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasTextarea } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -116 +118 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -113,7 +115,7 @@
+           <label className="text-xs font-medium text-neutral-400">
+             Describe your workflow
+           </label>
 -          <textarea
 +          <CanvasTextarea
+             value={description}
+             onChange={(e) => {
+               setDescription(e.target.value);
+diff --git a/src/components/quickstart/TemplateExplorerView.tsx b/src/components/quickstart/TemplateExplorerView.tsx
 --- a/src/components/quickstart/TemplateExplorerView.tsx
 +++ b/src/components/quickstart/TemplateExplorerView.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasSelect } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -282 +284 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -279,9 +281,9 @@
+             </div>
+           )}
+ 
 -          <label className="text-sm text-neutral-300">{tc("Starting content")}<select aria-label={tc("Starting content")} value={contentLevel} onChange={(event) => setContentLevel(event.target.value as "empty" | "minimal")} disabled={isLoading} className="ml-2 bg-neutral-700 rounded p-2">
 +          <label className="text-sm text-neutral-300">{tc("Starting content")}<CanvasSelect aria-label={tc("Starting content")} value={contentLevel} onChange={(event) => setContentLevel(event.target.value as "empty" | "minimal")} disabled={isLoading} className="ml-2 bg-neutral-700 rounded p-2">
-@@ -284 +286 @@
+               <option value="minimal">{tc("Prompt examples")}</option><option value="empty">{tc("Empty inputs")}</option>
 -            </select>
 +            </CanvasSelect>
+           </label>
+           {/* Quick Start Templates */}
+           {filteredPresets.length > 0 && (
+diff --git a/src/components/settings/ComfySettingsTab.tsx b/src/components/settings/ComfySettingsTab.tsx
 --- a/src/components/settings/ComfySettingsTab.tsx
 +++ b/src/components/settings/ComfySettingsTab.tsx
-@@ -1,0 +2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasInput } from "../../leesfield/inputs";
-@@ -2,0 +4 @@
 +
-@@ -325 +327 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -322,7 +324,7 @@
+           </Field>
+ 
+           <label className="flex items-center gap-2 cursor-pointer">
 -            <input
 +            <CanvasInput
-@@ -353 +355 @@
+               type="checkbox"
+               checked={settings.randomizeSeeds}
+               onChange={(e) => update({ randomizeSeeds: e.target.checked })}
+@@ -350,7 +352,7 @@
+   return (
+     <div>
+       <label className="flex items-center gap-2 cursor-pointer">
 -        <input
 +        <CanvasInput
+           type="checkbox"
+           checked={checked}
+           onChange={(e) => onChange(e.target.checked)}
+diff --git a/src/components/splitgrid/TemplateNodes.tsx b/src/components/splitgrid/TemplateNodes.tsx
 --- a/src/components/splitgrid/TemplateNodes.tsx
 +++ b/src/components/splitgrid/TemplateNodes.tsx
-@@ -1,0 +2,2 @@
+@@ -1,4 +1,6 @@
+ "use client";
 +import { CanvasTextarea } from "../../leesfield/inputs";
 +
-@@ -271 +273 @@
+ 
+ import { useCanvasTranslation } from "../../leesfield/localization";
+ 
+@@ -268,7 +270,7 @@
+   const { setOverrides } = useContext(TemplateEditorContext);
+   const prompt = typeof overrides.prompt === "string" ? overrides.prompt : "";
+   return (
 -    <textarea
 +    <CanvasTextarea
+       value={prompt}
+       onChange={(event) => setOverrides(nodeId, { ...overrides, prompt: event.target.value })}
+       placeholder={tc("Describe what to generate...")}

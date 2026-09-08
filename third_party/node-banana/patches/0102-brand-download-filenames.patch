@@ -1,10 +1,24 @@
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
-@@ -1034,1 +1034,1 @@
+@@ -1031,7 +1031,7 @@
+   const url = URL.createObjectURL(blob);
+   const anchor = document.createElement("a");
+   anchor.href = url;
 -  anchor.download = filename || `node-banana-${Date.now()}.${extension}`;
 +  anchor.download = filename || `leesfield-${Date.now()}.${extension}`;
+   anchor.click();
+   setTimeout(() => URL.revokeObjectURL(url), 0);
+ }
+diff --git a/src/utils/downloadMedia.ts b/src/utils/downloadMedia.ts
 --- a/src/utils/downloadMedia.ts
 +++ b/src/utils/downloadMedia.ts
-@@ -73,1 +73,1 @@
+@@ -69,7 +69,7 @@
+   const finalExt = ext === "bin" ? fallbackExt[mediaType] : ext;
+   const finalName = filename
+     ? `${filename}.${finalExt}`
 -    : `${mediaType}-${Date.now()}.${finalExt}`;
 +    : `leesfield-${Date.now()}.${finalExt}`;
+ 
+   if (isHttp) {
+     try {

@@ -1,3 +1,5 @@
+diff --git a/src/leesfield/port-handle.tsx b/src/leesfield/port-handle.tsx
+new file mode 100644
 --- /dev/null
 +++ b/src/leesfield/port-handle.tsx
 @@ -0,0 +1,12 @@
@@ -13,6 +15,7 @@
 + const media=props.id ?? "image";
 + return <><FlowHandle {...props}/>{writable && props.isConnectable !== false ? <button type="button" className="node-banana-port-action nodrag nopan" aria-label={"Connect " + media + " " + (props.type === "source" ? "output" : "input")} style={{position:"absolute",top:props.style?.top ?? "50%",transform:"translateY(-50%)",[props.type === "source" ? "right" : "left"]:-38,zIndex:30}} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation(); const rect=event.currentTarget.getBoundingClientRect(); event.currentTarget.dispatchEvent(new CustomEvent("node-banana-port-menu",{bubbles:true,detail:{nodeId,handleId:props.id ?? null,handleType:props.type,x:rect.right+8,y:rect.top}}));}}><PortIcon type={media}/></button>:null}</>;
 +}
+diff --git a/src/components/nodes/AnnotationNode.tsx b/src/components/nodes/AnnotationNode.tsx
 --- a/src/components/nodes/AnnotationNode.tsx
 +++ b/src/components/nodes/AnnotationNode.tsx
 @@ -1,7 +1,8 @@
@@ -25,6 +28,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/ArrayNode.tsx b/src/components/nodes/ArrayNode.tsx
 --- a/src/components/nodes/ArrayNode.tsx
 +++ b/src/components/nodes/ArrayNode.tsx
 @@ -1,7 +1,8 @@
@@ -37,6 +41,7 @@
  import { BaseNode } from "./BaseNode";
  import { useWorkflowStore } from "@/store/workflowStore";
  import { ArrayNodeData } from "@/types";
+diff --git a/src/components/nodes/AudioInputNode.tsx b/src/components/nodes/AudioInputNode.tsx
 --- a/src/components/nodes/AudioInputNode.tsx
 +++ b/src/components/nodes/AudioInputNode.tsx
 @@ -1,7 +1,8 @@
@@ -49,6 +54,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/ComfyAppNode.tsx b/src/components/nodes/ComfyAppNode.tsx
 --- a/src/components/nodes/ComfyAppNode.tsx
 +++ b/src/components/nodes/ComfyAppNode.tsx
 @@ -1,7 +1,8 @@
@@ -61,6 +67,7 @@
  
  import { BaseNode } from "./BaseNode";
  import { ComfyAppParameters } from "./ComfyAppParameters";
+diff --git a/src/components/nodes/ConditionalSwitchNode.tsx b/src/components/nodes/ConditionalSwitchNode.tsx
 --- a/src/components/nodes/ConditionalSwitchNode.tsx
 +++ b/src/components/nodes/ConditionalSwitchNode.tsx
 @@ -1,7 +1,8 @@
@@ -73,6 +80,7 @@
  import { BaseNode } from "./BaseNode";
  import { useWorkflowStore } from "@/store/workflowStore";
  import { evaluateRule } from "@/store/utils/ruleEvaluation";
+diff --git a/src/components/nodes/EaseCurveNode.tsx b/src/components/nodes/EaseCurveNode.tsx
 --- a/src/components/nodes/EaseCurveNode.tsx
 +++ b/src/components/nodes/EaseCurveNode.tsx
 @@ -1,7 +1,8 @@
@@ -85,6 +93,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/GLBViewerNode.tsx b/src/components/nodes/GLBViewerNode.tsx
 --- a/src/components/nodes/GLBViewerNode.tsx
 +++ b/src/components/nodes/GLBViewerNode.tsx
 @@ -1,7 +1,8 @@
@@ -97,6 +106,7 @@
  import { Canvas, useThree, useFrame } from "@react-three/fiber";
  import { OrbitControls } from "@react-three/drei";
  import { BaseNode } from "./BaseNode";
+diff --git a/src/components/nodes/Generate3DNode.tsx b/src/components/nodes/Generate3DNode.tsx
 --- a/src/components/nodes/Generate3DNode.tsx
 +++ b/src/components/nodes/Generate3DNode.tsx
 @@ -1,7 +1,8 @@
@@ -109,6 +119,7 @@
  import { BaseNode } from "./BaseNode";
  import { ModelParameters } from "./ModelParameters";
  import { useWorkflowStore, useProviderApiKeys } from "@/store/workflowStore";
+diff --git a/src/components/nodes/GenerateAudioNode.tsx b/src/components/nodes/GenerateAudioNode.tsx
 --- a/src/components/nodes/GenerateAudioNode.tsx
 +++ b/src/components/nodes/GenerateAudioNode.tsx
 @@ -1,7 +1,8 @@
@@ -121,6 +132,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import { InlineParameterPanel } from "./InlineParameterPanel";
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
 --- a/src/components/nodes/GenerateImageNode.tsx
 +++ b/src/components/nodes/GenerateImageNode.tsx
 @@ -1,7 +1,8 @@
@@ -133,6 +145,7 @@
  import { BaseNode } from "./BaseNode";
  import { ModelParameters } from "./ModelParameters";
  import { ModelSearchDialog } from "../modals/ModelSearchDialog";
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
 --- a/src/components/nodes/GenerateVideoNode.tsx
 +++ b/src/components/nodes/GenerateVideoNode.tsx
 @@ -1,7 +1,8 @@
@@ -145,6 +158,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import { InlineParameterPanel } from "./InlineParameterPanel";
+diff --git a/src/components/nodes/GifEncoderNode.tsx b/src/components/nodes/GifEncoderNode.tsx
 --- a/src/components/nodes/GifEncoderNode.tsx
 +++ b/src/components/nodes/GifEncoderNode.tsx
 @@ -1,7 +1,8 @@
@@ -157,6 +171,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/ImageCompareNode.tsx b/src/components/nodes/ImageCompareNode.tsx
 --- a/src/components/nodes/ImageCompareNode.tsx
 +++ b/src/components/nodes/ImageCompareNode.tsx
 @@ -1,6 +1,7 @@
@@ -168,6 +183,7 @@
  import {
    ReactCompareSlider,
    ReactCompareSliderImage,
+diff --git a/src/components/nodes/ImageInputNode.tsx b/src/components/nodes/ImageInputNode.tsx
 --- a/src/components/nodes/ImageInputNode.tsx
 +++ b/src/components/nodes/ImageInputNode.tsx
 @@ -1,7 +1,8 @@
@@ -180,6 +196,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/ImageResizeNode.tsx b/src/components/nodes/ImageResizeNode.tsx
 --- a/src/components/nodes/ImageResizeNode.tsx
 +++ b/src/components/nodes/ImageResizeNode.tsx
 @@ -1,7 +1,8 @@
@@ -192,6 +209,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/LLMGenerateNode.tsx b/src/components/nodes/LLMGenerateNode.tsx
 --- a/src/components/nodes/LLMGenerateNode.tsx
 +++ b/src/components/nodes/LLMGenerateNode.tsx
 @@ -1,7 +1,8 @@
@@ -204,6 +222,7 @@
  import { BaseNode } from "./BaseNode";
  import { useWorkflowStore } from "@/store/workflowStore";
  import { LLMGenerateNodeData, LLMProvider, LLMModelType } from "@/types";
+diff --git a/src/components/nodes/OutputGalleryNode.tsx b/src/components/nodes/OutputGalleryNode.tsx
 --- a/src/components/nodes/OutputGalleryNode.tsx
 +++ b/src/components/nodes/OutputGalleryNode.tsx
 @@ -1,8 +1,9 @@
@@ -217,6 +236,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/OutputNode.tsx b/src/components/nodes/OutputNode.tsx
 --- a/src/components/nodes/OutputNode.tsx
 +++ b/src/components/nodes/OutputNode.tsx
 @@ -1,7 +1,8 @@
@@ -229,6 +249,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/PromptConstructorNode.tsx b/src/components/nodes/PromptConstructorNode.tsx
 --- a/src/components/nodes/PromptConstructorNode.tsx
 +++ b/src/components/nodes/PromptConstructorNode.tsx
 @@ -1,7 +1,8 @@
@@ -241,6 +262,7 @@
  import { BaseNode } from "./BaseNode";
  import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
  import { useWorkflowStore } from "../../leesfield/upstream-node-host";
+diff --git a/src/components/nodes/PromptNode.tsx b/src/components/nodes/PromptNode.tsx
 --- a/src/components/nodes/PromptNode.tsx
 +++ b/src/components/nodes/PromptNode.tsx
 @@ -1,8 +1,9 @@
@@ -254,6 +276,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/RemoveBackgroundNode.tsx b/src/components/nodes/RemoveBackgroundNode.tsx
 --- a/src/components/nodes/RemoveBackgroundNode.tsx
 +++ b/src/components/nodes/RemoveBackgroundNode.tsx
 @@ -1,7 +1,8 @@
@@ -266,6 +289,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/RouterNode.tsx b/src/components/nodes/RouterNode.tsx
 --- a/src/components/nodes/RouterNode.tsx
 +++ b/src/components/nodes/RouterNode.tsx
 @@ -1,7 +1,8 @@
@@ -278,6 +302,7 @@
  import { BaseNode } from "./BaseNode";
  import { useWorkflowStore } from "@/store/workflowStore";
  import type { WorkflowNode, RouterNodeData } from "@/types";
+diff --git a/src/components/nodes/SplitGridNode.tsx b/src/components/nodes/SplitGridNode.tsx
 --- a/src/components/nodes/SplitGridNode.tsx
 +++ b/src/components/nodes/SplitGridNode.tsx
 @@ -1,7 +1,8 @@
@@ -290,6 +315,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import { SplitGridTemplateModal } from "../splitgrid/SplitGridTemplateModal";
+diff --git a/src/components/nodes/SwitchNode.tsx b/src/components/nodes/SwitchNode.tsx
 --- a/src/components/nodes/SwitchNode.tsx
 +++ b/src/components/nodes/SwitchNode.tsx
 @@ -1,7 +1,8 @@
@@ -302,6 +328,7 @@
  import { BaseNode } from "./BaseNode";
  import { useWorkflowStore } from "@/store/workflowStore";
  import type { WorkflowNode, SwitchNodeData, HandleType } from "@/types";
+diff --git a/src/components/nodes/VideoFrameGrabNode.tsx b/src/components/nodes/VideoFrameGrabNode.tsx
 --- a/src/components/nodes/VideoFrameGrabNode.tsx
 +++ b/src/components/nodes/VideoFrameGrabNode.tsx
 @@ -1,7 +1,8 @@
@@ -314,6 +341,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/VideoInputNode.tsx b/src/components/nodes/VideoInputNode.tsx
 --- a/src/components/nodes/VideoInputNode.tsx
 +++ b/src/components/nodes/VideoInputNode.tsx
 @@ -1,7 +1,8 @@
@@ -326,6 +354,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/VideoStitchNode.tsx b/src/components/nodes/VideoStitchNode.tsx
 --- a/src/components/nodes/VideoStitchNode.tsx
 +++ b/src/components/nodes/VideoStitchNode.tsx
 @@ -1,7 +1,8 @@
@@ -338,6 +367,7 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/components/nodes/VideoTrimNode.tsx b/src/components/nodes/VideoTrimNode.tsx
 --- a/src/components/nodes/VideoTrimNode.tsx
 +++ b/src/components/nodes/VideoTrimNode.tsx
 @@ -1,7 +1,8 @@
@@ -350,13 +380,15 @@
  import { BaseNode } from "./BaseNode";
  import { HandleLabel } from "./HandleLabel";
  import {
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
-@@ -1,3 +1,4 @@
+@@ -1,4 +1,5 @@
  "use client";
 +import { PortIcon } from "./port-handle";
  
  import {
+   Component,
 @@ -160,6 +161,7 @@
    onCreateGroup?: (ids: string[], nodes: NodeBananaRuntimeNode[]) => void;
    onUngroup?: (ids: string[]) => void;

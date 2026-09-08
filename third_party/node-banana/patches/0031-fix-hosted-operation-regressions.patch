@@ -1,3 +1,4 @@
+diff --git a/src/components/nodes/VideoStitchNode.tsx b/src/components/nodes/VideoStitchNode.tsx
 --- a/src/components/nodes/VideoStitchNode.tsx
 +++ b/src/components/nodes/VideoStitchNode.tsx
 @@ -23,6 +23,7 @@
@@ -26,6 +27,7 @@
              <div className="flex items-center gap-1">
                <span className="text-[10px] text-neutral-400">Loop</span>
                {([1, 2, 3] as const).map((count) => (
+diff --git a/src/components/nodes/VideoTrimNode.tsx b/src/components/nodes/VideoTrimNode.tsx
 --- a/src/components/nodes/VideoTrimNode.tsx
 +++ b/src/components/nodes/VideoTrimNode.tsx
 @@ -29,6 +29,7 @@
@@ -56,6 +58,7 @@
            <button
              onClick={handleTrim}
              disabled={!canTrim || nodeData.status === "loading" || isRunning}
+diff --git a/src/components/nodes/EaseCurveNode.tsx b/src/components/nodes/EaseCurveNode.tsx
 --- a/src/components/nodes/EaseCurveNode.tsx
 +++ b/src/components/nodes/EaseCurveNode.tsx
 @@ -1,6 +1,6 @@
@@ -85,9 +88,9 @@
 +  "easeOutExpo",
 +  "easeInOutExpo",
 +] as const;
- 
-+const defaultBezier: [number, number, number, number] = [0.42, 0, 0.58, 1];
 +
++const defaultBezier: [number, number, number, number] = [0.42, 0, 0.58, 1];
+ 
  export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeType>) {
    const nodeData = data;
    const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
@@ -108,10 +111,11 @@
  
    // Check encoder support on mount
    useEffect(() => {
-@@ -82,6 +109,16 @@
+@@ -81,6 +108,16 @@
+       <HandleLabel label="Settings" side="source" color="rgb(190, 242, 100)" top="calc(75% - 7px)" visible={showLabels} />
      </>
    );
- 
++
 +  const updateBezierHandle = useCallback((index: number, value: number) => {
 +    const next = [...bezierHandles] as [number, number, number, number];
 +    next[index] = Math.max(0, Math.min(1, value));
@@ -121,10 +125,9 @@
 +  const handleRun = useCallback(() => {
 +    regenerateNode(id);
 +  }, [id, regenerateNode]);
-+
+ 
    // Encoder not supported
    if (nodeData.encoderSupported === false) {
-     return (
 @@ -175,6 +212,75 @@
          </div>
        )}
@@ -201,6 +204,7 @@
        {/* Processing overlay */}
        {nodeData.status === "loading" && (
          <div className="absolute inset-0 bg-neutral-900/70 rounded-lg flex flex-col items-center justify-center gap-2">
+diff --git a/src/components/nodes/SplitGridNode.tsx b/src/components/nodes/SplitGridNode.tsx
 --- a/src/components/nodes/SplitGridNode.tsx
 +++ b/src/components/nodes/SplitGridNode.tsx
 @@ -96,13 +96,18 @@
@@ -261,6 +265,7 @@
          <SplitGridTemplateModal
            nodeId={id}
            nodeData={nodeData}
+diff --git a/src/components/nodes/FloatingNodeHeader.tsx b/src/components/nodes/FloatingNodeHeader.tsx
 --- a/src/components/nodes/FloatingNodeHeader.tsx
 +++ b/src/components/nodes/FloatingNodeHeader.tsx
 @@ -22,6 +22,7 @@
@@ -271,6 +276,7 @@
  ]);
  const EXPANDABLE_TYPES = new Set(['prompt', 'promptConstructor', 'splitGrid', 'annotation']);
  
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -552,6 +552,8 @@
@@ -291,6 +297,7 @@
            if (nodeType === "annotation") {
              if (!writable) return;
              annotationOpeners.get(nodeId)?.();
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -346,6 +346,10 @@

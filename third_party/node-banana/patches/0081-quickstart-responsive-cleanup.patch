@@ -1,3 +1,4 @@
+diff --git a/src/components/quickstart/TemplateExplorerView.tsx b/src/components/quickstart/TemplateExplorerView.tsx
 --- a/src/components/quickstart/TemplateExplorerView.tsx
 +++ b/src/components/quickstart/TemplateExplorerView.tsx
 @@ -5,7 +5,7 @@
@@ -156,6 +157,7 @@
            {/* Empty State */}
            {hasNoResults && hasActiveFilters && (
              <div className="flex flex-col items-center justify-center py-12 text-center">
+diff --git a/src/components/quickstart/TemplateCard.tsx b/src/components/quickstart/TemplateCard.tsx
 --- a/src/components/quickstart/TemplateCard.tsx
 +++ b/src/components/quickstart/TemplateCard.tsx
 @@ -55,7 +55,7 @@

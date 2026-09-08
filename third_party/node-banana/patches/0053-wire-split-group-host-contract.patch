@@ -1,13 +1,14 @@
+diff --git a/src/store/utils/splitGridTemplate.ts b/src/store/utils/splitGridTemplate.ts
 --- a/src/store/utils/splitGridTemplate.ts
 +++ b/src/store/utils/splitGridTemplate.ts
 @@ -19,8 +19,8 @@
    SplitGridTemplate,
    SplitGridTemplateRouterConnection,
    SplitGridCell,
-+} from "../../leesfield/upstream-node-host";
-+import { MODEL_DISPLAY_NAMES } from "../../leesfield/upstream-node-host";
 -} from "../../types";
 -import { MODEL_DISPLAY_NAMES } from "../../types";
++} from "../../leesfield/upstream-node-host";
++import { MODEL_DISPLAY_NAMES } from "../../leesfield/upstream-node-host";
  import {
    createDefaultNodeData,
    createDefaultSplitGridTemplate,
@@ -15,8 +16,8 @@
    // never be populated (and re-materialize on every run) — treat as invalid.
    if (
      data.template &&
-+    data.template.nodes.some((node: WorkflowNode) => node.id === data.template!.baseNodeId)
 -    data.template.nodes.some((node) => node.id === data.template!.baseNodeId)
++    data.template.nodes.some((node: WorkflowNode) => node.id === data.template!.baseNodeId)
    ) {
      return data.template;
    }
@@ -29,17 +30,19 @@
  }
  
  export interface BuildCellInstancesOptions {
+diff --git a/src/components/GroupsOverlay.tsx b/src/components/GroupsOverlay.tsx
 --- a/src/components/GroupsOverlay.tsx
 +++ b/src/components/GroupsOverlay.tsx
 @@ -4,7 +4,7 @@
  import { useStore, ViewportPortal, type ReactFlowState } from "@xyflow/react";
  import { useShallow } from "zustand/shallow";
  import { useWorkflowStore, GROUP_COLORS } from "../leesfield/upstream-node-host";
-+import { GroupColor } from "../leesfield/upstream-node-host";
 -import { GroupColor } from "../types";
++import { GroupColor } from "../leesfield/upstream-node-host";
  import { isOverviewZoom } from "../utils/canvasPerformance";
  
  const COLOR_OPTIONS: { color: GroupColor; label: string }[] = [
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
 --- a/src/leesfield/upstream-node-host.tsx
 +++ b/src/leesfield/upstream-node-host.tsx
 @@ -230,6 +230,10 @@
@@ -74,8 +77,8 @@
 +export type NodeGroup = { id: string; name: string; color: GroupColor; position: { x: number; y: number }; size: { width: number; height: number }; locked?: boolean; isNbpInput?: boolean };
 +export type SplitGridCell = { baseImageNodeId: string; nodeIds: string[]; groupId?: string };
  export const SPLIT_GRID_BASE_NODE_ID = "cell-image";
-+export const GROUP_COLORS: Record<string, string> = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
 -export const GROUP_COLORS = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
++export const GROUP_COLORS: Record<string, string> = { neutral: "#262626", blue: "#1e3a5f", green: "#1a3d2e", purple: "#2d2458", orange: "#3d2a1a", red: "#3d1a1a" };
  export const defaultNodeDimensions: Record<string, { width: number; height: number }> = {
    imageInput: { width: 300, height: 280 },
    audioInput: { width: 300, height: 200 },

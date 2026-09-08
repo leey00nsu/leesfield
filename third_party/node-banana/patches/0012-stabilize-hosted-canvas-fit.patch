@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/canvas-runtime.tsx b/src/leesfield/canvas-runtime.tsx
 --- a/src/leesfield/canvas-runtime.tsx
 +++ b/src/leesfield/canvas-runtime.tsx
 @@ -589,7 +589,12 @@
@@ -23,4 +24,3 @@
          minZoom={0.1}
          maxZoom={4}
          onDoubleClick={(event) => {
-

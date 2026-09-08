@@ -1,3 +1,4 @@
+diff --git a/src/leesfield/upstream-node-components.tsx b/src/leesfield/upstream-node-components.tsx
 --- a/src/leesfield/upstream-node-components.tsx
 +++ b/src/leesfield/upstream-node-components.tsx
 @@ -4,6 +4,7 @@
@@ -23,12 +24,10 @@
      const mediaType = dataUrlMediaType(kind);
      const mediaField = dataUrlField(kind);
      const mediaValue = mediaField && typeof patch[mediaField] === "string" ? patch[mediaField] as string : null;
-@@ -854,14 +858,18 @@
-         dataUrl: mediaValue,
+@@ -855,13 +859,17 @@
          filename: typeof patch.filename === "string" ? patch.filename : null,
          mimeType: mediaValue.slice(5, mediaValue.indexOf(";")) || null,
--      }).then(({ assetId }) => {
-+      }).then(({ assetId }) => {
+       }).then(({ assetId }) => {
 +        // Only the current mounted input may publish through the Canvas writer.
 +        if (epoch !== uploadEpoch.current) return;
          commit?.(nodeId, {
