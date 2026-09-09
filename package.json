@@ -27,7 +27,6 @@
     "vendor:node-banana:verify": "node scripts/node-banana/verify.mjs",
     "license:check": "node scripts/node-banana/verify-licenses.mjs",
     "vulnerability:check": "node scripts/node-banana/verify-vulnerabilities.mjs",
-    "sbom:generate": "node scripts/node-banana/generate-sbom.mjs",
     "prepare": "husky"
   },
   "dependencies": {

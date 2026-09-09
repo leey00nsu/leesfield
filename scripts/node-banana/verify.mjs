@@ -24,4 +24,3 @@ process.stdout.write(`Generated runtime reproduced (${second.generatedSha256})\n
 process.stdout.write(`${runCaptured(node, [join(directory, "verify-imports.mjs")])}\n`);
 process.stdout.write(`${runCaptured(node, [join(directory, "verify-licenses.mjs")])}\n`);
 process.stdout.write(`${runCaptured(node, [join(directory, "verify-vulnerabilities.mjs")])}\n`);
-process.stdout.write(`${runCaptured(node, [join(directory, "generate-sbom.mjs"), "--check"])}\n`);

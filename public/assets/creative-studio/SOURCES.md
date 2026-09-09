@@ -1,6 +1,6 @@
 # Creative Studio Media Sources
 
-Assets in this folder are downloaded local copies for F047 creative-studio-ui-refresh.
+Assets in this folder are downloaded local copies for the creative studio interface.
 
 | File | Source | License |
 | --- | --- | --- |

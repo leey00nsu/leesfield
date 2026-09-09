@@ -15,7 +15,7 @@ The complete upstream MIT license is preserved in `LICENSE` and `upstream/LICENS
 
 Leesfield does not install the upstream application package graph. Only the versions listed in `dependency-policy.json.runtimeDependencies` may be added to the host pnpm production graph for reachable runtime code. Host React, React DOM, React Flow, Zod and icon packages are reused instead of duplicated.
 
-`sbom.cdx.json` is the generated production dependency inventory. `pnpm license:check` validates its source data against the license allowlist and explicit pre-existing exceptions.
+`pnpm license:check` validates installed production dependencies against the license allowlist and explicit pre-existing exceptions. Dependency versions are pinned by `pnpm-lock.yaml`.
 
 ## Explicit exclusions
 

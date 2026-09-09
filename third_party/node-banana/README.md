@@ -11,7 +11,3 @@ Use Node 22, pnpm and a system patch command (GNU patch on Linux; Apple patch on
 Run pnpm install --frozen-lockfile, then pnpm vendor:node-banana:verify. Verification forces two complete rebuilds and checks reproducibility, imports and licensing. pnpm build regenerates the runtime when patch inputs change and generates Prisma Client. For platform verification, run the same preparation in a fresh Linux container, without copying .generated or node_modules from macOS.
 
 Patches must be generated from each step's actual before/after files, with correct line ranges and context. The preparation command uses --fuzz=0: stale context must fail rather than be ignored. A normal cached build alone is not evidence that a new checkout can apply the patch chain.
-
-## F064 compatibility verification
-
-The normalized patch chain preserves every runtime source file from F063. Only patch-generated .orig backup artifacts disappear. The full clean output has the same SHA-256 on macOS and Linux; see F064 feature evidence for executed commands and results.
