@@ -503,3 +503,14 @@ it("requires confirmation, preserves detail on cancellation/failure, and removes
  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"삭제"}));await waitFor(()=>expect(removeItem).toHaveBeenCalledWith(detailFixture));await waitFor(()=>expect(screen.queryByRole("dialog",{name:"결과 상세"})).not.toBeInTheDocument());
  } finally {vi.unstubAllGlobals();}
 });
+
+ it("blocks recreation until detail inputs are available and permits retry after failure", async () => {
+ const retry=vi.fn();
+ useGenerationHistoryListMock.mockReturnValue({items:[detailFixture],total:1,isLoading:false,error:null,sentinelRef:{current:null},removeItem:vi.fn()});
+ useMonitoringRequestDetailMock.mockReturnValue({data:null,isLoading:false,isError:true,refetch:retry});
+ renderWithIntl(<GenerationHistoryScreen />);
+ await userEvent.click(screen.getByTestId("history-list"));
+ expect(screen.getByRole("button",{name:"다시 생성"})).toBeDisabled();
+ await userEvent.click(screen.getByRole("button",{name:"다시 시도"}));
+ expect(retry).toHaveBeenCalledOnce();
+ });

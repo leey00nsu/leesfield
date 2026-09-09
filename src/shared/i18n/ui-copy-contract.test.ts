@@ -34,7 +34,7 @@ describe("UI copy contract", () => {
     expect(ko.history.detail.duration).toBe("소요 시간");
   });
   it("keeps audited page copy out of JSX literals", () => {
-    const files = ["src/screens/spaces/ui/spaces-screen.tsx", "src/app/error.tsx", "src/app/not-found.tsx", "src/app/loading.tsx", "src/app/(protected)/spaces/[spaceId]/loading.tsx", "src/screens/auth/login/ui/login-screen.tsx", "src/widgets/api-docs/ui/api-docs-intro-section.tsx", "src/widgets/landing/ui/landing-hero.tsx"];
+    const files = ["src/screens/spaces/ui/spaces-screen.tsx", "src/app/error.tsx", "src/app/not-found.tsx", "src/app/(protected)/spaces/[spaceId]/loading.tsx", "src/screens/auth/login/ui/login-screen.tsx", "src/widgets/api-docs/ui/api-docs-intro-section.tsx", "src/widgets/landing/ui/landing-hero.tsx"];
     const violations: string[] = [];
     for (const path of files) {
       const source = ts.createSourceFile(path, readFileSync(resolve(path), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

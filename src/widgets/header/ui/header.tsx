@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "./navigation-link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Menu, UserRound, KeyRound, LogOut } from "lucide-react";

@@ -709,11 +709,13 @@ function HistoryDetailOverlay({
         }
         footer={
           <div className="grid gap-2">
+            {detailQuery.isError && !detail ? <AppButton type="button" variant="surface" onClick={() => void detailQuery.refetch()}>{tCommonActions("retry")}</AppButton> : null}
             <AppButton
               type="button"
               size="lg"
               variant="generate"
-              onClick={() => onRecreate(hydratedItem)}
+              disabled={item.origin !== "edit" && !detail}
+              onClick={() => { if (item.origin === "edit" || detail) onRecreate(hydratedItem); }}
               className="h-12 rounded-xl text-sm shadow-none"
             >
               <RotateCcw className="h-4 w-4" />

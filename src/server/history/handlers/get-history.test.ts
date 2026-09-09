@@ -74,6 +74,17 @@ describe("getHistory durable provenance", () => {
     expect(mocks.imageFindMany.mock.calls.every(([args]) => args.take === 25)).toBe(true);
   });
 
+  it("keeps large reference media out of list responses", async () => {
+    const base = {status: "completed", prompt: "test", graphNodeId: null, graphNode: null, progress: 100, errorMessage: null, createdAt: new Date(), updatedAt: new Date()};
+    const blob = "data:audio/wav;base64," + "A".repeat(2_000_000);
+    mocks.audioFindMany.mockResolvedValue(Array.from({length:24}, (_,i)=>({...base, requestId: "audio-"+i, requestParams:{model:"tts", inputAudio:blob}, audios:[{assetId:null,url:"https://example.com/output.wav"}]})));
+    const result = await getHistory(new URLSearchParams("type=audio&limit=24"), "owner");
+    expect(result.items).toHaveLength(24);
+    expect(JSON.stringify(result)).not.toContain(blob);
+    expect(JSON.stringify(result).length).toBeLessThan(50_000);
+    expect(result.items.every(item=>item.inputAudios?.length===0)).toBe(true);
+  });
+
   it("applies owner and status consistently to counts and pages", async () => {
     await getHistory(new URLSearchParams("status=failed"), "owner-b");
     for (const mock of [mocks.imageFindMany, mocks.videoFindMany, mocks.audioFindMany, mocks.imageCount, mocks.videoCount, mocks.audioCount]) {

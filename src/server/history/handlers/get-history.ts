@@ -8,8 +8,6 @@ import {
   buildAudioWhere,
   buildImageWhere,
   buildVideoWhere,
-  extractInputAudios,
-  extractInputImages,
   extractModel,
   extractReferenceText,
   parseHistoryQuery,
@@ -90,7 +88,7 @@ async function imageItem(ownerEmail: string, record: {
     resultUrl: completed ? asset.url : null,
     imageVariants: completed ? parseImageVariants(output?.asset?.imageVariants) : null,
     thumbnailUrl: completed && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output?.asset?.imageVariants}, "list")[0] : null,
-    inputImages: extractInputImages(record.requestParams),
+    inputImages: [],
     errorMessage: record.status === "failed" ? record.errorMessage : null,
   };
 }
@@ -128,7 +126,7 @@ async function videoItem(ownerEmail: string, record: {
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
     thumbnailUrl: null,
-    inputImages: extractInputImages(record.requestParams),
+    inputImages: [],
     errorMessage: record.status === "failed" ? record.errorMessage : null,
   };
 }
@@ -167,7 +165,7 @@ async function audioItem(ownerEmail: string, record: {
     resultUrl: completed ? asset.url : null,
     thumbnailUrl: null,
     inputImages: [],
-    inputAudios: extractInputAudios(record.requestParams),
+    inputAudios: [],
     referenceText: extractReferenceText(record.requestParams),
     errorMessage: record.status === "failed" ? record.errorMessage : null,
   };
