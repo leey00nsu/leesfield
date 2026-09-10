@@ -1,5 +1,13 @@
 import { normalizeRuntimeParameterOptions } from "./parameter-options";
 type Config = Record<string, unknown>;
+/** Convert numeric authoring text without rounding unsafe integers or treating
+ * empty/whitespace strings as zero. Provider schemas decide ranges and steps. */
+export function numericParameterValue(value: unknown): unknown {
+  if (typeof value !== "string" || !value.trim()) return value;
+  if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())) return value;
+  const number = Number(value);
+  return Number.isFinite(number) && (!Number.isInteger(number) || Number.isSafeInteger(number)) ? number : value;
+}
 const numericFields = new Set([
   "width",
   "height",
@@ -52,7 +60,7 @@ export function parameterValueIssue(
   )
     return "type";
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) return "type";
+    if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) return "type";
     if (
       (typeof config.min === "number" && value < config.min) ||
       (typeof config.max === "number" && value > config.max)
@@ -106,7 +114,7 @@ export function formParameterIssues(
     if (typeof value !== "string" || parameterKind(name, config) !== "number")
       return [];
     if (parameterKind(name, config) === "number" && typeof value === "string")
-      value = value.trim() ? Number(value) : NaN;
+      value = numericParameterValue(value);
     const reason = parameterValueIssue(name, config, value);
     return reason ? [{ name, reason }] : [];
   });

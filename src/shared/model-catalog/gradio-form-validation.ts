@@ -7,7 +7,7 @@ export function gradioFieldLabel(field: GradioContract["inputs"][number]): strin
 }
 
 export function gradioFormError(contract: GradioContract, values: {prompt?: string; dynamicParams?: Record<string, unknown>}, scope: "form" | "options" = "form"): string | null {
-  if (scope === "options") contract = {...contract, inputs: contract.inputs.filter(field=>!field.canonical && !field.hidden)};
+  if (scope === "options") contract = {...contract, inputGroups: undefined, inputs: contract.inputs.filter(field=>!field.canonical && !field.hidden)};
   // The creation screen requires a prompt even when the provider supplies a default.
   if (scope === "form" && !values.prompt?.trim()) {
     const prompt = contract.inputs.find(field => field.canonical === "prompt");

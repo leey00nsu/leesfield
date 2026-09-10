@@ -1,5 +1,6 @@
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
 import { formParameterIssues } from "@/shared/model-catalog/parameter-contract";
-import { generationBodySchema } from "@/shared/api/generation-input";
+import { generationBodySchema, mappedGenerationBodySchema } from "@/shared/api/generation-input";
 import {
   assertGradioExecutable,
   getGradioContract,
@@ -899,21 +900,7 @@ function mappedPayloadSchema(model: {
 }) {
   const contract = getGradioContract(model);
   if (!contract) return null;
-  return generationBodySchema(model.type as "image" | "video" | "audio")
-    .extend({
-      model: z.string(),
-      prompt: z.string().default(""),
-      dynamicParams: z.record(z.string(), z.unknown()).optional(),
-      width: z.number().int().default(1024),
-      height: z.number().int().default(1024),
-      imageCount: z.number().int().default(1),
-      steps: z.number().int().default(1),
-      aspectRatio: z.string().default("16:9"),
-      resolution: z.number().int().default(720),
-      durationSec: z.number().default(3),
-      fps: z.number().int().default(16),
-      guidanceScale: z.number().default(1),
-    })
+  return mappedGenerationBodySchema(model.type as "image" | "video" | "audio")
     .superRefine((data, ctx) => {
       try {
         assertGradioExecutable(contract);
@@ -949,8 +936,9 @@ export function getModelGenerationSchema(
 export async function validateImageGenerationPayload(
   payload: unknown,
   t?: TranslationFn,
+  executionModel?: import("./catalog-schema").ModelCatalogItem,
 ) {
-  const catalog = await getModelCatalog();
+  const catalog = executionModel ? [executionModel] : await getModelCatalog();
   const imageModels = catalog.filter(
     (item): item is ImageModelCatalogItem => item.type === "image",
   );
@@ -966,15 +954,17 @@ export async function validateImageGenerationPayload(
   const schema = selected
     ? getModelGenerationSchema(selected, t)
     : buildImageSchema(imageModels, t);
-  const parsed = schema.safeParse(payload);
+  const candidate = selected ? generationPayload(selected,payload) : payload;
+  const parsed = schema.safeParse(candidate);
   return parsed as SafeParseResult<ImageGenerationFormValues>;
 }
 
 export async function validateVideoGenerationPayload(
   payload: unknown,
   t?: TranslationFn,
+  executionModel?: import("./catalog-schema").ModelCatalogItem,
 ) {
-  const catalog = await getModelCatalog();
+  const catalog = executionModel ? [executionModel] : await getModelCatalog();
   const videoModels = catalog.filter(
     (item): item is VideoModelCatalogItem => item.type === "video",
   );
@@ -990,7 +980,8 @@ export async function validateVideoGenerationPayload(
   const schema = selected
     ? getModelGenerationSchema(selected, t)
     : buildVideoSchema(videoModels, t);
-  const parsed = schema.safeParse(payload);
+  const candidate = selected ? generationPayload(selected,payload) : payload;
+  const parsed = schema.safeParse(candidate);
   return parsed as SafeParseResult<VideoGenerationFormValues>;
 }
 
@@ -1014,6 +1005,6 @@ export async function validateAudioGenerationPayload(
   const schema = selected
     ? getModelGenerationSchema(selected, t)
     : buildAudioSchema(audioModels, t);
-  const parsed = schema.safeParse(payload);
+  const parsed = schema.safeParse(selected ? generationPayload(selected, payload) : payload);
   return parsed as SafeParseResult<AudioGenerationFormValues>;
 }

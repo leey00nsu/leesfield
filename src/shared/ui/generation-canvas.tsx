@@ -1,4 +1,5 @@
 "use client";
+import { Loader2 } from "lucide-react";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -72,7 +73,8 @@ function GenerationProgress({ status }: { status: string }) {
   }, []);
   const label = status === "pending" ? t("queued") : status === "uploading" ? t("uploading") : t("generating");
   return <div className="relative flex size-full flex-col items-center justify-center gap-2 text-sm text-foreground">
-    <span>{label}</span>
+    <Loader2 className="size-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+    <span className="sr-only">{label}</span>
     <span aria-live="off" className="text-xs tabular-nums text-muted-foreground">{t("waitingTime", { seconds })}</span>
   </div>;
 }

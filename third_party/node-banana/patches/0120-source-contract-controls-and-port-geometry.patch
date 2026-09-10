@@ -1,0 +1,134 @@
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -82,12 +82,13 @@
+ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNodeType>) {
+   const tc = useCanvasTranslation();
+   const nodeData = data;
++  const providerInputSignature=JSON.stringify(nodeData.providerInputSchema);
+   const updateNodeInternals = useUpdateNodeInternals();
+   useEffect(() => {
+     // The model catalog arrives after the first handle measurement.
+     // Refresh geometry when the image port appears or disappears.
+     updateNodeInternals(id);
+-  }, [id, nodeData.supportsImageInput, updateNodeInternals]);
++  }, [id, nodeData.supportsImageInput, providerInputSignature, updateNodeInternals]);
+   const adaptiveOutputImage = useAdaptiveImageSrc(data.outputImage, id);
+   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+   // Use stable selector for API keys to prevent unnecessary re-fetches
+
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -229,10 +229,11 @@
+
+   // Handle parameters expand/collapse - resize node height
+   const { setNodes } = useReactFlow();
++  const providerInputSignature=JSON.stringify(nodeData.providerInputSchema);
+   const updateNodeInternals = useUpdateNodeInternals();
+   useEffect(() => {
+     updateNodeInternals(id);
+-  }, [id, nodeData.inputSchema, nodeData.supportsImageInput, updateNodeInternals]);
++  }, [id, nodeData.inputSchema, nodeData.supportsImageInput, providerInputSignature, updateNodeInternals]);
+   const handleParametersExpandChange = useCallback(
+     (expanded: boolean, parameterCount: number) => {
+       // Each parameter row is ~24px, plus some padding
+
+diff --git a/src/leesfield/upstream-node-host.tsx b/src/leesfield/upstream-node-host.tsx
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -113,7 +113,9 @@
+ export type ModelParameter = {
+   name: string;
+   label?: string;
+-  type: "string" | "number" | "integer" | "boolean" | "array";
++  type: "string" | "number" | "integer" | "boolean" | "array" | "json";
++  nullable?: boolean;
++  multipleOf?: number;
+   description?: string;
+   default?: unknown;
+   minimum?: number;
+@@ -833,6 +835,8 @@
+ }
+
+ function modelInputs(item: HostNodeData): ModelInputDef[] {
++  if(item.inputContract) return item.inputContract.inputs.flatMap((field:HostNodeData)=>field.canonical==="prompt"?[{name:"prompt",type:"text",label:field.label,required:field.required}]:["file","files","gallery"].includes(field.kind)?[{name:field.media+"-field-"+field.name,type:field.media,label:field.label,required:field.required}]:[]);
++
+   const parameters = item.parameters && typeof item.parameters === "object" ? item.parameters as HostNodeData : {};
+   const inputs: ModelInputDef[] = [{ name: "prompt", type: "text", required: parameters.prompt?.required !== false, label: parameters.prompt?.label ?? "Prompt" }];
+   if (item.type === "image" && Number(item.meta?.max_input_images ?? 0) > 0) {
+@@ -848,6 +852,13 @@
+ }
+
+ function modelParameters(item: HostNodeData): ModelParameter[] {
++  if(item.inputContract) return item.inputContract.inputs.filter((f:HostNodeData)=>!f.canonical && !["file","files","gallery"].includes(f.kind)).map((field:HostNodeData)=>({
++    name:field.name,label:field.label,description:field.schema.description,
++    type:field.nullable||field.kind==="json"?"json":field.kind==="number"?(field.schema.type==="integer"?"integer":"number"):field.kind,
++    default:field.default,nullable:field.nullable,minimum:field.min,maximum:field.max,multipleOf:field.schema.multipleOf,
++    enum:field.nullable?undefined:field.choices,required:field.required,
++  }));
++
+   const parameters = item.parameters && typeof item.parameters === "object" ? item.parameters as HostNodeData : {};
+   return Object.entries(parameters).flatMap(([name, raw]) => {
+     if (name === "prompt" || name === "initImage" || name === "inputAudio") return [];
+
+diff --git a/src/components/nodes/ModelParameters.tsx b/src/components/nodes/ModelParameters.tsx
+--- a/src/components/nodes/ModelParameters.tsx
++++ b/src/components/nodes/ModelParameters.tsx
+@@ -208,7 +208,7 @@
+       const newParams = { ...parameters };
+
+       // If value is empty/undefined, remove the parameter
+-      if (value === "" || value === undefined || value === null) {
++      if (value === "" || value === undefined) {
+         delete newParams[name];
+       } else {
+         newParams[name] = value;
+@@ -325,6 +325,7 @@
+
+   // Local state for text/number inputs to prevent cursor jumping
+   const [localValue, setLocalValue] = useState<string>(() => {
++    if(param.type==="json")return value===undefined?"":JSON.stringify(value);
+     if (value === undefined || value === null) return "";
+     return String(value);
+   });
+@@ -333,9 +334,9 @@
+   // Sync from store when not focused (external changes)
+   useEffect(() => {
+     if (!isFocusedRef.current) {
+-      setLocalValue(value === undefined || value === null ? "" : String(value));
++      setLocalValue(param.type==="json"?(value===undefined?"":JSON.stringify(value)):value === undefined || value === null ? "" : String(value));
+     }
+-  }, [value]);
++  }, [value,param.type]);
+
+   // Determine input type and render accordingly
+   if (param.enum && param.enum.length > 0) {
+@@ -434,7 +435,7 @@
+             value={localValue}
+             min={param.minimum}
+             max={param.maximum}
+-            step={param.type === "integer" ? 1 : 0.1}
++            step={param.multipleOf ?? (param.type === "integer" ? 1 : "any")}
+             onFocus={() => { isFocusedRef.current = true; }}
+             onChange={(e) => {
+               setLocalValue(e.target.value);
+@@ -463,9 +464,15 @@
+     );
+   }
+
+-  // Skip array type for now (complex)
+-  if (param.type === "array") {
+-    return null;
++  if (param.type === "array" || param.type === "json") {
++    let valid=true;
++    try {if(localValue.trim())JSON.parse(localValue);}catch{valid=false;}
++    return <label className="flex flex-col gap-1 text-[11px] text-neutral-400">{displayName} (JSON{param.nullable?" / null":""})
++      <textarea aria-label={displayName} aria-invalid={!valid} className="nodrag nopan rounded border border-neutral-700 bg-neutral-900 p-2 text-white" value={localValue}
++        onFocus={()=>{isFocusedRef.current=true;}} onChange={e=>{setLocalValue(e.target.value);if(e.target.value.trim()){try{handleChange(JSON.parse(e.target.value));}catch{handleChange(e.target.value);}}else handleChange(undefined);}}
++        onBlur={()=>{isFocusedRef.current=false;}}/>
++      {!valid&&<span role="alert">{tc("Invalid JSON")}</span>}
++    </label>;
+   }
+
+   // Default: string input — uses local state, syncs to store on blur

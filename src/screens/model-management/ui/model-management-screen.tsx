@@ -1,4 +1,5 @@
 "use client";
+import { ModalWorkflowImport } from "@/features/model-management/ui/modal-workflow-import";
 import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
 import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
@@ -69,11 +70,12 @@ const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
 type ModelType = "image" | "video" | "audio";
-type VendorOption = "HUGGINGFACE" | "API";
+type VendorOption = "HUGGINGFACE" | "API" | "MODAL";
 type ModelSortOption = "latest" | "name" | "type";
 
 const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
   { value: "HUGGINGFACE" },
+  { value: "MODAL" },
   { value: "API", disabled: true },
 ];
 
@@ -463,7 +465,8 @@ export function ModelManagementScreen() {
     if (dialogMode === "edit") return;
     const option = vendorOptions.find((item) => item.value === vendor);
     if (!option || option.disabled) return;
-    updateDraft({ vendor: DEFAULT_VENDOR, provider: DEFAULT_PROVIDER });
+    setDraft(buildDraft("image"));
+    updateDraft({ vendor: vendor === "MODAL" ? "MODAL" : DEFAULT_VENDOR, provider: vendor === "MODAL" ? "modal_comfyui" : DEFAULT_PROVIDER });
     setImportError(null);
     setImportWarnings([]);
   };
@@ -550,10 +553,11 @@ export function ModelManagementScreen() {
       return;
     }
 
-    const parameterIssues = parameterConfigurationIssues(parametersResult.parsed);
+    // Modal's source schema validates nullable and structured defaults below.
+    const parameterIssues = draft.provider === "modal_comfyui" ? [] : parameterConfigurationIssues(parametersResult.parsed);
     if (parameterIssues.length) {
       setJsonErrors({...nextJsonErrors, parameters: parameterIssues.map(issue => issue.name + ": " + (locale === "ko" ? "타입·기본값·범위·선택값을 확인하세요." : "Check the type, default, range and choices.")).join("\n")});
-      setSaveError(tAdmin("errors.json"));
+      setSaveError(tAdmin("errors.configuration"));
       return;
     }
     try {
@@ -613,7 +617,7 @@ export function ModelManagementScreen() {
           return;
         }
         if (response.status === 400) {
-          setSaveError(tAdmin("errors.json"));
+          setSaveError(tAdmin("errors.configuration"));
           return;
         }
         throw new Error("SAVE_FAILED");
@@ -887,7 +891,7 @@ export function ModelManagementScreen() {
                         ? "vendor.huggingface"
                         : "vendor.api";
                     const isActive =
-                      isHuggingFaceVendor && option.value === "HUGGINGFACE";
+                      (isHuggingFaceVendor && option.value === "HUGGINGFACE") || (draft.vendor === "MODAL" && option.value === "MODAL");
                     return (
                       <AppFilterToggle
                         key={option.value}
@@ -897,7 +901,7 @@ export function ModelManagementScreen() {
                         disabled={option.disabled}
                         className="disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {tAdmin(labelKey)}
+                        {option.value === "MODAL" ? "Modal ComfyUI" : tAdmin(labelKey)}
                       </AppFilterToggle>
                     );
                   })}
@@ -906,7 +910,7 @@ export function ModelManagementScreen() {
                   {tAdmin("vendor.description")}
                 </p>
 
-                {isHuggingFaceVendor ? (
+                {draft.vendor === "MODAL" ? <ModalWorkflowImport onImport={applyImportDraft} /> : isHuggingFaceVendor ? (
                   <div className="mt-4 border-t border-white/10 pt-4">
                     <div className="text-xs font-sans uppercase tracking-widest text-gray-500">
                       {tAdmin("import.title")}

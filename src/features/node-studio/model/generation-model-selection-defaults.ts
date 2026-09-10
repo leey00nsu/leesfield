@@ -1,3 +1,4 @@
+import { contractAuthoringDefaults, contractAuthoringParameters } from "@/shared/model-catalog/gradio-contract";
 import { authoringValuesToImageConfig, resolveImageAuthoringDefaults } from "@/shared/generation/image-authoring";
 import {
   getRuntimeAudioDynamicParameters,
@@ -25,6 +26,12 @@ export function projectGenerationModelSelectionDefaults(
   const model = models.find((candidate) => candidate.key === nextConfig.modelKey);
   if (!model) return nextConfig;
   const prompt = typeof nextConfig.prompt === "string" ? nextConfig.prompt : "";
+  const contractDefaults = contractAuthoringDefaults(model);
+  if (contractDefaults) {
+    const reset = Object.hasOwn(nextConfig, "parameters") && Object.keys(record(nextConfig.parameters)).length === 0;
+    const previous = currentConfig.modelKey === nextConfig.modelKey && !reset ? record(currentConfig.parameters) : {};
+    return { ...nextConfig, parameters: { ...contractDefaults, ...contractAuthoringParameters(model, { ...previous, ...record(nextConfig.parameters) }) } };
+  }
   const defaults = model.type === "image"
     ? authoringValuesToImageConfig(resolveImageAuthoringDefaults(model, prompt), model).parameters
     : model.type === "video"

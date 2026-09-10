@@ -1,3 +1,4 @@
+import { modalConfigSchema } from "@/shared/model-catalog/modal-comfyui-contract";
 import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
 import {
   gradioContractSchema,
@@ -202,11 +203,12 @@ const baseModelSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.enum(["hf_space", "codex_cli", "codex_bridge"]),
+  provider: z.enum(["hf_space", "codex_cli", "codex_bridge", "modal_comfyui"]),
   providerConfig: z.union([
     hfSpaceConfigSchema,
     codexCliConfigSchema,
     codexBridgeConfigSchema,
+    modalConfigSchema,
   ]),
   parameters: z.unknown(),
   meta: z.unknown(),
@@ -218,8 +220,8 @@ const baseModelSchema = z.object({
 
 const imageModelSchema = baseModelSchema.extend({
   type: z.literal("image"),
-  parameters: imageParametersSchema,
-  meta: imageMetaSchema,
+  parameters: imageParametersSchema.partial().catchall(parameterSchema),
+  meta: imageMetaSchema.partial(),
 });
 
 const imageHfSpaceModelSchema = imageModelSchema.extend({
@@ -241,22 +243,25 @@ const imageModelProviderSchema = z.union([
   imageHfSpaceModelSchema,
   imageCodexCliModelSchema,
   imageCodexBridgeModelSchema,
+  imageModelSchema.extend({provider:z.literal("modal_comfyui"),providerConfig:modalConfigSchema}),
 ]);
 
-const videoModelSchema = baseModelSchema.extend({
+const videoHfModelSchema = baseModelSchema.extend({
   type: z.literal("video"),
   provider: z.literal("hf_space"),
   providerConfig: hfSpaceConfigSchema,
-  parameters: videoParametersSchema,
-  meta: videoMetaSchema,
+  parameters: videoParametersSchema.partial().catchall(parameterSchema),
+  meta: videoMetaSchema.partial(),
 });
+
+const videoModelSchema = z.union([videoHfModelSchema, videoHfModelSchema.extend({provider:z.literal("modal_comfyui"),providerConfig:modalConfigSchema})]);
 
 const audioModelSchema = baseModelSchema.extend({
   type: z.literal("audio"),
   provider: z.literal("hf_space"),
   providerConfig: hfSpaceConfigSchema,
-  parameters: audioParametersSchema,
-  meta: audioMetaSchema,
+  parameters: audioParametersSchema.partial().catchall(parameterSchema),
+  meta: audioMetaSchema.partial(),
 });
 
 const baseModelInputSchema = z.object({
@@ -264,11 +269,12 @@ const baseModelInputSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   vendor: z.string().min(1),
-  provider: z.enum(["hf_space", "codex_cli", "codex_bridge"]),
+  provider: z.enum(["hf_space", "codex_cli", "codex_bridge", "modal_comfyui"]),
   providerConfig: z.union([
     hfSpaceConfigSchema,
     codexCliConfigSchema,
     codexBridgeConfigSchema,
+    modalConfigSchema,
   ]),
   parameters: z.unknown(),
   meta: z.unknown(),
@@ -278,8 +284,8 @@ const baseModelInputSchema = z.object({
 
 const imageModelInputSchema = baseModelInputSchema.extend({
   type: z.literal("image"),
-  parameters: imageParametersSchema,
-  meta: imageMetaSchema,
+  parameters: imageParametersSchema.partial().catchall(parameterSchema),
+  meta: imageMetaSchema.partial(),
 });
 
 const imageHfSpaceModelInputSchema = imageModelInputSchema.extend({
@@ -301,22 +307,25 @@ const imageModelProviderInputSchema = z.union([
   imageHfSpaceModelInputSchema,
   imageCodexCliModelInputSchema,
   imageCodexBridgeModelInputSchema,
+  imageModelInputSchema.extend({provider:z.literal("modal_comfyui"),providerConfig:modalConfigSchema}),
 ]);
 
-const videoModelInputSchema = baseModelInputSchema.extend({
+const videoHfModelInputSchema = baseModelInputSchema.extend({
   type: z.literal("video"),
   provider: z.literal("hf_space"),
   providerConfig: hfSpaceConfigSchema,
-  parameters: videoParametersSchema,
-  meta: videoMetaSchema,
+  parameters: videoParametersSchema.partial().catchall(parameterSchema),
+  meta: videoMetaSchema.partial(),
 });
+
+const videoModelInputSchema = z.union([videoHfModelInputSchema, videoHfModelInputSchema.extend({provider:z.literal("modal_comfyui"),providerConfig:modalConfigSchema})]);
 
 const audioModelInputSchema = baseModelInputSchema.extend({
   type: z.literal("audio"),
   provider: z.literal("hf_space"),
   providerConfig: hfSpaceConfigSchema,
-  parameters: audioParametersSchema,
-  meta: audioMetaSchema,
+  parameters: audioParametersSchema.partial().catchall(parameterSchema),
+  meta: audioMetaSchema.partial(),
 });
 
 const normalizeStoredModel = (value: unknown) => {
@@ -331,10 +340,19 @@ const normalizeStoredModel = (value: unknown) => {
   } // Let the schema report invalid legacy data as a validation error.
 };
 
+function validateLegacyModel(model: { type: "image" | "video" | "audio"; providerConfig: unknown; parameters: unknown; meta: unknown }, ctx: z.RefinementCtx) {
+  try { if (getGradioContract(model)) return; } catch { return; }
+  const schemas = { image: [imageParametersSchema, imageMetaSchema], video: [videoParametersSchema, videoMetaSchema], audio: [audioParametersSchema, audioMetaSchema] } as const;
+  for (const [index, key] of (["parameters", "meta"] as const).entries()) {
+    const parsed = schemas[model.type][index].safeParse(model[key]);
+    if (!parsed.success) for (const issue of parsed.error.issues) ctx.addIssue({ code: "custom", path: [key, ...issue.path], message: issue.message });
+  }
+}
+
 export const modelCatalogSchema = z.array(
   z.preprocess(
     normalizeStoredModel,
-    z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]),
+    z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]).superRefine(validateLegacyModel),
   ),
 );
 
@@ -347,11 +365,14 @@ export const modelCatalogInputSchema = z.preprocess(
       audioModelInputSchema,
     ])
     .superRefine((model, ctx) => {
-      for (const issue of parameterConfigurationIssues(model.parameters)) ctx.addIssue({code:"custom",path:["parameters",issue.name],message:"Invalid parameter configuration: "+issue.reason});
-      if (model.provider !== "hf_space") return;
+      validateLegacyModel(model, ctx);
+      // Modal defaults (including null/objects) are checked against their source
+      // JSON Schema below; legacy scalar inference is not its input contract.
+      if(model.provider!=="modal_comfyui") for (const issue of parameterConfigurationIssues(model.parameters)) ctx.addIssue({code:"custom",path:["parameters",issue.name],message:"Invalid parameter configuration: "+issue.reason});
+      if (model.provider !== "hf_space" && model.provider !== "modal_comfyui") return;
       try {
         const contract = getGradioContract(model);
-        if (contract && model.isActive !== false) {
+        if (contract && (model.isActive !== false || model.provider === "modal_comfyui")) {
           assertGradioExecutable(contract);
           if (contract.output?.media !== model.type)
             throw new Error("HF_CONTRACT_MEDIA");

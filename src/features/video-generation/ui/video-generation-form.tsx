@@ -115,12 +115,12 @@ export function VideoGenerationForm({
     [resolvedVideoModels, tValidation],
   );
   const resolverRef = useRef<Resolver<VideoGenerationFormValues>>(
-    zodResolver(staticSchema) as Resolver<VideoGenerationFormValues>,
+    zodResolver(staticSchema) as unknown as Resolver<VideoGenerationFormValues>,
   );
   useEffect(() => {
     resolverRef.current = zodResolver(
       runtimeSchema,
-    ) as Resolver<VideoGenerationFormValues>;
+    ) as unknown as Resolver<VideoGenerationFormValues>;
   }, [runtimeSchema]);
   const resolver = useMemo<Resolver<VideoGenerationFormValues>>(
     () => (values, context, options) =>
@@ -260,6 +260,11 @@ export function VideoGenerationForm({
   useEffect(() => {
     const model = runtimeModelMap.get(activeModel);
     if (!model) return;
+    if (getGradioContract(model)) {
+      const current = form.getValues();
+      form.reset({ model: activeModel, prompt: current.prompt ?? "", dynamicParams: current.dynamicParams ?? {}, initImage: current.initImage });
+      return;
+    }
     const defaults = resolveRuntimeVideoDefaults(model);
     form.setValue("aspectRatio", defaults.aspectRatio);
     form.setValue("resolution", defaults.resolution);
@@ -273,7 +278,7 @@ export function VideoGenerationForm({
   }, [activeModel, form, runtimeModelMap]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { state, startGeneration, reset } = useVideoGeneration();
+  const { state, startGeneration, reset } = useVideoGeneration(activeRuntimeModel?.provider==="modal_comfyui" ? Number(activeRuntimeModel.providerConfig?.timeout_ms??900_000) : undefined);
   const isGenerating =
     state.status === "pending" ||
     state.status === "processing" ||
@@ -563,6 +568,9 @@ footerRight={
                     <>
                       <AppButton
                         variant="generate"
+                              isLoading={isGenerating}
+                              loadingText=""
+                              aria-label={isGenerating ? tActions("generating") : undefined}
                               type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
@@ -575,9 +583,7 @@ footerRight={
                           isAuthenticated ? undefined : handleLoginRedirect
                         }
                       >
-                        {isGenerating
-                          ? tActions("generating")
-                          : tActions("generate")}
+                        {tActions("generate")}
                         <Sparkles className="h-5 w-5" />
                       </AppButton>
                     </>

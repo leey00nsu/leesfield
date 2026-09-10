@@ -2,6 +2,8 @@
 
 <h1 align="center"><strong>Leesfield</strong></h1>
 
+Modal 완료 결과 수집: 완료 응답 이후 빈 assets 또는 다운로드 404는 결과 동기화 재조회 예산 60초(전체 모델 실행 기한 이내)로 처리하며 GPU 생성을 재제출하지 않습니다. 응답 검증 오류는 SUBMIT/STATUS/ASSETS, 저장 실패는 MODAL_STORAGE_FAILED, 결과 준비 기한 초과는 MODAL_OUTPUT_SYNC_TIMEOUT으로 구분합니다. 서버 로그에는 검증 필드 경로와 오류 코드만 남기며 입력값·API 키는 기록하지 않습니다. modal-comfyui 프록시 수정은 별도 배포가 필요합니다.
+
 <p align="center"><strong>다양한 AI 생성 모델을 하나의 인터페이스에서 실행하고 관리하는 AI inference platform</strong></p>
 
 <p align="center">

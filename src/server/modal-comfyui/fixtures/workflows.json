@@ -1,0 +1,1194 @@
+[
+  {
+    "id": "krea2-t2i",
+    "name": "Krea2 Turbo Text to Image",
+    "category": "image",
+    "output_media": [
+      "image"
+    ],
+    "ui_workflow_file": "Krea2_Turbo_Space_T2I.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Generation or edit instruction",
+          "maxLength": 50000
+        },
+        "width": {
+          "type": "integer",
+          "description": "Output width",
+          "default": 512,
+          "minimum": 32,
+          "maximum": 4096,
+          "multipleOf": 32
+        },
+        "height": {
+          "type": "integer",
+          "description": "Output height",
+          "default": 512,
+          "minimum": 32,
+          "maximum": 4096,
+          "multipleOf": 32
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Sampling steps",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Noise seed",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "sampler": {
+          "type": "string",
+          "description": "ComfyUI sampler",
+          "maxLength": 50000,
+          "default": "euler",
+          "enum": [
+            "euler",
+            "euler_cfg_pp",
+            "euler_ancestral",
+            "euler_ancestral_cfg_pp",
+            "heun",
+            "heunpp2",
+            "exp_heun_2_x0",
+            "exp_heun_2_x0_sde",
+            "dpm_2",
+            "dpm_2_ancestral",
+            "lms",
+            "dpm_fast",
+            "dpm_adaptive",
+            "dpmpp_2s_ancestral",
+            "dpmpp_2s_ancestral_cfg_pp",
+            "dpmpp_sde",
+            "dpmpp_sde_gpu",
+            "dpmpp_2m",
+            "dpmpp_2m_cfg_pp",
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde_gpu",
+            "dpmpp_2m_sde_heun",
+            "dpmpp_2m_sde_heun_gpu",
+            "dpmpp_3m_sde",
+            "dpmpp_3m_sde_gpu",
+            "ddpm",
+            "lcm",
+            "ipndm",
+            "ipndm_v",
+            "deis",
+            "cfgpp_ud10_ab",
+            "res_multistep",
+            "res_multistep_cfg_pp",
+            "res_multistep_ancestral",
+            "res_multistep_ancestral_cfg_pp",
+            "gradient_estimation",
+            "gradient_estimation_cfg_pp",
+            "er_sde",
+            "seeds_2",
+            "seeds_3",
+            "sa_solver",
+            "sa_solver_pece",
+            "ddim",
+            "uni_pc",
+            "uni_pc_bh2"
+          ]
+        },
+        "scheduler": {
+          "type": "string",
+          "description": "ComfyUI scheduler",
+          "maxLength": 50000,
+          "default": "beta",
+          "enum": [
+            "simple",
+            "sgm_uniform",
+            "karras",
+            "exponential",
+            "ddim_uniform",
+            "beta",
+            "normal",
+            "linear_quadratic",
+            "kl_optimal"
+          ]
+        },
+        "denoise": {
+          "type": "number",
+          "description": "Sampling denoise strength",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "cfg": {
+          "type": "number",
+          "description": "Classifier-free guidance scale",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 30
+        },
+        "model_shift": {
+          "type": "number",
+          "description": "AuraFlow model sampling shift",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 100
+        },
+        "batch_size": {
+          "type": "integer",
+          "description": "Images generated per job",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 4
+        }
+      }
+    },
+    "job_path": "/api/workflows/krea2-t2i/jobs"
+  },
+  {
+    "id": "krea2-identity-edit",
+    "name": "Krea2 Turbo Identity Edit",
+    "category": "image",
+    "output_media": [
+      "image"
+    ],
+    "ui_workflow_file": "Krea2_Turbo_Space_Identity_Edit.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image",
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Generation or edit instruction",
+          "maxLength": 50000
+        },
+        "width": {
+          "type": "integer",
+          "description": "Output width",
+          "default": 512,
+          "minimum": 32,
+          "maximum": 4096,
+          "multipleOf": 32
+        },
+        "height": {
+          "type": "integer",
+          "description": "Output height",
+          "default": 512,
+          "minimum": 32,
+          "maximum": 4096,
+          "multipleOf": 32
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Sampling steps",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Noise seed",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        },
+        "image": {
+          "type": "string",
+          "description": "Uploaded source image name",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "sampler": {
+          "type": "string",
+          "description": "ComfyUI sampler",
+          "maxLength": 50000,
+          "default": "euler",
+          "enum": [
+            "euler",
+            "euler_cfg_pp",
+            "euler_ancestral",
+            "euler_ancestral_cfg_pp",
+            "heun",
+            "heunpp2",
+            "exp_heun_2_x0",
+            "exp_heun_2_x0_sde",
+            "dpm_2",
+            "dpm_2_ancestral",
+            "lms",
+            "dpm_fast",
+            "dpm_adaptive",
+            "dpmpp_2s_ancestral",
+            "dpmpp_2s_ancestral_cfg_pp",
+            "dpmpp_sde",
+            "dpmpp_sde_gpu",
+            "dpmpp_2m",
+            "dpmpp_2m_cfg_pp",
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde_gpu",
+            "dpmpp_2m_sde_heun",
+            "dpmpp_2m_sde_heun_gpu",
+            "dpmpp_3m_sde",
+            "dpmpp_3m_sde_gpu",
+            "ddpm",
+            "lcm",
+            "ipndm",
+            "ipndm_v",
+            "deis",
+            "cfgpp_ud10_ab",
+            "res_multistep",
+            "res_multistep_cfg_pp",
+            "res_multistep_ancestral",
+            "res_multistep_ancestral_cfg_pp",
+            "gradient_estimation",
+            "gradient_estimation_cfg_pp",
+            "er_sde",
+            "seeds_2",
+            "seeds_3",
+            "sa_solver",
+            "sa_solver_pece",
+            "ddim",
+            "uni_pc",
+            "uni_pc_bh2"
+          ]
+        },
+        "scheduler": {
+          "type": "string",
+          "description": "ComfyUI scheduler",
+          "maxLength": 50000,
+          "default": "beta",
+          "enum": [
+            "simple",
+            "sgm_uniform",
+            "karras",
+            "exponential",
+            "ddim_uniform",
+            "beta",
+            "normal",
+            "linear_quadratic",
+            "kl_optimal"
+          ]
+        },
+        "denoise": {
+          "type": "number",
+          "description": "Sampling denoise strength",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "cfg": {
+          "type": "number",
+          "description": "Classifier-free guidance scale",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 30
+        },
+        "model_shift": {
+          "type": "number",
+          "description": "AuraFlow model sampling shift",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 100
+        },
+        "batch_size": {
+          "type": "integer",
+          "description": "Images generated per job",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 4
+        },
+        "lora_strength": {
+          "type": "number",
+          "description": "Identity-edit LoRA strength",
+          "default": 1,
+          "minimum": -100,
+          "maximum": 100
+        },
+        "ref_boost": {
+          "type": "number",
+          "description": "Last-reference attention boost",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "ref_boost_a": {
+          "type": "number",
+          "description": "First-reference attention boost",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "fit_mode": {
+          "type": "string",
+          "description": "Reference fitting strategy",
+          "maxLength": 50000,
+          "default": "fit",
+          "enum": [
+            "fit",
+            "crop (legacy)"
+          ]
+        },
+        "grounding_px": {
+          "type": "integer",
+          "description": "Vision encoder longest-side cap; zero uses native size",
+          "default": 768,
+          "minimum": 0,
+          "maximum": 4096,
+          "multipleOf": 64
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional grounding system prompt override",
+          "maxLength": 50000,
+          "default": ""
+        }
+      }
+    },
+    "job_path": "/api/workflows/krea2-identity-edit/jobs"
+  },
+  {
+    "id": "supertonic-tts",
+    "name": "Supertonic TTS",
+    "category": "audio",
+    "output_media": [
+      "audio"
+    ],
+    "ui_workflow_file": "Supertonic_TTS_Modal_CPU.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Text to synthesize",
+          "maxLength": 50000
+        },
+        "voice_preset": {
+          "type": "string",
+          "description": "Preset voice",
+          "maxLength": 50000,
+          "default": "M1"
+        },
+        "custom_voice_name": {
+          "type": "string",
+          "description": "Used when voice_preset is custom",
+          "maxLength": 128,
+          "default": "M1"
+        },
+        "lang": {
+          "type": "string",
+          "description": "Language",
+          "maxLength": 50000,
+          "default": "ko",
+          "enum": [
+            "ko",
+            "en",
+            "ja",
+            "na"
+          ]
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Diffusion steps",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20
+        },
+        "speed": {
+          "type": "number",
+          "description": "Speech speed",
+          "default": 1.05,
+          "minimum": 0.7,
+          "maximum": 2
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {}
+    },
+    "job_path": "/api/workflows/supertonic-tts/jobs"
+  },
+  {
+    "id": "audio8-tts",
+    "name": "Audio8 0.1B TTS",
+    "category": "audio",
+    "output_media": [
+      "audio"
+    ],
+    "ui_workflow_file": "Audio8_0.1B_TTS_Modal_CPU.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Text to synthesize",
+          "maxLength": 50000
+        },
+        "voice_preset": {
+          "type": "string",
+          "description": "Preset voice",
+          "maxLength": 50000,
+          "default": "adam"
+        },
+        "custom_voice_name": {
+          "type": "string",
+          "description": "Used when voice_preset is custom",
+          "maxLength": 128,
+          "default": "adam"
+        },
+        "top_k": {
+          "type": "integer",
+          "description": "Sampling top-k",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Sampling seed",
+          "default": 42,
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "max_new_tokens": {
+          "type": "integer",
+          "description": "Zero selects the worker default",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1024
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {}
+    },
+    "job_path": "/api/workflows/audio8-tts/jobs"
+  },
+  {
+    "id": "supertonic-voice-clone",
+    "name": "Supertonic Voice Cloning",
+    "category": "audio",
+    "output_media": [
+      "audio"
+    ],
+    "ui_workflow_file": "Supertonic_Voice_Cloning_Modal_CPU.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference_audio",
+        "voice_name"
+      ],
+      "properties": {
+        "reference_audio": {
+          "type": "string",
+          "description": "Uploaded WAV reference name",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "voice_name": {
+          "type": "string",
+          "description": "Registered voice name",
+          "maxLength": 128
+        },
+        "preview_text": {
+          "type": "string",
+          "description": "Text used for the preview",
+          "maxLength": 50000,
+          "default": "안녕하세요. 새 목소리를 테스트합니다."
+        },
+        "iterations": {
+          "type": "integer",
+          "description": "Optimization iterations",
+          "default": 120,
+          "minimum": 1,
+          "maximum": 300
+        },
+        "population": {
+          "type": "integer",
+          "description": "Optimization population",
+          "default": 20,
+          "minimum": 2,
+          "maximum": 64
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Preview synthesis steps",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "Replace an existing voice",
+          "default": false
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {}
+    },
+    "job_path": "/api/workflows/supertonic-voice-clone/jobs"
+  },
+  {
+    "id": "audio8-voice-clone",
+    "name": "Audio8 Voice Cloning",
+    "category": "audio",
+    "output_media": [
+      "audio"
+    ],
+    "ui_workflow_file": "Audio8_Voice_Cloning_Modal_CPU.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference_audio",
+        "exact_transcript",
+        "voice_name"
+      ],
+      "properties": {
+        "reference_audio": {
+          "type": "string",
+          "description": "Uploaded WAV reference name",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "exact_transcript": {
+          "type": "string",
+          "description": "Exact reference transcript",
+          "maxLength": 50000
+        },
+        "voice_name": {
+          "type": "string",
+          "description": "Registered voice name",
+          "maxLength": 128
+        },
+        "preview_text": {
+          "type": "string",
+          "description": "Text used for the preview",
+          "maxLength": 50000,
+          "default": "안녕하세요. 새 목소리를 테스트합니다."
+        },
+        "top_k": {
+          "type": "integer",
+          "description": "Sampling top-k",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Sampling seed",
+          "default": 42,
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "Replace an existing voice",
+          "default": false
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {}
+    },
+    "job_path": "/api/workflows/audio8-voice-clone/jobs"
+  },
+  {
+    "id": "minimax-h3-lightx2v-i2v",
+    "name": "MiniMax H3 LightX2V Turbo I2V",
+    "category": "video",
+    "output_media": [
+      "video"
+    ],
+    "ui_workflow_file": "MiniMax_H3_LightX2V_Turbo_8step_768p.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_frame",
+        "prompt"
+      ],
+      "properties": {
+        "first_frame": {
+          "type": "string",
+          "description": "Uploaded first frame",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Video and audio description",
+          "maxLength": 50000
+        },
+        "width": {
+          "type": "integer",
+          "description": "Output width",
+          "default": 1344,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "height": {
+          "type": "integer",
+          "description": "Output height",
+          "default": 768,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "duration_seconds": {
+          "type": "number",
+          "description": "Duration converted to the H3 frame grid",
+          "default": 5,
+          "minimum": 0.2,
+          "maximum": 15
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Noise seed",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "sampler": {
+          "type": "string",
+          "description": "ComfyUI sampler",
+          "maxLength": 50000,
+          "default": "euler",
+          "enum": [
+            "euler",
+            "euler_cfg_pp",
+            "euler_ancestral",
+            "euler_ancestral_cfg_pp",
+            "heun",
+            "heunpp2",
+            "exp_heun_2_x0",
+            "exp_heun_2_x0_sde",
+            "dpm_2",
+            "dpm_2_ancestral",
+            "lms",
+            "dpm_fast",
+            "dpm_adaptive",
+            "dpmpp_2s_ancestral",
+            "dpmpp_2s_ancestral_cfg_pp",
+            "dpmpp_sde",
+            "dpmpp_sde_gpu",
+            "dpmpp_2m",
+            "dpmpp_2m_cfg_pp",
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde_gpu",
+            "dpmpp_2m_sde_heun",
+            "dpmpp_2m_sde_heun_gpu",
+            "dpmpp_3m_sde",
+            "dpmpp_3m_sde_gpu",
+            "ddpm",
+            "lcm",
+            "ipndm",
+            "ipndm_v",
+            "deis",
+            "cfgpp_ud10_ab",
+            "res_multistep",
+            "res_multistep_cfg_pp",
+            "res_multistep_ancestral",
+            "res_multistep_ancestral_cfg_pp",
+            "gradient_estimation",
+            "gradient_estimation_cfg_pp",
+            "er_sde",
+            "seeds_2",
+            "seeds_3",
+            "sa_solver",
+            "sa_solver_pece",
+            "ddim",
+            "uni_pc",
+            "uni_pc_bh2"
+          ]
+        },
+        "scheduler": {
+          "type": "string",
+          "description": "ComfyUI scheduler",
+          "maxLength": 50000,
+          "default": "simple",
+          "enum": [
+            "simple",
+            "sgm_uniform",
+            "karras",
+            "exponential",
+            "ddim_uniform",
+            "beta",
+            "normal",
+            "linear_quadratic",
+            "kl_optimal"
+          ]
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Sampling steps",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "denoise": {
+          "type": "number",
+          "description": "Sampling denoise strength",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fps": {
+          "type": "number",
+          "description": "Output video frames per second",
+          "default": 24,
+          "minimum": 1,
+          "maximum": 120
+        },
+        "bit_depth": {
+          "type": "integer",
+          "description": "Output bit depth",
+          "default": 8,
+          "enum": [
+            8,
+            10
+          ]
+        },
+        "color_space": {
+          "type": "string",
+          "description": "Output color space",
+          "maxLength": 50000,
+          "default": "sRGB",
+          "enum": [
+            "sRGB",
+            "HDR",
+            "HDR PQ"
+          ]
+        },
+        "output_format": {
+          "type": "string",
+          "description": "Output container",
+          "maxLength": 50000,
+          "default": "auto",
+          "enum": [
+            "auto",
+            "mp4",
+            "mkv",
+            "webm"
+          ]
+        },
+        "video_codec": {
+          "type": "string",
+          "description": "Output codec",
+          "maxLength": 50000,
+          "default": "auto",
+          "enum": [
+            "auto",
+            "h264",
+            "av1"
+          ]
+        },
+        "lora_strength": {
+          "type": "number",
+          "description": "LightX2V LoRA strength",
+          "default": 1,
+          "minimum": -100,
+          "maximum": 100
+        },
+        "shift_video": {
+          "type": "number",
+          "description": "Video sigma shift",
+          "default": 6,
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "shift_audio": {
+          "type": "number",
+          "description": "Audio sigma shift",
+          "default": 3,
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "blur_radius": {
+          "type": "integer",
+          "description": "Background blur kernel radius",
+          "default": 31,
+          "minimum": 1,
+          "maximum": 127
+        },
+        "blur_sigma": {
+          "type": "number",
+          "description": "Background blur sigma",
+          "default": 12,
+          "minimum": 0.1,
+          "maximum": 64
+        }
+      }
+    },
+    "job_path": "/api/workflows/minimax-h3-lightx2v-i2v/jobs"
+  },
+  {
+    "id": "minimax-h3-pdd-fl2va",
+    "name": "MiniMax H3 PDD Acc FL2VA",
+    "category": "video",
+    "output_media": [
+      "video"
+    ],
+    "ui_workflow_file": "MiniMax_H3_PDD_Acc_FL2VA_8step.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Video, motion, dialogue, soundscape, and music description",
+          "maxLength": 50000
+        },
+        "width": {
+          "type": "integer",
+          "description": "Output width",
+          "default": 1344,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "height": {
+          "type": "integer",
+          "description": "Output height",
+          "default": 768,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "length": {
+          "type": "integer",
+          "description": "Frame count on the 17k+5 H3 grid",
+          "default": 124,
+          "minimum": 5,
+          "maximum": 362
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Noise seed",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        },
+        "reference_image": {
+          "type": "string",
+          "description": "Optional uploaded reference image",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "fps": {
+          "type": "number",
+          "description": "Output video frames per second",
+          "default": 24,
+          "minimum": 1,
+          "maximum": 120
+        },
+        "bit_depth": {
+          "type": "integer",
+          "description": "Output bit depth",
+          "default": 8,
+          "enum": [
+            8,
+            10
+          ]
+        },
+        "color_space": {
+          "type": "string",
+          "description": "Output color space",
+          "maxLength": 50000,
+          "default": "sRGB",
+          "enum": [
+            "sRGB",
+            "HDR",
+            "HDR PQ"
+          ]
+        },
+        "output_format": {
+          "type": "string",
+          "description": "Output container",
+          "maxLength": 50000,
+          "default": "auto",
+          "enum": [
+            "auto",
+            "mp4",
+            "mkv",
+            "webm"
+          ]
+        },
+        "video_codec": {
+          "type": "string",
+          "description": "Output codec",
+          "maxLength": 50000,
+          "default": "auto",
+          "enum": [
+            "auto",
+            "h264",
+            "av1"
+          ]
+        },
+        "nfe": {
+          "type": "string",
+          "description": "PDD model evaluations",
+          "maxLength": 50000,
+          "default": "8",
+          "enum": [
+            "4",
+            "6",
+            "8"
+          ]
+        },
+        "lora_strength": {
+          "type": "number",
+          "description": "PDD trunk LoRA strength",
+          "default": 1,
+          "minimum": -2,
+          "maximum": 2
+        },
+        "head_strength": {
+          "type": "number",
+          "description": "PDD head blend strength",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 2
+        },
+        "shift_video": {
+          "type": "number",
+          "description": "Video sigma shift",
+          "default": 12,
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "shift_audio": {
+          "type": "number",
+          "description": "Audio sigma shift",
+          "default": 3,
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "on_off_grid": {
+          "type": "string",
+          "description": "Off-grid sigma handling",
+          "maxLength": 50000,
+          "default": "error",
+          "enum": [
+            "error",
+            "clamp"
+          ]
+        }
+      }
+    },
+    "job_path": "/api/workflows/minimax-h3-pdd-fl2va/jobs"
+  },
+  {
+    "id": "minimax-h3-image-edit",
+    "name": "MiniMax H3 Simple Image Edit",
+    "category": "image",
+    "output_media": [
+      "image"
+    ],
+    "ui_workflow_file": "MiniMax_H3_Simple_Image_Edit.json",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image",
+        "prompt"
+      ],
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Uploaded source image",
+          "format": "comfy-input-name",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Image edit instruction",
+          "maxLength": 50000
+        },
+        "width": {
+          "type": "integer",
+          "description": "Generation width",
+          "default": 1344,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "height": {
+          "type": "integer",
+          "description": "Generation height",
+          "default": 768,
+          "minimum": 32,
+          "maximum": 1344,
+          "multipleOf": 32
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Sampling steps",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Noise seed",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        }
+      }
+    },
+    "advanced_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "sampler": {
+          "type": "string",
+          "description": "ComfyUI sampler",
+          "maxLength": 50000,
+          "default": "res_multistep",
+          "enum": [
+            "euler",
+            "euler_cfg_pp",
+            "euler_ancestral",
+            "euler_ancestral_cfg_pp",
+            "heun",
+            "heunpp2",
+            "exp_heun_2_x0",
+            "exp_heun_2_x0_sde",
+            "dpm_2",
+            "dpm_2_ancestral",
+            "lms",
+            "dpm_fast",
+            "dpm_adaptive",
+            "dpmpp_2s_ancestral",
+            "dpmpp_2s_ancestral_cfg_pp",
+            "dpmpp_sde",
+            "dpmpp_sde_gpu",
+            "dpmpp_2m",
+            "dpmpp_2m_cfg_pp",
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde_gpu",
+            "dpmpp_2m_sde_heun",
+            "dpmpp_2m_sde_heun_gpu",
+            "dpmpp_3m_sde",
+            "dpmpp_3m_sde_gpu",
+            "ddpm",
+            "lcm",
+            "ipndm",
+            "ipndm_v",
+            "deis",
+            "cfgpp_ud10_ab",
+            "res_multistep",
+            "res_multistep_cfg_pp",
+            "res_multistep_ancestral",
+            "res_multistep_ancestral_cfg_pp",
+            "gradient_estimation",
+            "gradient_estimation_cfg_pp",
+            "er_sde",
+            "seeds_2",
+            "seeds_3",
+            "sa_solver",
+            "sa_solver_pece",
+            "ddim",
+            "uni_pc",
+            "uni_pc_bh2"
+          ]
+        },
+        "scheduler": {
+          "type": "string",
+          "description": "ComfyUI scheduler",
+          "maxLength": 50000,
+          "default": "simple",
+          "enum": [
+            "simple",
+            "sgm_uniform",
+            "karras",
+            "exponential",
+            "ddim_uniform",
+            "beta",
+            "normal",
+            "linear_quadratic",
+            "kl_optimal"
+          ]
+        },
+        "denoise": {
+          "type": "number",
+          "description": "Sampling denoise strength",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "job_path": "/api/workflows/minimax-h3-image-edit/jobs"
+  }
+]

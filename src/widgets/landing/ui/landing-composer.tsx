@@ -1,4 +1,5 @@
 "use client";
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { useRef, useState, useEffect } from "react";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import {
@@ -232,7 +233,7 @@ export function LandingComposer({
                 );
                 update({
                   model,
-                  ...(media === "image" && runtime
+                  ...(media === "image" && runtime && !getGradioContract(runtime)
                     ? resolveImageAuthoringDefaults(runtime)
                     : {}),
                 });

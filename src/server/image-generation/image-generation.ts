@@ -1,3 +1,5 @@
+import { ModalApiError } from "@/server/modal-comfyui/client";
+import { modalComfyImageAdapter } from "./adapters/modal-comfyui-adapter";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationResponse } from "@/features/image-generation/model/image-generation-types";
 import { codexBridgeImageAdapter } from "@/server/image-generation/adapters/codex-bridge-adapter";
@@ -16,7 +18,7 @@ import {
   mockImageGenerationResult,
 } from "@/server/media-assets/node-studio-e2e-media-fixtures";
 
-type ImageProvider = "hf_space" | "codex_cli" | "codex_bridge";
+type ImageProvider = ImageModelCatalogItem["provider"];
 
 async function resolveCatalogImageModel(
   modelKey: ImageGenerationFormValues["model"]
@@ -43,6 +45,7 @@ async function getAdapter(
   modelKey: ImageGenerationFormValues["model"]
 ): Promise<ImageGenerationAdapter> {
   const provider = await resolveImageProvider(modelKey);
+  if (provider === "modal_comfyui") return modalComfyImageAdapter;
   if (provider === "hf_space") return hfSpaceImageAdapter;
   if (provider === "codex_cli") return codexCliImageAdapter;
   if (provider === "codex_bridge") return codexBridgeImageAdapter;
@@ -99,13 +102,18 @@ export async function resolveImageGenerationResult(
 }> {
   let adapter: ImageGenerationAdapter | null = null;
   try {
-    adapter = await getAdapter(payload.model);
+    adapter = lifecycle.executionModel?.provider==="modal_comfyui" ? modalComfyImageAdapter : await getAdapter(payload.model);
+    if (adapter === modalComfyImageAdapter && resolveImageStorageProvider().provider !== "leemage")
+      throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
     const result = isNodeStudioE2EMockGenerationEnabled()
       ? mockImageGenerationResult(payload)
-      : await adapter.generate(payload);
+      : adapter === modalComfyImageAdapter
+        ? await adapter.generate(payload, { requestId, executionModel:lifecycle.executionModel })
+        : await adapter.generate(payload);
     const { provider, warningMessage } = resolveImageStorageProvider();
 
     if (!provider) {
+      if(adapter === modalComfyImageAdapter) throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
       const message =
         warningMessage ??
         "이미지 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
@@ -120,7 +128,12 @@ export async function resolveImageGenerationResult(
 
     await lifecycle.onUploading?.();
     const storageAdapter = getStorageAdapter();
-    return storageAdapter.uploadImages(payload, requestId, result.images);
+    const stored=await storageAdapter.uploadImages(
+      adapter===modalComfyImageAdapter && result.meta ? {...payload,...result.meta,imageCount:result.images.length} : payload,
+      requestId,result.images);
+    if(adapter===modalComfyImageAdapter && (!stored.artifacts?.length || stored.errorMessage))
+      throw new ModalApiError("MODAL_STORAGE_FAILED");
+    return stored;
   } catch (error) {
     if (error instanceof NodeExecutionCancelledError) throw error;
     return {

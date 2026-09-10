@@ -1,3 +1,4 @@
+import { getGradioContract } from "./gradio-contract";
 import {
   getRuntimeParameterOptionValue,
   normalizeRuntimeParameterOptions,
@@ -421,7 +422,9 @@ export function getRuntimeAudioParamRange(
   return resolveRange(getRuntimeAudioParamConfig(model, key), fallback);
 }
 
+/** Legacy/manual adapter defaults. Mapped models use contractAuthoringDefaults. */
 export function resolveRuntimeImageDefaults(model: RuntimeImageModel) {
+  if (getGradioContract(model)) throw new Error("LEGACY_DEFAULTS_FOR_MAPPED_MODEL");
   const defaults = model.meta ?? {};
   return {
     steps: resolveNumber(
@@ -451,7 +454,9 @@ export function resolveRuntimeImageDefaults(model: RuntimeImageModel) {
   };
 }
 
+/** Legacy/manual adapter defaults. Mapped models use contractAuthoringDefaults. */
 export function resolveRuntimeVideoDefaults(model: RuntimeVideoModel) {
+  if (getGradioContract(model)) throw new Error("LEGACY_DEFAULTS_FOR_MAPPED_MODEL");
   const defaults = model.meta ?? {};
   return {
     steps: resolveNumber(
@@ -481,7 +486,9 @@ export function resolveRuntimeVideoDefaults(model: RuntimeVideoModel) {
   };
 }
 
+/** Legacy/manual adapter defaults. Mapped models use contractAuthoringDefaults. */
 export function resolveRuntimeAudioDefaults(model: RuntimeAudioModel) {
+  if (getGradioContract(model)) throw new Error("LEGACY_DEFAULTS_FOR_MAPPED_MODEL");
   const defaults = model.meta ?? {};
   const voiceConfig = getRuntimeAudioParamConfig(model, "voice");
   const speakerConfig = getRuntimeAudioParamConfig(model, "speaker");

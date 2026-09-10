@@ -242,7 +242,7 @@
   border-right: 1px solid var(--muted-foreground);
   padding: 0 0.75rem;
   color: var(--background);
-  background: transparent;
+  background-color: transparent;
   font-size: 0.6875rem;
   font-weight: 600;
 }
@@ -729,16 +729,6 @@
 :global(.node-banana-port-action:focus-visible) {
   outline: 2px solid white;
   outline-offset: 2px;
-}
-
-:global(.node-banana-input-assets) {
-  opacity: 0;
-}
-
-:global(.react-flow__node:hover .node-banana-input-assets),
-:global(.react-flow__node.selected .node-banana-input-assets),
-:global(.react-flow__node:focus-within .node-banana-input-assets) {
-  opacity: 1;
 }
 
 :global(.node-banana-space-browser) {

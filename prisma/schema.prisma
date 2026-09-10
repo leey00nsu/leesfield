@@ -88,6 +88,17 @@ enum MediaOperationStatus {
   cancelled
 }
 
+model ModalComfyJob {
+  requestId String @id
+  fingerprint String
+  jobId String?
+  submission Json?
+  lease String?
+  leaseUntil DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ImageGeneration {
   id                String                 @id @default(cuid())
   requestId         String                 @unique
@@ -97,9 +108,9 @@ model ImageGeneration {
   prompt            String
   requestParams     Json?
   modelKey          String?
-  aspectRatio       String
-  imageCount        Int
-  steps             Int
+  aspectRatio       String?
+  imageCount        Int?
+  steps             Int?
   seed              String?
   status            ImageGenerationStatus
   progress          Int

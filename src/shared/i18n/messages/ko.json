@@ -264,7 +264,7 @@
       "failedDescription": "잠시 후 다시 시도해주세요.",
       "queued": "대기 중…",
       "uploading": "업로드 중…",
-      "waitingTime": "이 화면에서 {seconds}초 경과"
+      "waitingTime": "{seconds}초"
     },
     "actions": {
       "gridDisabled": "그리드 (비활성)",
@@ -892,6 +892,7 @@
         "load": "모델을 불러오지 못했습니다.",
         "save": "모델 저장에 실패했습니다.",
         "json": "JSON 형식이 올바르지 않습니다.",
+        "configuration": "모델 설정이 유효하지 않습니다. 제공업체 설정·파라미터·메타 값을 확인해주세요.",
         "required": "필수 값을 입력해주세요.",
         "conflict": "이미 존재하는 모델 키입니다.",
         "notFound": "모델을 찾을 수 없습니다.",

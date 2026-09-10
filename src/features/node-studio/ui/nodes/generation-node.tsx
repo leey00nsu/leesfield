@@ -1,4 +1,5 @@
 "use client";
+import { contractAuthoringDefaults } from "@/shared/model-catalog/gradio-contract";
 import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
@@ -71,6 +72,8 @@ function modelsForMedia(
 }
 
 function defaultParameters(model: GenerationRuntimeModel, prompt: string) {
+  const declared = contractAuthoringDefaults(model);
+  if (declared) return declared;
   if (model.type === "image") {
     return authoringValuesToImageConfig(resolveImageAuthoringDefaults(model, prompt), model).parameters;
   }

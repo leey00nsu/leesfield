@@ -1,0 +1,42 @@
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -586,7 +586,9 @@
+               controls
+               loop
+               muted
+-              className="w-full h-full object-contain"
++              className="nodrag nopan w-full h-full object-contain"
++              onPointerDown={(event) => event.stopPropagation()}
++              onClick={(event) => event.stopPropagation()}
+               playsInline
+             />
+             {nodeData.__usedFallback && (
+--- a/src/leesfield/upstream-node-host.tsx
++++ b/src/leesfield/upstream-node-host.tsx
+@@ -112,6 +112,7 @@
+ };
+ export type ModelParameter = {
+   name: string;
++  label?: string;
+   type: "string" | "number" | "integer" | "boolean" | "array";
+   description?: string;
+   default?: unknown;
+@@ -863,6 +864,7 @@
+     return [{
+       name,
+       type: inferredType,
++      label: typeof config.label === "string" ? config.label : undefined,
+       description: typeof config.label === "string" ? config.label : undefined,
+       default: config.default,
+       minimum: typeof config.min === "number" ? config.min : undefined,
+--- a/src/components/nodes/ModelParameters.tsx
++++ b/src/components/nodes/ModelParameters.tsx
+@@ -319,7 +319,7 @@
+   const handleChange = useCallback((value: unknown) => {
+     onChange(name, value);
+   }, [name, onChange]);
+-  const displayName = param.name
++  const displayName = param.label || param.name
+     .replace(/_/g, " ")
+     .replace(/\b\w/g, (c) => c.toUpperCase());
+ 

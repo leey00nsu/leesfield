@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type {
@@ -32,17 +32,19 @@ export type VideoGenerationState = GenerationPollingState<
   VideoGenerationResponse["result"]
 >;
 
-export function useVideoGeneration() {
+export function useVideoGeneration(modelTimeoutMs?: number) {
+  const [requestTimeoutMs,setRequestTimeoutMs]=useState(pollTimeoutMs);
   const tErrors = useTranslations("generation.errors");
   const request = useCallback(
     async (values: VideoGenerationFormValues) => {
+      setRequestTimeoutMs(modelTimeoutMs ? Math.max(pollTimeoutMs,modelTimeoutMs+120_000) : pollTimeoutMs);
       try {
         return await requestVideoGeneration(values);
       } catch (error) {
         throw new Error(tErrors("requestFailed"));
       }
     },
-    [tErrors],
+    [tErrors,modelTimeoutMs],
   );
   const poll = useCallback(
     async (requestId: string) => {
@@ -63,7 +65,7 @@ export function useVideoGeneration() {
     request,
     poll,
     pollIntervalMs: POLL_INTERVAL_MS,
-    timeoutMs: pollTimeoutMs,
+    timeoutMs: requestTimeoutMs,
     startStatus: "pending",
     errorStatus: "failed",
     timeoutStatus: "failed",

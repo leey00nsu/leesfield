@@ -1,22 +1,13 @@
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
+import { videoOutputMetadata } from "@/server/media-assets/video-output-metadata";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
-import {
-  resolveVideoAspectRatioSize,
-  type VideoGenerationFormValues,
-} from "@/features/video-generation/model/video-generation-schema";
+import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
 import type {
   VideoStorageAdapter,
   VideoStorageAvailability,
-  VideoStorageMeta,
   VideoStorageResult,
 } from "@/server/video-generation/storage/storage-adapter";
-
-const DEFAULT_VIDEO_META = {
-  width: 640,
-  height: 360,
-  durationSec: 1,
-};
 
 const MISSING_LEEMAGE_MESSAGE =
   "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
@@ -116,33 +107,24 @@ function resolveVideoExtension(contentType: string) {
 }
 
 function resolveVideoMeta(
-  payload: VideoGenerationFormValues,
-  meta?: VideoStorageMeta
+  meta: Awaited<ReturnType<typeof videoOutputMetadata>>["outputs"][number]
 ) {
-  const fallbackSize = resolveVideoAspectRatioSize(
-    payload.aspectRatio,
-    payload.resolution
-  );
   return {
-    width: meta?.width ?? fallbackSize.width ?? DEFAULT_VIDEO_META.width,
-    height: meta?.height ?? fallbackSize.height ?? DEFAULT_VIDEO_META.height,
-    durationSec:
-      meta?.duration_sec ??
-      payload.durationSec ??
-      DEFAULT_VIDEO_META.durationSec,
+    width: meta.width,
+    height: meta.height,
+    durationSec: meta.duration_sec,
   };
 }
 
 function buildResultFromDataUrls(
   payload: VideoGenerationFormValues,
   dataUrls: string[],
-  meta?: VideoStorageMeta
+  meta: Awaited<ReturnType<typeof videoOutputMetadata>>
 ): NonNullable<VideoGenerationResponse["result"]> {
-  const resolvedMeta = resolveVideoMeta(payload, meta);
   return {
-    videos: dataUrls.map((url) => ({
+    videos: dataUrls.map((url, index) => ({
       url,
-      ...resolvedMeta,
+      ...resolveVideoMeta(meta.outputs?.[index] ?? meta),
     })),
   };
 }
@@ -157,9 +139,9 @@ function resolveFileUrl(file: { url: string | null }) {
 async function uploadGeneratedVideos(
   payload: VideoGenerationFormValues,
   requestId: string,
-  dataUrls: string[],
-  meta?: VideoStorageMeta
+  dataUrls: string[]
 ): Promise<VideoStorageResult> {
+  const meta = await videoOutputMetadata(dataUrls);
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
 
@@ -177,13 +159,13 @@ async function uploadGeneratedVideos(
     return {
       status: "completed",
       result: {
-        videos: uploads.map((file) => ({
+        videos: uploads.map((file, index) => ({
           url: resolveFileUrl(file),
-          ...resolveVideoMeta(payload, meta),
+          ...resolveVideoMeta(meta.outputs[index]),
         })),
       },
-      artifacts: uploads.map((file) => {
-        const resolved = resolveVideoMeta(payload, meta);
+      artifacts: uploads.map((file, index) => {
+        const resolved = resolveVideoMeta(meta.outputs[index]);
         return {
           type: "video" as const,
           storageProvider: "leemage" as const,

@@ -1,3 +1,4 @@
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
 import type { GraphDocumentV2 } from "@/shared/generation-graph/canonical-graph";
 import {
@@ -155,7 +156,19 @@ export function resolveNodeRunReadiness(
   if (node.kind.startsWith("generate.")) {
     const promptFromConfig = typeof config.prompt === "string" && Boolean(config.prompt.trim());
     const promptFromEdge = (readyCounts.get("prompt") ?? 0) > 0;
-    if (!promptFromConfig && !promptFromEdge) reasons.push("PROMPT_REQUIRED");
+    const selectedModel = [...catalog.imageModels,...(catalog.videoModels??[]),...(catalog.audioModels??[])].find(m=>m.key===modelKey);
+    const contract = selectedModel ? getGradioContract(selectedModel) : null;
+    const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&f.default===undefined);
+    if (requiresPrompt && !promptFromConfig && !promptFromEdge) reasons.push("PROMPT_REQUIRED");
+    if(contract) for(const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
+      const port=`${field.media}-field-${field.name}`;
+      const count=readyCounts.get(port)??0;
+      const legacy=contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind)&&f.media===field.media).length===1
+        ? ["primary","references","initImage"].reduce((sum,p)=>sum+(readyCounts.get(p)??0),0):0;
+      const value=record(record(config.parameters).dynamicParams)[field.name]??record(config.parameters)[field.name]??field.default;
+      if(field.required && !count && !legacy && value===undefined)reasons.push("INPUT_REQUIRED");
+      if((field.kind==="file"&&count>1)||(typeof field.schema.maxItems==="number"&&count>field.schema.maxItems))reasons.push("INPUT_UNSUPPORTED");
+    }
 
     const parameters = record(config.parameters);
     if (node.kind === "generate.image") {

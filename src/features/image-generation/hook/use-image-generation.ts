@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type {
@@ -33,17 +33,19 @@ export type ImageGenerationState = GenerationPollingState<
   ImageGenerationResponse["result"]
 >;
 
-export function useImageGeneration() {
+export function useImageGeneration(modelTimeoutMs?: number) {
+  const [requestTimeoutMs,setRequestTimeoutMs]=useState(pollTimeoutMs);
   const tErrors = useTranslations("generation.errors");
   const request = useCallback(
     async (values: ImageGenerationFormValues) => {
+      setRequestTimeoutMs(modelTimeoutMs ? Math.max(pollTimeoutMs,modelTimeoutMs+120_000) : pollTimeoutMs);
       try {
         return await requestImageGeneration(values);
       } catch (error) {
         throw new Error(tErrors("requestFailed"));
       }
     },
-    [tErrors],
+    [tErrors,modelTimeoutMs],
   );
   const poll = useCallback(
     async (requestId: string) => {
@@ -64,7 +66,7 @@ export function useImageGeneration() {
     request,
     poll,
     pollIntervalMs: POLL_INTERVAL_MS,
-    timeoutMs: pollTimeoutMs,
+    timeoutMs: requestTimeoutMs,
     startStatus: "pending",
     errorStatus: "failed",
     timeoutStatus: "failed",

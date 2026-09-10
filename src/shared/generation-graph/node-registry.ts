@@ -498,6 +498,9 @@ export function findNodeDefinition(kind: string) {
 }
 
 export function findPortDefinition(kind: string, portId: string, direction: PortDefinition["direction"]) {
+  const dynamic=/^(image|video|audio)-field-[a-zA-Z][a-zA-Z0-9_]*$/.exec(portId);
+  if (findNodeDefinition(kind) && kind.startsWith("generate.") && direction==="input" && dynamic)
+    return input(portId,dynamic[1] as "image"|"video"|"audio",{ordered:true,maxConnections:null,edgeCardinality:"many",valueShape:"ordered-list"});
   return findNodeDefinition(kind)?.ports.find(
     (port) => port.id === portId && port.direction === direction,
   );

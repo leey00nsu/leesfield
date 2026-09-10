@@ -98,6 +98,18 @@ const catalog = {
   backgroundRemovalAvailable: false,
 };
 
+const runnableGraph: GenerationGraphSnapshotDto = {
+  ...graph,
+  nodes: [
+    { ...graph.nodes[0], id: "source", config: { assetId: "asset-1" } },
+    { ...graph.nodes[0], kind: "edit.image.resize", config: { parameters: {
+      mode: "maxEdge", width: 1024, height: 1024, maxEdge: 2048,
+      scalePct: 100, fit: "contain", padColor: "#00000000", format: "keep", quality: 0.92,
+    } } },
+  ],
+  edges: [{ id: "image-edge", sourceNodeId: "source", sourcePortId: "image", targetNodeId: "node_1", targetPortId: "image", sortOrder: 0 }],
+};
+
 describe("NodeBananaStudio host adapter", () => {
   it("awaits hosted catalog refresh and forwards refresh failures", async () => {
     let finish!: () => void;
@@ -456,14 +468,7 @@ describe("NodeBananaStudio host adapter", () => {
     const onRegenerateNode = vi.fn(() => new Promise<void>((resolve) => { release = resolve; }));
     render(
       <NodeBananaStudio
-        graph={{
-          ...graph,
-          nodes: [{
-            ...graph.nodes[0],
-            kind: "edit.image.resize",
-            config: { parameters: {} },
-          }],
-        }}
+        graph={runnableGraph}
         onDraftChange={vi.fn()}
         prepareImageNodeExecution={vi.fn().mockResolvedValue(1)}
         catalog={catalog}
@@ -475,12 +480,34 @@ describe("NodeBananaStudio host adapter", () => {
     );
 
     const run = (runtime.props as NodeBananaCanvasProps).onRunNode;
-    const first = run?.("node_1");
-    const duplicate = run?.("node_1");
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
+    let first: ReturnType<NonNullable<typeof run>>;
+    let duplicate: ReturnType<NonNullable<typeof run>>;
+    act(() => {
+      first = run!("node_1");
+      duplicate = run!("node_1");
+    });
+    expect((runtime.props as NodeBananaCanvasProps).isNodeRunnable?.("node_1")).toBe(false);
     expect(onRegenerateNode).toHaveBeenCalledOnce();
-    await expect(duplicate).resolves.toBeUndefined();
-    release?.();
-    await first;
+    await expect(duplicate!).resolves.toBeUndefined();
+    await act(async () => {
+      release?.();
+      await first;
+    });
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
+  });
+
+  it.each(["pending", "processing", "uploading"])("disables toolbar Run for a %s execution and restores it after completion", (executionStatus) => {
+    const props = {
+      graph: runnableGraph,
+      onDraftChange: vi.fn(), prepareImageNodeExecution: vi.fn(), catalog,
+      writable: true, readOnlyReason: null, onRegenerateNode: vi.fn(),
+      resolveUpstreamNodeData: () => ({ executionStatus }),
+    };
+    const { rerender } = render(<NodeBananaStudio {...props} />, { wrapper: createIntlWrapper() });
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(false);
+    rerender(<NodeBananaStudio {...props} resolveUpstreamNodeData={() => ({ executionStatus: "completed" })} />);
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
   });
 
   it("blocks every hosted Run entry point when the workflow is read-only", async () => {

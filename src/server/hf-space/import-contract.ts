@@ -62,7 +62,7 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
     const schema = sourceSchema(p, c, "input");
     const kind = schemaKind(schema, component);
     const nullable = schemaNullable(schema) || (["file","files","gallery"].includes(kind) && p.parameter_has_default === true && p.parameter_default === null);
-    const hasDefault = p.parameter_has_default === true;
+    const hasDefault = p.parameter_has_default === true || (p.parameter_has_default === undefined && Object.hasOwn(p, "parameter_default"));
     const defaultValue = hasDefault ? p.parameter_default : undefined;
     const parsedDefault = jsonValueSchema.safeParse(defaultValue);
     const choiceValues = Array.isArray(props.choices) ? props.choices.map(v => Array.isArray(v) ? v[1] : v)

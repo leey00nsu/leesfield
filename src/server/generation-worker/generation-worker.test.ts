@@ -403,6 +403,24 @@ describe("generation worker", () => {
     );
   });
 
+  it.each(["image", "video", "audio"] as const)("replays mapped %s settings without common defaults", async media => {
+    const runtime = await mockGetRuntimeCatalog();
+    const model = runtime[media + "Models"][0];
+    model.mapped = true;
+    // Deliberately retain stale legacy defaults to prove the mapped branch ignores them.
+    const record = { id: "mapped-id", requestId: "mapped-request", prompt: "edit", requestParams: { model: model.key, dynamicParams: { duration: 0, enabled: false, text: "", options: null } }, imageCount: null, steps: null, seed: null, progress: 0 };
+    const table = prisma[media === "image" ? "imageGeneration" : media === "video" ? "videoGeneration" : "audioGeneration"];
+    vi.mocked(table.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([record] as never);
+    vi.mocked(table.updateMany).mockResolvedValue({ count: 1 });
+    const run = media === "image" ? processImageJobs : media === "video" ? processVideoJobs : processAudioJobs;
+    const resolve = media === "image" ? resolveImageGenerationResult : media === "video" ? resolveVideoGenerationResult : resolveAudioGenerationResult;
+    vi.mocked(resolve).mockResolvedValue({ status: "completed", skipDbSave: true } as never);
+    await run();
+    const submitted = vi.mocked(resolve).mock.calls.at(-1)?.[0];
+    expect(submitted).toMatchObject({ model: model.key, dynamicParams: record.requestParams.dynamicParams });
+    for (const key of ["width", "height", "steps", "imageCount", "durationSec", "fps", "aspectRatio", "resolution", "voice", "speed"]) expect(submitted).not.toHaveProperty(key);
+  });
+
   it.each([false,true])("processImageJobs completes old and versioned snapshots (%s)", async (versioned) => {
     const mockRecord = {
       id: "img-db-id",

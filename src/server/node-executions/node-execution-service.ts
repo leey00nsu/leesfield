@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import {fileInputsFromAssets,parseFileInputPort} from "@/shared/model-catalog/file-input-ports";
 import { ZodError } from "zod";
 import { constructPrompt } from "@/shared/generation-graph/prompt-constructor";
 
@@ -475,7 +476,10 @@ function toDto(record: StoredExecutionRecord): NodeExecutionDto {
     graphNodeId: record.graphNodeId,
     status: record.status,
     progress: record.progress,
-    errorCode: record.status === "failed" ? "GENERATION_FAILED" : null,
+    errorCode: record.status === "failed"
+      ? record.errorMessage === "Modal 생성 실패: MODAL_TIMEOUT" ? "MODAL_TIMEOUT"
+        : record.errorMessage === "Modal 생성 실패: MODAL_OUTPUT_MEDIA" ? "MODAL_OUTPUT_MEDIA" : "GENERATION_FAILED"
+      : null,
     modelKey: record.modelKey,
     outputAssetIds: record.outputs.flatMap((output) => output.assetId ? [output.assetId] : []),
     createdAt: record.createdAt.toISOString(),
@@ -741,14 +745,15 @@ export function createNodeExecutionService(
         };
       }
       const prompt = resolved.prompt ?? config.prompt;
+      const fileInputs = fileInputsFromAssets(resolved.assets);
       const assetInputs = inputSnapshot(resolved);
       dependencies.assertStorage(mediaType);
 
       if (mediaType === "image") {
         const initImages = resolved.assets
-          .filter((asset) => asset.type === "image")
+          .filter((asset) => asset.type === "image" && !parseFileInputPort(asset.portId))
           .map((asset) => asset.url);
-        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImages };
+        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImages, fileInputs };
         const validated = await dependencies.validateImage(candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const submission = await dependencies.submitImage({
@@ -767,7 +772,7 @@ export function createNodeExecutionService(
       }
       if (mediaType === "video") {
         const initImage = resolved.assets.find((asset) => asset.portId === "initImage")?.url ?? "";
-        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImage };
+        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImage, fileInputs };
         const validated = await dependencies.validateVideo(candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const submission = await dependencies.submitVideo({

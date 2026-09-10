@@ -1,3 +1,7 @@
+import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
+import { mappedGenerationBodySchema } from "@/shared/api/generation-input";
+import { parameterKind, numericParameterValue } from "@/shared/model-catalog/parameter-contract";
 import { normalizeRuntimeParameterOptions } from "@/shared/model-catalog/parameter-options";
 import { createRuntimeAudioSchema, createRuntimeImageSchema, createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
 import type {
@@ -47,13 +51,26 @@ export function areGenerationNodeParametersValid(
   model: GenerationRuntimeModel,
   values: Record<string, unknown>,
 ) {
+  const contract = getGradioContract(model);
+  const payload = generationPayload(model, { ...values, model: model.key, prompt: "ready" }) as Record<string, unknown>;
+  if (contract) {
+    try {
+      const parsed = mappedGenerationBodySchema(model.type).safeParse(payload);
+      if (!parsed.success) return false;
+      const dynamicParams = { ...parsed.data.dynamicParams };
+      const isMedia = (kind: string) => ["file", "files", "gallery"].includes(kind);
+      for (const field of contract.inputs) if (isMedia(field.kind)||field.canonical) delete dynamicParams[field.name];
+      gradioInputValues({ ...contract, inputGroups: undefined, inputs: contract.inputs.filter(field => !isMedia(field.kind)&&!field.canonical) }, { dynamicParams });
+      return true;
+    } catch {return false;}
+  }
   // The catalog can omit generic submission fields (for example Wan's fps).
   // Validate persisted values with the submission contract as well as UI fields.
   // Prompt and asset readiness are resolved separately from graph connections.
   const schema = model.type === "image" ? createRuntimeImageSchema([model])
     : model.type === "video" ? createRuntimeVideoSchema([model])
       : createRuntimeAudioSchema([model]);
-  const parsed = schema.safeParse({ ...values, model: model.key, prompt: "ready" });
+  const parsed = schema.safeParse(payload);
   if (!parsed.success && parsed.error.issues.some((issue) =>
     !["prompt", "model", "initImage", "initImages", "inputAudio"].includes(String(issue.path[0])),
   )) return false;
@@ -86,13 +103,7 @@ export function areGenerationNodeParametersValid(
       config.binding?.valueType === "number" ||
       typeof config.default === "number";
     if (expectsNumber) {
-      // Image authoring intentionally stores seeds as strings so providers can
-      // preserve large integer values without losing precision. Accept the
-      // finite numeric representation here while keeping every other numeric
-      // parameter strongly validated against the catalog contract.
-      const numericValue = model.type === "image" && key === "seed" && typeof value === "string"
-        ? Number(value)
-        : value;
+      const numericValue = parameterKind(key, config as Record<string, unknown>) === "number" ? numericParameterValue(value) : value;
       if (typeof numericValue !== "number" || !Number.isFinite(numericValue)) return false;
       if (typeof config.min === "number" && numericValue < config.min) return false;
       if (typeof config.max === "number" && numericValue > config.max) return false;

@@ -23,7 +23,7 @@ export type NodeExecutionDto = {
   graphNodeId: string;
   status: NodeExecutionStatus;
   progress: number;
-  errorCode: "GENERATION_FAILED" | "PROCESSOR_FAILED" | "PROCESSOR_UNAVAILABLE" | "MEDIA_UPLOAD_FAILED" | null;
+  errorCode: "GENERATION_FAILED" | "MODAL_TIMEOUT" | "MODAL_OUTPUT_MEDIA" | "PROCESSOR_FAILED" | "PROCESSOR_UNAVAILABLE" | "MEDIA_UPLOAD_FAILED" | null;
   modelKey: string | null;
   outputAssetIds: string[];
   createdAt: string;

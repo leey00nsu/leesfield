@@ -15,5 +15,6 @@ export type GeneratedMediaArtifact = {
 };
 
 export type GenerationUploadLifecycle = {
+  executionModel?: import("@/server/model-catalog/catalog-schema").ModelCatalogItem;
   onUploading?: () => Promise<void>;
 };

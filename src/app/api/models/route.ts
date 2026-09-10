@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(
-      { items },
+      { items:items.map(item=>{const inputContract=getGradioContract(item);return inputContract?{...item,inputContract}:item;}) },
       {
         headers: {
           "Cache-Control": "no-store",

@@ -244,6 +244,7 @@ export function NodeBananaStudio({
     graphDraftSignature(canonicalDocumentToV3Draft(initialCanonical)),
   );
   const runningNodeIdsRef = useRef(new Set<string>());
+  const [submittingNodeIds, setSubmittingNodeIds] = useState<ReadonlySet<string>>(new Set());
   const imageDownloadRef = useRef<AbortController | null>(null);
   const [downloadingImages, setDownloadingImages] = useState(false);
   useEffect(() => {
@@ -514,6 +515,7 @@ export function NodeBananaStudio({
       throw error;
     }
     runningNodeIdsRef.current.add(nodeId);
+    setSubmittingNodeIds(new Set(runningNodeIdsRef.current));
     try {
       const result = await onRegenerateNode(nodeId);
       if (kind === "edit.image.splitGrid" && result?.outputAssetIds && result.outputGrid) {
@@ -533,6 +535,7 @@ export function NodeBananaStudio({
       return result;
     } finally {
       runningNodeIdsRef.current.delete(nodeId);
+      setSubmittingNodeIds(new Set(runningNodeIdsRef.current));
     }
   }, [effectiveWritable, hasMissingInput, onHostError, onRegenerateNode, publishRuntimeGraph, resolveHostedNodeData, updateUpstreamNodeData]);
 
@@ -1335,7 +1338,11 @@ export function NodeBananaStudio({
             onImportCanvasMedia={importCanvasMedia}
             renderAssetPicker={(mediaType, onSelect, onClose) => <NodeBananaInputHistoryControl nodeId="pending-connection" mediaType={mediaType} selectedAssetId={null} writable={effectiveWritable} open onOpenChange={(open) => { if (!open) onClose(); }} onSelect={onSelect} />}
             onInputError={onHostError}
-            isNodeRunnable={(nodeId) => effectiveWritable && getNodeRunReadiness(nodeId).ready}
+            isNodeRunnable={(nodeId) => {
+              const node = runtimeGraph.nodes.find((candidate) => candidate.id === nodeId);
+              const status = node ? resolveHostedNodeData(nodeId, node.data).executionStatus ?? node.data.executionStatus : undefined;
+              return effectiveWritable && !submittingNodeIds.has(nodeId) && !isActiveExecutionStatus(status) && getNodeRunReadiness(nodeId).ready;
+            }}
             onRunNode={runUpstreamNode}
             onDownloadSelectedImages={downloadSelectedImages}
             onCreateGroup={createGroup}

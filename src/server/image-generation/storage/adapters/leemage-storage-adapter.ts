@@ -1,4 +1,5 @@
 import { imageUploadOptions, mapUploadedImage, detectImageAnimation } from "@/server/media-assets/image-upload-policy";
+import { mediaInspectionInternals } from "@/server/media-assets/media-inspection";
 import { readFile } from "fs/promises";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
 import path from "path";
@@ -187,11 +188,16 @@ export async function uploadGeneratedImages(
     return {
       status: "completed",
       result: {
-        images: uploads.map((file) => mapFileToImage(file, width, height)),
+        images: uploads.map((file, index) => {
+          const source = parseDataUrl(dataUrls[index]);
+          const size = mediaInspectionInternals.imageDimensions(source.buffer, source.contentType) ?? {width, height};
+          return mapFileToImage(file, size.width, size.height);
+        }),
       },
       artifacts: uploads.map((file, index) => {
         const source = parseDataUrl(dataUrls[index]);
-        return mapFileToArtifact(file, width, height, detectImageAnimation(source.buffer, source.contentType));
+        const size = mediaInspectionInternals.imageDimensions(source.buffer, source.contentType) ?? {width, height};
+        return mapFileToArtifact(file, size.width, size.height, detectImageAnimation(source.buffer, source.contentType));
       }),
     };
   } catch (error) {

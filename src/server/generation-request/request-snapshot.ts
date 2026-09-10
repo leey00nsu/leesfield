@@ -1,6 +1,7 @@
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 import type { Prisma } from "@prisma/client";
+import {modelCatalogSchema} from "@/server/model-catalog/catalog-schema";
 
 export function recordObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -31,7 +32,21 @@ export function requestInputs(model: Model, payload: Record<string, unknown>) {
 export async function snapshotRequest(type: string, payload: Record<string, unknown>) {
   const model = (await getModelCatalog()).find(model => model.type === type && model.key === payload.model);
   if (!model) throw new Error("MODEL_NOT_FOUND");
-  return JSON.parse(JSON.stringify({...payload, requestSettings: requestInputs(model,payload)})) as Record<string, Prisma.InputJsonValue | null>;
+  const requestSettings = requestInputs(model, payload);
+  const request = getGradioContract(model) ? { ...payload, dynamicParams: requestSettings } : payload;
+  return JSON.parse(JSON.stringify({...request, requestSettings,
+    ...(model.provider==="modal_comfyui"?{executionModel:model}:{}),
+  })) as Record<string, Prisma.InputJsonValue | null>;
+}
+
+/** Only call with the server-owned persisted snapshot, never the incoming body. */
+export function frozenExecutionModel(snapshot:unknown,type:string,key:unknown) {
+  const raw=recordObject(snapshot).executionModel;
+  if(raw===undefined)return undefined;
+  const data=recordObject(raw);
+  const model=modelCatalogSchema.parse([{...data,createdAt:new Date(String(data.createdAt)),updatedAt:new Date(String(data.updatedAt))}])[0];
+  if(model.type!==type||model.key!==key||model.provider!=="modal_comfyui")throw new Error("EXECUTION_MODEL_MISMATCH");
+  return model;
 }
 
 /** Read compatibility only for the briefly used v2 format. New requests need no reconstruction. */

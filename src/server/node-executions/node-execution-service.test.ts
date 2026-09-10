@@ -760,6 +760,12 @@ describe("nodeExecutionService", () => {
       }),
     ]);
     expect(JSON.stringify(await service.list("owner@example.com", "graph-1", "node-1"))).not.toContain("raw provider");
+    vi.mocked(repository.listExecutions).mockResolvedValue([{...record,errorMessage:"Modal 생성 실패: MODAL_OUTPUT_MEDIA"}]);
+    expect(await service.list("owner@example.com", "graph-1", "node-1")).toEqual([expect.objectContaining({errorCode:"MODAL_OUTPUT_MEDIA"})]);
+    vi.mocked(repository.listExecutions).mockResolvedValue([{...record,errorMessage:"Modal 생성 실패: MODAL_TIMEOUT"}]);
+    await expect(service.list("owner@example.com", "graph-1", "node-1")).resolves.toEqual([
+      expect.objectContaining({errorCode:"MODAL_TIMEOUT"}),
+    ]);
     await expect(service.cancel("owner@example.com", "graph-1", "node-1", "request-1")).resolves.toEqual(
       expect.objectContaining({ status: "cancelled" }),
     );

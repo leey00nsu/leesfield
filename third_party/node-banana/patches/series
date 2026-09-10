@@ -111,3 +111,9 @@
 0111-canvas-shared-dialogs-i18n.patch
 0113-reference-image-menu.patch
 0114-connected-image-preview.patch
+0115-image-input-picker-and-handle-refresh.patch
+0116-image-picker-layout.patch
+0117-video-playback-intent.patch
+0118-native-video-controls-and-parameter-labels.patch
+0119-provider-file-input-ports.patch
+0120-source-contract-controls-and-port-geometry.patch

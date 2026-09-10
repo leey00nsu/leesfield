@@ -26,7 +26,10 @@ vi.mock("leemage-sdk", () => ({
   },
 }));
 vi.mock("@/server/model-catalog/catalog-service", () => ({
-  getModelCatalog: async () => [{ type: "image", key: imageGenerationDefaults.model, provider: "hf_space" }],
+  getModelCatalog: async () => [
+    { type: "image", key: imageGenerationDefaults.model, provider: "hf_space" },
+    { type: "video", key: videoGenerationDefaults.model, provider: "hf_space" },
+  ],
 }));
 vi.mock("@/server/image-generation/adapters/hf-space-adapter", () => ({ hfSpaceImageAdapter: { generate: mocks.generate } }));
 vi.mock("@/server/image-generation/adapters/codex-cli-adapter", () => ({ codexCliImageAdapter: { generate: mocks.generate } }));

@@ -73,60 +73,6 @@ const DEFAULT_PROVIDER = "hf_space";
 const CONNECT_TIMEOUT_MS = 15_000;
 const DEFAULT_TIMEOUT_MS = 300000;
 
-const DEFAULT_IMAGE_META = {
-  pipeline: "diffusion",
-  default_width: 1024,
-  default_height: 1024,
-  default_steps: 10,
-  concurrent_limit: 1,
-  max_input_images: 0,
-};
-
-const DEFAULT_VIDEO_META = {
-  default_width: 832,
-  default_height: 480,
-  default_duration_sec: 3.5,
-  default_fps: 16,
-  default_steps: 6,
-  default_guidance_scale: 1,
-  concurrent_limit: 1,
-};
-
-const DEFAULT_AUDIO_META = {
-  model_id: "owner/model",
-  default_speed: 1,
-  concurrent_limit: 1,
-  supports_input_audio: false,
-};
-
-const FALLBACK_IMAGE_PARAMETERS: Record<string, ParameterConfig> = {
-  prompt: { ui: "textarea", required: true },
-  width: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
-  height: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
-  steps: { ui: "range", min: 1, max: 30, step: 1, default: 10 },
-  seed: { ui: "input", default: "" },
-  imageCount: { ui: "hidden", min: 1, max: 1, default: 1 },
-};
-
-const FALLBACK_VIDEO_PARAMETERS: Record<string, ParameterConfig> = {
-  prompt: { ui: "textarea", required: true },
-  durationSec: { ui: "range", min: 1, max: 6, step: 0.5, default: 3 },
-  steps: { ui: "range", min: 4, max: 10, step: 1, default: 6 },
-  guidanceScale: { ui: "range", min: 0, max: 10, step: 0.5, default: 1 },
-  seed: { ui: "input", default: "" },
-  aspectRatio: { ui: "select", options: ["16:9", "9:16", "1:1"], default: "16:9" },
-  resolution: { ui: "select", options: [480, 640, 720, 832], default: 720 },
-  fps: { ui: "hidden", min: 16, max: 16, step: 1, default: 16 },
-};
-
-const FALLBACK_AUDIO_PARAMETERS: Record<string, ParameterConfig> = {
-  prompt: { ui: "textarea", required: true },
-  speed: { ui: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
-  seed: { ui: "input", default: "" },
-  inputAudio: { ui: "upload" },
-  referenceText: { ui: "textarea" },
-};
-
 function normalizeApiName(name: string | false) {
   if (typeof name !== "string") return "";
   return name.startsWith("/") ? name : `/${name}`;
@@ -134,61 +80,6 @@ function normalizeApiName(name: string | false) {
 
 function normalizeKey(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "");
-}
-
-function resolveParamKey(label?: string, paramName?: string, type?: string) {
-  const target = `${label ?? ""} ${paramName ?? ""}`.toLowerCase();
-  if (
-    target.includes("reference transcript") ||
-    target.includes("reference text") ||
-    target.includes("ref_text") ||
-    target.includes("ref text")
-  ) {
-    return "referenceText";
-  }
-  if (target.includes("reference preset") || target.includes("ref_preset")) {
-    return "referencePreset";
-  }
-  if (target.includes("custom instruction") || target.includes("custom_instruct")) {
-    return "customInstruction";
-  }
-  if (target.includes("voice instruction") || target.includes("voice_instruct")) {
-    return "voiceInstruction";
-  }
-  if (target.includes("prompt")) return "prompt";
-  if (target.includes("text") || target.includes("script") || target.includes("message")) return "prompt";
-  if (target.includes("language")) return "language";
-  if (target.includes("stream mode") || target.includes("stream_mode")) return "streamMode";
-  if (target.includes("xvec")) return "xvecOnly";
-  if (target.includes("chunk size") || target.includes("chunk_size")) return "chunkSize";
-  if (target.includes("temperature")) return "temperature";
-  if (target.includes("top k") || target.includes("top_k")) return "topK";
-  if (target.includes("repetition penalty") || target.includes("repetition_penalty")) {
-    return "repetitionPenalty";
-  }
-  if (target.includes("width")) return "width";
-  if (target.includes("height")) return "height";
-  if (target.includes("guidance") || target.includes("cfg")) return "guidanceScale";
-  if (target.includes("seed")) return "seed";
-  if (target.includes("speaker") || target.includes("spk")) return "speaker";
-  if (target.includes("voice")) return "voice";
-  if (target.includes("speed") || target.includes("rate")) return "speed";
-  if (target.includes("mode")) return "modeChoice";
-  if (target.includes("upsample")) return "promptUpsampling";
-  if (target.includes("image") && target.includes("count")) return "imageCount";
-  if (target.includes("duration")) return "durationSec";
-  if (target.includes("fps")) return "fps";
-  if (target.includes("resolution")) return "resolution";
-  if (target.includes("aspect")) return "aspectRatio";
-  if (target.includes("init") && target.includes("image")) return "initImage";
-  if (target.includes("input") && target.includes("audio")) return "inputAudio";
-  if (target.includes("audio") && (type?.includes("audio") || type?.includes("file"))) {
-    return "inputAudio";
-  }
-  if (target.includes("image") && (type?.includes("image") || type?.includes("gallery"))) {
-    return "initImage";
-  }
-  return null;
 }
 
 function resolveComponentType(component?: { type?: string } | null, fallback?: string) {
@@ -343,10 +234,6 @@ function detectModelType(
   if (hasVideoParam) return "video";
   if (outputTypes.some((type) => type.includes("video"))) return "video";
   return "image";
-}
-
-function getDefaultFromParam(param?: ParameterConfig) {
-  return param?.default;
 }
 
 async function connectWithTimeout(
@@ -580,71 +467,13 @@ export async function importModelDraftFromSpace(
     parameters.inputAudio.ui = "upload";
   }
 
-  const normalizedParameters: Record<string, ParameterConfig> =
-    modelType === "image"
-      ? { ...FALLBACK_IMAGE_PARAMETERS, ...parameters }
-      : modelType === "video"
-        ? { ...FALLBACK_VIDEO_PARAMETERS, ...parameters }
-        : { prompt: { ui: "hidden" as const, required: false }, ...parameters };
+  const normalizedParameters = parameters;
 
-  const width = resolveNumber(
-    getDefaultFromParam(normalizedParameters.width),
-    DEFAULT_IMAGE_META.default_width,
-  );
-  const height = resolveNumber(
-    getDefaultFromParam(normalizedParameters.height),
-    DEFAULT_IMAGE_META.default_height,
-  );
-  const steps = resolveNumber(
-    getDefaultFromParam(normalizedParameters.steps),
-    DEFAULT_IMAGE_META.default_steps,
-  );
-  const guidanceScale = resolveNumber(
-    getDefaultFromParam(normalizedParameters.guidanceScale),
-    DEFAULT_VIDEO_META.default_guidance_scale,
-  );
-  const durationSec = resolveNumber(
-    getDefaultFromParam(normalizedParameters.durationSec),
-    DEFAULT_VIDEO_META.default_duration_sec,
-  );
-  const fps = resolveNumber(
-    getDefaultFromParam(normalizedParameters.fps),
-    DEFAULT_VIDEO_META.default_fps,
-  );
-  const speed = resolveNumber(
-    getDefaultFromParam(normalizedParameters.speed),
-    DEFAULT_AUDIO_META.default_speed,
-  );
-
-  const meta =
-    modelType === "image"
-      ? {
-          ...DEFAULT_IMAGE_META,
-          model_id: spaceId,
-          default_width: width,
-          default_height: height,
-          default_steps: steps,
-          max_input_images: hasImageInput ? 1 : 0,
-        }
-      : modelType === "video"
-        ? {
-            ...DEFAULT_VIDEO_META,
-            supports_init_image: hasImageInput,
-            t2v_model_id: spaceId,
-            i2v_model_id: null,
-            default_width: DEFAULT_VIDEO_META.default_width,
-            default_height: DEFAULT_VIDEO_META.default_height,
-            default_duration_sec: durationSec,
-            default_fps: fps,
-            default_steps: steps,
-            default_guidance_scale: guidanceScale,
-          }
-        : {
-            ...DEFAULT_AUDIO_META,
-            model_id: spaceId,
-            default_speed: speed,
-            supports_input_audio: hasAudioInput,
-          };
+  const meta = modelType === "image"
+    ? { pipeline: "diffusion", model_id: spaceId, max_input_images: hasImageInput ? 1 : 0 }
+    : modelType === "video"
+      ? { supports_init_image: hasImageInput, t2v_model_id: spaceId, i2v_model_id: null }
+      : { model_id: spaceId, supports_input_audio: hasAudioInput };
 
   const providerConfig: Record<string, unknown> = {
     space_id: spaceId,

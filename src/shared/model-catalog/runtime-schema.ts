@@ -1,6 +1,8 @@
 import { formParameterIssues } from "@/shared/model-catalog/parameter-contract";
 import { getGradioContract, gradioInputValues, formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
+import { generationPayload } from "./generation-payload";
+import { mappedGenerationBodySchema } from "@/shared/api/generation-input";
 import type {
   RuntimeAudioModel,
   RuntimeImageModel,
@@ -25,6 +27,28 @@ type TranslationFn = (
   key: string,
   values?: Record<string, string | number | Date>,
 ) => string;
+
+function withMappedContract<T extends z.ZodType>(models: readonly (RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel)[], media: "image" | "video" | "audio", legacy: T) {
+  return z.record(z.string(), z.unknown()).transform((value, ctx) => {
+    const model = models.find(model => model.key === value.model);
+    const contract = model ? getGradioContract(model) : null;
+    const parsed = contract && model
+      ? mappedGenerationBodySchema(media).safeParse(generationPayload(model, value))
+      : legacy.safeParse(value);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+      return z.NEVER;
+    }
+    if (contract) {
+      try { gradioInputValues(contract, parsed.data as Record<string, unknown>); }
+      catch (error) {
+        ctx.addIssue({ code: "custom", path: ["dynamicParams"], message: error instanceof Error ? error.message : "HF_CONTRACT_INVALID" });
+        return z.NEVER;
+      }
+    }
+    return parsed.data;
+  });
+}
 
 const buildInitImageSchema = (t?: TranslationFn) =>
   z
@@ -100,7 +124,7 @@ export function createRuntimeImageSchema(
     seed: z.string().optional().or(z.literal("")),
   });
 
-  return schema.superRefine((data, ctx) => {
+  return withMappedContract(models, "image", schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
     if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (model && getGradioContract(model)) {
@@ -200,7 +224,7 @@ export function createRuntimeImageSchema(
         message: maxInputImagesMessage(maxInputImages),
       });
     }
-  });
+  }));
 }
 
 export function createRuntimeVideoSchema(
@@ -254,7 +278,7 @@ export function createRuntimeVideoSchema(
     seed: z.string().optional().or(z.literal("")),
   });
 
-  return schema.superRefine((data, ctx) => {
+  return withMappedContract(models, "video", schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
     if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (model && getGradioContract(model)) {
@@ -367,7 +391,7 @@ export function createRuntimeVideoSchema(
         });
       }
     }
-  });
+  }));
 }
 
 export function createRuntimeAudioSchema(
@@ -429,7 +453,7 @@ export function createRuntimeAudioSchema(
 
   });
 
-  return schema.superRefine((data, ctx) => {
+  return withMappedContract(models, "audio", schema.superRefine((data, ctx) => {
     const model = modelMap.get(data.model);
     if (model && !getGradioContract(model)) for (const issue of formParameterIssues(model.parameters, data)) ctx.addIssue({code:"custom",path:[issue.name],message:"Invalid parameter: "+issue.reason});
     if (model && getGradioContract(model)) {
@@ -634,5 +658,5 @@ export function createRuntimeAudioSchema(
         });
       }
     }
-  });
+  }));
 }

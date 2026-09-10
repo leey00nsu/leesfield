@@ -1,4 +1,6 @@
 "use client";
+import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
+import {contractInputPorts} from "@/shared/model-catalog/file-input-ports";
 import { imageUrlsFor } from "@/shared/media-assets/image-variants";
 
 import { useTranslations } from "next-intl";
@@ -596,6 +598,12 @@ export function NodeStudioWorkspace({
         }
       : undefined;
     const configuredParameters = record(config.parameters);
+    const contract = modelCatalogEntry ? getGradioContract(modelCatalogEntry) : null;
+    const declaredPorts = modelCatalogEntry ? contractInputPorts(modelCatalogEntry) : undefined;
+    const hasLegacyImage = draftRef.current.edges.some(e=>e.targetNodeId===nodeId&&["primary","references","initImage"].includes(e.targetPortId));
+    const singleImage = declaredPorts?.filter(p=>p.type==="image").length===1;
+    const providerInputSchema = declaredPorts?.map(p=>singleImage&&p.type==="image"?{...p,name:"image"}:p);
+    if(providerInputSchema && hasLegacyImage && !singleImage)providerInputSchema.push({name:"image",type:"image",label:"이미지 입력 (대상 선택 필요)",required:false,multiple:true,maxItems:undefined});
     const existingInputSchema = Array.isArray(configuredParameters.inputSchema)
       ? configuredParameters.inputSchema
       : Array.isArray(record(modelCatalogEntry?.meta).inputSchema)
@@ -629,6 +637,8 @@ export function NodeStudioWorkspace({
           // Include an explicit undefined to overwrite stale legacy runtime
           // fields while the canonical model has no dynamic schema.
           inputSchema: existingInputSchema,
+          providerInputSchema,
+          requiresPrompt: !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&f.default===undefined),
         }
       : {};
     const imageInputAssets = incomingMediaAssets(nodeId, "image");

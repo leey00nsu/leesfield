@@ -182,12 +182,12 @@ export function AudioGenerationForm({
     [resolvedAudioModels, tValidation],
   );
   const resolverRef = useRef<Resolver<AudioGenerationFormValues>>(
-    zodResolver(staticSchema) as Resolver<AudioGenerationFormValues>,
+    zodResolver(staticSchema) as unknown as Resolver<AudioGenerationFormValues>,
   );
   useEffect(() => {
     resolverRef.current = zodResolver(
       runtimeSchema,
-    ) as Resolver<AudioGenerationFormValues>;
+    ) as unknown as Resolver<AudioGenerationFormValues>;
   }, [runtimeSchema]);
   const resolver = useMemo<Resolver<AudioGenerationFormValues>>(
     () => (values, context, options) =>
@@ -270,13 +270,13 @@ export function AudioGenerationForm({
   const activeDefaults = useMemo<
     Partial<Record<AudioFieldName, string | number | boolean | undefined>>
   >(
-    () => ({
+    () => gradioContract ? {} : ({
       ...audioGenerationDefaults,
       ...(activeRuntimeModel
         ? resolveRuntimeAudioDefaults(activeRuntimeModel)
         : {}),
     }),
-    [activeRuntimeModel],
+    [activeRuntimeModel, gradioContract],
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -337,6 +337,11 @@ export function AudioGenerationForm({
   useEffect(() => {
     const model = runtimeModelMap.get(activeModel);
     if (!model) return;
+    if (getGradioContract(model)) {
+      const current = form.getValues();
+      form.reset({ model: activeModel, prompt: current.prompt ?? "", dynamicParams: current.dynamicParams ?? {}, inputAudio: current.inputAudio });
+      return;
+    }
     const defaults = resolveRuntimeAudioDefaults(model);
     const currentValues = form.getValues();
     const supportsInputAudio = resolveRuntimeAudioSupportsInputAudio(model);
@@ -455,6 +460,7 @@ export function AudioGenerationForm({
         typeof values.voice === "string" &&
         values.voice.trim() === resolvedVoiceDefault.trim();
 
+      if (activeRuntimeModel && getGradioContract(activeRuntimeModel)) { startGeneration(values); return; }
       const resolvedValues: AudioGenerationFormValues = {
         ...values,
         voice: shouldSuppressLegacyVoice
@@ -1197,6 +1203,9 @@ footerRight={
                     <>
                       <AppButton
                         variant="generate"
+                              isLoading={isGenerating}
+                              loadingText=""
+                              aria-label={isGenerating ? tActions("generating") : undefined}
                               type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
@@ -1209,9 +1218,7 @@ footerRight={
                           isAuthenticated ? undefined : handleLoginRedirect
                         }
                       >
-                        {isGenerating
-                          ? tActions("generating")
-                          : tActions("generate")}
+                        {tActions("generate")}
                         <Sparkles className="h-5 w-5" />
                       </AppButton>
                     </>

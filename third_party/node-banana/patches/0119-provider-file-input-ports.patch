@@ -1,0 +1,88 @@
+diff --git a/src/components/nodes/GenerateImageNode.tsx b/src/components/nodes/GenerateImageNode.tsx
+--- a/src/components/nodes/GenerateImageNode.tsx
++++ b/src/components/nodes/GenerateImageNode.tsx
+@@ -613,18 +613,14 @@
+         </InlineParameterPanel>
+       ) : undefined}
+     >
+-      {nodeData.supportsImageInput && (
+-        <>
+-          <Handle
+-            type="target"
+-            position={Position.Left}
+-            id="image"
+-            style={{ top: "35%", zIndex: 10 }}
+-            data-handletype="image"
+-            isConnectable={true}
+-          />
+-          <HandleLabel label={tc("Image")} side="target" color="var(--handle-color-image)" top="calc(35% - 18px)" visible={showLabels} />
+-        </>
++      {(nodeData as unknown as {providerInputSchema?:ModelInputDef[]}).providerInputSchema?.map((input,index,all)=>(
++        <React.Fragment key={input.name}>
++          <Handle type="target" position={Position.Left} id={input.name} data-handletype={input.type} style={{top: `${15+index*45/Math.max(1,all.length)}%`,zIndex:10}} isConnectable={true}/>
++          <HandleLabel label={input.label} side="target" color={`var(--handle-color-${input.type})`} top={`calc(${15+index*45/Math.max(1,all.length)}% - 18px)`} visible={showLabels}/>
++        </React.Fragment>
++      ))}
++      {nodeData.supportsImageInput && !(nodeData as unknown as {providerInputSchema?:ModelInputDef[]}).providerInputSchema && (
++        <><Handle type="target" position={Position.Left} id="image" style={{top:"35%",zIndex:10}} data-handletype="image" isConnectable={true}/><HandleLabel label={tc("Image")} side="target" color="var(--handle-color-image)" top="calc(35% - 18px)" visible={showLabels}/></>
+       )}
+       <Handle
+         type="target"
+
+diff --git a/src/components/nodes/GenerateVideoNode.tsx b/src/components/nodes/GenerateVideoNode.tsx
+--- a/src/components/nodes/GenerateVideoNode.tsx
++++ b/src/components/nodes/GenerateVideoNode.tsx
+@@ -370,19 +370,19 @@
+       ) : undefined}
+     >
+       {/* Dynamic input handles based on model schema */}
+-      {nodeData.inputSchema && nodeData.inputSchema.length > 0 ? (
++      {((nodeData as unknown as {providerInputSchema?:ModelInputDef[]}).providerInputSchema || (nodeData.inputSchema && nodeData.inputSchema.length > 0)) ? (
+         // Render handles from schema, sorted by type (images first, text second)
+         // IMPORTANT: Always render "image" and "text" handles to maintain connection
+         // compatibility. Schema may only have text inputs (text-to-video models) but
+         // we still need the image handle to preserve connections made before model selection.
+         (() => {
+-          const imageInputs = nodeData.supportsImageInput
+-            ? [{ name: "image", type: "image" as const, required: false, label: "Image", description: undefined }]
+-            : [];
+-          const videoInputs: ModelInputDef[] = [];
+-          const audioInputs: ModelInputDef[] = [];
+-          const textInputs = [{ name: "prompt", type: "text" as const, required: true, label: "Prompt", description: undefined }];
++          const providerInputs=(nodeData as unknown as {providerInputSchema?:ModelInputDef[]}).providerInputSchema;
++          const imageInputs:ModelInputDef[]=providerInputs?.filter(f=>f.type==="image") ?? (nodeData.supportsImageInput?[{name:"image",type:"image",required:false,label:"Image"}]:[]);
++          const videoInputs:ModelInputDef[]=providerInputs?.filter(f=>f.type==="video")??[];
++          const audioInputs:ModelInputDef[]=providerInputs?.filter(f=>f.type==="audio")??[];
++          const textInputs = [{name:"prompt",type:"text" as const,required:(nodeData as unknown as {requiresPrompt?:boolean}).requiresPrompt!==false,label:"Prompt",description:undefined}];
+
++
+           // Always include at least one image and one text handle for connection stability
+           const hasImageInput = imageInputs.length > 0;
+           const hasVideoInput = videoInputs.length > 0;
+@@ -403,7 +403,7 @@
+           if (hasImageInput) {
+             imageInputs.forEach((input, index) => {
+               handles.push({
+-                id: index === 0 ? "image" : `image-${index}`,
++                id: providerInputs ? input.name : index === 0 ? "image" : `image-${index}`,
+                 type: "image",
+                 label: input.label,
+                 schemaName: input.name,
+@@ -418,7 +418,7 @@
+           if (hasVideoInput) {
+             videoInputs.forEach((input, index) => {
+               handles.push({
+-                id: `video-${index}`,
++                id: providerInputs ? input.name : `video-${index}`,
+                 type: "video",
+                 label: input.label,
+                 schemaName: input.name,
+@@ -432,7 +432,7 @@
+           if (hasAudioInput) {
+             audioInputs.forEach((input, index) => {
+               handles.push({
+-                id: `audio-${index}`,
++                id: providerInputs ? input.name : `audio-${index}`,
+                 type: "audio",
+                 label: input.label,
+                 schemaName: input.name,

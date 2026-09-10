@@ -1,12 +1,13 @@
-import {
-  resolveVideoAspectRatioSize,
-  type VideoGenerationFormValues,
-} from "@/features/video-generation/model/video-generation-schema";
+import { ModalApiError } from "@/server/modal-comfyui/client";
+import { videoOutputMetadata } from "@/server/media-assets/video-output-metadata";
+import { modalComfyVideoAdapter } from "./adapters/modal-comfyui-adapter";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
 import { hfSpaceVideoAdapter } from "@/server/video-generation/adapters/hf-space-adapter";
 import type { VideoGenerationAdapter } from "@/server/video-generation/adapters/types";
 import { leemageVideoStorageAdapter } from "@/server/video-generation/storage/adapters/leemage-storage-adapter";
-import type { VideoStorageAdapter, VideoStorageMeta } from "@/server/video-generation/storage/storage-adapter";
+import type { VideoStorageAdapter } from "@/server/video-generation/storage/storage-adapter";
 import { resolveVideoStorageProvider } from "@/server/video-generation/storage/storage-selector";
 import type { GeneratedMediaArtifact, GenerationUploadLifecycle } from "@/server/media-assets/generated-media-artifact";
 import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
@@ -15,22 +16,13 @@ import {
   mockVideoGenerationResult,
 } from "@/server/media-assets/node-studio-e2e-media-fixtures";
 
-type VideoProvider = "hf_space";
-const DEFAULT_VIDEO_META = {
-  width: 640,
-  height: 360,
-  durationSec: 1,
-};
 
-function resolveVideoProvider(modelKey: VideoGenerationFormValues["model"]): VideoProvider {
-  void modelKey;
-  return "hf_space";
-}
-
-function getAdapter(modelKey: VideoGenerationFormValues["model"]): VideoGenerationAdapter {
-  const provider = resolveVideoProvider(modelKey);
-  if (provider === "hf_space") return hfSpaceVideoAdapter;
-  throw new Error(`VIDEO_PROVIDER_NOT_SUPPORTED:${provider}`);
+async function getAdapter(modelKey: VideoGenerationFormValues["model"]): Promise<VideoGenerationAdapter> {
+ const model=(await getModelCatalog({includeInactive:true})).find(m=>m.type==="video"&&m.key===modelKey);
+ if(!model) throw new Error("VIDEO_MODEL_NOT_FOUND");
+ if(model.provider==="modal_comfyui") return modalComfyVideoAdapter;
+ if(model.provider==="hf_space") return hfSpaceVideoAdapter;
+ throw new Error("VIDEO_PROVIDER_NOT_SUPPORTED");
 }
 
 function getStorageAdapter(): VideoStorageAdapter {
@@ -40,33 +32,24 @@ function getStorageAdapter(): VideoStorageAdapter {
 }
 
 function resolveInlineMeta(
-  payload: VideoGenerationFormValues,
-  meta?: VideoStorageMeta
+  meta: Awaited<ReturnType<typeof videoOutputMetadata>>["outputs"][number]
 ) {
-  const fallbackSize = resolveVideoAspectRatioSize(
-    payload.aspectRatio,
-    payload.resolution
-  );
   return {
-    width: meta?.width ?? fallbackSize.width ?? DEFAULT_VIDEO_META.width,
-    height: meta?.height ?? fallbackSize.height ?? DEFAULT_VIDEO_META.height,
-    durationSec:
-      meta?.duration_sec ??
-      payload.durationSec ??
-      DEFAULT_VIDEO_META.durationSec,
+    width: meta.width,
+    height: meta.height,
+    durationSec: meta.duration_sec,
   };
 }
 
 function buildInlineResult(
   payload: VideoGenerationFormValues,
   dataUrls: string[],
-  meta?: VideoStorageMeta
+  meta: Awaited<ReturnType<typeof videoOutputMetadata>>
 ): NonNullable<VideoGenerationResponse["result"]> {
-  const resolvedMeta = resolveInlineMeta(payload, meta);
   return {
-    videos: dataUrls.map((url) => ({
+    videos: dataUrls.map((url, index) => ({
       url,
-      ...resolvedMeta,
+      ...resolveInlineMeta(meta.outputs?.[index] ?? meta),
     })),
   };
 }
@@ -94,20 +77,25 @@ export async function resolveVideoGenerationResult(
 }> {
   let adapter: VideoGenerationAdapter | null = null;
   try {
-    adapter = getAdapter(payload.model);
+    adapter = lifecycle.executionModel?.provider==="modal_comfyui" ? modalComfyVideoAdapter : await getAdapter(payload.model);
+    if (adapter === modalComfyVideoAdapter && resolveVideoStorageProvider().provider !== "leemage")
+      throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
     const result = isNodeStudioE2EMockGenerationEnabled()
       ? mockVideoGenerationResult()
-      : await adapter.generate(payload);
+      : adapter === modalComfyVideoAdapter
+        ? await adapter.generate(payload, { requestId, executionModel:lifecycle.executionModel })
+        : await adapter.generate(payload);
     const { provider, warningMessage } = resolveVideoStorageProvider();
 
     if (!provider) {
+      if(adapter === modalComfyVideoAdapter) throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
       const message =
         warningMessage ??
         "비디오 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
       console.warn(`[video-storage] ${message}`, { requestId });
       return {
         status: "completed",
-        result: buildInlineResult(payload, result.videos, result.meta),
+        result: buildInlineResult(payload, result.videos, await videoOutputMetadata(result.videos)),
         errorMessage: message,
         skipDbSave: true,
       };
@@ -115,12 +103,15 @@ export async function resolveVideoGenerationResult(
 
     await lifecycle.onUploading?.();
     const storageAdapter = getStorageAdapter();
-    return storageAdapter.uploadVideos(
+    const stored=await storageAdapter.uploadVideos(
       payload,
       requestId,
       result.videos,
       result.meta,
     );
+    if(adapter===modalComfyVideoAdapter && (!stored.artifacts?.length || stored.errorMessage))
+      throw new ModalApiError("MODAL_STORAGE_FAILED");
+    return stored;
   } catch (error) {
     if (error instanceof NodeExecutionCancelledError) throw error;
     return {

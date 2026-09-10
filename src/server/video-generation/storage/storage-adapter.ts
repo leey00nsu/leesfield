@@ -9,6 +9,7 @@ export type VideoStorageMeta = {
   height?: number;
   duration_sec?: number;
   fps?: number;
+  outputs?: Array<{width:number;height:number;duration_sec?:number}>;
 };
 
 export interface VideoStorageResult {

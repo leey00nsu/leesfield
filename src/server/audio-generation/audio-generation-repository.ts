@@ -31,7 +31,7 @@ export async function createAudioGenerationRecord(
       requestId,
       ownerEmail,
       apiKeyId,
-      prompt: payload.prompt,
+      prompt: payload.prompt ?? "",
       requestParams: await snapshotRequest('audio', requestSnapshot ?? requestParams),
       modelKey: payload.model,
       graphNodeId,

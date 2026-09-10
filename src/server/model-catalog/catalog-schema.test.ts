@@ -98,6 +98,7 @@ describe("model-catalog option normalization", () => {
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     expect(parsed.data.provider).toBe("codex_cli");
+    if (parsed.data.provider !== "codex_cli") throw new Error("Unexpected provider");
     expect(parsed.data.providerConfig.model_id).toBe("gpt-image-2");
   });
 
@@ -139,6 +140,7 @@ describe("model-catalog option normalization", () => {
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     expect(parsed.data.provider).toBe("codex_bridge");
+    if (parsed.data.provider !== "codex_bridge") throw new Error("Unexpected provider");
     expect(parsed.data.providerConfig.token_env).toBe("CODEX_IMAGE_BRIDGE_TOKEN");
   });
 

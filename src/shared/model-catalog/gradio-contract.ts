@@ -1,3 +1,4 @@
+import { modalConfigSchema, modalInputContract } from "./modal-comfyui-contract";
 import { gradioSchemaValidator, gradioSchemaContainsFileData } from "./gradio-json-schema";
 
 import { z } from "zod";
@@ -27,6 +28,7 @@ export const gradioFieldSchema = z.object({
   min: z.number().optional(), max: z.number().optional(), step: z.number().positive().optional(),
 }).strict();
 export const gradioContractSchema = z.object({
+  inputGroups: z.array(z.object({prefix:z.string(),schema:z.record(z.string(),z.unknown())})).optional(),
   requiresSession: z.boolean().optional(),
   mappingConfirmed: z.boolean().optional(),
   version: z.literal(1),
@@ -48,23 +50,36 @@ export const gradioContractSchema = z.object({
 export type GradioContract = z.infer<typeof gradioContractSchema>;
 export type GradioField = GradioContract["inputs"][number];
 
-type MappedModel = { providerConfig?: unknown; parameters?: unknown };
+type MappedModel = { providerConfig?: unknown; parameters?: unknown; meta?: unknown };
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+/** Remove inferred compatibility fields only when a source contract is available. */
+function declaredParameters<T extends MappedModel>(model: T): T {
+  const config = object(model.providerConfig);
+  const modal = config.workflow_id !== undefined ? modalInputContract(modalConfigSchema.parse(config).workflow) : null;
+  if (!modal && !Object.hasOwn(config, "output")) return model;
+  const fields = new Set(modal?.inputs.map(field => field.name));
+  const parameters = Object.fromEntries(Object.entries(object(model.parameters)).filter(([key, raw]) =>
+    modal ? fields.has(key) : object(object(raw).binding).source === "hf_space"));
+  // Inferred legacy metadata is not evidence of a provider input default.
+  const meta = Object.fromEntries(Object.entries(object(model.meta)).filter(([key]) => !key.startsWith("default_")));
+  return { ...model, parameters, ...(model.meta !== undefined ? { meta } : {}) };
+}
+
 /** Convert old stored contracts once at the read/save boundary; no database writes. */
 export function normalizeGradioModel<T extends MappedModel>(model: T): T {
   const config = object(model.providerConfig);
-  if (config.gradio_contract === undefined) return model;
+  if (config.gradio_contract === undefined) return declaredParameters(model);
   const contract = gradioContractSchema.parse(config.gradio_contract);
   const parameters = { ...object(model.parameters) };
   for (const [order, field] of contract.inputs.entries()) {
     const existingKey = Object.keys(parameters).find(key => object(object(parameters[key]).binding).parameterName === field.name);
     const key = existingKey ?? field.canonical ?? field.name;
     const parameter = { ...object(parameters[key]) };
-    if (parameter.default === undefined) delete parameter.default;
+    delete parameter.default;
     for (const attr of ["options", "min", "max", "step"]) delete parameter[attr];
     Object.assign(parameter, {
       ui: field.hidden ? "hidden" : parameter.ui ?? (field.choices?.length ? "select" : ["file", "files", "gallery"].includes(field.kind) ? "upload" : field.kind === "boolean" ? "toggle" : field.kind === "number" ? "input" : "textarea"),
@@ -86,11 +101,32 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
   }
   const providerConfig: Record<string, unknown> = { ...config, api_name: contract.apiName, output: contract.output };
   delete providerConfig.gradio_contract;
-  return { ...model, providerConfig, parameters };
+  return declaredParameters({ ...model, providerConfig, parameters });
+}
+
+/** Defaults only for inputs actually declared by a mapped provider. */
+export function contractAuthoringDefaults(model: MappedModel): Record<string, unknown> | null {
+  const contract = getGradioContract(model);
+  if (!contract) return null;
+  const parameters = object(model.parameters);
+  return Object.fromEntries(contract.inputs.filter(field => !field.canonical && Object.hasOwn(field, "default")).map(field => {
+    const key = Object.keys(parameters).find(key => object(object(parameters[key]).binding).parameterName === field.name) ?? field.name;
+    return [key, field.default];
+  }));
+}
+export function contractAuthoringParameters(model: MappedModel, values: Record<string, unknown>): Record<string, unknown> {
+  const contract = getGradioContract(model);
+  if (!contract) return values;
+  const parameters = object(model.parameters);
+  const keys = new Set(contract.inputs.filter(field => !field.canonical).map(field =>
+    Object.keys(parameters).find(key => object(object(parameters[key]).binding).parameterName === field.name) ?? field.name));
+  return Object.fromEntries(Object.entries(values).filter(([key]) => keys.has(key) || key === "dynamicParams"));
 }
 
 /** Build transient execution metadata from the same settings the administrator edits. */
 export function getGradioContract(model: MappedModel): GradioContract | null {
+  const modal = object(model.providerConfig);
+  if (modal.workflow_id !== undefined) return modalInputContract(modalConfigSchema.parse(modal).workflow, model.parameters);
   const normalized = normalizeGradioModel(model);
   const config = object(normalized.providerConfig);
   if (!Object.prototype.hasOwnProperty.call(config, "output")) return null;
@@ -132,7 +168,7 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
     if (value === null) {
       if (!field.nullable) throw new Error("HF_CONTRACT_NOT_NULLABLE:" + field.name);
     } else {
-      const valid = field.kind === "number" ? typeof value === "number" && Number.isFinite(value)
+      const valid = field.kind === "number" ? typeof value === "number" && Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value))
         : field.kind === "boolean" ? typeof value === "boolean"
         : field.kind === "files" || field.kind === "gallery" ? Array.isArray(value) && value.every(v => typeof v === "string")
         : field.kind === "json" ? jsonValueSchema.safeParse(value).success
@@ -150,6 +186,10 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
         throw new Error("HF_CONTRACT_INTEGER:" + field.name);
     }
     result[field.name] = value;
+  }
+  for(const group of contract.inputGroups??[]) {
+    const values=Object.fromEntries(Object.entries(result).filter(([name])=>group.prefix?name.startsWith(group.prefix):!name.startsWith("advanced__")).map(([name,value])=>[name.slice(group.prefix.length),value]));
+    validateJsonSchema(values,group.schema,"inputs");
   }
   return result;
 }
@@ -194,7 +234,7 @@ export function assessGradioSupport(contract: GradioContract): GradioSupport {
    }
   }
   if(Object.prototype.hasOwnProperty.call(f,"default")) {
-   try {gradioInputValues({...contract,inputs:[{...f,canonical:undefined}]},{});}
+   try {gradioInputValues({...contract,inputGroups:undefined,inputs:[{...f,canonical:undefined}]},{});}
    catch {limitations.push("DEFAULT_SCHEMA_CONFLICT:"+f.name);}
   }
  }

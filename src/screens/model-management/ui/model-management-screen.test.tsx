@@ -119,6 +119,41 @@ afterEach(() => {
 });
 
 describe("ModelManagementScreen", () => {
+  it.each([false,true])("Modal 가져오기 결과를 그대로 저장한다 (structured=%s)", async (structured) => {
+    const { buildModalModelDraft } = await import("@/server/modal-comfyui/importer");
+    const { modelCatalogInputSchema } = await import("@/server/model-catalog/catalog-schema");
+    const { default: workflows } = await import("@/server/modal-comfyui/fixtures/workflows.json");
+    const raw=structuredClone(workflows.find(w => w.id === "krea2-t2i")!);
+    if(structured){raw.id="new-workflow";Object.assign(raw.input_schema.properties,{optional_value:{type:["string","null"],default:null},options:{type:"object",properties:{count:{type:"integer"}},default:{count:2}}});}
+    const draft = buildModalModelDraft(raw);
+    const save = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+      if (url === "/api/admin/models/modal-comfyui") return {
+        ok: true,
+        json: async () => init?.method === "POST" ? { draft } : {
+          items: [{ id: raw.id, name: draft.label, type: "image", supported: true, message: null }],
+        },
+      };
+      if (init?.method === "POST") {
+        const payload = JSON.parse(init.body);
+        save(modelCatalogInputSchema.parse(payload));
+        return { ok: true, json: async () => payload };
+      }
+      return { ok: true, json: async () => ({ items: records }) };
+    }));
+    const user = userEvent.setup();
+    renderWithIntl(<ModelManagementScreen />);
+    await screen.findByText(imageModel!.label);
+    await user.click(screen.getByRole("button", { name: "모델 추가" }));
+    await user.click(screen.getByRole("button", { name: "Modal ComfyUI" }));
+    await user.click(screen.getByRole("button", { name: "워크플로우 조회" }));
+    await user.click(await screen.findByRole("button", { name: "선택한 워크플로우 가져오기" }));
+    await screen.findByDisplayValue(draft.key);
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ provider: "modal_comfyui", key: draft.key })));
+    expect(screen.queryByText("JSON 형식이 올바르지 않습니다.")).not.toBeInTheDocument();
+  });
+
   it("reuses the cached catalog on return navigation", async () => {
     mockFetch();
     const view = renderWithIntl(<ModelManagementScreen />);

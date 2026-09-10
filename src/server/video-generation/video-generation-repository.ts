@@ -35,7 +35,7 @@ export async function createVideoGenerationRecord(
       ownerEmail,
       apiKeyId,
       graphNodeId,
-      prompt: payload.prompt,
+      prompt: payload.prompt ?? "",
       requestParams: await snapshotRequest('video', requestParams as Record<string, unknown>),
       modelKey: payload.model,
       status: "pending",

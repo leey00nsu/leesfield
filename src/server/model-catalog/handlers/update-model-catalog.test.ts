@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import workflows from "@/server/modal-comfyui/fixtures/workflows.json";
+import { buildModalModelDraft } from "@/server/modal-comfyui/importer";
 
 const mockGetModelCatalogRecordByKey = vi.hoisted(() => vi.fn());
 const mockInvalidateModelCatalogCache = vi.hoisted(() => vi.fn());
@@ -106,6 +108,17 @@ describe("updateModelCatalogHandler provider validation", () => {
       }),
     );
     mockUpdate.mockResolvedValue({ key: "gpt-image-2-codex" });
+  });
+
+  it.each(workflows.filter(w => w.category !== "audio"))("Modal $id 모델을 수정하고 활성화한다", async (workflow) => {
+    const draft = buildModalModelDraft(workflow);
+    mockGetModelCatalogRecordByKey.mockResolvedValue(draft);
+    const { updateModelCatalogHandler } = await import("./update-model-catalog");
+    await updateModelCatalogHandler({key: draft.key, payload: {...draft, isActive: true}});
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: {key: draft.key},
+      data: expect.objectContaining({provider: "modal_comfyui", isActive: true, providerConfig: draft.providerConfig}),
+    }));
   });
 
   it("image 모델은 codex_cli provider 업데이트를 허용한다", async () => {

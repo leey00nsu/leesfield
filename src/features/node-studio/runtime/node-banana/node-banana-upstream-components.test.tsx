@@ -86,6 +86,11 @@ const tinyPngB =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFgAI/7h0fGQAAAABJRU5ErkJggg==";
 
 describe("hosted operation recovery and local results", () => {
+  for(const kind of ["generate.image","generate.video"] as const)it(`${kind} renders distinct contract file handles`,()=>{
+    const view=renderPresenter({kind,data:{config:{modelKey:"new-workflow",prompt:"",parameters:{}},providerInputSchema:[{name:"image-field-source",type:"image",label:"Source",required:true},{name:"image-field-mask",type:"image",label:"Mask",required:true},{name:"video-field-clips",type:"video",label:"Clips",required:false}]},assertBody:()=>undefined},vi.fn(),vi.fn());
+    for(const name of ["image-field-source","image-field-mask","video-field-clips"])expect(view.body.querySelector(`[data-handleid="${name}"]`)).not.toBeNull();
+    view.unmount();
+  });
   it("renders explicit cancellation for an active media operation, including after remount", () => {
     const cancel = vi.fn().mockResolvedValue(undefined);
     const props = {
@@ -457,6 +462,32 @@ const upstreamPresenterContracts: readonly PresenterContract[] = [
 ];
 
 describe("Node Banana v1.9.0 hosted component bridge", () => {
+  it("preserves a user's pause across selection, hover and loadeddata until manual play", () => {
+    vi.useFakeTimers();
+    function Player({ selected }: { selected: boolean }) {
+      const ref = useVideoAutoplay("paused-video", selected);
+      const setHovered = useWorkflowStore(state => state.setHoveredNodeId);
+      return <div data-testid="paused-player" onMouseEnter={() => setHovered("paused-video")} onMouseLeave={() => setHovered(null)}><video ref={ref} controls /></div>;
+    }
+    const view = (selected: boolean) => <NodeBananaUpstreamHostProvider><Player selected={selected} /></NodeBananaUpstreamHostProvider>;
+    const { container, rerender, unmount } = render(view(true));
+    const video = container.querySelector("video")!;
+    Object.defineProperty(video, "readyState", { configurable: true, value: 4 });
+    try {
+      const plays = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length;
+      fireEvent.pause(video);
+      fireEvent.mouseEnter(screen.getByTestId("paused-player"));
+      rerender(view(false));
+      fireEvent.loadedData(video);
+      act(() => vi.advanceTimersByTime(500));
+      rerender(view(true));
+      expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays);
+      fireEvent.play(video);
+      fireEvent.loadedData(video);
+      expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1);
+    } finally { unmount(); vi.useRealTimers(); vi.mocked(HTMLMediaElement.prototype.play).mockClear(); }
+  });
+
   it("plays conditional video mounts on hover and pauses on leave", () => {
     vi.useFakeTimers();
     function Player({ visible }: { visible: boolean }) {
@@ -847,8 +878,22 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
     expect(body).not.toBeNull();
     expect(body?.className).toContain("rounded-lg");
     expect(body?.className).toContain("border");
-    expect(body?.querySelector('[role="button"][aria-label="Upload image"]')).not.toBeNull();
+    expect(body?.querySelector('[role="button"][aria-label="Choose image"]')).not.toBeNull();
     expect(body?.querySelector(".react-flow__handle")).not.toBeNull();
+    cleanup();
+  });
+
+  it("opens upload and asset choices from the image input body", () => {
+    const selectAsset = vi.fn();
+    render(<ReactFlowProvider><NodeBananaUpstreamHostProvider value={{
+      renderInputHistory: (nodeId) => <button onClick={() => selectAsset(nodeId)}>Assets</button>,
+    }}>{identityNode("input.image", "direct-image")}</NodeBananaUpstreamHostProvider></ReactFlowProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Choose image" }));
+    expect(screen.getByRole("button", { name: "Upload" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Assets" }));
+    expect(selectAsset).toHaveBeenCalledWith("direct-image");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Assets" })).not.toBeInTheDocument();
     cleanup();
   });
 
@@ -1047,8 +1092,8 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
     expect(run).toBeDisabled();
     fireEvent.click(run);
     expect(onRegenerateNode).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Upload image" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("button", { name: "Upload image" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("button", { name: "Choose image" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Choose image" })).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("button", { name: "Add annotations" })).toBeDisabled();
     expect(container.querySelector('input[type="file"]')).toBeDisabled();
     expect(onUpdateNodeData).not.toHaveBeenCalled();

@@ -264,7 +264,7 @@
       "failedDescription": "Please try again later.",
       "queued": "Queued…",
       "uploading": "Uploading…",
-      "waitingTime": "Waiting on this screen for {seconds}s"
+      "waitingTime": "{seconds}s"
     },
     "actions": {
       "gridDisabled": "Grid (disabled)",
@@ -892,6 +892,7 @@
         "load": "Failed to load models.",
         "save": "Failed to save model.",
         "json": "Invalid JSON format.",
+        "configuration": "Invalid model configuration. Check the provider configuration, parameters and metadata.",
         "required": "Please fill in required fields.",
         "conflict": "Model key already exists.",
         "notFound": "Model not found.",

@@ -95,3 +95,8 @@ export function generationBodySchema<M extends GenerationMedia>(media: M) {
     ) as Shape,
   );
 }
+
+/** Routing and media envelope. Provider fields/defaults belong to the source contract. */
+export function mappedGenerationBodySchema<M extends GenerationMedia>(media: M) {
+  return generationBodySchema(media);
+}

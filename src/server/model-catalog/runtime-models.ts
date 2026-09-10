@@ -1,3 +1,4 @@
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type {
   AudioModelCatalogItem,
@@ -26,9 +27,10 @@ type ModelDefaults = {
 
 export type RuntimeImageModel = {
   key: string;
+  mapped?: boolean;
   isActive: boolean;
   isDefault: boolean;
-  defaults: Required<
+  defaults: Partial<
     Pick<
       ModelDefaults,
       "width" | "height" | "steps" | "guidanceScale" | "modeChoice" | "promptUpsampling"
@@ -40,9 +42,10 @@ export type RuntimeImageModel = {
 
 export type RuntimeVideoModel = {
   key: string;
+  mapped?: boolean;
   isActive: boolean;
   isDefault: boolean;
-  defaults: Required<
+  defaults: Partial<
     Pick<
       ModelDefaults,
       "steps" | "guidanceScale" | "durationSec" | "fps" | "aspectRatio" | "resolution"
@@ -54,10 +57,11 @@ export type RuntimeVideoModel = {
 
 export type RuntimeAudioModel = {
   key: string;
+  mapped?: boolean;
   isActive: boolean;
   isDefault: boolean;
   parameters?: Record<string, unknown>;
-  defaults: Required<Pick<ModelDefaults, "voice" | "speed">>;
+  defaults: Partial<Pick<ModelDefaults, "voice" | "speed">>;
   concurrentLimit: number;
   supportsInputAudio: boolean;
 };
@@ -79,7 +83,7 @@ function getParamConfig(
   return param && typeof param === "object" ? (param as ParameterConfig) : undefined;
 }
 
-function getNumberDefault(param: ParameterConfig | undefined, fallback: number) {
+function getNumberDefault(param: ParameterConfig | undefined, fallback: number | undefined) {
   const value = param?.default;
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -102,9 +106,10 @@ function toImageRuntimeModel(model: ImageModelCatalogItem): RuntimeImageModel {
   const parameters = model.parameters as Record<string, unknown>;
   return {
     key: model.key,
+    mapped: Boolean(getGradioContract(model)),
     isActive: model.isActive,
     isDefault: model.isDefault,
-    defaults: {
+    defaults: getGradioContract(model) ? {} : {
       steps: getNumberDefault(
         getParamConfig(parameters, "steps"),
         model.meta.default_steps,
@@ -131,7 +136,7 @@ function toImageRuntimeModel(model: ImageModelCatalogItem): RuntimeImageModel {
       ),
     },
     concurrentLimit: resolveConcurrentLimit(model.meta.concurrent_limit),
-    maxInputImages: model.meta.max_input_images,
+    maxInputImages: model.meta.max_input_images ?? 0,
   };
 }
 
@@ -139,9 +144,10 @@ function toVideoRuntimeModel(model: VideoModelCatalogItem): RuntimeVideoModel {
   const parameters = model.parameters as Record<string, unknown>;
   return {
     key: model.key,
+    mapped: Boolean(getGradioContract(model)),
     isActive: model.isActive,
     isDefault: model.isDefault,
-    defaults: {
+    defaults: getGradioContract(model) ? {} : {
       steps: getNumberDefault(
         getParamConfig(parameters, "steps"),
         model.meta.default_steps,
@@ -168,7 +174,7 @@ function toVideoRuntimeModel(model: VideoModelCatalogItem): RuntimeVideoModel {
       ),
     },
     concurrentLimit: resolveConcurrentLimit(model.meta.concurrent_limit),
-    supportsInitImage: model.meta.supports_init_image,
+    supportsInitImage: model.meta.supports_init_image === true,
   };
 }
 
@@ -176,10 +182,11 @@ function toAudioRuntimeModel(model: AudioModelCatalogItem): RuntimeAudioModel {
   const parameters = model.parameters as Record<string, unknown>;
   return {
     key: model.key,
+    mapped: Boolean(getGradioContract(model)),
     isActive: model.isActive,
     isDefault: model.isDefault,
     parameters,
-    defaults: {
+    defaults: getGradioContract(model) ? {} : {
       voice: getStringDefault(
         getParamConfig(parameters, "voice"),
         DEFAULT_AUDIO_VOICE,

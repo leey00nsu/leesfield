@@ -1,4 +1,5 @@
-import { restoreRequest } from '@/server/generation-request/request-snapshot';
+import { restoreRequest, frozenExecutionModel } from '@/server/generation-request/request-snapshot';
+import {fileInputsFromAssets,parseFileInputPort} from '@/shared/model-catalog/file-input-ports';
 import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 import { prisma } from "@/server/db/prisma";
@@ -79,7 +80,7 @@ type AudioRuntimeState = {
   fallbackDefaults: RuntimeAudioModel["defaults"];
 };
 
-function normalizeNumber(value: unknown, fallback: number) {
+function normalizeNumber(value: unknown, fallback: number | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
@@ -159,7 +160,7 @@ async function getAudioRuntimeState(): Promise<AudioRuntimeState | null> {
 
 async function resolveGraphInputUrls(
   record: { ownerEmail?: string | null; graphNodeId?: string | null; requestParams: unknown },
-  mediaType: "image" | "video",
+  mediaType: "image" | "video" | "files",
 ) {
   if (!record.graphNodeId || !record.ownerEmail || !record.requestParams || typeof record.requestParams !== "object") {
     return [];
@@ -176,19 +177,19 @@ async function resolveGraphInputUrls(
         typeof (input as Record<string, unknown>).sortOrder === "number",
       ),
     )
-    .filter((input) => mediaType === "image" || input.portId === "initImage")
+    .filter((input) => mediaType === "files" ? Boolean(parseFileInputPort(input.portId)) : !parseFileInputPort(input.portId) && (mediaType === "image" || input.portId === "initImage"))
     .sort((left, right) => left.sortOrder - right.sortOrder);
-  return Promise.all(candidates.map(async (input) =>
-    (await mediaAssetService.get(record.ownerEmail as string, input.assetId)).url,
-  ));
+  const assets=await Promise.all(candidates.map(async input=>({...input,url:(await mediaAssetService.get(record.ownerEmail as string,input.assetId)).url})));
+  return assets;
 }
 
 async function buildImagePayload(
   record: {
     prompt: string;
     requestParams: unknown;
-    imageCount: number;
-    steps: number;
+    requestId?: string;
+    imageCount: number | null;
+    steps: number | null;
     seed: string | null;
     ownerEmail?: string | null;
     graphNodeId?: string | null;
@@ -196,6 +197,13 @@ async function buildImagePayload(
   runtime: ImageRuntimeState,
 ) {
   const params = restoreRequest(record.requestParams);
+  if(frozenExecutionModel(record.requestParams,"image",params.model) && record.requestId) {
+    const {modalJobRepository}=await import("@/server/modal-comfyui/job-repository");
+    const job=await modalJobRepository.find?.(record.requestId);
+    if(job?.jobId)return {...params,prompt:record.prompt,initImages:[],initImage:""};
+  }
+  if(frozenExecutionModel(record.requestParams,"image",params.model))return {...params,prompt:record.prompt,initImages:(await resolveGraphInputUrls(record,"image")).map(a=>a.url),fileInputs:fileInputsFromAssets(await resolveGraphInputUrls(record,"files"))};
+  if (typeof params.model === "string" && !runtime.modelMap.has(params.model)) throw new Error("MODEL_NOT_FOUND");
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
@@ -206,9 +214,11 @@ async function buildImagePayload(
     ? params.initImages.filter((value) => typeof value === "string")
     : [];
   const initImages = [
-    ...await resolveGraphInputUrls(record, "image"),
+    ...(await resolveGraphInputUrls(record, "image")).map(a=>a.url),
     ...storedInitImages,
   ];
+
+  if (runtime.modelMap.get(model)?.mapped) return { ...params, model, prompt: record.prompt, initImages, fileInputs:fileInputsFromAssets(await resolveGraphInputUrls(record,"files")) };
 
   return {
     prompt: record.prompt,
@@ -217,8 +227,8 @@ async function buildImagePayload(
     height: normalizeNumber(params.height, defaults.height),
     initImages,
     model,
-    imageCount: normalizeNumber(params.imageCount, record.imageCount),
-    steps: normalizeNumber(params.steps, record.steps),
+    imageCount: normalizeNumber(params.imageCount, record.imageCount ?? undefined),
+    steps: normalizeNumber(params.steps, record.steps ?? defaults.steps),
     seed: typeof params.seed === "string" ? params.seed : record.seed ?? "",
     modeChoice: typeof params.modeChoice === "string" ? params.modeChoice : undefined,
     guidanceScale:
@@ -236,12 +246,20 @@ async function buildVideoPayload(
   record: {
     prompt: string;
     requestParams: unknown;
+    requestId?: string;
     ownerEmail?: string | null;
     graphNodeId?: string | null;
   },
   runtime: VideoRuntimeState,
 ) {
   const params = restoreRequest(record.requestParams);
+  if(frozenExecutionModel(record.requestParams,"video",params.model) && record.requestId) {
+    const {modalJobRepository}=await import("@/server/modal-comfyui/job-repository");
+    const job=await modalJobRepository.find?.(record.requestId);
+    if(job?.jobId)return {...params,prompt:record.prompt,initImages:[],initImage:""};
+  }
+  if(frozenExecutionModel(record.requestParams,"video",params.model))return {...params,prompt:record.prompt,initImage:(await resolveGraphInputUrls(record,"video"))[0]?.url??"",fileInputs:fileInputsFromAssets(await resolveGraphInputUrls(record,"files"))};
+  if (typeof params.model === "string" && !runtime.modelMap.has(params.model)) throw new Error("MODEL_NOT_FOUND");
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
@@ -249,12 +267,14 @@ async function buildVideoPayload(
   const defaults =
     runtime.modelMap.get(model)?.defaults ?? runtime.fallbackDefaults;
   const graphInputs = await resolveGraphInputUrls(record, "video");
-  const initImage = graphInputs[0] ?? (
+  const initImage = graphInputs[0]?.url ?? (
     typeof params.initImage === "string"
       ? params.initImage
       : Array.isArray(params.initImages)
         ? params.initImages.find((value) => typeof value === "string") ?? ""
         : "");
+
+  if (runtime.modelMap.get(model)?.mapped) return { ...params, model, prompt: record.prompt, initImage, fileInputs:fileInputsFromAssets(await resolveGraphInputUrls(record,"files")) };
 
   return {
     prompt: record.prompt,
@@ -282,11 +302,13 @@ function buildAudioPayload(
   runtime: AudioRuntimeState,
 ) {
   const params = restoreRequest(record.requestParams);
+  if (typeof params.model === "string" && !runtime.modelMap.has(params.model)) throw new Error("MODEL_NOT_FOUND");
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
       ? params.model
       : runtime.defaultKey;
   const runtimeModel = runtime.modelMap.get(model);
+  if (runtimeModel?.mapped) return { ...params, model, prompt: record.prompt };
   const defaults = runtimeModel?.defaults ?? runtime.fallbackDefaults;
   const parameters =
     runtimeModel?.parameters && typeof runtimeModel.parameters === "object"
@@ -547,8 +569,8 @@ async function handleImageRecord(record: {
   requestId: string;
   prompt: string;
   requestParams: unknown;
-  imageCount: number;
-  steps: number;
+  imageCount: number | null;
+  steps: number | null;
   seed: string | null;
   progress: number;
   ownerEmail: string | null;
@@ -566,7 +588,8 @@ async function handleImageRecord(record: {
     );
     return;
   }
-  const parsed = await validateImageGenerationPayload(payload);
+  const executionModel=frozenExecutionModel(record.requestParams,"image",payload.model);
+  const parsed = executionModel ? await validateImageGenerationPayload(payload,undefined,executionModel) : await validateImageGenerationPayload(payload);
   if (!parsed.success) {
     await updateImageGenerationStatus(
       record.id,
@@ -580,9 +603,10 @@ async function handleImageRecord(record: {
   try {
     const result = record.graphNodeId
       ? await resolveImageGenerationResult(parsed.data, record.requestId, {
+          executionModel,
           onUploading: () => nodeExecutionRepository.markUploading("image", record.id),
         })
-      : await resolveImageGenerationResult(parsed.data, record.requestId);
+      : executionModel ? await resolveImageGenerationResult(parsed.data, record.requestId, {executionModel}) : await resolveImageGenerationResult(parsed.data, record.requestId);
     if (
       record.graphNodeId &&
       result.status === "completed" &&
@@ -652,7 +676,8 @@ async function handleVideoRecord(record: {
     );
     return;
   }
-  const parsed = await validateVideoGenerationPayload(payload);
+  const executionModel=frozenExecutionModel(record.requestParams,"video",payload.model);
+  const parsed = executionModel ? await validateVideoGenerationPayload(payload,undefined,executionModel) : await validateVideoGenerationPayload(payload);
   if (!parsed.success) {
     await updateVideoGenerationStatus(
       record.id,
@@ -666,9 +691,10 @@ async function handleVideoRecord(record: {
   try {
     const result = record.graphNodeId
       ? await resolveVideoGenerationResult(parsed.data, record.requestId, {
+          executionModel,
           onUploading: () => nodeExecutionRepository.markUploading("video", record.id),
         })
-      : await resolveVideoGenerationResult(parsed.data, record.requestId);
+      : executionModel ? await resolveVideoGenerationResult(parsed.data, record.requestId, {executionModel}) : await resolveVideoGenerationResult(parsed.data, record.requestId);
     if (
       record.graphNodeId &&
       result.status === "completed" &&

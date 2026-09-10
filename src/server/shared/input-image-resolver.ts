@@ -131,7 +131,27 @@ async function readLimitedResponseBuffer(
   errorCode: string,
 ): Promise<Buffer> {
   assertResponseSize(response, maxBytes, errorCode);
-  const buffer = Buffer.from(await response.arrayBuffer());
+  let buffer: Buffer;
+  if (response.body) {
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) fail(errorCode);
+        chunks.push(value);
+      }
+      buffer = Buffer.concat(chunks);
+    } finally {
+      await reader.cancel().catch(() => undefined);
+      reader.releaseLock();
+    }
+  } else {
+    buffer = Buffer.from(await response.arrayBuffer());
+  }
   if (buffer.byteLength === 0 || buffer.byteLength > maxBytes) {
     fail(errorCode);
   }

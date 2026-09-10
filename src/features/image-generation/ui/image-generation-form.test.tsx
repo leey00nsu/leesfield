@@ -250,7 +250,11 @@ describe("ImageGenerationForm", () => {
     renderWithIntl(<ImageGenerationForm isAuthenticated />);
 
     expect(screen.queryByText("42%")).not.toBeInTheDocument();
-    expect(screen.getAllByText("생성 중…").length).toBeGreaterThan(0);
+    const button = screen.getByRole("button", {name: "생성 중…"});
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button.textContent).toBe("");
+    expect(button.querySelector("svg.animate-spin")).not.toBeNull();
   });
 
   it("완료된 결과 이미지를 표시한다", () => {

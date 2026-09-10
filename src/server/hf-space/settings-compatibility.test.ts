@@ -26,6 +26,23 @@ function oldModel() {
 }
 
 describe("Gradio settings compatibility", () => {
+  it("removes unbound fallback controls for new imports and previously normalized models", () => {
+    const old = oldModel();
+    const imported = normalizeGradioModel({ ...old, parameters: {
+      ...old.parameters,
+      durationSec: { ui: "range", default: 3 },
+      "hf:duration": { ui: "range", default: 5, label: "Duration (s)", binding: { source: "hf_space", parameterName: "duration", order: 3, kind: "number", valueType: "number", schema: { type: "number" } } },
+    } });
+    expect(imported.parameters).not.toHaveProperty("durationSec");
+    expect(imported.parameters["hf:duration"].ui).toBe("range");
+    const existing = { ...imported, parameters: { ...imported.parameters, durationSec: { ui: "range", default: 3 } } };
+    const restored = normalizeGradioModel(existing);
+    expect(restored.parameters).not.toHaveProperty("durationSec");
+    expect(existing.parameters.durationSec.ui).toBe("range");
+    expect(getGradioContract(restored)?.inputs.map(field => field.name)).toContain("duration");
+    expect(getGradioContract(restored)?.inputs.map(field => field.name)).not.toContain("durationSec");
+    expect(normalizeGradioModel({ parameters: existing.parameters, providerConfig: { space_id: "legacy/model" } }).parameters.durationSec.ui).toBe("range");
+  });
   it("loads existing records without changing active state and saves without a contract or review gate", () => {
     const old = oldModel();
     const records = modelCatalogSchema.parse([old, {...old, isActive: false}]);
