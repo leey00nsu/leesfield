@@ -271,6 +271,16 @@ describe("generationGraphRepository", () => {
     })).resolves.toMatchObject({ id: "graph_1" });
   });
 
+  it("preserves concurrent worker selection unless the request explicitly changes it", async () => {
+    await generationGraphRepository.update("owner@example.com", "graph_1", { ...input, selectionChanges: [] });
+    const writes = mocks.tx.generationGraphNode.upsert.mock.calls;
+    expect(writes.length).toBeGreaterThan(0);
+    for (const [write] of writes) expect(write.update.selectedOutputAssetId).toBeUndefined();
+    mocks.tx.generationGraphNode.upsert.mockClear();
+    await generationGraphRepository.update("owner@example.com", "graph_1", { ...input, selectionChanges: input.nodes.map(node => node.id) });
+    for (const [write] of mocks.tx.generationGraphNode.upsert.mock.calls) expect(write.update.selectedOutputAssetId).toBeNull();
+  });
+
   it("blocks node removal while an execution is active", async () => {
     mocks.tx.generationGraph.findFirst.mockResolvedValue({
       version: 1,

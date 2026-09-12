@@ -42,6 +42,39 @@ describe("GraphAutosaveController", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("does not write stale selections on unrelated autosaves, but persists an explicit clear", async () => {
+    const node = { id: "n", kind: "generate.image", config: {}, configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: "old" };
+    const draft = { ...baseDraft, nodes: [node] };
+    const save = vi.fn().mockResolvedValue({ ...graph(2), nodes: [{ ...node, selectedOutputAssetId: "completed-remotely" }] });
+    const controller = new GraphAutosaveController({ graphId: "g", initialVersion: 1, initialDraft: draft, save });
+    controller.update({ ...draft, title: "Moved" });
+    await controller.saveNow();
+    expect(save.mock.calls[0][1].selectionChanges).toEqual([]);
+    controller.update({ ...draft, nodes: [{ ...node, selectedOutputAssetId: null }] });
+    await controller.saveNow();
+    expect(save.mock.calls[1][1].selectionChanges).toEqual(["n"]);
+    expect(save.mock.calls[1][1].nodes[0].selectedOutputAssetId).toBeNull();
+    controller.dispose();
+  });
+
+  it("retains explicit selection preservation across an in-flight unrelated save", async () => {
+    const node = { id: "n", kind: "generate.image", config: {}, configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: "user-choice" };
+    const draft = { ...baseDraft, nodes: [node] };
+    const first = deferred<GenerationGraphSnapshotDto>();
+    const save = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue({ ...graph(3), nodes: [node] });
+    const controller = new GraphAutosaveController({ graphId: "g", initialVersion: 1, initialDraft: draft, save });
+    controller.update({ ...draft, title: "Moved" });
+    const saving = controller.saveNow();
+    controller.preserveSelection("n");
+    first.resolve({ ...graph(2), nodes: [{ ...node, selectedOutputAssetId: "worker-result" }] });
+    await vi.advanceTimersByTimeAsync(1);
+    await saving;
+    expect(save.mock.calls[0][1].selectionChanges).toEqual([]);
+    expect(save.mock.calls[1][1].selectionChanges).toEqual(["n"]);
+    expect(save.mock.calls[1][1].nodes[0].selectedOutputAssetId).toBe("user-choice");
+    controller.dispose();
+  });
+
   it("debounces edits for 650ms and sends the current version", async () => {
     const save = vi.fn().mockResolvedValue(graph(2, "Changed"));
     const controller = new GraphAutosaveController({
@@ -57,7 +90,7 @@ describe("GraphAutosaveController", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(save).toHaveBeenCalledWith(
       "graph_1",
-      { ...baseDraft, title: "Changed", expectedVersion: 1 },
+      { ...baseDraft, title: "Changed", expectedVersion: 1, selectionChanges: [] },
       expect.any(AbortSignal),
     );
     await flushPromises();
@@ -90,6 +123,7 @@ describe("GraphAutosaveController", () => {
         nodes: [],
         edges: [],
         expectedVersion: 3,
+        selectionChanges: [],
       },
       expect.any(AbortSignal),
     );
@@ -161,7 +195,7 @@ describe("GraphAutosaveController", () => {
     expect(save).toHaveBeenNthCalledWith(
       2,
       "graph_1",
-      { ...baseDraft, title: "Second", expectedVersion: 2 },
+      { ...baseDraft, title: "Second", expectedVersion: 2, selectionChanges: [] },
       expect.any(AbortSignal),
     );
   });
@@ -211,7 +245,7 @@ describe("GraphAutosaveController", () => {
 
     expect(save).toHaveBeenCalledWith(
       "graph_1",
-      { ...edgeDraft, expectedVersion: 4 },
+      { ...edgeDraft, expectedVersion: 4, selectionChanges: [] },
       expect.any(AbortSignal),
     );
     await expect(completion).resolves.toEqual({ status: "saved", version: 5 });

@@ -44,7 +44,7 @@ export async function listMediaAssets(
 export async function getMediaAsset(assetId: string, signal?: AbortSignal): Promise<MediaAssetDto> {
   const response = await fetch(`/api/media-assets/${encodeURIComponent(assetId)}`, {
     cache: "no-store",
-    signal,
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
   });
   if (!response.ok) return parseError(response);
   const payload = await response.json() as { asset: MediaAssetDto };

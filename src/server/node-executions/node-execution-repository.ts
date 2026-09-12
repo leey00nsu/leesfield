@@ -39,6 +39,7 @@ export type StoredNodeExecutionEdge = {
 };
 
 export type StoredNodeExecutionTarget = {
+  selectedOutputAssetId?: string | null;
   id: string;
   kind: string;
   configVersion: number;
@@ -85,6 +86,7 @@ async function getOwnedNode(ownerEmail: string, graphId: string, nodeId: string)
       kind: true,
       configVersion: true,
       config: true,
+      selectedOutputAssetId: true,
       graph: { select: { version: true, schemaVersion: true } },
       incomingEdges: {
         select: {

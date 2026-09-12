@@ -813,11 +813,12 @@ export function createNodeExecutionService(
       const mediaType = mediaTypeForKind(kind);
       if (!mediaType) throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       const definition = kind ? findNodeDefinition(kind) : null;
-      if (definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation") {
-        return (await dependencies.listNodeOperations(ownerEmail, graphId, nodeId)).map(operationToDto);
-      }
-      const records = await dependencies.repository.listExecutions(ownerEmail, nodeId, mediaType, 20);
-      return records.map(toDto);
+      const executions = definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation"
+        ? (await dependencies.listNodeOperations(ownerEmail, graphId, nodeId)).map(operationToDto)
+        : (await dependencies.repository.listExecutions(ownerEmail, nodeId, mediaType, 20)).map(toDto);
+      // Read after history so a completed record cannot carry a pre-completion selection.
+      const current = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
+      return executions.map((execution) => ({ ...execution, selectedOutputAssetId: current.selectedOutputAssetId }));
     },
 
     async get(ownerEmail: string, graphId: string, nodeId: string, executionId: string) {

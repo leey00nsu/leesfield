@@ -12,6 +12,7 @@ export const updateGenerationGraphSchema = z
   .object({
     schemaVersion: z.literal(3),
     expectedVersion: z.number().int().positive(),
+    selectionChanges: z.array(z.string()).max(500).optional(),
     title: z.string().trim().min(1).max(120),
     nodes: z.array(canonicalNodeSchema).max(500),
     edges: z.array(canonicalEdgeSchema).max(2_000),

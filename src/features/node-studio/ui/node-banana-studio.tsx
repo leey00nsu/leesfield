@@ -111,7 +111,7 @@ type NodeBananaStudioProps = {
   readOnlyReason: string | null;
   canvasSettings?: NodeBananaCanvasSettings;
   /** Host callback invoked by an upstream header's Run control. */
-  onRegenerateNode?: (nodeId: string) => void | Promise<void | { selectedOutputAssetId?: string | null; outputAssetIds?: string[]; outputGrid?: { rows: number; cols: number } }>;
+  onRegenerateNode?: (nodeId: string) => void | Promise<import("../model/server-execution-tracking").NodeExecutionSubmission>;
   onCancelNode?: (nodeId: string) => Promise<void>;
   /** Host callback invoked by an upstream annotation editor/Expand control. */
   onOpenAnnotation?: (nodeId: string) => void;
@@ -313,6 +313,16 @@ export function NodeBananaStudio({
     setRuntimeGraph(nextGraph);
     onDraftChangeRef.current(draft);
   }, []);
+
+  const incomingSelectionsRef = useRef(new Map(graph.nodes.map(node => [node.id, node.selectedOutputAssetId])));
+  useEffect(() => {
+    const incoming = new Map(graph.nodes.map(node => [node.id, node.selectedOutputAssetId]));
+    const changed = new Set([...incoming].filter(([id, value]) => incomingSelectionsRef.current.get(id) !== value).map(([id]) => id));
+    incomingSelectionsRef.current = incoming;
+    if (!changed.size) return;
+    publishRuntimeGraph({ ...runtimeGraphRef.current, nodes: runtimeGraphRef.current.nodes.map(node => changed.has(node.id)
+      ? { ...node, data: { ...node.data, selectedOutputAssetId: incoming.get(node.id) ?? null } } : node) });
+  }, [graph.nodes, publishRuntimeGraph]);
 
   const prepareExecution = useCallback(
     () => prepareImageNodeExecutionRef.current(),
@@ -518,6 +528,10 @@ export function NodeBananaStudio({
     setSubmittingNodeIds(new Set(runningNodeIdsRef.current));
     try {
       const result = await onRegenerateNode(nodeId);
+      if (result && "completion" in result) {
+        await result.completion;
+        return;
+      }
       if (kind === "edit.image.splitGrid" && result?.outputAssetIds && result.outputGrid) {
         const previous = runtimeGraphRef.current;
         const next = materializeSplitResult(previous, nodeId, result.outputAssetIds, result.outputGrid);
@@ -533,6 +547,9 @@ export function NodeBananaStudio({
         });
       }
       return result;
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) onHostError?.(error instanceof Error ? error : new Error(String(error)));
+      return;
     } finally {
       runningNodeIdsRef.current.delete(nodeId);
       setSubmittingNodeIds(new Set(runningNodeIdsRef.current));

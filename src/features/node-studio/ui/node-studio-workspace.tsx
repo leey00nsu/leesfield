@@ -18,7 +18,7 @@ import { SpaceCommentsContext, useSpaceCommentsSession } from "../hook/use-space
 import { nodeBananaCatalogModels } from "../runtime/node-banana/node-banana-model-catalog";
 
 import { cancelNodeExecution, listNodeExecutions } from "../api/node-execution-api";
-import { nodeExecutionKeys, useStartNodeExecution } from "../hook/use-node-executions";
+import { nodeExecutionKeys, nodeExecutionRefetchInterval, useStartNodeExecution } from "../hook/use-node-executions";
 import {
   runBrowserImageOperation,
   runPreparedAnnotationOperation,
@@ -37,6 +37,8 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 
 import { useGraphAutosave, type GraphDraft, type GraphAutosaveStatus } from "../hook/use-graph-autosave";
+import { observeServerExecution, ExecutionSelectionTracker } from "../model/server-execution-tracking";
+import { useGenerationEventChannelState } from "../model/generation-event-channel-context";
 import { GenerationEventChannelProvider } from "../hook/use-generation-event-channel";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import { canonicalDocumentToV3Draft, graphSnapshotToCanonicalDocument } from "../runtime/node-banana/node-banana-runtime-adapter";
@@ -84,37 +86,6 @@ function activeExecution(execution: NodeExecutionDto) {
   return execution.status === "pending" || execution.status === "processing" || execution.status === "uploading";
 }
 
-const SERVER_OPERATION_POLL_INTERVAL_MS = 500;
-const SERVER_OPERATION_TIMEOUT_MS = 120_000;
-
-async function waitForServerOperation(
-  graphId: string,
-  nodeId: string,
-  executionId: string,
-  signal: AbortSignal,
-) {
-  const deadline = Date.now() + SERVER_OPERATION_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const executions = await listNodeExecutions(graphId, nodeId, signal);
-    const execution = executions.find((candidate) => candidate.executionId === executionId);
-    if (!execution) throw new Error("NODE_EXECUTION_NOT_FOUND");
-    if (!activeExecution(execution)) return execution;
-    await new Promise<void>((resolve, reject) => {
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(new DOMException("Server operation cancelled", "AbortError"));
-      };
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", onAbort);
-        resolve();
-      }, SERVER_OPERATION_POLL_INTERVAL_MS);
-      signal.addEventListener("abort", onAbort, { once: true });
-      if (signal.aborted) onAbort();
-    });
-  }
-  throw new Error("NODE_EXECUTION_TIMEOUT");
-}
-
 async function dataUrlToFile(
   dataUrl: string,
   fileName: string,
@@ -152,7 +123,11 @@ function loadCanvasSettings(): NodeBananaCanvasSettings {
   }
 }
 
-export function NodeStudioWorkspace({
+export function NodeStudioWorkspace(props: NodeStudioWorkspaceProps) {
+  return <GenerationEventChannelProvider graphId={props.graph.id}><NodeStudioWorkspaceContent key={props.graph.id} {...props} /></GenerationEventChannelProvider>;
+}
+
+function NodeStudioWorkspaceContent({
   graph,
   graphs,
   activeGraphId,
@@ -261,12 +236,26 @@ export function NodeStudioWorkspace({
   const queryClient = useQueryClient();
   const uploadMedia = useUploadMediaAsset();
   const startExecution = useStartNodeExecution();
+  const eventChannelState = useGenerationEventChannelState();
+  const selectionTracker = useRef(new ExecutionSelectionTracker());
+  const reconcileReadRef = useRef<(nodeId: string, executions: NodeExecutionDto[], read: ReturnType<ExecutionSelectionTracker["beginRead"]>) => void>(() => {});
+  const observingRef = useRef(true);
+  useEffect(() => {
+    observingRef.current = true;
+    return () => { observingRef.current = false; };
+  }, []);
+  const preserveSelectionRef = useRef(autosave.preserveSelection);
+  preserveSelectionRef.current = autosave.preserveSelection;
 
   const draftNodeIds = useMemo(
-    () => graph.nodes
-      .filter((node) => findNodeDefinition(node.kind)?.executionMode !== "none")
-      .map((node) => node.id),
-    [graph.nodes],
+    () => {
+      void draftRevision;
+      const persistedIds = new Set(graph.nodes.map(node => node.id));
+      return draftRef.current.nodes
+      .filter((node) => persistedIds.has(node.id) && findNodeDefinition(node.kind)?.executionMode !== "none")
+      .map((node) => node.id);
+    },
+    [draftRevision, graph.nodes],
   );
   const inputAssetIds = useMemo(
     () => {
@@ -287,9 +276,15 @@ export function NodeStudioWorkspace({
   const executionQueries = useQueries({
     queries: draftNodeIds.map((nodeId) => ({
       queryKey: nodeExecutionKeys.list(graph.id, nodeId),
-      queryFn: ({ signal }: { signal: AbortSignal }) => listNodeExecutions(graph.id, nodeId, signal),
-      refetchInterval: (query: { state: { data?: NodeExecutionDto[] } }) =>
-        query.state.data?.some(activeExecution) ? 2_000 : false,
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const read = selectionTracker.current.beginRead(nodeId);
+        const executions = await listNodeExecutions(graph.id, nodeId, signal);
+        signal.throwIfAborted();
+        if (observingRef.current) reconcileReadRef.current(nodeId, executions, read);
+        return executions;
+      },
+      refetchInterval: (query: { state: { data?: NodeExecutionDto[]; status: string } }) =>
+        nodeExecutionRefetchInterval(query.state.status === "error" ? undefined : query.state.data, eventChannelState),
       staleTime: 0,
     })),
   });
@@ -313,7 +308,7 @@ export function NodeStudioWorkspace({
       // Explicit user recovery also works after a reload. Never infer that a
       // discovered active record is abandoned; another tab may still own it.
       const executions = await listNodeExecutions(graph.id, nodeId);
-      const active = executions.find((item) => item.executionKind === "media_operation" && activeExecution(item));
+      const active = executions.find((item) => activeExecution(item));
       if (active) await cancelNodeExecution(graph.id, nodeId, active.executionId);
       operationControllers.get(nodeId)?.abort();
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
@@ -366,6 +361,17 @@ export function NodeStudioWorkspace({
     autosaveUpdateRef.current(next);
   }, []);
 
+  reconcileReadRef.current = (nodeId, executions, read) => {
+    const node = draftRef.current.nodes.find(candidate => candidate.id === nodeId);
+    if (!node) return;
+    const decision = selectionTracker.current.observe(nodeId, executions, read, node.selectedOutputAssetId);
+    if (decision.preserve) preserveSelectionRef.current?.(nodeId);
+    if (decision.selection !== undefined && decision.selection !== node.selectedOutputAssetId) {
+      updateDraft({ ...draftRef.current, nodes: draftRef.current.nodes.map(candidate => candidate.id === nodeId
+        ? { ...candidate, selectedOutputAssetId: decision.selection! } : candidate) });
+    }
+  };
+
   const updateDraftNode = useCallback((nodeId: string, update: (node: GraphDraft["nodes"][number]) => GraphDraft["nodes"][number]) => {
     const current = draftRef.current;
     const node = current.nodes.find((candidate) => candidate.id === nodeId);
@@ -377,6 +383,12 @@ export function NodeStudioWorkspace({
   }, [updateDraft]);
 
   const handleCanvasDraft = useCallback((next: GraphDraft) => {
+    for (const node of next.nodes) {
+      const previous = draftRef.current.nodes.find(candidate => candidate.id === node.id);
+      if (previous && previous.selectedOutputAssetId !== node.selectedOutputAssetId) {
+        selectionTracker.current.changed(node.id);
+      }
+    }
     updateDraft({ ...next, title: titleRef.current });
   }, [updateDraft]);
   const prepareExecution = useCallback(async () => {
@@ -960,6 +972,8 @@ export function NodeStudioWorkspace({
     if (!node) throw new Error("UPSTREAM_NODE_NOT_FOUND");
     const controller = new AbortController();
     operationControllers.set(nodeId, controller);
+    selectionTracker.current.beginSubmission(nodeId);
+    let serverAccepted = false;
     try {
       const expectedGraphVersion = await prepareExecution();
       controller.signal.throwIfAborted();
@@ -968,32 +982,33 @@ export function NodeStudioWorkspace({
         nodeId,
         expectedGraphVersion,
       });
+      selectionTracker.current.submitted(nodeId, execution.executionId);
       const plan = execution.plan;
       if (!plan) {
-        // Server operations (currently Remove Background) do not return a
-        // browser plan. Wait for the same operation to settle so the hosted
-        // component can receive its durable output before the run callback
-        // resolves; the API persists selection independently on completion.
-        const completed = await waitForServerOperation(
-          graph.id,
-          nodeId,
-          execution.executionId,
-          controller.signal,
-        );
-        if (completed.status !== "completed" || completed.outputAssetIds.length === 0) {
-          await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
-          return;
-        }
-        const assets = await Promise.all(
-          completed.outputAssetIds.map((assetId) => getMediaAsset(assetId, controller.signal)),
-        );
-        setAssetOverrides((current) => Object.fromEntries([
-          ...Object.entries(current),
-          ...assets.map((asset) => [asset.id, asset] as const),
-        ]));
-        await queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
-        await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
-        return { selectedOutputAssetId: assets[0]?.id };
+        // Acceptance returns immediately. The host scheduler awaits this
+        // observation separately; query reconciliation owns result selection.
+        const completion = observeServerExecution(queryClient, graph.id, nodeId, execution.executionId, controller.signal)
+          .then(async (completed) => {
+            controller.signal.throwIfAborted();
+            const assets = await Promise.all(completed.outputAssetIds.map(assetId => queryClient.fetchQuery({
+              queryKey: mediaAssetKeys.detail(assetId),
+              queryFn: ({ signal }) => getMediaAsset(assetId, AbortSignal.any([signal, controller.signal])),
+              retry: 3,
+            })));
+            controller.signal.throwIfAborted();
+            setAssetOverrides(previous => ({ ...previous, ...Object.fromEntries(assets.map(asset => [asset.id, asset])) }));
+            void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
+            await autosaveSaveNowRef.current();
+          })
+          .finally(() => {
+            if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
+          });
+        // Observation can outlive a detached UI callback. Always consume errors.
+        void completion.catch(error => {
+          if (!controller.signal.aborted) setHostError(error instanceof Error ? error.message : "GENERATION_FAILED");
+        });
+        serverAccepted = true;
+        return { executionId: execution.executionId, completion };
       }
 
       const input = { graphId: graph.id, nodeId, execution, signal: controller.signal };
@@ -1019,9 +1034,12 @@ export function NodeStudioWorkspace({
         } : {}),
       } : undefined;
     } finally {
-      controller.abort();
-      if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
-      await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
+      selectionTracker.current.endSubmission(nodeId);
+      if (!serverAccepted) {
+        controller.abort();
+        if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
+      }
+      void queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     }
   }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution]);
 
@@ -1051,7 +1069,7 @@ export function NodeStudioWorkspace({
     error: tHost("saveError"),
     conflict: tHost("conflict"),
   }[autosave.status];
-  const hostedGraph = useMemo(() => ({ ...graph, title }), [graph, title]);
+  const hostedGraph = useMemo(() => { void draftRevision; return { ...graph, ...draftRef.current, title }; }, [graph, title, draftRevision]);
   const commentNodes = useMemo(() => {
     void draftRevision;
     return draftRef.current.nodes.map((node) => ({
@@ -1161,7 +1179,6 @@ export function NodeStudioWorkspace({
         onDelete={() => setDeleteOpen(true)}
       />
 
-      <GenerationEventChannelProvider graphId={graph.id}>
         <NodeStudio
           graph={hostedGraph}
           onDraftChange={handleCanvasDraft}
@@ -1178,7 +1195,6 @@ export function NodeStudioWorkspace({
           onHostError={handleHostError}
           resolveUpstreamNodeData={resolveUpstreamNodeData}
         />
-      </GenerationEventChannelProvider>
 
       {hostError ? (
         <div role="alert" className="shrink-0 border-t border-red-300/20 bg-red-950/80 px-4 py-2 text-xs text-red-100">

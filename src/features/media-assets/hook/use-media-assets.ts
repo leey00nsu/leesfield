@@ -46,6 +46,12 @@ export function useMediaAssetList(assetIds: readonly string[]) {
       queryKey: mediaAssetKeys.detail(assetId),
       queryFn: ({ signal }: { signal: AbortSignal }) => getMediaAsset(assetId, signal),
       enabled: Boolean(assetId),
+      refetchInterval: (query: { state: { status: string; error: unknown } }) => {
+        if (query.state.status !== "error") return false;
+        const error = query.state.error;
+        const status = error && typeof error === "object" && "status" in error ? error.status : null;
+        return status === 401 || status === 403 || status === 404 ? false : 15_000;
+      },
     })),
   });
 }

@@ -48,6 +48,11 @@ describe("Node execution polling", () => {
     },
   );
 
+  it("retries discovery when the first history read has not succeeded", () => {
+    expect(nodeExecutionRefetchInterval(undefined, "fallback")).toBe(2_000);
+    expect(nodeExecutionRefetchInterval(undefined, "connected")).toBe(15_000);
+  });
+
   it("does not poll an empty execution history", () => {
     expect(nodeExecutionRefetchInterval([], "fallback")).toBe(false);
   });

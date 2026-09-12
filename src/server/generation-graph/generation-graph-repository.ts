@@ -327,7 +327,9 @@ async function update(
       await tx.generationGraphNode.upsert({
         where: { id: node.id },
         create: { id: node.id, graphId, ...data },
-        update: data,
+        update: input.selectionChanges && !input.selectionChanges.includes(node.id)
+          ? { ...data, selectedOutputAssetId: undefined }
+          : data,
       });
     }
 

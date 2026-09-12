@@ -13,7 +13,7 @@ type NodeStudioProps = {
   prepareImageNodeExecution?: () => Promise<number>;
   catalog?: NodeAuthoringCatalogState;
   canvasSettings?: NodeBananaCanvasSettings;
-  onRegenerateNode?: (nodeId: string) => void | Promise<void | { selectedOutputAssetId?: string | null; outputAssetIds?: string[]; outputGrid?: { rows: number; cols: number } }>;
+  onRegenerateNode?: (nodeId: string) => void | Promise<import("../model/server-execution-tracking").NodeExecutionSubmission>;
   onCancelNode?: (nodeId: string) => Promise<void>;
   onOpenAnnotation?: (nodeId: string) => void;
   onCloseAnnotation?: (nodeId: string) => void;

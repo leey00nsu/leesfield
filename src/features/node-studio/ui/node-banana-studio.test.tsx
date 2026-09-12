@@ -463,6 +463,30 @@ describe("NodeBananaStudio host adapter", () => {
     expect(runtime.renders).toBeLessThan(150);
   });
 
+  it("keeps a submitted server receipt busy until completion and consumes a server failure", async () => {
+    let reject!: (error: Error) => void;
+    const completion = new Promise<void>((_resolve, rej) => { reject = rej; });
+    const onRegenerateNode = vi.fn().mockResolvedValue({ executionId: "remote", completion });
+    const onHostError = vi.fn();
+    render(<NodeBananaStudio graph={runnableGraph} onDraftChange={vi.fn()}
+      prepareImageNodeExecution={vi.fn().mockResolvedValue(1)} catalog={catalog}
+      writable readOnlyReason={null} onRegenerateNode={onRegenerateNode} onHostError={onHostError} />,
+      { wrapper: createIntlWrapper() });
+    let running: Promise<unknown> | void;
+    await act(async () => {
+      running = runtime.props!.onRunNode!("node_1");
+      await Promise.resolve();
+    });
+    expect(onRegenerateNode).toHaveBeenCalledOnce();
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(false);
+    await act(async () => {
+      reject(new Error("GENERATION_FAILED"));
+      await running;
+    });
+    expect(onHostError).toHaveBeenCalledWith(expect.objectContaining({ message: "GENERATION_FAILED" }));
+    expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
+  });
+
   it("blocks duplicate Run calls while the first hosted execution is active", async () => {
     let release: (() => void) | undefined;
     const onRegenerateNode = vi.fn(() => new Promise<void>((resolve) => { release = resolve; }));

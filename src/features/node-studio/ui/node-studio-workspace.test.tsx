@@ -1,9 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { nodeExecutionKeys } from "../hook/use-node-executions";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GenerationGraphSnapshotDto } from "@/features/node-studio/model/graph-types";
-import { renderWithIntl } from "@/test-utils/intl";
+import { IntlProvider, renderWithIntl } from "@/test-utils/intl";
 
 import { NodeStudioWorkspace } from "./node-studio-workspace";
 
@@ -11,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   useAutosave: vi.fn(),
   update: vi.fn(),
   retry: vi.fn(),
+  preserveSelection: vi.fn(),
   saveNow: vi.fn(),
   nodeStudio: vi.fn(),
   usePreferences: vi.fn(),
@@ -48,7 +51,8 @@ vi.mock("../hook/use-space-preferences", async (importOriginal) => ({
 const loadedPreferences = {
   data: { schemaVersion: 1 as const, revision: 1, recentModelKeys: [], defaults: {} },
   error: null, saving: false, trackModel: vi.fn(), saveDefaults: mocks.saveDefaults, saveSettings: mocks.saveSettings,
-  retry: vi.fn(), inlineParametersEnabled: false, setInlineParametersEnabled: vi.fn(),
+  retry: vi.fn(),
+  preserveSelection: vi.fn(), inlineParametersEnabled: false, setInlineParametersEnabled: vi.fn(),
 };
 
 vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
@@ -73,7 +77,7 @@ vi.mock("@/features/media-assets/api/media-asset-api", () => ({
 }));
 
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
-  mediaAssetKeys: { all: ["media-assets"] },
+  mediaAssetKeys: { all: ["media-assets"], detail: (id: string) => ["media-assets", "detail", id] },
   useMediaAssetList: outputMocks.listAssets,
   useUploadMediaAsset: () => ({ mutateAsync: mocks.upload, isPending: false }),
 }));
@@ -143,6 +147,7 @@ describe("NodeStudioWorkspace", () => {
       version: 3,
       update: mocks.update,
       retry: mocks.retry,
+      preserveSelection: mocks.preserveSelection,
       saveNow: mocks.saveNow,
     });
     mocks.saveNow.mockResolvedValue({ status: "saved", version: 3 });
@@ -157,6 +162,89 @@ describe("NodeStudioWorkspace", () => {
         isError: false,
       })),
     );
+  });
+
+  const selectionGraph = (selection: string | null): GenerationGraphSnapshotDto => ({ ...graph, nodes: [{
+    id: "selection-node", kind: "generate.image", configVersion: 1, config: { prompt: "", modelKey: null, parameters: {} },
+    position: { x: 0, y: 0 }, selectedOutputAssetId: selection,
+  }] });
+  const selectionExecution = (id: string, selection: string | null, status = "completed") => ({
+    executionId: id, graphNodeId: "selection-node", executionKind: "generation", mediaType: "image",
+    status, progress: status === "completed" ? 100 : 50, selectedOutputAssetId: selection,
+    outputAssetIds: selection ? [selection] : [], createdAt: "2026-09-13T00:00:00Z", modelKey: null, errorCode: null,
+  });
+  const currentSelection = () => mocks.nodeStudio.mock.lastCall?.[0].graph.nodes[0].selectedOutputAssetId;
+  const renderSelectionGraph = (client: QueryClient, selection: string | null) => renderWithIntl(
+    <NodeStudioWorkspace graph={selectionGraph(selection)} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />,
+    { wrapper: ({ children }) => <QueryClientProvider client={client}><IntlProvider>{children}</IntlProvider></QueryClientProvider> },
+  );
+  const selectionKey = nodeExecutionKeys.list(graph.id, "selection-node");
+
+  it("ignores cached selection on re-entry and accepts a fresh changed selection for the same execution", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(selectionKey, [selectionExecution("e1", "stale-result")]);
+    let finish!: (value: unknown) => void;
+    outputMocks.listExecutions.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = renderSelectionGraph(client, null);
+    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
+    expect(currentSelection()).toBeNull();
+    await act(async () => { finish([selectionExecution("e1", null)]); });
+    expect(currentSelection()).toBeNull();
+    expect(mocks.update).not.toHaveBeenCalled();
+    outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "fresh-selection")]);
+    await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
+    expect(currentSelection()).toBe("fresh-selection");
+    view.unmount(); client.clear();
+  });
+
+  it("preserves A→B→A intent during the first delayed execution read", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let finish!: (value: unknown) => void;
+    outputMocks.listExecutions.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = renderSelectionGraph(client, "A");
+    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
+    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("B")));
+    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("A")));
+    await act(async () => { finish([selectionExecution("e1", "C")]); });
+    await waitFor(() => expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData("selection-node", {}).executionStatus).toBe("completed"));
+    expect(currentSelection()).toBe("A");
+    expect(mocks.preserveSelection).toHaveBeenCalledWith("selection-node");
+    outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "C")]);
+    await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
+    expect(currentSelection()).toBe("A");
+    expect(mocks.preserveSelection).toHaveBeenCalledTimes(1);
+    view.unmount(); client.clear();
+  });
+
+  it("retains user intent when the initial history read fails and is retried", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let fail!: (error: Error) => void;
+    outputMocks.listExecutions.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const view = renderSelectionGraph(client, "A");
+    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
+    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("B")));
+    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("A")));
+    await act(async () => { fail(new Error("network interrupted")); });
+    await waitFor(() => expect(client.getQueryState(selectionKey)?.status).toBe("error"));
+    outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "C")]);
+    await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
+    expect(currentSelection()).toBe("A");
+    expect(mocks.preserveSelection).toHaveBeenCalledWith("selection-node");
+    view.unmount(); client.clear();
+  });
+
+  it("projects successive external executions without a local submission", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "A", "processing")]);
+    const view = renderSelectionGraph(client, "A");
+    await waitFor(() => expect(client.getQueryData(selectionKey)).toBeDefined());
+    for (const [id, selection, status] of [["e1", "B", "completed"], ["e2", "B", "processing"], ["e2", "C", "completed"]]) {
+      outputMocks.listExecutions.mockResolvedValue([selectionExecution(id, selection, status)]);
+      await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
+      await waitFor(() => expect(currentSelection()).toBe(selection));
+    }
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+    view.unmount(); client.clear();
   });
 
   it("waits for saving before the brand back button leaves", async () => {
@@ -410,7 +498,22 @@ describe("NodeStudioWorkspace", () => {
     });
   });
 
-  it("waits for a server operation and projects its durable output before returning", async () => {
+  it("returns server acceptance even when the subsequent history read is stalled", async () => {
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockResolvedValue({ executionId: "accepted", graphNodeId: "remote", executionKind: "generation", mediaType: "video", status: "pending", progress: 0 });
+    const view = renderWithIntl(<NodeStudioWorkspace graph={{ ...graph, nodes: [{
+      id: "remote", kind: "generate.video", config: { prompt: "x", modelKey: "m", parameters: {} },
+      configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: null,
+    }] }} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
+    let receipt: import("../model/server-execution-tracking").NodeExecutionReceipt;
+    await act(async () => { receipt = await mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("remote"); });
+    expect(receipt!.executionId).toBe("accepted");
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
+    view.unmount();
+    await expect(receipt!.completion).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("returns a receipt and reconciles durable output independently of submission", async () => {
     const serverAsset = {
       id: "server-output",
       version: 1,
@@ -446,6 +549,7 @@ describe("NodeStudioWorkspace", () => {
       status: "completed" as const,
       progress: 100,
       outputAssetIds: [serverAsset.id],
+      selectedOutputAssetId: serverAsset.id,
     };
     outputMocks.startExecution.mockImplementation(async () => {
       operationStarted = true;
@@ -454,7 +558,7 @@ describe("NodeStudioWorkspace", () => {
     outputMocks.listExecutions.mockImplementation(async (_graphId: string, nodeId: string) => {
       if (nodeId !== "remove-server" || !operationStarted) return [];
       operationPolls += 1;
-      return [operationPolls === 1 ? pending : completed];
+      return [completed];
     });
     mediaApiMocks.getMediaAsset.mockResolvedValue(serverAsset);
 
@@ -498,15 +602,17 @@ describe("NodeStudioWorkspace", () => {
     );
 
     const studio = mocks.nodeStudio.mock.lastCall?.[0] as {
-      onRegenerateNode: (nodeId: string) => Promise<{ selectedOutputAssetId?: string | null } | undefined>;
+      onRegenerateNode: (nodeId: string) => Promise<import("../model/server-execution-tracking").NodeExecutionReceipt>;
     };
-    let result: { selectedOutputAssetId?: string | null } | undefined;
+    let result: import("../model/server-execution-tracking").NodeExecutionReceipt;
     await act(async () => {
       result = await studio.onRegenerateNode("remove-server");
     });
-    expect(result).toEqual({ selectedOutputAssetId: "server-output" });
-    expect(operationPolls).toBeGreaterThanOrEqual(2);
+    expect(result!).toEqual({ executionId: "server-operation", completion: expect.any(Promise) });
+    await act(async () => { await result.completion; });
+    expect(operationPolls).toBeGreaterThanOrEqual(1);
     expect(mediaApiMocks.getMediaAsset).toHaveBeenCalledWith("server-output", expect.any(AbortSignal));
+    expect(mocks.update.mock.lastCall?.[0].nodes.find((node: { id: string }) => node.id === "remove-server").selectedOutputAssetId).toBe("server-output");
   });
 
   it.each([
@@ -852,6 +958,7 @@ describe("NodeStudioWorkspace", () => {
       version: 3,
       update: mocks.update,
       retry: mocks.retry,
+      preserveSelection: mocks.preserveSelection,
       saveNow: mocks.saveNow,
     });
     renderWithIntl(

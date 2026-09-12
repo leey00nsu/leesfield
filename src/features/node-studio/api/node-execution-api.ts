@@ -33,7 +33,7 @@ function executionsUrl(graphId: string, nodeId: string) {
 }
 
 export async function listNodeExecutions(graphId: string, nodeId: string, signal?: AbortSignal) {
-  const response = await fetch(executionsUrl(graphId, nodeId), { cache: "no-store", signal });
+  const response = await fetch(executionsUrl(graphId, nodeId), { cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) });
   return (await readPayload<{ executions: NodeExecutionDto[] }>(response)).executions;
 }
 

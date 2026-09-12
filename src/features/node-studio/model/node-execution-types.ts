@@ -19,6 +19,8 @@ export type NodeExecutionDto = {
   modelKey: string | null;
   outputAssetIds: string[];
   createdAt: string;
+  /** Current durable node selection, read after execution history. */
+  selectedOutputAssetId?: string | null;
 };
 
 export type BrowserMediaOperationPlan = {

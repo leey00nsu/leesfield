@@ -60,6 +60,8 @@ export type UpdateGenerationGraphDto = {
   schemaVersion: 3;
   groups: CanonicalGroup[];
   expectedVersion: number;
+  /** Only these existing nodes have an explicit user selection change. */
+  selectionChanges?: string[];
   title: string;
   nodes: Array<{
     id: string;

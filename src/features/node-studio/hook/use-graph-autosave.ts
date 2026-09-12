@@ -51,6 +51,8 @@ export class GraphAutosaveController {
   private latestDraft: GraphDraft;
   private latestSignature: string;
   private revision = 0;
+  private savedSelections: Map<string, string | null>;
+  private forcedSelections = new Map<string, number>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private request: AbortController | null = null;
   private inFlight = false;
@@ -70,6 +72,7 @@ export class GraphAutosaveController {
     this.graphId = options.graphId;
     this.version = options.initialVersion;
     this.latestDraft = options.initialDraft;
+    this.savedSelections = new Map(options.initialDraft.nodes.map(node => [node.id, node.selectedOutputAssetId]));
     this.latestSignature = signature(options.initialDraft);
     this.save = options.save;
     this.onSaved = options.onSaved;
@@ -133,6 +136,15 @@ export class GraphAutosaveController {
     this.schedule();
   }
 
+  preserveSelection(nodeId: string) {
+    if (this.stopped || !this.latestDraft.nodes.some(node => node.id === nodeId)) return;
+    this.revision += 1;
+    this.forcedSelections.set(nodeId, this.revision);
+    if (this.snapshot.status === "error" || this.snapshot.status === "conflict") return;
+    if (!this.inFlight) this.emit("dirty");
+    this.schedule();
+  }
+
   retry() {
     if (this.stopped || this.snapshot.status !== "error") return;
     this.emit("dirty");
@@ -166,8 +178,10 @@ export class GraphAutosaveController {
     this.graphId = options.graphId;
     this.version = options.version;
     this.latestDraft = options.draft;
+    this.savedSelections = new Map(options.draft.nodes.map(node => [node.id, node.selectedOutputAssetId]));
     this.latestSignature = signature(options.draft);
     this.revision = 0;
+    this.forcedSelections.clear();
     this.inFlight = false;
     this.request = null;
     this.emit("saved");
@@ -186,6 +200,7 @@ export class GraphAutosaveController {
     if (this.snapshot.status === "conflict" || this.snapshot.status === "error") return;
 
     const capturedRevision = this.revision;
+    const capturedDraft = this.latestDraft;
     const capturedSession = this.session;
     const request = new AbortController();
     this.request = request;
@@ -195,12 +210,20 @@ export class GraphAutosaveController {
     try {
       const graph = await this.save(
         this.graphId,
-        { ...this.latestDraft, expectedVersion: this.version },
+        { ...capturedDraft, expectedVersion: this.version, selectionChanges: capturedDraft.nodes
+          .filter(node => this.forcedSelections.has(node.id) || this.savedSelections.get(node.id) !== node.selectedOutputAssetId)
+          .map(node => node.id) },
         request.signal,
       );
       if (this.stopped || capturedSession !== this.session) return;
 
       this.version = graph.version;
+      // Remember what this client sent. Remote selections are reconciled by
+      // the execution observer and must not become an implicit local clear.
+      this.savedSelections = new Map(capturedDraft.nodes.map(node => [node.id, node.selectedOutputAssetId]));
+      for (const [nodeId, revision] of this.forcedSelections) {
+        if (revision <= capturedRevision) this.forcedSelections.delete(nodeId);
+      }
       this.onSaved?.(graph);
       this.inFlight = false;
       this.request = null;
@@ -246,6 +269,7 @@ export function useGraphAutosave(options: UseGraphAutosaveOptions) {
     ...state,
     update: (draft: GraphDraft) => controller.update(draft),
     retry: () => controller.retry(),
+    preserveSelection: (nodeId: string) => controller.preserveSelection(nodeId),
     saveNow: () => controller.saveNow(),
     reset: (next: { graphId: string; version: number; draft: GraphDraft }) => controller.reset(next),
   };

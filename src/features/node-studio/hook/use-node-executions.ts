@@ -36,7 +36,7 @@ export function nodeExecutionRefetchInterval(
   executions: readonly NodeExecutionDto[] | undefined,
   eventChannelState: GenerationEventChannelState,
 ) {
-  if (!hasActiveNodeExecution(executions)) return false;
+  if (executions && !hasActiveNodeExecution(executions)) return false;
   return eventChannelState === "connected"
     ? CONNECTED_SAFETY_POLL_INTERVAL_MS
     : FALLBACK_POLL_INTERVAL_MS;
@@ -70,8 +70,13 @@ export function useStartNodeExecution() {
         inFlight.current = false;
       }
     },
-    onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({
+    onSuccess: async (result, variables) => {
+      const key = nodeExecutionKeys.list(variables.graphId, variables.nodeId);
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<NodeExecutionDto[]>(key, (previous = []) => [{
+        ...result, modelKey: null, errorCode: null, outputAssetIds: [], createdAt: new Date().toISOString(),
+      }, ...previous.filter(item => item.executionId !== result.executionId)]);
+      void queryClient.invalidateQueries({
         queryKey: nodeExecutionKeys.list(variables.graphId, variables.nodeId),
       });
     },
@@ -87,9 +92,7 @@ export function useCancelNodeExecution() {
       executionId: string;
     }) => cancelNodeExecution(graphId, nodeId, executionId),
     onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({
-        queryKey: nodeExecutionKeys.list(variables.graphId, variables.nodeId),
-      });
+      await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(variables.graphId, variables.nodeId) });
     },
   });
 }

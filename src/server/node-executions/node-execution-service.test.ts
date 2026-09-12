@@ -737,6 +737,20 @@ describe("nodeExecutionService", () => {
     }));
   });
 
+  it("reads the durable node selection after completed history while retaining owner scope", async () => {
+    const { repository, service } = setup();
+    const original = await repository.getOwnedNode("owner@example.com", "graph-1", "node-1");
+    vi.mocked(repository.getOwnedNode).mockResolvedValueOnce({ ...original, selectedOutputAssetId: null })
+      .mockResolvedValueOnce({ ...original, selectedOutputAssetId: "durable" });
+    vi.mocked(repository.listExecutions).mockResolvedValue([{
+      executionId: "r", mediaType: "video", graphNodeId: "node-1", status: "completed", progress: 100,
+      errorMessage: null, modelKey: "any-model", createdAt: new Date(), outputs: [],
+    }]);
+    const result = await service.list("owner@example.com", "graph-1", "node-1");
+    expect(result[0].selectedOutputAssetId).toBe("durable");
+    expect(repository.getOwnedNode).toHaveBeenLastCalledWith("owner@example.com", "graph-1", "node-1");
+  });
+
   it("returns provider-neutral execution DTOs and delegates cancellation", async () => {
     const { repository, service } = setup();
     const record = {

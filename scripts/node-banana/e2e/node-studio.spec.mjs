@@ -2274,7 +2274,7 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
   });
 
   test("Remove Background runs through the hosted toolbar into a durable downstream image", async ({ page }, testInfo) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     test.skip(testInfo.project.name !== "desktop", "Background-removal worker coverage runs once on desktop; mobile responsiveness is covered by the dedicated 390px controls test.");
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
@@ -2347,6 +2347,24 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       expect(outputRecord).toBeTruthy();
       if (!outputRecord) throw new Error("Remove Background output node is missing");
 
+      // Optional slow-observation fixture: the server persists normally while
+      // this tab loses completion notifications for longer than the old deadline.
+      let submittedAt = 0;
+      let submissionCount = 0;
+      const delayMs = Number(process.env.NODE_STUDIO_E2E_RESULT_DELAY_MS ?? 0);
+      if (delayMs) await page.route(`**/api/generation-graphs/${graph.id}/nodes/${removeRecord.id}/executions`, async route => {
+        if (route.request().method() === "POST") {
+          submissionCount += 1;
+          submittedAt = Date.now();
+          return route.continue();
+        }
+        const response = await route.fetch();
+        const payload = await response.json();
+        if (submittedAt && Date.now() - submittedAt < delayMs && payload.executions) {
+          payload.executions = payload.executions.map(item => ({ ...item, status: "processing", progress: 75, outputAssetIds: [], selectedOutputAssetId: null }));
+        }
+        await route.fulfill({ response, json: payload });
+      });
       await removeNode.click({ position: { x: 18, y: 18 } });
       const header = page.locator(
         `[data-node-banana-component="FloatingNodeHeader"][data-node-id="${removeRecord.id}"]`,
@@ -2379,7 +2397,12 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         (snapshot) => snapshot.nodes.some((node) => node.id === removeRecord.id && node.selectedOutputAssetId === outputAssetId),
         "Remove Background output was not selected durably",
       );
-      await expect(removeBody.locator('img[alt="Background removed"]')).toBeVisible({ timeout: 30_000 });
+      await expect(removeBody.locator('img[alt="Background removed"]')).toBeVisible({ timeout: delayMs + 30_000 });
+      if (delayMs) {
+        expect(Date.now() - submittedAt).toBeGreaterThanOrEqual(delayMs);
+        expect(submissionCount).toBe(1);
+        await captureEvidenceScreenshot(page, testInfo, "delayed-completion-without-reload");
+      }
       await expect(nodeBody(page, "Output").locator("img")).toBeVisible({ timeout: 30_000 });
       const downstream = await page.request.get(
         `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(outputRecord.id)}/outputs`,
