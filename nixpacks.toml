@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["...", "wget"]
+
+[start]
+cmd = "pnpm release:migrate && pnpm start"

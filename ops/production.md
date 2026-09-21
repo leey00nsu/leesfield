@@ -1,31 +1,28 @@
 # Production worker 운영
 
-## 시작
+## Coolify 배포와 시작
 
 Node.js 서버가 시작될 때 `src/instrumentation.ts`의 `register()`가 환경을 검증한 뒤 generation worker, media-operation worker와 media-cleanup worker supervisor를 한 번만 시작한다. Edge runtime과 production build 단계에서는 worker를 시작하지 않는다. 생성 요청이 worker를 직접 다시 시작하려는 기존 경로도 남아 있지만 supervisor의 singleton guard를 통과한다.
 
-릴리스 전에는 다음 순서를 사용한다.
+Production은 Coolify의 `main` branch Auto Deploy와 Nixpacks build pack을 사용한다. repository root의 `nixpacks.toml`이 production start 명령과 health probe에 필요한 package를 정의한다. GitHub Actions 성공 여부는 현재 Coolify webhook 배포의 선행 조건이 아니다.
+
+배포 시에는 다음 순서를 사용한다.
 
 1. 유효한 production 환경변수와 PostgreSQL 연결을 준비한다.
-2. `pnpm release:migrate`로 환경 확인·Prisma 생성·migration과 history trigram index 생성을 별도 release 단계에서 실행한다. 실패하면 서버를 시작하지 않는다. index는 Prisma transaction 밖에서 `CREATE INDEX CONCURRENTLY`로 생성한다.
-3. `pnpm start`로 Node 서버를 시작하고 `/api/health/ready`를 확인한다. `start` 자체는 migration을 실행하지 않는다.
+2. Coolify가 repository를 Nixpacks로 build한다.
+3. 새 컨테이너의 Nixpacks start 명령이 `pnpm release:migrate`로 환경 확인·Prisma 생성·migration과 history trigram index 생성을 실행한다. 실패하면 `&&` 뒤의 서버를 시작하지 않는다. index는 Prisma transaction 밖에서 `CREATE INDEX CONCURRENTLY`로 생성한다.
+4. migration 성공 후 `pnpm start`로 Node 서버를 시작한다.
+5. Coolify가 `/api/health/ready`의 200을 확인한 뒤 새 컨테이너에 트래픽을 보낸다.
 
-실제 배포 플랫폼이 이 순서를 보장하는지는 배포 환경에서 별도로 확인한다.
+Coolify pre-deployment command는 교체 전의 현재 컨테이너에서 실행되므로 새 source에 추가된 migration의 정본으로 사용하지 않는다. post-deployment command는 배포 성공 기록 뒤에 실행되므로 migration gate로 사용하지 않는다. 현재 start 단계 방식은 단일 replica 운영을 전제로 한다. replica를 늘리기 전에는 migration과 concurrent index 생성을 한 번만 수행하는 별도 release runner를 검토한다.
 
-## Release image와 종료
+## Nixpacks image와 종료
 
-`Dockerfile`은 Node 24 multi-stage build를 사용한다. builder가 `pnpm install --frozen-lockfile`과 `pnpm build`를 실행하고, runner에는 Next standalone output과 정적 파일만 복사한다. runner는 UID 1001의 `nextjs` 사용자로 실행하며 `DATABASE_URL`, `.env`, PostgreSQL client secret과 backup 파일을 image에 넣지 않는다.
+Nixpacks는 repository의 manifest와 lockfile로 install/build/start plan을 만들고 Coolify가 생성된 image를 실행한다. `.dockerignore`는 `.env`, build output, backup 등 불필요하거나 민감한 파일을 build context에서 제외한다. `docker-compose.yml`은 로컬 PostgreSQL 용도이며 production application 배포에는 사용하지 않는다.
 
-```sh
-docker build --tag leesfield:<project-commit-sha> .
-docker run --detach --name leesfield \
-  --env-file .env.production \
-  --publish 127.0.0.1:3000:3000 \
-  --stop-timeout 35 \
-  leesfield:<project-commit-sha>
-```
+Coolify의 stop grace period는 35초로 설정한다. `SIGTERM` 이후 worker drain 상한은 25초이므로 강제 종료 전에 10초의 여유가 있다. readiness health check는 interval 10초, timeout 3초, retries 6회, start period 120초와 `/api/health/ready`를 사용한다. Nixpacks setup에 포함한 `wget`이 Coolify의 컨테이너 내부 HTTP probe를 실행한다.
 
-컨테이너 healthcheck는 `/api/health/live`만 호출한다. migration은 image build나 app `start`에 넣지 않고 release job에서 한 번 실행한다. 이전 worker를 drain/stop한 뒤 호환되는 migration을 적용하고 새 image를 시작한다. `SIGTERM` 이후 worker drain 상한은 25초이며 Docker stop timeout은 여유를 두고 35초로 설정한다.
+배포가 실패했을 때 이전 image로 rollback할 수 있는지는 적용된 schema가 이전 코드와 호환되는지 먼저 판단한다. 적용된 migration을 수정하거나 down migration으로 되돌리지 않는다. 호환되지 않으면 forward-fix 또는 사전에 검증한 DB snapshot 복원을 선택한다.
 
 `ops/nginx.conf.example`은 TLS를 종료하는 단일 reverse proxy 예제다. Nginx가 `X-Forwarded-For`를 `$remote_addr`로 덮어쓸 때만 `TRUST_PROXY_HEADERS=true`와 `TRUSTED_PROXY_HOPS=1`을 사용한다. 직접 app port를 공개하지 않고, client body 64 MiB, 일반 response 120초, SSE 경로 buffering off·45초 read timeout을 적용한다. 실제 인증서, upstream 주소, 방화벽과 load balancer 설정은 배포 환경에서 확인해야 한다.
 
@@ -59,9 +56,11 @@ substring history 검색은 `pg_trgm`과 image/video/audio의 prompt/modelKey GI
 
 현재 코드만으로 확인되는 RPO/RTO는 없다. 운영자는 DB backup 주기·보존기간·암호화·접근권한·복원 담당자와 목표 RPO/RTO를 배포 전에 정하고, 격리 restore 소요시간과 실제 asset 복구 범위를 측정해 이 문서의 release 기록에 남겨야 한다.
 
-## CI와 부하 검증
+## 보안 감사와 로컬 검증
 
-`.github/workflows/production-readiness.yml`은 Node 24에서 `pnpm test`, disposable PostgreSQL을 사용하는 `pnpm test:production-integration`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm security:production`, local stub smoke, `docker compose config`와 Docker image build를 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 runner는 통합 검사를 성공으로 건너뛰지 않는다.
+`.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다.
+
+Feature 완료 전에는 lee-spec-kit의 로컬 검사로 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm security:production`, `pnpm test:production-integration`을 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
 
 안전한 harness 확인은 다음 명령으로 실행한다.
 
@@ -149,6 +148,8 @@ ORDER BY status, reason;
 - `GET /api/health/ready`는 PostgreSQL `SELECT 1`을 최대 2초 기다리고 supervisor의 generation/media-operation/cleanup worker가 시작·중지 상태가 아니며 heartbeat age 10초 이하인지 확인한다. 모든 조건이 맞으면 200, 하나라도 실패하면 503이다. provider 장애는 readiness 자체를 영구히 실패시키는 조건으로 사용하지 않는다.
 - `GET /api/health/metrics`는 로그인 session의 `adminEmail`이 있는 경우에만 사용할 수 있다. DB queue snapshot을 읽지 못하면 503을 반환한다. 이 endpoint는 image/video/audio/media operation의 pending·processing 수, 가장 오래된 pending age, failed cleanup 수, worker 상태와 heartbeat, process-local metrics, PostgreSQL pool 상태를 반환한다.
 
+Coolify application health check는 HTTP `GET`, host `localhost`, internal port `3000`, path `/api/health/ready`를 사용한다. interval 10초, timeout 3초, retries 6회, start period 120초로 설정한다. 설정 저장만으로 실행 중 컨테이너가 바뀌지 않으므로 다음 deploy 또는 명시적 redeploy 후 실제 health 상태를 확인한다. 모든 컨테이너가 unhealthy면 proxy가 애플리케이션 응답 대신 `404` 또는 `No available server`를 반환할 수 있으므로, 설정 직후 deployment log와 내부 probe를 함께 확인한다.
+
 모든 middleware 대상 요청은 `X-Request-ID`를 전달한다. 값이 96자 이내의 제한된 문자 형식이면 유지하고, 그 밖의 값은 서버 UUID로 교체한다. health, external, 세 매체 generation POST와 monitoring query endpoint는 이 ID를 구조화된 완료/오류 log와 HTTP status·duration metric에 함께 기록한다. SSE 연결은 장기 응답을 일반 HTTP duration으로 오인하지 않도록 기존 stream heartbeat·fallback 경로에서 관찰한다.
 
 HTTP metric map은 최대 64개 route key, DB operation은 16개, provider는 8개, worker failure kind는 8개로 제한한다. process uptime·memory, HTTP status bucket·duration, DB/provider duration, pool의 `total/idle/active/waiting`을 기록한다. queue depth와 oldest pending은 PostgreSQL에서 조회하는 전역 상태이고, HTTP/provider/worker counter와 pool 상태는 인스턴스별 상태다. process-local counter는 재시작 시 초기화되며 여러 인스턴스의 합계로 해석하지 않는다.
@@ -167,7 +168,10 @@ curl -i --cookie '<admin-session-cookie>' https://<host>/api/health/metrics
 
 ## 운영 확인 항목
 
-- [ ] 이전 버전 worker를 drain/stop한 뒤 migration과 새 버전 start를 수행했는가
+- [ ] Coolify가 `main`, Nixpacks, Auto Deploy와 repository의 `nixpacks.toml` start command를 사용했는가
+- [ ] deployment log에서 `release:migrate` 성공 뒤 Next.js server가 시작됐는가
+- [ ] `/api/health/ready`가 내부 probe와 공개 endpoint에서 200이고 Coolify가 새 컨테이너를 healthy로 표시하는가
+- [ ] 이전 버전 worker가 SIGTERM 이후 drain되고 35초 stop grace period 안에 종료됐는가
 - [ ] SIGTERM에서 새 작업이 claim되지 않고 25초 drain 뒤 프로세스가 종료되는가
 - [ ] 별도 시험 DB에서 process restart와 lease expiry 후 상태가 terminal로 수렴하는가
 - [ ] Modal remote jobId가 있는 작업과 POST 직후 ID가 없는 작업의 recovery 결과를 확인했는가
