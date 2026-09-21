@@ -1,0 +1,43 @@
+# Example reverse proxy for a single Leesfield app container.
+# Terminate TLS at this server (or an upstream load balancer) and set
+# TRUST_PROXY_HEADERS=true with TRUSTED_PROXY_HOPS=1 in the app environment
+# only when this proxy overwrites X-Forwarded-For as shown below.
+
+upstream leesfield_app {
+    server 127.0.0.1:3000;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name studio.example.com;
+
+    # Match the app's largest accepted generation request body.
+    client_max_body_size 64m;
+
+    location / {
+        proxy_pass http://leesfield_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        # Overwrite the chain so a caller cannot supply a fake client address.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    location /api/generation-graphs/ {
+        proxy_pass http://leesfield_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 45s;
+        proxy_send_timeout 45s;
+    }
+}

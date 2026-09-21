@@ -138,21 +138,167 @@ async function get(ownerEmail: string, graphId: string): Promise<GenerationGraph
 async function assertIdsBelongToGraph(
   tx: Prisma.TransactionClient,
   graphId: string,
+  existing: {
+    nodes?: readonly { id: string }[];
+    edges?: readonly { id: string }[];
+  },
   input: UpdateGenerationGraphInput,
 ) {
+  const existingNodeIds = new Set((existing.nodes ?? []).map((node) => node.id));
+  const existingEdgeIds = new Set((existing.edges ?? []).map((edge) => edge.id));
+  const nodeIds = input.nodes
+    .map((node) => node.id)
+    .filter((id) => !existingNodeIds.has(id));
+  const edgeIds = input.edges
+    .map((edge) => edge.id)
+    .filter((id) => !existingEdgeIds.has(id));
+  if (nodeIds.length === 0 && edgeIds.length === 0) return;
+
   const [nodes, edges] = await Promise.all([
     tx.generationGraphNode.findMany({
-      where: { id: { in: input.nodes.map((node) => node.id) } },
+      where: { id: { in: nodeIds } },
       select: { graphId: true },
     }),
     tx.generationGraphEdge.findMany({
-      where: { id: { in: input.edges.map((edge) => edge.id) } },
+      where: { id: { in: edgeIds } },
       select: { graphId: true },
     }),
   ]);
   if ([...nodes, ...edges].some((record) => record.graphId !== graphId)) {
     throw new GenerationGraphReferenceError("GRAPH_ID_CONFLICT");
   }
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => sameJson(value, right[index]));
+  }
+  if (left && typeof left === "object" && right && typeof right === "object") {
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord).sort();
+    const rightKeys = Object.keys(rightRecord).sort();
+    return leftKeys.length === rightKeys.length
+      && leftKeys.every((key, index) => key === rightKeys[index] && sameJson(leftRecord[key], rightRecord[key]));
+  }
+  return false;
+}
+
+function nodeBaseChanged(
+  existing: {
+    kind: string;
+    x: number;
+    y: number;
+    configVersion: number;
+    config: Prisma.JsonValue;
+  },
+  input: UpdateGenerationGraphInput["nodes"][number],
+) {
+  return existing.kind !== input.kind
+    || existing.x !== input.position.x
+    || existing.y !== input.position.y
+    || existing.configVersion !== input.configVersion
+    || !sameJson(existing.config, input.config);
+}
+
+function edgeChanged(
+  existing: {
+    sourceNodeId: string;
+    targetNodeId: string;
+    sourcePortId: string;
+    targetPortId: string;
+    sortOrder: number;
+    hasPause: boolean;
+  },
+  input: UpdateGenerationGraphInput["edges"][number],
+) {
+  return existing.sourceNodeId !== input.sourceNodeId
+    || existing.targetNodeId !== input.targetNodeId
+    || existing.sourcePortId !== input.sourcePortId
+    || existing.targetPortId !== input.targetPortId
+    || existing.sortOrder !== input.sortOrder
+    || existing.hasPause !== (input.hasPause ?? false);
+}
+
+async function updateNodesInBatch(
+  tx: Prisma.TransactionClient,
+  graphId: string,
+  nodes: readonly UpdateGenerationGraphInput["nodes"][number][],
+) {
+  if (nodes.length === 0) return;
+  const values = nodes.map((node) => Prisma.sql`(
+    ${node.id}::text,
+    ${node.kind}::text,
+    ${node.position.x}::double precision,
+    ${node.position.y}::double precision,
+    ${node.configVersion}::integer,
+    ${JSON.stringify(node.config)}::jsonb
+  )`);
+  const updated = await tx.$executeRaw(Prisma.sql`
+    UPDATE "GenerationGraphNode" AS node
+    SET "kind" = patch."kind",
+        "x" = patch."x",
+        "y" = patch."y",
+        "configVersion" = patch."configVersion",
+        "config" = patch."config",
+        "updatedAt" = CURRENT_TIMESTAMP
+    FROM (VALUES ${Prisma.join(values)}) AS patch("id", "kind", "x", "y", "configVersion", "config")
+    WHERE node."id" = patch."id" AND node."graphId" = ${graphId}
+  `);
+  if (updated !== nodes.length) throw new GenerationGraphVersionConflictError();
+}
+
+async function updateNodeSelectionsInBatch(
+  tx: Prisma.TransactionClient,
+  graphId: string,
+  nodes: readonly UpdateGenerationGraphInput["nodes"][number][],
+) {
+  if (nodes.length === 0) return;
+  const values = nodes.map((node) => Prisma.sql`(
+    ${node.id}::text,
+    ${node.selectedOutputAssetId}::text
+  )`);
+  const updated = await tx.$executeRaw(Prisma.sql`
+    UPDATE "GenerationGraphNode" AS node
+    SET "selectedOutputAssetId" = patch."selectedOutputAssetId",
+        "updatedAt" = CURRENT_TIMESTAMP
+    FROM (VALUES ${Prisma.join(values)}) AS patch("id", "selectedOutputAssetId")
+    WHERE node."id" = patch."id" AND node."graphId" = ${graphId}
+  `);
+  if (updated !== nodes.length) throw new GenerationGraphVersionConflictError();
+}
+
+async function updateEdgesInBatch(
+  tx: Prisma.TransactionClient,
+  graphId: string,
+  edges: readonly UpdateGenerationGraphInput["edges"][number][],
+) {
+  if (edges.length === 0) return;
+  const values = edges.map((edge) => Prisma.sql`(
+    ${edge.id}::text,
+    ${edge.sourceNodeId}::text,
+    ${edge.targetNodeId}::text,
+    ${edge.sourcePortId}::text,
+    ${edge.targetPortId}::text,
+    ${edge.sortOrder}::integer,
+    ${(edge.hasPause ?? false)}::boolean
+  )`);
+  const updated = await tx.$executeRaw(Prisma.sql`
+    UPDATE "GenerationGraphEdge" AS edge
+    SET "sourceNodeId" = patch."sourceNodeId",
+        "targetNodeId" = patch."targetNodeId",
+        "sourcePortId" = patch."sourcePortId",
+        "targetPortId" = patch."targetPortId",
+        "sortOrder" = patch."sortOrder",
+        "hasPause" = patch."hasPause",
+        "updatedAt" = CURRENT_TIMESTAMP
+    FROM (VALUES ${Prisma.join(values)}) AS patch("id", "sourceNodeId", "targetNodeId", "sourcePortId", "targetPortId", "sortOrder", "hasPause")
+    WHERE edge."id" = patch."id" AND edge."graphId" = ${graphId}
+  `);
+  if (updated !== edges.length) throw new GenerationGraphVersionConflictError();
 }
 
 async function assertCanonicalAssets(
@@ -284,7 +430,28 @@ async function update(
         version: true,
         schemaVersion: true,
         minimumWriterVersion: true,
-        nodes: { select: { id: true, kind: true } },
+        nodes: {
+          select: {
+            id: true,
+            kind: true,
+            x: true,
+            y: true,
+            configVersion: true,
+            config: true,
+            selectedOutputAssetId: true,
+          },
+        },
+        edges: {
+          select: {
+            id: true,
+            sourceNodeId: true,
+            targetNodeId: true,
+            sourcePortId: true,
+            targetPortId: true,
+            sortOrder: true,
+            hasPause: true,
+          },
+        },
       },
     });
     if (!existing) throw new GenerationGraphNotFoundError();
@@ -294,7 +461,7 @@ async function update(
     if (existing.version !== input.expectedVersion) {
       throw new GenerationGraphVersionConflictError();
     }
-    await assertIdsBelongToGraph(tx, graphId, input);
+    await assertIdsBelongToGraph(tx, graphId, existing, input);
     await assertCanonicalAssets(tx, ownerEmail, input);
     await assertRuntimeTransitionIsIdle(tx, existing, input);
 
@@ -310,47 +477,85 @@ async function update(
     });
     if (versionUpdate.count !== 1) throw new GenerationGraphVersionConflictError();
 
-    const edgeIds = input.edges.map((edge) => edge.id);
-    await tx.generationGraphEdge.deleteMany({
-      where: { graphId, ...(edgeIds.length > 0 ? { id: { notIn: edgeIds } } : {}) },
-    });
+    const existingNodes = existing.nodes ?? [];
+    const existingEdges = existing.edges ?? [];
+    const existingNodesById = new Map(existingNodes.map((node) => [node.id, node]));
+    const existingEdgesById = new Map(existingEdges.map((edge) => [edge.id, edge]));
+    const requestedNodeIds = new Set(input.nodes.map((node) => node.id));
+    const requestedEdgeIds = new Set(input.edges.map((edge) => edge.id));
+    const removedEdgeIds = existingEdges
+      .map((edge) => edge.id)
+      .filter((id) => !requestedEdgeIds.has(id));
+    const removedNodeIds = existingNodes
+      .map((node) => node.id)
+      .filter((id) => !requestedNodeIds.has(id));
 
-    for (const node of input.nodes) {
-      const data = {
-        kind: node.kind,
-        x: node.position.x,
-        y: node.position.y,
-        configVersion: node.configVersion,
-        config: node.config as Prisma.InputJsonValue,
-        selectedOutputAssetId: node.selectedOutputAssetId,
-      };
-      await tx.generationGraphNode.upsert({
-        where: { id: node.id },
-        create: { id: node.id, graphId, ...data },
-        update: input.selectionChanges && !input.selectionChanges.includes(node.id)
-          ? { ...data, selectedOutputAssetId: undefined }
-          : data,
+    if (removedEdgeIds.length > 0) {
+      await tx.generationGraphEdge.deleteMany({
+        where: { graphId, id: { in: removedEdgeIds } },
+      });
+    }
+    const newNodes = input.nodes.filter((node) => !existingNodesById.has(node.id));
+    if (newNodes.length > 0) {
+      await tx.generationGraphNode.createMany({
+        data: newNodes.map((node) => ({
+          id: node.id,
+          graphId,
+          kind: node.kind,
+          x: node.position.x,
+          y: node.position.y,
+          configVersion: node.configVersion,
+          config: node.config as Prisma.InputJsonValue,
+          selectedOutputAssetId: node.selectedOutputAssetId,
+        })),
       });
     }
 
-    const nodeIds = input.nodes.map((node) => node.id);
-    await tx.generationGraphNode.deleteMany({
-      where: { graphId, ...(nodeIds.length > 0 ? { id: { notIn: nodeIds } } : {}) },
+    const changedNodes = input.nodes.filter((node) => {
+      const previous = existingNodesById.get(node.id);
+      return previous ? nodeBaseChanged(previous, node) : false;
     });
+    await updateNodesInBatch(tx, graphId, changedNodes);
 
-    for (const edge of input.edges) {
-      const data = {
-        sourceNodeId: edge.sourceNodeId,
-        targetNodeId: edge.targetNodeId,
-        sourcePortId: edge.sourcePortId,
-        targetPortId: edge.targetPortId,
-        sortOrder: edge.sortOrder,
-        hasPause: edge.hasPause ?? false,
-      };
-      await tx.generationGraphEdge.upsert({
-        where: { id: edge.id },
-        create: { id: edge.id, graphId, ...data },
-        update: data,
+    const selectionChanges = input.selectionChanges === undefined
+      ? input.nodes.filter((node) => {
+        const previous = existingNodesById.get(node.id);
+        return previous && previous.selectedOutputAssetId !== node.selectedOutputAssetId;
+      })
+      : input.nodes.filter((node) => {
+        const previous = existingNodesById.get(node.id);
+        return previous
+          && input.selectionChanges?.includes(node.id)
+          && previous.selectedOutputAssetId !== node.selectedOutputAssetId;
+      });
+    await updateNodeSelectionsInBatch(tx, graphId, selectionChanges);
+
+    const changedEdges = input.edges.filter((edge) => {
+      const previous = existingEdgesById.get(edge.id);
+      return previous ? edgeChanged(previous, edge) : false;
+    });
+    await updateEdgesInBatch(tx, graphId, changedEdges);
+
+    const newEdges = input.edges.filter((edge) => !existingEdgesById.has(edge.id));
+    if (newEdges.length > 0) {
+      await tx.generationGraphEdge.createMany({
+        data: newEdges.map((edge) => ({
+          id: edge.id,
+          graphId,
+          sourceNodeId: edge.sourceNodeId,
+          targetNodeId: edge.targetNodeId,
+          sourcePortId: edge.sourcePortId,
+          targetPortId: edge.targetPortId,
+          sortOrder: edge.sortOrder,
+          hasPause: edge.hasPause ?? false,
+        })),
+      });
+    }
+    // Delete nodes last so an edge can move away from a node in the same save
+    // without the FK cascade removing that edge before its batch update.
+    if (removedNodeIds.length > 0) {
+      await tx.generationGraphNode.deleteMany({
+        where: { graphId, id: { in: removedNodeIds } },
       });
     }
 

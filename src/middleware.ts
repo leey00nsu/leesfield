@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { defaultLocale, isLocale, localeCookie } from "@/shared/i18n/config";
+import {
+  REQUEST_ID_HEADER,
+  requestIdFromValue,
+} from "@/shared/http/request-id";
 
 function detectLocale(request: NextRequest) {
   const header = request.headers.get("accept-language");
@@ -21,13 +25,22 @@ function detectLocale(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
+  const requestId = requestIdFromValue(request.headers.get(REQUEST_ID_HEADER));
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(REQUEST_ID_HEADER, requestId);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set(REQUEST_ID_HEADER, requestId);
+
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return response;
+  }
+
   const cookieLocale = request.cookies.get(localeCookie)?.value;
   if (isLocale(cookieLocale)) {
-    return NextResponse.next();
+    return response;
   }
 
   const locale = detectLocale(request);
-  const response = NextResponse.next();
   response.cookies.set(localeCookie, locale, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
@@ -37,5 +50,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  matcher: ["/((?!_next|.*\\..*).*)"],
 };

@@ -15,7 +15,7 @@ describe("leemageStorageAdapter", () => {
   });
 
   it("returns immutable storage identity for durable Graph completion", async () => {
-    const upload = vi.fn().mockResolvedValue({
+    const file = {
       id: "image-file-1",
       url: "https://cdn.example.com/original.png",
       mimeType: "image/png",
@@ -27,10 +27,26 @@ describe("leemageStorageAdapter", () => {
         width: 1024,
         height: 768,
       }],
+    };
+    const presign = vi.fn().mockResolvedValue({
+      presignedUrl: "https://upload.example/signed",
+      objectName: "project/image-file-1.png",
+      objectUrl: file.url,
+      fileId: file.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
+    const confirm = vi.fn().mockResolvedValue({ file });
     vi.resetModules();
     vi.doMock("leemage-sdk", () => ({
-      LeemageClient: class { files = { upload }; },
+      LeemageClient: class { files = { presign, confirm }; },
+    }));
+    vi.doMock("@/server/http/safe-remote", () => ({
+      requestRemote: vi.fn().mockResolvedValue({ status: 200, headers: {}, body: Buffer.alloc(0) }),
+    }));
+    vi.doMock("@/server/media-assets/media-cleanup-repository", () => ({
+      cleanupUploadRetryAt: () => new Date(),
+      createStorageCleanupIntent: vi.fn().mockResolvedValue({ id: "cleanup" }),
+      queueStorageCleanup: vi.fn().mockResolvedValue({ id: "cleanup" }),
     }));
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "test-key",
@@ -43,7 +59,7 @@ describe("leemageStorageAdapter", () => {
       ["data:image/png;base64,AAAA"],
     );
 
-    expect(upload.mock.calls[0]?.[1].name).toMatch(/^leesfield-[a-f0-9]{64}\.png$/);
+    expect(presign.mock.calls[0]?.[1].fileName).toMatch(/^leesfield-[a-f0-9]{64}\.png$/);
     expect(result.artifacts).toEqual([
       expect.objectContaining({
         type: "image",
@@ -63,10 +79,12 @@ describe("leemageStorageAdapter", () => {
       { ...imageGenerationDefaults, imageCount: 1 },
       "node-banana-placeholder-한글",
     );
-    expect(upload).toHaveBeenCalledTimes(3);
-    for (const [, file, options] of upload.mock.calls) {
-      expect(options).toEqual({variants: [{sizeLabel: "source", format: "webp"}]});
-      expect(file.name).toMatch(/^leesfield-[a-f0-9]{64}\.[a-z0-9]+$/);
+    expect(presign).toHaveBeenCalledTimes(3);
+    for (const [, request] of presign.mock.calls) {
+      expect(request.fileName).toMatch(/^leesfield-[a-f0-9]{64}\.[a-z0-9]+$/);
+    }
+    for (const [, request] of confirm.mock.calls) {
+      expect(request.variants).toEqual([{sizeLabel: "source", format: "webp"}]);
     }
   });
 });

@@ -6,6 +6,7 @@ import {
   buildBaseSelect,
   buildRawWhere,
 } from "@/server/monitoring/monitoring-sql";
+import { measureDatabase } from "@/server/observability/request-observability";
 
 const UI_KEY_SENTINEL = "__ui__";
 
@@ -155,7 +156,7 @@ async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
   `;
 }
 
-export async function getMonitoringTop(
+async function getMonitoringTopUnobserved(
   query: MonitoringQuery,
   limit: number,
 ): Promise<MonitoringTopResponse> {
@@ -218,4 +219,10 @@ export async function getMonitoringTop(
     models,
     apiKeys,
   };
+}
+
+export async function getMonitoringTop(query: MonitoringQuery, limit: number) {
+  return measureDatabase("monitoring.top", () =>
+    getMonitoringTopUnobserved(query, limit),
+  );
 }

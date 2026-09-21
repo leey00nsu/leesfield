@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
 import { getMonitoringOverview } from "@/server/monitoring/overview";
 import { parseMonitoringQuery } from "@/server/monitoring/monitoring-query";
+import {
+  logStructured,
+  withRequestObservability,
+} from "@/server/observability/request-observability";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -24,10 +28,15 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[monitoring] overview failed", error);
+    logStructured("monitoring.query.failure", {
+      kind: "overview",
+      errorType: error instanceof Error ? error.name : typeof error,
+    }, "error");
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },
     );
   }
 }
+
+export const GET = withRequestObservability("/api/monitoring/overview", getHandler);

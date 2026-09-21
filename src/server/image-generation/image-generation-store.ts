@@ -36,7 +36,11 @@ function mapRecord(
   };
 }
 
-export async function getGeneration(id: string, ownerEmail: string) {
-  const record = await getImageGenerationByRequestId(id, ownerEmail);
+export async function getGeneration(
+  id: string,
+  ownerEmail: string,
+  apiKeyId?: string | null,
+) {
+  const record = await getImageGenerationByRequestId(id, ownerEmail, apiKeyId);
   return mapRecord(record);
 }

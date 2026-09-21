@@ -60,14 +60,19 @@ describe("POST /api/media-assets/uploads", () => {
   it.each([
     [{ stage: "presign", reason: "permission", upstreamStatus: 403 }, "presign", "permission", 403],
     [undefined, "unknown", "unknown", null],
-  ] as const)("prints readable safe storage diagnostics without changing the public response", async (diagnostic, stage, reason, upstreamStatus) => {
+  ] as const)("prints allowlisted storage diagnostics without changing the public response", async (diagnostic, stage, reason, upstreamStatus) => {
     service.createUpload.mockRejectedValue(new MediaStorageUnavailableError(diagnostic));
     const response = await POST(new Request("http://localhost/api/media-assets/uploads", {
       method: "POST", body: JSON.stringify({ fileName: "private-name.png" }),
     }));
-    expect(console.error).toHaveBeenCalledWith(`[media-assets] create upload failed ${JSON.stringify({
-      code: "MEDIA_STORAGE_UNAVAILABLE", stage, reason, upstreamStatus,
-    })}`);
+    const line = String(vi.mocked(console.error).mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(line)).toMatchObject({
+      event: "media_asset.create_upload_failed",
+      errorType: "MediaStorageUnavailableError",
+      phase: stage,
+      ...(upstreamStatus === null ? {} : { status: upstreamStatus }),
+    });
+    if (diagnostic) expect(line).not.toContain(reason);
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ message: "MEDIA_STORAGE_UNAVAILABLE" });
   });

@@ -25,13 +25,16 @@ export type MonitoringQuery = {
   limit: number;
   offset: number;
   metric: MonitoringMetric;
+  includeTotal?: boolean;
 };
 
 const DEFAULT_DAYS = 7;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
 const MAX_LIMIT = 200;
-const MAX_OFFSET = 10_000;
+export const MAX_MONITORING_OFFSET = 1_000;
+export const MAX_MONITORING_RANGE_DAYS = 31;
+export const MAX_MONITORING_SEARCH_LENGTH = 200;
 const DEFAULT_TOP_LIMIT = 5;
 
 const TYPES = new Set<MonitoringType>(["image", "video", "audio", "all"]);
@@ -57,6 +60,18 @@ function parseDate(value: string | null) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function boundedSearchValue(value: string | null) {
+  return (value?.trim() ?? "").slice(0, MAX_MONITORING_SEARCH_LENGTH);
+}
+
+function resolveBoolean(value: string | null, fallback: boolean) {
+  if (!value) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+  return fallback;
 }
 
 function resolveType(value: string | null): MonitoringType {
@@ -114,6 +129,13 @@ function resolveTimeZone(value: string | null) {
   }
 }
 
+function boundRange(from: Date, to: Date) {
+  const earliest = new Date(
+    to.getTime() - MAX_MONITORING_RANGE_DAYS * 24 * 60 * 60 * 1_000,
+  );
+  return from < earliest ? { from: earliest, to } : { from, to };
+}
+
 function resolveRange(
   fromRaw: string | null,
   toRaw: string | null,
@@ -125,36 +147,36 @@ function resolveRange(
   if (!fromDate && !toDate) {
     const to = new Date();
     const from = new Date(to.getTime() - defaultDays * 24 * 60 * 60 * 1000);
-    return { from, to };
+    return boundRange(from, to);
   }
 
   if (fromDate && !toDate) {
-    return { from: fromDate, to: new Date() };
+    return boundRange(fromDate, new Date());
   }
 
   if (!fromDate && toDate) {
     const from = new Date(toDate.getTime() - defaultDays * 24 * 60 * 60 * 1000);
-    return { from, to: toDate };
+    return boundRange(from, toDate);
   }
 
   const from = fromDate as Date;
   const to = toDate as Date;
-
-  return from.getTime() <= to.getTime() ? { from, to } : { from: to, to: from };
+  const ordered = from.getTime() <= to.getTime() ? { from, to } : { from: to, to: from };
+  return boundRange(ordered.from, ordered.to);
 }
 
 function resolveLimit(value: string | null, fallback: number) {
-  if (!value) return fallback;
+  if (!value) return clamp(fallback, 1, MAX_LIMIT);
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
+  if (!Number.isFinite(parsed)) return clamp(fallback, 1, MAX_LIMIT);
   return clamp(parsed, 1, MAX_LIMIT);
 }
 
 function resolveOffset(value: string | null, fallback: number) {
-  if (!value) return fallback;
+  if (!value) return clamp(fallback, 0, MAX_MONITORING_OFFSET);
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return clamp(parsed, 0, MAX_OFFSET);
+  if (!Number.isFinite(parsed)) return clamp(fallback, 0, MAX_MONITORING_OFFSET);
+  return clamp(parsed, 0, MAX_MONITORING_OFFSET);
 }
 
 function resolveMetric(value: string | null) {
@@ -176,10 +198,11 @@ export function parseMonitoringQuery(
 ): MonitoringQuery {
   const type = resolveType(searchParams.get("type"));
   const statuses = resolveStatuses(searchParams.get("status"));
-  const model = searchParams.get("model")?.trim() || null;
+  const model = boundedSearchValue(searchParams.get("model")) || null;
   const apiKey = resolveApiKeyFilter(searchParams.get("apiKeyId"));
-  const query =
-    searchParams.get("query")?.trim() || searchParams.get("q")?.trim() || null;
+  const query = boundedSearchValue(
+    searchParams.get("query") || searchParams.get("q"),
+  ) || null;
   const tz = resolveTimeZone(searchParams.get("tz"));
 
   const { from, to } = resolveRange(
@@ -214,6 +237,7 @@ export function parseMonitoringQuery(
     limit,
     offset,
     metric,
+    includeTotal: resolveBoolean(searchParams.get("includeTotal"), true),
   };
 }
 

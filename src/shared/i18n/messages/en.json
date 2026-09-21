@@ -226,7 +226,8 @@
         "errors": {
           "invalidCredentials": "Email or password is incorrect.",
           "serverConfig": "Server configuration is required.",
-          "unknown": "Login failed."
+          "unknown": "Login failed.",
+          "rateLimited": "Too many attempts. Try again in a moment."
         }
       },
       "validation": {

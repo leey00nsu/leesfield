@@ -2,6 +2,8 @@ import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
 import { resolveImageStorageProvider } from "@/server/image-generation/storage/storage-selector";
 import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
+import { uploadLeemageFile } from "@/server/shared/leemage-bounded-upload";
 
 export const INPUT_IMAGE_STORAGE_REQUIRED = "IMAGE_INPUT_STORAGE_REQUIRED";
 export const INPUT_IMAGE_INVALID = "INPUT_IMAGE_INVALID";
@@ -146,17 +148,22 @@ export async function uploadInputImages(
 
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
-  const resolvedImages = await Promise.all(images.map(resolveImageBuffer));
+  // Bound both buffering and upload parallelism for multi-image requests.
+  const resolvedImages = await mapWithConcurrency(images, 2, (source) =>
+    resolveImageBuffer(source),
+  );
 
-  const uploads = await Promise.all(
-    resolvedImages.map(({ buffer, contentType }, index) => {
+  const uploads = await mapWithConcurrency(
+    resolvedImages,
+    2,
+    ({ buffer, contentType }, index) => {
       const extension = resolveExtension(contentType);
       const name = `${requestId}-input-${index + 1}.${extension}`;
       const file = buildUploadFile(buffer, name, contentType);
-      return client.files.upload(projectId, file, {
+      return uploadLeemageFile(client, projectId, file, {
         variants: [...DEFAULT_VARIANTS],
       });
-    }),
+    },
   );
 
   return uploads.map(resolveUploadedUrl);

@@ -41,7 +41,7 @@ export interface GenerationHistoryItem {
 
 export interface GenerationHistoryResponse {
   items: GenerationHistoryItem[];
-  total: number;
+  total: number | null;
   limit: number;
   offset: number;
   nextCursor?: string | null;

@@ -5,6 +5,13 @@ import {
   resolveAudioExtension,
   resolveAudioMime,
 } from "@/shared/lib/audio-file";
+import {
+  GENERATION_OUTPUT_LIMITS,
+} from "@/server/http/bounded-io";
+import {
+  RemoteAccessError,
+  requestRemoteStream,
+} from "@/server/http/safe-remote";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,31 +50,28 @@ export async function GET(request: Request, { params }: RouteContext) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
-
   try {
-    const upstreamResponse = await fetch(audio.url, {
-      cache: "no-store",
-      signal: controller.signal,
+    const upstreamResponse = await requestRemoteStream(audio.url, {
+      timeoutMs: 10_000,
+      maxBytes: GENERATION_OUTPUT_LIMITS.audio,
+      signal: request.signal,
     });
-    if (!upstreamResponse.ok) {
+    if (upstreamResponse.status < 200 || upstreamResponse.status >= 300) {
+      await upstreamResponse.body.cancel().catch(() => undefined);
       return NextResponse.json(
         { message: "AUDIO_FETCH_FAILED" },
         { status: 502 },
       );
     }
 
-    const buffer = Buffer.from(await upstreamResponse.arrayBuffer());
     const contentType = resolveAudioMime({
-      contentType: upstreamResponse.headers.get("content-type"),
+      contentType: upstreamResponse.headers["content-type"],
       sourceUrl: audio.url,
-      buffer,
     });
     const extension = resolveAudioExtension(contentType);
     const filename = `${requestId}-${index + 1}.${extension}`;
 
-    return new Response(buffer, {
+    return new Response(upstreamResponse.body, {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `attachment; filename=\"${filename}\"`,
@@ -77,8 +81,8 @@ export async function GET(request: Request, { params }: RouteContext) {
     });
   } catch (error) {
     if (
-      error instanceof Error &&
-      (error.name === "AbortError" || controller.signal.aborted)
+      error instanceof RemoteAccessError
+      && (error.code === "REMOTE_TIMEOUT" || error.code === "REMOTE_ABORTED")
     ) {
       return NextResponse.json(
         { message: "AUDIO_FETCH_TIMEOUT" },
@@ -89,7 +93,5 @@ export async function GET(request: Request, { params }: RouteContext) {
       { message: "AUDIO_FETCH_FAILED" },
       { status: 502 },
     );
-  } finally {
-    clearTimeout(timeoutId);
   }
 }

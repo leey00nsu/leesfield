@@ -20,7 +20,10 @@ import {
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+const OVERLOAD_RECONNECT_MIN_DELAY_MS = 10_000;
 const HEARTBEAT_TIMEOUT_MS = 35_000;
+const MAX_SEEN_EVENT_IDS = 256;
+const MAX_TRACKED_EXECUTIONS = 256;
 
 type Props = {
   graphId: string;
@@ -65,11 +68,13 @@ export function GenerationEventChannelProvider({
       });
     };
 
-    const acceptEvent = (event: NonNullable<ReturnType<typeof parseGenerationEventMessage>>) => {
+    const acceptEvent = (
+      event: NonNullable<ReturnType<typeof parseGenerationEventMessage>>,
+    ) => {
       const eventId = `${event.type}:${generationEventId(event)}`;
       if (seenEventIds.has(eventId)) return false;
       seenEventIds.add(eventId);
-      if (seenEventIds.size > 256) {
+      if (seenEventIds.size > MAX_SEEN_EVENT_IDS) {
         const oldest = seenEventIds.values().next().value;
         if (oldest) seenEventIds.delete(oldest);
       }
@@ -78,18 +83,23 @@ export function GenerationEventChannelProvider({
       const latest = latestExecutionEventAt.get(executionKey);
       if (latest !== undefined && updatedAt < latest) return false;
       latestExecutionEventAt.set(executionKey, updatedAt);
+      if (latestExecutionEventAt.size > MAX_TRACKED_EXECUTIONS) {
+        const oldest = latestExecutionEventAt.keys().next().value;
+        if (oldest) latestExecutionEventAt.delete(oldest);
+      }
       return true;
     };
 
-    const scheduleReconnect = () => {
+    const scheduleReconnect = (minimumDelayMs = 0) => {
       if (stopped || retryTimer) return;
       const exponential = Math.min(
         RECONNECT_MAX_MS,
         RECONNECT_BASE_MS * 2 ** reconnectAttempt,
       );
+      const baseDelay = Math.max(exponential, minimumDelayMs);
       const delay = Math.max(
         1,
-        Math.round(exponential * (0.75 + random() * 0.5)),
+        Math.round(baseDelay * (0.75 + random() * 0.5)),
       );
       reconnectAttempt += 1;
       retryTimer = setTimeout(() => {
@@ -98,13 +108,16 @@ export function GenerationEventChannelProvider({
       }, delay);
     };
 
-    const fail = (failedSource: GenerationEventSource) => {
+    const fail = (
+      failedSource: GenerationEventSource,
+      minimumReconnectDelayMs = 0,
+    ) => {
       if (source !== failedSource) return;
       source = null;
       failedSource.close();
       clearWatchdog();
       setState("fallback");
-      scheduleReconnect();
+      scheduleReconnect(minimumReconnectDelayMs);
     };
 
     const resetWatchdog = (activeSource: GenerationEventSource) => {
@@ -150,6 +163,28 @@ export function GenerationEventChannelProvider({
         });
       });
       nextSource.addEventListener("stream.degraded", () => fail(nextSource));
+      nextSource.addEventListener("stream.overloaded", (message) => {
+        if (source !== nextSource) return;
+        let retryAfterMs = OVERLOAD_RECONNECT_MIN_DELAY_MS;
+        try {
+          const payload: unknown = JSON.parse(message.data);
+          if (
+            typeof payload === "object" &&
+            payload !== null &&
+            "retryAfterMs" in payload &&
+            typeof payload.retryAfterMs === "number" &&
+            Number.isFinite(payload.retryAfterMs)
+          ) {
+            retryAfterMs = Math.max(
+              OVERLOAD_RECONNECT_MIN_DELAY_MS,
+              Math.min(RECONNECT_MAX_MS, payload.retryAfterMs),
+            );
+          }
+        } catch {
+          // The fixed minimum still prevents a reconnect storm.
+        }
+        fail(nextSource, retryAfterMs);
+      });
       nextSource.onerror = () => fail(nextSource);
     }
 

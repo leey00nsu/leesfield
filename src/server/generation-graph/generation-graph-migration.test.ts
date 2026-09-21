@@ -1,17 +1,14 @@
 // @vitest-environment node
-import { existsSync } from "node:fs";
-import { loadEnvFile } from "node:process";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-
-if (!process.env.DATABASE_URL && existsSync(".env")) loadEnvFile(".env");
+import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
 describe("generation graph migration", () => {
-  it.skipIf(!process.env.DATABASE_URL)("adds v3 groups without resetting Spaces and blocks old-writer downgrades", async () => {
+  it.skipIf(!postgresIntegrationEnabled)("adds v3 groups without resetting Spaces and blocks old-writer downgrades", async () => {
     const schema = `space_groups_${randomUUID().replaceAll("-", "")}`;
     const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 3000 });
     await client.connect();
@@ -41,7 +38,7 @@ describe("generation graph migration", () => {
       await client.end();
     }
   });
-  it.skipIf(!process.env.DATABASE_URL)("executes the Spaces cutover in an isolated PostgreSQL schema without losing history", async () => {
+  it.skipIf(!postgresIntegrationEnabled)("executes the Spaces cutover in an isolated PostgreSQL schema without losing history", async () => {
     const schema = `spaces_cutover_${randomUUID().replaceAll("-", "")}`;
     const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 3000 });
     await client.connect();

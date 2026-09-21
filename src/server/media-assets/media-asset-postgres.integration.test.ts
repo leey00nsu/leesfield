@@ -5,11 +5,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/server/db/prisma";
+import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
 import { MediaAssetNotFoundError, MediaQuotaExceededError } from "./media-asset-errors";
 import { mediaAssetRepository } from "./media-asset-repository";
 
-const integration = describe.skipIf(!process.env.DATABASE_URL);
+const integration = describe.skipIf(!postgresIntegrationEnabled);
 
 integration("MediaAsset PostgreSQL lifecycle", () => {
   const suffix = randomUUID();
@@ -17,11 +18,14 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
   const graphId = `f059-graph-${suffix}`;
   const nodeId = `f059-node-${suffix}`;
   const sourceAssetId = `f059-source-${suffix}`;
+  const generationRequestId = `f059-generation-${suffix}`;
 
   afterAll(async () => {
+    await prisma.generationInputAsset.deleteMany({ where: { ownerEmail } });
     await prisma.mediaUploadSession.deleteMany({ where: { ownerEmail } });
     await prisma.mediaOperation.deleteMany({ where: { ownerEmail } });
     await prisma.generationGraph.deleteMany({ where: { id: graphId } });
+    await prisma.mediaCleanupTask.deleteMany({ where: { ownerEmail } });
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail } });
   });
 
@@ -184,12 +188,23 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
         },
       }),
     ).resolves.toMatchObject({ assetId: output.id });
+    await prisma.generationInputAsset.create({
+      data: {
+        requestId: generationRequestId,
+        generationType: "audio",
+        ownerEmail,
+        field: "inputAudio",
+        sortOrder: 0,
+        assetId: output.id,
+      },
+    });
     await expect(
       mediaAssetRepository.getAsset("other@example.com", output.id),
     ).rejects.toBeInstanceOf(MediaAssetNotFoundError);
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, output.id),
-    ).resolves.toEqual({ graphIds: [graphId], operationIds: [] });
+    ).resolves.toEqual({ graphIds: [graphId], operationIds: [], generationRequestIds: [generationRequestId] });
+    await prisma.generationInputAsset.deleteMany({ where: { requestId: generationRequestId } });
 
     await prisma.generationGraph.delete({ where: { id: graphId } });
     await expect(
@@ -197,9 +212,9 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     ).resolves.toMatchObject({ id: output.id, sourceOperationId: operation.id });
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, output.id),
-    ).resolves.toEqual({ graphIds: [], operationIds: [] });
+    ).resolves.toEqual({ graphIds: [], operationIds: [], generationRequestIds: [] });
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, sourceAssetId),
-    ).resolves.toEqual({ graphIds: [], operationIds: [operation.id] });
+    ).resolves.toEqual({ graphIds: [], operationIds: [operation.id], generationRequestIds: [] });
   });
 });

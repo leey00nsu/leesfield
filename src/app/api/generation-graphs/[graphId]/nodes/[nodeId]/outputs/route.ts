@@ -18,7 +18,8 @@ export async function GET(_request: Request, context: RouteContext) {
     const output = await nodeOutputService.resolve(session.adminEmail, graphId, nodeId);
     return jsonWithNoStore({ output });
   } catch (error) {
-    console.error("[generation-graph] output resolution failed", error);
+    logSafeError("generation_graph.output_resolution_failed", error);
     return nodeExecutionErrorResponse(error) ?? buildErrorResponse("DB_READ_FAILED", 500);
   }
 }
+import { logSafeError } from "@/server/observability/request-observability";

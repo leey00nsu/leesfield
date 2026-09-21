@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/monitoring/stats/route";
+import { setRateLimitStoreForTests } from "@/server/rate-limit/limiter";
+import { allowAllRateLimitStore } from "@/server/rate-limit/limiter";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
 const mockGetMonitoringStats = vi.hoisted(() => vi.fn());
@@ -14,9 +16,27 @@ vi.mock("@/server/monitoring/stats", () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
+  setRateLimitStoreForTests(allowAllRateLimitStore);
 });
 
 describe("/api/monitoring/stats", () => {
+  it("예산이 소진되면 429와 Retry-After를 반환한다", async () => {
+    setRateLimitStoreForTests({
+      consume: async () => -3,
+      sweep: async () => 0,
+    });
+    mockGetSession.mockResolvedValue({ isLoggedIn: true, adminEmail: "owner@test" });
+
+    const limited = await GET(
+      new Request("http://localhost/api/monitoring/stats"),
+    );
+    expect(limited.status).toBe(429);
+    // Negative values encode the remaining deficit; -3 at 0.5/s is 6 seconds.
+    expect(limited.headers.get("Retry-After")).toBe("6");
+    expect(await limited.json()).toMatchObject({ message: "RATE_LIMITED" });
+    expect(mockGetMonitoringStats).not.toHaveBeenCalled();
+  });
+
   it("인증되지 않으면 401을 반환한다", async () => {
     mockGetSession.mockResolvedValue({ isLoggedIn: false });
 

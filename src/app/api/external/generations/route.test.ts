@@ -14,11 +14,16 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
 vi.mock("@/server/image-generation/image-generation-submission", () => ({
   submitImageGeneration: mocks.image,
 }));
-vi.mock("@/server/video-generation/video-generation-store", () => ({
-  createMockVideoGenerationWithLimit: mocks.video,
+vi.mock("@/server/image-generation/image-generation-store", () => ({
+  getGeneration: async () => null,
 }));
 vi.mock("@/server/audio-generation/audio-generation-store", () => ({
   createMockAudioGenerationWithLimit: mocks.audio,
+  getAudioGeneration: async () => null,
+}));
+vi.mock("@/server/video-generation/video-generation-store", () => ({
+  createMockVideoGenerationWithLimit: mocks.video,
+  getVideoGeneration: async () => null,
 }));
 vi.mock("@/server/generation-worker/generation-worker", () => ({
   startGenerationWorker: mocks.start,
@@ -29,6 +34,17 @@ function request(body: unknown) {
   return new Request("http://localhost/api/external/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function requestWithKey(body: unknown, idempotencyKey: string) {
+  return new Request("http://localhost/api/external/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -46,6 +62,34 @@ beforeEach(() => {
     });
 });
 describe("unified generation POST", () => {
+  it("converges a retried submission onto the original request", async () => {
+    const body = {
+      type: "image" as const,
+      model: "image-private-id",
+      dynamicParams: { text: "retry", seed: 0, enabled: false },
+    };
+
+    const first = await POST(requestWithKey(body, "retry-key-1"));
+    expect(first.status).toBe(200);
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    const reservedRequestId = (
+      mocks.image.mock.calls[0]?.[0] as { requestId: string }
+    ).requestId;
+    expect(reservedRequestId).toEqual(expect.any(String));
+
+    const second = await POST(requestWithKey(body, "retry-key-1"));
+    expect(second.status).toBe(200);
+    // The retry answers with the reserved request instead of a second job;
+    // its row is not visible yet, so the status stays pending.
+    expect(await second.json()).toMatchObject({
+      requestId: reservedRequestId,
+      status: "pending",
+      progress: 0,
+    });
+    // The original request is reused instead of starting a second paid job.
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["image", "video", "audio"] as const)(
     "dispatches %s and retains model-specific input values",
     async (type) => {
@@ -76,8 +120,14 @@ describe("unified generation POST", () => {
         expect(fn.mock.calls[0][0]).toMatchObject({
           ownerEmail: "owner",
           apiKeyId: "key",
+          requestId: expect.any(String),
         });
-      else expect(fn.mock.calls[0].slice(1)).toEqual(["owner", "key"]);
+      else
+        expect(fn.mock.calls[0].slice(1)).toEqual([
+          "owner",
+          "key",
+          expect.any(String),
+        ]);
     },
   );
   it.each([401, 403])(

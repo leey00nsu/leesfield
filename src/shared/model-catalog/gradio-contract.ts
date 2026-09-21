@@ -174,13 +174,15 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
         : field.kind === "json" ? jsonValueSchema.safeParse(value).success
         : typeof value === "string";
       if (!valid) throw new Error("HF_CONTRACT_TYPE:" + field.name);
+      if ((field.kind === "files" || field.kind === "gallery") && (value as unknown[]).length > 8)
+        throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT:" + field.name);
       if (field.choices?.length && !field.choices.includes(value as string | number))
         throw new Error("HF_CONTRACT_CHOICE:" + field.name);
       if (typeof value === "number" && ((field.min !== undefined && value < field.min) ||
         (field.max !== undefined && value > field.max) ||
         (field.step && Math.abs((value - (field.min ?? 0)) / field.step - Math.round((value - (field.min ?? 0)) / field.step)) > 1e-6)))
         throw new Error("HF_CONTRACT_RANGE:" + field.name);
-      if (field.kind === "json") validateJsonSchema(value, field.schema, field.name);
+      if (field.kind === "json" || field.kind === "files" || field.kind === "gallery") validateJsonSchema(value, field.schema, field.name);
       else if (["string","number","boolean"].includes(field.kind)) validateJsonSchema(value, field.schema, field.name);
       if (field.schema.type === "integer" && !Number.isInteger(value))
         throw new Error("HF_CONTRACT_INTEGER:" + field.name);

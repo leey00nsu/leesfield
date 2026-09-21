@@ -13,7 +13,9 @@ import { processMediaOperationJobs } from "@/server/media-operations/media-opera
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
-  upload: vi.fn(),
+  presign: vi.fn(),
+  confirm: vi.fn(),
+  requestRemote: vi.fn(),
   getProject: vi.fn(),
   getOperation: vi.fn(),
   completeOperation: vi.fn(),
@@ -21,9 +23,12 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("leemage-sdk", () => ({
   LeemageClient: class {
-    files = { upload: mocks.upload };
+    files = { presign: mocks.presign, confirm: mocks.confirm };
     projects = { get: mocks.getProject };
   },
+}));
+vi.mock("@/server/http/safe-remote", () => ({
+  requestRemote: mocks.requestRemote,
 }));
 vi.mock("@/server/model-catalog/catalog-service", () => ({
   getModelCatalog: async () => [
@@ -39,7 +44,16 @@ vi.mock("@/server/video-generation/adapters/hf-space-adapter", () => ({ hfSpaceV
 vi.mock("@/server/media-assets/media-asset-repository", () => ({
   mediaAssetRepository: {
     listPendingServerOperationIds: async () => [{ id: "operation-test" }],
-    claimPendingServerOperation: async () => ({ id: "operation-test", ownerEmail: "test@example.com", inputs: [{ assetId: "input-test" }] }),
+    claimPendingServerOperation: async () => ({
+      operation: {
+        id: "operation-test",
+        ownerEmail: "test@example.com",
+        inputs: [{ assetId: "input-test" }],
+        executionLeaseToken: "test-operation-lease",
+        executionLeaseVersion: 1,
+      },
+      lease: { token: "test-operation-lease", version: 1 },
+    }),
     getOperation: mocks.getOperation,
     completeServerOperation: mocks.completeOperation,
     failOperation: mocks.failOperation,
@@ -68,29 +82,55 @@ describe("E2E provider fixtures retain durable generation storage", () => {
     vi.stubEnv("NODE_STUDIO_E2E_MOCK_BACKGROUND_REMOVAL", "1");
     vi.stubEnv("LEEMAGE_API_KEY", "test-key");
     vi.stubEnv("LEEMAGE_PROJECT_ID", "project-test");
+    mocks.requestRemote.mockResolvedValue({ status: 200, headers: {}, body: Buffer.alloc(0) });
+    mocks.presign.mockImplementation(async (_project: string, input: { fileName: string; contentType: string; fileSize: number }) => ({
+      presignedUrl: "https://upload.example/signed",
+      objectName: "project-test/" + input.fileName,
+      fileId: "stored-upload",
+      objectUrl: "https://storage.example/upload",
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    }));
+    mocks.confirm.mockImplementation(async (_project: string, input: { fileId: string; contentType: string; fileSize: number }) => ({
+      file: {
+        id: input.fileId,
+        url: "https://storage.example/upload",
+        mimeType: input.contentType,
+        size: input.fileSize,
+        variants: [],
+      },
+    }));
     for (const kind of ["IMAGE", "AUDIO", "VIDEO"]) vi.stubEnv(kind + "_STORAGE_PROVIDER", "leemage");
   });
   afterEach(() => vi.unstubAllEnvs());
 
   it.each(cases)("$kind uploads fixture bytes and returns the storage identity after lifecycle transition", async ({ kind, run }) => {
     const events: string[] = [];
-    mocks.upload.mockImplementation(async (_project, file) => {
+    mocks.requestRemote.mockImplementation(async () => {
       events.push("upload");
-      expect((await file.arrayBuffer()).byteLength).toBeGreaterThan(0);
-      return { id: "stored-" + kind, url: "https://storage.example/" + kind, mimeType: file.type, size: file.size, variants: [] };
+      return { status: 200, headers: {}, body: Buffer.alloc(0) };
     });
+    mocks.confirm.mockImplementation(async (_project: string, input: { fileId: string; contentType: string; fileSize: number }) => ({
+      file: {
+        id: "stored-" + kind,
+        url: "https://storage.example/" + kind,
+        mimeType: input.contentType,
+        size: input.fileSize,
+        variants: [],
+      },
+    }));
+    const uploadCount = () => mocks.confirm.mock.calls.length;
     const result = await run(async () => { events.push("uploading"); });
     expect(result.status).toBe("completed");
     expect(result.artifacts?.[0]).toMatchObject({ storageObjectId: "stored-" + kind, storageUrl: "https://storage.example/" + kind });
     expect(events[0]).toBe("uploading");
-    expect(events.slice(1)).toEqual(Array(mocks.upload.mock.calls.length).fill("upload"));
-    expect(mocks.upload).toHaveBeenCalled();
+    expect(events.slice(1)).toEqual(Array(uploadCount()).fill("upload"));
+    expect(mocks.confirm).toHaveBeenCalled();
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
   it.each(cases)("$kind cancellation before upload cannot fabricate a successful artifact", async ({ run }) => {
     await expect(run(async () => { throw new NodeExecutionCancelledError(); })).rejects.toBeInstanceOf(NodeExecutionCancelledError);
-    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
   });
 
   it("requires a stored object even when its legacy fallback is a fixture data URL", async () => {
@@ -101,21 +141,24 @@ describe("E2E provider fixtures retain durable generation storage", () => {
 
   it("background removal uploads provider fixture bytes before completing the operation", async () => {
     mocks.getOperation.mockResolvedValue({ status: "processing" });
-    mocks.upload.mockResolvedValue({ id: "stored-background", url: "https://storage.example/background", mimeType: "image/png", size: 100, variants: [] });
+    mocks.confirm.mockResolvedValue({ file: { id: "stored-background", url: "https://storage.example/background", mimeType: "image/png", size: 100, variants: [] } });
     await processMediaOperationJobs();
-    expect(mocks.upload).toHaveBeenCalledWith("project-test", expect.objectContaining({ type: "image/png" }), {
+    expect(mocks.presign).toHaveBeenCalledWith("project-test", expect.objectContaining({ contentType: "image/png" }));
+    expect(mocks.confirm).toHaveBeenCalledWith("project-test", expect.objectContaining({
+      fileId: "stored-upload",
       variants: [{ format: "webp", sizeLabel: "source" }],
-    });
+    }));
     expect(mocks.completeOperation).toHaveBeenCalledWith("test@example.com", "operation-test", [
       expect.objectContaining({ storageObjectId: "stored-background", storageUrl: "https://storage.example/background" }),
-    ], expect.any(Date));
+    ], expect.any(Date), expect.objectContaining({ token: "test-operation-lease", version: 1 }));
     expect(mocks.failOperation).not.toHaveBeenCalled();
   });
 
   it("background removal cancelled during generation never uploads", async () => {
     mocks.getOperation.mockResolvedValue({ status: "cancelled" });
     await processMediaOperationJobs();
-    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.presign).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.completeOperation).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import type { ImageGenerationFormValues } from "@/features/image-generation/mode
 import type {
   ImageGenerationResponse,
 } from "@/features/image-generation/model/image-generation-types";
+import { createSubmissionIntent } from "@/shared/api/submission-intent";
 
 async function requestJson(input: RequestInfo, init?: RequestInit) {
   const response = await fetch(input, init);
@@ -11,6 +12,7 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
     const message = payload?.message ?? "REQUEST_FAILED";
     const error = new Error(message);
     (error as Error & { code?: string }).code = code;
+    (error as Error & { status?: number }).status = response.status;
     throw error;
   }
   const result = await response.json().catch(() => {
@@ -22,14 +24,25 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
 export async function requestImageGeneration(
   payload: ImageGenerationFormValues,
 ): Promise<ImageGenerationResponse> {
-  return requestJson("/api/image-generation", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const key = imageSubmissionIntent.take(JSON.stringify(payload));
+  try {
+    const result = await requestJson("/api/image-generation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": key,
+      },
+      body: JSON.stringify(payload),
+    });
+    imageSubmissionIntent.settle(key);
+    return result;
+  } catch (error) {
+    imageSubmissionIntent.settle(key, error);
+    throw error;
+  }
 }
+
+const imageSubmissionIntent = createSubmissionIntent();
 
 export async function fetchImageGenerationStatus(
   requestId: string,

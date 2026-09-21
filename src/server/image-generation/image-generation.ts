@@ -107,9 +107,10 @@ export async function resolveImageGenerationResult(
       throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
     const result = isNodeStudioE2EMockGenerationEnabled()
       ? mockImageGenerationResult(payload)
-      : adapter === modalComfyImageAdapter
-        ? await adapter.generate(payload, { requestId, executionModel:lifecycle.executionModel })
-        : await adapter.generate(payload);
+      : await adapter.generate(payload, {
+          requestId,
+          executionModel: lifecycle.executionModel,
+        });
     const { provider, warningMessage } = resolveImageStorageProvider();
 
     if (!provider) {
@@ -117,7 +118,11 @@ export async function resolveImageGenerationResult(
       const message =
         warningMessage ??
         "이미지 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
-      console.warn(`[image-storage] ${message}`, { requestId });
+      logStructured("generation.storage_skipped", {
+        requestId,
+        kind: "image",
+        outcome: "storage_unavailable",
+      });
       return {
         status: "completed",
         result: buildInlineResult(payload, result.images),
@@ -142,3 +147,4 @@ export async function resolveImageGenerationResult(
     };
   }
 }
+import { logStructured } from "@/server/observability/request-observability";

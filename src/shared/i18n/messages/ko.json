@@ -226,7 +226,8 @@
         "errors": {
           "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
           "serverConfig": "서버 설정이 필요합니다.",
-          "unknown": "로그인에 실패했습니다."
+          "unknown": "로그인에 실패했습니다.",
+          "rateLimited": "시도가 너무 많습니다. 잠시 후 다시 시도해주세요."
         }
       },
       "validation": {

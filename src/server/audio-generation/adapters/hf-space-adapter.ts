@@ -18,11 +18,21 @@ import {
   type RuntimeAudioModel,
 } from "@/shared/model-catalog/runtime-utils";
 import { resolveAudioMime } from "@/shared/lib/audio-file";
+import {
+  awaitWithTimeout,
+  decodeBase64DataUrl,
+  fetchBoundedRemoteBytes,
+  mapBoundedMediaOutputs,
+  assertOutputCount,
+  readFetchResponseJson,
+  OUTBOUND_FILE_TIMEOUT_MS,
+  GENERATION_OUTPUT_LIMITS,
+} from "@/server/http/bounded-io";
+import { predictWithDeadline } from "@/server/hf-space/contract-executor";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
 const STATUS_CHECK_TIMEOUT_MS = 5_000;
-const FILE_FETCH_TIMEOUT_MS = 60_000;
 
 const hfSpaceConfigSchema = z
   .object({
@@ -140,10 +150,26 @@ async function getClient(config: SpaceConfig) {
     clientCache.set(config.spaceId, cached);
   }
   try {
-    return await cached;
+    return await awaitWithTimeout(
+      cached,
+      Math.min(config.timeoutMs, 10_000),
+      "HF_SPACE_CONNECT_TIMEOUT",
+    );
   } catch (error) {
-    clientCache.delete(config.spaceId);
+    if (clientCache.get(config.spaceId) === cached) clientCache.delete(config.spaceId);
     throw error;
+  }
+}
+
+async function getViewApi(client: Client, timeoutMs: number) {
+  try {
+    return await awaitWithTimeout(
+      client.view_api(),
+      timeoutMs,
+      "HF_SPACE_VIEW_API_TIMEOUT",
+    );
+  } catch {
+    return null;
   }
 }
 
@@ -193,13 +219,14 @@ async function ensureSpaceRunning(config: SpaceConfig) {
   try {
     const response = await fetch(resolveSpaceApiUrl(config.spaceId), {
       headers,
+      redirect: "error",
       signal: controller.signal,
     });
     if (!response.ok) {
       statusCache.set(config.spaceId, { checkedAt: Date.now(), ok: false });
       throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
     }
-    const data = (await response.json()) as Record<string, unknown>;
+    const data = (await readFetchResponseJson(response)) as Record<string, unknown>;
     const stage = extractRuntimeStage(data);
     const normalized = stage?.toUpperCase() ?? "";
     const ok = normalized === "RUNNING" || normalized === "READY";
@@ -740,12 +767,12 @@ function looksLikeAudioPath(value: string) {
 }
 
 function dataUrlToBlob(dataUrl: string) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) {
-    throw new Error("HF_SPACE_INPUT_AUDIO_INVALID");
-  }
-  return new Blob([Buffer.from(match[2], "base64")], {
-    type: match[1],
+  const { contentType, buffer } = decodeBase64DataUrl(dataUrl, {
+    maxBytes: GENERATION_OUTPUT_LIMITS.audio,
+    invalidCode: "HF_SPACE_INPUT_AUDIO_INVALID",
+  });
+  return new Blob([new Uint8Array(buffer)], {
+    type: contentType,
   });
 }
 
@@ -759,7 +786,8 @@ function toGradioInputAudio(inputAudio: string) {
 async function fetchAudioDataUrl(
   fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
-  timeoutMs: number = FILE_FETCH_TIMEOUT_MS,
+  timeoutMs: number = OUTBOUND_FILE_TIMEOUT_MS,
+  maxBytes: number = GENERATION_OUTPUT_LIMITS.audio,
 ) {
   const resolvedFile =
     typeof fileRef === "string"
@@ -767,31 +795,33 @@ async function fetchAudioDataUrl(
       : fileRef;
   const normalized = resolvedFile.normalizedUrl;
   if (normalized.startsWith("data:")) {
-    return normalized;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(normalized, { signal: controller.signal });
-    if (!response.ok) {
+    const { contentType, buffer } = decodeBase64DataUrl(normalized, {
+      maxBytes,
+      invalidCode: "HF_SPACE_AUDIO_FETCH_FAILED",
+      tooLargeCode: "HF_SPACE_AUDIO_TOO_LARGE",
+    });
+    const audioMime = resolveAudioMime({ contentType, sourceUrl: normalized, buffer });
+    if (!audioMime.startsWith("audio/")) {
       throw new Error("HF_SPACE_AUDIO_FETCH_FAILED");
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = resolveAudioMime({
-      contentType: response.headers.get("content-type"),
-      sourceUrl: normalized,
-      buffer,
-    });
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch {
-    if (controller.signal.aborted) {
-      throw new Error("HF_SPACE_AUDIO_FETCH_TIMEOUT");
-    }
-    throw new Error("HF_SPACE_AUDIO_FETCH_FAILED");
-  } finally {
-    clearTimeout(timeoutId);
+    return `data:${audioMime};base64,${buffer.toString("base64")}`;
   }
+  const { buffer, contentType } = await fetchBoundedRemoteBytes(normalized, {
+    timeoutMs,
+    maxBytes,
+    fetchErrorCode: "HF_SPACE_AUDIO_FETCH_FAILED",
+    timeoutErrorCode: "HF_SPACE_AUDIO_FETCH_TIMEOUT",
+    tooLargeErrorCode: "HF_SPACE_AUDIO_TOO_LARGE",
+  });
+  const resolvedMime = resolveAudioMime({
+    contentType,
+    sourceUrl: normalized,
+    buffer,
+  });
+  if (!resolvedMime.startsWith("audio/")) {
+    throw new Error("HF_SPACE_AUDIO_FETCH_FAILED");
+  }
+  return `data:${resolvedMime};base64,${buffer.toString("base64")}`;
 }
 
 function extractDurationSec(value: unknown, depth = 0): number | undefined {
@@ -926,13 +956,25 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
       await ensureSpaceRunning(config);
       const client = await getClient(config);
       const refs = await executeGradioContract(client, model, payload, config, "audio");
-      const urls = await Promise.all(refs.map(ref => fetchAudioDataUrl(ref, config.spaceUrl, Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS))));
+      const urls = await mapBoundedMediaOutputs(
+        refs,
+        "audio",
+        (ref, _index, maxBytes) => fetchAudioDataUrl(
+          ref,
+          config.spaceUrl,
+          Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
+          maxBytes,
+        ),
+      );
       return { audios: urls };
     }
 
     await ensureSpaceRunning(config);
     const client = await getClient(config);
-    const apiInfo = (await client.view_api().catch(() => null)) as ViewApiResponse | null;
+    const apiInfo = (await getViewApi(
+      client,
+      Math.min(config.timeoutMs, STATUS_CHECK_TIMEOUT_MS),
+    )) as ViewApiResponse | null;
     const outputTypesByApiName = buildOutputTypesByApiName(
       (client as Client & { config?: ClientConfigSnapshot }).config,
     );
@@ -975,19 +1017,9 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
         throw error;
       }
 
-      const predictPromise = client.predict(apiName, requestPayload);
-
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () => reject(new Error("HF_SPACE_REQUEST_TIMEOUT")),
-          config.timeoutMs,
-        );
-      });
-
-      let result: Awaited<typeof predictPromise>;
+      let result: { data: unknown };
       try {
-        result = await Promise.race([predictPromise, timeoutPromise]);
+        result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs);
       } catch (error) {
         const classified = classifyPredictError(error);
         if (classified) {
@@ -998,10 +1030,6 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
           continue;
         }
         throw error;
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
       }
 
       const rawData = Array.isArray(result?.data) ? result.data : result;
@@ -1019,6 +1047,8 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
         continue;
       }
 
+      assertOutputCount("audio", audioGroups.length);
+
       const dataUrls: string[] = [];
       for (const group of audioGroups) {
         let lastError: Error | null = null;
@@ -1029,7 +1059,7 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
             resolvedDataUrl = await fetchAudioDataUrl(
               candidate,
               config.spaceUrl,
-              Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS),
+              Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
             );
             break;
           } catch (error) {
@@ -1045,7 +1075,11 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
       }
 
       return {
-        audios: dataUrls,
+        audios: await mapBoundedMediaOutputs(
+          dataUrls,
+          "audio",
+          async (dataUrl) => dataUrl,
+        ),
         meta: {
           duration_sec: extractDurationSec(rawData),
         },

@@ -1,6 +1,9 @@
 import { getSession } from "@/server/auth/session";
+import { enforceRateLimit } from "@/server/rate-limit/enforce";
+import { RATE_LIMITS } from "@/server/rate-limit/policies";
 import { buildMediaAssetKnownErrorResponse } from "@/server/media-assets/media-asset-http";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
+import { logSafeError } from "@/server/observability/request-observability";
 import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +14,8 @@ export async function GET(request: Request) {
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
   }
+  const rateLimited = await enforceRateLimit(RATE_LIMITS.readOwner, session.adminEmail);
+  if (rateLimited) return rateLimited;
   const searchParams = new URL(request.url).searchParams;
   try {
     const assets = await mediaAssetService.list(session.adminEmail, {
@@ -21,7 +26,7 @@ export async function GET(request: Request) {
     });
     return jsonWithNoStore(assets);
   } catch (error) {
-    console.error("[media-assets] list failed", error);
+    logSafeError("media_asset.list_failed", error);
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_READ_FAILED", 500);
   }
 }

@@ -1,5 +1,7 @@
 import { Client } from "pg";
 
+import { getServerEnv } from "@/server/runtime/env";
+
 import {
   GENERATION_EVENT_CHANNEL,
   parseGenerationEvent,
@@ -37,15 +39,23 @@ type BrokerOptions = {
   random?: () => number;
   reconnectBaseMs?: number;
   reconnectMaxMs?: number;
+  maxSubscribers?: number;
+  maxSubscribersPerScope?: number;
 };
 
 const DEFAULT_RECONNECT_BASE_MS = 1_000;
 const DEFAULT_RECONNECT_MAX_MS = 30_000;
+export const MAX_GENERATION_EVENT_SUBSCRIBERS = 50;
+export const MAX_GENERATION_EVENT_SUBSCRIBERS_PER_SCOPE = 5;
 
 function createPostgresClient(): GenerationEventListenerClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) throw new Error("DATABASE_URL is not set.");
-  return new Client({ connectionString });
+  const { databaseUrl, db } = getServerEnv();
+  return new Client({
+    connectionString: databaseUrl,
+    application_name: "leesfield-events",
+    // LISTEN connections must not hang forever behind a dead database.
+    connectionTimeoutMillis: db.listenerConnectTimeoutMs,
+  });
 }
 
 export class GenerationEventBroker {
@@ -59,6 +69,9 @@ export class GenerationEventBroker {
   private readonly random: () => number;
   private readonly reconnectBaseMs: number;
   private readonly reconnectMaxMs: number;
+  private readonly maxSubscribers: number;
+  private readonly maxSubscribersPerScope: number;
+  private readonly subscriberCountsByScope = new Map<string, number>();
   private client: GenerationEventListenerClient | null = null;
   private connectPromise: Promise<void> | null = null;
   private reconnectTimer: Timer | null = null;
@@ -73,12 +86,29 @@ export class GenerationEventBroker {
     this.reconnectBaseMs =
       options.reconnectBaseMs ?? DEFAULT_RECONNECT_BASE_MS;
     this.reconnectMaxMs = options.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
+    this.maxSubscribers =
+      options.maxSubscribers ?? MAX_GENERATION_EVENT_SUBSCRIBERS;
+    this.maxSubscribersPerScope =
+      options.maxSubscribersPerScope ?? MAX_GENERATION_EVENT_SUBSCRIBERS_PER_SCOPE;
   }
 
-  subscribe(graphId: string, subscriber: GenerationEventSubscriber) {
+  subscribe(
+    graphId: string,
+    subscriber: GenerationEventSubscriber,
+    scopeKey = graphId,
+  ) {
     const graphSubscribers = this.subscribers.get(graphId) ?? new Set();
+    const scopeSubscriberCount =
+      this.subscriberCountsByScope.get(scopeKey) ?? 0;
+    if (
+      this.subscriberCount >= this.maxSubscribers ||
+      scopeSubscriberCount >= this.maxSubscribersPerScope
+    ) {
+      return null;
+    }
     graphSubscribers.add(subscriber);
     this.subscribers.set(graphId, graphSubscribers);
+    this.subscriberCountsByScope.set(scopeKey, scopeSubscriberCount + 1);
     subscriber.onState?.(this.state);
     void this.ensureConnected();
 
@@ -89,6 +119,13 @@ export class GenerationEventBroker {
       const current = this.subscribers.get(graphId);
       current?.delete(subscriber);
       if (current?.size === 0) this.subscribers.delete(graphId);
+      const currentScopeCount =
+        this.subscriberCountsByScope.get(scopeKey) ?? 0;
+      if (currentScopeCount <= 1) {
+        this.subscriberCountsByScope.delete(scopeKey);
+      } else {
+        this.subscriberCountsByScope.set(scopeKey, currentScopeCount - 1);
+      }
       if (this.subscriberCount === 0) this.stop();
     };
   }

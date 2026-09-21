@@ -23,4 +23,27 @@ const c={...contract,mappingConfirmed:true,inputs:[{name:"images",label:"Images"
 const result=await buildGradioRequest(c,{dynamicParams:{images:["data:image/png;base64,YQ=="]}});
 expect(result.images).toMatchObject([{caption:null,image:{uploaded:expect.any(Blob)}}]);
 });
+it("시간 초과 시 submit된 Gradio 작업을 best-effort 취소한다",async()=>{
+let release!:()=>void;
+const finished=new Promise<void>(resolve=>{release=resolve;});
+const cancel=vi.fn(async()=>{release();});
+const submit=vi.fn(()=>({
+  async *[Symbol.asyncIterator]() {
+    await finished;
+    return;
+  },
+  cancel,
+}));
+const predict=vi.fn();
+await expect(executeGradioContract(
+  {predict,submit},
+  {providerConfig:{gradio_contract:contract}},
+  {prompt:"slow",dynamicParams:{in_1:null}},
+  {timeoutMs:10,spaceUrl:"https://test.hf.space"},
+  "video",
+)).rejects.toThrow("HF_SPACE_REQUEST_TIMEOUT");
+expect(submit).toHaveBeenCalledWith("/output_video",expect.any(Object));
+expect(cancel).toHaveBeenCalledTimes(1);
+expect(predict).not.toHaveBeenCalled();
+});
 });

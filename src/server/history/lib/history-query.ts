@@ -16,12 +16,15 @@ export type HistoryQuery = {
   sort: HistorySort;
   limit: number;
   offset: number;
+  includeTotal: boolean;
 };
 
 export type HistoryResponse = GenerationHistoryResponse;
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
+export const MAX_HISTORY_OFFSET = 1_000;
+export const MAX_HISTORY_SEARCH_LENGTH = 200;
 
 const HISTORY_TYPES = new Set<HistoryType>(["image", "video", "audio", "all"]);
 const HISTORY_SORTS = new Set<HistorySort>(["date_desc", "date_asc"]);
@@ -34,6 +37,19 @@ function toNumber(value: string | null) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function boundedSearchValue(value: string | null) {
+  const normalized = value?.trim() ?? "";
+  return normalized.slice(0, MAX_HISTORY_SEARCH_LENGTH);
+}
+
+function resolveBoolean(value: string | null, fallback: boolean) {
+  if (!value) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+  return fallback;
 }
 
 export function parseHistoryQuery(
@@ -49,19 +65,22 @@ export function parseHistoryQuery(
     ? (rawSort as HistorySort)
     : "date_desc";
 
-  const query = searchParams.get("query")?.trim() ?? "";
+  const query = boundedSearchValue(searchParams.get("query"));
 
   const limit = toNumber(searchParams.get("limit"));
   const offset = toNumber(searchParams.get("offset"));
+  const model = boundedSearchValue(searchParams.get("model"));
+  const prompt = boundedSearchValue(searchParams.get("prompt"));
 
   return {
     type,
     query,
-    ...(searchParams.get("model")?.trim() ? {model:searchParams.get("model")!.trim()} : {}),
-    ...(searchParams.get("prompt")?.trim() ? {prompt:searchParams.get("prompt")!.trim()} : {}),
+    ...(model ? { model } : {}),
+    ...(prompt ? { prompt } : {}),
     sort,
     limit: clamp(limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT),
-    offset: Math.max(offset ?? 0, 0),
+    offset: clamp(offset ?? 0, 0, MAX_HISTORY_OFFSET),
+    includeTotal: resolveBoolean(searchParams.get("includeTotal"), true),
   };
 }
 
@@ -70,7 +89,7 @@ export function buildImageWhere(
 ): Prisma.ImageGenerationWhereInput {
   if (query.model || query.prompt) return {
     AND: [
-      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.model ? [{ modelKey: query.model }] : []),
       ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
     ],
   };
@@ -85,9 +104,9 @@ export function buildImageWhere(
         },
       },
       {
-        requestParams: {
-          path: ["model"],
-          string_contains: query.query,
+        modelKey: {
+          contains: query.query,
+          mode: "insensitive",
         },
       },
     ],
@@ -99,7 +118,7 @@ export function buildVideoWhere(
 ): Prisma.VideoGenerationWhereInput {
   if (query.model || query.prompt) return {
     AND: [
-      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.model ? [{ modelKey: query.model }] : []),
       ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
     ],
   };
@@ -114,9 +133,9 @@ export function buildVideoWhere(
         },
       },
       {
-        requestParams: {
-          path: ["model"],
-          string_contains: query.query,
+        modelKey: {
+          contains: query.query,
+          mode: "insensitive",
         },
       },
     ],
@@ -128,7 +147,7 @@ export function buildAudioWhere(
 ): Prisma.AudioGenerationWhereInput {
   if (query.model || query.prompt) return {
     AND: [
-      ...(query.model ? [{OR:[{modelKey:query.model},{requestParams:{path:["model"],equals:query.model}}]}] : []),
+      ...(query.model ? [{ modelKey: query.model }] : []),
       ...(query.prompt ? [{prompt:{contains:query.prompt,mode:"insensitive" as const}}] : []),
     ],
   };
@@ -143,9 +162,9 @@ export function buildAudioWhere(
         },
       },
       {
-        requestParams: {
-          path: ["model"],
-          string_contains: query.query,
+        modelKey: {
+          contains: query.query,
+          mode: "insensitive",
         },
       },
     ],

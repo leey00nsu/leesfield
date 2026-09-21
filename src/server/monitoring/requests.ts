@@ -5,6 +5,7 @@ import {
   buildImageWhere,
   buildVideoWhere,
 } from "@/server/monitoring/monitoring-where";
+import { measureDatabase } from "@/server/observability/request-observability";
 
 export type MonitoringRequestItem = {
   id: string;
@@ -19,7 +20,7 @@ export type MonitoringRequestItem = {
 export type MonitoringRequestResponse = {
   updatedAt: string;
   items: MonitoringRequestItem[];
-  total: number;
+  total: number | null;
   limit: number;
   offset: number;
 };
@@ -81,7 +82,7 @@ function toMonitoringRequestItem(
   };
 }
 
-export async function getMonitoringRequests(
+async function getMonitoringRequestsUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringRequestResponse> {
   const filters = {
@@ -95,6 +96,7 @@ export async function getMonitoringRequests(
 
   const limit = query.limit;
   const offset = query.offset;
+  const includeTotal = query.includeTotal !== false;
 
   const select = {
     requestId: true,
@@ -117,7 +119,7 @@ export async function getMonitoringRequests(
       includeQuery: true,
     });
     const [total, records] = await Promise.all([
-      prisma.imageGeneration.count({ where }),
+      includeTotal ? prisma.imageGeneration.count({ where }) : Promise.resolve(0),
       prisma.imageGeneration.findMany({
         where,
         orderBy: ORDER_BY,
@@ -134,7 +136,7 @@ export async function getMonitoringRequests(
     return {
       updatedAt: new Date().toISOString(),
       items,
-      total,
+      total: includeTotal ? total : null,
       limit,
       offset,
     };
@@ -147,7 +149,7 @@ export async function getMonitoringRequests(
       includeQuery: true,
     });
     const [total, records] = await Promise.all([
-      prisma.videoGeneration.count({ where }),
+      includeTotal ? prisma.videoGeneration.count({ where }) : Promise.resolve(0),
       prisma.videoGeneration.findMany({
         where,
         orderBy: ORDER_BY,
@@ -164,7 +166,7 @@ export async function getMonitoringRequests(
     return {
       updatedAt: new Date().toISOString(),
       items,
-      total,
+      total: includeTotal ? total : null,
       limit,
       offset,
     };
@@ -177,7 +179,7 @@ export async function getMonitoringRequests(
       includeQuery: true,
     });
     const [total, records] = await Promise.all([
-      prisma.audioGeneration.count({ where }),
+      includeTotal ? prisma.audioGeneration.count({ where }) : Promise.resolve(0),
       prisma.audioGeneration.findMany({
         where,
         orderBy: ORDER_BY,
@@ -194,7 +196,7 @@ export async function getMonitoringRequests(
     return {
       updatedAt: new Date().toISOString(),
       items,
-      total,
+      total: includeTotal ? total : null,
       limit,
       offset,
     };
@@ -225,9 +227,9 @@ export async function getMonitoringRequests(
     videoRecords,
     audioRecords,
   ] = await Promise.all([
-    prisma.imageGeneration.count({ where: imageWhere }),
-    prisma.videoGeneration.count({ where: videoWhere }),
-    prisma.audioGeneration.count({ where: audioWhere }),
+    includeTotal ? prisma.imageGeneration.count({ where: imageWhere }) : Promise.resolve(0),
+    includeTotal ? prisma.videoGeneration.count({ where: videoWhere }) : Promise.resolve(0),
+    includeTotal ? prisma.audioGeneration.count({ where: audioWhere }) : Promise.resolve(0),
     prisma.imageGeneration.findMany({
       where: imageWhere,
       orderBy: ORDER_BY,
@@ -270,8 +272,14 @@ export async function getMonitoringRequests(
   return {
     updatedAt: new Date().toISOString(),
     items,
-    total: imageTotal + videoTotal + audioTotal,
+    total: includeTotal ? imageTotal + videoTotal + audioTotal : null,
     limit,
     offset,
   };
+}
+
+export async function getMonitoringRequests(query: MonitoringQuery) {
+  return measureDatabase("monitoring.requests", () =>
+    getMonitoringRequestsUnobserved(query),
+  );
 }

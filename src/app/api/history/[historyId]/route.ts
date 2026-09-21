@@ -1,6 +1,12 @@
 import { deleteHistoryFiles } from "@/server/history/delete-history-files";
 import { getSession } from "@/server/auth/session";
+import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { prisma } from "@/server/db/prisma";
+import {
+  GENERATION_OUTPUT_LIMITS,
+  limitReadableStream,
+} from "@/server/http/bounded-io";
+import { requestRemoteStream } from "@/server/http/safe-remote";
 
 export const dynamic = "force-dynamic";
 type Context = {params: Promise<{historyId: string}>};
@@ -38,15 +44,35 @@ export async function GET(request: Request, context: Context) {
   try {
     const url = new URL(result.url);
     if (!["http:", "https:"].includes(url.protocol)) return new Response(null, {status: 422});
-    const upstream = await fetch(url, {cache: "no-store", signal: AbortSignal.any([request.signal, AbortSignal.timeout(120000)])});
-    if (!upstream.ok || !upstream.body) return new Response(null, {status: 502});
-    const mime = upstream.headers.get("content-type")?.split(";")[0] ?? "application/octet-stream";
+    const maxBytes = GENERATION_OUTPUT_LIMITS[result.type as "image" | "video" | "audio"];
+    const upstream = await requestRemoteStream(url.toString(), {
+      timeoutMs: 120_000,
+      maxRedirects: 3,
+      maxBytes,
+      signal: request.signal,
+      allowInsecureHttp: process.env.NODE_ENV !== "production",
+    });
+    if (upstream.status < 200 || upstream.status >= 300) {
+      await upstream.body.cancel().catch(() => undefined);
+      return new Response(null, {status: 502});
+    }
+    const declared = Number(upstream.headers["content-length"]);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      await upstream.body.cancel().catch(() => undefined);
+      return new Response(null, {status: 502});
+    }
+    const mime = upstream.headers["content-type"]?.split(";")[0] ?? "application/octet-stream";
     const extensions: Record<string,string> = {"image/png":"png", "image/jpeg":"jpg", "image/webp":"webp", "image/gif":"gif", "image/avif":"avif", "video/mp4":"mp4", "video/webm":"webm", "audio/mpeg":"mp3", "audio/wav":"wav", "audio/ogg":"ogg", "audio/flac":"flac"};
     const filename = "leesfield-" + result.type + "." + (extensions[mime] ?? "bin");
-    return new Response(upstream.body, {headers: {"Content-Type": mime, "Content-Disposition": 'attachment; filename="'+filename+'"', "Cache-Control": "private, no-store", "X-Content-Type-Options":"nosniff"}});
+    return new Response(limitReadableStream(upstream.body, {
+      maxBytes,
+      signal: request.signal,
+    }), {headers: {"Content-Type": mime, "Content-Disposition": 'attachment; filename="'+filename+'"', "Cache-Control": "private, no-store", "X-Content-Type-Options":"nosniff"}});
   } catch {return new Response(null, {status: 502});}
 }
 export async function DELETE(request: Request, context: Context) {
+  const originError = assertSessionMutationOrigin(request);
+  if (originError) return originError;
   const result = await ownedRecord(request, context);
   if (result.error) return result.error;
   if (!result.record) return new Response(null, {status: 404});

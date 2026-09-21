@@ -3,6 +3,13 @@ import {
   externalFilePrefix,
 } from "@/shared/api/external-contract";
 import { fileToDataUrl } from "@/server/http/form-data-utils";
+import {
+  BodyLimitError,
+  GENERATION_BODY_LIMIT_BYTES,
+  mapWithConcurrency,
+  readBoundedFormDataBody,
+  readBoundedJsonBody,
+} from "@/server/http/bounded-body";
 
 export class ExternalRequestError extends Error {
   constructor(
@@ -18,15 +25,26 @@ export async function readExternalGenerationRequest(request: Request) {
   let body: unknown;
   if (contentType.startsWith("application/json")) {
     try {
-      body = await request.json();
-    } catch {
+      body = await readBoundedJsonBody(request, GENERATION_BODY_LIMIT_BYTES);
+    } catch (error) {
+      if (error instanceof BodyLimitError) {
+        throw new ExternalRequestError(error.message, error.status);
+      }
       throw new ExternalRequestError("INVALID_JSON");
     }
   } else if (contentType.startsWith("multipart/form-data")) {
     let form: FormData;
     try {
-      form = await request.formData();
-    } catch {
+      form = await readBoundedFormDataBody(request, {
+        maxBytes: GENERATION_BODY_LIMIT_BYTES,
+        maxFiles: 8,
+        maxFileBytes: 10 * 1024 * 1024,
+        maxTotalFileBytes: 64 * 1024 * 1024,
+      });
+    } catch (error) {
+      if (error instanceof BodyLimitError) {
+        throw new ExternalRequestError(error.message, error.status);
+      }
       throw new ExternalRequestError("INVALID_FORM_DATA");
     }
     const values: Record<string, unknown> = {};
@@ -59,7 +77,7 @@ export async function readExternalGenerationRequest(request: Request) {
 export async function resolveExternalFiles(
   values: Record<string, unknown>,
   uploads: Map<string, File[]>,
-  fields: { name: string; multiple: boolean; maxBytes: number }[],
+  fields: { name: string; multiple: boolean; maxBytes: number; maxItems?: number }[],
 ) {
   const resolved = { ...values };
   for (const [name, files] of uploads) {
@@ -72,8 +90,13 @@ export async function resolveExternalFiles(
       throw new ExternalRequestError("INVALID_FILE_INPUT");
     if (files.some((file) => file.size > field.maxBytes))
       throw new ExternalRequestError("FILE_TOO_LARGE", 413);
-    const urls = await Promise.all(
-      files.map((file) => fileToDataUrl(file, field.maxBytes)),
+    if (files.length > (field.maxItems ?? (field.multiple ? 8 : 1))) {
+      throw new ExternalRequestError("TOO_MANY_FILES", 413);
+    }
+    // Buffer files with bounded parallelism so a multi-file request cannot
+    // allocate every payload at once.
+    const urls = await mapWithConcurrency(files, 2, (file) =>
+      fileToDataUrl(file, field.maxBytes),
     );
     resolved[name] = field.multiple ? urls : urls[0];
   }

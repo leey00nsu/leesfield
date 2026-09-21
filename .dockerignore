@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+.next
+.next-*
+.generated
+coverage
+artifacts
+tmp
+*.log
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+backups

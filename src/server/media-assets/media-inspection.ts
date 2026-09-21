@@ -5,6 +5,7 @@ import type { MediaType } from "@/shared/media-assets/media-asset-contract";
 
 import { MediaVerificationError } from "./media-asset-errors";
 import type { InspectedMedia } from "./media-storage";
+import { readFetchResponsePrefix } from "@/server/http/bounded-io";
 
 const INSPECTION_BYTES = 1024 * 1024;
 
@@ -157,30 +158,9 @@ export async function inspectMediaUrl(
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new MediaVerificationError("MEDIA_MAGIC_INVALID");
-  let buffer: Uint8Array;
-  if (!response.body) {
-    buffer = new Uint8Array(await response.arrayBuffer()).slice(0, INSPECTION_BYTES);
-  } else {
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    while (total < INSPECTION_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const remaining = INSPECTION_BYTES - total;
-      const chunk = value.length > remaining ? value.slice(0, remaining) : value;
-      chunks.push(chunk);
-      total += chunk.length;
-      if (value.length > remaining) break;
-    }
-    await reader.cancel().catch(() => undefined);
-    buffer = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      buffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-  }
+  const buffer = new Uint8Array(
+    await readFetchResponsePrefix(response, INSPECTION_BYTES),
+  );
   const detected = await fileTypeFromBuffer(buffer);
   if (!detected) throw new MediaVerificationError("MEDIA_MAGIC_INVALID");
   if (!mimeMatches(input.declaredMimeType, detected.mime, input.expectedType)) {

@@ -30,6 +30,14 @@ export class NodeExecutionVersionConflictError extends Error {
   }
 }
 
+export class NodeExecutionIdempotencyConflictError extends Error {
+  readonly code = "IDEMPOTENCY_CONFLICT";
+  constructor() {
+    super("IDEMPOTENCY_CONFLICT");
+    this.name = "NodeExecutionIdempotencyConflictError";
+  }
+}
+
 export class NodeExecutionConfigError extends Error {
   readonly code = "NODE_CONFIG_INVALID";
   constructor(readonly details: unknown) {
@@ -73,6 +81,15 @@ export class NodeExecutionProcessorUnavailableError extends Error {
   constructor() {
     super("PROCESSOR_UNAVAILABLE");
     this.name = "NodeExecutionProcessorUnavailableError";
+  }
+}
+
+/** Node Studio runs share the generation queue budget. */
+export class NodeExecutionQueueFullError extends Error {
+  readonly code = "GENERATION_QUEUE_FULL";
+  constructor(readonly reason: string) {
+    super("GENERATION_QUEUE_FULL");
+    this.name = "NodeExecutionQueueFullError";
   }
 }
 

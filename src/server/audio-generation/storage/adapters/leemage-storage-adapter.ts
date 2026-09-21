@@ -12,6 +12,14 @@ import {
   resolveAudioExtension,
   resolveAudioMime,
 } from "@/shared/lib/audio-file";
+import {
+  decodeBase64DataUrl,
+  GENERATION_OUTPUT_LIMITS,
+  mapBoundedMediaOutputs,
+  OUTBOUND_CONCURRENCY,
+} from "@/server/http/bounded-io";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
+import { uploadLeemageFile } from "@/server/shared/leemage-bounded-upload";
 
 const MISSING_LEEMAGE_MESSAGE =
   "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
@@ -94,13 +102,11 @@ function buildUploadFile(
 }
 
 function parseDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match || !match[1] || !match[2]) {
-    throw new Error("지원하지 않는 오디오 포맷입니다.");
-  }
-  const contentType = match[1];
-  const buffer = Buffer.from(match[2], "base64");
-  return { contentType, buffer };
+  return decodeBase64DataUrl(dataUrl, {
+    maxBytes: GENERATION_OUTPUT_LIMITS.audio,
+    invalidCode: "지원하지 않는 오디오 포맷입니다.",
+    tooLargeCode: "오디오 결과가 허용된 크기를 초과했습니다.",
+  });
 }
 
 function resolveDurationSec(
@@ -146,15 +152,24 @@ async function uploadGeneratedAudios(
   const durationSec = resolveDurationSec(payload, meta);
 
   try {
-    const uploads = await Promise.all(
-      dataUrls.map((dataUrl, index) => {
+    const boundedDataUrls = await mapBoundedMediaOutputs(
+      dataUrls,
+      "audio",
+      async (dataUrl) => dataUrl,
+    );
+    const uploads = await mapWithConcurrency(
+      boundedDataUrls,
+      OUTBOUND_CONCURRENCY,
+      async (dataUrl, index) => {
         const { contentType, buffer } = parseDataUrl(dataUrl);
         const resolvedContentType = resolveAudioMime({ contentType, buffer });
         const extension = resolveAudioExtension(resolvedContentType);
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name, resolvedContentType);
-        return client.files.upload(projectId, file);
-      }),
+        return uploadLeemageFile(client, projectId, file, {
+          cleanup: { requestId, reason: "generation_output" },
+        });
+      },
     );
 
     return {

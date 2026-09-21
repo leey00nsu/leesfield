@@ -85,10 +85,12 @@ export async function fetchMonitoringRequests(
   filters: MonitoringFilters,
   limit: number,
   offset: number,
+  includeTotal = offset === 0,
 ): Promise<MonitoringRequestResponse> {
   const params = buildParams(filters);
   params.set("limit", limit.toString());
   params.set("offset", offset.toString());
+  params.set("includeTotal", String(includeTotal));
   const response = await fetch(
     `/api/monitoring/requests?${params.toString()}`,
     {

@@ -12,6 +12,16 @@ import type {
   ImageStorageResult,
 } from "@/server/image-generation/storage/storage-adapter";
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
+import {
+  assertOutputCount,
+  decodeBase64DataUrl,
+  GENERATION_OUTPUT_LIMITS,
+  GENERATION_OUTPUT_MAX_TOTAL_BYTES,
+  mapBoundedMediaOutputs,
+  OUTBOUND_CONCURRENCY,
+} from "@/server/http/bounded-io";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
+import { uploadLeemageFile } from "@/server/shared/leemage-bounded-upload";
 
 const PLACEHOLDER_FILE = "sample-image.png";
 const MISSING_LEEMAGE_MESSAGE =
@@ -101,13 +111,11 @@ function resolveExtension(contentType: string) {
 }
 
 function parseDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match || !match[1] || !match[2]) {
-    throw new Error("지원하지 않는 이미지 포맷입니다.");
-  }
-  const contentType = match[1];
-  const buffer = Buffer.from(match[2], "base64");
-  return { contentType, buffer };
+  return decodeBase64DataUrl(dataUrl, {
+    maxBytes: GENERATION_OUTPUT_LIMITS.image,
+    invalidCode: "지원하지 않는 이미지 포맷입니다.",
+    tooLargeCode: "이미지 결과가 허용된 크기를 초과했습니다.",
+  });
 }
 
 function buildUploadFile(buffer: Buffer, name: string): UploadableFile {
@@ -173,16 +181,24 @@ export async function uploadGeneratedImages(
   const { width, height } = payload;
 
   try {
-    const uploads = await Promise.all(
-      dataUrls.map((dataUrl, index) => {
+    const boundedDataUrls = await mapBoundedMediaOutputs(
+      dataUrls,
+      "image",
+      async (dataUrl) => dataUrl,
+    );
+    const uploads = await mapWithConcurrency(
+      boundedDataUrls,
+      OUTBOUND_CONCURRENCY,
+      async (dataUrl, index) => {
         const { contentType, buffer } = parseDataUrl(dataUrl);
         const extension = resolveExtension(contentType);
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name);
-        return client.files.upload(projectId, file, {
+        return uploadLeemageFile(client, projectId, file, {
           ...imageUploadOptions(contentType),
+          cleanup: { requestId, reason: "generation_output" },
         });
-      })
+      },
     );
 
     return {
@@ -216,16 +232,27 @@ export async function uploadMediaOperationImages(
 ): Promise<GeneratedMediaArtifact[]> {
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
-  const uploads = await Promise.all(
-    images.map(({ dataUrl }, index) => {
+  await mapBoundedMediaOutputs(
+    images.map(({ dataUrl }) => dataUrl),
+    "image",
+    async (dataUrl) => dataUrl,
+  );
+  const uploads = await mapWithConcurrency(
+    images,
+    OUTBOUND_CONCURRENCY,
+    async ({ dataUrl }, index) => {
       const { contentType, buffer } = parseDataUrl(dataUrl);
       const extension = resolveExtension(contentType);
-      return client.files.upload(
+      return uploadLeemageFile(
+        client,
         projectId,
         buildUploadFile(buffer, `${requestId}-${index + 1}.${extension}`),
-        imageUploadOptions(contentType),
+        {
+          ...imageUploadOptions(contentType),
+          cleanup: { requestId, reason: "media_operation_output" },
+        },
       );
-    }),
+    },
   );
   return uploads.map((file, index) => mapFileToArtifact(
     file,
@@ -249,16 +276,24 @@ export async function resolveGenerationResult(
 
   try {
     const { width, height } = payload;
-    const uploads = await Promise.all(
-      Array.from({ length: payload.imageCount }, (_, index) => {
+    assertOutputCount("image", payload.imageCount);
+    const totalBytes = buffer.byteLength * payload.imageCount;
+    if (totalBytes > GENERATION_OUTPUT_MAX_TOTAL_BYTES) {
+      throw new Error("GENERATION_OUTPUT_TOTAL_LIMIT");
+    }
+    const uploads = await mapWithConcurrency(
+      Array.from({ length: payload.imageCount }),
+      OUTBOUND_CONCURRENCY,
+      async (_, index) => {
         const name = `${requestId}-${index + 1}${path.extname(
           PLACEHOLDER_FILE
         )}`;
         const file = buildUploadFile(buffer, name);
-        return client.files.upload(projectId, file, {
+        return uploadLeemageFile(client, projectId, file, {
           ...imageUploadOptions(contentType),
+          cleanup: { requestId, reason: "generation_output" },
         });
-      })
+      },
     );
 
     return {
@@ -266,6 +301,7 @@ export async function resolveGenerationResult(
       result: {
         images: uploads.map((file) => mapFileToImage(file, width, height)),
       },
+      artifacts: uploads.map((file) => mapFileToArtifact(file, width, height)),
     };
   } catch (error) {
     return {

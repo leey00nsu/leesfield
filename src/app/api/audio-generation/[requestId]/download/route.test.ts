@@ -2,6 +2,7 @@ import { GET } from "@/app/api/audio-generation/[requestId]/download/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
 const mockGetAudioGenerationByRequestId = vi.hoisted(() => vi.fn());
+const mockRequestRemoteStream = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/session", () => ({
   getSession: mockGetSession,
@@ -11,10 +12,16 @@ vi.mock("@/server/audio-generation/audio-generation-repository", () => ({
   getAudioGenerationByRequestId: mockGetAudioGenerationByRequestId,
 }));
 
+vi.mock("@/server/http/safe-remote", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/http/safe-remote")>(),
+  requestRemoteStream: mockRequestRemoteStream,
+}));
+
 describe("GET /api/audio-generation/[requestId]/download", () => {
   beforeEach(() => {
     mockGetSession.mockReset();
     mockGetAudioGenerationByRequestId.mockReset();
+    mockRequestRemoteStream.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -50,13 +57,13 @@ describe("GET /api/audio-generation/[requestId]/download", () => {
         },
       ],
     });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(wavHeader, {
-        headers: {
-          "content-type": "application/octet-stream",
-        },
-      }),
-    );
+    mockRequestRemoteStream.mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "application/octet-stream" },
+      body: new Response(wavHeader).body,
+      location: null,
+      url: "https://cdn.example.com/generated/request-id-1.wav",
+    });
 
     const response = await GET(
       new Request(
@@ -74,12 +81,6 @@ describe("GET /api/audio-generation/[requestId]/download", () => {
   });
 
   it("upstream body 읽기가 timeout을 넘기면 502를 반환한다", async () => {
-    vi.useFakeTimers();
-    const wavHeader = Uint8Array.from([
-      0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
-      0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20,
-    ]);
-
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,
       adminEmail: "admin@example.com",
@@ -92,26 +93,9 @@ describe("GET /api/audio-generation/[requestId]/download", () => {
         },
       ],
     });
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      async (_input, init?: RequestInit) => {
-        const signal = init?.signal;
-        return {
-          ok: true,
-          headers: new Headers({
-            "content-type": "application/octet-stream",
-          }),
-          arrayBuffer: () =>
-            new Promise<ArrayBuffer>((resolve, reject) => {
-              const abortError = Object.assign(new Error("aborted"), {
-                name: "AbortError",
-              });
-              signal?.addEventListener("abort", () => reject(abortError), {
-                once: true,
-              });
-              setTimeout(() => resolve(wavHeader.buffer), 20_000);
-            }),
-        } as Response;
-      },
+    const { RemoteAccessError } = await import("@/server/http/safe-remote");
+    mockRequestRemoteStream.mockRejectedValue(
+      new RemoteAccessError("REMOTE_TIMEOUT"),
     );
 
     const responsePromise = GET(
@@ -121,7 +105,6 @@ describe("GET /api/audio-generation/[requestId]/download", () => {
       { params: Promise.resolve({ requestId: "request-id" }) },
     );
 
-    await vi.advanceTimersByTimeAsync(10_001);
     const response = await responsePromise;
     const payload = await response.json();
 

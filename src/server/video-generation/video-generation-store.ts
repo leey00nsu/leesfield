@@ -3,7 +3,6 @@ import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
 } from "@/features/video-generation/model/video-generation-types";
-import { uploadInputImages } from "@/server/shared/input-image-uploader";
 import {
   getVideoGenerationByRequestId,
 } from "@/server/video-generation/video-generation-repository";
@@ -46,20 +45,14 @@ export async function createMockVideoGenerationWithLimit(
   payload: VideoGenerationFormValues,
   ownerEmail: string,
   apiKeyId: string | null = null,
+  requestId?: string,
 ) {
-  const requestId = crypto.randomUUID();
-  const initImage = payload.initImage?.trim() ?? "";
-  const resolvedPayload = initImage
-    ? {
-        ...payload,
-        initImage: (await uploadInputImages(requestId, [initImage]))[0] ?? "",
-      }
-    : payload;
+  const selectedRequestId = requestId ?? crypto.randomUUID();
   const { record } = await submitVideoGeneration({
-    payload: resolvedPayload,
+    payload,
     ownerEmail,
     apiKeyId,
-    requestId,
+    requestId: selectedRequestId,
   });
   return {
     record: record satisfies VideoGenerationRecord,
@@ -67,7 +60,11 @@ export async function createMockVideoGenerationWithLimit(
   };
 }
 
-export async function getVideoGeneration(id: string, ownerEmail: string) {
-  const record = await getVideoGenerationByRequestId(id, ownerEmail);
+export async function getVideoGeneration(
+  id: string,
+  ownerEmail: string,
+  apiKeyId?: string | null,
+) {
+  const record = await getVideoGenerationByRequestId(id, ownerEmail, apiKeyId);
   return mapRecord(record);
 }

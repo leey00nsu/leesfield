@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetSession = vi.hoisted(() => vi.fn());
 const service = vi.hoisted(() => ({ get: vi.fn() }));
+const remote = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/session", () => ({ getSession: mockGetSession }));
 vi.mock("@/server/media-assets/media-asset-service", () => ({ mediaAssetService: service }));
+vi.mock("@/server/http/safe-remote", () => ({ requestRemoteStream: remote }));
 
 import { GET } from "./route";
 
@@ -36,17 +38,17 @@ describe("/api/media-assets/:assetId/content", () => {
   });
 
   it("streams owner-scoped media through a same-origin no-store response", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
-      new Uint8Array([1, 2, 3, 4]),
-      { status: 200, headers: { "Content-Type": "image/png", "Content-Length": "4" } },
-    ));
+    remote.mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "image/png", "content-length": "4" },
+      body: new Response(new Uint8Array([1, 2, 3, 4])).body,
+    });
 
     const response = await GET(new Request("http://localhost/api/media-assets/asset_1/content"), context);
 
     expect(service.get).toHaveBeenCalledWith("owner@example.com", "asset_1");
-    expect(fetchMock).toHaveBeenCalledWith(asset.url, expect.objectContaining({
-      cache: "no-store",
-      redirect: "follow",
+    expect(remote).toHaveBeenCalledWith(asset.url, expect.objectContaining({
+      maxRedirects: 3,
     }));
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/png");
@@ -57,17 +59,20 @@ describe("/api/media-assets/:assetId/content", () => {
 
   it("does not resolve or fetch media for an unauthenticated request", async () => {
     mockGetSession.mockResolvedValue({ isLoggedIn: false, adminEmail: null });
-    const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const response = await GET(new Request("http://localhost/api/media-assets/asset_1/content"), context);
 
     expect(response.status).toBe(401);
     expect(service.get).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(remote).not.toHaveBeenCalled();
   });
 
   it("returns an explicit gateway failure when storage content cannot be read", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
+    remote.mockResolvedValue({
+      status: 404,
+      headers: {},
+      body: new Response("").body,
+    });
 
     const response = await GET(new Request("http://localhost/api/media-assets/asset_1/content"), context);
 

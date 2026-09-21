@@ -79,6 +79,15 @@ enum MediaUploadSessionStatus {
   failed
 }
 
+enum MediaCleanupTaskStatus {
+  uploading
+  pending
+  processing
+  linked
+  completed
+  failed
+}
+
 enum MediaOperationStatus {
   pending
   processing
@@ -107,6 +116,7 @@ model ImageGeneration {
   apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   prompt            String
   requestParams     Json?
+  historyMetadata   Json?
   modelKey          String?
   aspectRatio       String?
   imageCount        Int?
@@ -118,16 +128,23 @@ model ImageGeneration {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
+  executionLeaseToken String?
+  executionLeaseUntil DateTime?
+  executionLeaseVersion Int                   @default(0)
   images            ImageGenerationImage[]
   graphNodeId       String?
   graphNode         GenerationGraphNode?   @relation("GraphNodeGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
+  @@index([ownerEmail, createdAt, requestId])
+  @@index([ownerEmail, status, createdAt, requestId])
+  @@index([createdAt, requestId])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
   @@index([graphNodeId, createdAt])
+  @@index([status, executionLeaseUntil])
 }
 
 model ImageGenerationImage {
@@ -227,6 +244,7 @@ model VideoGeneration {
   apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   prompt            String
   requestParams     Json?
+  historyMetadata   Json?
   modelKey          String?
   status            VideoGenerationStatus
   progress          Int
@@ -234,16 +252,23 @@ model VideoGeneration {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
+  executionLeaseToken String?
+  executionLeaseUntil DateTime?
+  executionLeaseVersion Int                   @default(0)
   videos            VideoGenerationVideo[]
   graphNodeId       String?
   graphNode         GenerationGraphNode?   @relation("GraphNodeVideoGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
+  @@index([ownerEmail, createdAt, requestId])
+  @@index([ownerEmail, status, createdAt, requestId])
+  @@index([createdAt, requestId])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
   @@index([graphNodeId, createdAt])
+  @@index([status, executionLeaseUntil])
 }
 
 model VideoGenerationVideo {
@@ -269,6 +294,7 @@ model AudioGeneration {
   apiKey            ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   prompt            String
   requestParams     Json?
+  historyMetadata   Json?
   modelKey          String?
   status            AudioGenerationStatus
   progress          Int
@@ -276,16 +302,23 @@ model AudioGeneration {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
+  executionLeaseToken String?
+  executionLeaseUntil DateTime?
+  executionLeaseVersion Int                   @default(0)
   audios            AudioGenerationAudio[]
   graphNodeId       String?
   graphNode         GenerationGraphNode?   @relation("GraphNodeAudioGenerations", fields: [graphNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerEmail])
+  @@index([ownerEmail, createdAt, requestId])
+  @@index([ownerEmail, status, createdAt, requestId])
+  @@index([createdAt, requestId])
   @@index([status, createdAt])
   @@index([status, updatedAt])
   @@index([status, modelKey])
   @@index([apiKeyId, createdAt])
   @@index([graphNodeId, createdAt])
+  @@index([status, executionLeaseUntil])
 }
 
 model AudioGenerationAudio {
@@ -326,13 +359,36 @@ model MediaAsset {
   graphNodeOutputs     GenerationGraphNodeOutput[]
   operationInputs      MediaOperationInput[]
   uploadSessions       MediaUploadSession[]
+  generationInputAssets GenerationInputAsset[]
   imageGenerationImage ImageGenerationImage?       @relation("ImageGenerationAsset")
   videoGenerationVideo VideoGenerationVideo?       @relation("VideoGenerationAsset")
   audioGenerationAudio AudioGenerationAudio?       @relation("AudioGenerationAsset")
+  cleanupTasks         MediaCleanupTask[]
 
   @@unique([storageProvider, storageObjectId])
   @@index([ownerEmail, type, status, createdAt])
   @@index([sourceOperationId])
+}
+
+// A generation keeps a durable, owner-scoped reference to every uploaded
+// input. The polymorphic requestId keeps this small feature independent from
+// the three generation tables while the FK protects source assets from an
+// early delete.
+model GenerationInputAsset {
+  id             String    @id @default(cuid())
+  requestId      String
+  generationType MediaType
+  ownerEmail     String
+  field          String
+  sortOrder      Int       @default(0)
+  multiple       Boolean   @default(false)
+  assetId        String
+  createdAt      DateTime  @default(now())
+  asset          MediaAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, generationType, field, sortOrder])
+  @@index([assetId])
+  @@index([ownerEmail, generationType, requestId])
 }
 
 model MediaUploadSession {
@@ -364,6 +420,35 @@ model MediaUploadSession {
   @@index([assetId])
 }
 
+/// Durable storage deletion intent. The row is written before remote upload
+/// work and is linked to the MediaAsset in the same transaction as the asset.
+/// That makes process crashes converge without deleting a valid referenced
+/// asset.
+model MediaCleanupTask {
+  id                String                 @id @default(cuid())
+  ownerEmail        String?
+  requestId         String?
+  storageProvider   String
+  storageObjectId   String
+  storageUrl        String?
+  reason            String
+  assetId           String?
+  status            MediaCleanupTaskStatus @default(uploading)
+  attempts          Int                    @default(0)
+  retryAt           DateTime
+  leaseToken        String?
+  leaseUntil        DateTime?
+  lastError         String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  asset             MediaAsset?            @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@unique([storageProvider, storageObjectId])
+  @@index([status, retryAt])
+  @@index([requestId, status])
+  @@index([assetId, status])
+}
+
 model GenerationGraphNodeOutput {
   id          String              @id @default(cuid())
   graphNodeId String
@@ -391,6 +476,9 @@ model MediaOperation {
   expectedOutputCount Int                   @default(1)
   errorCode           String?
   errorMessage        String?
+  executionLeaseToken String?
+  executionLeaseUntil DateTime?
+  executionLeaseVersion Int                 @default(0)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   completedAt         DateTime?
@@ -401,7 +489,9 @@ model MediaOperation {
   uploadSessions      MediaUploadSession[]
 
   @@index([ownerEmail, status, createdAt])
+  @@index([createdAt, id])
   @@index([graphId, graphNodeId, createdAt])
+  @@index([status, executionLeaseUntil])
 }
 
 model MediaOperationInput {
@@ -453,4 +543,39 @@ model ApiKey {
 
   @@index([ownerEmail])
   @@index([status])
+}
+/// Shared admission state for rate limiting. One row per bucket key so every
+/// process and instance consumes the same budget.
+model RateLimitBucket {
+  key       String   @id
+  tokens    Float
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+/// Durable admission ledger for generation submissions.
+///
+/// The row exists before any uploaded file or provider call, so a retry can be
+/// answered with the same request id and a crashed preparation can be reclaimed
+/// instead of starting a second paid job.
+model GenerationSubmission {
+  id              String   @id @default(uuid())
+  requestId       String   @unique
+  ownerEmail      String
+  apiKeyId        String?
+  scope           String
+  idempotencyHash String?
+  payloadHash     String
+  providerKey     String?
+  graphNodeId     String?
+  state           String   @default("preparing")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime
+
+  @@unique([scope, idempotencyHash])
+  @@index([ownerEmail, state])
+  @@index([providerKey, state])
+  @@index([state, expiresAt])
 }

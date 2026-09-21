@@ -16,6 +16,8 @@ export const revalidate = 0;
 export const runtime = "nodejs";
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
+const MAX_STREAM_BUFFERED_FRAMES = 32;
+const STREAM_OVERLOAD_RETRY_AFTER_MS = 10_000;
 const encoder = new TextEncoder();
 
 type RouteContext = { params: Promise<{ graphId: string }> };
@@ -44,7 +46,7 @@ export async function GET(request: Request, context: RouteContext) {
     if (error instanceof GenerationGraphNotFoundError) {
       return buildErrorResponse("GRAPH_NOT_FOUND", 404);
     }
-    console.error("[generation-events] graph lookup failed", error);
+    logSafeError("generation_event.graph_lookup_failed", error);
     return buildErrorResponse("DB_READ_FAILED", 500);
   }
 
@@ -60,6 +62,10 @@ export async function GET(request: Request, context: RouteContext) {
 
       const enqueue = (frame: string) => {
         if (closed) return false;
+        if (controller.desiredSize !== null && controller.desiredSize <= 0) {
+          close();
+          return false;
+        }
         try {
           controller.enqueue(encoder.encode(frame));
           return true;
@@ -103,7 +109,17 @@ export async function GET(request: Request, context: RouteContext) {
       const brokerUnsubscribe = broker.subscribe(graphId, {
         onEvent: (event) => enqueue(generationFrame(event)),
         onState,
-      });
+      }, ownerEmail);
+      if (!brokerUnsubscribe) {
+        enqueue(
+          eventFrame("stream.overloaded", {
+            version: 2,
+            retryAfterMs: STREAM_OVERLOAD_RETRY_AFTER_MS,
+          }),
+        );
+        close();
+        return;
+      }
       unsubscribe = brokerUnsubscribe;
       if (closed) {
         unsubscribe();
@@ -123,7 +139,7 @@ export async function GET(request: Request, context: RouteContext) {
     cancel() {
       cleanup();
     },
-  });
+  }, { highWaterMark: MAX_STREAM_BUFFERED_FRAMES, size: () => 1 });
 
   return new Response(stream, {
     headers: {
@@ -134,3 +150,4 @@ export async function GET(request: Request, context: RouteContext) {
     },
   });
 }
+import { logSafeError } from "@/server/observability/request-observability";

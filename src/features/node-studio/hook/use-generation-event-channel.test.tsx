@@ -191,6 +191,25 @@ describe("GenerationEventChannelProvider", () => {
     });
   });
 
+  it("delays reconnect after subscriber overload", async () => {
+    vi.useFakeTimers();
+    const { sources, factory } = setup();
+
+    await act(async () =>
+      sources[0].emit(
+        "stream.overloaded",
+        JSON.stringify({ version: 2, retryAfterMs: 10_000 }),
+      ),
+    );
+    expect(sources[0].close).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("state")).toHaveTextContent("fallback");
+
+    await act(async () => vi.advanceTimersByTimeAsync(9_999));
+    expect(factory).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(factory).toHaveBeenCalledTimes(2);
+  });
+
   it("uses a heartbeat watchdog before reconnecting", async () => {
     vi.useFakeTimers();
     const { sources, factory, rerender } = setup();

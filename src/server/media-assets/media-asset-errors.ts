@@ -82,6 +82,7 @@ export class MediaAssetInUseError extends Error {
   constructor(
     public readonly graphIds: string[],
     public readonly operationIds: string[] = [],
+    public readonly generationRequestIds: string[] = [],
   ) {
     super("MEDIA_ASSET_IN_USE");
     this.name = "MediaAssetInUseError";

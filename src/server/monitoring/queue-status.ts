@@ -8,6 +8,7 @@ import {
   getRuntimeCatalog,
   resolveDefaultModelKey,
 } from "@/server/model-catalog/runtime-models";
+import { measureDatabase } from "@/server/observability/request-observability";
 
 export type QueueStatusItem = {
   type: "audio" | "image" | "video";
@@ -91,7 +92,7 @@ type AudioQueueGroup = {
   _count: { _all: number };
 };
 
-export async function getQueueStatus(): Promise<QueueStatusResponse> {
+async function getQueueStatusUnobserved(): Promise<QueueStatusResponse> {
   const [audioRows, imageRows, videoRows, runtime] = await Promise.all([
     prisma.audioGeneration.groupBy({
       by: ["modelKey", "status"],
@@ -187,4 +188,81 @@ export async function getQueueStatus(): Promise<QueueStatusResponse> {
       ...toItems("video", videoCounts),
     ],
   };
+}
+
+export async function getQueueStatus() {
+  return measureDatabase("queue.status", () => getQueueStatusUnobserved());
+}
+
+export type QueueMetrics = {
+  pending: number;
+  processing: number;
+  oldestPendingAgeSeconds: number | null;
+  failedCleanup: number;
+};
+
+export async function getQueueMetrics(): Promise<QueueMetrics> {
+  return measureDatabase("queue.snapshot", async () => {
+    const [
+      imagePending,
+      imageProcessing,
+      videoPending,
+      videoProcessing,
+      audioPending,
+      audioProcessing,
+      operationPending,
+      operationProcessing,
+      cleanupFailed,
+      imageOldest,
+      videoOldest,
+      audioOldest,
+      operationOldest,
+    ] = await Promise.all([
+      prisma.imageGeneration.count({ where: { status: "pending" } }),
+      prisma.imageGeneration.count({ where: { status: "processing" } }),
+      prisma.videoGeneration.count({ where: { status: "pending" } }),
+      prisma.videoGeneration.count({ where: { status: "processing" } }),
+      prisma.audioGeneration.count({ where: { status: "pending" } }),
+      prisma.audioGeneration.count({ where: { status: "processing" } }),
+      prisma.mediaOperation.count({ where: { status: "pending" } }),
+      prisma.mediaOperation.count({ where: { status: "processing" } }),
+      prisma.mediaCleanupTask.count({ where: { status: "failed" } }),
+      prisma.imageGeneration.aggregate({
+        where: { status: "pending" },
+        _min: { createdAt: true },
+      }),
+      prisma.videoGeneration.aggregate({
+        where: { status: "pending" },
+        _min: { createdAt: true },
+      }),
+      prisma.audioGeneration.aggregate({
+        where: { status: "pending" },
+        _min: { createdAt: true },
+      }),
+      prisma.mediaOperation.aggregate({
+        where: { status: "pending" },
+        _min: { createdAt: true },
+      }),
+    ]);
+
+    const oldestPendingAt = [
+      imageOldest._min.createdAt,
+      videoOldest._min.createdAt,
+      audioOldest._min.createdAt,
+      operationOldest._min.createdAt,
+    ]
+      .filter((value): value is Date => value instanceof Date)
+      .sort((left, right) => left.getTime() - right.getTime())[0];
+
+    return {
+      pending:
+        imagePending + videoPending + audioPending + operationPending,
+      processing:
+        imageProcessing + videoProcessing + audioProcessing + operationProcessing,
+      oldestPendingAgeSeconds: oldestPendingAt
+        ? Math.max(0, Math.floor((Date.now() - oldestPendingAt.getTime()) / 1000))
+        : null,
+      failedCleanup: cleanupFailed,
+    };
+  });
 }

@@ -1,4 +1,5 @@
 import {
+  pumpGenerationJobs,
   processAudioJobs,
   processImageJobs,
   processVideoJobs,
@@ -33,6 +34,7 @@ const mockGetMediaAsset = vi.hoisted(() => vi.fn());
 const mockMarkUploading = vi.hoisted(() => vi.fn());
 const mockCompleteGeneration = vi.hoisted(() => vi.fn());
 const mockSettleCancelled = vi.hoisted(() => vi.fn());
+const mockClaimPendingGenerationJobs = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
@@ -50,6 +52,16 @@ vi.mock("@/server/db/prisma", () => ({
     },
   },
 }));
+
+vi.mock("@/server/generation-worker/execution-lease", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/server/generation-worker/execution-lease")
+  >("@/server/generation-worker/execution-lease");
+  return {
+    ...actual,
+    claimPendingGenerationJobs: mockClaimPendingGenerationJobs,
+  };
+});
 
 vi.mock("@/server/audio-generation/audio-generation", () => ({
   resolveAudioGenerationResult: vi.fn(),
@@ -109,6 +121,57 @@ vi.mock("@/server/node-executions/node-execution-repository", () => ({
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimPendingGenerationJobs.mockImplementation(async ({
+      mediaType,
+    }: { mediaType: "image" | "video" | "audio" }) => {
+      const table = (mediaType === "image"
+        ? prisma.imageGeneration
+        : mediaType === "video"
+          ? prisma.videoGeneration
+          : prisma.audioGeneration) as unknown as {
+        findMany: (args?: unknown) => Promise<Array<Record<string, unknown>>>;
+        updateMany: (args: unknown) => Promise<{ count: number }>;
+      };
+      await table.updateMany({
+        where: {
+          status: { in: ["processing", "uploading"] },
+          cancelRequestedAt: { not: null },
+          updatedAt: { lt: new Date() },
+        },
+        data: { status: "cancelled", progress: 0 },
+      });
+      await table.updateMany({
+        where: {
+          status: { in: ["processing", "uploading"] },
+          cancelRequestedAt: null,
+          updatedAt: { lt: new Date() },
+        },
+        data: { status: "failed", progress: 0, errorMessage: "PROCESSING_TIMEOUT" },
+      });
+      await table.findMany({
+        where: { status: { in: ["processing", "uploading"] } },
+      });
+      const pending = await table.findMany({
+        where: { status: "pending" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: 60,
+      });
+      const claimed = [];
+      for (const record of pending) {
+        const result = await table.updateMany({
+          where: { id: record.id, status: "pending" },
+          data: { status: "processing", progress: 92 },
+        });
+        if (result.count !== 1) continue;
+        claimed.push({
+          ...record,
+          executionLeaseToken: "test-lease",
+          executionLeaseVersion: 1,
+          executionLeaseUntil: new Date(Date.now() + 60_000),
+        });
+      }
+      return claimed;
+    });
     mockMarkUploading.mockResolvedValue(undefined);
     mockCompleteGeneration.mockResolvedValue({ status: "completed", assetIds: ["asset-output"] });
     mockSettleCancelled.mockResolvedValue(false);
@@ -241,6 +304,179 @@ describe("generation worker", () => {
     }));
   });
 
+  it("refills a completed slot without waiting for a slower sibling", async () => {
+    let releaseSlow!: () => void;
+    const slowCompletion = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    const record = (id: string, requestId: string) => ({
+      id,
+      requestId,
+      prompt: requestId,
+      progress: 0,
+      requestParams: {
+        model: "z-image-turbo",
+        width: 512,
+        height: 512,
+        steps: 5,
+        imageCount: 1,
+        seed: "",
+      },
+      imageCount: 1,
+      steps: 5,
+      seed: null,
+      executionLeaseToken: `lease-${id}`,
+      executionLeaseVersion: 1,
+      executionLeaseUntil: new Date(Date.now() + 60_000),
+    });
+    const slow = record("slow-id", "slow-request");
+    const fast = record("fast-id", "fast-request");
+    const replacement = record("replacement-id", "replacement-request");
+
+    mockClaimPendingGenerationJobs
+      .mockReset()
+      .mockResolvedValueOnce([slow, fast])
+      .mockResolvedValueOnce([replacement])
+      .mockResolvedValue([]);
+    (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mockImplementation(
+      async (_payload, requestId) => {
+        if (requestId === "slow-request") await slowCompletion;
+        return {
+          status: "completed",
+          result: { images: [] },
+          skipDbSave: true,
+        };
+      },
+    );
+
+    await processImageJobs({ awaitCompletion: false, refillOnCompletion: true });
+    await vi.waitFor(() => {
+      const calls = (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [unknown, string]
+      >;
+      const requestIds = calls.map(([, requestId]) => requestId);
+      expect(requestIds).toEqual(expect.arrayContaining(["slow-request", "fast-request"]));
+    });
+    await vi.waitFor(() => {
+      const calls = (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [unknown, string]
+      >;
+      expect(
+        calls.some(([, requestId]) => requestId === "replacement-request"),
+      ).toBe(true);
+    });
+    expect(updateImageGenerationStatus).not.toHaveBeenCalledWith(
+      "slow-id",
+      "completed",
+      100,
+      undefined,
+      expect.anything(),
+    );
+
+    releaseSlow();
+    await vi.waitFor(() => {
+      expect(updateImageGenerationStatus).toHaveBeenCalledWith(
+        "slow-id",
+        "completed",
+        100,
+        undefined,
+        expect.objectContaining({ token: "lease-slow-id", version: 1 }),
+      );
+    });
+  });
+
+  it("round-robins media claims while one provider remains slow", async () => {
+    let releaseSlow!: () => void;
+    const slowCompletion = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    const mediaRecord = (
+      mediaType: "image" | "video" | "audio",
+      requestId: string,
+    ) => ({
+      id: `${mediaType}-scheduler-id`,
+      requestId,
+      prompt: requestId,
+      progress: 0,
+      requestParams: {
+        model:
+          mediaType === "image"
+            ? "z-image-turbo"
+            : mediaType === "video"
+              ? "wan2-2-hf"
+              : "alloy-tts",
+        width: 512,
+        height: 512,
+        steps: 5,
+        imageCount: 1,
+        seed: "",
+        initImage: "",
+      },
+      imageCount: 1,
+      steps: 5,
+      seed: null,
+      executionLeaseToken: `lease-${mediaType}`,
+      executionLeaseVersion: 1,
+      executionLeaseUntil: new Date(Date.now() + 60_000),
+    });
+    const records = {
+      image: mediaRecord("image", "slow-image-request"),
+      video: mediaRecord("video", "fast-video-request"),
+      audio: mediaRecord("audio", "fast-audio-request"),
+    } as const;
+    const claimedMedia = new Set<string>();
+    mockClaimPendingGenerationJobs.mockImplementation(async ({
+      mediaType,
+    }: { mediaType: "image" | "video" | "audio" }) => {
+      if (claimedMedia.has(mediaType)) return [];
+      claimedMedia.add(mediaType);
+      return [records[mediaType]];
+    });
+    (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mockImplementation(
+      async () => {
+        await slowCompletion;
+        return { status: "completed", result: { images: [] }, skipDbSave: true };
+      },
+    );
+    (resolveVideoGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { videos: [] },
+      skipDbSave: true,
+    });
+    (resolveAudioGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { audios: [] },
+      skipDbSave: true,
+    });
+
+    await pumpGenerationJobs();
+    await vi.waitFor(() => {
+      expect(resolveVideoGenerationResult).toHaveBeenCalledWith(
+        expect.anything(),
+        "fast-video-request",
+      );
+      expect(resolveAudioGenerationResult).toHaveBeenCalledWith(
+        expect.anything(),
+        "fast-audio-request",
+      );
+    });
+    expect(resolveImageGenerationResult).toHaveBeenCalledWith(
+      expect.anything(),
+      "slow-image-request",
+    );
+
+    releaseSlow();
+    await vi.waitFor(() => {
+      expect(updateImageGenerationStatus).toHaveBeenCalledWith(
+        "image-scheduler-id",
+        "completed",
+        100,
+        undefined,
+        expect.objectContaining({ token: "lease-image", version: 1 }),
+      );
+    });
+  });
+
   it("processAudioJobs uses modelKey for concurrent-limit accounting", async () => {
     const processingRecord = {
       requestParams: {},
@@ -332,6 +568,7 @@ describe("generation worker", () => {
         ],
       },
       "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
+      expect.objectContaining({ token: "test-lease", version: 1 }),
     );
     expect(updateAudioGenerationStatus).not.toHaveBeenCalled();
   });
@@ -463,8 +700,52 @@ describe("generation worker", () => {
       "completed",
       100,
       undefined,
+      expect.objectContaining({ token: "test-lease", version: 1 }),
     );
     expect(saveImageGenerationResult).not.toHaveBeenCalled();
+  });
+
+  it("hydrates v3 image input references immediately before execution", async () => {
+    const mockRecord = {
+      id: "img-v3-db-id",
+      requestId: "img-v3-request-id",
+      ownerEmail: "owner@example.com",
+      prompt: "hello",
+      requestParams: {
+        requestVersion: 3,
+        model: "z-image-turbo",
+        requestSettings: { initImages: ["[file]"] },
+        initImages: [],
+        inputAssets: [{ assetId: "asset-input", field: "initImages", sortOrder: 0, multiple: true }],
+      },
+      imageCount: 1,
+      steps: 5,
+      seed: null,
+      progress: 0,
+    };
+
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockRecord]);
+    (prisma.imageGeneration.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
+    mockGetMediaAsset.mockResolvedValue({ url: "https://signed.example/input.png" });
+    (resolveImageGenerationResult as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      result: { images: [] },
+      errorMessage: undefined,
+      skipDbSave: true,
+    });
+
+    await processImageJobs();
+
+    expect(mockGetMediaAsset).toHaveBeenCalledWith("owner@example.com", "asset-input");
+    expect(mockValidateImagePayload).toHaveBeenCalledWith(expect.objectContaining({
+      model: "z-image-turbo",
+      initImages: ["https://signed.example/input.png"],
+    }));
+    expect(resolveImageGenerationResult).toHaveBeenCalledWith(expect.objectContaining({
+      initImages: ["https://signed.example/input.png"],
+    }), "img-v3-request-id");
   });
 
   it("resolves stable input asset IDs at processing time and atomically commits Graph outputs", async () => {
@@ -523,11 +804,16 @@ describe("generation worker", () => {
       dynamicParams: { first_frame: null, references: ["https://example.com/a.png"], options: { count: 2 } },
       initImages: ["https://signed.example/input.png"],
     }));
-    expect(mockMarkUploading).toHaveBeenCalledWith("image", "img-graph-db-id");
+    expect(mockMarkUploading).toHaveBeenCalledWith(
+      "image",
+      "img-graph-db-id",
+      expect.objectContaining({ token: "test-lease", version: 1 }),
+    );
     expect(mockCompleteGeneration).toHaveBeenCalledWith(
       "image",
       "img-graph-db-id",
       [expect.objectContaining({ storageObjectId: "file-output" })],
+      expect.objectContaining({ token: "test-lease", version: 1 }),
     );
     expect(saveImageGenerationResult).not.toHaveBeenCalled();
   });
@@ -567,12 +853,13 @@ describe("generation worker", () => {
       code: "P2025",
     });
 
-    await expect(processImageJobs()).resolves.toBeUndefined();
+    await expect(processImageJobs()).resolves.toBe(1);
     expect(updateImageGenerationStatus).toHaveBeenCalledWith(
       "deleted-image-id",
       "completed",
       100,
       undefined,
+      expect.objectContaining({ token: "test-lease", version: 1 }),
     );
   });
 
@@ -615,6 +902,7 @@ describe("generation worker", () => {
       "completed",
       100,
       undefined,
+      expect.objectContaining({ token: "test-lease", version: 1 }),
     );
     expect(saveVideoGenerationResult).not.toHaveBeenCalled();
   });

@@ -4,6 +4,12 @@ import type { VideoGenerationFormValues } from "@/features/video-generation/mode
 import type { VideoGenerationStatus } from "@/features/video-generation/model/video-generation-types";
 import { startGenerationWorker } from "@/server/generation-worker/generation-worker";
 import { NodeExecutionActiveError } from "@/server/node-executions/node-execution-errors";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import {
+  applyUploadedGenerationInputAssets,
+  generationInputMediaForPayload,
+  uploadGenerationInputAssets,
+} from "@/server/shared/input-media-uploader";
 
 import { createVideoGenerationRecord } from "./video-generation-repository";
 
@@ -14,6 +20,7 @@ export type SubmitVideoGenerationInput = {
   graphNodeId?: string | null;
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>;
   requestId?: string;
+  inputAssetRefs?: import("@/server/generation-request/generation-input-assets").GenerationInputAssetRef[];
 };
 
 export type VideoGenerationSubmissionRecord = {
@@ -33,19 +40,60 @@ export async function submitVideoGeneration({
   graphNodeId = null,
   requestSnapshot,
   requestId = crypto.randomUUID(),
+  inputAssetRefs,
 }: SubmitVideoGenerationInput) {
   startGenerationWorker();
+  const trimmedInitImage = payload.initImage?.trim() ?? "";
+  let uploaded = [] as Awaited<ReturnType<typeof uploadGenerationInputAssets>>;
+  if (!requestSnapshot) {
+    const dynamicParams = payload.dynamicParams && typeof payload.dynamicParams === "object"
+      ? payload.dynamicParams
+      : undefined;
+    const hasPotentialDynamicFile = dynamicParams && Object.values(dynamicParams).some((value) =>
+      typeof value === "string"
+        ? /^(data:|blob:|https?:\/\/)/i.test(value)
+        : Array.isArray(value) && value.some((item) => typeof item === "string" && /^(data:|blob:|https?:\/\/)/i.test(item)),
+    );
+    if (trimmedInitImage || hasPotentialDynamicFile) {
+      const model = hasPotentialDynamicFile
+        ? (await getModelCatalog()).find((candidate) => candidate.type === "video" && candidate.key === payload.model)
+        : undefined;
+      uploaded = await uploadGenerationInputAssets(
+        requestId,
+        ownerEmail,
+        generationInputMediaForPayload(
+          "video",
+          { ...payload, initImage: trimmedInitImage },
+          model ?? { type: "video" },
+        ),
+      );
+    }
+  }
+  const recordPayload = requestSnapshot
+    ? payload
+    : applyUploadedGenerationInputAssets({ ...payload, initImage: trimmedInitImage }, uploaded);
   try {
     const record = graphNodeId || requestSnapshot
       ? await createVideoGenerationRecord(
           requestId,
-          payload,
+          recordPayload,
           ownerEmail,
           apiKeyId,
           graphNodeId,
           requestSnapshot,
+          inputAssetRefs,
         )
-      : await createVideoGenerationRecord(requestId, payload, ownerEmail, apiKeyId);
+      : uploaded.length > 0
+        ? await createVideoGenerationRecord(
+            requestId,
+            recordPayload,
+            ownerEmail,
+            apiKeyId,
+            null,
+            undefined,
+            uploaded.map(({ ref }) => ref),
+          )
+        : await createVideoGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId);
     return {
       record: {
         id: record.requestId,

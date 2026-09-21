@@ -1,5 +1,6 @@
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationResponse } from "@/features/audio-generation/model/audio-generation-types";
+import { createSubmissionIntent } from "@/shared/api/submission-intent";
 
 async function requestJson(input: RequestInfo, init?: RequestInit) {
   const response = await fetch(input, init);
@@ -8,6 +9,7 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
     const message = payload?.message ?? "REQUEST_FAILED";
     const error = new Error(message);
     (error as Error & { code?: string }).code = payload?.message;
+    (error as Error & { status?: number }).status = response.status;
     throw error;
   }
   const result = await response.json().catch(() => {
@@ -44,11 +46,22 @@ export async function requestAudioGeneration(
     appendIfPresent(formData, key, value);
   });
 
-  return requestJson("/api/audio-generation", {
-    method: "POST",
-    body: formData,
-  });
+  const key = audioSubmissionIntent.take(JSON.stringify(payload));
+  try {
+    const result = await requestJson("/api/audio-generation", {
+      method: "POST",
+      headers: { "Idempotency-Key": key },
+      body: formData,
+    });
+    audioSubmissionIntent.settle(key);
+    return result;
+  } catch (error) {
+    audioSubmissionIntent.settle(key, error);
+    throw error;
+  }
 }
+
+const audioSubmissionIntent = createSubmissionIntent();
 
 export async function fetchAudioGenerationStatus(
   requestId: string,

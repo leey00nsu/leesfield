@@ -1,4 +1,10 @@
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import {
+  beginSubmission,
+  finalizeSubmission,
+  hashSubmissionPayload,
+} from "@/server/generation-admission/submission-ledger";
 import {fileInputsFromAssets,parseFileInputPort} from "@/shared/model-catalog/file-input-ports";
 import { ZodError } from "zod";
 import { constructPrompt } from "@/shared/generation-graph/prompt-constructor";
@@ -23,6 +29,7 @@ import { submitVideoGeneration } from "@/server/video-generation/video-generatio
 import { findNodeDefinition, findPortDefinition } from "@/shared/generation-graph/node-registry";
 import { isAllowedMediaMimeType, type MediaOperationDto, type MediaType } from "@/shared/media-assets/media-asset-contract";
 import { isNodeStudioE2EMockBackgroundRemovalEnabled } from "@/server/media-assets/node-studio-e2e-media-fixtures";
+import type { GenerationInputAssetRef } from "@/server/generation-request/generation-input-assets";
 
 import {
   executeNodeSchema,
@@ -33,8 +40,10 @@ import {
 import {
   NodeExecutionConfigError,
   NodeExecutionInputError,
+  NodeExecutionIdempotencyConflictError,
   NodeExecutionInputResolutionError,
   NodeExecutionProcessorUnavailableError,
+  NodeExecutionQueueFullError,
   NodeExecutionStorageUnavailableError,
   NodeExecutionVersionConflictError,
 } from "./node-execution-errors";
@@ -437,6 +446,18 @@ function inputSnapshot(inputs: ResolvedNodeInputs): NodeExecutionInputSnapshot[]
   return inputs.assets.map(({ assetId, portId, sortOrder }) => ({ assetId, portId, sortOrder }));
 }
 
+function generationInputAssetRefs(
+  inputs: ResolvedNodeInputs,
+  generationType: NodeExecutionMediaType,
+): GenerationInputAssetRef[] {
+  return inputs.assets.map(({ assetId, portId, sortOrder }) => ({
+    assetId,
+    field: portId,
+    sortOrder,
+    generationType,
+  }));
+}
+
 function jsonRecord(input: Record<string, unknown>): Record<string, Prisma.InputJsonValue | null> {
   return Object.fromEntries(
     Object.entries(input)
@@ -662,7 +683,13 @@ export function createNodeExecutionService(
 ) {
   const dependencies = { ...defaultDependencies, ...overrides };
   return {
-    async execute(ownerEmail: string, graphId: string, nodeId: string, body: unknown) {
+    async execute(
+      ownerEmail: string,
+      graphId: string,
+      nodeId: string,
+      body: unknown,
+      idempotencyKey?: string | null,
+    ) {
       const input = parseInput(body);
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
       if (node.graph.version !== input.expectedGraphVersion) {
@@ -749,6 +776,48 @@ export function createNodeExecutionService(
       const assetInputs = inputSnapshot(resolved);
       dependencies.assertStorage(mediaType);
 
+      // Node Studio runs share the generation queue budget, so a burst of
+      // node executions cannot bypass the admission limits.
+      const submitAdmitted = async <T>(
+        payloadForHash: unknown,
+        run: (requestId: string) => Promise<T>,
+        reuse: (requestId: string) => T,
+      ): Promise<T> => {
+        const begun = await beginSubmission({
+          requestId: randomUUID(),
+          ownerEmail,
+          idempotencyKey,
+          graphNodeId: node.id,
+          payloadHash: hashSubmissionPayload({
+            kind,
+            payload: payloadForHash,
+          }),
+          providerKey: config.modelKey ?? null,
+          modelKey: config.modelKey ?? null,
+          modelType: mediaType,
+        });
+        if (begun.kind === "rejected") {
+          throw new NodeExecutionQueueFullError(begun.reason);
+        }
+        if (begun.kind === "model-unavailable") {
+          throw new NodeExecutionConfigError({ model: ["MODEL_NOT_FOUND"] });
+        }
+        if (begun.kind === "conflict") {
+          throw new NodeExecutionIdempotencyConflictError();
+        }
+        if (begun.kind === "existing") {
+          return reuse(begun.requestId);
+        }
+        try {
+          const result = await run(begun.requestId);
+          await finalizeSubmission(begun.requestId, "submitted");
+          return result;
+        } catch (error) {
+          await finalizeSubmission(begun.requestId, "failed");
+          throw error;
+        }
+      };
+
       if (mediaType === "image") {
         const initImages = resolved.assets
           .filter((asset) => asset.type === "image" && !parseFileInputPort(asset.portId))
@@ -756,18 +825,26 @@ export function createNodeExecutionService(
         const candidate = { prompt, model: config.modelKey, ...config.parameters, initImages, fileInputs };
         const validated = await dependencies.validateImage(candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
-        const submission = await dependencies.submitImage({
-          payload: validated.data,
-          ownerEmail,
-          graphNodeId: node.id,
-          requestSnapshot: jsonRecord({
-            ...validated.data,
-            initImages: [],
-            inputAssets: assetInputs,
-            graphId,
+        const submission = await submitAdmitted(
+          validated.data,
+          (requestId) => dependencies.submitImage({
+            payload: validated.data,
+            ownerEmail,
             graphNodeId: node.id,
+            requestId,
+            requestSnapshot: jsonRecord({
+              ...validated.data,
+              initImages: [],
+              inputAssets: assetInputs,
+              graphId,
+              graphNodeId: node.id,
+            }),
+            inputAssetRefs: generationInputAssetRefs(resolved, "image"),
           }),
-        });
+          (requestId) => ({
+            record: { id: requestId, status: "pending", progress: 0 },
+          }),
+        );
         return { ...submission, mediaType };
       }
       if (mediaType === "video") {
@@ -775,35 +852,51 @@ export function createNodeExecutionService(
         const candidate = { prompt, model: config.modelKey, ...config.parameters, initImage, fileInputs };
         const validated = await dependencies.validateVideo(candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
-        const submission = await dependencies.submitVideo({
-          payload: validated.data,
-          ownerEmail,
-          graphNodeId: node.id,
-          requestSnapshot: jsonRecord({
-            ...validated.data,
-            initImage: null,
-            inputAssets: assetInputs,
-            graphId,
+        const submission = await submitAdmitted(
+          validated.data,
+          (requestId) => dependencies.submitVideo({
+            payload: validated.data,
+            ownerEmail,
             graphNodeId: node.id,
+            requestId,
+            requestSnapshot: jsonRecord({
+              ...validated.data,
+              initImage: null,
+              inputAssets: assetInputs,
+              graphId,
+              graphNodeId: node.id,
+            }),
+            inputAssetRefs: generationInputAssetRefs(resolved, "video"),
           }),
-        });
+          (requestId) => ({
+            record: { id: requestId, status: "pending", progress: 0 },
+          }),
+        );
         return { ...submission, mediaType };
       }
       const candidate = { prompt, model: config.modelKey, ...config.parameters };
       const validated = await dependencies.validateAudio(candidate);
       if (!validated.success) throw mapValidationError(validated.error, mediaType);
-      const submission = await dependencies.submitAudio({
-        payload: validated.data,
-        ownerEmail,
-        graphNodeId: node.id,
-        requestSnapshot: jsonRecord({
-          ...validated.data,
-          inputAudio: null,
-          inputAssets: assetInputs,
-          graphId,
+      const submission = await submitAdmitted(
+        validated.data,
+        (requestId) => dependencies.submitAudio({
+          payload: validated.data,
+          ownerEmail,
           graphNodeId: node.id,
+          requestId,
+            requestSnapshot: jsonRecord({
+            ...validated.data,
+            inputAudio: null,
+            inputAssets: assetInputs,
+            graphId,
+              graphNodeId: node.id,
+            }),
+            inputAssetRefs: generationInputAssetRefs(resolved, "audio"),
+          }),
+        (requestId) => ({
+          record: { id: requestId, status: "pending", progress: 0 },
         }),
-      });
+      );
       return { ...submission, mediaType };
     },
 

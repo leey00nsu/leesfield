@@ -33,6 +33,19 @@ describe("/api/media-assets/:assetId", () => {
       message: "MEDIA_ASSET_IN_USE",
       graphIds: ["graph_1", "graph_2"],
       operationIds: [],
+      generationRequestIds: [],
+    });
+  });
+
+  it("returns generation request ids when an input asset is still referenced", async () => {
+    service.remove.mockRejectedValue(new MediaAssetInUseError([], [], ["request-1"]));
+    const response = await DELETE(new Request("http://localhost", { method: "DELETE" }), context);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      message: "MEDIA_ASSET_IN_USE",
+      graphIds: [],
+      operationIds: [],
+      generationRequestIds: ["request-1"],
     });
   });
 });

@@ -5,6 +5,8 @@ import {
   extractInputAudios,
   extractReferenceText,
   extractModel,
+  MAX_HISTORY_OFFSET,
+  MAX_HISTORY_SEARCH_LENGTH,
   parseHistoryQuery,
 } from "@/server/history/lib/history-query";
 
@@ -20,6 +22,7 @@ describe("history-query", () => {
         sort: "date_desc",
         limit: 24,
         offset: 0,
+        includeTotal: true,
       });
     });
 
@@ -54,6 +57,7 @@ describe("history-query", () => {
         sort: "date_asc",
         limit: 12,
         offset: 5,
+        includeTotal: true,
       });
     });
 
@@ -63,6 +67,18 @@ describe("history-query", () => {
       });
       const result = parseHistoryQuery(params);
       expect(result.limit).toBe(1);
+    });
+
+    it("deep offset과 검색어 길이를 제한하고 count 생략을 파싱한다", () => {
+      const query = parseHistoryQuery(new URLSearchParams({
+        offset: "999999",
+        query: "x".repeat(MAX_HISTORY_SEARCH_LENGTH + 50),
+        includeTotal: "false",
+      }));
+
+      expect(query.offset).toBe(MAX_HISTORY_OFFSET);
+      expect(query.query).toHaveLength(MAX_HISTORY_SEARCH_LENGTH);
+      expect(query.includeTotal).toBe(false);
     });
 
     it("audio 타입을 허용한다", () => {
@@ -93,9 +109,9 @@ describe("history-query", () => {
             },
           },
           {
-            requestParams: {
-              path: ["model"],
-              string_contains: "test",
+            modelKey: {
+              contains: "test",
+              mode: "insensitive",
             },
           },
         ],
@@ -120,9 +136,9 @@ describe("history-query", () => {
             },
           },
           {
-            requestParams: {
-              path: ["model"],
-              string_contains: "clip",
+            modelKey: {
+              contains: "clip",
+              mode: "insensitive",
             },
           },
         ],
@@ -147,9 +163,9 @@ describe("history-query", () => {
             },
           },
           {
-            requestParams: {
-              path: ["model"],
-              string_contains: "voice",
+            modelKey: {
+              contains: "voice",
+              mode: "insensitive",
             },
           },
         ],
@@ -200,4 +216,4 @@ describe("history-query", () => {
   });
 });
 
-it('combines exact model and prompt-only search for every media type',()=>{ const query=parseHistoryQuery(new URLSearchParams({model:'wan',prompt:' rain '}));for(const build of [buildImageWhere,buildVideoWhere,buildAudioWhere]) expect(build(query)).toEqual({AND:[{OR:[{modelKey:'wan'},{requestParams:{path:['model'],equals:'wan'}}]},{prompt:{contains:'rain',mode:'insensitive'}}]}); });
+it('combines exact model and prompt-only search for every media type',()=>{ const query=parseHistoryQuery(new URLSearchParams({model:'wan',prompt:' rain '}));for(const build of [buildImageWhere,buildVideoWhere,buildAudioWhere]) expect(build(query)).toEqual({AND:[{modelKey:'wan'},{prompt:{contains:'rain',mode:'insensitive'}}]}); });

@@ -5,6 +5,7 @@ import {
   MediaOperationConflictError,
   MediaQuotaExceededError,
   MediaVerificationError,
+  MediaAssetNotFoundError,
 } from "./media-asset-errors";
 import type {
   MediaAssetRecord,
@@ -116,9 +117,13 @@ describe("mediaAssetService", () => {
     resolveReadUrl: vi.fn(),
     delete: vi.fn(),
   };
+  const cleanupMocks = {
+    register: vi.fn().mockResolvedValue({ id: "cleanup_1" }),
+    queue: vi.fn().mockResolvedValue({ id: "cleanup_1" }),
+  };
   const repository = repositoryMocks as unknown as MediaAssetRepository;
   const storage = storageMocks as unknown as MediaStorageAdapter;
-  const service = createMediaAssetService(repository, storage, () => now);
+  const service = createMediaAssetService(repository, storage, () => now, cleanupMocks);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -132,6 +137,7 @@ describe("mediaAssetService", () => {
       expiresAt: session.expiresAt,
     });
     storageMocks.resolveReadUrl.mockResolvedValue("https://read.example/file_1");
+    storageMocks.delete.mockReset();
     storageMocks.delete.mockResolvedValue(undefined);
     repositoryMocks.expireUploads.mockResolvedValue([]);
     repositoryMocks.listNodeOperations.mockResolvedValue([]);
@@ -191,7 +197,7 @@ describe("mediaAssetService", () => {
     expect(repositoryMocks.expireUploads).toHaveBeenCalledWith(now, 100, {
       ownerEmail: "owner@example.com", graphId: "graph_1", graphNodeId: "node_1",
     });
-    expect(storageMocks.delete).toHaveBeenCalledWith("expired-file");
+    expect(storageMocks.delete).not.toHaveBeenCalled();
   });
 
   it("creates a direct upload session without exposing the storage object id", async () => {
@@ -217,7 +223,12 @@ describe("mediaAssetService", () => {
 
   it("relays an owner-scoped pending upload through the server", async () => {
     repositoryMocks.getPendingUpload.mockResolvedValue(session);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.body instanceof ReadableStream) {
+        await new Response(init.body).arrayBuffer();
+      }
+      return new Response(null, { status: 200 });
+    });
     const bytes = new Uint8Array(33);
     const request = new Request("http://localhost/content", { method: "PUT", body: bytes });
 
@@ -401,11 +412,11 @@ describe("mediaAssetService", () => {
       "upload_1",
       "MEDIA_SIZE_MISMATCH",
     );
-    expect(storageMocks.delete).toHaveBeenCalledWith("file_1");
+    expect(storageMocks.delete).not.toHaveBeenCalled();
   });
 
   it("blocks physical deletion while any owned Graph references the asset", async () => {
-    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: ["graph_1"], operationIds: [] });
+    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: ["graph_1"], operationIds: [], generationRequestIds: [] });
     await expect(service.remove("owner@example.com", "asset_1")).rejects.toEqual(
       new MediaAssetInUseError(["graph_1"]),
     );
@@ -414,11 +425,33 @@ describe("mediaAssetService", () => {
   });
 
   it("keeps provenance source assets while a historical operation references them", async () => {
-    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: [], operationIds: ["op_1"] });
+    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: [], operationIds: ["op_1"], generationRequestIds: [] });
     await expect(service.remove("owner@example.com", "asset_1")).rejects.toEqual(
       new MediaAssetInUseError([], ["op_1"]),
     );
     expect(repositoryMocks.markAssetDeleting).not.toHaveBeenCalled();
     expect(storageMocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("blocks physical deletion while a generation request references the asset", async () => {
+    repositoryMocks.getAssetUsage.mockResolvedValue({
+      graphIds: [],
+      operationIds: [],
+      generationRequestIds: ["generation-request-1"],
+    });
+    await expect(service.remove("owner@example.com", "asset_1")).rejects.toEqual(
+      new MediaAssetInUseError([], [], ["generation-request-1"]),
+    );
+    expect(repositoryMocks.markAssetDeleting).not.toHaveBeenCalled();
+    expect(storageMocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("treats a cleanup worker winning the same deletion race as success", async () => {
+    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: [], operationIds: [], generationRequestIds: [] });
+    repositoryMocks.markAssetDeleting.mockResolvedValue(asset);
+    repositoryMocks.deleteAsset.mockRejectedValue(new MediaAssetNotFoundError());
+
+    await expect(service.remove("owner@example.com", "asset_1")).resolves.toBeUndefined();
+    expect(storageMocks.delete).toHaveBeenCalledWith("file_1");
   });
 });

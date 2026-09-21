@@ -9,6 +9,12 @@ import {
   codexBridgeConfigSchema,
   type ImageModelCatalogItem,
 } from "@/server/model-catalog/catalog-schema";
+import {
+  mapBoundedMediaOutputs,
+  OUTBOUND_CONCURRENCY,
+  readFetchResponseBytes,
+} from "@/server/http/bounded-io";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_AGENT_MODEL = "gpt-5.5";
@@ -106,8 +112,7 @@ async function resolveBridgeInitImages(images: string[] | undefined) {
     return [];
   }
 
-  return Promise.all(
-    inputImages.map(async (source) => {
+  return mapWithConcurrency(inputImages, OUTBOUND_CONCURRENCY, async (source) => {
       const resolved = await resolveInputImageBuffer(source, {
         invalidErrorCode: "CODEX_BRIDGE_INPUT_INVALID",
         fetchErrorCode: "CODEX_BRIDGE_INPUT_INVALID",
@@ -118,7 +123,7 @@ async function resolveBridgeInitImages(images: string[] | undefined) {
         throw new Error("CODEX_BRIDGE_INPUT_INVALID");
       }
       return toDataUrl(resolved);
-    }),
+    },
   );
 }
 
@@ -128,7 +133,13 @@ function isDataUrlImage(value: unknown): value is string {
 
 async function readBridgeJson(response: Response) {
   try {
-    return (await response.json()) as unknown;
+    // Test doubles and a few Fetch-compatible bridge clients may expose only
+    // json(); real Response objects always have a body/arrayBuffer path.
+    if (!response.body && typeof response.arrayBuffer !== "function") {
+      return (await response.json()) as unknown;
+    }
+    const bytes = await readFetchResponseBytes(response, 2 * 1024 * 1024);
+    return JSON.parse(bytes.toString("utf8")) as unknown;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("CODEX_BRIDGE_TIMEOUT");
@@ -265,7 +276,7 @@ async function fetchBridge(
   signal: AbortSignal,
 ) {
   try {
-    return await fetch(url, { ...init, signal });
+    return await fetch(url, { ...init, redirect: "error", signal });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("CODEX_BRIDGE_TIMEOUT");
@@ -298,13 +309,17 @@ function assertCompletedImages(parsed: Record<string, unknown>) {
   if (!images.every(isDataUrlImage)) {
     throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
   }
-  return images;
+  if (images.length > 8) {
+    throw new Error("GENERATION_IMAGE_OUTPUT_COUNT_LIMIT");
+  }
+  return images as string[];
 }
 
 async function createBridgeJob(
   config: CodexBridgeConfig,
   payload: ImageGenerationFormValues,
   initImages: string[],
+  requestId: string,
   signal: AbortSignal,
 ) {
   const response = await fetchBridge(
@@ -314,6 +329,7 @@ async function createBridgeJob(
       headers: {
         authorization: `Bearer ${config.token}`,
         "content-type": "application/json",
+        "idempotency-key": `leesfield-${requestId}`,
       },
       body: JSON.stringify({
         prompt: payload.prompt.trim(),
@@ -376,11 +392,12 @@ async function pollBridgeJob(
 async function requestBridgeImage(
   config: CodexBridgeConfig,
   payload: ImageGenerationFormValues,
+  requestId: string,
 ) {
   const initImages = await resolveBridgeInitImages(payload.initImages);
 
   return withBridgeTimeout(config.timeoutMs, async (signal) => {
-    const jobId = await createBridgeJob(config, payload, initImages, signal);
+    const jobId = await createBridgeJob(config, payload, initImages, requestId, signal);
     return pollBridgeJob(config, jobId, signal);
   });
 }
@@ -427,9 +444,11 @@ export const codexBridgeImageAdapter: ImageGenerationAdapter = {
         return "Codex bridge 이미지 생성에 실패했습니다.";
     }
   },
-  async generate(payload: ImageGenerationFormValues) {
+  async generate(payload: ImageGenerationFormValues, context) {
     const config = await getBridgeConfig(payload.model);
-    const images = await requestBridgeImage(config, payload);
-    return { images };
+    const images = await requestBridgeImage(config, payload, context?.requestId ?? "anonymous");
+    return {
+      images: await mapBoundedMediaOutputs(images, "image", async (dataUrl) => dataUrl),
+    };
   },
 };

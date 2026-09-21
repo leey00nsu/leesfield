@@ -25,10 +25,11 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[history] status failed", error);
+    logSafeError("history.status_failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },
     );
   }
 }
+import { logSafeError } from "@/server/observability/request-observability";

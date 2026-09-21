@@ -1,7 +1,19 @@
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/server/db/prisma";
+import {
+  countActiveMediaOperations,
+  lockMediaOperationClaims,
+  MEDIA_OPERATION_GLOBAL_LIMIT,
+  MEDIA_OPERATION_LEASE_MS,
+  MEDIA_OPERATION_WORKER_TYPE,
+  mediaOperationLeaseWhere,
+  recoverMediaOperationRows,
+  MediaOperationLeaseLostError,
+  type MediaOperationLease,
+} from "@/server/media-operations/media-operation-lease";
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
 import type {
   CreateMediaOperationInput,
@@ -21,6 +33,13 @@ import {
 } from "./media-asset-errors";
 import type { InspectedMedia, StorageConfirmedFile, StoragePresignResult } from "./media-storage";
 import type { GeneratedMediaArtifact } from "./generated-media-artifact";
+import {
+  completeStorageCleanup,
+  linkStorageCleanupToAsset,
+  queueExpiredUploadCleanup,
+  queueStorageCleanup,
+  type CleanupClient,
+} from "./media-cleanup-repository";
 
 const assetSelect = {
   id: true,
@@ -91,6 +110,13 @@ const operationSelect = {
   },
 } satisfies Prisma.MediaOperationSelect;
 
+const operationWorkerSelect = {
+  ...operationSelect,
+  executionLeaseToken: true,
+  executionLeaseUntil: true,
+  executionLeaseVersion: true,
+} satisfies Prisma.MediaOperationSelect;
+
 export type MediaAssetRecord = Prisma.MediaAssetGetPayload<{ select: typeof assetSelect }>;
 export type MediaUploadSessionRecord = Prisma.MediaUploadSessionGetPayload<{
   include: typeof uploadSessionInclude;
@@ -98,8 +124,15 @@ export type MediaUploadSessionRecord = Prisma.MediaUploadSessionGetPayload<{
 export type MediaOperationRecord = Prisma.MediaOperationGetPayload<{
   select: typeof operationSelect;
 }>;
+export type MediaOperationWorkerRecord = Prisma.MediaOperationGetPayload<{
+  select: typeof operationWorkerSelect;
+}>;
 
 const activeOperationStatuses = ["pending", "processing", "uploading"] as const;
+
+function hasCleanupClient(client: unknown): client is CleanupClient {
+  return Boolean(client && typeof client === "object" && "mediaCleanupTask" in client);
+}
 
 async function getOwnerReservedBytes(ownerEmail: string) {
   const [assets, uploads] = await Promise.all([
@@ -145,11 +178,30 @@ async function updateOperationProgress(
   return getOperation(ownerEmail, operationId);
 }
 
-async function failOperation(ownerEmail: string, operationId: string, errorCode: string) {
-  await prisma.mediaOperation.updateMany({
-    where: { id: operationId, ownerEmail, status: { in: [...activeOperationStatuses] } },
-    data: { status: "failed", errorCode, errorMessage: null },
+async function failOperation(
+  ownerEmail: string,
+  operationId: string,
+  errorCode: string,
+  lease?: MediaOperationLease,
+) {
+  const updated = await prisma.mediaOperation.updateMany({
+    where: {
+      id: operationId,
+      ownerEmail,
+      ...(lease ? { type: MEDIA_OPERATION_WORKER_TYPE } : {}),
+      status: { in: [...activeOperationStatuses] },
+      ...(lease ? mediaOperationLeaseWhere(lease) : {}),
+    },
+    data: {
+      status: "failed",
+      errorCode,
+      errorMessage: null,
+      ...(lease ? { executionLeaseToken: null, executionLeaseUntil: null } : {}),
+    },
   });
+  if (lease && updated.count !== 1) {
+    throw new MediaOperationLeaseLostError(operationId);
+  }
   return getOperation(ownerEmail, operationId);
 }
 
@@ -162,14 +214,46 @@ async function cancelOperation(ownerEmail: string, operationId: string) {
 }
 
 async function claimPendingServerOperation(operationId: string) {
-  const claimed = await prisma.mediaOperation.updateMany({
-    where: { id: operationId, status: "pending", type: "edit.image.removeBackground" },
-    data: { status: "processing", progress: 10, errorCode: null, errorMessage: null },
-  });
-  if (claimed.count !== 1) return null;
-  return prisma.mediaOperation.findUnique({
-    where: { id: operationId },
-    select: operationSelect,
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await lockMediaOperationClaims(tx);
+    await recoverMediaOperationRows(tx, now);
+    if (await countActiveMediaOperations(tx, now) >= MEDIA_OPERATION_GLOBAL_LIMIT) {
+      return null;
+    }
+
+    const token = randomUUID();
+    const claimed = await tx.mediaOperation.updateMany({
+      where: {
+        id: operationId,
+        status: "pending",
+        type: MEDIA_OPERATION_WORKER_TYPE,
+        executionLeaseToken: null,
+        executionLeaseUntil: null,
+      },
+      data: {
+        status: "processing",
+        progress: 10,
+        errorCode: null,
+        errorMessage: null,
+        executionLeaseToken: token,
+        executionLeaseUntil: new Date(now.getTime() + MEDIA_OPERATION_LEASE_MS),
+        executionLeaseVersion: { increment: 1 },
+      },
+    });
+    if (claimed.count !== 1) return null;
+    const operation = await tx.mediaOperation.findUnique({
+      where: { id: operationId },
+      select: operationWorkerSelect,
+    });
+    if (!operation) throw new Error("MEDIA_OPERATION_CLAIM_NOT_FOUND");
+    return {
+      operation,
+      lease: {
+        token,
+        version: operation.executionLeaseVersion,
+      },
+    };
   });
 }
 
@@ -187,12 +271,18 @@ async function completeServerOperation(
   operationId: string,
   artifacts: GeneratedMediaArtifact[],
   now: Date,
+  lease?: MediaOperationLease,
 ) {
   return prisma.$transaction(async (tx) => {
     const operation = await tx.mediaOperation.findFirst({
-      where: { id: operationId, ownerEmail },
+      where: {
+        id: operationId,
+        ownerEmail,
+        ...(lease ? mediaOperationLeaseWhere(lease) : {}),
+      },
       select: operationSelect,
     });
+    if (lease && !operation) throw new MediaOperationLeaseLostError(operationId);
     if (!operation || !operation.graphNodeId || operation.status !== "processing") {
       throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
     }
@@ -202,10 +292,18 @@ async function completeServerOperation(
     const outputPort = findNodeDefinition(operation.type)?.ports.find((port) => port.direction === "output");
     if (!outputPort) throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
     const uploading = await tx.mediaOperation.updateMany({
-      where: { id: operationId, ownerEmail, status: "processing" },
+      where: {
+        id: operationId,
+        ownerEmail,
+        status: "processing",
+        ...(lease ? mediaOperationLeaseWhere(lease) : {}),
+      },
       data: { status: "uploading", progress: 90 },
     });
-    if (uploading.count !== 1) throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    if (uploading.count !== 1) {
+      if (lease) throw new MediaOperationLeaseLostError(operationId);
+      throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    }
 
     const assetIds: string[] = [];
     for (const artifact of artifacts) {
@@ -229,6 +327,18 @@ async function completeServerOperation(
         select: { id: true },
       });
       assetIds.push(asset.id);
+      if (hasCleanupClient(tx)) {
+        await linkStorageCleanupToAsset(tx, {
+          ownerEmail,
+          requestId: operationId,
+          storageProvider: artifact.storageProvider,
+          storageObjectId: artifact.storageObjectId,
+          storageUrl: artifact.storageUrl,
+          reason: "media_operation_output",
+          assetId: asset.id,
+          now,
+        });
+      }
     }
     await tx.generationGraphNodeOutput.deleteMany({
       where: { graphNodeId: operation.graphNodeId, portId: outputPort.id },
@@ -246,10 +356,31 @@ async function completeServerOperation(
       where: { id: operation.graphNodeId },
       data: { selectedOutputAssetId: assetIds[0] },
     });
-    await tx.mediaOperation.update({
-      where: { id: operationId },
-      data: { status: "completed", progress: 100, completedAt: now },
-    });
+    if (lease) {
+      const completed = await tx.mediaOperation.updateMany({
+        where: {
+          id: operationId,
+          ownerEmail,
+          status: "uploading",
+          ...mediaOperationLeaseWhere(lease),
+        },
+        data: {
+          status: "completed",
+          progress: 100,
+          completedAt: now,
+          executionLeaseToken: null,
+          executionLeaseUntil: null,
+        },
+      });
+      if (completed.count !== 1) {
+        throw new MediaOperationLeaseLostError(operationId);
+      }
+    } else {
+      await tx.mediaOperation.update({
+        where: { id: operationId },
+        data: { status: "completed", progress: 100, completedAt: now },
+      });
+    }
     return assetIds;
   });
 }
@@ -267,14 +398,68 @@ async function listTerminalOperationOutputs(ownerEmail: string, operationId: str
 }
 
 async function deleteTerminalOperationOutput(ownerEmail: string, operationId: string, assetId: string) {
-  await prisma.mediaAsset.deleteMany({
-    where: {
-      id: assetId,
-      ownerEmail,
-      sourceOperationId: operationId,
-      sourceOperation: { is: { status: { in: ["failed", "cancelled"] } } },
-      graphNodeOutputs: { none: {} },
-    },
+  await prisma.$transaction(async (tx) => {
+    const asset = await tx.mediaAsset.findFirst({
+      where: {
+        id: assetId,
+        ownerEmail,
+        status: "deleting",
+        sourceOperationId: operationId,
+        sourceOperation: { is: { status: { in: ["failed", "cancelled"] } } },
+        graphNodeOutputs: { none: {} },
+      },
+      select: { storageProvider: true, storageObjectId: true },
+    });
+    if (!asset) return;
+    await tx.mediaAsset.deleteMany({
+      where: {
+        id: assetId,
+        ownerEmail,
+        status: "deleting",
+        sourceOperationId: operationId,
+        sourceOperation: { is: { status: { in: ["failed", "cancelled"] } } },
+        graphNodeOutputs: { none: {} },
+      },
+    });
+    if (hasCleanupClient(tx)) {
+      await completeStorageCleanup(tx, {
+        storageProvider: asset.storageProvider,
+        storageObjectId: asset.storageObjectId,
+      });
+    }
+  });
+}
+
+async function markTerminalOperationOutputDeleting(ownerEmail: string, operationId: string, assetId: string) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.mediaAsset.updateMany({
+      where: {
+        id: assetId,
+        ownerEmail,
+        status: "completed",
+        sourceOperationId: operationId,
+        sourceOperation: { is: { status: { in: ["failed", "cancelled"] } } },
+        graphNodeOutputs: { none: {} },
+      },
+      data: { status: "deleting" },
+    });
+    if (updated.count !== 1) throw new MediaAssetNotFoundError();
+    const asset = await tx.mediaAsset.findFirst({
+      where: { id: assetId, ownerEmail },
+      select: assetSelect,
+    });
+    if (!asset) throw new MediaAssetNotFoundError();
+    if (hasCleanupClient(tx)) {
+      await queueStorageCleanup(tx, {
+        ownerEmail,
+        storageProvider: asset.storageProvider,
+        storageObjectId: asset.storageObjectId,
+        storageUrl: asset.storageUrl ?? asset.legacyUrl,
+        reason: "asset_delete",
+        assetId: asset.id,
+      });
+    }
+    return asset;
   });
 }
 
@@ -545,7 +730,14 @@ async function failUpload(ownerEmail: string, uploadId: string, errorCode: strin
   await prisma.$transaction(async (tx) => {
     const session = await tx.mediaUploadSession.findFirst({
       where: { id: uploadId, ownerEmail },
-      select: { id: true, operationId: true },
+      select: {
+        id: true,
+        operationId: true,
+        ownerEmail: true,
+        storageProvider: true,
+        storageObjectId: true,
+        storageUrl: true,
+      },
     });
     if (!session) return;
     await tx.mediaUploadSession.updateMany({
@@ -556,6 +748,17 @@ async function failUpload(ownerEmail: string, uploadId: string, errorCode: strin
       await tx.mediaOperation.updateMany({
         where: { id: session.operationId, ownerEmail, status: { in: [...activeOperationStatuses] } },
         data: { status: "failed", errorCode, errorMessage: null },
+      });
+    }
+    if (hasCleanupClient(tx)) {
+      await queueStorageCleanup(tx, {
+        ownerEmail: session.ownerEmail,
+        requestId: session.operationId,
+        storageProvider: session.storageProvider,
+        storageObjectId: session.storageObjectId,
+        storageUrl: session.storageUrl,
+        reason: "upload_failed",
+        now: new Date(),
       });
     }
   });
@@ -615,6 +818,18 @@ async function completeUpload(input: {
       },
       select: assetSelect,
     });
+    if (hasCleanupClient(tx)) {
+      await linkStorageCleanupToAsset(tx, {
+        ownerEmail: input.ownerEmail,
+        requestId: session.operationId,
+        storageProvider: session.storageProvider,
+        storageObjectId: input.confirmed.objectId,
+        storageUrl: input.confirmed.url,
+        reason: session.operationId ? "media_operation_output" : "upload_session",
+        assetId: asset.id,
+        now: input.now,
+      });
+    }
     await tx.mediaUploadSession.update({
       where: { id: session.id },
       data: { status: "completed", assetId: asset.id, errorCode: null },
@@ -735,6 +950,16 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
           },
         },
       },
+      generationInputAssets: { select: { requestId: true } },
+      imageGenerationImage: {
+        select: { generation: { select: { requestId: true, ownerEmail: true } } },
+      },
+      videoGenerationVideo: {
+        select: { generation: { select: { requestId: true, ownerEmail: true } } },
+      },
+      audioGenerationAudio: {
+        select: { generation: { select: { requestId: true, ownerEmail: true } } },
+      },
     },
   });
   if (!asset) throw new MediaAssetNotFoundError();
@@ -759,32 +984,92 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
   const operationIds = Array.from(
     new Set(asset.operationInputs.map((input) => input.operation.id)),
   ).sort();
-  return { graphIds, operationIds };
+  const generationRequestIds = Array.from(
+    new Set([
+      ...asset.generationInputAssets.map((input) => input.requestId),
+      ...(asset.imageGenerationImage?.generation.ownerEmail === ownerEmail
+        ? [asset.imageGenerationImage.generation.requestId]
+        : []),
+      ...(asset.videoGenerationVideo?.generation.ownerEmail === ownerEmail
+        ? [asset.videoGenerationVideo.generation.requestId]
+        : []),
+      ...(asset.audioGenerationAudio?.generation.ownerEmail === ownerEmail
+        ? [asset.audioGenerationAudio.generation.requestId]
+        : []),
+    ]),
+  ).sort();
+  return { graphIds, operationIds, generationRequestIds };
 }
 
 async function markAssetDeleting(ownerEmail: string, assetId: string) {
-  const result = await prisma.mediaAsset.updateMany({
-    where: { id: assetId, ownerEmail, status: "completed" },
-    data: { status: "deleting" },
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.mediaAsset.updateMany({
+      where: { id: assetId, ownerEmail, status: "completed" },
+      data: { status: "deleting" },
+    });
+    if (result.count !== 1) throw new MediaAssetNotFoundError();
+    const asset = await tx.mediaAsset.findFirst({
+      where: { id: assetId, ownerEmail },
+      select: assetSelect,
+    });
+    if (!asset) throw new MediaAssetNotFoundError();
+    if (hasCleanupClient(tx)) {
+      await queueStorageCleanup(tx, {
+        ownerEmail,
+        storageProvider: asset.storageProvider,
+        storageObjectId: asset.storageObjectId,
+        storageUrl: asset.storageUrl ?? asset.legacyUrl,
+        reason: "asset_delete",
+        assetId: asset.id,
+        now: new Date(),
+      });
+    }
+    return asset;
   });
-  if (result.count !== 1) throw new MediaAssetNotFoundError();
-  const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, ownerEmail }, select: assetSelect });
-  if (!asset) throw new MediaAssetNotFoundError();
-  return asset;
 }
 
 async function restoreAsset(ownerEmail: string, assetId: string) {
-  await prisma.mediaAsset.updateMany({
-    where: { id: assetId, ownerEmail, status: "deleting" },
-    data: { status: "completed" },
+  await prisma.$transaction(async (tx) => {
+    await tx.mediaAsset.updateMany({
+      where: { id: assetId, ownerEmail, status: "deleting" },
+      data: { status: "completed" },
+    });
+    if (hasCleanupClient(tx)) {
+      const asset = await tx.mediaAsset.findFirst({
+        where: { id: assetId, ownerEmail },
+        select: assetSelect,
+      });
+      if (asset) {
+        await linkStorageCleanupToAsset(tx, {
+          ownerEmail,
+          storageProvider: asset.storageProvider,
+          storageObjectId: asset.storageObjectId,
+          storageUrl: asset.storageUrl ?? asset.legacyUrl,
+          reason: "asset_delete",
+          assetId: asset.id,
+        });
+      }
+    }
   });
 }
 
 async function deleteAsset(ownerEmail: string, assetId: string) {
-  const result = await prisma.mediaAsset.deleteMany({
-    where: { id: assetId, ownerEmail, status: "deleting" },
+  await prisma.$transaction(async (tx) => {
+    const asset = await tx.mediaAsset.findFirst({
+      where: { id: assetId, ownerEmail },
+      select: { storageProvider: true, storageObjectId: true },
+    });
+    const result = await tx.mediaAsset.deleteMany({
+      where: { id: assetId, ownerEmail, status: "deleting" },
+    });
+    if (result.count !== 1) throw new MediaAssetNotFoundError();
+    if (asset && hasCleanupClient(tx)) {
+      await completeStorageCleanup(tx, {
+        storageProvider: asset.storageProvider,
+        storageObjectId: asset.storageObjectId,
+      });
+    }
   });
-  if (result.count !== 1) throw new MediaAssetNotFoundError();
 }
 
 async function expireUploads(now: Date, limit: number, scope?: { ownerEmail: string; graphId: string; graphNodeId: string }) {
@@ -801,6 +1086,7 @@ async function expireUploads(now: Date, limit: number, scope?: { ownerEmail: str
         ownerEmail: true,
         storageProvider: true,
         storageObjectId: true,
+        storageUrl: true,
         operationId: true,
       },
     });
@@ -811,7 +1097,19 @@ async function expireUploads(now: Date, limit: number, scope?: { ownerEmail: str
         where: { id: session.id, status: { in: ["pending", "confirming"] }, expiresAt: { lte: now } },
         data: { status: "expired", errorCode: "MEDIA_UPLOAD_EXPIRED" },
       });
-      if (updated.count === 1) expired.push(session);
+      if (updated.count === 1) {
+        expired.push(session);
+        if (hasCleanupClient(tx)) {
+          await queueExpiredUploadCleanup(tx, {
+            ownerEmail: session.ownerEmail,
+            requestId: session.operationId,
+            storageProvider: session.storageProvider,
+            storageObjectId: session.storageObjectId,
+            storageUrl: session.storageUrl,
+            now,
+          });
+        }
+      }
     }
     const operationIds = expired.flatMap((session) =>
       session.operationId ? [session.operationId] : [],
@@ -841,6 +1139,7 @@ export const mediaAssetRepository = {
   listPendingServerOperationIds,
   completeServerOperation,
   listTerminalOperationOutputs,
+  markTerminalOperationOutputDeleting,
   deleteTerminalOperationOutput,
   createOperation,
   createUploadSession,

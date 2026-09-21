@@ -1,8 +1,8 @@
 import { restoreRequest, frozenExecutionModel } from '@/server/generation-request/request-snapshot';
+import { inputAssetRefsFromSnapshot } from '@/server/generation-request/generation-input-assets';
 import {fileInputsFromAssets,parseFileInputPort} from '@/shared/model-catalog/file-input-ports';
 import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
-import { prisma } from "@/server/db/prisma";
 import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";
 import {
   saveAudioGenerationResult,
@@ -31,13 +31,22 @@ import {
   type RuntimeVideoModel,
 } from "@/server/model-catalog/runtime-models";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
+import { releaseStorageCleanupsForRequest } from "@/server/media-assets/media-cleanup-repository";
 import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
 import { nodeExecutionRepository } from "@/server/node-executions/node-execution-repository";
+import {
+  claimPendingGenerationJobs,
+  GENERATION_EXECUTION_GLOBAL_LIMIT,
+  isGenerationLeaseLost,
+  requireGenerationLease,
+  startGenerationLeaseMonitor,
+  type ClaimedGeneration,
+} from "@/server/generation-worker/execution-lease";
+import { recordWorkerFailure } from "@/server/observability/metrics";
+import { logStructured } from "@/server/observability/request-observability";
 
 const WORKER_INTERVAL_MS = 2000;
-const PENDING_SCAN_LIMIT = 60;
-const PROCESSING_PROGRESS = 92;
-const PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
+export const GENERATION_WORKER_DRAIN_TIMEOUT_MS = 25_000;
 const ERROR_AUDIO_GENERATION_FAILED = "오디오 생성에 실패했습니다.";
 const ERROR_IMAGE_GENERATION_FAILED = "이미지 생성에 실패했습니다.";
 const ERROR_VIDEO_GENERATION_FAILED = "비디오 생성에 실패했습니다.";
@@ -52,11 +61,28 @@ function isMissingGenerationRecord(error: unknown) {
   );
 }
 
+function recordGenerationFailure(
+  mediaType: "image" | "video" | "audio",
+  jobId: string,
+  error: unknown,
+) {
+  recordWorkerFailure(`generation.${mediaType}`);
+  logStructured("job.failure", {
+    worker: "generation",
+    jobId,
+    kind: mediaType,
+    errorType: error instanceof Error ? error.name : typeof error,
+  }, "error");
+}
+
 type WorkerGlobal = typeof globalThis & {
   __generationWorkerStarted?: boolean;
   __generationWorkerRunning?: boolean;
+  __generationWorkerStopping?: boolean;
   __generationWorkerInterval?: ReturnType<typeof setInterval>;
   __generationWorkerInstanceToken?: symbol;
+  __generationWorkerStopPromise?: Promise<void>;
+  __generationWorkerLastHeartbeatAt?: number;
 };
 
 type ImageRuntimeState = {
@@ -82,35 +108,6 @@ type AudioRuntimeState = {
 
 function normalizeNumber(value: unknown, fallback: number | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function resolveModelKey(
-  requestParams: unknown,
-  modelKeys: string[],
-  fallbackKey: string,
-) {
-  if (requestParams && typeof requestParams === "object") {
-    const model = (requestParams as Record<string, unknown>).model;
-    if (typeof model === "string" && modelKeys.includes(model)) {
-      return model;
-    }
-  }
-  return fallbackKey;
-}
-
-function resolveRecordModelKey(
-  record: {
-    modelKey?: string | null;
-    requestParams: unknown;
-  },
-  modelKeys: string[],
-  fallbackKey: string,
-) {
-  if (typeof record.modelKey === "string" && modelKeys.includes(record.modelKey)) {
-    return record.modelKey;
-  }
-
-  return resolveModelKey(record.requestParams, modelKeys, fallbackKey);
 }
 
 async function getImageRuntimeState(): Promise<ImageRuntimeState | null> {
@@ -183,20 +180,70 @@ async function resolveGraphInputUrls(
   return assets;
 }
 
+/** Resolves v3 request refs immediately before provider execution. */
+async function hydrateRequestInputAssets(
+  record: { ownerEmail?: string | null },
+  params: Record<string, unknown>,
+  generationType: "image" | "video" | "audio",
+) {
+  if (!record.ownerEmail) return params;
+  const refs = inputAssetRefsFromSnapshot(generationType, params).filter((ref) =>
+    ref.field === "initImages" ||
+    ref.field === "initImage" ||
+    ref.field === "inputAudio" ||
+    ref.field.startsWith("dynamicParams."),
+  );
+  if (refs.length === 0) return params;
+  const resolved = await Promise.all(refs.map(async (ref) => ({
+    ref,
+    url: (await mediaAssetService.get(record.ownerEmail as string, ref.assetId)).url,
+  })));
+  const result = { ...params };
+  const grouped = new Map<string, typeof resolved>();
+  for (const item of resolved) {
+    const values = grouped.get(item.ref.field) ?? [];
+    values.push(item);
+    grouped.set(item.ref.field, values);
+  }
+  for (const [field, values] of grouped) {
+    values.sort((left, right) => left.ref.sortOrder - right.ref.sortOrder);
+    const urls = values.map((value) => value.url);
+    if (field === "initImages") result.initImages = urls;
+    else if (field === "initImage") result.initImage = urls[0] ?? "";
+    else if (field === "inputAudio") result.inputAudio = urls[0] ?? "";
+    else if (field.startsWith("dynamicParams.")) {
+      const key = field.slice("dynamicParams.".length);
+      if (!key) continue;
+      const dynamic = {
+        ...(result.dynamicParams && typeof result.dynamicParams === "object" && !Array.isArray(result.dynamicParams)
+          ? result.dynamicParams as Record<string, unknown>
+          : {}),
+      };
+      dynamic[key] = values[0]?.ref.multiple ? urls : urls[0] ?? "";
+      result.dynamicParams = dynamic;
+    }
+  }
+  return result;
+}
+
 async function buildImagePayload(
   record: {
     prompt: string;
     requestParams: unknown;
     requestId?: string;
-    imageCount: number | null;
-    steps: number | null;
-    seed: string | null;
+    imageCount?: number | null;
+    steps?: number | null;
+    seed?: string | null;
     ownerEmail?: string | null;
     graphNodeId?: string | null;
   },
   runtime: ImageRuntimeState,
 ) {
-  const params = restoreRequest(record.requestParams);
+  const params = await hydrateRequestInputAssets(
+    record,
+    restoreRequest(record.requestParams),
+    "image",
+  );
   if(frozenExecutionModel(record.requestParams,"image",params.model) && record.requestId) {
     const {modalJobRepository}=await import("@/server/modal-comfyui/job-repository");
     const job=await modalJobRepository.find?.(record.requestId);
@@ -252,7 +299,11 @@ async function buildVideoPayload(
   },
   runtime: VideoRuntimeState,
 ) {
-  const params = restoreRequest(record.requestParams);
+  const params = await hydrateRequestInputAssets(
+    record,
+    restoreRequest(record.requestParams),
+    "video",
+  );
   if(frozenExecutionModel(record.requestParams,"video",params.model) && record.requestId) {
     const {modalJobRepository}=await import("@/server/modal-comfyui/job-repository");
     const job=await modalJobRepository.find?.(record.requestId);
@@ -294,14 +345,19 @@ async function buildVideoPayload(
   };
 }
 
-function buildAudioPayload(
+async function buildAudioPayload(
   record: {
     prompt: string;
     requestParams: unknown;
+    ownerEmail?: string | null;
   },
   runtime: AudioRuntimeState,
 ) {
-  const params = restoreRequest(record.requestParams);
+  const params = await hydrateRequestInputAssets(
+    record,
+    restoreRequest(record.requestParams),
+    "audio",
+  );
   if (typeof params.model === "string" && !runtime.modelMap.has(params.model)) throw new Error("MODEL_NOT_FOUND");
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)
@@ -419,194 +475,85 @@ function buildAudioPayload(
   };
 }
 
-function buildSlotsByModel<TModel extends string>(
-  models: readonly TModel[],
-  processingCounts: Map<TModel, number>,
-  getLimit: (model: TModel) => number,
+export type ProcessGenerationJobsOptions = {
+  awaitCompletion?: boolean;
+  refillOnCompletion?: boolean;
+  maxClaims?: number;
+};
+
+const inFlightGenerationJobs = new Map<string, Promise<void>>();
+
+function scheduleGenerationJob(
+  key: string,
+  run: () => Promise<void>,
+  refill?: () => Promise<void>,
 ) {
-  const slots = new Map<TModel, number>();
-  let totalSlots = 0;
+  const existing = inFlightGenerationJobs.get(key);
+  if (existing) return existing;
 
-  for (const model of models) {
-    const limit = getLimit(model);
-    const used = processingCounts.get(model) ?? 0;
-    const available = Math.max(limit - used, 0);
-    slots.set(model, available);
-    totalSlots += available;
-  }
-
-  return { slots, totalSlots };
+  const execution = Promise.resolve().then(run);
+  inFlightGenerationJobs.set(key, execution);
+  const settle = () => {
+    if (inFlightGenerationJobs.get(key) !== execution) return;
+    inFlightGenerationJobs.delete(key);
+    if (refill) {
+      void refill().catch(() => undefined);
+    }
+  };
+  execution.then(settle, settle);
+  return execution;
 }
 
-async function getImageProcessingCounts(
-  modelKeys: string[],
-  defaultKey: string,
+async function handleImageRecord(
+  record: ClaimedGeneration,
+  runtime: ImageRuntimeState,
 ) {
-  const records = await prisma.imageGeneration.findMany({
-    where: { status: "processing" },
-    select: { modelKey: true, requestParams: true },
-  });
-  const counts = new Map<string, number>();
-
-  for (const record of records) {
-    const model = resolveRecordModelKey(record, modelKeys, defaultKey);
-    counts.set(model, (counts.get(model) ?? 0) + 1);
-  }
-
-  return counts;
-}
-
-async function getVideoProcessingCounts(
-  modelKeys: string[],
-  defaultKey: string,
-) {
-  const records = await prisma.videoGeneration.findMany({
-    where: { status: "processing" },
-    select: { modelKey: true, requestParams: true },
-  });
-  const counts = new Map<string, number>();
-
-  for (const record of records) {
-    const model = resolveRecordModelKey(record, modelKeys, defaultKey);
-    counts.set(model, (counts.get(model) ?? 0) + 1);
-  }
-
-  return counts;
-}
-
-async function getAudioProcessingCounts(
-  modelKeys: string[],
-  defaultKey: string,
-) {
-  const records = await prisma.audioGeneration.findMany({
-    where: { status: "processing" },
-    select: { modelKey: true, requestParams: true },
-  });
-  const counts = new Map<string, number>();
-
-  for (const record of records) {
-    const model = resolveRecordModelKey(record, modelKeys, defaultKey);
-    counts.set(model, (counts.get(model) ?? 0) + 1);
-  }
-
-  return counts;
-}
-
-async function expireStaleImageProcessing() {
-  const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
-  await prisma.imageGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: { not: null },
-      updatedAt: { lt: cutoff },
-    },
-    data: { status: "cancelled", progress: 0 },
-  });
-  await prisma.imageGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: null,
-      updatedAt: { lt: cutoff },
-    },
-    data: {
-      status: "failed",
-      progress: 0,
-      errorMessage: "PROCESSING_TIMEOUT",
-    },
-  });
-}
-
-async function expireStaleVideoProcessing() {
-  const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
-  await prisma.videoGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: { not: null },
-      updatedAt: { lt: cutoff },
-    },
-    data: { status: "cancelled", progress: 0 },
-  });
-  await prisma.videoGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: null,
-      updatedAt: { lt: cutoff },
-    },
-    data: {
-      status: "failed",
-      progress: 0,
-      errorMessage: "PROCESSING_TIMEOUT",
-    },
-  });
-}
-
-async function expireStaleAudioProcessing() {
-  const cutoff = new Date(Date.now() - PROCESSING_TIMEOUT_MS);
-  await prisma.audioGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: { not: null },
-      updatedAt: { lt: cutoff },
-    },
-    data: { status: "cancelled", progress: 0 },
-  });
-  await prisma.audioGeneration.updateMany({
-    where: {
-      status: { in: ["processing", "uploading"] },
-      cancelRequestedAt: null,
-      updatedAt: { lt: cutoff },
-    },
-    data: {
-      status: "failed",
-      progress: 0,
-      errorMessage: "PROCESSING_TIMEOUT",
-    },
-  });
-}
-
-async function handleImageRecord(record: {
-  id: string;
-  requestId: string;
-  prompt: string;
-  requestParams: unknown;
-  imageCount: number | null;
-  steps: number | null;
-  seed: string | null;
-  progress: number;
-  ownerEmail: string | null;
-  graphNodeId: string | null;
-}, runtime: ImageRuntimeState) {
-  let payload;
+  const lease = requireGenerationLease(record, "image", record.id);
+  const monitor = startGenerationLeaseMonitor("image", record.id, lease);
   try {
-    payload = await buildImagePayload(record, runtime);
-  } catch (error) {
-    await updateImageGenerationStatus(
-      record.id,
-      "failed",
-      0,
-      error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
-    );
-    return;
-  }
-  const executionModel=frozenExecutionModel(record.requestParams,"image",payload.model);
-  const parsed = executionModel ? await validateImageGenerationPayload(payload,undefined,executionModel) : await validateImageGenerationPayload(payload);
-  if (!parsed.success) {
-    await updateImageGenerationStatus(
-      record.id,
-      "failed",
-      record.progress,
-      "INVALID_JOB_PAYLOAD",
-    );
-    return;
-  }
+    let payload;
+    try {
+      monitor.assertOwned();
+      payload = await buildImagePayload(record, runtime);
+    } catch (error) {
+      if (isGenerationLeaseLost(error)) return;
+      await updateImageGenerationStatus(
+        record.id,
+        "failed",
+        0,
+        error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
+        lease,
+      );
+      return;
+    }
+    monitor.assertOwned();
+    const executionModel = frozenExecutionModel(record.requestParams, "image", payload.model);
+    const parsed = executionModel
+      ? await validateImageGenerationPayload(payload, undefined, executionModel)
+      : await validateImageGenerationPayload(payload);
+    if (!parsed.success) {
+      await updateImageGenerationStatus(
+        record.id,
+        "failed",
+        record.progress,
+        "INVALID_JOB_PAYLOAD",
+        lease,
+      );
+      return;
+    }
 
-  try {
     const result = record.graphNodeId
       ? await resolveImageGenerationResult(parsed.data, record.requestId, {
           executionModel,
-          onUploading: () => nodeExecutionRepository.markUploading("image", record.id),
+          onUploading: async () => {
+            monitor.assertOwned();
+            await nodeExecutionRepository.markUploading("image", record.id, lease);
+          },
         })
-      : executionModel ? await resolveImageGenerationResult(parsed.data, record.requestId, {executionModel}) : await resolveImageGenerationResult(parsed.data, record.requestId);
+      : executionModel
+        ? await resolveImageGenerationResult(parsed.data, record.requestId, { executionModel })
+        : await resolveImageGenerationResult(parsed.data, record.requestId);
+    monitor.assertOwned();
     if (
       record.graphNodeId &&
       result.status === "completed" &&
@@ -617,7 +564,7 @@ async function handleImageRecord(record: {
 
     if (result.status === "completed" && !result.skipDbSave) {
       if (record.graphNodeId) {
-        await nodeExecutionRepository.completeGeneration("image", record.id, result.artifacts ?? []);
+        await nodeExecutionRepository.completeGeneration("image", record.id, result.artifacts ?? [], lease);
       } else {
         await saveImageGenerationResult(
           record.id,
@@ -626,6 +573,7 @@ async function handleImageRecord(record: {
           result.result,
           result.errorMessage,
           result.artifacts,
+          lease,
         );
       }
     } else {
@@ -634,12 +582,15 @@ async function handleImageRecord(record: {
         result.status,
         result.status === "completed" ? 100 : 0,
         result.errorMessage,
+        lease,
       );
     }
   } catch (error) {
-    if (isMissingGenerationRecord(error)) return;
+    if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
-    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("image", record.id)) return;
+    recordGenerationFailure("image", record.id, error);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("image", record.id, lease)) return;
 
     try {
       await updateImageGenerationStatus(
@@ -647,54 +598,67 @@ async function handleImageRecord(record: {
         "failed",
         0,
         error instanceof Error ? error.message : ERROR_IMAGE_GENERATION_FAILED,
+        lease,
       );
     } catch (statusError) {
-      if (isMissingGenerationRecord(statusError)) return;
+      if (isMissingGenerationRecord(statusError) || isGenerationLeaseLost(statusError)) return;
       throw statusError;
     }
+  } finally {
+    monitor.stop();
   }
 }
 
-async function handleVideoRecord(record: {
-  id: string;
-  requestId: string;
-  prompt: string;
-  requestParams: unknown;
-  progress: number;
-  ownerEmail: string | null;
-  graphNodeId: string | null;
-}, runtime: VideoRuntimeState) {
-  let payload;
+async function handleVideoRecord(
+  record: ClaimedGeneration,
+  runtime: VideoRuntimeState,
+) {
+  const lease = requireGenerationLease(record, "video", record.id);
+  const monitor = startGenerationLeaseMonitor("video", record.id, lease);
   try {
-    payload = await buildVideoPayload(record, runtime);
-  } catch (error) {
-    await updateVideoGenerationStatus(
-      record.id,
-      "failed",
-      0,
-      error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
-    );
-    return;
-  }
-  const executionModel=frozenExecutionModel(record.requestParams,"video",payload.model);
-  const parsed = executionModel ? await validateVideoGenerationPayload(payload,undefined,executionModel) : await validateVideoGenerationPayload(payload);
-  if (!parsed.success) {
-    await updateVideoGenerationStatus(
-      record.id,
-      "failed",
-      record.progress,
-      "INVALID_JOB_PAYLOAD",
-    );
-    return;
-  }
+    let payload;
+    try {
+      monitor.assertOwned();
+      payload = await buildVideoPayload(record, runtime);
+    } catch (error) {
+      if (isGenerationLeaseLost(error)) return;
+      await updateVideoGenerationStatus(
+        record.id,
+        "failed",
+        0,
+        error instanceof Error ? error.message : "NODE_INPUT_RESOLUTION_FAILED",
+        lease,
+      );
+      return;
+    }
+    monitor.assertOwned();
+    const executionModel = frozenExecutionModel(record.requestParams, "video", payload.model);
+    const parsed = executionModel
+      ? await validateVideoGenerationPayload(payload, undefined, executionModel)
+      : await validateVideoGenerationPayload(payload);
+    if (!parsed.success) {
+      await updateVideoGenerationStatus(
+        record.id,
+        "failed",
+        record.progress,
+        "INVALID_JOB_PAYLOAD",
+        lease,
+      );
+      return;
+    }
 
-  try {
     const result = record.graphNodeId
       ? await resolveVideoGenerationResult(parsed.data, record.requestId, {
           executionModel,
-          onUploading: () => nodeExecutionRepository.markUploading("video", record.id),
+          onUploading: async () => {
+            monitor.assertOwned();
+            await nodeExecutionRepository.markUploading("video", record.id, lease);
+          },
         })
-      : executionModel ? await resolveVideoGenerationResult(parsed.data, record.requestId, {executionModel}) : await resolveVideoGenerationResult(parsed.data, record.requestId);
+      : executionModel
+        ? await resolveVideoGenerationResult(parsed.data, record.requestId, { executionModel })
+        : await resolveVideoGenerationResult(parsed.data, record.requestId);
+    monitor.assertOwned();
     if (
       record.graphNodeId &&
       result.status === "completed" &&
@@ -705,15 +669,28 @@ async function handleVideoRecord(record: {
 
     if (result.status === "completed" && !result.skipDbSave) {
       if (record.graphNodeId) {
-        await nodeExecutionRepository.completeGeneration("video", record.id, result.artifacts ?? []);
+        await nodeExecutionRepository.completeGeneration("video", record.id, result.artifacts ?? [], lease);
       } else {
-        await saveVideoGenerationResult(
-          record.id,
-          result.status,
-          100,
-          result.result,
-          result.errorMessage,
-        );
+        if (result.artifacts?.length) {
+          await saveVideoGenerationResult(
+            record.id,
+            result.status,
+            100,
+            result.result,
+            result.errorMessage,
+            lease,
+            result.artifacts,
+          );
+        } else {
+          await saveVideoGenerationResult(
+            record.id,
+            result.status,
+            100,
+            result.result,
+            result.errorMessage,
+            lease,
+          );
+        }
       }
     } else {
       await updateVideoGenerationStatus(
@@ -721,46 +698,62 @@ async function handleVideoRecord(record: {
         result.status,
         result.status === "completed" ? 100 : 0,
         result.errorMessage,
+        lease,
       );
     }
   } catch (error) {
+    if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
-    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("video", record.id)) return;
-    await updateVideoGenerationStatus(
-      record.id,
-      "failed",
-      0,
-      error instanceof Error ? error.message : ERROR_VIDEO_GENERATION_FAILED,
-    );
+    recordGenerationFailure("video", record.id, error);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("video", record.id, lease)) return;
+    try {
+      await updateVideoGenerationStatus(
+        record.id,
+        "failed",
+        0,
+        error instanceof Error ? error.message : ERROR_VIDEO_GENERATION_FAILED,
+        lease,
+      );
+    } catch (statusError) {
+      if (isMissingGenerationRecord(statusError) || isGenerationLeaseLost(statusError)) return;
+      throw statusError;
+    }
+  } finally {
+    monitor.stop();
   }
 }
 
-async function handleAudioRecord(record: {
-  id: string;
-  requestId: string;
-  prompt: string;
-  requestParams: unknown;
-  progress: number;
-  graphNodeId: string | null;
-}, runtime: AudioRuntimeState) {
-  const payload = buildAudioPayload(record, runtime);
-  const parsed = await validateAudioGenerationPayload(payload);
-  if (!parsed.success) {
-    await updateAudioGenerationStatus(
-      record.id,
-      "failed",
-      record.progress,
-      "INVALID_JOB_PAYLOAD",
-    );
-    return;
-  }
-
+async function handleAudioRecord(
+  record: ClaimedGeneration,
+  runtime: AudioRuntimeState,
+) {
+  const lease = requireGenerationLease(record, "audio", record.id);
+  const monitor = startGenerationLeaseMonitor("audio", record.id, lease);
   try {
+    monitor.assertOwned();
+    const payload = await buildAudioPayload(record, runtime);
+    const parsed = await validateAudioGenerationPayload(payload);
+    if (!parsed.success) {
+      await updateAudioGenerationStatus(
+        record.id,
+        "failed",
+        record.progress,
+        "INVALID_JOB_PAYLOAD",
+        lease,
+      );
+      return;
+    }
+
     const result = record.graphNodeId
       ? await resolveAudioGenerationResult(parsed.data, record.requestId, {
-          onUploading: () => nodeExecutionRepository.markUploading("audio", record.id),
+          onUploading: async () => {
+            monitor.assertOwned();
+            await nodeExecutionRepository.markUploading("audio", record.id, lease);
+          },
         })
       : await resolveAudioGenerationResult(parsed.data, record.requestId);
+    monitor.assertOwned();
     if (
       record.graphNodeId &&
       result.status === "completed" &&
@@ -771,15 +764,28 @@ async function handleAudioRecord(record: {
 
     if (result.status === "completed" && result.result?.audios?.length) {
       if (record.graphNodeId) {
-        await nodeExecutionRepository.completeGeneration("audio", record.id, result.artifacts ?? []);
+        await nodeExecutionRepository.completeGeneration("audio", record.id, result.artifacts ?? [], lease);
       } else {
-        await saveAudioGenerationResult(
-          record.id,
-          result.status,
-          100,
-          result.result,
-          result.errorMessage,
-        );
+        if (result.artifacts?.length) {
+          await saveAudioGenerationResult(
+            record.id,
+            result.status,
+            100,
+            result.result,
+            result.errorMessage,
+            lease,
+            result.artifacts,
+          );
+        } else {
+          await saveAudioGenerationResult(
+            record.id,
+            result.status,
+            100,
+            result.result,
+            result.errorMessage,
+            lease,
+          );
+        }
       }
     } else {
       await updateAudioGenerationStatus(
@@ -787,144 +793,192 @@ async function handleAudioRecord(record: {
         result.status,
         result.status === "completed" ? 100 : 0,
         result.errorMessage,
+        lease,
       );
     }
   } catch (error) {
+    if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
-    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("audio", record.id)) return;
-    await updateAudioGenerationStatus(
-      record.id,
-      "failed",
-      0,
-      error instanceof Error ? error.message : ERROR_AUDIO_GENERATION_FAILED,
-    );
+    recordGenerationFailure("audio", record.id, error);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("audio", record.id, lease)) return;
+    try {
+      await updateAudioGenerationStatus(
+        record.id,
+        "failed",
+        0,
+        error instanceof Error ? error.message : ERROR_AUDIO_GENERATION_FAILED,
+        lease,
+      );
+    } catch (statusError) {
+      if (isMissingGenerationRecord(statusError) || isGenerationLeaseLost(statusError)) return;
+      throw statusError;
+    }
+  } finally {
+    monitor.stop();
   }
 }
 
-export async function processImageJobs() {
+export async function processImageJobs({
+  awaitCompletion = true,
+  refillOnCompletion = false,
+  maxClaims,
+}: ProcessGenerationJobsOptions = {}) {
+  if (isGenerationWorkerStopping()) return 0;
+  const availableLocalSlots = Math.max(
+    GENERATION_EXECUTION_GLOBAL_LIMIT - inFlightGenerationJobs.size,
+    0,
+  );
+  if (availableLocalSlots === 0) return 0;
   const runtime = await getImageRuntimeState();
-  if (!runtime) return;
-  await expireStaleImageProcessing();
-  const processingCounts = await getImageProcessingCounts(
-    runtime.modelKeys,
-    runtime.defaultKey,
+  if (!runtime) return 0;
+  if (isGenerationWorkerStopping()) return 0;
+  const claimLimit = Math.min(
+    availableLocalSlots,
+    maxClaims === undefined ? availableLocalSlots : Math.max(0, Math.floor(maxClaims)),
   );
-  const { slots, totalSlots } = buildSlotsByModel(
-    runtime.modelKeys,
-    processingCounts,
-    (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
-  );
-  if (totalSlots === 0) return;
-
-  const pending = await prisma.imageGeneration.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    take: Math.max(totalSlots * 3, PENDING_SCAN_LIMIT),
+  if (claimLimit === 0) return 0;
+  const claimedRecords = await claimPendingGenerationJobs({
+    mediaType: "image",
+    modelKeys: runtime.modelKeys,
+    defaultKey: runtime.defaultKey,
+    getModelLimit: (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
+    maxClaims: claimLimit,
   });
-
-  const claimedRecords: typeof pending = [];
-
-  for (const record of pending) {
-    const model = resolveRecordModelKey(record, runtime.modelKeys, runtime.defaultKey);
-    const available = slots.get(model) ?? 0;
-    if (available <= 0) continue;
-
-    const claimed = await prisma.imageGeneration.updateMany({
-      where: { id: record.id, status: "pending" },
-      data: { status: "processing", progress: PROCESSING_PROGRESS },
-    });
-    if (claimed.count === 0) continue;
-
-    slots.set(model, available - 1);
-    claimedRecords.push(record);
-    if (claimedRecords.length >= totalSlots) break;
-  }
-
-  await Promise.all(claimedRecords.map((record) => handleImageRecord(record, runtime)));
+  const refill = refillOnCompletion
+    ? () => pumpGenerationJobs()
+    : undefined;
+  const executions = claimedRecords.map((record) =>
+    scheduleGenerationJob(
+      `image:${record.id}`,
+      () => handleImageRecord(record, runtime),
+      refill,
+    ),
+  );
+  if (awaitCompletion) await Promise.all(executions);
+  return claimedRecords.length;
 }
 
-export async function processVideoJobs() {
+export async function processVideoJobs({
+  awaitCompletion = true,
+  refillOnCompletion = false,
+  maxClaims,
+}: ProcessGenerationJobsOptions = {}) {
+  if (isGenerationWorkerStopping()) return 0;
+  const availableLocalSlots = Math.max(
+    GENERATION_EXECUTION_GLOBAL_LIMIT - inFlightGenerationJobs.size,
+    0,
+  );
+  if (availableLocalSlots === 0) return 0;
   const runtime = await getVideoRuntimeState();
-  if (!runtime) return;
-  await expireStaleVideoProcessing();
-  const processingCounts = await getVideoProcessingCounts(
-    runtime.modelKeys,
-    runtime.defaultKey,
+  if (!runtime) return 0;
+  if (isGenerationWorkerStopping()) return 0;
+  const claimLimit = Math.min(
+    availableLocalSlots,
+    maxClaims === undefined ? availableLocalSlots : Math.max(0, Math.floor(maxClaims)),
   );
-  const { slots, totalSlots } = buildSlotsByModel(
-    runtime.modelKeys,
-    processingCounts,
-    (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
-  );
-  if (totalSlots === 0) return;
-
-  const pending = await prisma.videoGeneration.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    take: Math.max(totalSlots * 3, PENDING_SCAN_LIMIT),
+  if (claimLimit === 0) return 0;
+  const claimedRecords = await claimPendingGenerationJobs({
+    mediaType: "video",
+    modelKeys: runtime.modelKeys,
+    defaultKey: runtime.defaultKey,
+    getModelLimit: (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
+    maxClaims: claimLimit,
   });
-
-  const claimedRecords: typeof pending = [];
-
-  for (const record of pending) {
-    const model = resolveRecordModelKey(record, runtime.modelKeys, runtime.defaultKey);
-    const available = slots.get(model) ?? 0;
-    if (available <= 0) continue;
-
-    const claimed = await prisma.videoGeneration.updateMany({
-      where: { id: record.id, status: "pending" },
-      data: { status: "processing", progress: PROCESSING_PROGRESS },
-    });
-    if (claimed.count === 0) continue;
-
-    slots.set(model, available - 1);
-    claimedRecords.push(record);
-    if (claimedRecords.length >= totalSlots) break;
-  }
-
-  await Promise.all(claimedRecords.map((record) => handleVideoRecord(record, runtime)));
+  const refill = refillOnCompletion
+    ? () => pumpGenerationJobs()
+    : undefined;
+  const executions = claimedRecords.map((record) =>
+    scheduleGenerationJob(
+      `video:${record.id}`,
+      () => handleVideoRecord(record, runtime),
+      refill,
+    ),
+  );
+  if (awaitCompletion) await Promise.all(executions);
+  return claimedRecords.length;
 }
 
-export async function processAudioJobs() {
+export async function processAudioJobs({
+  awaitCompletion = true,
+  refillOnCompletion = false,
+  maxClaims,
+}: ProcessGenerationJobsOptions = {}) {
+  if (isGenerationWorkerStopping()) return 0;
+  const availableLocalSlots = Math.max(
+    GENERATION_EXECUTION_GLOBAL_LIMIT - inFlightGenerationJobs.size,
+    0,
+  );
+  if (availableLocalSlots === 0) return 0;
   const runtime = await getAudioRuntimeState();
-  if (!runtime) return;
-  await expireStaleAudioProcessing();
-  const processingCounts = await getAudioProcessingCounts(
-    runtime.modelKeys,
-    runtime.defaultKey,
+  if (!runtime) return 0;
+  if (isGenerationWorkerStopping()) return 0;
+  const claimLimit = Math.min(
+    availableLocalSlots,
+    maxClaims === undefined ? availableLocalSlots : Math.max(0, Math.floor(maxClaims)),
   );
-  const { slots, totalSlots } = buildSlotsByModel(
-    runtime.modelKeys,
-    processingCounts,
-    (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
-  );
-  if (totalSlots === 0) return;
-
-  const pending = await prisma.audioGeneration.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    take: Math.max(totalSlots * 3, PENDING_SCAN_LIMIT),
+  if (claimLimit === 0) return 0;
+  const claimedRecords = await claimPendingGenerationJobs({
+    mediaType: "audio",
+    modelKeys: runtime.modelKeys,
+    defaultKey: runtime.defaultKey,
+    getModelLimit: (model) => runtime.modelMap.get(model)?.concurrentLimit ?? 1,
+    maxClaims: claimLimit,
   });
+  const refill = refillOnCompletion
+    ? () => pumpGenerationJobs()
+    : undefined;
+  const executions = claimedRecords.map((record) =>
+    scheduleGenerationJob(
+      `audio:${record.id}`,
+      () => handleAudioRecord(record, runtime),
+      refill,
+    ),
+  );
+  if (awaitCompletion) await Promise.all(executions);
+  return claimedRecords.length;
+}
 
-  const claimedRecords: typeof pending = [];
+type GenerationScheduler = (
+  options: ProcessGenerationJobsOptions,
+) => Promise<number>;
 
-  for (const record of pending) {
-    const model = resolveRecordModelKey(record, runtime.modelKeys, runtime.defaultKey);
-    const available = slots.get(model) ?? 0;
-    if (available <= 0) continue;
+const generationSchedulers: readonly GenerationScheduler[] = [
+  processImageJobs,
+  processVideoJobs,
+  processAudioJobs,
+];
+let nextGenerationSchedulerIndex = 0;
+let generationPump: Promise<void> | null = null;
 
-    const claimed = await prisma.audioGeneration.updateMany({
-      where: { id: record.id, status: "pending" },
-      data: { status: "processing", progress: PROCESSING_PROGRESS },
-    });
-    if (claimed.count === 0) continue;
+export async function pumpGenerationJobs() {
+  if (isGenerationWorkerStopping()) return;
+  if (generationPump) return generationPump;
 
-    slots.set(model, available - 1);
-    claimedRecords.push(record);
-    if (claimedRecords.length >= totalSlots) break;
-  }
-
-  await Promise.all(claimedRecords.map((record) => handleAudioRecord(record, runtime)));
+  generationPump = (async () => {
+    let emptySchedulers = 0;
+    while (
+      !isGenerationWorkerStopping() &&
+      inFlightGenerationJobs.size < GENERATION_EXECUTION_GLOBAL_LIMIT &&
+      emptySchedulers < generationSchedulers.length
+    ) {
+      const schedulerIndex = nextGenerationSchedulerIndex;
+      nextGenerationSchedulerIndex =
+        (nextGenerationSchedulerIndex + 1) % generationSchedulers.length;
+      const claimed = await generationSchedulers[schedulerIndex]!({
+        awaitCompletion: false,
+        maxClaims: 1,
+      });
+      if (claimed > 0) {
+        emptySchedulers = 0;
+      } else {
+        emptySchedulers += 1;
+      }
+    }
+  })().finally(() => {
+    generationPump = null;
+  });
+  return generationPump;
 }
 
 export function startGenerationWorker() {
@@ -933,6 +987,7 @@ export function startGenerationWorker() {
   }
 
   const globalForWorker = globalThis as WorkerGlobal;
+  if (globalForWorker.__generationWorkerStopping) return;
   const isSameWorkerInstance =
     globalForWorker.__generationWorkerInstanceToken === WORKER_INSTANCE_TOKEN;
 
@@ -949,10 +1004,17 @@ export function startGenerationWorker() {
   globalForWorker.__generationWorkerStarted = true;
 
   const tick = async () => {
+    globalForWorker.__generationWorkerLastHeartbeatAt = Date.now();
     if (globalForWorker.__generationWorkerRunning) return;
     globalForWorker.__generationWorkerRunning = true;
     try {
-      await Promise.all([processImageJobs(), processVideoJobs(), processAudioJobs()]);
+      await pumpGenerationJobs();
+    } catch (error) {
+      recordWorkerFailure("generation.pass");
+      logStructured("worker.pass.failure", {
+        worker: "generation",
+        errorType: error instanceof Error ? error.name : typeof error,
+      }, "error");
     } finally {
       globalForWorker.__generationWorkerRunning = false;
     }
@@ -963,4 +1025,51 @@ export function startGenerationWorker() {
     () => void tick(),
     WORKER_INTERVAL_MS,
   );
+}
+
+function isGenerationWorkerStopping() {
+  return Boolean((globalThis as WorkerGlobal).__generationWorkerStopping);
+}
+
+export async function stopGenerationWorker({
+  drainTimeoutMs = GENERATION_WORKER_DRAIN_TIMEOUT_MS,
+}: { drainTimeoutMs?: number } = {}) {
+  const globalForWorker = globalThis as WorkerGlobal;
+  if (globalForWorker.__generationWorkerStopPromise) {
+    return globalForWorker.__generationWorkerStopPromise;
+  }
+
+  globalForWorker.__generationWorkerStopping = true;
+  if (globalForWorker.__generationWorkerInterval) {
+    clearInterval(globalForWorker.__generationWorkerInterval);
+    globalForWorker.__generationWorkerInterval = undefined;
+  }
+
+  const draining = Promise.allSettled([
+    ...(generationPump ? [generationPump] : []),
+    ...inFlightGenerationJobs.values(),
+  ]).then(() => undefined);
+  const timeout = new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, Math.max(0, drainTimeoutMs));
+    timer.unref?.();
+  });
+  globalForWorker.__generationWorkerStopPromise = Promise.race([draining, timeout]);
+  return globalForWorker.__generationWorkerStopPromise;
+}
+
+export function getGenerationWorkerState() {
+  const globalForWorker = globalThis as WorkerGlobal;
+  return {
+    started: Boolean(globalForWorker.__generationWorkerStarted),
+    stopping: Boolean(globalForWorker.__generationWorkerStopping),
+    running: Boolean(globalForWorker.__generationWorkerRunning),
+    inFlight: inFlightGenerationJobs.size,
+    pumpRunning: Boolean(generationPump),
+    lastHeartbeatAt: globalForWorker.__generationWorkerLastHeartbeatAt
+      ? new Date(globalForWorker.__generationWorkerLastHeartbeatAt).toISOString()
+      : null,
+    heartbeatAgeSeconds: globalForWorker.__generationWorkerLastHeartbeatAt
+      ? Math.max(0, Math.floor((Date.now() - globalForWorker.__generationWorkerLastHeartbeatAt) / 1000))
+      : null,
+  };
 }

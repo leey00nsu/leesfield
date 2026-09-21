@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMonitoringRequestDetail } from "@/server/monitoring/request-detail";
 import { prisma } from "@/server/db/prisma";
 
+const mockInputAssets = vi.hoisted(() => vi.fn());
+
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
     imageGeneration: {
@@ -13,12 +15,16 @@ vi.mock("@/server/db/prisma", () => ({
     audioGeneration: {
       findUnique: vi.fn(),
     },
+    generationInputAsset: {
+      findMany: mockInputAssets,
+    },
   },
 }));
 
 describe("getMonitoringRequestDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInputAssets.mockResolvedValue([]);
   });
 
   it("audio 요청 상세를 오디오 asset으로 반환한다", async () => {
@@ -96,5 +102,41 @@ describe("getMonitoringRequestDetail", () => {
       warningMessage:
         "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
     });
+  });
+
+  it("returns durable input asset URLs while keeping the stored file body out of the response", async () => {
+    (prisma.imageGeneration.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      requestId: "img-asset",
+      status: "completed",
+      modelKey: "image-model",
+      prompt: "portrait",
+      requestParams: {
+        requestVersion: 3,
+        requestSettings: { initImages: ["[file]"] },
+        initImages: [],
+      },
+      createdAt: new Date("2026-01-10T10:00:00.000Z"),
+      updatedAt: new Date("2026-01-10T10:00:02.000Z"),
+      progress: 100,
+      errorMessage: null,
+      images: [{ url: "https://cdn.example.com/output.png", asset: { imageVariants: null }, width: 512, height: 512 }],
+    });
+    mockInputAssets.mockResolvedValue([{
+      field: "initImages",
+      sortOrder: 0,
+      asset: {
+        type: "image",
+        storageUrl: "https://cdn.example.com/input.png",
+        legacyUrl: null,
+      },
+    }]);
+
+    const result = await getMonitoringRequestDetail("image", "img-asset");
+
+    expect(result?.inputImages).toEqual(["https://cdn.example.com/input.png"]);
+    expect(JSON.stringify(result)).not.toContain("[file]");
+    expect(mockInputAssets).toHaveBeenCalledWith(expect.objectContaining({
+      where: { requestId: "img-asset", generationType: "image" },
+    }));
   });
 });

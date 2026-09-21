@@ -13,9 +13,11 @@ export async function GET(
   return withExternalApi(request, async (auth) => {
     const { requestId } = await params;
     const [image, video, audio] = await Promise.all([
-      getGeneration(requestId, auth.ownerEmail),
-      getVideoGeneration(requestId, auth.ownerEmail),
-      getAudioGeneration(requestId, auth.ownerEmail),
+      // Scope to the key that created the request: another key of the same
+      // owner (or a session request) must not be able to read the result.
+      getGeneration(requestId, auth.ownerEmail, auth.apiKeyId),
+      getVideoGeneration(requestId, auth.ownerEmail, auth.apiKeyId),
+      getAudioGeneration(requestId, auth.ownerEmail, auth.apiKeyId),
     ]);
     const record = image ?? video ?? audio;
     if (!record) return buildErrorResponse("NOT_FOUND", 404);

@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { prisma } from "@/server/db/prisma";
 import { compareHistory, cursorWhere, decodeHistoryCursor, encodeHistoryCursor } from "../lib/history-cursor";
+import { readHistoryMetadata } from "../lib/history-metadata";
 import {
   buildAudioWhere,
   buildImageWhere,
@@ -18,21 +19,91 @@ import {
 
 const emptyPage = Promise.resolve([[], 0] as const);
 
+type GenerationInputAssetListRow = {
+  requestId: string;
+  generationType: "image" | "video" | "audio";
+  assetId: string;
+  sortOrder: number;
+};
+
+async function listGenerationInputAssets(
+  ownerEmail: string,
+  records: Array<{ requestId: string; generationType: "image" | "video" | "audio" }>,
+) {
+  if (records.length === 0 || !("generationInputAsset" in prisma)) return [] as GenerationInputAssetListRow[];
+  return prisma.generationInputAsset.findMany({
+    where: {
+      ownerEmail,
+      OR: records.map(({ requestId, generationType }) => ({ requestId, generationType })),
+    },
+    select: { requestId: true, generationType: true, assetId: true, sortOrder: true },
+  }) as Promise<GenerationInputAssetListRow[]>;
+}
+
 function snapshotString(params: unknown, key: string) {
   if (!params || typeof params !== "object" || Array.isArray(params)) return null;
   const value = (params as Record<string, unknown>)[key];
   return typeof value === "string" && value ? value : null;
 }
 
-function inputAssetIds(params: unknown) {
-  if (!params || typeof params !== "object" || Array.isArray(params)) return [];
+function previewHistoryValue(value: unknown, depth = 0): unknown {
+  if (depth > 6) return "[omitted]";
+  if (value === null || typeof value === "boolean" || typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.toLowerCase();
+    if (["data:", "blob:", "http://", "https://", "/"].some((prefix) => normalized.startsWith(prefix))) {
+      return "[file]";
+    }
+    return value.length > 2_000 ? `${value.slice(0, 2_000)}…` : value;
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map((entry) => previewHistoryValue(entry, depth + 1));
+  }
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => !/(?:api[_-]?key|authorization|password|secret|token|credential)/i.test(key))
+        .slice(0, 50)
+        .map(([key, entry]) => [key, previewHistoryValue(entry, depth + 1)]),
+    );
+  }
+  return null;
+}
+
+function previewHistoryText(value: string | null | undefined) {
+  if (!value) return value ?? null;
+  return value.length > 4_000 ? `${value.slice(0, 4_000)}…` : value;
+}
+
+function inputAssetIds(
+  params: unknown,
+  persisted?: readonly { assetId: string; sortOrder: number }[],
+  historyMetadata?: unknown,
+) {
+  const persistedIds = (persisted ?? [])
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((input) => input.assetId)
+    .filter(Boolean);
+  const metadataIds = readHistoryMetadata(historyMetadata).sourceAssetIds ?? [];
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return Array.from(new Set([...persistedIds, ...metadataIds]));
+  }
   const values = (params as Record<string, unknown>).inputAssets;
-  if (!Array.isArray(values)) return [];
-  return values.flatMap((value) => {
+  if (!Array.isArray(values)) {
+    return Array.from(new Set([...persistedIds, ...metadataIds]));
+  }
+  return Array.from(new Set([
+    ...persistedIds,
+    ...metadataIds,
+    ...values.flatMap((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return [];
     const assetId = (value as Record<string, unknown>).assetId;
     return typeof assetId === "string" && assetId ? [assetId] : [];
-  });
+    }),
+  ]));
 }
 
 async function resolvedAsset(
@@ -46,11 +117,13 @@ async function resolvedAsset(
 function graphProvenance(record: {
   graphNodeId: string | null;
   graphNode: { graphId: string } | null;
-  requestParams: Prisma.JsonValue | null;
+  requestParams?: Prisma.JsonValue | null;
+  historyMetadata?: Prisma.JsonValue | null;
 }) {
+  const metadata = readHistoryMetadata(record.historyMetadata);
   return {
-    graphId: record.graphNode?.graphId ?? snapshotString(record.requestParams, "graphId"),
-    graphNodeId: record.graphNodeId ?? snapshotString(record.requestParams, "graphNodeId"),
+    graphId: record.graphNode?.graphId ?? metadata.graphId ?? snapshotString(record.requestParams, "graphId"),
+    graphNodeId: record.graphNodeId ?? metadata.graphNodeId ?? snapshotString(record.requestParams, "graphNodeId"),
   };
 }
 
@@ -58,7 +131,9 @@ async function imageItem(ownerEmail: string, record: {
   requestId: string;
   status: string;
   prompt: string;
-  requestParams: Prisma.JsonValue | null;
+  requestParams?: Prisma.JsonValue | null;
+  historyMetadata?: Prisma.JsonValue | null;
+  modelKey?: string | null;
   graphNodeId: string | null;
   graphNode: { graphId: string } | null;
   progress: number;
@@ -66,6 +141,7 @@ async function imageItem(ownerEmail: string, record: {
   createdAt: Date;
   updatedAt: Date;
   images: Array<{ assetId: string | null; url: string; asset?: {imageVariants: unknown} | null }>;
+  generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.images[0];
   const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
@@ -76,11 +152,11 @@ async function imageItem(ownerEmail: string, record: {
     origin: "generation",
     assetId: asset.assetId,
     ...graphProvenance(record),
-    sourceAssetIds: inputAssetIds(record.requestParams),
+    sourceAssetIds: inputAssetIds(record.requestParams, record.generationInputAssets, record.historyMetadata),
     operation: null,
     status: record.status as GenerationHistoryItem["status"],
-    prompt: record.prompt,
-    model: extractModel(record.requestParams),
+    prompt: previewHistoryText(record.prompt) ?? "",
+    model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
@@ -89,7 +165,7 @@ async function imageItem(ownerEmail: string, record: {
     imageVariants: completed ? parseImageVariants(output?.asset?.imageVariants) : null,
     thumbnailUrl: completed && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output?.asset?.imageVariants}, "list")[0] : null,
     inputImages: [],
-    errorMessage: record.status === "failed" ? record.errorMessage : null,
+    errorMessage: record.status === "failed" ? previewHistoryText(record.errorMessage) : null,
   };
 }
 
@@ -97,7 +173,9 @@ async function videoItem(ownerEmail: string, record: {
   requestId: string;
   status: string;
   prompt: string;
-  requestParams: Prisma.JsonValue | null;
+  requestParams?: Prisma.JsonValue | null;
+  historyMetadata?: Prisma.JsonValue | null;
+  modelKey?: string | null;
   graphNodeId: string | null;
   graphNode: { graphId: string } | null;
   progress: number;
@@ -105,6 +183,7 @@ async function videoItem(ownerEmail: string, record: {
   createdAt: Date;
   updatedAt: Date;
   videos: Array<{ assetId: string | null; url: string }>;
+  generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.videos[0];
   const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
@@ -115,11 +194,11 @@ async function videoItem(ownerEmail: string, record: {
     origin: "generation",
     assetId: asset.assetId,
     ...graphProvenance(record),
-    sourceAssetIds: inputAssetIds(record.requestParams),
+    sourceAssetIds: inputAssetIds(record.requestParams, record.generationInputAssets, record.historyMetadata),
     operation: null,
     status: record.status as GenerationHistoryItem["status"],
-    prompt: record.prompt,
-    model: extractModel(record.requestParams),
+    prompt: previewHistoryText(record.prompt) ?? "",
+    model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
@@ -127,7 +206,7 @@ async function videoItem(ownerEmail: string, record: {
     resultUrl: completed ? asset.url : null,
     thumbnailUrl: null,
     inputImages: [],
-    errorMessage: record.status === "failed" ? record.errorMessage : null,
+    errorMessage: record.status === "failed" ? previewHistoryText(record.errorMessage) : null,
   };
 }
 
@@ -135,7 +214,9 @@ async function audioItem(ownerEmail: string, record: {
   requestId: string;
   status: string;
   prompt: string;
-  requestParams: Prisma.JsonValue | null;
+  requestParams?: Prisma.JsonValue | null;
+  historyMetadata?: Prisma.JsonValue | null;
+  modelKey?: string | null;
   graphNodeId: string | null;
   graphNode: { graphId: string } | null;
   progress: number;
@@ -143,6 +224,7 @@ async function audioItem(ownerEmail: string, record: {
   createdAt: Date;
   updatedAt: Date;
   audios: Array<{ assetId: string | null; url: string }>;
+  generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.audios[0];
   const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
@@ -153,11 +235,11 @@ async function audioItem(ownerEmail: string, record: {
     origin: "generation",
     assetId: asset.assetId,
     ...graphProvenance(record),
-    sourceAssetIds: inputAssetIds(record.requestParams),
+    sourceAssetIds: inputAssetIds(record.requestParams, record.generationInputAssets, record.historyMetadata),
     operation: null,
     status: record.status as GenerationHistoryItem["status"],
-    prompt: record.prompt,
-    model: extractModel(record.requestParams),
+    prompt: previewHistoryText(record.prompt) ?? "",
+    model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
@@ -166,8 +248,8 @@ async function audioItem(ownerEmail: string, record: {
     thumbnailUrl: null,
     inputImages: [],
     inputAudios: [],
-    referenceText: extractReferenceText(record.requestParams),
-    errorMessage: record.status === "failed" ? record.errorMessage : null,
+    referenceText: readHistoryMetadata(record.historyMetadata).referenceText ?? extractReferenceText(record.requestParams),
+    errorMessage: record.status === "failed" ? previewHistoryText(record.errorMessage) : null,
   };
 }
 
@@ -207,13 +289,15 @@ export async function getHistory(
         prisma.imageGeneration.findMany({
           where: { ownerEmail, ...filter, AND: [buildImageWhere(query), cursorWhere(cursor, 0, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
-            requestId: true, status: true, prompt: true, requestParams: true,
+            requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: {select: {imageVariants: true}} } },
           },
         }),
-        prisma.imageGeneration.count({ where: { ownerEmail, ...filter, ...buildImageWhere(query) } }),
+        query.includeTotal
+          ? prisma.imageGeneration.count({ where: { ownerEmail, ...filter, ...buildImageWhere(query) } })
+          : Promise.resolve(0),
       ])
     : emptyPage;
   const videoPromise = query.type === "all" || query.type === "video"
@@ -221,13 +305,15 @@ export async function getHistory(
         prisma.videoGeneration.findMany({
           where: { ownerEmail, ...filter, AND: [buildVideoWhere(query), cursorWhere(cursor, 1, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
-            requestId: true, status: true, prompt: true, requestParams: true,
+            requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             videos: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
           },
         }),
-        prisma.videoGeneration.count({ where: { ownerEmail, ...filter, ...buildVideoWhere(query) } }),
+        query.includeTotal
+          ? prisma.videoGeneration.count({ where: { ownerEmail, ...filter, ...buildVideoWhere(query) } })
+          : Promise.resolve(0),
       ])
     : emptyPage;
   const audioPromise = query.type === "all" || query.type === "audio"
@@ -235,13 +321,15 @@ export async function getHistory(
         prisma.audioGeneration.findMany({
           where: { ownerEmail, ...filter, AND: [buildAudioWhere(query), cursorWhere(cursor, 2, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
-            requestId: true, status: true, prompt: true, requestParams: true,
+            requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             audios: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
           },
         }),
-        prisma.audioGeneration.count({ where: { ownerEmail, ...filter, ...buildAudioWhere(query) } }),
+        query.includeTotal
+          ? prisma.audioGeneration.count({ where: { ownerEmail, ...filter, ...buildAudioWhere(query) } })
+          : Promise.resolve(0),
       ])
     : emptyPage;
   const editWhere = { ...operationWhere(query, ownerEmail), ...(validStatus !== "all" && validStatus !== "completed" ? { id: { in: [] as string[] } } : {}) };
@@ -259,11 +347,25 @@ export async function getHistory(
         },
       },
     }),
-    prisma.mediaOperation.count({ where: editWhere }),
+    query.includeTotal
+      ? prisma.mediaOperation.count({ where: editWhere })
+      : Promise.resolve(0),
   ]);
 
   const [[images, imageTotal], [videos, videoTotal], [audios, audioTotal], [operations, operationTotal]] =
     await Promise.all([imagePromise, videoPromise, audioPromise, operationPromise]);
+  const inputAssets = await listGenerationInputAssets(ownerEmail, [
+    ...images.map((record) => ({ requestId: record.requestId, generationType: "image" as const })),
+    ...videos.map((record) => ({ requestId: record.requestId, generationType: "video" as const })),
+    ...audios.map((record) => ({ requestId: record.requestId, generationType: "audio" as const })),
+  ]);
+  const inputAssetsByRequest = new Map<string, Array<{ assetId: string; sortOrder: number }>>();
+  for (const input of inputAssets) {
+    const key = `${input.generationType}:${input.requestId}`;
+    const values = inputAssetsByRequest.get(key) ?? [];
+    values.push({ assetId: input.assetId, sortOrder: input.sortOrder });
+    inputAssetsByRequest.set(key, values);
+  }
   const operationItems = await Promise.all(operations.flatMap((operation) => {
     const output = operation.outputs[0];
     if (!output) return [];
@@ -279,7 +381,7 @@ export async function getHistory(
         id: operation.id,
         type: operation.type,
         configVersion: operation.configVersion,
-        parameters: operation.parameters,
+    parameters: previewHistoryValue(operation.parameters),
       },
       status: "completed",
       prompt: operation.type,
@@ -297,9 +399,18 @@ export async function getHistory(
     }))];
   }));
   const items = [
-    ...(await Promise.all(images.map((record) => imageItem(ownerEmail, record)))),
-    ...(await Promise.all(videos.map((record) => videoItem(ownerEmail, record)))),
-    ...(await Promise.all(audios.map((record) => audioItem(ownerEmail, record)))),
+    ...(await Promise.all(images.map((record) => imageItem(ownerEmail, {
+      ...record,
+      generationInputAssets: inputAssetsByRequest.get(`image:${record.requestId}`),
+    })))),
+    ...(await Promise.all(videos.map((record) => videoItem(ownerEmail, {
+      ...record,
+      generationInputAssets: inputAssetsByRequest.get(`video:${record.requestId}`),
+    })))),
+    ...(await Promise.all(audios.map((record) => audioItem(ownerEmail, {
+      ...record,
+      generationInputAssets: inputAssetsByRequest.get(`audio:${record.requestId}`),
+    })))),
     ...operationItems,
   ].sort((a, b) => compareHistory(a, b, asc));
   const page = items.slice(pageOffset, pageOffset + query.limit);
@@ -307,7 +418,9 @@ export async function getHistory(
   return {
     items: page,
     nextCursor: items.length > pageOffset + query.limit && page.length ? encodeHistoryCursor(page[page.length - 1], scope) : null,
-    total: imageTotal + videoTotal + audioTotal + operationTotal,
+    total: query.includeTotal
+      ? imageTotal + videoTotal + audioTotal + operationTotal
+      : null,
     limit: query.limit,
     offset: pageOffset,
   };

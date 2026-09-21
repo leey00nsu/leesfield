@@ -2,6 +2,7 @@ import type {
   NodeExecutionDto,
   StartNodeExecutionResult,
 } from "../model/node-execution-types";
+import { createSubmissionIntent } from "@/shared/api/submission-intent";
 
 type ErrorPayload = { message?: string; errors?: unknown };
 
@@ -32,6 +33,8 @@ function executionsUrl(graphId: string, nodeId: string) {
   return `/api/generation-graphs/${encodeURIComponent(graphId)}/nodes/${encodeURIComponent(nodeId)}/executions`;
 }
 
+const nodeExecutionIntent = createSubmissionIntent();
+
 export async function listNodeExecutions(graphId: string, nodeId: string, signal?: AbortSignal) {
   const response = await fetch(executionsUrl(graphId, nodeId), { cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) });
   return (await readPayload<{ executions: NodeExecutionDto[] }>(response)).executions;
@@ -42,12 +45,28 @@ export async function startNodeExecution(
   nodeId: string,
   expectedGraphVersion: number,
 ) {
-  const response = await fetch(executionsUrl(graphId, nodeId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ expectedGraphVersion }),
-  });
-  return (await readPayload<{ execution: StartNodeExecutionResult }>(response)).execution;
+  const body = JSON.stringify({ expectedGraphVersion });
+  const key = nodeExecutionIntent.take(
+    JSON.stringify({ graphId, nodeId, expectedGraphVersion }),
+  );
+  try {
+    const response = await fetch(executionsUrl(graphId, nodeId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": key,
+      },
+      body,
+    });
+    const execution = (
+      await readPayload<{ execution: StartNodeExecutionResult }>(response)
+    ).execution;
+    nodeExecutionIntent.settle(key);
+    return execution;
+  } catch (error) {
+    nodeExecutionIntent.settle(key, error);
+    throw error;
+  }
 }
 
 export async function cancelNodeExecution(

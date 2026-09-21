@@ -26,18 +26,20 @@ type FileInput = {
   multiple: boolean;
   multipartField: string;
   maxBytes: number;
+  maxItems: number;
 };
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
-function fileInput(name: string, multiple: boolean): FileInput {
+function fileInput(name: string, multiple: boolean, maxItems = 8): FileInput {
   return {
     name,
     multiple,
     multipartField: externalFilePrefix + name,
     maxBytes: maxExternalFileBytes,
+    maxItems: multiple ? Math.max(1, Math.min(8, maxItems)) : 1,
   };
 }
 
@@ -56,9 +58,22 @@ export function getExternalModelInput(model: ModelCatalogItem) {
       let schema: SchemaObject;
       if (["file", "files", "gallery"].includes(field.kind)) {
         const multiple = field.kind !== "file";
-        files.push(fileInput(field.name, multiple));
+        const declaredMaxItems = Number(field.schema.maxItems);
+        const effectiveMaxItems = Number.isSafeInteger(declaredMaxItems)
+          && declaredMaxItems > 0
+          ? Math.min(8, declaredMaxItems)
+          : 8;
+        files.push(fileInput(
+          field.name,
+          multiple,
+          effectiveMaxItems,
+        ));
         schema = multiple
-          ? { type: "array", items: { type: "string" } }
+          ? {
+              type: "array",
+              items: { type: "string" },
+              maxItems: effectiveMaxItems,
+            }
           : { type: "string" };
         schema.description =
           "File URL or data URL; alternatively use the declared multipart file field.";

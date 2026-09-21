@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  JSON_BODY_LIMIT_BYTES,
+  readValidatedJsonBody,
+} from "@/server/http/bounded-body";
 import { getSession } from "@/server/auth/session";
+import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import { createModelCatalogHandler } from "@/server/model-catalog/handlers/create-model-catalog";
 
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
       },
     );
   } catch (error) {
-    console.error("[admin-models] list failed", error);
+    logSafeError("admin_model.list_failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },
@@ -64,19 +69,26 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const session = await getSession();
+ export async function POST(request: Request) {
+   const session = await getSession();
+  const originError = assertSessionMutationOrigin(request);
+  if (originError) return originError;
 
   if (!session.isLoggedIn || !session.adminEmail) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
+  const bounded = await readValidatedJsonBody(
+    request,
+    JSON_BODY_LIMIT_BYTES,
+  );
+  if (!bounded.ok) {
+    return NextResponse.json(
+      { message: bounded.message },
+      { status: bounded.status },
+    );
   }
+  const payload: unknown = bounded.body;
 
   try {
     const result = await createModelCatalogHandler(payload);
@@ -88,10 +100,11 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "MODEL_KEY_EXISTS") {
       return NextResponse.json({ message: "CONFLICT" }, { status: 409 });
     }
-    console.error("[admin-models] create failed", error);
+    logSafeError("admin_model.create_failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },
     );
   }
 }
+import { logSafeError } from "@/server/observability/request-observability";

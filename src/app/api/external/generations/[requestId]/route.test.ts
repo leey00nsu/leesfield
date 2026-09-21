@@ -45,11 +45,17 @@ describe("unified generation status", () => {
         result,
       });
       for (const fn of [mocks.image, mocks.video, mocks.audio])
-        expect(fn).toHaveBeenCalledWith("job", "owner");
+        expect(fn).toHaveBeenCalledWith("job", "owner", "key");
     },
   );
   it("returns 404 when no owned job exists", async () => {
     expect((await GET(request, context)).status).toBe(404);
+  });
+  it("scopes reads to the key that created the request", async () => {
+    mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "other-key" });
+    await GET(request, context);
+    for (const fn of [mocks.image, mocks.video, mocks.audio])
+      expect(fn).toHaveBeenCalledWith("job", "owner", "other-key");
   });
   it("rejects unauthenticated reads without hitting stores", async () => {
     mocks.auth.mockResolvedValue(new Response(null, { status: 401 }));

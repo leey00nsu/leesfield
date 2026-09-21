@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { modalConfigSchema, modalInputContract, modalExecutionLimits } from "@/shared/model-catalog/modal-comfyui-contract";
 import { gradioInputValues } from "@/shared/model-catalog/gradio-contract";
+import { GENERATION_OUTPUT_LIMITS, GENERATION_OUTPUT_MAX_TOTAL_BYTES } from "@/server/http/bounded-io";
 import { createModalClient, ModalApiError, type ModalClient } from "./client";
 import type { ModalJobRepository, ModalSubmission } from "./job-repository";
 
@@ -27,7 +28,7 @@ function stable(value:unknown):unknown {
 export async function executeModalWorkflow(
  configInput:unknown,payload:{prompt?:string;dynamicParams?:Record<string,unknown>},requestId:string,
  repository:ModalJobRepository,
- dependencies:{client?:ModalClient;sleep?:(ms:number)=>Promise<void>;now?:()=>number}={},
+ dependencies:{client?:ModalClient;sleep?:(ms:number)=>Promise<void>;now?:()=>number;random?:()=>number}={},
 ) {
  const previous=await repository.find?.(requestId);
  const frozen=(previous?.submission as ModalSubmission|null)?.execution;
@@ -35,9 +36,12 @@ export async function executeModalWorkflow(
  const contract=modalInputContract(config.workflow);
  const values=frozen?.values??gradioInputValues(contract,payload);
  const limits=modalExecutionLimits(config);
+ const mediaOutputLimit=GENERATION_OUTPUT_LIMITS[config.workflow.category];
+ const totalOutputLimit=Math.min(limits.max_output_bytes,GENERATION_OUTPUT_MAX_TOTAL_BYTES);
  const client=dependencies.client??createModalClient(config.timeout_ms,limits);
  const now=dependencies.now??Date.now;
  const sleep=dependencies.sleep??(ms=>new Promise(resolve=>setTimeout(resolve,ms)));
+ const random=dependencies.random??Math.random;
  if(frozen && frozen.origin!==client.origin)throw new ModalApiError("MODAL_REQUEST_ORIGIN_CHANGED");
  // Request IDs are allocated and authorized by the server. An existing remote
  // job is collected with its persisted contract; it is never submitted again.
@@ -54,7 +58,9 @@ export async function executeModalWorkflow(
    remaining();
    try {return await fn();} catch(error) {
     if(!(error instanceof ModalApiError) || !error.retryable || attempt>=2) throw error;
-    await sleep(Math.min(2000*(attempt+1),Math.max(1,deadline-now())));
+    const baseDelay=1000*2**attempt;
+    const jitter=Math.floor(Math.max(0,Math.min(250,baseDelay*0.25))*random());
+    await sleep(Math.min(baseDelay+jitter,Math.max(1,deadline-now())));
    }
   }
  }
@@ -76,7 +82,7 @@ export async function executeModalWorkflow(
       // A server-declared file default already names an input on its Volume.
       // Arbitrary caller-supplied filenames are still not accepted as uploads.
       if(declaredDefaults.includes(source)&&/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]{0,159}$/.test(source))uploaded.push(source);
-      else uploaded.push(await retry(()=>client.upload(source,field.media??"image")));
+     else uploaded.push(await retry(()=>client.upload(source,field.media??"image",`leesfield-${requestId}-${field.name}-${uploaded.length}`)));
      }
      mapped[field.name]=field.kind==="files"?uploaded:uploaded[0];
     }
@@ -130,10 +136,11 @@ export async function executeModalWorkflow(
    const compatibleKey = asset.output_key === "images" ||
     (config.workflow.category === "video" && asset.output_key === "video");
    if (!compatibleKey) throw new ModalApiError("MODAL_OUTPUT_MEDIA");
-   let result:Awaited<ReturnType<ModalClient["download"]>>;
-   for(;;) {
-    try {
-     result=await retry(()=>client.download(jobId!,asset.asset_id??index,config.workflow.category,limits.max_output_bytes-bytes));
+  let result:Awaited<ReturnType<ModalClient["download"]>>;
+  for(;;) {
+   try {
+     if(bytes>=totalOutputLimit) throw new ModalApiError("MODAL_OUTPUT_TOO_LARGE");
+     result=await retry(()=>client.download(jobId!,asset.asset_id??index,config.workflow.category,Math.min(mediaOutputLimit,totalOutputLimit-bytes)));
      break;
     } catch(error) {
      if(!(error instanceof ModalApiError)) throw new ModalApiError("MODAL_DOWNLOAD_FAILED");
@@ -141,6 +148,7 @@ export async function executeModalWorkflow(
      await waitForResult();
     }
    }
+   if(result.bytes>mediaOutputLimit || bytes+result.bytes>totalOutputLimit)throw new ModalApiError("MODAL_OUTPUT_TOO_LARGE");
    urls.push(result.url);bytes+=result.bytes;
   }
   if(!urls.length)throw new ModalApiError("MODAL_OUTPUT_EMPTY");

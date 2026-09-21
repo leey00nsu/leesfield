@@ -17,6 +17,18 @@ import {
   resolveRuntimeImageDefaults,
   type RuntimeImageModel,
 } from "@/shared/model-catalog/runtime-utils";
+import {
+  awaitWithTimeout,
+  decodeBase64DataUrl,
+  fetchBoundedRemoteBytes,
+  mapBoundedMediaOutputs,
+  readFetchResponseJson,
+  OUTBOUND_CONCURRENCY,
+  OUTBOUND_FILE_TIMEOUT_MS,
+  GENERATION_OUTPUT_LIMITS,
+} from "@/server/http/bounded-io";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
+import { predictWithDeadline } from "@/server/hf-space/contract-executor";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const STATUS_CHECK_TTL_MS = 30_000;
@@ -130,9 +142,13 @@ async function getClient(config: SpaceConfig) {
     clientCache.set(config.spaceId, cached);
   }
   try {
-    return await cached;
+    return await awaitWithTimeout(
+      cached,
+      Math.min(config.timeoutMs, 10_000),
+      "HF_SPACE_CONNECT_TIMEOUT",
+    );
   } catch (error) {
-    clientCache.delete(config.spaceId);
+    if (clientCache.get(config.spaceId) === cached) clientCache.delete(config.spaceId);
     throw error;
   }
 }
@@ -183,13 +199,14 @@ async function ensureSpaceRunning(config: SpaceConfig) {
   try {
     const response = await fetch(resolveSpaceApiUrl(config.spaceId), {
       headers,
+      redirect: "error",
       signal: controller.signal,
     });
     if (!response.ok) {
       setStatusCache(config.spaceId, { checkedAt: Date.now(), ok: false });
       throw new Error("HF_SPACE_STATUS_FETCH_FAILED");
     }
-    const data = (await response.json()) as Record<string, unknown>;
+    const data = (await readFetchResponseJson(response)) as Record<string, unknown>;
     const stage = extractRuntimeStage(data);
     const normalized = stage?.toUpperCase() ?? "";
     const ok = normalized === "RUNNING";
@@ -246,7 +263,6 @@ function clampNumber(value: number, range: { min: number; max: number; step: num
   return Math.min(range.max, Math.max(range.min, resolved));
 }
 
-const FILE_FETCH_TIMEOUT_MS = 60_000;
 const INPUT_IMAGE_FETCH_TIMEOUT_MS = 20_000;
 
 async function detectImageMime(buffer: Buffer): Promise<string | null> {
@@ -270,7 +286,8 @@ async function resolveHfInputImageBuffer(source: string) {
 async function fetchImageDataUrl(
   fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
-  timeoutMs: number = FILE_FETCH_TIMEOUT_MS
+  timeoutMs: number = OUTBOUND_FILE_TIMEOUT_MS,
+  maxBytes: number = GENERATION_OUTPUT_LIMITS.image,
 ) {
   const resolved =
     typeof fileRef === "string"
@@ -278,29 +295,29 @@ async function fetchImageDataUrl(
       : fileRef;
   const normalized = resolved.normalizedUrl;
   if (normalized.startsWith("data:")) {
-    return normalized;
-  }
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(normalized, { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error("HF_SPACE_IMAGE_FETCH_FAILED");
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get("content-type") ?? "image/png";
+    const { contentType, buffer } = decodeBase64DataUrl(normalized, {
+      maxBytes,
+      invalidCode: "HF_SPACE_IMAGE_INVALID",
+      tooLargeCode: "HF_SPACE_IMAGE_TOO_LARGE",
+    });
     if (!contentType.startsWith("image/")) {
       throw new Error("HF_SPACE_INVALID_CONTENT_TYPE");
     }
     return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error("HF_SPACE_IMAGE_FETCH_TIMEOUT");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
+  const { buffer, contentType: responseContentType } =
+    await fetchBoundedRemoteBytes(normalized, {
+      timeoutMs,
+      maxBytes,
+      fetchErrorCode: "HF_SPACE_IMAGE_FETCH_FAILED",
+      timeoutErrorCode: "HF_SPACE_IMAGE_FETCH_TIMEOUT",
+      tooLargeErrorCode: "HF_SPACE_IMAGE_TOO_LARGE",
+    });
+  const contentType = responseContentType ?? "image/png";
+  if (!contentType.startsWith("image/")) {
+    throw new Error("HF_SPACE_INVALID_CONTENT_TYPE");
+  }
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
 }
 
 export const hfSpaceImageAdapter: ImageGenerationAdapter = {
@@ -365,7 +382,16 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
       await ensureSpaceRunning(config);
       const client = await getClient(config);
       const refs = await executeGradioContract(client, model, payload, config, "image");
-      const urls = await Promise.all(refs.map(ref => fetchImageDataUrl(ref, config.spaceUrl, Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS))));
+      const urls = await mapBoundedMediaOutputs(
+        refs,
+        "image",
+        (ref, _index, maxBytes) => fetchImageDataUrl(
+          ref,
+          config.spaceUrl,
+          Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
+          maxBytes,
+        ),
+      );
       return { images: urls };
     }
 
@@ -389,8 +415,10 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
 
     const initImages = payload.initImages ?? [];
     const inputImagesFormat = resolveInputImagesFormat(providerConfig);
-    const inputImages = await Promise.all(
-      initImages.map(async (source) => {
+    const inputImages = await mapWithConcurrency(
+      initImages,
+      OUTBOUND_CONCURRENCY,
+      async (source) => {
         const { buffer, mime } = await resolveHfInputImageBuffer(source);
         const detectedMime = await detectImageMime(buffer);
         if (!detectedMime) {
@@ -406,7 +434,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
           };
         }
         return file;
-      }),
+      },
     );
     const requestPayload: Record<string, unknown> = {
       prompt: payload.prompt,
@@ -438,24 +466,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
         payload.promptUpsampling ?? defaults.promptUpsampling;
     }
 
-    const predictPromise = client.predict(apiName, requestPayload);
-
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error("HF_SPACE_REQUEST_TIMEOUT")),
-        config.timeoutMs
-      );
-    });
-
-    let result: Awaited<typeof predictPromise>;
-    try {
-      result = await Promise.race([predictPromise, timeoutPromise]);
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    }
+    const result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs);
     const data = Array.isArray(result?.data) ? result.data : result;
     const imageValue = Array.isArray(data) ? data[0] : data;
     const imageRef = selectPreferredHfSpaceFileReference(imageValue, {
@@ -469,7 +480,7 @@ export const hfSpaceImageAdapter: ImageGenerationAdapter = {
     const dataUrl = await fetchImageDataUrl(
       imageRef,
       config.spaceUrl,
-      Math.min(config.timeoutMs, FILE_FETCH_TIMEOUT_MS)
+      Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
     );
     return { images: [dataUrl] };
   },

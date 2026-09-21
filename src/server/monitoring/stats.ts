@@ -6,6 +6,7 @@ import {
   buildBaseSelect,
   buildRawWhere,
 } from "@/server/monitoring/monitoring-sql";
+import { measureDatabase } from "@/server/observability/request-observability";
 
 export type MonitoringStatsRow = {
   day: string;
@@ -33,7 +34,7 @@ function calcErrorRate(total: number, failed: number) {
   return Number((failed / total).toFixed(4));
 }
 
-export async function getMonitoringStats(
+async function getMonitoringStatsUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringStatsRow[]> {
   const filters = {
@@ -94,4 +95,10 @@ export async function getMonitoringStats(
       p95LatencyMs: row.p95_ms ?? null,
     };
   });
+}
+
+export async function getMonitoringStats(query: MonitoringQuery) {
+  return measureDatabase("monitoring.stats", () =>
+    getMonitoringStatsUnobserved(query),
+  );
 }

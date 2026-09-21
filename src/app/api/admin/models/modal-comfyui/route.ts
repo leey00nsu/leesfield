@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+  JSON_BODY_LIMIT_BYTES,
+  readRouteJsonBody,
+} from "@/server/http/bounded-body";
 import { z } from "zod";
 import { getSession } from "@/server/auth/session";
+import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { createModalClient, ModalApiError } from "@/server/modal-comfyui/client";
 import { buildModalModelDraft } from "@/server/modal-comfyui/importer";
 import { modalWorkflowIdSchema, modalExecutionLimitsSchema, modalExecutionLimits } from "@/shared/model-catalog/modal-comfyui-contract";
@@ -29,8 +34,12 @@ export async function GET() {
 }
 export async function POST(request:Request) {
  if(!await authorized()) return NextResponse.json({message:"UNAUTHORIZED"},{status:401});
+ const originError = assertSessionMutationOrigin(request);
+ if (originError) return originError;
  try {
-  const {workflowId,limits,timeoutMs}=bodySchema.parse(await request.json());
+  const boundedBody = await readRouteJsonBody(request, JSON_BODY_LIMIT_BYTES);
+  if (!boundedBody.ok) return NextResponse.json({message:boundedBody.code},{status:boundedBody.status});
+  const {workflowId,limits,timeoutMs}=bodySchema.parse(boundedBody.body);
   const raw=await createModalClient().json("/api/workflows/"+workflowId);
   const draft=buildModalModelDraft(raw);
   if(draft.provider!=="modal_comfyui" || draft.providerConfig.workflow_id!==workflowId) throw new ModalApiError("MODAL_WORKFLOW_MISMATCH");

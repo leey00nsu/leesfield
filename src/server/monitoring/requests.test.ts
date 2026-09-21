@@ -255,4 +255,21 @@ describe("getMonitoringRequests", () => {
     expect(result.offset).toBe(10);
     expect(result.items).toEqual([]);
   });
+
+  it("count를 요청하지 않은 페이지는 count query 없이 null total을 반환한다", async () => {
+    const query: MonitoringQuery = {
+      ...baseQuery,
+      type: "image",
+      includeTotal: false,
+    };
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      createRecord({ requestId: "image-page", createdAt: new Date() }),
+    ]);
+
+    const result = await getMonitoringRequests(query);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.total).toBeNull();
+    expect(prisma.imageGeneration.count).not.toHaveBeenCalled();
+  });
 });

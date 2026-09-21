@@ -12,6 +12,7 @@ import {
   buildBaseSelect,
   buildRawWhere,
 } from "@/server/monitoring/monitoring-sql";
+import { measureDatabase } from "@/server/observability/request-observability";
 
 export type MonitoringOverview = {
   activeCount: number;
@@ -197,7 +198,7 @@ async function getUsageByType(query: MonitoringQuery) {
   return usageByType;
 }
 
-export async function getMonitoringOverview(
+async function getMonitoringOverviewUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringOverview> {
   const [activeCount, metrics, usageByType] = await Promise.all([
@@ -220,4 +221,10 @@ export async function getMonitoringOverview(
     p95LatencyMs,
     usageByType,
   };
+}
+
+export async function getMonitoringOverview(query: MonitoringQuery) {
+  return measureDatabase("monitoring.overview", () =>
+    getMonitoringOverviewUnobserved(query),
+  );
 }

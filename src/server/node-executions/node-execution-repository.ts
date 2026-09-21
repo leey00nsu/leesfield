@@ -3,7 +3,12 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/server/db/prisma";
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
+import { isCleanupClient, linkStorageCleanupToAsset } from "@/server/media-assets/media-cleanup-repository";
 import type { MediaType } from "@/shared/media-assets/media-asset-contract";
+import {
+  GenerationLeaseLostError,
+  type GenerationLease,
+} from "@/server/generation-worker/execution-lease";
 
 import {
   NodeExecutionCancelledError,
@@ -376,7 +381,11 @@ async function cancelExecution(
   return findExecution(ownerEmail, graphId, graphNodeId, executionId);
 }
 
-async function settleCancelledIfRequested(mediaType: NodeExecutionMediaType, generationId: string) {
+async function settleCancelledIfRequested(
+  mediaType: NodeExecutionMediaType,
+  generationId: string,
+  lease?: GenerationLease,
+) {
   const model = mediaType === "image"
     ? prisma.imageGeneration
     : mediaType === "video"
@@ -388,26 +397,59 @@ async function settleCancelledIfRequested(mediaType: NodeExecutionMediaType, gen
   });
   if (!record?.cancelRequestedAt || !(activeStatuses as readonly string[]).includes(record.status)) return false;
   const updated = await (model.updateMany as typeof prisma.imageGeneration.updateMany)({
-    where: { id: generationId, status: { in: [...activeStatuses] }, cancelRequestedAt: { not: null } },
-    data: { status: "cancelled", progress: 0 },
+    where: {
+      id: generationId,
+      status: { in: [...activeStatuses] },
+      cancelRequestedAt: { not: null },
+      ...(lease
+        ? {
+            executionLeaseToken: lease.token,
+            executionLeaseVersion: lease.version,
+            executionLeaseUntil: { gt: new Date() },
+          }
+        : {}),
+    },
+    data: {
+      status: "cancelled",
+      progress: 0,
+      ...(lease
+        ? { executionLeaseToken: null, executionLeaseUntil: null }
+        : {}),
+    },
   });
   return updated.count === 1;
 }
 
-async function markUploading(mediaType: NodeExecutionMediaType, generationId: string) {
+async function markUploading(
+  mediaType: NodeExecutionMediaType,
+  generationId: string,
+  lease?: GenerationLease,
+) {
   const model = mediaType === "image"
     ? prisma.imageGeneration
     : mediaType === "video"
       ? prisma.videoGeneration
       : prisma.audioGeneration;
   const updated = await (model.updateMany as typeof prisma.imageGeneration.updateMany)({
-    where: { id: generationId, status: "processing", cancelRequestedAt: null },
+    where: {
+      id: generationId,
+      status: "processing",
+      cancelRequestedAt: null,
+      ...(lease
+        ? {
+            executionLeaseToken: lease.token,
+            executionLeaseVersion: lease.version,
+            executionLeaseUntil: { gt: new Date() },
+          }
+        : {}),
+    },
     data: { status: "uploading", progress: 95 },
   });
   if (updated.count === 1) return;
-  if (await settleCancelledIfRequested(mediaType, generationId)) {
+  if (await settleCancelledIfRequested(mediaType, generationId, lease)) {
     throw new NodeExecutionCancelledError();
   }
+  if (lease) throw new GenerationLeaseLostError(mediaType, generationId);
   throw new Error("NODE_EXECUTION_STATE_CONFLICT");
 }
 
@@ -434,6 +476,7 @@ async function completeGeneration(
   mediaType: NodeExecutionMediaType,
   generationId: string,
   artifacts: GeneratedMediaArtifact[],
+  lease?: GenerationLease,
 ) {
   assertArtifacts(mediaType, artifacts);
   return prisma.$transaction(async (tx) => {
@@ -443,15 +486,52 @@ async function completeGeneration(
         ? tx.videoGeneration
         : tx.audioGeneration;
     const completed = await (model.updateMany as typeof tx.imageGeneration.updateMany)({
-      where: { id: generationId, graphNodeId: { not: null }, status: "uploading", cancelRequestedAt: null },
-      data: { status: "completed", progress: 100, errorMessage: null },
+      where: {
+        id: generationId,
+        graphNodeId: { not: null },
+        status: "uploading",
+        cancelRequestedAt: null,
+        ...(lease
+          ? {
+              executionLeaseToken: lease.token,
+              executionLeaseVersion: lease.version,
+              executionLeaseUntil: { gt: new Date() },
+            }
+          : {}),
+      },
+      data: {
+        status: "completed",
+        progress: 100,
+        errorMessage: null,
+        ...(lease
+          ? { executionLeaseToken: null, executionLeaseUntil: null }
+          : {}),
+      },
     });
     if (completed.count !== 1) {
       const cancelled = await (model.updateMany as typeof tx.imageGeneration.updateMany)({
-        where: { id: generationId, status: { in: [...activeStatuses] }, cancelRequestedAt: { not: null } },
-        data: { status: "cancelled", progress: 0 },
+        where: {
+          id: generationId,
+          status: { in: [...activeStatuses] },
+          cancelRequestedAt: { not: null },
+          ...(lease
+            ? {
+                executionLeaseToken: lease.token,
+                executionLeaseVersion: lease.version,
+                executionLeaseUntil: { gt: new Date() },
+              }
+            : {}),
+        },
+        data: {
+          status: "cancelled",
+          progress: 0,
+          ...(lease
+            ? { executionLeaseToken: null, executionLeaseUntil: null }
+            : {}),
+        },
       });
       if (cancelled.count === 1) return { status: "cancelled" as const, assetIds: [] };
+      if (lease) throw new GenerationLeaseLostError(mediaType, generationId);
       throw new Error("NODE_EXECUTION_STATE_CONFLICT");
     }
     const generation = await (model.findUnique as typeof tx.imageGeneration.findUnique)({
@@ -485,6 +565,17 @@ async function completeGeneration(
         select: { id: true },
       });
       assetIds.push(asset.id);
+      if (isCleanupClient(tx)) {
+        await linkStorageCleanupToAsset(tx, {
+          ownerEmail: generation.ownerEmail,
+          requestId: generationId,
+          storageProvider: artifact.storageProvider,
+          storageObjectId: artifact.storageObjectId,
+          storageUrl: artifact.storageUrl,
+          reason: "generation_output",
+          assetId: asset.id,
+        });
+      }
       if (mediaType === "image") {
         await tx.imageGenerationImage.create({
           data: {

@@ -60,6 +60,7 @@ describe("node executions route", () => {
       "graph-1",
       "node-1",
       { expectedGraphVersion: 7 },
+      null,
     );
   });
 

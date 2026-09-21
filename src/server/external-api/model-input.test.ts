@@ -42,12 +42,14 @@ describe("authenticated model input contract", () => {
           multiple: false,
           multipartField: "file:frame",
           maxBytes: 10485760,
+          maxItems: 1,
         },
         {
           name: "frames",
           multiple: true,
           multipartField: "file:frames",
           maxBytes: 10485760,
+          maxItems: 8,
         },
       ]);
     },

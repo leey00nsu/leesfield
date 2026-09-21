@@ -113,6 +113,35 @@ describe("POST /api/audio-generation", () => {
     expect(mockStartWorker).toHaveBeenCalled();
   });
 
+  it("입력 미디어가 너무 크면 413을 반환한다", async () => {
+    mockGetSession.mockResolvedValue({
+      isLoggedIn: true,
+      adminEmail: "admin@example.com",
+    });
+    mockValidatePayload.mockResolvedValue({
+      success: true,
+      data: {
+        ...audioGenerationDefaults,
+        prompt: "hello",
+        model: "qwen-tts",
+        inputAudio: "data:audio/wav;base64,AAAA",
+      },
+    });
+    mockCreateWithLimit.mockRejectedValue(
+      new Error("INPUT_MEDIA_TOO_LARGE"),
+    );
+
+    const response = await POST(new Request("http://localhost/api/audio-generation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...audioGenerationDefaults, prompt: "hello" }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(payload.message).toBe("INPUT_MEDIA_TOO_LARGE");
+  });
+
   it("저장 실패 시 500을 반환한다", async () => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,

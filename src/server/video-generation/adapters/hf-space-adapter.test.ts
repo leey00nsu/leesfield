@@ -14,6 +14,22 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
   getModelCatalog: mockGetModelCatalog,
 }));
 
+vi.mock("@/server/http/bounded-io", async () => {
+  const actual = await vi.importActual<typeof import("@/server/http/bounded-io")>(
+    "@/server/http/bounded-io",
+  );
+  return {
+    ...actual,
+    fetchBoundedRemoteBytes: async (url: string, options: { signal?: AbortSignal }) => {
+      const response = await fetch(url, { signal: options.signal });
+      return {
+        buffer: Buffer.from(await response.arrayBuffer()),
+        contentType: response.headers.get("content-type"),
+      };
+    },
+  };
+});
+
 describe("hfSpaceVideoAdapter", () => {
   beforeEach(() => {
     vi.resetModules();

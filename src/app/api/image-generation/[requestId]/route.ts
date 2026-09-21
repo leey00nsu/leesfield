@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
+import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { getGeneration } from "@/server/image-generation/image-generation-store";
 import { prisma } from "@/server/db/prisma";
 import { deleteLeemageFilesByPrefix } from "@/server/shared/leemage-file-deleter";
@@ -53,9 +54,11 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: RouteContext,
 ) {
+  const originError = assertSessionMutationOrigin(request);
+  if (originError) return originError;
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -92,7 +95,7 @@ export async function DELETE(
   try {
     await deleteLeemageFilesByPrefix(`${record.requestId}-`);
   } catch (error) {
-    console.error("[image-generation] storage delete failed", error);
+    logSafeError("image_generation.storage_delete_failed", error);
     return NextResponse.json(
       { message: "STORAGE_DELETE_FAILED" },
       { status: 500 },
@@ -104,7 +107,7 @@ export async function DELETE(
       where: { id: record.id },
     });
   } catch (error) {
-    console.error("[image-generation] db delete failed", error);
+    logSafeError("image_generation.db_delete_failed", error);
     return NextResponse.json(
       { message: "DB_DELETE_FAILED" },
       { status: 500 },
@@ -113,3 +116,4 @@ export async function DELETE(
 
   return NextResponse.json({ message: "DELETED" });
 }
+import { logSafeError } from "@/server/observability/request-observability";

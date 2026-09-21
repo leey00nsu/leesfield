@@ -12,9 +12,10 @@ import {
   parseGenerationEvent,
   type NodeExecutionUpdatedEvent,
 } from "@/shared/generation-events/generation-event-contract";
+import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
 const databaseUrl = process.env.DATABASE_URL;
-const integration = describe.skipIf(!databaseUrl);
+const integration = describe.skipIf(!postgresIntegrationEnabled);
 
 function waitForEvent(
   client: Client,

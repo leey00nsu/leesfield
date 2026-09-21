@@ -89,8 +89,8 @@ describe("GenerationEventBroker", () => {
     });
     expect(graphOne).toHaveBeenCalledTimes(1);
 
-    unsubscribeOne();
-    unsubscribeTwo();
+    unsubscribeOne?.();
+    unsubscribeTwo?.();
     expect(client.end).toHaveBeenCalledTimes(1);
   });
 
@@ -124,7 +124,7 @@ describe("GenerationEventBroker", () => {
 
     expect(createClient).toHaveBeenCalledTimes(2);
     expect(states.at(-1)).toBe("connected");
-    unsubscribe();
+    unsubscribe?.();
   });
 
   it("cancels reconnect when the last subscriber leaves", async () => {
@@ -140,10 +140,43 @@ describe("GenerationEventBroker", () => {
 
     const unsubscribe = broker.subscribe("graph-1", { onEvent: vi.fn() });
     await flush();
-    unsubscribe();
+    unsubscribe?.();
     await vi.advanceTimersByTimeAsync(1_000);
 
     expect(createClient).toHaveBeenCalledTimes(1);
+    expect(client.end).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects subscribers beyond the process and owner caps", async () => {
+    const client = new FakeClient();
+    const broker = new GenerationEventBroker({
+      createClient: () => client,
+      maxSubscribers: 2,
+      maxSubscribersPerScope: 1,
+    });
+
+    const unsubscribe = broker.subscribe(
+      "graph-1",
+      { onEvent: vi.fn() },
+      "owner-1",
+    );
+    expect(unsubscribe).toEqual(expect.any(Function));
+    expect(
+      broker.subscribe("graph-2", { onEvent: vi.fn() }, "owner-1"),
+    ).toBeNull();
+    const secondUnsubscribe = broker.subscribe(
+      "graph-2",
+      { onEvent: vi.fn() },
+      "owner-2",
+    );
+    expect(secondUnsubscribe).toEqual(expect.any(Function));
+    expect(
+      broker.subscribe("graph-3", { onEvent: vi.fn() }, "owner-3"),
+    ).toBeNull();
+
+    unsubscribe?.();
+    secondUnsubscribe?.();
+    await flush();
     expect(client.end).toHaveBeenCalledTimes(1);
   });
 });

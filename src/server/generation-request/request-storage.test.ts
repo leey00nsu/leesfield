@@ -3,10 +3,16 @@ import {createImageGenerationRecord} from '@/server/image-generation/image-gener
 import {createVideoGenerationRecord} from '@/server/video-generation/video-generation-repository';
 import {createAudioGenerationRecord} from '@/server/audio-generation/audio-generation-repository';
 import {restoreRequest} from './request-snapshot';
-const mocks=vi.hoisted(()=>({create:vi.fn(async(value)=>value),catalog:vi.fn()}));
-vi.mock('@/server/db/prisma',()=>({prisma:{imageGeneration:{create:mocks.create},videoGeneration:{create:mocks.create},audioGeneration:{create:mocks.create}}}));
+const mocks=vi.hoisted(()=>({create:vi.fn(async(value)=>value),catalog:vi.fn(),link:vi.fn(),transaction:vi.fn()}));
+vi.mock('@/server/db/prisma',()=>({prisma:{
+ imageGeneration:{create:mocks.create},videoGeneration:{create:mocks.create},audioGeneration:{create:mocks.create},
+ $transaction:mocks.transaction,
+}}));
 vi.mock('@/server/model-catalog/catalog-service',()=>({getModelCatalog:mocks.catalog}));
-beforeEach(()=>{vi.clearAllMocks();mocks.catalog.mockResolvedValue(['image','video','audio'].map(type=>({type,key:type,parameters:{width:{},height:{},steps:{},seed:{},fps:{},durationSec:{}}})));});
+beforeEach(()=>{vi.clearAllMocks();mocks.transaction.mockImplementation(async (callback)=>callback({
+ imageGeneration:{create:mocks.create},videoGeneration:{create:mocks.create},audioGeneration:{create:mocks.create},
+ generationInputAsset:{createMany:mocks.link},
+}));mocks.catalog.mockResolvedValue(['image','video','audio'].map(type=>({type,key:type,parameters:{width:{},height:{},steps:{},seed:{},fps:{},durationSec:{}}})));});
 describe('repository snapshot persistence',()=>{
  it('writes a legacy image once and restores dimensions without model lookup',async()=>{
  await createImageGenerationRecord('r',{model:'image',prompt:'p',width:768,height:512,steps:9,imageCount:1,seed:'42'},'owner');
@@ -24,5 +30,10 @@ describe('repository snapshot persistence',()=>{
  mocks.catalog.mockResolvedValue([{type:'audio',key:'audio',providerConfig:{api_name:'/tts',output:{media:'audio',path:[0]}},parameters:{text:{label:'Text',binding:{source:'hf_space',parameterName:'text',valueType:'string',schema:{type:'string'},canonicalKey:'prompt'}}}}]);
  await createAudioGenerationRecord('r',{model:'audio',prompt:'hello',dynamicParams:{text:'hello'}},'owner');
  expect(mocks.create.mock.calls[0][0].data.requestParams.requestSettings).toEqual({text:'hello'});
+ });
+ it('creates a Generation row and its durable input refs in one transaction',async()=>{
+  await createImageGenerationRecord('r',{model:'image',prompt:'p',width:512,height:512,imageCount:1,steps:1,initImages:['https://cdn.example/input.png']},'owner',null,null,undefined,[{assetId:'asset-1',field:'initImages',sortOrder:0,multiple:true}]);
+  expect(mocks.transaction).toHaveBeenCalledTimes(1);
+  expect(mocks.link).toHaveBeenCalledWith({data:[{requestId:'r',generationType:'image',ownerEmail:'owner',field:'initImages',sortOrder:0,multiple:true,assetId:'asset-1'}],skipDuplicates:true});
  });
 });

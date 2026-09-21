@@ -184,4 +184,47 @@ describe("Graph generation event stream", () => {
     await expect(reader.read()).resolves.toMatchObject({ done: true });
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
+
+  it("closes with a retry hint when the broker subscriber cap is full", async () => {
+    broker.subscribe.mockReturnValue(null);
+    const response = await GET(request().value, context);
+    const reader = response.body!.getReader();
+
+    const frame = await readFrame(reader);
+    expect(frame).toContain("event: stream.overloaded");
+    expect(frame).toContain('"retryAfterMs":10000');
+    await expect(reader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  it("closes and unsubscribes when a reader leaves the bounded buffer full", async () => {
+    const unsubscribe = vi.fn();
+    let subscriber: GenerationEventSubscriber | undefined;
+    broker.subscribe.mockImplementation(
+      (_graphId: string, next: GenerationEventSubscriber) => {
+        subscriber = next;
+        next.onState?.("connected");
+        return unsubscribe;
+      },
+    );
+    const response = await GET(request().value, context);
+    const reader = response.body!.getReader();
+
+    for (let index = 0; index < 40; index += 1) {
+      subscriber!.onEvent({
+        version: 2,
+        type: "node-execution.updated",
+        executionKind: "generation",
+        mediaType: "image",
+        graphId: "graph-1",
+        graphNodeId: "node-1",
+        executionId: `request-${index}`,
+        status: "processing",
+        progress: index,
+        updatedAt: "2026-08-24T12:00:00.000Z",
+      });
+    }
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    await reader.cancel();
+  });
 });

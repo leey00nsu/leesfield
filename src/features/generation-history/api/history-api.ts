@@ -14,6 +14,7 @@ export interface HistoryQueryParams {
   offset?: number;
   cursor?: string | null;
   status?: string;
+  includeTotal?: boolean;
 }
 
 function buildHistoryUrl(params: HistoryQueryParams) {
@@ -27,6 +28,7 @@ function buildHistoryUrl(params: HistoryQueryParams) {
   if (params.offset !== undefined) searchParams.set("offset", String(params.offset));
   if (params.cursor) searchParams.set("cursor", params.cursor);
   if (params.status) searchParams.set("status", params.status);
+  if (params.includeTotal !== undefined) searchParams.set("includeTotal", String(params.includeTotal));
 
   return `/api/history?${searchParams.toString()}`;
 }

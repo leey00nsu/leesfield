@@ -53,7 +53,7 @@ export function useGenerationHistoryList({ type, sort, query, model, prompt, sta
       if (!old) return old;
       const found = old.pages.some(page => page.items.some(row => row.id === item.id && row.type === item.type));
       if (!found) return old;
-      return { ...old, pages: old.pages.map(page => ({ ...page, total: Math.max(0, page.total - 1), items: page.items.filter(row => row.id !== item.id || row.type !== item.type) })) };
+      return { ...old, pages: old.pages.map(page => ({ ...page, total: page.total === null ? null : Math.max(0, page.total - 1), items: page.items.filter(row => row.id !== item.id || row.type !== item.type) })) };
     });
     void client.invalidateQueries({ queryKey: historyKeys.all });
     void client.invalidateQueries({ queryKey: ["media-assets"] });

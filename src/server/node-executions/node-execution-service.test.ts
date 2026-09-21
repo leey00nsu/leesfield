@@ -107,6 +107,29 @@ function setup() {
 }
 
 describe("nodeExecutionService", () => {
+  it("reuses a Node generation for the same idempotency key and payload", async () => {
+    const state = setup();
+    await state.service.execute(
+      "owner@example.com",
+      "graph-1",
+      "node-1",
+      { expectedGraphVersion: 4 },
+      "node-retry-key",
+    );
+    const requestId = state.submitImage.mock.calls[0]?.[0]?.requestId;
+
+    const retry = await state.service.execute(
+      "owner@example.com",
+      "graph-1",
+      "node-1",
+      { expectedGraphVersion: 4 },
+      "node-retry-key",
+    );
+
+    expect(state.submitImage).toHaveBeenCalledTimes(1);
+    expect(retry.record).toMatchObject({ id: requestId, status: "pending" });
+  });
+
   it("uses the same single-pass Constructor output and ignores paused variable edges", async () => {
     const state = setup();
     const source = (id: string, kind: string, config: Record<string, unknown>) => ({ id, kind, config, configVersion: 1, selectedOutputAssetId: null });

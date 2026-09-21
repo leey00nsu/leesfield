@@ -35,13 +35,16 @@ describe("resolveGenerationResult", () => {
   });
 
   it("업로드 실패 시 fallback 결과와 에러 메시지를 반환한다", async () => {
-    const mockUpload = vi.fn().mockRejectedValue(new Error("upload failed"));
+    const mockPresign = vi.fn().mockRejectedValue(new Error("upload failed"));
 
     vi.resetModules();
     vi.doMock("leemage-sdk", () => ({
       LeemageClient: class {
-        files = { upload: mockUpload };
+        files = { presign: mockPresign, confirm: vi.fn() };
       },
+    }));
+    vi.doMock("@/server/http/safe-remote", () => ({
+      requestRemote: vi.fn(),
     }));
 
     Object.assign(process.env, {
@@ -58,7 +61,7 @@ describe("resolveGenerationResult", () => {
       "request-id"
     );
 
-    expect(mockUpload).toHaveBeenCalled();
+    expect(mockPresign).toHaveBeenCalled();
     expect(result.status).toBe("completed");
     expect(result.result?.images[0]?.url).toMatch(/^data:image\//);
     expect(result.errorMessage).toBe("upload failed");

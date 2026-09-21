@@ -59,6 +59,7 @@ export function buildMediaAssetKnownErrorResponse(error: unknown) {
         message: "MEDIA_ASSET_IN_USE",
         graphIds: error.graphIds,
         operationIds: error.operationIds,
+        generationRequestIds: error.generationRequestIds,
       },
       { status: 409 },
     );

@@ -41,9 +41,18 @@ describe("Modal authenticated transport",()=>{
   setup();let body:FormData|undefined;
   vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{body=init.body;return Response.json({name:"input-123.png",media_type:"image"});}));
   const c=createModalClient();
-  expect(await c.upload("data:image/png;base64,"+png.toString("base64"))).toBe("input-123.png");
+  expect(await c.upload("data:image/png;base64,"+png.toString("base64"),"image","upload-key")).toBe("input-123.png");
   expect(await (body!.get("file") as Blob).arrayBuffer()).toEqual(png.buffer.slice(png.byteOffset,png.byteOffset+png.byteLength));
+  expect((vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit).headers).toMatchObject({"Idempotency-Key":"upload-key"});
   await expect(c.upload("data:image/jpeg;base64,"+png.toString("base64"))).rejects.toThrow("IMAGE_INVALID");
+ });
+ it.each([[429,true],[500,true],[503,true],[400,false]])("classifies upstream %s for retry policy",async(status,retryable)=>{
+  setup();
+  vi.stubGlobal("fetch",vi.fn(async()=>new Response("upstream",{status})));
+  await expect(createModalClient().json("/api/workflows")).rejects.toMatchObject({
+   code:"MODAL_HTTP_"+status,
+   retryable,
+  });
  });
  it("limits chunked and declared responses and sanitizes remote errors",async()=>{
   setup();

@@ -92,7 +92,11 @@ export async function resolveVideoGenerationResult(
       const message =
         warningMessage ??
         "비디오 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
-      console.warn(`[video-storage] ${message}`, { requestId });
+      logStructured("generation.storage_skipped", {
+        requestId,
+        kind: "video",
+        outcome: "storage_unavailable",
+      });
       return {
         status: "completed",
         result: buildInlineResult(payload, result.videos, await videoOutputMetadata(result.videos)),
@@ -120,3 +124,4 @@ export async function resolveVideoGenerationResult(
     };
   }
 }
+import { logStructured } from "@/server/observability/request-observability";

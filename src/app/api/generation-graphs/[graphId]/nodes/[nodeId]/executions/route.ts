@@ -1,7 +1,14 @@
 import { getSession } from "@/server/auth/session";
+import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
+import {
+  GRAPH_BODY_LIMIT_BYTES,
+  readRouteJsonBody,
+} from "@/server/http/bounded-body";
 import { nodeExecutionErrorResponse } from "@/server/node-executions/node-execution-http";
 import { nodeExecutionService } from "@/server/node-executions/node-execution-service";
+import { readIdempotencyKey } from "@/server/generation-admission/admitted-submission";
+import { logSafeError } from "@/server/observability/request-observability";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,7 +23,7 @@ async function ownerEmail() {
 }
 
 function unexpected(operation: string, error: unknown) {
-  console.error(`[node-executions] ${operation} failed`, error);
+  logSafeError("node_execution.request_failed", error, { operation });
   return buildErrorResponse("DB_SAVE_FAILED", 500);
 }
 
@@ -35,11 +42,21 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function POST(request: Request, context: RouteContext) {
   const owner = await ownerEmail();
+  const originError = assertSessionMutationOrigin(request);
+  if (originError) return originError;
   if (!owner) return buildErrorResponse("UNAUTHORIZED", 401);
-  const body = await request.json().catch(() => null);
+  const bounded = await readRouteJsonBody(request, GRAPH_BODY_LIMIT_BYTES);
+  if (!bounded.ok) return buildErrorResponse(bounded.code, bounded.status);
+  const body = bounded.body;
   try {
     const { graphId, nodeId } = await context.params;
-    const result = await nodeExecutionService.execute(owner, graphId, nodeId, body);
+    const result = await nodeExecutionService.execute(
+      owner,
+      graphId,
+      nodeId,
+      body,
+      readIdempotencyKey(request),
+    );
     const execution = "operation" in result && result.operation
       ? {
           executionId: result.operation.id,

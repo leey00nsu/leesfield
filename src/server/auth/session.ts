@@ -3,19 +3,15 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 
 import { resolveLocalAuthBypass } from "./local-auth-bypass";
+import { getServerEnv } from "@/server/runtime/env";
 
 export interface SessionData {
   isLoggedIn: boolean;
   adminEmail?: string;
 }
 
-const sessionPassword = process.env.SESSION_PASSWORD;
-
-if (!sessionPassword || sessionPassword.length < 32) {
-  throw new Error(
-    "SESSION_PASSWORD must be set and at least 32 characters long.",
-  );
-}
+const serverEnv = getServerEnv();
+const sessionPassword = serverEnv.sessionPassword;
 
 export const sessionOptions = {
   password: sessionPassword,
@@ -23,7 +19,7 @@ export const sessionOptions = {
   cookieOptions: {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: serverEnv.isProduction,
   },
 };
 

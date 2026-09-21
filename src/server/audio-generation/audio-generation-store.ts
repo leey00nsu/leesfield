@@ -41,8 +41,14 @@ export async function createMockAudioGenerationWithLimit(
   payload: AudioGenerationFormValues,
   ownerEmail: string,
   apiKeyId: string | null = null,
+  requestId?: string,
 ) {
-  const { record } = await submitAudioGeneration({ payload, ownerEmail, apiKeyId });
+  const { record } = await submitAudioGeneration({
+    payload,
+    ownerEmail,
+    apiKeyId,
+    requestId,
+  });
 
   return {
     record: record satisfies AudioGenerationRecord,
@@ -50,7 +56,11 @@ export async function createMockAudioGenerationWithLimit(
   };
 }
 
-export async function getAudioGeneration(id: string, ownerEmail: string) {
-  const record = await getAudioGenerationByRequestId(id, ownerEmail);
+export async function getAudioGeneration(
+  id: string,
+  ownerEmail: string,
+  apiKeyId?: string | null,
+) {
+  const record = await getAudioGenerationByRequestId(id, ownerEmail, apiKeyId);
   return mapRecord(record);
 }

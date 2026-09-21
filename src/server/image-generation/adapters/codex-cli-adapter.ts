@@ -20,6 +20,11 @@ import {
 import type { ImageGenerationAdapter } from "@/server/image-generation/adapters/types";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import type { ImageModelCatalogItem } from "@/server/model-catalog/catalog-schema";
+import { mapWithConcurrency } from "@/server/http/bounded-body";
+import {
+  GENERATION_OUTPUT_LIMITS,
+  OUTBOUND_CONCURRENCY,
+} from "@/server/http/bounded-io";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_AGENT_MODEL = "gpt-5.5";
@@ -270,8 +275,7 @@ async function materializeInputImages(
   }
 
   const { fileTypeFromBuffer } = await import("file-type");
-  return Promise.all(
-    inputImages.map(async (source, index) => {
+  return mapWithConcurrency(inputImages, OUTBOUND_CONCURRENCY, async (source, index) => {
       const { buffer, mime } = await resolveCodexInputImageBuffer(source);
       const detected = await fileTypeFromBuffer(new Uint8Array(buffer));
       if (!detected?.mime.startsWith("image/")) {
@@ -281,7 +285,7 @@ async function materializeInputImages(
       const filePath = path.join(tempDir, `input-${index + 1}.${extension}`);
       await writeFile(filePath, buffer);
       return filePath;
-    }),
+    },
   );
 }
 
@@ -313,7 +317,13 @@ async function readImageAsDataUrl(filePath: string) {
   if (!metadata.isFile() || metadata.isSymbolicLink()) {
     throw new Error("CODEX_IMAGE_OUTPUT_INVALID");
   }
+  if (metadata.size > GENERATION_OUTPUT_LIMITS.image) {
+    throw new Error("CODEX_IMAGE_OUTPUT_TOO_LARGE");
+  }
   const buffer = await readFile(filePath);
+  if (buffer.byteLength > GENERATION_OUTPUT_LIMITS.image) {
+    throw new Error("CODEX_IMAGE_OUTPUT_TOO_LARGE");
+  }
   const { fileTypeFromBuffer } = await import("file-type");
   const detected = await fileTypeFromBuffer(new Uint8Array(buffer));
   if (!detected?.mime.startsWith("image/")) {

@@ -45,6 +45,16 @@ const imageModel: ModelCatalogItem = {
   updatedAt: now,
 };
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("model-catalog service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,5 +92,47 @@ describe("model-catalog service", () => {
     ]);
 
     await expect(getModelCatalog()).rejects.toThrow("MODEL_CATALOG_INVALID");
+  });
+
+  it("동시 cache miss를 하나의 DB 조회로 합친다", async () => {
+    const load = deferred<ModelCatalogItem[]>();
+    (listModelCatalogRecords as ReturnType<typeof vi.fn>).mockReturnValue(
+      load.promise,
+    );
+
+    const first = getModelCatalog();
+    const second = getModelCatalog();
+
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(1);
+    load.resolve([imageModel]);
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+  });
+
+  it("실패한 load는 다음 요청이 다시 시도할 수 있다", async () => {
+    (listModelCatalogRecords as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error("temporary database failure"))
+      .mockResolvedValueOnce([imageModel]);
+
+    await expect(getModelCatalog()).rejects.toThrow("temporary database failure");
+    await expect(getModelCatalog()).resolves.toEqual([imageModel]);
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(2);
+  });
+
+  it("무효화 중 완료된 이전 load가 새 cache를 덮어쓰지 않는다", async () => {
+    const stale = deferred<ModelCatalogItem[]>();
+    (listModelCatalogRecords as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(stale.promise)
+      .mockResolvedValueOnce([imageModel]);
+
+    const staleRequest = getModelCatalog();
+    invalidateModelCatalogCache();
+    const freshRequest = getModelCatalog();
+
+    await expect(freshRequest).resolves.toEqual([imageModel]);
+    stale.resolve([{ ...imageModel, key: "stale-model" }]);
+    await staleRequest;
+
+    await expect(getModelCatalog()).resolves.toEqual([imageModel]);
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(2);
   });
 });

@@ -42,6 +42,7 @@ export function LoginForm({ returnTo = "/" }: LoginFormProps) {
       INVALID_CREDENTIALS: tForm("errors.invalidCredentials"),
       SERVER_CONFIG: tForm("errors.serverConfig"),
       UNKNOWN: tForm("errors.unknown"),
+      RATE_LIMITED: tForm("errors.rateLimited"),
     }),
     [tForm],
   );

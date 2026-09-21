@@ -9,6 +9,11 @@ type CacheEntry = {
 };
 
 const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, {
+  generation: number;
+  promise: Promise<ModelCatalogItem[]>;
+}>();
+let cacheGeneration = 0;
 
 function cacheKey(includeInactive: boolean) {
   return includeInactive ? "all" : "active";
@@ -37,13 +42,32 @@ export async function getModelCatalog(params: {
     if (cached && Date.now() - cached.fetchedAt < ttlMs) {
       return cached.items;
     }
+
+    const pending = inFlight.get(key);
+    if (pending?.generation === cacheGeneration) return pending.promise;
   }
 
-  const items = await loadCatalog(includeInactive);
-  cache.set(key, { fetchedAt: Date.now(), items });
-  return items;
+  const generation = cacheGeneration;
+  const promise = loadCatalog(includeInactive)
+    .then((items) => {
+      // An administrator may invalidate while this request is loading. Do not
+      // let that stale result repopulate the cache after the invalidation.
+      if (generation === cacheGeneration) {
+        cache.set(key, { fetchedAt: Date.now(), items });
+      }
+      return items;
+    })
+    .finally(() => {
+      const pending = inFlight.get(key);
+      if (pending?.promise === promise) inFlight.delete(key);
+    });
+
+  inFlight.set(key, { generation, promise });
+  return promise;
 }
 
 export function invalidateModelCatalogCache() {
+  cacheGeneration += 1;
   cache.clear();
+  inFlight.clear();
 }

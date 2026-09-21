@@ -15,6 +15,7 @@ describe("history infinite query", () => {
     fetchMock.mockResolvedValueOnce(page("first", "next"));
     const { result } = renderHook(() => useHistoryQuery(params), { wrapper: createIntlWrapper() });
     await waitFor(() => expect(result.current.data?.pages[0].items[0].id).toBe("first"));
+    expect(fetchMock).toHaveBeenCalledWith(expect.objectContaining({ includeTotal: true }), expect.anything());
     fetchMock.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; })).mockRejectedValueOnce(new Error("timeout"));
     act(() => { void result.current.fetchNextPage(); });
     await waitFor(() => expect(result.current.isFetchingNextPage).toBe(true));
@@ -26,7 +27,7 @@ describe("history infinite query", () => {
     await act(async () => { await result.current.fetchNextPage(); });
     await waitFor(() => expect(result.current.data?.pages.flatMap(p => p.items).map(i => i.id)).toEqual(["first", "second"]));
     expect(result.current.hasNextPage).toBe(false);
-    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "next" }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "next", includeTotal: false }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
   it("aborts an old filter and never mixes its late response into the new filter", async () => {
     let finish!: (value: GenerationHistoryResponse) => void;

@@ -23,18 +23,34 @@ describe("leemageAudioStorageAdapter", () => {
   });
 
   it("octet-stream data URL도 실제 오디오 확장자로 업로드한다", async () => {
-    const mockUpload = vi.fn().mockResolvedValue({
+    const file = {
       id: "file-1",
       url: "https://cdn.example.com/request-id-1.wav",
       mimeType: "audio/wav",
       size: 16,
+    };
+    const mockPresign = vi.fn().mockResolvedValue({
+      presignedUrl: "https://upload.example/signed",
+      objectName: "project/file-1.wav",
+      objectUrl: file.url,
+      fileId: file.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
+    const mockConfirm = vi.fn().mockResolvedValue({ file });
 
     vi.resetModules();
     vi.doMock("leemage-sdk", () => ({
       LeemageClient: class {
-        files = { upload: mockUpload };
+        files = { presign: mockPresign, confirm: mockConfirm };
       },
+    }));
+    vi.doMock("@/server/http/safe-remote", () => ({
+      requestRemote: vi.fn().mockResolvedValue({ status: 200, headers: {}, body: Buffer.alloc(0) }),
+    }));
+    vi.doMock("@/server/media-assets/media-cleanup-repository", () => ({
+      cleanupUploadRetryAt: () => new Date(),
+      createStorageCleanupIntent: vi.fn().mockResolvedValue({ id: "cleanup" }),
+      queueStorageCleanup: vi.fn().mockResolvedValue({ id: "cleanup" }),
     }));
 
     Object.assign(process.env, {
@@ -57,10 +73,10 @@ describe("leemageAudioStorageAdapter", () => {
       { duration_sec: 1.5 },
     );
 
-    expect(mockUpload).toHaveBeenCalledTimes(1);
-    expect(mockUpload.mock.calls[0]?.[1]).toMatchObject({
-      name: expect.stringMatching(/^leesfield-[a-f0-9]{64}\.wav$/),
-      type: "audio/wav",
+    expect(mockPresign).toHaveBeenCalledTimes(1);
+    expect(mockPresign.mock.calls[0]?.[1]).toMatchObject({
+      fileName: expect.stringMatching(/^leesfield-[a-f0-9]{64}\.wav$/),
+      contentType: "audio/wav",
     });
     expect(result.artifacts).toEqual([
       expect.objectContaining({

@@ -123,7 +123,15 @@ export const leemageMediaStorageAdapter: MediaStorageAdapter = {
   async delete(objectId) {
     const { client, projectId } = clientAndProject();
     projectReads.get(client)?.delete(projectId);
-    await client.files.delete(projectId, objectId);
+    try {
+      await client.files.delete(projectId, objectId);
+    } catch (error) {
+      // Remote deletion is idempotent. A retry after a process crash commonly
+      // observes the object already gone.
+      if (!(error && typeof error === "object" && "status" in error && error.status === 404)) {
+        throw error;
+      }
+    }
   },
 };
 

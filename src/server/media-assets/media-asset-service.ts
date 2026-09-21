@@ -20,6 +20,7 @@ import {
   MediaAssetInUseError,
   MediaAssetInputError,
   MediaFileTooLargeError,
+  MediaAssetNotFoundError,
   MediaOperationConflictError,
   MediaQuotaExceededError,
   MediaStorageUnavailableError,
@@ -33,6 +34,19 @@ import {
 } from "./media-asset-repository";
 import { leemageMediaStorageAdapter } from "./leemage-media-storage";
 import type { MediaStorageAdapter } from "./media-storage";
+import {
+  BoundedIoError,
+  createTimeoutSignal,
+  limitReadableStream,
+  OUTBOUND_UPLOAD_TIMEOUT_MS,
+  readFetchResponseBytes,
+} from "@/server/http/bounded-io";
+import {
+  cleanupUploadRetryAt,
+  createStorageCleanupIntent,
+  queueStorageCleanup,
+  type StorageCleanupIntent,
+} from "./media-cleanup-repository";
 
 const defaultFileLimits: Record<MediaType, number> = {
   image: 25 * 1024 * 1024,
@@ -207,19 +221,30 @@ function toOperationDto(operation: MediaOperationRecord): MediaOperationDto {
   };
 }
 
+const cleanupLifecycle = {
+  register: (input: StorageCleanupIntent) =>
+    createStorageCleanupIntent(undefined, input),
+  queue: (input: StorageCleanupIntent) =>
+    queueStorageCleanup(undefined, input),
+};
+
 export function createMediaAssetService(
   repository: MediaAssetRepository = mediaAssetRepository,
   storage: MediaStorageAdapter = leemageMediaStorageAdapter,
   clock: () => Date = () => new Date(),
+  cleanup: Pick<typeof cleanupLifecycle, "register" | "queue"> = cleanupLifecycle,
 ) {
   async function cleanupTerminalOperationOutputs(ownerEmail: string, operationId: string) {
     const outputs = await repository.listTerminalOperationOutputs(ownerEmail, operationId);
     await Promise.all(outputs.map(async (asset) => {
       try {
-        if (asset.storageProvider === "leemage") await boundedStorage(storage.delete(asset.storageObjectId));
+        const marked = typeof repository.markTerminalOperationOutputDeleting === "function"
+          ? await repository.markTerminalOperationOutputDeleting(ownerEmail, operationId, asset.id)
+          : asset;
+        if (marked.storageProvider === "leemage") await boundedStorage(storage.delete(marked.storageObjectId));
         await repository.deleteTerminalOperationOutput(ownerEmail, operationId, asset.id);
       } catch {
-        // Keep the hidden provenance row for a later reconciliation pass if storage is unavailable.
+        // The cleanup ledger keeps the hidden provenance row for a later retry.
       }
     }));
   }
@@ -238,9 +263,7 @@ export function createMediaAssetService(
     async listNodeOperations(ownerEmail: string, graphId: string, graphNodeId: string) {
       // Polling is also the recovery entry point for abandoned confirmations.
       // Scope expiry to this owned node and never touch an unexpired upload.
-      const expired = await repository.expireUploads(clock(), 100, { ownerEmail, graphId, graphNodeId });
-      void Promise.allSettled(expired.filter((session) => session.storageProvider === "leemage")
-        .map((session) => boundedStorage(storage.delete(session.storageObjectId))));
+      await repository.expireUploads(clock(), 100, { ownerEmail, graphId, graphNodeId });
       const operations = await repository.listNodeOperations(ownerEmail, graphId, graphNodeId, 20);
       return operations.map(toOperationDto);
     },
@@ -296,6 +319,20 @@ export function createMediaAssetService(
           : status ? "upstream" : error instanceof Error && error.name === "NetworkError" ? "network" : "unknown";
         throw new MediaStorageUnavailableError({ stage: "presign", reason, upstreamStatus: status });
       }
+      const cleanupInput: StorageCleanupIntent = {
+        ownerEmail,
+        storageProvider: "leemage",
+        storageObjectId: presign.objectId,
+        storageUrl: presign.objectUrl,
+        reason: "upload_session",
+        retryAt: cleanupUploadRetryAt(clock(), presign.expiresAt),
+      };
+      try {
+        await cleanup.register(cleanupInput);
+      } catch (error) {
+        await boundedStorage(storage.delete(presign.objectId)).catch(() => undefined);
+        throw error;
+      }
       let session;
       try {
         session = await repository.createUploadSession(
@@ -305,7 +342,11 @@ export function createMediaAssetService(
           BigInt(ownerQuotaBytes()),
         );
       } catch (error) {
-        await storage.delete(presign.objectId).catch(() => undefined);
+        try {
+          await cleanup.queue({ ...cleanupInput, retryAt: clock() });
+        } catch {
+          await boundedStorage(storage.delete(presign.objectId)).catch(() => undefined);
+        }
         throw error;
       }
       return {
@@ -328,6 +369,7 @@ export function createMediaAssetService(
       body: ReadableStream<Uint8Array> | null,
       contentType: string | null,
       contentLength: string | null,
+      requestSignal?: AbortSignal,
     ) {
       const session = await repository.getPendingUpload(ownerEmail, uploadId, clock());
       const normalizedContentType = normalizeMimeType(contentType ?? "");
@@ -345,6 +387,22 @@ export function createMediaAssetService(
         );
       }
       const url = assertRelayTarget(target, session.storageObjectName);
+      let uploadedBytes = 0;
+      let completeUpload!: (bytes: number) => void;
+      let failUpload!: (error: unknown) => void;
+      const bodyCompleted = new Promise<number>((resolve, reject) => {
+        completeUpload = resolve;
+        failUpload = reject;
+      });
+      const boundedBody = limitReadableStream(body, {
+        maxBytes: Number(session.declaredBytes),
+        onBytes: (total) => {
+          uploadedBytes = total;
+        },
+        onComplete: completeUpload,
+        onError: failUpload,
+      });
+      const timeout = createTimeoutSignal(OUTBOUND_UPLOAD_TIMEOUT_MS, requestSignal);
       let response: Response;
       try {
         response = await fetch(url, {
@@ -353,11 +411,33 @@ export function createMediaAssetService(
             "Content-Type": session.declaredMimeType,
             "Content-Length": String(session.declaredBytes),
           },
-          body,
+          body: boundedBody,
           duplex: "half",
+          redirect: "error",
+          signal: timeout.signal,
         } as RequestInit & { duplex: "half" });
-      } catch {
+        const transmitted = await Promise.race([
+          bodyCompleted,
+          new Promise<never>((_, reject) => {
+            const timer = setTimeout(
+              () => reject(new MediaStorageUnavailableError()),
+              OUTBOUND_UPLOAD_TIMEOUT_MS,
+            );
+            bodyCompleted.finally(() => clearTimeout(timer)).catch(() => undefined);
+          }),
+        ]);
+        if (transmitted !== Number(session.declaredBytes) || uploadedBytes !== transmitted) {
+          throw new MediaVerificationError("MEDIA_SIZE_MISMATCH");
+        }
+        await readFetchResponseBytes(response, 1024 * 1024);
+      } catch (error) {
+        if (error instanceof BoundedIoError) {
+          throw new MediaVerificationError("MEDIA_SIZE_MISMATCH");
+        }
+        if (error instanceof MediaVerificationError) throw error;
         throw new MediaStorageUnavailableError();
+      } finally {
+        timeout.clear();
       }
       if (!response.ok) throw new MediaStorageUnavailableError();
     },
@@ -370,6 +450,15 @@ export function createMediaAssetService(
 
       let confirmed: Awaited<ReturnType<MediaStorageAdapter["confirm"]>>;
       let inspected: Awaited<ReturnType<MediaStorageAdapter["inspect"]>>;
+      const queueFailedUpload = async (code: string) => {
+        try {
+          await repository.failUpload(ownerEmail, uploadId, code);
+        } catch {
+          // The ledger is the normal path. A direct bounded delete is the
+          // emergency fallback when the database itself is unavailable.
+          await boundedStorage(storage.delete(session.storageObjectId)).catch(() => undefined);
+        }
+      };
       try {
         confirmed = await boundedStorage(storage.confirm({
           objectId: session.storageObjectId,
@@ -409,10 +498,7 @@ export function createMediaAssetService(
           throw new MediaVerificationError("MEDIA_METADATA_INVALID");
         }
       } catch (error) {
-        await Promise.allSettled([
-          repository.failUpload(ownerEmail, uploadId, errorCode(error)),
-          boundedStorage(storage.delete(session.storageObjectId)),
-        ]);
+        await queueFailedUpload(errorCode(error));
         if (error instanceof MediaVerificationError) throw error;
         throw new MediaStorageUnavailableError();
       }
@@ -427,10 +513,7 @@ export function createMediaAssetService(
           now: clock(),
         });
       } catch (error) {
-        await Promise.allSettled([
-          repository.failUpload(ownerEmail, uploadId, errorCode(error)),
-          boundedStorage(storage.delete(session.storageObjectId)),
-        ]);
+        await queueFailedUpload(errorCode(error));
         throw error;
       }
       return toAssetDto(asset, storage, confirmed.url);
@@ -453,15 +536,19 @@ export function createMediaAssetService(
 
     async remove(ownerEmail: string, assetId: string) {
       const usage = await repository.getAssetUsage(ownerEmail, assetId);
-      if (usage.graphIds.length > 0 || usage.operationIds.length > 0) {
-        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds);
+      if (usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0) {
+        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds);
       }
       const asset = await repository.markAssetDeleting(ownerEmail, assetId);
       let storageDeleted = false;
       try {
         const racedUsage = await repository.getAssetUsage(ownerEmail, assetId);
-        if (racedUsage.graphIds.length > 0 || racedUsage.operationIds.length > 0) {
-          throw new MediaAssetInUseError(racedUsage.graphIds, racedUsage.operationIds);
+        if (racedUsage.graphIds.length > 0 || racedUsage.operationIds.length > 0 || racedUsage.generationRequestIds.length > 0) {
+          throw new MediaAssetInUseError(
+            racedUsage.graphIds,
+            racedUsage.operationIds,
+            racedUsage.generationRequestIds,
+          );
         }
         if (asset.storageProvider === "leemage") {
           await storage.delete(asset.storageObjectId);
@@ -469,8 +556,14 @@ export function createMediaAssetService(
         }
         await repository.deleteAsset(ownerEmail, assetId);
       } catch (error) {
-        if (!storageDeleted) await repository.restoreAsset(ownerEmail, assetId);
-        if (error instanceof MediaAssetInUseError) throw error;
+        if (error instanceof MediaAssetInUseError) {
+          await repository.restoreAsset(ownerEmail, assetId);
+          throw error;
+        }
+        // The cleanup worker may finish the same idempotent deletion after the
+        // request marked the asset deleting. The durable task already records
+        // the successful remote deletion in that case.
+        if (error instanceof MediaAssetNotFoundError) return;
         if (!storageDeleted && asset.storageProvider === "leemage") {
           throw new MediaStorageUnavailableError();
         }
@@ -480,11 +573,6 @@ export function createMediaAssetService(
 
     async reconcileExpiredUploads(limit = 100) {
       const sessions = await repository.expireUploads(clock(), limit);
-      await Promise.allSettled(
-        sessions
-          .filter((session) => session.storageProvider === "leemage")
-          .map((session) => boundedStorage(storage.delete(session.storageObjectId))),
-      );
       return { expiredCount: sessions.length };
     },
   };

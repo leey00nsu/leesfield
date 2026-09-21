@@ -18,15 +18,31 @@ describe("leemageVideoStorageAdapter", () => {
   });
 
   it("returns immutable storage identity for durable Graph completion", async () => {
-    const upload = vi.fn().mockResolvedValue({
+    const file = {
       id: "video-file-1",
       url: "https://cdn.example.com/video.mp4",
       mimeType: "video/mp4",
       size: 1024,
+    };
+    const presign = vi.fn().mockResolvedValue({
+      presignedUrl: "https://upload.example/signed",
+      objectName: "project/video-file-1.mp4",
+      objectUrl: file.url,
+      fileId: file.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
+    const confirm = vi.fn().mockResolvedValue({ file });
     vi.resetModules();
     vi.doMock("leemage-sdk", () => ({
-      LeemageClient: class { files = { upload }; },
+      LeemageClient: class { files = { presign, confirm }; },
+    }));
+    vi.doMock("@/server/http/safe-remote", () => ({
+      requestRemote: vi.fn().mockResolvedValue({ status: 200, headers: {}, body: Buffer.alloc(0) }),
+    }));
+    vi.doMock("@/server/media-assets/media-cleanup-repository", () => ({
+      cleanupUploadRetryAt: () => new Date(),
+      createStorageCleanupIntent: vi.fn().mockResolvedValue({ id: "cleanup" }),
+      queueStorageCleanup: vi.fn().mockResolvedValue({ id: "cleanup" }),
     }));
     Object.assign(process.env, {
       LEEMAGE_API_KEY: "test-key",
@@ -40,7 +56,7 @@ describe("leemageVideoStorageAdapter", () => {
       { width: 1280, height: 720, duration_sec: 3,outputs:[{width:1280,height:720,duration_sec:3},{width:640,height:480,duration_sec:8}] },
     );
 
-    expect(upload.mock.calls[0]?.[1].name).toMatch(/^leesfield-[a-f0-9]{64}\.mp4$/);
+    expect(presign.mock.calls[0]?.[1].fileName).toMatch(/^leesfield-[a-f0-9]{64}\.mp4$/);
     expect(result.artifacts).toEqual([
       expect.objectContaining({
         type: "video",
@@ -51,7 +67,7 @@ describe("leemageVideoStorageAdapter", () => {
       expect.objectContaining({width:64,height:48,durationMs:2000}),
     ]);
     expect(result.result?.videos.map(v=>({width:v.width,height:v.height,durationSec:v.durationSec}))).toEqual([{width:640,height:360,durationSec:1},{width:64,height:48,durationSec:2}]);
-    upload.mockRejectedValueOnce(new Error("storage unavailable"));
+    presign.mockRejectedValueOnce(new Error("storage unavailable"));
     const fallback = await leemageVideoStorageAdapter.uploadVideos(
       { ...videoGenerationDefaults, model: "video-a", prompt: "test", durationSec: 9 },
       "fallback", [video("src/server/video-generation/storage/adapters/fixtures/64x48-2s.mp4")],

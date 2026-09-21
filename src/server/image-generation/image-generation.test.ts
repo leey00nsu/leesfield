@@ -133,6 +133,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
 
     expect(mockHfGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ model: "z-image-turbo" }),
+      expect.objectContaining({ requestId: "req-hf" }),
     );
     expect(mockCodexGenerate).not.toHaveBeenCalled();
     expect(mockBridgeGenerate).not.toHaveBeenCalled();
@@ -166,6 +167,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
 
     expect(mockCodexGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ model: "gpt-image-2-codex" }),
+      expect.objectContaining({ requestId: "req-codex" }),
     );
     expect(mockHfGenerate).not.toHaveBeenCalled();
     expect(mockBridgeGenerate).not.toHaveBeenCalled();
@@ -199,6 +201,7 @@ describe("resolveImageGenerationResult provider dispatch", () => {
 
     expect(mockBridgeGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ model: "gpt-image-2-bridge" }),
+      expect.objectContaining({ requestId: "req-bridge" }),
     );
     expect(mockHfGenerate).not.toHaveBeenCalled();
     expect(mockCodexGenerate).not.toHaveBeenCalled();

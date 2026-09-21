@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   audioCount: vi.fn(),
   operationFindMany: vi.fn(),
   operationCount: vi.fn(),
+  inputAssetFindMany: vi.fn(),
   getAsset: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock("@/server/db/prisma", () => ({
     videoGeneration: { findMany: mocks.videoFindMany, count: mocks.videoCount },
     audioGeneration: { findMany: mocks.audioFindMany, count: mocks.audioCount },
     mediaOperation: { findMany: mocks.operationFindMany, count: mocks.operationCount },
+    generationInputAsset: { findMany: mocks.inputAssetFindMany },
   },
 }));
 vi.mock("@/server/media-assets/media-asset-service", () => ({
@@ -37,6 +39,7 @@ describe("getHistory durable provenance", () => {
     mocks.audioCount.mockResolvedValue(0);
     mocks.operationFindMany.mockResolvedValue([]);
     mocks.operationCount.mockResolvedValue(0);
+    mocks.inputAssetFindMany.mockResolvedValue([]);
     mocks.getAsset.mockImplementation(async (_owner: string, id: string) => ({
       id,
       url: `https://fresh.example/${id}`,
@@ -83,6 +86,92 @@ describe("getHistory durable provenance", () => {
     expect(JSON.stringify(result)).not.toContain(blob);
     expect(JSON.stringify(result).length).toBeLessThan(50_000);
     expect(result.items.every(item=>item.inputAudios?.length===0)).toBe(true);
+  });
+
+  it("uses the compact projection and skips counts on cursor pages", async () => {
+    mocks.imageFindMany.mockResolvedValue([{
+      requestId: "image-projected",
+      status: "completed",
+      prompt: "portrait",
+      modelKey: "image-model",
+      historyMetadata: {
+        graphId: "graph-deleted",
+        graphNodeId: "node-deleted",
+        sourceAssetIds: ["source-1"],
+      },
+      graphNodeId: null,
+      graphNode: null,
+      progress: 100,
+      errorMessage: null,
+      createdAt: new Date("2026-09-03T10:00:00.000Z"),
+      updatedAt: new Date("2026-09-03T10:00:00.000Z"),
+      images: [{ assetId: "output-1", url: "https://permanent.example/output" }],
+    }]);
+
+    const result = await getHistory(
+      new URLSearchParams("type=image&limit=24&includeTotal=false"),
+      "owner@example.com",
+    );
+
+    expect(result.total).toBeNull();
+    expect(result.items[0]).toMatchObject({
+      model: "image-model",
+      graphId: "graph-deleted",
+      sourceAssetIds: ["source-1"],
+    });
+    expect(mocks.imageCount).not.toHaveBeenCalled();
+    expect(mocks.videoCount).not.toHaveBeenCalled();
+    expect(mocks.audioCount).not.toHaveBeenCalled();
+    expect(mocks.operationCount).not.toHaveBeenCalled();
+    expect(mocks.imageFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        modelKey: true,
+        historyMetadata: true,
+      }),
+    }));
+    expect(mocks.imageFindMany.mock.calls[0]?.[0]?.select).not.toHaveProperty("requestParams");
+  });
+
+  it("reads source asset IDs from the durable reference projection", async () => {
+    const createdAt = new Date("2026-09-03T10:00:00.000Z");
+    mocks.imageFindMany.mockResolvedValue([{
+      requestId: "image-v3",
+      status: "completed",
+      prompt: "portrait",
+      requestParams: {
+        requestVersion: 3,
+        model: "image-model",
+        requestSettings: { initImages: ["[file]"] },
+        inputAssets: [{ assetId: "asset-v3", field: "initImages", sortOrder: 0 }],
+      },
+      graphNodeId: null,
+      graphNode: null,
+      progress: 100,
+      errorMessage: null,
+      createdAt,
+      updatedAt: createdAt,
+      images: [{ assetId: "output-v3", url: "https://permanent.example/output" }],
+    }]);
+    mocks.imageCount.mockResolvedValue(1);
+    mocks.inputAssetFindMany.mockResolvedValue([{
+      requestId: "image-v3",
+      generationType: "image",
+      assetId: "asset-v3",
+      sortOrder: 0,
+    }]);
+
+    const result = await getHistory(new URLSearchParams("type=image&limit=24"), "owner@example.com");
+
+    expect(result.items[0]).toMatchObject({
+      id: "image-v3",
+      sourceAssetIds: ["asset-v3"],
+    });
+    expect(mocks.inputAssetFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        ownerEmail: "owner@example.com",
+        OR: [{ requestId: "image-v3", generationType: "image" }],
+      },
+    }));
   });
 
   it("applies owner and status consistently to counts and pages", async () => {

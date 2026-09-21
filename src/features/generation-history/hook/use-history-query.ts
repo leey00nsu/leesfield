@@ -8,7 +8,11 @@ export function useHistoryQuery(params: UseHistoryQueryParams) {
   const t = useTranslations("history");
   const result = useInfiniteQuery({
     queryKey: historyKeys.list(params),
-    queryFn: ({ signal, pageParam }) => fetchHistory({ ...params, cursor: pageParam }, { signal }),
+    queryFn: ({ signal, pageParam }) => fetchHistory({
+      ...params,
+      cursor: pageParam,
+      includeTotal: pageParam === null,
+    }, { signal }),
     initialPageParam: null as string | null,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     staleTime: 10_000,

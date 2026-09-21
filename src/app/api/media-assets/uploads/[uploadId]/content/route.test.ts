@@ -45,6 +45,7 @@ describe("PUT /api/media-assets/uploads/[uploadId]/content", () => {
       expect.any(ReadableStream),
       "image/png",
       "3",
+      expect.any(AbortSignal),
     );
   });
 });

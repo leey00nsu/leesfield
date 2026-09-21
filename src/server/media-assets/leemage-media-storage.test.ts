@@ -107,6 +107,8 @@ describe("leemageMediaStorageAdapter", () => {
       leemageMediaStorageAdapter.resolveReadUrl("file_1", null),
     ).resolves.toBe("https://read.example/file_1");
     await leemageMediaStorageAdapter.delete("file_1");
+    remove.mockRejectedValueOnce({ status: 404 });
+    await expect(leemageMediaStorageAdapter.delete("file_1")).resolves.toBeUndefined();
 
     expect(presign).toHaveBeenCalledWith("project_1", expect.objectContaining({ fileSize: 33, fileName: signed.fileName }));
     expect(confirm).toHaveBeenCalledWith("project_1", expect.objectContaining({ fileId: "file_1", fileName: signed.fileName, variants: [{sizeLabel: "source", format: "webp"}] }));

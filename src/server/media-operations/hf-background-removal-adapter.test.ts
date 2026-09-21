@@ -56,6 +56,7 @@ describe("HF background removal adapter", () => {
     vi.clearAllMocks();
     mocks.catalog.mockResolvedValue([model]);
     mocks.connect.mockResolvedValue({ predict: mocks.predict });
+    mocks.resolveBuffer.mockResolvedValue({ buffer: Buffer.from("input"), mime: "image/png" });
   });
 
   it("selects only an active, explicitly capable model", async () => {
@@ -76,7 +77,7 @@ describe("HF background removal adapter", () => {
       modelKey: "remove-bg",
     });
     expect(mocks.predict).toHaveBeenCalledWith("/remove_background", {
-      source_image: { file: "https://read.example/input.png" },
+      source_image: { file: expect.any(Blob) },
     });
   });
 });

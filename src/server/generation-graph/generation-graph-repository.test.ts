@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => {
       findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
     },
-    generationGraphNode: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
+    generationGraphNode: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     generationGraphEdge: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), createMany: vi.fn() },
     generationGraphNodeOutput: { findMany: vi.fn(), createMany: vi.fn() },
     imageGeneration: { count: vi.fn() },
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     audioGeneration: { count: vi.fn() },
     mediaOperation: { count: vi.fn() },
     mediaAsset: { findMany: vi.fn() },
+    $executeRaw: vi.fn(),
   };
   const prisma = {
     generationGraph: {
@@ -131,6 +132,7 @@ describe("generationGraphRepository", () => {
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.tx));
     mocks.tx.generationGraphNode.findMany.mockResolvedValue([]);
     mocks.tx.generationGraphEdge.findMany.mockResolvedValue([]);
+    mocks.tx.$executeRaw.mockResolvedValue(0);
     mocks.tx.imageGeneration.count.mockResolvedValue(0);
     mocks.tx.videoGeneration.count.mockResolvedValue(0);
     mocks.tx.audioGeneration.count.mockResolvedValue(0);
@@ -140,7 +142,9 @@ describe("generationGraphRepository", () => {
     mocks.tx.generationGraphNode.deleteMany.mockResolvedValue({ count: 0 });
     mocks.tx.generationGraphEdge.deleteMany.mockResolvedValue({ count: 0 });
     mocks.tx.generationGraphNode.upsert.mockResolvedValue({});
+    mocks.tx.generationGraphNode.createMany.mockResolvedValue({ count: 0 });
     mocks.tx.generationGraphEdge.upsert.mockResolvedValue({});
+    mocks.tx.generationGraphEdge.createMany.mockResolvedValue({ count: 0 });
     mocks.tx.generationGraph.findUniqueOrThrow.mockResolvedValue(graphRecord);
   });
 
@@ -178,30 +182,32 @@ describe("generationGraphRepository", () => {
         minimumWriterVersion: 3,
       },
     });
-    expect(mocks.tx.generationGraphNode.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      create: expect.objectContaining({
-        id: "prompt_1",
-        graphId: "graph_1",
-        kind: "input.prompt",
-        selectedOutputAssetId: null,
-      }),
-    }));
-    expect(mocks.tx.generationGraphEdge.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      create: expect.objectContaining({
+    expect(mocks.tx.generationGraphNode.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          id: "prompt_1",
+          graphId: "graph_1",
+          kind: "input.prompt",
+          selectedOutputAssetId: null,
+        }),
+      ]),
+    });
+    expect(mocks.tx.generationGraphEdge.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
         id: "edge_1",
         graphId: "graph_1",
         sourcePortId: "text",
         targetPortId: "prompt",
         sortOrder: 0,
-      }),
-    }));
+      })],
+    });
   });
 
   it("rejects future writers before any mutation", async () => {
     mocks.tx.generationGraph.findFirst.mockResolvedValue({ version: 1, schemaVersion: 4, minimumWriterVersion: 4, nodes: [] });
     await expect(generationGraphRepository.update("owner@example.com", "graph_1", input)).rejects.toThrow();
     expect(mocks.tx.generationGraph.updateMany).not.toHaveBeenCalled();
-    expect(mocks.tx.generationGraphNode.upsert).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphNode.createMany).not.toHaveBeenCalled();
   });
 
   it("turns a concurrent conditional update miss into a conflict", async () => {
@@ -210,7 +216,7 @@ describe("generationGraphRepository", () => {
 
     await expect(generationGraphRepository.update("owner@example.com", "graph_1", input))
       .rejects.toBeInstanceOf(GenerationGraphVersionConflictError);
-    expect(mocks.tx.generationGraphNode.upsert).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphNode.createMany).not.toHaveBeenCalled();
   });
 
   it("rejects an id already owned by another graph", async () => {
@@ -272,13 +278,57 @@ describe("generationGraphRepository", () => {
   });
 
   it("preserves concurrent worker selection unless the request explicitly changes it", async () => {
+    mocks.tx.generationGraph.findFirst.mockResolvedValue({
+      version: 1,
+      nodes: input.nodes.map((node) => ({
+        id: node.id,
+        kind: node.kind,
+        x: node.position.x,
+        y: node.position.y,
+        configVersion: node.configVersion,
+        config: node.config,
+        selectedOutputAssetId: "worker-choice",
+      })),
+      edges: [],
+    });
+    mocks.tx.$executeRaw.mockResolvedValue(2);
+
     await generationGraphRepository.update("owner@example.com", "graph_1", { ...input, selectionChanges: [] });
-    const writes = mocks.tx.generationGraphNode.upsert.mock.calls;
-    expect(writes.length).toBeGreaterThan(0);
-    for (const [write] of writes) expect(write.update.selectedOutputAssetId).toBeUndefined();
-    mocks.tx.generationGraphNode.upsert.mockClear();
+    expect(mocks.tx.$executeRaw).not.toHaveBeenCalled();
+
     await generationGraphRepository.update("owner@example.com", "graph_1", { ...input, selectionChanges: input.nodes.map(node => node.id) });
-    for (const [write] of mocks.tx.generationGraphNode.upsert.mock.calls) expect(write.update.selectedOutputAssetId).toBeNull();
+    expect(mocks.tx.$executeRaw).toHaveBeenCalledOnce();
+  });
+
+  it("updates only changed nodes and edges", async () => {
+    mocks.tx.generationGraph.findFirst.mockResolvedValue({
+      version: 1,
+      nodes: input.nodes.map((node) => ({
+        id: node.id,
+        kind: node.kind,
+        x: node.position.x,
+        y: node.position.y,
+        configVersion: node.configVersion,
+        config: node.config,
+        selectedOutputAssetId: node.selectedOutputAssetId,
+      })),
+      edges: [{ ...input.edges[0], hasPause: false }],
+    });
+    mocks.tx.$executeRaw.mockResolvedValue(1);
+
+    await generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...input,
+      nodes: input.nodes.map((node) => node.id === "image_1"
+        ? { ...node, position: { x: 30, y: node.position.y } }
+        : node),
+      selectionChanges: [],
+    });
+
+    expect(mocks.tx.$executeRaw).toHaveBeenCalledOnce();
+    expect(mocks.tx.generationGraphNode.createMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphEdge.createMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphNode.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphEdge.deleteMany).not.toHaveBeenCalled();
   });
 
   it("blocks node removal while an execution is active", async () => {

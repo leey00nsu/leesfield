@@ -1,20 +1,21 @@
 import {beforeEach, afterEach, expect, it, vi} from "vitest";
-const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),files:vi.fn()}));
+const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),files:vi.fn(),remote:vi.fn()}));
 vi.mock("@/server/auth/session",()=>({getSession:mocks.session}));
 vi.mock("@/server/db/prisma",()=>({prisma:{imageGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},mediaOperation:{findFirst:mocks.find,deleteMany:mocks.remove},videoGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},audioGeneration:{findFirst:mocks.find,deleteMany:mocks.remove}}}));
 vi.mock("@/server/history/delete-history-files",()=>({deleteHistoryFiles:mocks.files}));
+vi.mock("@/server/http/safe-remote",()=>({requestRemoteStream:mocks.remote}));
 import {GET, DELETE} from "./route";
 const context={params:Promise.resolve({historyId:"request-1"})};
 beforeEach(()=>{vi.clearAllMocks();mocks.session.mockResolvedValue({isLoggedIn:true,adminEmail:"owner@example.com"});});
 afterEach(()=>vi.unstubAllGlobals());
 it("streams the owned original as an attachment and rejects unknown owners",async()=>{
  mocks.find.mockResolvedValue({id:"record-1",images:[{url:"https://storage.example/original.png"}]});
- const fetchMock=vi.fn().mockResolvedValue(new Response("original-bytes",{headers:{"Content-Type":"image/png"}}));vi.stubGlobal("fetch",fetchMock);
+ mocks.remote.mockResolvedValue({status:200,headers:{"content-type":"image/png"},body:new Response("original-bytes").body});
  const response=await GET(new Request("http://localhost/api/history/request-1?type=image"),context);
  expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="leesfield-image.png"');expect(await response.text()).toBe("original-bytes");
  expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{requestId:"request-1",ownerEmail:"owner@example.com"}}));
- expect(fetchMock.mock.calls[0][0].href).toBe("https://storage.example/original.png");
- mocks.find.mockResolvedValue(null);expect((await GET(new Request("http://localhost/api/history/request-1?type=image"),context)).status).toBe(404);expect(fetchMock).toHaveBeenCalledTimes(1);
+ expect(mocks.remote.mock.calls[0][0]).toBe("https://storage.example/original.png");
+ mocks.find.mockResolvedValue(null);expect((await GET(new Request("http://localhost/api/history/request-1?type=image"),context)).status).toBe(404);expect(mocks.remote).toHaveBeenCalledTimes(1);
 });
 it("requires login and filters active jobs from deletion",async()=>{
  mocks.session.mockResolvedValue({isLoggedIn:false});expect((await DELETE(new Request("http://localhost/api/history/request-1?type=image"),context)).status).toBe(401);expect(mocks.remove).not.toHaveBeenCalled();

@@ -26,6 +26,9 @@ describe("node execution API", () => {
       "/api/generation-graphs/graph%2F1/nodes/node%2F1/executions",
       expect.objectContaining({
         method: "POST",
+        headers: expect.objectContaining({
+          "Idempotency-Key": expect.any(String),
+        }),
         body: JSON.stringify({ expectedGraphVersion: 5 }),
       }),
     );

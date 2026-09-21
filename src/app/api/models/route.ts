@@ -39,10 +39,11 @@ export async function GET(request: Request) {
       },
     );
   } catch (error) {
-    console.error("[models] list failed", error);
+    logSafeError("model.list_failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },
     );
   }
 }
+import { logSafeError } from "@/server/observability/request-observability";

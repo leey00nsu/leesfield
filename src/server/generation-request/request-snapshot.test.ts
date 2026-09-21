@@ -1,8 +1,11 @@
-import {describe,it,expect} from 'vitest';
-import {requestInputs,restoreRequest} from './request-snapshot';
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+import {requestInputs,restoreRequest,snapshotRequest} from './request-snapshot';
 import {requestSettings} from '@/server/monitoring/request-settings';
+const mockCatalog = vi.hoisted(() => vi.fn());
+vi.mock("@/server/model-catalog/catalog-service", () => ({getModelCatalog: mockCatalog}));
 const mapped = {type:'image',providerConfig:{api_name:'/generate',output:{media:'image',path:[0]}},parameters:{'hf:width':{label:'Width',default:512,binding:{source:'hf_space',parameterName:'width',valueType:'number',schema:{type:'number'},order:0}}}};
 describe('simple request settings',()=>{
+ beforeEach(() => { mockCatalog.mockReset(); });
  it('records model input names and values without synthetic fixed defaults',()=>{
  expect(requestInputs(mapped,{width:1024,steps:1,dynamicParams:{width:768}})).toEqual({width:768});
  });
@@ -19,5 +22,25 @@ describe('simple request settings',()=>{
  it('sanitizes new display settings independently from execution payload',()=>{
  const stored={width:1024,requestSettings:{width:768,enabled:false,optional:null,api_key:'SECRET',file:'data:image/png;base64,SECRET',prompt:'p'}};
  expect(requestSettings(stored)).toEqual({width:768,enabled:false,optional:null,file:'[file]'});expect(restoreRequest(stored)).toBe(stored);
+ });
+ it('stores new file inputs as durable references instead of copying their bytes',async()=>{
+  mockCatalog.mockResolvedValue([{type:'image',key:'image',provider:'codex',parameters:{initImages:{},width:{}}}]);
+  const source = 'data:image/png;base64,' + 'A'.repeat(2000);
+  const saved = await snapshotRequest('image',{model:'image',prompt:'p',width:512,initImages:[source]}, {
+   inputAssets:[{assetId:'asset-1',field:'initImages',sortOrder:0,multiple:true,generationType:'image'}],
+  });
+  expect(saved).toMatchObject({requestVersion:3,initImages:[],inputAssets:[{assetId:'asset-1',field:'initImages',sortOrder:0,multiple:true}]});
+  expect(saved.requestSettings).toEqual({initImages:['[file]'],width:512});
+  expect(JSON.stringify(saved)).not.toContain(source);
+ });
+ it('strips dynamic file values while retaining the field contract for execution',async()=>{
+  mockCatalog.mockResolvedValue([{type:'image',key:'image',provider:'hf_space',providerConfig:{api_name:'/generate',output:{media:'image',path:[0]}},parameters:{reference:{binding:{source:'hf_space',parameterName:'reference',kind:'file',media:'image'}}}}]);
+  const source = 'data:image/png;base64,' + 'B'.repeat(2000);
+  const saved = await snapshotRequest('image',{model:'image',prompt:'p',dynamicParams:{reference:source}}, {
+   inputAssets:[{assetId:'asset-2',field:'dynamicParams.reference',sortOrder:0,generationType:'image'}],
+  });
+  expect(saved.dynamicParams).toEqual({});
+  expect(saved.requestSettings).toEqual({reference:'[file]'});
+  expect(JSON.stringify(saved)).not.toContain(source);
  });
 });

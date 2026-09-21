@@ -36,7 +36,7 @@ describe("requestAudioGeneration", () => {
     );
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(init.headers).toBeUndefined();
+    expect(init.headers).toMatchObject({ "Idempotency-Key": expect.any(String) });
     const body = init.body as FormData;
     expect(body.get("prompt")).toBe("hello");
     expect(body.get("model")).toBe("qwen-tts");
