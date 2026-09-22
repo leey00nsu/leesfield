@@ -26,7 +26,13 @@ type GradioSubmission = AsyncIterable<GradioEvent> & {
 
 type GradioPredictionClient = {
   predict: (api: string, values: Record<string, unknown>) => Promise<{ data: unknown }>;
-  submit?: (api: string, values: Record<string, unknown>) => GradioSubmission;
+  submit?: (
+    api: string,
+    values: Record<string, unknown>,
+    eventData?: unknown,
+    triggerId?: number | null,
+    allEvents?: boolean,
+  ) => GradioSubmission;
 };
 
 async function collectGradioSubmission(submission: GradioSubmission) {
@@ -84,7 +90,7 @@ async function predictWithDeadlineInternal(
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const task = (async () => {
     if (client.submit) {
-      submission = client.submit(api, values);
+      submission = client.submit(api, values, undefined, null, true);
       return collectGradioSubmission(submission);
     }
     return client.predict(api, values);

@@ -23,6 +23,39 @@ const c={...contract,mappingConfirmed:true,inputs:[{name:"images",label:"Images"
 const result=await buildGradioRequest(c,{dynamicParams:{images:["data:image/png;base64,YQ=="]}});
 expect(result.images).toMatchObject([{caption:null,image:{uploaded:expect.any(Blob)}}]);
 });
+it("submit의 전체 이벤트를 구독하고 data 다음 complete에서 결과를 반환한다",async()=>{
+const submit=vi.fn((_api:string,_values:Record<string,unknown>,_eventData?:unknown,_triggerId?:number|null,allEvents?:boolean)=>({
+  async *[Symbol.asyncIterator]() {
+    yield {type:"data",data:["done",{url:"https://test.hf.space/gradio_api/file=result.mp4"}]};
+    if(allEvents) yield {type:"status",stage:"complete"};
+  },
+}));
+const result=await executeGradioContract(
+  {predict:vi.fn(),submit},
+  {providerConfig:{gradio_contract:contract}},
+  {prompt:"hello",dynamicParams:{in_1:null}},
+  {timeoutMs:1000,spaceUrl:"https://test.hf.space"},
+  "video",
+);
+expect(result).toHaveLength(1);
+expect(submit).toHaveBeenCalledWith("/output_video",expect.any(Object),undefined,null,true);
+});
+it("complete가 data보다 먼저 도착해도 최종 결과를 반환한다",async()=>{
+const submit=vi.fn(()=>({
+  async *[Symbol.asyncIterator]() {
+    yield {type:"status",stage:"complete"};
+    yield {type:"data",data:["done",{url:"https://test.hf.space/gradio_api/file=result.mp4"}]};
+  },
+}));
+const result=await executeGradioContract(
+  {predict:vi.fn(),submit},
+  {providerConfig:{gradio_contract:contract}},
+  {prompt:"hello",dynamicParams:{in_1:null}},
+  {timeoutMs:1000,spaceUrl:"https://test.hf.space"},
+  "video",
+);
+expect(result).toHaveLength(1);
+});
 it("시간 초과 시 submit된 Gradio 작업을 best-effort 취소한다",async()=>{
 let release!:()=>void;
 const finished=new Promise<void>(resolve=>{release=resolve;});
@@ -42,7 +75,7 @@ await expect(executeGradioContract(
   {timeoutMs:10,spaceUrl:"https://test.hf.space"},
   "video",
 )).rejects.toThrow("HF_SPACE_REQUEST_TIMEOUT");
-expect(submit).toHaveBeenCalledWith("/output_video",expect.any(Object));
+expect(submit).toHaveBeenCalledWith("/output_video",expect.any(Object),undefined,null,true);
 expect(cancel).toHaveBeenCalledTimes(1);
 expect(predict).not.toHaveBeenCalled();
 });

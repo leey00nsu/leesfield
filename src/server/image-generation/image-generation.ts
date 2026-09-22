@@ -141,6 +141,10 @@ export async function resolveImageGenerationResult(
     return stored;
   } catch (error) {
     if (error instanceof NodeExecutionCancelledError) throw error;
+    logGenerationProviderFailure(
+      { requestId, kind: "image", modelKey: payload.model },
+      error,
+    );
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),
@@ -148,3 +152,4 @@ export async function resolveImageGenerationResult(
   }
 }
 import { logStructured } from "@/server/observability/request-observability";
+import { logGenerationProviderFailure } from "@/server/observability/generation-failure";

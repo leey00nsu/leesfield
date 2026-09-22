@@ -81,6 +81,28 @@ describe("request observability", () => {
     expect(line).toContain('"route":"unknown"');
   });
 
+  it("allows bounded generation model and error identifiers", () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    logStructured(
+      "generation.provider_failed",
+      {
+        requestId: "request-1",
+        kind: "image",
+        modelKey: "mrfakename-z-image-turbo",
+        errorCode: "HF_SPACE_REQUEST_TIMEOUT",
+      },
+      "error",
+    );
+
+    expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toMatchObject({
+      event: "generation.provider_failed",
+      requestId: "request-1",
+      kind: "image",
+      modelKey: "mrfakename-z-image-turbo",
+      errorCode: "HF_SPACE_REQUEST_TIMEOUT",
+    });
+  });
+
   it("records thrown route errors as 5xx and keeps the request ID bounded", async () => {
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const handler = withRequestObservability(

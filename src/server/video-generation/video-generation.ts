@@ -118,6 +118,10 @@ export async function resolveVideoGenerationResult(
     return stored;
   } catch (error) {
     if (error instanceof NodeExecutionCancelledError) throw error;
+    logGenerationProviderFailure(
+      { requestId, kind: "video", modelKey: payload.model },
+      error,
+    );
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),
@@ -125,3 +129,4 @@ export async function resolveVideoGenerationResult(
   }
 }
 import { logStructured } from "@/server/observability/request-observability";
+import { logGenerationProviderFailure } from "@/server/observability/generation-failure";

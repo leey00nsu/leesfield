@@ -116,6 +116,10 @@ export async function resolveAudioGenerationResult(
     );
   } catch (error) {
     if (error instanceof NodeExecutionCancelledError) throw error;
+    logGenerationProviderFailure(
+      { requestId, kind: "audio", modelKey: payload.model },
+      error,
+    );
     return {
       status: "failed",
       errorMessage: mapProviderError(adapter, error),
@@ -123,3 +127,4 @@ export async function resolveAudioGenerationResult(
   }
 }
 import { logStructured } from "@/server/observability/request-observability";
+import { logGenerationProviderFailure } from "@/server/observability/generation-failure";
