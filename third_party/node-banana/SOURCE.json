@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "name": "node-banana",
+  "version": "1.9.0",
+  "upstream": {
+    "repository": "https://github.com/shrimbly/node-banana",
+    "tag": "v1.9.0",
+    "tagObject": "ec016f21d65db6fe24fea2693baa5b5fd74e9bb8",
+    "commit": "5c0e0ae6150f29a6de819f8d6f1dedba15151f7c",
+    "tree": "cdc32dca2d1f739dc1d37aea1c864fa8f22d4cc3",
+    "archiveSha256": "04ebdd8450c46980ea02829d0973443598df2a68a446ad050178637079a1c761"
+  },
+  "fork": {
+    "repository": "https://github.com/leey00nsu/node-banana",
+    "branch": "leesfield/v1.9.0",
+    "commit": "5a52b8c2d249cd48406789bde288b58d0289f3e5",
+    "tree": "f1834744a9be2b5ade9adbc3df0bfa069a0af113"
+  },
+  "snapshotSha256": "aa0782bd638207ae798a0cf7fbca680b6618fa2bbc2165f0fad120aa010021f9",
+  "license": "MIT",
+  "licenseSha256": "3989f2def04373048122d4565626a75af61eba5ffee94a40a0460cdff3b7f9f7"
+}

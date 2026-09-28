@@ -6,10 +6,12 @@
 - Version: 1.9.0
 - Source: https://github.com/shrimbly/node-banana/tree/v1.9.0
 - Commit: `5c0e0ae6150f29a6de819f8d6f1dedba15151f7c`
+- Leesfield fork: https://github.com/leey00nsu/node-banana/tree/leesfield/v1.9.0
+- Pinned fork commit: `5a52b8c2d249cd48406789bde288b58d0289f3e5`
 - License: MIT
 - Copyright: Node Banana contributors
 
-The complete upstream MIT license is preserved in `LICENSE` and `upstream/LICENSE`. The immutable `upstream/` directory contains the source archive identified by `UPSTREAM.json`; Leesfield changes are applied only through the ordered files in `patches/` to a generated work copy.
+The complete upstream MIT license is preserved in `LICENSE` and `source/LICENSE`. The immutable `source/` directory contains the pinned Leesfield fork snapshot identified by `SOURCE.json`. Its commit descends from the upstream commit above. The production build copies this verified source into a generated work directory without fetching the fork.
 
 ## Runtime dependencies
 

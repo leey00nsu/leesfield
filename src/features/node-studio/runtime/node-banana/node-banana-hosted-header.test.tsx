@@ -26,14 +26,14 @@ function openDefaultsAndChooseImageB() {
 
 describe("NodeBananaHostedHeader", () => {
   afterEach(() => vi.unstubAllGlobals());
-  it("preserves the immutable upstream Header shell, supported icon order, and keeps platform management in the selector", () => {
-    const upstream = readFileSync("third_party/node-banana/upstream/src/components/Header.tsx", "utf8");
-    const shell = upstream.match(/<header className="([^"]+)"/)![1];
+  it("preserves the pinned fork Header shell, supported icon order, and keeps platform management in the selector", () => {
+    const source = readFileSync("third_party/node-banana/source/src/components/Header.tsx", "utf8");
+    const shell = source.match(/<header\b[^>]*className="([^"]+)"/)![1];
     const { container } = render(<NodeBananaHostedHeader {...headerProps()} />);
     const header = container.querySelector("header")!;
     expect(header.className).toBe(shell);
     expect(within(header).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(["Save space", "Open space", "Space settings", "Keyboard shortcuts"]);
-    for (const path of header.querySelectorAll("svg path")) expect(upstream).toContain(path.getAttribute("d"));
+    for (const path of header.querySelectorAll("svg path")) expect(source).toContain(path.getAttribute("d"));
     expect(within(header).queryByRole("textbox")).not.toBeInTheDocument();
     expect(within(header).queryByRole("button", { name: "New space" })).not.toBeInTheDocument();
     expect(within(header).queryByRole("button", { name: "Delete space" })).not.toBeInTheDocument();

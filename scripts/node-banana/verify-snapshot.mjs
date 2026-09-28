@@ -7,7 +7,7 @@ import {
   vendorRoot,
 } from "./lib.mjs";
 
-const metadata = await readJson(join(vendorRoot, "UPSTREAM.json"));
+const metadata = await readJson(join(vendorRoot, "SOURCE.json"));
 const snapshotSha256 = await sha256Tree(snapshotRoot);
 const licenseSha256 = await sha256File(join(snapshotRoot, "LICENSE"));
 
@@ -18,6 +18,23 @@ if (process.argv.includes("--print")) {
 
 const upstreamPackage = await readJson(join(snapshotRoot, "package.json"));
 const errors = [];
+
+if (metadata.schemaVersion !== 2 || !metadata.upstream || !metadata.fork) {
+  errors.push("source provenance schema is invalid");
+}
+if (typeof metadata.fork?.repository !== "string" || !metadata.fork.repository.startsWith("https://github.com/")) {
+  errors.push("source provenance must identify the published fork repository");
+}
+for (const [label, value] of [
+  ["upstream commit", metadata.upstream?.commit],
+  ["upstream tree", metadata.upstream?.tree],
+  ["fork commit", metadata.fork?.commit],
+  ["fork tree", metadata.fork?.tree],
+]) {
+  if (typeof value !== "string" || !/^[0-9a-f]{40}$/.test(value)) {
+    errors.push(`${label} must be a full Git SHA-1`);
+  }
+}
 
 if (metadata.snapshotSha256 !== snapshotSha256) {
   errors.push(
@@ -40,5 +57,5 @@ if (errors.length > 0) {
 }
 
 process.stdout.write(
-  `${metadata.name}@${metadata.version} snapshot verified (${snapshotSha256})\n`,
+  `${metadata.name}@${metadata.version} fork snapshot verified (${snapshotSha256})\n`,
 );

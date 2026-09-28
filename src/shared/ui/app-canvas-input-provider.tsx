@@ -228,6 +228,11 @@ function Dialog({
       <AppDialogContent
         data-node-banana-component={componentName}
         ref={contentRef}
+        initialFocus={componentName === "ModelSearchDialog"
+          ? () => document.querySelector<HTMLElement>(
+            '[data-node-banana-component="ModelSearchDialog"] input[type="text"]',
+          )
+          : undefined}
         surface="canvas"
         padding="none"
         showCloseButton={false}

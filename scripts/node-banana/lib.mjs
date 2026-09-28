@@ -8,8 +8,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 
 export const projectRoot = resolve(scriptDirectory, "../..");
 export const vendorRoot = join(projectRoot, "third_party/node-banana");
-export const snapshotRoot = join(vendorRoot, "upstream");
-export const patchesRoot = join(vendorRoot, "patches");
+export const snapshotRoot = join(vendorRoot, "source");
 export const generatedRoot = join(projectRoot, ".generated/node-banana-runtime");
 
 export async function readJson(filePath) {

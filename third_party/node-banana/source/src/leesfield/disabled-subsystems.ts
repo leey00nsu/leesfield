@@ -1,0 +1,17 @@
+export const LEESFIELD_DISABLED_SUBSYSTEMS = [
+  "ai-authoring",
+  "browser-provider-credentials",
+  "comfyui",
+  "generation-history",
+  "local-media-database",
+  "local-workflow-persistence",
+  "project-directory-access",
+  "provider-api-routes",
+  "server-runtime",
+  "three-dimensional-workflows",
+  "whole-graph-execution",
+] as const;
+
+export type LeesfieldDisabledSubsystem =
+  (typeof LEESFIELD_DISABLED_SUBSYSTEMS)[number];
+

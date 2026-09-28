@@ -56,7 +56,7 @@ describe("Node Banana approved Node inventory", () => {
       expect(validateNodeConfig(kind, 1, defaultConfigForKind(kind)).supported).toBe(true);
       const component = nodeBananaNodeInventory[kind].upstreamComponent;
       if (component) {
-        expect(existsSync(resolve(process.cwd(), "third_party/node-banana/upstream/src/components/nodes", component))).toBe(true);
+        expect(existsSync(resolve(process.cwd(), "third_party/node-banana/source/src/components/nodes", component))).toBe(true);
       }
     }
   });

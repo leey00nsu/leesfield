@@ -9,7 +9,7 @@ import {
 } from "./lib.mjs";
 
 const policy = await readJson(join(vendorRoot, "dependency-policy.json"));
-const metadata = await readJson(join(vendorRoot, "UPSTREAM.json"));
+const metadata = await readJson(join(vendorRoot, "SOURCE.json"));
 const rootPackage = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
 const report = JSON.parse(
   runCaptured("pnpm", ["licenses", "list", "--prod", "--json"]),

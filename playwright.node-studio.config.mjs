@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const startServer = process.env.E2E_START_SERVER === "1";
-const baseURL = process.env.NODE_STUDIO_BASE_URL ?? (startServer ? "http://127.0.0.1:3100" : "http://127.0.0.1:3000");
+const baseURL = process.env.NODE_STUDIO_BASE_URL ?? (startServer ? "http://localhost:3100" : "http://localhost:3000");
 
 export default defineConfig({
   testDir: "./scripts/node-banana/e2e",
