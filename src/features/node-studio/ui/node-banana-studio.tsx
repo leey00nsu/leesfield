@@ -24,6 +24,7 @@ import {
   type NodeBananaProviderModel,
 } from "@node-banana-runtime/runtime-entry";
 import { findNodeDefinition, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { canonicalGroupSchema, type CanonicalGroup, type CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
 import { projectGenerationModelSelectionDefaults } from "../model/generation-model-selection-defaults";
 import { applySplitTemplate, materializeSplitResult, splitCellGroups, splitMaterialization, type SplitCellGroup } from "../model/split-grid-materialization";
@@ -61,7 +62,7 @@ import {
   runtimeGraphToCanonicalDocument,
 } from "../runtime/node-banana/node-banana-runtime-adapter";
 import { adaptNodeBananaHostGraph } from "../runtime/node-banana/node-banana-host-adapter";
-import { UnsupportedCanonicalNode } from "./nodes/canonical-node";
+import { CanonicalNode, UnsupportedCanonicalNode } from "./nodes/canonical-node";
 import { NodeBananaInputHistoryControl } from "./nodes/node-banana-input-history-control";
 
 import styles from "./node-banana-studio.module.css";
@@ -150,6 +151,26 @@ function imageNodes(graph: NodeBananaRuntimeGraph) {
 function imageEdges(graph: NodeBananaRuntimeGraph, nodes: readonly ImageGenerationFlowNode[]) {
   const ids = new Set(nodes.map((node) => node.id));
   return graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) as GenerationGraphFlowEdge[];
+}
+
+function focusedPromptConstructorEditor(container: HTMLElement): HTMLElement | null {
+  const active = document.activeElement;
+  return active instanceof HTMLElement
+    && container.contains(active)
+    && active.matches("input, textarea, [contenteditable='true'], [role='textbox']")
+    && active.closest('[data-node-banana-component="PromptConstructorNode"]')
+    && !active.closest("[role='dialog'], [role='alertdialog']")
+      ? active
+      : null;
+}
+
+function focusHostedCanvas(container: HTMLElement, selectEditedNode = false) {
+  const editor = focusedPromptConstructorEditor(container);
+  const editedNode = selectEditedNode ? editor?.closest<HTMLElement>(".react-flow__node") : null;
+  editor?.blur();
+  editedNode?.click();
+  container.querySelector<HTMLElement>('[data-node-banana-component="WorkflowCanvas"][role="application"]')
+    ?.focus({ preventScroll: true });
 }
 
 function stableJsonValue(value: unknown): unknown {
@@ -302,6 +323,26 @@ export function NodeBananaStudio({
 
   const publishRuntimeGraph = useCallback((nextRuntime: NodeBananaRuntimeGraph) => {
     const canonical = runtimeGraphToCanonicalDocument(canonicalRef.current, nextRuntime);
+    const previousById = new Map(canonicalRef.current.nodes.map((node) => [node.id, node]));
+    const unavailableIds = new Set(canonicalRef.current.nodes.filter((node) => isUnavailableEditNodeKind(node.kind)).map((node) => node.id));
+    const previousEdges = new Map(canonicalRef.current.edges.map((edge) => [edge.id, edge]));
+    if (canonical.nodes.some((node) => {
+      const previous = previousById.get(node.id);
+      return isUnavailableEditNodeKind(node.kind)
+        ? !previous || previous.kind !== node.kind || previous.configVersion !== node.configVersion
+          || JSON.stringify(stableJsonValue(previous.config)) !== JSON.stringify(stableJsonValue(node.config))
+        : previous && isUnavailableEditNodeKind(previous.kind);
+    }) || canonical.edges.some((edge) => {
+      const previous = previousEdges.get(edge.id);
+      return (unavailableIds.has(edge.sourceNodeId) || unavailableIds.has(edge.targetNodeId)
+        || (previous && (unavailableIds.has(previous.sourceNodeId) || unavailableIds.has(previous.targetNodeId))))
+        && (!previous || previous.sourceNodeId !== edge.sourceNodeId || previous.targetNodeId !== edge.targetNodeId
+          || previous.sourcePortId !== edge.sourcePortId || previous.targetPortId !== edge.targetPortId
+          || previous.sortOrder !== edge.sortOrder || Boolean(previous.hasPause) !== Boolean(edge.hasPause));
+    })) {
+      onHostError?.(new Error("This edit node is no longer available."));
+      return;
+    }
     const draft = canonicalDocumentToV3Draft(canonical);
     const signature = graphDraftSignature(draft);
     if (signature === publishedSignatureRef.current) return;
@@ -312,7 +353,7 @@ export function NodeBananaStudio({
     publishedSignatureRef.current = signature;
     setRuntimeGraph(nextGraph);
     onDraftChangeRef.current(draft);
-  }, []);
+  }, [onHostError]);
 
   const incomingSelectionsRef = useRef(new Map(graph.nodes.map(node => [node.id, node.selectedOutputAssetId])));
   useEffect(() => {
@@ -512,6 +553,7 @@ export function NodeBananaStudio({
     if (!effectiveWritable || hasMissingInput(nodeId)) return undefined;
     const node = runtimeGraphRef.current.nodes.find((candidate) => candidate.id === nodeId);
     const kind = typeof node?.data.canonicalKind === "string" ? node.data.canonicalKind : "";
+    if (isUnavailableEditNodeKind(kind)) return undefined;
     if (findNodeDefinition(kind)?.executionMode === "none") return undefined;
     const projected = node
       ? resolveHostedNodeData(nodeId, node.data as Record<string, unknown>)
@@ -558,6 +600,9 @@ export function NodeBananaStudio({
 
   const applyHostedSplitTemplate = useCallback((nodeId: string, options: { template: HostedSplitTemplate; replaceConfirmed?: boolean }) => {
     if (!effectiveWritable) throw new Error("This Space is read-only.");
+    if (isUnavailableEditNodeKind(String(runtimeGraphRef.current.nodes.find((node) => node.id === nodeId)?.data.canonicalKind ?? ""))) {
+      throw new Error("This edit node is no longer available.");
+    }
     if (runningNodeIdsRef.current.has(nodeId)) throw new Error("Wait for the current Split operation to finish.");
     const previous = runtimeGraphRef.current;
     const cellIds = new Set(splitMaterialization(previous.nodes.find((node) => node.id === nodeId)?.data.config)?.cells.flatMap((cell) => cell.nodeIds) ?? []);
@@ -1005,13 +1050,15 @@ export function NodeBananaStudio({
 
   const HostedUpstreamHeader = useCallback(
     (node: NodeBananaCanvasProps["graph"]["nodes"][number]) => (
-      <HostedUpstreamHeaderComponent node={node} />
+      node.data.canonicalKind === "note.memo" || isUnavailableEditNodeKind(String(node.data.canonicalKind ?? ""))
+        ? null : <HostedUpstreamHeaderComponent node={node} />
     ),
     [HostedUpstreamHeaderComponent],
   );
 
   const hostedNodeTypes = useMemo<NodeTypes>(
     () => ({
+      memoNode: withNodeErrorBoundary("memo", CanonicalNode as unknown as ComponentType<NodeProps>),
       generationNode: withNodeErrorBoundary("generation", HostedUpstreamNode),
       canonicalNode: withNodeErrorBoundary("canonical", HostedUpstreamNode),
       unsupportedNode: withNodeErrorBoundary(
@@ -1025,7 +1072,7 @@ export function NodeBananaStudio({
   const paletteItems = useMemo<NodeBananaRuntimePaletteItem[]>(
     () =>
       nodeBananaPaletteKinds
-        .filter((kind) => kind !== "edit.image.removeBackground" || catalog.backgroundRemovalAvailable)
+        .filter((kind) => !isUnavailableEditNodeKind(kind))
         .map((kind) => {
           const inventory = nodeBananaNodeInventory[kind];
           return {
@@ -1035,7 +1082,7 @@ export function NodeBananaStudio({
             mediaType: inventory.mediaType,
           };
         }),
-    [catalog.backgroundRemovalAvailable],
+    [],
   );
 
   const modelItems = useMemo<NodeBananaRuntimeModelItem[]>(
@@ -1120,6 +1167,19 @@ export function NodeBananaStudio({
     [effectiveWritable, publishRuntimeGraph, reconcileEdgesForConfig],
   );
 
+  const updateMemoNodeSize = useCallback((nodeId: string, size: { width: number; height: number }) => {
+    if (!effectiveWritable) return;
+    const current = runtimeGraphRef.current;
+    const node = current.nodes.find((entry) => entry.id === nodeId && entry.data.canonicalKind === "note.memo");
+    if (!node) return;
+    const config = node.data.config && typeof node.data.config === "object" && !Array.isArray(node.data.config)
+      ? node.data.config as Record<string, CanonicalJsonValue>
+      : {};
+    if (JSON.stringify(config.size) === JSON.stringify(size)) return;
+    undoRecorderRef.current?.(current);
+    replaceNodeData(nodeId, { config: { ...config, size } });
+  }, [effectiveWritable, replaceNodeData]);
+
   const authoringContext = useMemo(
     () => ({
       ...catalog,
@@ -1129,6 +1189,7 @@ export function NodeBananaStudio({
       writable: effectiveWritable,
       updateCanonicalNodeConfig: (nodeId: string, config: CanonicalJsonValue) =>
         replaceNodeData(nodeId, { config }),
+      updateMemoNodeSize,
       getImageNodeInputReadiness: (nodeId: string) =>
         inputReadinessByNodeId.get(nodeId) ?? emptyImageNodeInputReadiness(),
       getNodeRunReadiness,
@@ -1197,6 +1258,7 @@ export function NodeBananaStudio({
       prepareExecution,
       publishRuntimeGraph,
       replaceNodeData,
+      updateMemoNodeSize,
     ],
   );
 
@@ -1250,6 +1312,7 @@ export function NodeBananaStudio({
     (items, pending) => {
       const current = runtimeGraphRef.current;
       return filterPaletteForConnection(current, items, pending).filter((item) => {
+        if (isUnavailableEditNodeKind(item.kind)) return false;
         if (!pending) return true;
         const media = item.kind === "generate.image" ? "image" : item.kind === "generate.video" ? "video" : item.kind === "generate.audio" ? "audio" : null;
         const models = media === "image" ? catalog.imageModels : media === "video" ? catalog.videoModels ?? [] : catalog.audioModels ?? [];
@@ -1273,6 +1336,7 @@ export function NodeBananaStudio({
   }, [queryClient]);
   const createNode = useCallback<NodeBananaCanvasProps["onCreateNode"]>(
     (item, position, pending) => {
+      if (isUnavailableEditNodeKind(item.kind)) throw new Error("NODE_TYPE_UNAVAILABLE");
       const currentGraph = runtimeGraphRef.current;
       const media = item.kind === "generate.image" ? "image" : item.kind === "generate.video" ? "video" : item.kind === "generate.audio" ? "audio" : null;
       const models = media === "image" ? catalog.imageModels : media === "video" ? catalog.videoModels ?? [] : catalog.audioModels ?? [];
@@ -1335,6 +1399,27 @@ export function NodeBananaStudio({
     >
       <NodeAuthoringProvider value={authoringContext}>
         <NodeBananaHostedRuntimeContext.Provider value={hostedRuntime}>
+          <div
+            style={{ display: "contents" }}
+            onKeyDownCapture={(event) => {
+              if (event.key !== "Escape" || event.nativeEvent.isComposing || event.keyCode === 229
+                || !focusedPromptConstructorEditor(event.currentTarget)) return;
+              event.preventDefault();
+              focusHostedCanvas(event.currentTarget, true);
+            }}
+            onPointerDownCapture={(event) => {
+              if (!focusedPromptConstructorEditor(event.currentTarget)
+                || !(event.target instanceof Element)
+                || event.target.closest("input, textarea, select, button, [contenteditable], [role='textbox'], [role='dialog'], [role='alertdialog']")) return;
+              focusHostedCanvas(event.currentTarget);
+            }}
+            onClickCapture={(event) => {
+              if (!(event.target instanceof Element)
+                || !event.target.closest('[data-node-banana-component="WorkflowCanvas"][role="application"]')
+                || event.target.closest("input, textarea, select, button, [contenteditable], [role='textbox'], [role='dialog'], [role='alertdialog']")) return;
+              focusHostedCanvas(event.currentTarget);
+            }}
+          >
           <NodeBananaCanvasRuntime
             contextId={graph.id}
             host={canvasHost}
@@ -1358,7 +1443,7 @@ export function NodeBananaStudio({
             isNodeRunnable={(nodeId) => {
               const node = runtimeGraph.nodes.find((candidate) => candidate.id === nodeId);
               const status = node ? resolveHostedNodeData(nodeId, node.data).executionStatus ?? node.data.executionStatus : undefined;
-              return effectiveWritable && !submittingNodeIds.has(nodeId) && !isActiveExecutionStatus(status) && getNodeRunReadiness(nodeId).ready;
+              return effectiveWritable && !!node && !isUnavailableEditNodeKind(String(node.data.canonicalKind ?? "")) && !submittingNodeIds.has(nodeId) && !isActiveExecutionStatus(status) && getNodeRunReadiness(nodeId).ready;
             }}
             onRunNode={runUpstreamNode}
             onDownloadSelectedImages={downloadSelectedImages}
@@ -1381,6 +1466,7 @@ export function NodeBananaStudio({
             onUndoRecorderChange={registerUndoRecorder}
             remapPastedNodes={remapSplitClipboardNodes}
           />
+          </div>
         </NodeBananaHostedRuntimeContext.Provider>
       </NodeAuthoringProvider>
     </NodeBananaCanvasErrorBoundary>

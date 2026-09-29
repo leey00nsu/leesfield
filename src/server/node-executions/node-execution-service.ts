@@ -27,6 +27,7 @@ import { resolveImageStorageProvider } from "@/server/image-generation/storage/s
 import { resolveVideoStorageProvider } from "@/server/video-generation/storage/storage-selector";
 import { submitVideoGeneration } from "@/server/video-generation/video-generation-submission";
 import { findNodeDefinition, findPortDefinition } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { isAllowedMediaMimeType, type MediaOperationDto, type MediaType } from "@/shared/media-assets/media-asset-contract";
 import { isNodeStudioE2EMockBackgroundRemovalEnabled } from "@/server/media-assets/node-studio-e2e-media-fixtures";
 import type { GenerationInputAssetRef } from "@/server/generation-request/generation-input-assets";
@@ -698,6 +699,9 @@ export function createNodeExecutionService(
       const kind = targetKind(node);
       const mediaType = mediaTypeForKind(kind);
       const definition = kind ? findNodeDefinition(kind) : null;
+      if (kind && isUnavailableEditNodeKind(kind)) {
+        throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNAVAILABLE"] });
+      }
       if (!kind || !mediaType || !definition || definition.executionMode === "none") {
         throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       }

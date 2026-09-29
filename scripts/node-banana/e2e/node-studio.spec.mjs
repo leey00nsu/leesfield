@@ -17,15 +17,10 @@ const SUPPORTED_NODE_CASES = [
   { kind: "generate.image", palette: "Generate Image", title: "Generate Image", component: "GenerateImageNode", config: { prompt: "", modelKey: null, parameters: {} } },
   { kind: "generate.audio", palette: "Generate Audio", title: "Generate Audio", component: "GenerateAudioNode", config: { prompt: "", modelKey: null, parameters: {} } },
   { kind: "generate.video", palette: "Generate Video", title: "Generate Video", component: "GenerateVideoNode", config: { prompt: "", modelKey: null, parameters: {} } },
-  { kind: "edit.image.annotation", palette: "Annotate", title: "Annotation", component: "AnnotationNode", config: { parameters: {} } },
+  { kind: "note.memo", palette: "Annotate", title: "Memo", component: null, config: { text: "" } },
   { kind: "edit.image.resize", palette: "Image Resize", title: "Image Resize", component: "ImageResizeNode", config: { parameters: {} } },
-  { kind: "edit.image.removeBackground", palette: "Remove Background", title: "Remove Background", component: "RemoveBackgroundNode", config: { parameters: { model: "isnet_fp16" } }, capabilityGated: true },
-  { kind: "edit.image.splitGrid", palette: "Split Grid", title: "Split Grid", component: "SplitGridNode", config: { parameters: {} } },
-  { kind: "edit.image.gif", palette: "GIF Encoder", title: "GIF Encoder", component: "GifEncoderNode", config: { parameters: {} } },
   { kind: "edit.video.stitch", palette: "Video Stitch", title: "Video Stitch", component: "VideoStitchNode", config: { parameters: {} } },
   { kind: "edit.video.trim", palette: "Video Trim", title: "Video Trim", component: "VideoTrimNode", config: { parameters: {} } },
-  { kind: "edit.video.frameGrab", palette: "Frame Grab", title: "Frame Grab", component: "VideoFrameGrabNode", config: { parameters: {} } },
-  { kind: "edit.video.easeCurve", palette: "Ease Curve", title: "Ease Curve", component: "EaseCurveNode", config: { parameters: {} } },
   { kind: "output.single", palette: "Output", title: "Output", component: "OutputNode", config: { mediaType: null } },
   { kind: "output.gallery", palette: "Output Gallery", title: "Output Gallery", component: "OutputGalleryNode", config: { mediaType: null } },
   { kind: "inspect.imageCompare", palette: "Image Compare", title: "Image Compare", component: "ImageCompareNode", config: {} },
@@ -308,10 +303,6 @@ function nodeBody(page, label) {
   const componentName = NODE_COMPONENT_NAMES[label];
   if (componentName) return canvas.locator(`[data-node-banana-component="${componentName}"]`).first();
   return canvas.getByRole("article", { name: label, exact: true }).first();
-}
-
-function nodeArticle(page, label) {
-  return nodeBody(page, label);
 }
 
 function reactFlowNodeForArticle(page, label) {
@@ -670,6 +661,47 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
+  test("Prompt Constructor keeps Delete in text and deletes the selected node after leaving edit mode", async ({ page }) => {
+    const graph = await createWorkflowViaApi(page);
+    try {
+      const node = (id, kind, config, x) => ({ id, kind, config, configVersion: 1, position: { x, y: 0 }, selectedOutputAssetId: null });
+      await replaceWorkflowViaApi(page, graph.id, [
+        node("source", "input.prompt", { text: "source" }, 0),
+        node("constructor", "process.promptConstructor", { template: "memoX" }, 400),
+      ], [{ id: "prompt-edge", sourceNodeId: "source", sourcePortId: "text", targetNodeId: "constructor", targetPortId: "text", sortOrder: 0, hasPause: false }]);
+      await waitForFreshWorkflow(page, graph);
+      const constructor = page.locator('.react-flow__node[data-id="constructor"]');
+      const textarea = nodeBody(page, "Prompt Constructor").locator("textarea");
+      await textarea.fill("memoX");
+      await page.keyboard.press("Backspace");
+      await expect(textarea).toHaveValue("memo");
+      await page.keyboard.press("Delete");
+      await expect(constructor).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(textarea).not.toBeFocused();
+      await expect(constructor).toHaveClass(/selected/);
+      await page.keyboard.press("Delete");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => !snapshot.nodes.some((entry) => entry.id === "constructor") && !snapshot.edges.some((edge) => edge.id === "prompt-edge"),
+        "Delete did not remove the selected Prompt Constructor and its edge");
+      await page.keyboard.press("ControlOrMeta+z");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.some((entry) => entry.id === "constructor") && snapshot.edges.some((edge) => edge.id === "prompt-edge"),
+        "Undo did not restore the Prompt Constructor and its edge");
+      await textarea.click();
+      await page.keyboard.press("Escape");
+      await expect(constructor).toHaveClass(/selected/);
+      await page.keyboard.press("Backspace");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => !snapshot.nodes.some((entry) => entry.id === "constructor"),
+        "Backspace did not remove the restored Prompt Constructor");
+      await page.reload();
+      await expect(constructor).toHaveCount(0);
+    } finally {
+      await deleteWorkflowViaApi(page, graph.id);
+    }
+  });
+
   test("Quickstart explores all six presets and tutorial in new Spaces without sample assets", async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page), requestedSamples = [];
     page.on("request", (request) => { if (/sample-images|template-thumbnails|community-workflows|api\/quickstart/.test(request.url())) requestedSamples.push(request.url()); });
@@ -715,59 +747,6 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       expect((await readWorkflowViaApi(page, original.id))).toEqual(before);
       expect(requestedSamples).toEqual([]); expect(errors).toEqual([]);
     } finally { for (const id of [...created, original.id]) await deleteWorkflowViaApi(page, id); }
-  });
-
-  test("Split cell template edits apply atomically, undo, reload and protect replacement", async ({ page }, testInfo) => {
-    const errors = attachErrorCapture(page), executions = [];
-    page.on("request", (request) => { if (request.method() === "POST" && /\/executions$/.test(request.url())) executions.push(request.url()); });
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await replaceWorkflowViaApi(page, graph.id, [{ id: "split", kind: "edit.image.splitGrid", configVersion: 1, config: { parameters: { rows: 1, cols: 2 } }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }], []);
-      await waitForFreshWorkflow(page, graph);
-      await nodeBody(page, "Split Grid").getByRole("button", { name: /Cell nodes/ }).click();
-      const modal = page.getByRole("dialog", { name: "Cell template", exact: true });
-      await expect(modal).toBeVisible();
-      await modal.getByRole("button", { name: "Prompt + Generate", exact: true }).click();
-      await modal.locator(".react-flow__controls-fitview").click();
-      await modal.locator("textarea").click();
-      await modal.locator("textarea").fill("A hand-painted landscape");
-      await modal.getByRole("button", { name: "Browse", exact: true }).click();
-      const models = page.getByRole("dialog", { name: "Browse Models" });
-      await models.getByRole("button").filter({ has: page.getByText("mrfakename-z-image-turbo-v2", { exact: true }) }).click();
-      await expect(models).toBeHidden();
-      const cellOutput = modal.locator('.react-flow__node[data-id="cell-image"] .react-flow__handle-right');
-      const handle = await cellOutput.boundingBox(), bounds = await modal.boundingBox();
-      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height - 150, { steps: 12 });
-      await page.mouse.up();
-      await page.getByRole("button", { name: "Resize Image", exact: true }).click();
-      await modal.locator(".react-flow__controls-fitview").click();
-      await captureEvidenceScreenshot(page, testInfo, "t34-cell-template");
-      await modal.getByRole("button", { name: "Apply to 2 cells", exact: true }).click();
-      await expect(modal).toBeHidden();
-      const saved = await waitForWorkflowState(page, graph.id, (value) => value.nodes.length === 9 && value.groups.length === 2, "template topology was not saved");
-      expect(saved.edges).toHaveLength(8);
-      expect(saved.nodes.filter((node) => node.kind === "edit.image.resize")).toHaveLength(2);
-      expect(saved.nodes.filter((node) => node.kind === "generate.image").every((node) => node.config.modelKey === "mrfakename-z-image-turbo-v2")).toBe(true);
-      expect(saved.nodes.filter((node) => node.kind === "input.prompt").every((node) => node.config.text === "A hand-painted landscape")).toBe(true);
-      await page.keyboard.press("Control+z");
-      await waitForWorkflowState(page, graph.id, (value) => value.nodes.length === 1 && value.groups.length === 0, "Apply did not undo once");
-      await page.keyboard.press("Control+Shift+z");
-      await waitForWorkflowState(page, graph.id, (value) => value.nodes.length === 9, "Apply did not redo");
-      await page.reload(); await expect(page.locator(".react-flow__pane")).toBeVisible();
-      await nodeBody(page, "Split Grid").getByRole("button", { name: /Cell nodes/ }).click();
-      await expect(modal.locator("textarea")).toHaveValue("A hand-painted landscape");
-      await modal.getByRole("button", { name: "Apply to 2 cells", exact: true }).click();
-      await expect(page.getByRole("alertdialog", { name: "Replace existing cells?" })).toBeVisible();
-      await page.getByRole("button", { name: "Keep existing cells", exact: true }).click();
-      expect((await readWorkflowViaApi(page, graph.id)).nodes.map((node) => node.id)).toEqual(saved.nodes.map((node) => node.id));
-      await modal.getByRole("button", { name: "Apply to 2 cells", exact: true }).click();
-      await page.getByRole("button", { name: "Replace cells", exact: true }).click();
-      await expect(modal).toBeHidden();
-      await waitForWorkflowState(page, graph.id, (value) => value.nodes.length === 9 && value.nodes.some((node) => node.id !== "split" && !saved.nodes.some((old) => old.id === node.id)), "replacement did not commit");
-      expect(executions).toEqual([]); expect(errors).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
   test("adaptive preview changes with zoom but Input download keeps original bytes", async ({ page }, testInfo) => {
@@ -1399,19 +1378,18 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     } finally { for (const id of ids) await deleteWorkflowViaApi(page, id); }
   });
 
-  test("the complete 20-node inventory uses the real palette where available, persists, and reloads", async ({ page }) => {
+  test("the available 15-node inventory uses the Space palette, persists, and reloads", async ({ page }) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
     try {
       await waitForFreshWorkflow(page, graph);
-      // Exercise all 20 entries through the real All nodes palette at both
-      // supported viewports. The E2E server advertises its deterministic
-      // background-removal processor through the same capability gate used by
-      // production.
+      // Exercise the current palette at both supported viewports.
       expect(await paletteHasNode(page, "Audio Edit")).toBe(false);
+      for (const retired of ["Remove Background", "Split Grid", "GIF Encoder", "Frame Grab", "Ease Curve"]) {
+        expect(await paletteHasNode(page, retired)).toBe(false);
+      }
       const paletteCases = [];
       for (const nodeCase of SUPPORTED_NODE_CASES) {
-        if (nodeCase.capabilityGated && !(await paletteHasNode(page, nodeCase.palette))) continue;
         await addNodeFromAllNodes(page, nodeCase.palette);
         paletteCases.push(nodeCase);
       }
@@ -1430,7 +1408,7 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       );
       await expect(page.locator('[data-node-banana-component="Header"]')).toContainText(graph.title, { timeout: 15_000 });
       await expect(page.locator('[data-node-banana-component="WorkflowCanvas"]')).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator(".react-flow__node")).toHaveCount(20, { timeout: 30_000 });
+      await expect(page.locator(".react-flow__node")).toHaveCount(15, { timeout: 30_000 });
 
       for (const nodeCase of SUPPORTED_NODE_CASES) {
         if (nodeCase.component) {
@@ -1440,11 +1418,82 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         }
       }
 
+      await nodeBody(page, "Memo").getByRole("textbox", { name: "Memo" }).fill("Space integration memo\nRetain this text");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.some((node) => node.kind === "note.memo" && node.config?.text === "Space integration memo\nRetain this text"),
+        "Memo text did not persist in the Space Graph");
       const saved = await readWorkflowViaApi(page, graph.id);
       expect(saved.nodes.map((node) => node.kind).sort()).toEqual(SUPPORTED_NODE_CASES.map((item) => item.kind).sort());
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator(".react-flow__node")).toHaveCount(20, { timeout: 30_000 });
-      await captureEvidenceScreenshot(page, test.info(), "twenty-node-inventory-reload");
+      await expect(page.locator(".react-flow__node")).toHaveCount(15, { timeout: 30_000 });
+      await expect(nodeBody(page, "Memo").getByRole("textbox", { name: "Memo" })).toHaveValue("Space integration memo\nRetain this text");
+      await captureEvidenceScreenshot(page, test.info(), "available-node-inventory-reload");
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally {
+      await deleteWorkflowViaApi(page, graph.id);
+    }
+  });
+
+  test("Memo uses the hosted node resize appearance and preserves its size", async ({ page }) => {
+    const errors = attachErrorCapture(page);
+    const graph = await createWorkflowViaApi(page);
+    try {
+      await replaceWorkflowViaApi(page, graph.id, [{
+        id: "memo", kind: "note.memo", configVersion: 1, config: { text: "Resizable note" },
+        position: { x: 120, y: 100 }, selectedOutputAssetId: null,
+      }], []);
+      await waitForFreshWorkflow(page, graph);
+      const memo = page.locator('.react-flow__node[data-id="memo"]');
+      const card = memo.getByRole("article", { name: "Memo" });
+      const editor = card.getByRole("textbox", { name: "Memo" });
+      const originalCard = await card.boundingBox();
+      const originalEditor = await editor.boundingBox();
+      await card.click({ position: { x: 5, y: 5 } });
+      await expect(memo).toHaveClass(/selected/);
+      const handle = memo.locator(".react-flow__resize-control.handle.bottom.right");
+      await expect(handle).toBeVisible();
+      expect(await handle.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+      const grip = await handle.boundingBox();
+      if (!grip || !originalCard || !originalEditor) throw new Error("Memo resize bounds are unavailable");
+      await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(grip.x + grip.width / 2 + 140, grip.y + grip.height / 2 + 90, { steps: 8 });
+      await page.mouse.up();
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.some((node) => node.id === "memo" && node.config?.size?.width > 400 && node.config?.size?.height > 290),
+        "Memo resize did not persist its new size");
+      const resizedCard = await card.boundingBox();
+      const resizedEditor = await editor.boundingBox();
+      expect(resizedCard.width).toBeGreaterThan(originalCard.width + 100);
+      expect(resizedEditor.height).toBeGreaterThan(originalEditor.height + 60);
+      const saved = await readWorkflowViaApi(page, graph.id);
+      const savedSize = saved.nodes.find((node) => node.id === "memo").config.size;
+      await page.keyboard.press("ControlOrMeta+z");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.some((node) => node.id === "memo" && !node.config?.size),
+        "Undo did not restore the Memo default size");
+      await expect.poll(async () => (await card.boundingBox())?.width).toBeLessThan(originalCard.width + 5);
+      await page.keyboard.press("ControlOrMeta+Shift+z");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.some((node) => node.id === "memo" && JSON.stringify(node.config?.size) === JSON.stringify(savedSize)),
+        "Redo did not restore the resized Memo");
+      await page.reload();
+      await expect(card).toBeVisible();
+      const restoredCard = await card.boundingBox();
+      expect(restoredCard.width).toBeGreaterThan(originalCard.width + 100);
+      await expect(editor).toHaveValue("Resizable note");
+      await captureEvidenceScreenshot(page, test.info(), "memo-resize-restored");
+      await card.click({ position: { x: 5, y: 5 } });
+      await page.keyboard.press("ControlOrMeta+c");
+      await page.keyboard.press("ControlOrMeta+v");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.length === 2 && snapshot.nodes.every((node) =>
+          node.kind === "note.memo" && JSON.stringify(node.config?.size) === JSON.stringify(savedSize)),
+        "Copied Memo did not retain its size");
+      await page.keyboard.press("ControlOrMeta+z");
+      await waitForWorkflowState(page, graph.id,
+        (snapshot) => snapshot.nodes.length === 1 && JSON.stringify(snapshot.nodes[0].config?.size) === JSON.stringify(savedSize),
+        "Undo did not preserve the original Memo size");
       expect(errors, errors.join("\n")).toEqual([]);
     } finally {
       await deleteWorkflowViaApi(page, graph.id);
@@ -2273,177 +2322,6 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     }
   });
 
-  test("Remove Background runs through the hosted toolbar into a durable downstream image", async ({ page }, testInfo) => {
-    test.setTimeout(300_000);
-    test.skip(testInfo.project.name !== "desktop", "Background-removal worker coverage runs once on desktop; mobile responsiveness is covered by the dedicated 390px controls test.");
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-node-banana-component="WorkflowCanvas"]');
-      await addNodeFromToolbar(page, "Image");
-      const inputBody = nodeBody(page, "Image Input");
-      const inputNode = reactFlowNodeForArticle(page, "Image Input");
-      await inputBody.locator('input[type="file"]').setInputFiles({
-        name: "t25-background-source.png",
-        mimeType: "image/png",
-        buffer: deterministicPng(40, 32, 2),
-      });
-      await expect(inputBody.locator("img")).toBeVisible({ timeout: 30_000 });
-      const uploaded = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.kind === "input.image" && typeof node.config?.assetId === "string" && node.config.assetId.length > 0),
-        "background-removal source image did not persist",
-        30_000,
-      );
-      const inputRecord = uploaded.nodes.find((node) => node.kind === "input.image");
-      const sourceAssetId = inputRecord?.config?.assetId;
-      expect(sourceAssetId).toEqual(expect.any(String));
-
-      // The real hosted palette exposes this only when the model catalog has a
-      // background-removal capability. The E2E server advertises its isolated
-      // deterministic processor through that same capability gate.
-      await expect.poll(() => paletteHasNode(page, "Remove Background"), {
-        timeout: 15_000,
-        message: "Remove Background is not exposed by the hosted capability catalog",
-      }).toBeTruthy();
-      await addNodeFromAllNodes(page, "Remove Background");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(2, { timeout: 15_000 });
-      const removeBody = nodeBody(page, "Remove Background");
-      const removeNode = reactFlowNodeForArticle(page, "Remove Background");
-      await expect(removeBody).toBeVisible();
-      await dragNodeByArticleBorder(page, removeNode, { x: 500, y: 0 });
-      await fitCanvas(page);
-      await connectImageHandles(page, inputNode, removeNode);
-      const connected = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => {
-          const target = snapshot.nodes.find((node) => node.kind === "edit.image.removeBackground");
-          return Boolean(target) && snapshot.edges.some((edge) => edge.targetNodeId === target.id && edge.targetPortId === "image");
-        },
-        "Image Input to Remove Background connection was not persisted",
-      );
-      const removeRecord = connected.nodes.find((node) => node.kind === "edit.image.removeBackground");
-      expect(removeRecord).toBeTruthy();
-      if (!removeRecord || typeof sourceAssetId !== "string") throw new Error("Remove Background fixture is missing its source");
-
-      await addNodeFromToolbar(page, "Output");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(3, { timeout: 15_000 });
-      const outputNode = reactFlowNodeForArticle(page, "Output");
-      await fitCanvas(page);
-      await connectImageHandles(page, removeNode, outputNode);
-      const withOutput = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => {
-          const output = snapshot.nodes.find((node) => node.kind === "output.single");
-          return Boolean(output) && snapshot.edges.some((edge) => edge.targetNodeId === output.id && edge.sourceNodeId === removeRecord.id);
-        },
-        "Remove Background downstream Output connection was not persisted",
-      );
-      const outputRecord = withOutput.nodes.find((node) => node.kind === "output.single");
-      expect(outputRecord).toBeTruthy();
-      if (!outputRecord) throw new Error("Remove Background output node is missing");
-
-      // Optional slow-observation fixture: the server persists normally while
-      // this tab loses completion notifications for longer than the old deadline.
-      let submittedAt = 0;
-      let submissionCount = 0;
-      const delayMs = Number(process.env.NODE_STUDIO_E2E_RESULT_DELAY_MS ?? 0);
-      if (delayMs) await page.route(`**/api/generation-graphs/${graph.id}/nodes/${removeRecord.id}/executions`, async route => {
-        if (route.request().method() === "POST") {
-          submissionCount += 1;
-          submittedAt = Date.now();
-          return route.continue();
-        }
-        const response = await route.fetch();
-        const payload = await response.json();
-        if (submittedAt && Date.now() - submittedAt < delayMs && payload.executions) {
-          payload.executions = payload.executions.map(item => ({ ...item, status: "processing", progress: 75, outputAssetIds: [], selectedOutputAssetId: null }));
-        }
-        await route.fulfill({ response, json: payload });
-      });
-      await removeNode.click({ position: { x: 18, y: 18 } });
-      const header = page.locator(
-        `[data-node-banana-component="FloatingNodeHeader"][data-node-id="${removeRecord.id}"]`,
-      );
-      await expect(header.getByRole("button", { name: "Run this node" })).toBeEnabled({ timeout: 30_000 });
-      const started = await runBrowserMediaOperation(
-        page,
-        graph.id,
-        removeRecord.id,
-        header.getByRole("button", { name: "Run this node" }),
-        60_000,
-      );
-      expect(started.executionKind).toBe("media_operation");
-      expect(started.outputAssetIds).toHaveLength(1);
-      const outputAssetId = started.outputAssetIds[0];
-      expect(outputAssetId).toEqual(expect.any(String));
-      const outputAsset = await page.request.get(`/api/media-assets/${encodeURIComponent(outputAssetId)}`);
-      expect(outputAsset.ok(), `background-removal output asset read failed: ${outputAsset.status()}`).toBeTruthy();
-      const outputAssetPayload = (await outputAsset.json()).asset;
-      expect(outputAssetPayload).toMatchObject({ id: outputAssetId, type: "image", origin: "media_operation", status: "completed" });
-      expect(outputAssetPayload.url).toMatch(/^https:\/\//);
-      const [sourceDigest, resultDigest] = await Promise.all([
-        mediaAssetDigest(page, sourceAssetId),
-        mediaAssetDigest(page, outputAssetId),
-      ]);
-      expect(resultDigest).not.toBe(sourceDigest);
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === removeRecord.id && node.selectedOutputAssetId === outputAssetId),
-        "Remove Background output was not selected durably",
-      );
-      await expect(removeBody.locator('img[alt="Background removed"]')).toBeVisible({ timeout: delayMs + 30_000 });
-      if (delayMs) {
-        expect(Date.now() - submittedAt).toBeGreaterThanOrEqual(delayMs);
-        expect(submissionCount).toBe(1);
-        await captureEvidenceScreenshot(page, testInfo, "delayed-completion-without-reload");
-      }
-      await expect(nodeBody(page, "Output").locator("img")).toBeVisible({ timeout: 30_000 });
-      const downstream = await page.request.get(
-        `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(outputRecord.id)}/outputs`,
-      );
-      expect(downstream.ok(), `background-removal downstream resolve failed: ${downstream.status()}`).toBeTruthy();
-      expect((await downstream.json()).output.groups).toEqual([
-        expect.objectContaining({ portId: "image", assets: [expect.objectContaining({ id: outputAssetId })] }),
-      ]);
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await fitCanvas(page);
-      await expect(nodeBody(page, "Remove Background").locator('img[alt="Background removed"]')).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Output").locator("img")).toBeVisible({ timeout: 30_000 });
-      const reloaded = await readWorkflowViaApi(page, graph.id);
-      expect(reloaded.nodes.find((node) => node.id === removeRecord.id)?.selectedOutputAssetId).toBe(outputAssetId);
-      await captureEvidenceScreenshot(page, testInfo, "remove-background-output-reload");
-      const reloadedRemoveBody = nodeBody(page, "Remove Background");
-      await reloadedRemoveBody.hover();
-      await reloadedRemoveBody.getByRole("button", { name: "Clear result", exact: true }).click();
-      await waitForWorkflowState(page, graph.id, (snapshot) =>
-        snapshot.nodes.some((node) => node.id === removeRecord.id && node.selectedOutputAssetId === null),
-      "Clear result did not clear canonical selection");
-      await expect(nodeBody(page, "Output").locator("img")).toHaveCount(0);
-      const clearedOutput = await page.request.get(
-        `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(outputRecord.id)}/outputs`,
-      );
-      expect(clearedOutput.ok()).toBeTruthy();
-      expect((await clearedOutput.json()).output.groups.flatMap((group) => group.assets)).toEqual([]);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await expect(nodeBody(page, "Output").locator("img")).toHaveCount(0);
-      await expect(nodeBody(page, "Remove Background").locator('img[alt="Background removed"]')).toHaveCount(0);
-      // Clear hides the selected result; it must not erase the durable history asset.
-      expect((await page.request.get(`/api/media-assets/${encodeURIComponent(outputAssetId)}`)).ok()).toBeTruthy();
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
   test("Image Input history modal selects a durable asset and restores focus for close, Download, and X", async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
@@ -2554,207 +2432,6 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       expect(restored.nodes.find((node) => node.id === secondRecord?.id)?.config?.assetId).toBeNull();
       await expect(canvas.locator('[data-node-banana-component="ImageInputNode"]').nth(1).locator('input[type="file"]')).toBeAttached();
       await captureEvidenceScreenshot(page, testInfo, "image-history-modal-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("Annotation Done produces a changed durable output for a connected image and survives reload", async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-node-banana-component="WorkflowCanvas"]');
-
-      await addNodeFromToolbar(page, "Image");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(1, { timeout: 10_000 });
-      const imageNode = reactFlowNodeForArticle(page, "Image Input");
-      const imageArticle = nodeArticle(page, "Image Input");
-      await expect(imageNode).toBeVisible();
-      await expect(imageArticle.locator('input[type="file"]')).toBeAttached();
-      await imageArticle.locator('input[type="file"]').setInputFiles({
-        name: "t25-deterministic-source.png",
-        mimeType: "image/png",
-        buffer: deterministicPng(),
-      });
-      await expect(imageArticle.locator("img")).toBeVisible({ timeout: 30_000 });
-
-      const withInput = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => {
-          if (node.kind !== "input.image" || !node.config || typeof node.config !== "object" || Array.isArray(node.config)) return false;
-          return typeof node.config.assetId === "string" && node.config.assetId.length > 0;
-        }),
-        "uploaded image asset was not persisted to the input node",
-        30_000,
-      );
-      const inputNode = withInput.nodes.find((node) => node.kind === "input.image");
-      const sourceAssetId = inputNode && inputNode.config && typeof inputNode.config === "object" && !Array.isArray(inputNode.config)
-        ? typeof inputNode.config.assetId === "string" ? inputNode.config.assetId : null
-        : null;
-      expect(sourceAssetId).toBeTruthy();
-
-      await addNodeFromAllNodes(page, "Annotate");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(2, { timeout: 10_000 });
-      const annotationNode = reactFlowNodeForArticle(page, "Annotation");
-      const annotationArticle = nodeArticle(page, "Annotation");
-      await expect(annotationNode).toBeVisible();
-
-      const viewport = page.viewportSize();
-      await dragNodeByArticleBorder(
-        page,
-        annotationNode,
-        (viewport?.width ?? 0) < 600 ? { x: 0, y: 140 } : { x: 340, y: 0 },
-      );
-      await connectImageHandles(page, imageNode, annotationNode);
-
-      const withConnection = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.some((edge) =>
-          edge.sourceNodeId === inputNode?.id &&
-          edge.targetNodeId === snapshot.nodes.find((node) => node.kind === "edit.image.annotation")?.id &&
-          edge.sourcePortId === "image" &&
-          edge.targetPortId === "image",
-        ),
-        "image input to annotation handle connection was not persisted",
-        30_000,
-      );
-      const annotationRecord = withConnection.nodes.find((node) => node.kind === "edit.image.annotation");
-      expect(annotationRecord).toBeTruthy();
-
-      // Capture the source preview before opening the editor. Done should
-      // immediately project the flattened canvas as a data URL while the
-      // durable media operation is still being submitted.
-      const sourcePreview = imageArticle.locator("img").first();
-      await expect(sourcePreview).toBeVisible();
-      const sourcePreviewSrc = await sourcePreview.getAttribute("src");
-      expect(sourcePreviewSrc).toMatch(/^.+/);
-
-      const openEditor = annotationArticle
-        .getByRole("button", { name: "Add annotations", exact: true })
-        .or(annotationArticle.getByRole("button", { name: /Edit \(\d+\)/ }))
-        .first();
-      await expect(openEditor).toBeEnabled();
-      await openEditor.click();
-      const editor = page.locator('[data-node-banana-component="AnnotationModal"]')
-        .or(page.getByRole("dialog", { name: "Annotation editor" }))
-        .first();
-      await expect(editor).toBeVisible();
-      const done = editor.getByRole("button", { name: "Done", exact: true });
-      await expect(done).toBeEnabled({ timeout: 30_000 });
-      const stage = editor.locator(".konvajs-content canvas").first();
-      await expect(stage).toBeVisible();
-      const stageBox = await stage.boundingBox();
-      if (!stageBox) throw new Error("annotation Konva stage has no box");
-      await editor.getByRole("button", { name: "Rect", exact: true }).click();
-      const start = { x: stageBox.x + Math.min(24, stageBox.width / 4), y: stageBox.y + Math.min(24, stageBox.height / 4) };
-      const end = { x: Math.min(stageBox.x + stageBox.width - 24, start.x + 96), y: Math.min(stageBox.y + stageBox.height - 24, start.y + 72) };
-      await page.mouse.move(start.x, start.y);
-      await page.mouse.down();
-      await page.mouse.move(end.x, end.y, { steps: 24 });
-      await page.mouse.up();
-      await page.waitForTimeout(250);
-      await done.click();
-      await expect(editor).toBeHidden({ timeout: 30_000 });
-
-      const immediate = annotationArticle.locator('img[alt="Annotated result"], img[alt="Annotated"]').first();
-      await expect(immediate).toBeVisible({ timeout: 10_000 });
-      await expect(immediate).toHaveAttribute("src", /^data:image\//);
-      const immediateOptimisticSrc = await immediate.getAttribute("src");
-      expect(immediateOptimisticSrc).not.toBe(sourcePreviewSrc);
-
-      const withShapes = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) =>
-          node.id === annotationRecord?.id &&
-          node.config && typeof node.config === "object" && !Array.isArray(node.config) &&
-          Array.isArray(node.config.parameters?.shapes) && node.config.parameters.shapes.length > 0,
-        ),
-        "annotation shapes were not persisted to the canonical node config",
-        30_000,
-      );
-      expect(withShapes.nodes.find((node) => node.id === annotationRecord?.id)).toBeTruthy();
-
-      const execution = await waitForCompletedMediaOperation(page, graph.id, annotationRecord.id, 60_000);
-      expect(execution.outputAssetIds).toHaveLength(1);
-      const outputAssetId = execution.outputAssetIds[0];
-      expect(outputAssetId).toBeTruthy();
-      expect(outputAssetId).not.toBe(sourceAssetId);
-      const [sourceDigest, outputDigest] = await Promise.all([
-        mediaAssetDigest(page, sourceAssetId),
-        mediaAssetDigest(page, outputAssetId),
-      ]);
-      expect(outputDigest).not.toBe(sourceDigest);
-
-      const durable = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === annotationRecord.id && node.selectedOutputAssetId === outputAssetId),
-        "completed annotation output was not selected on the durable node",
-        30_000,
-      );
-      expect(durable.nodes.find((node) => node.id === annotationRecord.id)?.selectedOutputAssetId).toBe(outputAssetId);
-      const expectedOutputUrl = `/api/media-assets/${encodeURIComponent(outputAssetId)}/content`;
-      await expect(immediate).toHaveAttribute("src", expectedOutputUrl, { timeout: 30_000 });
-      const immediateUrl = await immediate.getAttribute("src");
-
-      await addNodeFromToolbar(page, "Output");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(3, { timeout: 10_000 });
-      const outputNode = reactFlowNodeForArticle(page, "Output");
-      await expect(outputNode).toBeVisible();
-      const withOutput = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.kind === "output.single"),
-        "output node was not persisted",
-        30_000,
-      );
-      const outputRecord = withOutput.nodes.find((node) => node.kind === "output.single");
-      expect(outputRecord).toBeTruthy();
-      await dragNodeByArticleBorder(
-        page,
-        outputNode,
-        (viewport?.width ?? 0) < 600 ? { x: 0, y: -280 } : { x: -480, y: 0 },
-      );
-      if ((viewport?.width ?? 0) < 600) await fitCanvas(page);
-      await connectImageHandles(page, annotationNode, outputNode);
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.some((edge) =>
-          edge.sourceNodeId === annotationRecord.id &&
-          edge.targetNodeId === outputRecord?.id &&
-          edge.sourcePortId === "image" &&
-          edge.targetPortId === "image",
-        ),
-        "annotation output to downstream output handle connection was not persisted",
-        30_000,
-      );
-      const outputBody = outputNode.locator('[data-node-banana-component="OutputNode"]');
-      await expect(outputBody).toBeVisible({ timeout: 30_000 });
-      await expect(outputBody.locator("img")).toBeVisible({ timeout: 30_000 });
-      const downstream = await page.request.get(
-        `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(outputRecord.id)}/outputs`,
-      );
-      expect(downstream.ok(), `downstream output resolve failed: ${downstream.status()}`).toBeTruthy();
-      const downstreamPayload = await downstream.json();
-      expect(downstreamPayload.output.groups).toEqual([
-        expect.objectContaining({ portId: "image", assets: [expect.objectContaining({ id: outputAssetId })] }),
-      ]);
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator('[data-node-banana-component="WorkflowCanvas"]')).toBeVisible({ timeout: 15_000 });
-      const reloadedAnnotation = nodeArticle(page, "Annotation");
-      const reloadedOutput = nodeArticle(page, "Output");
-      await expect(reloadedAnnotation.locator('img[alt="Annotated result"], img[alt="Annotated"]')).toBeVisible({ timeout: 30_000 });
-      await expect(reloadedOutput.locator("img")).toBeVisible({ timeout: 30_000 });
-      const reloadedPreview = reloadedAnnotation.locator('img[alt="Annotated result"], img[alt="Annotated"]');
-      await expect(reloadedPreview).toHaveAttribute("src", immediateUrl, { timeout: 30_000 });
-      await captureEvidenceScreenshot(page, test.info(), "annotation-reload");
       expect(errors, errors.join("\n")).toEqual([]);
     } finally {
       await deleteWorkflowViaApi(page, graph.id);
@@ -2960,273 +2637,7 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     }
   });
 
-  test("Split Grid ordered outputs feed the GIF start plan and persist every gallery item", async ({ page }) => {
-    test.setTimeout(240_000);
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-node-banana-component="WorkflowCanvas"]');
-
-      await addNodeFromToolbar(page, "Image");
-      const imageNode = reactFlowNodeForArticle(page, "Image Input");
-      const imageBody = nodeBody(page, "Image Input");
-      await expect(imageBody.locator('input[type="file"]')).toBeAttached();
-      await imageBody.locator('input[type="file"]').setInputFiles({
-        name: "스크린샷 node-banana split source.png",
-        mimeType: "image/png",
-        buffer: deterministicPng(),
-      });
-      await expect(imageBody.locator("img")).toBeVisible({ timeout: 30_000 });
-
-      await addNodeFromAllNodes(page, "Split Grid");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(2, { timeout: 15_000 });
-      const splitNode = reactFlowNodeForArticle(page, "Split Grid");
-      await expect(splitNode).toBeVisible();
-
-      const viewport = page.viewportSize();
-      const narrow = (viewport?.width ?? 0) < 600;
-      await dragNodeByArticleBorder(page, splitNode, narrow ? { x: 0, y: 150 } : { x: 340, y: 0 });
-      if (narrow) await fitCanvas(page);
-      await connectImageHandles(page, imageNode, splitNode);
-
-      const connected = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => {
-          const kinds = new Set(snapshot.nodes.map((node) => node.kind));
-          return kinds.has("input.image") && kinds.has("edit.image.splitGrid") && snapshot.edges.length === 1;
-        },
-        "split-grid source connection was not persisted",
-        30_000,
-      );
-      const inputRecord = connected.nodes.find((node) => node.kind === "input.image");
-      const splitRecord = connected.nodes.find((node) => node.kind === "edit.image.splitGrid");
-      expect(inputRecord).toBeTruthy();
-      expect(splitRecord).toBeTruthy();
-      const sourceAssetId = inputRecord.config && typeof inputRecord.config === "object" && !Array.isArray(inputRecord.config)
-        ? typeof inputRecord.config.assetId === "string" ? inputRecord.config.assetId : null
-        : null;
-      expect(sourceAssetId).toBeTruthy();
-
-      const splitBody = nodeBody(page, "Split Grid");
-      await splitBody.getByRole("textbox", { name: "Rows" }).fill("1");
-      await splitBody.getByRole("textbox", { name: "Rows" }).press("Enter");
-      await splitBody.getByRole("textbox", { name: "Columns" }).fill("3");
-      await splitBody.getByRole("textbox", { name: "Columns" }).press("Enter");
-      await splitBody.getByRole("textbox", { name: "Columns" }).fill("2");
-      await splitBody.getByRole("textbox", { name: "Columns" }).press("Enter");
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) =>
-          node.id === splitRecord.id &&
-          node.config?.parameters?.rows === 1 &&
-          node.config?.parameters?.cols === 2,
-        ),
-        "Split Grid controls did not persist their canonical rows/cols values",
-        30_000,
-      );
-
-      const splitButton = splitBody.getByRole("button", { name: "Split 1×2", exact: true });
-      await expect(splitButton).toBeEnabled({ timeout: 30_000 });
-      const splitCompleted = await runBrowserMediaOperation(page, graph.id, splitRecord.id, splitButton, 125_000);
-      expect(splitCompleted.plan).toMatchObject({ kind: "edit.image.splitGrid", outputPortId: "images", expectedOutputCount: 2 });
-      expect(splitCompleted.plan.inputs).toEqual([expect.objectContaining({ assetId: sourceAssetId, sortOrder: 0 })]);
-      expect(splitCompleted.outputAssetIds).toHaveLength(2);
-      const [cell0Id, cell1Id] = splitCompleted.outputAssetIds;
-      expect(cell0Id).not.toBe(cell1Id);
-      await expect(splitBody.getByText("2 cell groups", { exact: true })).toBeVisible();
-      const afterSplit = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === splitRecord.id && node.selectedOutputAssetId === cell0Id && node.config?.materialization?.cells?.length === 2),
-        "split-grid did not select its first durable output",
-        30_000,
-      );
-      expect(afterSplit.nodes.find((node) => node.id === splitRecord.id)?.selectedOutputAssetId).toBe(cell0Id);
-      const cells = afterSplit.nodes.find((node) => node.id === splitRecord.id).config.materialization.cells;
-      expect(cells.map((cell) => afterSplit.nodes.find((node) => node.id === cell.baseNodeId)?.config?.assetId)).toEqual([cell0Id, cell1Id]);
-      // Copy the real persisted Split result, not just an empty graph fixture.
-      const copyResponse = await page.request.post(`/api/generation-graphs/${graph.id}/copy`);
-      expect(copyResponse.status()).toBe(201);
-      const copiedSpace = (await copyResponse.json()).graph;
-      try {
-        const copiedSplit = copiedSpace.nodes.find((node) => node.kind === "edit.image.splitGrid");
-        expect(copiedSplit.id).not.toBe(splitRecord.id);
-        expect(copiedSplit.selectedOutputAssetId).toBe(cell0Id);
-        const copiedCells = copiedSplit.config.materialization.cells;
-        expect(copiedCells.map((cell) => copiedSpace.nodes.find((node) => node.id === cell.baseNodeId)?.config.assetId)).toEqual([cell0Id, cell1Id]);
-        expect(copiedCells.every((cell) => !cells.some((source) => source.groupId === cell.groupId))).toBe(true);
-        const copiedGallery = { id: "copied_split_gallery", kind: "output.gallery", position: { x: 1800, y: 0 }, configVersion: 1, config: { mediaType: "image" }, selectedOutputAssetId: null };
-        const update = await page.request.put(`/api/generation-graphs/${copiedSpace.id}`, { data: {
-          schemaVersion: 3, groups: copiedSpace.groups, expectedVersion: copiedSpace.version, title: "Independent copied Space",
-          nodes: [...copiedSpace.nodes, copiedGallery], edges: [...copiedSpace.edges, {
-            id: "copied_split_gallery_edge", sourceNodeId: copiedSplit.id, sourcePortId: "images",
-            targetNodeId: copiedGallery.id, targetPortId: "image", sortOrder: 0,
-          }],
-        } });
-        expect(update.ok(), await update.text()).toBeTruthy();
-        const result = await page.request.get(`/api/generation-graphs/${copiedSpace.id}/nodes/${copiedGallery.id}/outputs`);
-        expect(result.ok(), await result.text()).toBeTruthy();
-        expect((await result.json()).output.groups.flatMap((group) => group.assets.map((asset) => asset.id))).toEqual([cell0Id, cell1Id]);
-        expect((await (await page.request.get(`/api/generation-graphs/${copiedSpace.id}`)).json()).graph.title).toBe("Independent copied Space");
-        expect((await (await page.request.get(`/api/generation-graphs/${graph.id}`)).json()).graph.nodes).toEqual(afterSplit.nodes);
-      } finally { await deleteWorkflowViaApi(page, copiedSpace.id); }
-      expect(await mediaAssetDigest(page, cell0Id)).toHaveLength(64);
-      expect(await mediaAssetDigest(page, cell1Id)).toHaveLength(64);
-      await expect(canvas.locator(".react-flow__edge-reference")).toHaveCount(2);
-      await expect(page.getByText("Cell 1-1", { exact: true })).toBeAttached();
-      await expect(page.getByText("Cell 1-2", { exact: true })).toBeAttached();
-      // A cell output must resolve its own slice, not the Split collection's first item.
-      const output = { id: "split_cell_output", kind: "output.single", position: { x: 1800, y: 0 }, configVersion: 1, config: { mediaType: "image" }, selectedOutputAssetId: null };
-      const tempEdge = { id: "split_cell_output_edge", sourceNodeId: cells[1].baseNodeId, sourcePortId: "image", targetNodeId: output.id, targetPortId: "image", sortOrder: 0 };
-      await replaceWorkflowViaApi(page, graph.id, [...afterSplit.nodes, output], [...afterSplit.edges, tempEdge]);
-      const singleResponse = await page.request.get(`/api/generation-graphs/${graph.id}/nodes/${output.id}/outputs`);
-      expect(singleResponse.ok()).toBeTruthy();
-      const singlePayload = await singleResponse.json();
-      expect(singlePayload.output.groups.flatMap((group) => group.assets.map((asset) => asset.id))).toEqual([cell1Id]);
-      await replaceWorkflowViaApi(page, graph.id, afterSplit.nodes, afterSplit.edges);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(4, { timeout: 30_000 });
-      await expect(canvas.locator(".react-flow__edge-reference")).toHaveCount(2);
-
-      // Add downstream consumers only after the source operation has completed. This
-      // keeps the actual Split control unobstructed at every supported viewport and
-      // proves that late-bound downstream nodes resolve the durable ordered outputs.
-      await addNodeFromAllNodes(page, "GIF Encoder");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(5, { timeout: 15_000 });
-      const gifNode = reactFlowNodeForArticle(page, "GIF Encoder");
-      await expect(gifNode).toBeVisible();
-      // Split now materializes cell nodes to its right. A horizontal-only move
-      // puts the GIF frame handle underneath a cell's floating header. Place
-      // the consumer below the actual occupied bounds before connecting it.
-      const gifBox = await gifNode.boundingBox();
-      expect(gifBox).toBeTruthy();
-      const occupiedBottom = await canvas.locator(".react-flow__node").evaluateAll((nodes, gifId) =>
-        Math.max(...nodes.filter((node) => node.getAttribute("data-id") !== gifId)
-          .map((node) => node.getBoundingClientRect().bottom)),
-        await gifNode.getAttribute("data-id"),
-      );
-      await dragNodeByArticleBorder(page, gifNode, narrow
-        ? { x: 0, y: 300 }
-        : { x: 680, y: Math.max(0, occupiedBottom + 80 - gifBox.y) });
-
-      await addNodeFromAllNodes(page, "Output Gallery");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(6, { timeout: 15_000 });
-      const galleryNode = reactFlowNodeForArticle(page, "Output Gallery");
-      await expect(galleryNode).toBeVisible();
-      await dragNodeByArticleBorder(page, galleryNode, narrow ? { x: 0, y: 470 } : { x: 680, y: 360 });
-      await page.getByRole("button", { name: "Fit View", exact: true }).click();
-      await page.waitForTimeout(500);
-      await connectHandles(page, splitNode, gifNode, "reference", "image");
-      await connectHandles(page, splitNode, galleryNode, "reference", "image");
-
-      const downstreamConnected = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => {
-          const kinds = new Set(snapshot.nodes.map((node) => node.kind));
-          return kinds.has("edit.image.gif") && kinds.has("output.gallery") && snapshot.edges.length === 5;
-        },
-        "split-grid ordered-list handles were not persisted",
-        30_000,
-      );
-      const gifRecord = downstreamConnected.nodes.find((node) => node.kind === "edit.image.gif");
-      const galleryRecord = downstreamConnected.nodes.find((node) => node.kind === "output.gallery");
-      expect(gifRecord).toBeTruthy();
-      expect(galleryRecord).toBeTruthy();
-
-      const galleryResponse = await page.request.get(
-        `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(galleryRecord.id)}/outputs`,
-      );
-      expect(galleryResponse.ok(), `gallery output resolve failed: ${galleryResponse.status()}`).toBeTruthy();
-      const galleryPayload = await galleryResponse.json();
-      expect(galleryPayload.output.groups).toEqual([
-        expect.objectContaining({ portId: "image", assets: [expect.objectContaining({ id: cell0Id }), expect.objectContaining({ id: cell1Id })] }),
-      ]);
-
-      const gifBody = nodeBody(page, "GIF Encoder");
-      await connectHandleLocators(page,
-        imageNode.locator('.react-flow__handle.source[data-handletype="image"]').first(),
-        gifNode.locator('.react-flow__handle.target[data-handleid="image-1"]'),
-      );
-      const mixed = await waitForWorkflowState(page, graph.id, (snapshot) =>
-        snapshot.edges.length === 6 && snapshot.nodes.find((node) => node.id === gifRecord.id)?.config?.parameters?.clipOrder?.length === 2,
-      "mixed GIF source groups were not persisted", 30_000);
-      const splitGifEdge = mixed.edges.find((edge) => edge.sourceNodeId === splitRecord.id && edge.targetNodeId === gifRecord.id);
-      const singleGifEdge = mixed.edges.find((edge) => edge.sourceNodeId === inputRecord.id && edge.targetNodeId === gifRecord.id);
-      expect(splitGifEdge).toBeTruthy();
-      expect(singleGifEdge).toBeTruthy();
-      const splitFrames = gifBody.locator(`[data-source-edge-id="${splitGifEdge.id}"]`);
-      const singleFrame = gifBody.locator(`[data-source-edge-id="${singleGifEdge.id}"]`);
-      await expect(splitFrames).toHaveCount(2);
-      await expect(singleFrame).toHaveCount(1);
-      const fromFrame = await singleFrame.boundingBox();
-      const toFrame = await splitFrames.first().boundingBox();
-      expect(fromFrame).toBeTruthy();
-      expect(toFrame).toBeTruthy();
-      await page.mouse.move(fromFrame.x + fromFrame.width / 2, fromFrame.y + fromFrame.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(toFrame.x + toFrame.width / 2, toFrame.y + toFrame.height / 2, { steps: 12 });
-      await page.waitForTimeout(100);
-      await page.mouse.up();
-      await waitForWorkflowState(page, graph.id, (snapshot) =>
-        JSON.stringify(snapshot.nodes.find((node) => node.id === gifRecord.id)?.config?.parameters?.clipOrder) === JSON.stringify([singleGifEdge.id, splitGifEdge.id]),
-      "GIF group drag did not persist edge order", 30_000);
-      await expect(gifBody.locator("[data-source-edge-id]").first()).toHaveAttribute("data-source-edge-id", singleGifEdge.id);
-      const encodeGif = gifBody.getByRole("button", { name: "Encode GIF", exact: true });
-      await expect(encodeGif).toBeEnabled({ timeout: 30_000 });
-      const gifCompleted = await runBrowserMediaOperation(page, graph.id, gifRecord.id, encodeGif, 60_000);
-      expect(gifCompleted.plan).toMatchObject({ kind: "edit.image.gif", expectedOutputCount: 1 });
-      expect(gifCompleted.plan.inputs.map((input) => input.assetId)).toEqual([sourceAssetId, cell0Id, cell1Id]);
-      expect(gifCompleted.plan.inputs.map((input) => input.sortOrder)).toEqual([0, 1, 2]);
-      expect(gifCompleted.outputAssetIds).toHaveLength(1);
-      const gifAssetResponse = await page.request.get(
-        `/api/media-assets/${encodeURIComponent(gifCompleted.outputAssetIds[0])}/content`,
-      );
-      expect(gifAssetResponse.ok()).toBeTruthy();
-      expect((await gifAssetResponse.body()).subarray(0, 6).toString("ascii")).toMatch(/^GIF8[79]a$/);
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator('[data-node-banana-component="WorkflowCanvas"]')).toBeVisible({ timeout: 15_000 });
-      const reloadedGallery = reactFlowNodeForArticle(page, "Output Gallery");
-      await expect(nodeBody(page, "Split Grid").getByText("2 cell groups", { exact: true })).toBeVisible();
-      await expect(reloadedGallery).toBeVisible();
-      await expect(reloadedGallery.locator('img')).toHaveCount(2, { timeout: 30_000 });
-      const reloadedGalleryResponse = await page.request.get(
-        `/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(galleryRecord.id)}/outputs`,
-      );
-      expect(reloadedGalleryResponse.ok(), `reloaded gallery output resolve failed: ${reloadedGalleryResponse.status()}`).toBeTruthy();
-      const reloadedGalleryPayload = await reloadedGalleryResponse.json();
-      expect(reloadedGalleryPayload.output.groups).toEqual([
-        expect.objectContaining({
-          portId: "image",
-          assets: [expect.objectContaining({ id: cell0Id }), expect.objectContaining({ id: cell1Id })],
-        }),
-      ]);
-      await captureEvidenceScreenshot(page, test.info(), "split-grid-gallery-reload");
-      await expect(singleFrame).toHaveCount(1);
-      await expect(splitFrames).toHaveCount(2);
-      await expect(gifBody.locator("[data-source-edge-id]").first()).toHaveAttribute("data-source-edge-id", singleGifEdge.id);
-      await singleFrame.hover();
-      await singleFrame.getByRole("button", { name: "Disconnect", exact: true }).click();
-      await waitForWorkflowState(page, graph.id, (snapshot) =>
-        !snapshot.edges.some((edge) => edge.id === singleGifEdge.id) && snapshot.edges.some((edge) => edge.id === splitGifEdge.id),
-      "GIF Disconnect removed the wrong source group", 30_000);
-      await expect(singleFrame).toHaveCount(0);
-      await expect(splitFrames).toHaveCount(2);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(splitFrames).toHaveCount(2, { timeout: 30_000 });
-      await expect(singleFrame).toHaveCount(0);
-      await captureEvidenceScreenshot(page, test.info(), "gif-mixed-source-disconnect-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("vendored video input runs frame grab, trim, stitch, and ease curve into durable outputs", async ({ page }, testInfo) => {
+  test("Video Trim and Stitch keep Leesfield inputs, operations, history, and outputs durable", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
@@ -3297,18 +2708,12 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         return { body, node };
       };
       const trim = await addAndPlace("Video Trim", narrow ? { x: 24, y: 790 } : { x: 400, y: 48 });
-      const frame = await addAndPlace("Frame Grab", narrow ? { x: 24, y: 1_150 } : { x: 790, y: 48 });
-      const ease = await addAndPlace("Ease Curve", narrow ? { x: 24, y: 1_520 } : { x: 400, y: 500 });
-      const stitch = await addAndPlace("Video Stitch", narrow ? { x: 24, y: 1_900 } : { x: 790, y: 500 });
-      const output = await addAndPlace("Output", narrow ? { x: 24, y: 2_280 } : { x: 1_330, y: 48 });
-      const gallery = await addAndPlace("Output Gallery", narrow ? { x: 24, y: 2_650 } : { x: 1_330, y: 500 });
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(8, { timeout: 15_000 });
+      const stitch = await addAndPlace("Video Stitch", narrow ? { x: 24, y: 1_150 } : { x: 790, y: 48 });
+      const gallery = await addAndPlace("Output Gallery", narrow ? { x: 24, y: 1_520 } : { x: 1_330, y: 48 });
+      await expect(canvas.locator(".react-flow__node")).toHaveCount(5, { timeout: 15_000 });
       await expect(canvas.locator('[data-node-banana-component="VideoInputNode"]')).toHaveCount(2);
       await expect(canvas.locator('[data-node-banana-component="VideoTrimNode"]')).toHaveCount(1);
-      await expect(canvas.locator('[data-node-banana-component="VideoFrameGrabNode"]')).toHaveCount(1);
-      await expect(canvas.locator('[data-node-banana-component="EaseCurveNode"]')).toHaveCount(1);
       await expect(canvas.locator('[data-node-banana-component="VideoStitchNode"]')).toHaveCount(1);
-      await expect(canvas.locator('[data-node-banana-component="OutputNode"]')).toHaveCount(1);
       await expect(canvas.locator('[data-node-banana-component="OutputGalleryNode"]')).toHaveCount(1);
 
       // Fit after all additions so connectors remain usable regardless of the
@@ -3317,17 +2722,13 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       const firstVideoSource = videoInputNode(0).locator('.react-flow__handle.source[data-handletype="video"]').first();
       const secondVideoSource = videoInputNode(1).locator('.react-flow__handle.source[data-handletype="video"]').first();
       await connectHandles(page, videoInputNode(0), trim.node, "video", "video");
-      await connectHandles(page, videoInputNode(0), frame.node, "video", "video");
-      await connectHandles(page, videoInputNode(0), ease.node, "video", "video");
       const stitchVideoTargets = stitch.node.locator('.react-flow__handle.target[data-handletype="video"]');
       await expect(stitchVideoTargets).toHaveCount(2);
       await connectHandleLocators(page, firstVideoSource, stitchVideoTargets.nth(0));
       await connectHandleLocators(page, secondVideoSource, stitchVideoTargets.nth(1));
-      await connectHandles(page, frame.node, output.node, "image", "image");
       const galleryVideoTarget = gallery.node.locator('.react-flow__handle.target[data-handletype="video"]').first();
       await connectHandles(page, trim.node, gallery.node, "video", "video");
       await connectHandleLocators(page, stitch.node.locator('.react-flow__handle.source[data-handletype="video"]').first(), galleryVideoTarget);
-      await connectHandleLocators(page, ease.node.locator('.react-flow__handle.source[data-handletype="video"]').first(), galleryVideoTarget);
 
       const connected = await waitForWorkflowState(
         page,
@@ -3335,29 +2736,20 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         (snapshot) => {
           const inputIds = new Set(snapshot.nodes.filter((node) => node.kind === "input.video").map((node) => node.id));
           const trimId = snapshot.nodes.find((node) => node.kind === "edit.video.trim")?.id;
-          const frameId = snapshot.nodes.find((node) => node.kind === "edit.video.frameGrab")?.id;
-          const easeId = snapshot.nodes.find((node) => node.kind === "edit.video.easeCurve")?.id;
           const stitchId = snapshot.nodes.find((node) => node.kind === "edit.video.stitch")?.id;
-          const outputId = snapshot.nodes.find((node) => node.kind === "output.single")?.id;
           const galleryId = snapshot.nodes.find((node) => node.kind === "output.gallery")?.id;
-          return snapshot.edges.length === 9 &&
+          return snapshot.edges.length === 5 &&
             snapshot.edges.some((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === trimId && edge.targetPortId === "video") &&
-            snapshot.edges.some((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === frameId && edge.targetPortId === "video") &&
-            snapshot.edges.some((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === easeId && edge.targetPortId === "video") &&
             snapshot.edges.filter((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === stitchId && edge.targetPortId === "clips").length === 2 &&
-            snapshot.edges.some((edge) => edge.sourceNodeId === frameId && edge.targetNodeId === outputId && edge.targetPortId === "image") &&
-            snapshot.edges.filter((edge) => [trimId, stitchId, easeId].includes(edge.sourceNodeId) && edge.targetNodeId === galleryId && edge.targetPortId === "video").length === 3;
+            snapshot.edges.filter((edge) => [trimId, stitchId].includes(edge.sourceNodeId) && edge.targetNodeId === galleryId && edge.targetPortId === "video").length === 2;
         },
         "video operation graph connections were not persisted",
         45_000,
       );
       const trimRecord = connected.nodes.find((node) => node.kind === "edit.video.trim");
-      const frameRecord = connected.nodes.find((node) => node.kind === "edit.video.frameGrab");
-      const easeRecord = connected.nodes.find((node) => node.kind === "edit.video.easeCurve");
       const stitchRecord = connected.nodes.find((node) => node.kind === "edit.video.stitch");
-      const outputRecord = connected.nodes.find((node) => node.kind === "output.single");
       const galleryRecord = connected.nodes.find((node) => node.kind === "output.gallery");
-      for (const record of [trimRecord, frameRecord, easeRecord, stitchRecord, outputRecord, galleryRecord]) expect(record).toBeTruthy();
+      for (const record of [trimRecord, stitchRecord, galleryRecord]) expect(record).toBeTruthy();
 
       const stitchEdges = connected.edges.filter((edge) => edge.targetNodeId === stitchRecord.id && edge.targetPortId === "clips")
         .sort((left, right) => left.sortOrder - right.sortOrder);
@@ -3420,27 +2812,6 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       );
       expect(trimDurable.nodes.find((node) => node.id === trimRecord.id)?.selectedOutputAssetId).toBe(trimmedAssetId);
 
-      const frameButton = frame.body.getByRole("button", { name: "Extract Frame", exact: true });
-      await expect(frameButton).toBeEnabled({ timeout: 30_000 });
-      const framed = await runBrowserMediaOperation(page, graph.id, frameRecord.id, frameButton, 60_000);
-      expect(framed.plan).toMatchObject({ kind: "edit.video.frameGrab", outputPortId: "image", outputMediaType: "image", expectedOutputCount: 1 });
-      expect(framed.plan.inputs.map((input) => input.assetId)).toEqual([firstInputAssetId]);
-      expect(framed.outputAssetIds).toHaveLength(1);
-      const frameAssetId = framed.outputAssetIds[0];
-      expect(frameAssetId).toEqual(expect.any(String));
-      const frameContent = await page.request.get(`/api/media-assets/${encodeURIComponent(frameAssetId)}/content`);
-      expect(frameContent.ok(), `frame output content failed: ${frameContent.status()}`).toBeTruthy();
-      expect([...((await frameContent.body()).subarray(0, 8))]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
-      await expect(frame.body.locator('img[alt="Extracted frame"]')).toBeVisible({ timeout: 30_000 });
-      const frameDurable = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === frameRecord.id && node.selectedOutputAssetId === frameAssetId),
-        "completed Frame Grab output was not selected durably",
-        30_000,
-      );
-      expect(frameDurable.nodes.find((node) => node.id === frameRecord.id)?.selectedOutputAssetId).toBe(frameAssetId);
-
       const stitchButton = stitch.body.getByRole("button", { name: "Stitch", exact: true });
       await expect(stitchButton).toBeEnabled({ timeout: 30_000 });
       const stitched = await runBrowserMediaOperation(page, graph.id, stitchRecord.id, stitchButton, 60_000);
@@ -3463,48 +2834,14 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       );
       expect(stitchDurable.nodes.find((node) => node.id === stitchRecord.id)?.selectedOutputAssetId).toBe(stitchedAssetId);
 
-      // Ease Curve is intentionally run from the hosted toolbar: the vendored
-      // EaseCurveNode has no body button and is runnable when selected.
-      await ease.node.click();
-      await expect(ease.node).toHaveClass(/selected/);
-      const canvasToolbar = page.getByRole("toolbar", { name: "Space canvas" });
-      const runSelected = canvasToolbar.getByTitle("Run selected node");
-      await expect(runSelected).toBeEnabled({ timeout: 30_000 });
-      const eased = await runBrowserMediaOperation(page, graph.id, easeRecord.id, runSelected, 60_000);
-      expect(eased.plan).toMatchObject({ kind: "edit.video.easeCurve", outputPortId: "video", outputMediaType: "video", expectedOutputCount: 1 });
-      expect(eased.plan.inputs.map((input) => input.assetId)).toEqual([firstInputAssetId]);
-      expect(eased.outputAssetIds).toHaveLength(1);
-      const easedAssetId = eased.outputAssetIds[0];
-      expect(easedAssetId).toEqual(expect.any(String));
-      const easeDurable = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === easeRecord.id && node.selectedOutputAssetId === easedAssetId),
-        "completed Ease Curve output was not selected durably",
-        30_000,
-      );
-      expect(easeDurable.nodes.find((node) => node.id === easeRecord.id)?.selectedOutputAssetId).toBe(easedAssetId);
-      await expect(ease.body.locator("video")).toBeVisible({ timeout: 30_000 });
-      const easeProbe = await expectPlayableVideo(ease.body.locator("video"));
-      expect(easeProbe).toMatchObject({ width: 640, height: 360 });
-
-      await expect(output.body.locator("img")).toBeVisible({ timeout: 30_000 });
       await expect(gallery.body.getByRole("button", { name: "Open video 1" })).toBeVisible({ timeout: 30_000 });
       await expect(gallery.body.getByRole("button", { name: "Open video 2" })).toBeVisible({ timeout: 30_000 });
-      await expect(gallery.body.getByRole("button", { name: "Open video 3" })).toBeVisible({ timeout: 30_000 });
-      const outputResponse = await page.request.get(`/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(outputRecord.id)}/outputs`);
-      expect(outputResponse.ok(), `downstream Output resolve failed: ${outputResponse.status()}`).toBeTruthy();
-      expect((await outputResponse.json()).output.groups).toEqual([
-        expect.objectContaining({ portId: "image", assets: [expect.objectContaining({ id: frameAssetId })] }),
-      ]);
       const galleryResponse = await page.request.get(`/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(galleryRecord.id)}/outputs`);
       expect(galleryResponse.ok(), `downstream Output Gallery resolve failed: ${galleryResponse.status()}`).toBeTruthy();
       expect((await galleryResponse.json()).output.groups).toEqual([
         expect.objectContaining({ portId: "video", assets: [expect.objectContaining({ id: trimmedAssetId })] }),
         expect.objectContaining({ portId: "video", assets: [expect.objectContaining({ id: stitchedAssetId })] }),
-        expect.objectContaining({ portId: "video", assets: [expect.objectContaining({ id: easedAssetId })] }),
       ]);
-
       await page.getByRole("button", { name: "Save space", exact: true }).click();
       await expect(page.locator('[data-node-banana-component="Header"] [role="status"]').filter({ hasText: /^Saved$/ })).toBeVisible({ timeout: 30_000 });
       await page.reload({ waitUntil: "domcontentloaded" });
@@ -3513,24 +2850,18 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       await expect(videoInputBody(0).locator("video")).toBeVisible({ timeout: 30_000 });
       await expect(videoInputBody(1).locator("video")).toBeVisible({ timeout: 30_000 });
       await expect(nodeBody(page, "Video Trim").locator("video")).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Frame Grab").locator('img[alt="Extracted frame"]')).toBeVisible({ timeout: 30_000 });
       await expect(nodeBody(page, "Video Stitch").locator("video")).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Ease Curve").locator("video")).toBeVisible({ timeout: 30_000 });
-      for (const [label, probe] of [["Video Trim", trimProbe], ["Video Stitch", stitchProbe], ["Ease Curve", easeProbe]]) {
+      for (const [label, probe] of [["Video Trim", trimProbe], ["Video Stitch", stitchProbe]]) {
         expect(await expectPlayableVideo(nodeBody(page, label).locator("video"))).toEqual(probe);
       }
-      await expect(nodeBody(page, "Output").locator("img")).toBeVisible({ timeout: 30_000 });
       await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "Open video 1" })).toBeVisible({ timeout: 30_000 });
       await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "Open video 2" })).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "Open video 3" })).toBeVisible({ timeout: 30_000 });
       const reloaded = await readWorkflowViaApi(page, graph.id);
       expect(reloaded.nodes.find((node) => node.id === firstInputRecord.id)?.config?.assetId).toBe(firstInputAssetId);
       expect(reloaded.nodes.find((node) => node.id === secondInputRecord?.id)?.config?.assetId).toBe(secondInputAssetId);
       expect(reloaded.nodes.find((node) => node.id === trimRecord.id)?.selectedOutputAssetId).toBe(trimmedAssetId);
-      expect(reloaded.nodes.find((node) => node.id === frameRecord.id)?.selectedOutputAssetId).toBe(frameAssetId);
       expect(reloaded.nodes.find((node) => node.id === stitchRecord.id)?.selectedOutputAssetId).toBe(stitchedAssetId);
-      expect(reloaded.nodes.find((node) => node.id === easeRecord.id)?.selectedOutputAssetId).toBe(easedAssetId);
-      await captureEvidenceScreenshot(page, testInfo, "vendored-video-output-reload");
+      await captureEvidenceScreenshot(page, testInfo, "video-trim-stitch-output-reload");
       expect(errors, errors.join("\n")).toEqual([]);
     } finally {
       await deleteWorkflowViaApi(page, graph.id);

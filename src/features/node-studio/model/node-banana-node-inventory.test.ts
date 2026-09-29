@@ -66,6 +66,7 @@ describe("Node Banana approved Node inventory", () => {
       .filter(([, item]) => item.parity !== "upstream")
       .map(([kind, item]) => [kind, item.parity]))
       .toEqual([
+        ["note.memo", "leesfield"],
         ["output.gallery", "upstream-extended"],
       ]);
   });
@@ -114,7 +115,7 @@ describe("Node Banana approved Node inventory", () => {
   it("keeps a source-audited visible handle and behavior contract for all approved Nodes", () => {
     expect(Object.keys(nodeBananaUpstreamContract)).toEqual(canonicalNodeKinds);
     for (const kind of canonicalNodeKinds) {
-      expect(nodeBananaUpstreamContract[kind].handles.length).toBeGreaterThan(0);
+      if (kind !== "note.memo") expect(nodeBananaUpstreamContract[kind].handles.length).toBeGreaterThan(0);
       expect(nodeBananaUpstreamContract[kind].behavior).not.toBe("");
     }
   });
@@ -152,6 +153,7 @@ describe("Node Banana approved Node inventory", () => {
 
   it("round-trips every palette Node through its canonical presenter, ports, defaults and execution mode", () => {
     const expectedExecutionMode = {
+      "note.memo": "none",
       "input.image": "none", "input.audio": "none", "input.video": "none", "input.prompt": "none",
       "process.promptConstructor": "none",
       "generate.image": "server-generation", "generate.audio": "server-generation", "generate.video": "server-generation",
@@ -178,7 +180,7 @@ describe("Node Banana approved Node inventory", () => {
       const definition = findNodeDefinition(kind);
 
       expect(runtime.nodes[0]).toMatchObject({
-        type: kind.startsWith("generate.") ? "generationNode" : "canonicalNode",
+        type: kind === "note.memo" ? "memoNode" : kind.startsWith("generate.") ? "generationNode" : "canonicalNode",
         data: { canonicalKind: kind, config, ports: definition?.ports },
       });
       expect(restored).toEqual(document);

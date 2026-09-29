@@ -11,10 +11,10 @@ const mocks = vi.hoisted(() => {
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    mediaAsset: { create: vi.fn(), aggregate: vi.fn() },
+    mediaAsset: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
     mediaOperation: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     generationGraphNodeOutput: { deleteMany: vi.fn(), create: vi.fn(), createMany: vi.fn() },
-    generationGraphNode: { updateMany: vi.fn() },
+    generationGraphNode: { updateMany: vi.fn(), findFirst: vi.fn() },
   };
   const prisma = { $transaction: vi.fn(), mediaAsset: { findFirst: vi.fn(), findMany: vi.fn() } };
   return { tx, prisma };
@@ -25,6 +25,7 @@ vi.mock("@/server/db/prisma", () => ({ prisma: mocks.prisma }));
 import {
   MediaUploadExpiredError,
   MediaUploadNotFoundError,
+  MediaOperationConflictError,
 } from "./media-asset-errors";
 import { mediaAssetRepository } from "./media-asset-repository";
 
@@ -103,6 +104,18 @@ describe("mediaAssetRepository", () => {
     mocks.tx.generationGraphNodeOutput.deleteMany.mockResolvedValue({ count: 0 });
     mocks.tx.generationGraphNodeOutput.create.mockResolvedValue({});
     mocks.tx.generationGraphNodeOutput.createMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("rejects a direct MediaOperation request for a retired edit node before looking up assets", async () => {
+    mocks.tx.generationGraphNode.findFirst.mockResolvedValue({
+      id: "old_annotation", graphId: "graph_1", kind: "edit.image.annotation", configVersion: 1,
+    });
+    await expect(mediaAssetRepository.createOperation("owner@example.com", {
+      graphId: "graph_1", graphNodeId: "old_annotation", type: "edit.image.annotation",
+      configVersion: 1, parameters: {}, expectedOutputCount: 1,
+      inputs: [{ assetId: "image_1", portId: "image", sortOrder: 0 }],
+    })).rejects.toBeInstanceOf(MediaOperationConflictError);
+    expect(mocks.tx.mediaAsset.findMany).not.toHaveBeenCalled();
   });
 
   it("persists the remote name separately from the untouched local filename", async () => {

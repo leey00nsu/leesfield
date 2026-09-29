@@ -34,6 +34,7 @@ vi.mock("@/server/db/prisma", () => ({ prisma: mocks.prisma }));
 
 import {
   GenerationGraphActiveExecutionError,
+  GenerationGraphInputError,
   GenerationGraphNotFoundError,
   GenerationGraphReferenceError,
   GenerationGraphVersionConflictError,
@@ -201,6 +202,46 @@ describe("generationGraphRepository", () => {
         sortOrder: 0,
       })],
     });
+  });
+
+  it("rejects new or edited retired nodes while allowing old nodes to remain or be deleted", async () => {
+    const legacy = { id: "old_annotation", kind: "edit.image.annotation", position: { x: 8, y: 9 },
+      configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: null };
+    const stored = { ...legacy, x: legacy.position.x, y: legacy.position.y };
+    mocks.tx.generationGraph.findFirst.mockResolvedValue({ version: 1, nodes: [stored], edges: [] });
+    const base = { ...input, edges: [], nodes: [legacy] };
+
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...base, nodes: [{ ...legacy, id: "new_annotation" }],
+    })).rejects.toBeInstanceOf(GenerationGraphInputError);
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...base, nodes: [{ ...legacy, config: { parameters: { changed: true } } }],
+    })).rejects.toBeInstanceOf(GenerationGraphInputError);
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...base, edges: [{
+        id: "new_edge", sourceNodeId: "old_annotation", targetNodeId: "other",
+        sourcePortId: "image", targetPortId: "image", sortOrder: 0,
+      }],
+    })).rejects.toBeInstanceOf(GenerationGraphInputError);
+    expect(mocks.tx.generationGraph.updateMany).not.toHaveBeenCalled();
+
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", base)).resolves.toBeDefined();
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...base, nodes: [],
+    })).resolves.toBeDefined();
+    expect(mocks.tx.generationGraphNode.deleteMany).toHaveBeenCalledWith({
+      where: { graphId: "graph_1", id: { in: ["old_annotation"] } },
+    });
+  });
+
+  it("does not copy a Space containing a retired edit node into a new Space", async () => {
+    mocks.tx.generationGraph.findFirst.mockResolvedValue({ ...graphRecord, nodes: [{
+      id: "old_annotation", kind: "edit.image.annotation", x: 8, y: 9,
+      configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: null,
+    }] });
+    await expect(generationGraphRepository.copy("owner@example.com", "graph_1"))
+      .rejects.toBeInstanceOf(GenerationGraphInputError);
+    expect(mocks.tx.generationGraph.create).not.toHaveBeenCalled();
   });
 
   it("rejects future writers before any mutation", async () => {

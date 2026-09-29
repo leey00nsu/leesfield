@@ -4,7 +4,6 @@ import type { NodeProps } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NodeBananaCanvasProps } from "@node-banana-runtime/runtime-entry";
-import { canonicalNodeKinds } from "@/shared/generation-graph/node-registry";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import { createIntlWrapper } from "@/test-utils/intl";
 
@@ -111,6 +110,40 @@ const runnableGraph: GenerationGraphSnapshotDto = {
 };
 
 describe("NodeBananaStudio host adapter", () => {
+  it("keeps an old edit node visible and deletable but rejects a pasted copy", () => {
+    const onDraftChange = vi.fn();
+    const legacy = { ...graph.nodes[0], id: "old_annotation", kind: "edit.image.annotation",
+      config: { parameters: {} } };
+    render(<NodeBananaStudio graph={{ ...graph, nodes: [legacy] }} onDraftChange={onDraftChange}
+      prepareImageNodeExecution={vi.fn()} catalog={catalog} writable readOnlyReason={null} />,
+    { wrapper: createIntlWrapper() });
+    const canvas = runtime.props as NodeBananaCanvasProps;
+    expect(canvas.graph.nodes).toContainEqual(expect.objectContaining({
+      id: "old_annotation", data: expect.objectContaining({ canonicalKind: "edit.image.annotation" }),
+    }));
+    act(() => canvas.onGraphChange({ ...canvas.graph, nodes: [...canvas.graph.nodes,
+      { ...canvas.graph.nodes[0], id: "pasted_annotation" }] }, "nodes"));
+    expect(onDraftChange).not.toHaveBeenCalled();
+    act(() => canvas.onGraphChange({ ...canvas.graph, nodes: [] }, "nodes"));
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ nodes: [] }));
+  });
+  it("creates a memo draft and restores its text from the controlled Space", () => {
+    const onDraftChange = vi.fn();
+    const props = { onDraftChange, prepareImageNodeExecution: vi.fn(), catalog, writable: true, readOnlyReason: null };
+    const view = render(<NodeBananaStudio {...props} graph={graph} />, { wrapper: createIntlWrapper() });
+    const canvas = runtime.props as NodeBananaCanvasProps;
+    const created = canvas.onCreateNode({ kind: "note.memo", label: "Annotate", category: "Process", mediaType: "text" }, { x: 80, y: 90 }, null).node;
+    expect(created).toMatchObject({ type: "memoNode", data: { canonicalKind: "note.memo", config: { text: "" }, ports: [] } });
+    const edited = { ...created, data: { ...created.data, config: { text: "장면 메모\n파란 빛" } } };
+    act(() => canvas.onGraphChange({ ...canvas.graph, nodes: [...canvas.graph.nodes, edited] }, "nodes"));
+    const draft = onDraftChange.mock.calls.at(-1)?.[0];
+    expect(draft.nodes).toContainEqual(expect.objectContaining({ kind: "note.memo", config: { text: "장면 메모\n파란 빛" } }));
+    view.rerender(<NodeBananaStudio {...props} graph={{ ...graph, version: 2, nodes: draft.nodes, edges: draft.edges }} />);
+    expect(runtime.props!.graph.nodes.find((node) => node.id === created.id)).toMatchObject({
+      type: "memoNode", data: { config: { text: "장면 메모\n파란 빛" }, ports: [] },
+    });
+  });
+
   it("awaits hosted catalog refresh and forwards refresh failures", async () => {
     let finish!: () => void;
     const refresh = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
@@ -303,7 +336,7 @@ describe("NodeBananaStudio host adapter", () => {
     expect(onDraftChange).not.toHaveBeenCalled();
   });
 
-  it("publishes every approved canonical node in Node Banana section order", () => {
+  it("offers only the retained Process nodes across the palette and connection menu", () => {
     render(
       <NodeBananaStudio
         graph={graph}
@@ -317,15 +350,20 @@ describe("NodeBananaStudio host adapter", () => {
     );
 
     const items = (runtime.props as NodeBananaCanvasProps).paletteItems;
-    expect(items.map((item) => item.kind)).toEqual(canonicalNodeKinds);
+    expect(items.filter((item) => item.category === "Process").map((item) => item.kind)).toEqual([
+      "note.memo", "edit.image.resize", "edit.video.stitch", "edit.video.trim", "inspect.imageCompare",
+    ]);
     expect(new Set(items.map((item) => item.category))).toEqual(
       new Set(["Input", "Text", "Generate", "Process", "Output"]),
     );
     expect(items.find((item) => item.kind === "input.prompt")).toMatchObject({ label: "Prompt", category: "Text" });
     expect(items.find((item) => item.kind === "generate.image")).toMatchObject({ label: "Generate Image" });
-    expect(items.find((item) => item.kind === "edit.image.annotation")).toMatchObject({ label: "Annotate" });
+    expect(items.find((item) => item.kind === "note.memo")).toMatchObject({ label: "Annotate" });
     expect(items.find((item) => item.kind === "output.single")).toMatchObject({ label: "Output" });
     expect(items.every((item) => item.description === undefined)).toBe(true);
+    const pending = { nodeId: "node_1", handleId: "image", handleType: "source" as const };
+    expect(runtime.props!.filterPaletteItems!([items.find((item) => item.kind === "note.memo")!], pending)).toEqual([]);
+    expect(() => runtime.props!.onCreateNode({ kind: "edit.image.annotation", label: "Annotate" }, { x: 0, y: 0 }, null)).toThrow("NODE_TYPE_UNAVAILABLE");
   });
 
   it("ignores repeated canonical no-op updates and keeps runtime callbacks stable", () => {

@@ -75,7 +75,8 @@ describe("Node Banana v1.9 host adapter", () => {
     expect(node.data.canonicalKind).toBe(kind);
     expect(node.data.configVersion).toBe(1);
     expect(node.data.upstreamHandles).toEqual(upstreamHandlesForCanonicalKind(kind));
-    expect((node.data.upstreamHandles as unknown[]).length).toBeGreaterThan(0);
+    if (kind === "note.memo") expect(node.data.upstreamHandles).toEqual([]);
+    else expect((node.data.upstreamHandles as unknown[]).length).toBeGreaterThan(0);
     expect(result.getConnectedInputs("node")).toMatchObject({
       images: [],
       videos: [],

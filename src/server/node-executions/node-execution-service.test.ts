@@ -1,5 +1,6 @@
 import { createNodeExecutionService } from "./node-execution-service";
 import {
+  NodeExecutionConfigError,
   NodeExecutionInputError,
   NodeExecutionStorageUnavailableError,
   NodeExecutionVersionConflictError,
@@ -107,6 +108,18 @@ function setup() {
 }
 
 describe("nodeExecutionService", () => {
+  it.each([
+    "edit.image.annotation", "edit.image.removeBackground", "edit.image.splitGrid",
+    "edit.image.gif", "edit.video.frameGrab", "edit.video.easeCurve",
+  ])("does not submit a retired %s node from an existing Space", async (kind) => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue(storedNode(kind));
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", {
+      expectedGraphVersion: 4,
+    })).rejects.toBeInstanceOf(NodeExecutionConfigError);
+    expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.submitImage).not.toHaveBeenCalled();
+  });
   it("reuses a Node generation for the same idempotency key and payload", async () => {
     const state = setup();
     await state.service.execute(
@@ -382,96 +395,6 @@ describe("nodeExecutionService", () => {
     expect(submitImage).not.toHaveBeenCalled();
   });
 
-  it.each([null, "older-selected"])("does not use the latest ordered collection when selection is %s", async (selectedOutputAssetId) => {
-    const state = setup();
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
-      ...storedNode("edit.image.gif"),
-      config: { parameters: { fps: 12, loopCount: 0, colorCount: 64, dither: false, targetMaxBytes: null } },
-      incomingEdges: [{
-        id: "edge-frames", sourcePortId: "images", targetPortId: "frames", sortOrder: 0,
-        createdAt: new Date(), sourceNodeId: "split-1",
-        sourceNode: {
-          id: "split-1", kind: "edit.image.splitGrid", configVersion: 1, config: {},
-          selectedOutputAssetId,
-          outputs: [{ portId: "images", sortOrder: 0, assetId: "latest-output" }],
-        },
-      }],
-    });
-    if (selectedOutputAssetId) {
-      vi.mocked(state.repository.getAssets).mockResolvedValue([
-        { id: selectedOutputAssetId, ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" },
-      ]);
-      state.resolveAsset.mockResolvedValue({ url: "https://signed.example/older.png", bytes: "256", width: 16, height: 16 });
-      await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-      expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-        inputs: [{ assetId: selectedOutputAssetId, portId: "frames", sortOrder: 0 }],
-      }));
-    } else {
-      await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }))
-        .rejects.toMatchObject({ code: "NODE_INPUT_SELECTION_REQUIRED" });
-      expect(state.createOperation).not.toHaveBeenCalled();
-    }
-    expect(state.resolveAsset).not.toHaveBeenCalledWith("owner@example.com", "latest-output");
-  });
-
-  it("creates a browser image operation from stable ordered inputs and returns a transient plan", async () => {
-    const state = setup();
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
-      ...storedNode("edit.image.gif"),
-      config: { parameters: { fps: 12, loopCount: 0, colorCount: 64, dither: false, targetMaxBytes: null } },
-      incomingEdges: [{
-        id: "edge-frames",
-        sourcePortId: "images",
-        targetPortId: "frames",
-        sortOrder: 0,
-        createdAt: new Date(),
-        sourceNodeId: "split-1",
-        sourceNode: {
-          id: "split-1",
-          kind: "edit.image.splitGrid",
-          configVersion: 1,
-          config: { parameters: { rows: 1, cols: 2, colOffsets: [], rowOffsets: [] } },
-          selectedOutputAssetId: "asset-1",
-          outputs: [
-            { portId: "images", sortOrder: 0, assetId: "asset-1" },
-            { portId: "images", sortOrder: 1, assetId: "asset-2" },
-          ],
-        },
-      }],
-    });
-    vi.mocked(state.repository.getAssets).mockResolvedValue([
-      { id: "asset-1", ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" },
-      { id: "asset-2", ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" },
-    ]);
-    state.resolveAsset
-      .mockResolvedValueOnce({ url: "https://signed.example/1.png", bytes: "256", width: 16, height: 16 })
-      .mockResolvedValueOnce({ url: "https://signed.example/2.png", bytes: "256", width: 16, height: 16 });
-
-    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", {
-      expectedGraphVersion: 4,
-    });
-
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      type: "edit.image.gif",
-      inputs: [
-        { assetId: "asset-1", portId: "frames", sortOrder: 0 },
-        { assetId: "asset-2", portId: "frames", sortOrder: 1 },
-      ],
-    }));
-    expect(result).toMatchObject({
-      operation: { id: "operation-1" },
-      plan: {
-        kind: "edit.image.gif",
-        outputPortId: "image",
-        expectedOutputCount: 1,
-        inputs: [
-          { assetId: "asset-1", sortOrder: 0, url: "https://signed.example/1.png" },
-          { assetId: "asset-2", sortOrder: 1, url: "https://signed.example/2.png" },
-        ],
-      },
-    });
-  });
-
   it("rejects browser image operations whose verified input exceeds canvas limits", async () => {
     const state = setup();
     vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
@@ -574,16 +497,13 @@ describe("nodeExecutionService", () => {
   });
 
   it.each([
-    ["edit.image.gif", ["edge-b", "edge-a"]],
-    ["edit.image.gif", ["stale-edge", "asset-a", "input-a", "edge-b", "edge-b"]],
     ["edit.video.stitch", ["edge-b", "edge-a"]],
     ["edit.video.stitch", ["edge-soundtrack", "stale-edge", "asset-a", "input-a", "edge-b", "edge-b"]],
   ] as const)("uses persisted filmstrip edge order for %s in snapshots and execution plans (%j)", async (kind, clipOrder) => {
     const state = setup();
-    const isGif = kind === "edit.image.gif";
-    const type = isGif ? "image" : "video";
-    const portId = isGif ? "frames" : "clips";
-    const mimeType = isGif ? "image/png" : "video/mp4";
+    const type = "video";
+    const portId = "clips";
+    const mimeType = "video/mp4";
     const edges: StoredNodeExecutionEdge[] = ["a", "b", "c"].map((suffix, sortOrder) => ({
       id: `edge-${suffix}`, sourcePortId: type, targetPortId: portId, sortOrder,
       createdAt: new Date(), sourceNodeId: `input-${suffix}`,
@@ -592,7 +512,7 @@ describe("nodeExecutionService", () => {
         config: { assetId: `asset-${suffix}` }, selectedOutputAssetId: null,
       },
     }));
-    if (!isGif) edges.push({
+    edges.push({
       id: "edge-soundtrack", sourcePortId: "audio", targetPortId: "soundtrack", sortOrder: 0,
       createdAt: new Date(), sourceNodeId: "input-audio",
       sourceNode: { id: "input-audio", kind: "input.audio", configVersion: 1, config: { assetId: "audio-1" }, selectedOutputAssetId: null },
@@ -607,7 +527,7 @@ describe("nodeExecutionService", () => {
         id: `asset-${suffix}`, ownerEmail: "owner@example.com", type: type as "image" | "video",
         status: "completed" as const, mimeType,
       })),
-      ...(!isGif ? [{ id: "audio-1", ownerEmail: "owner@example.com", type: "audio" as const, status: "completed" as const, mimeType: "audio/mpeg" }] : []),
+      { id: "audio-1", ownerEmail: "owner@example.com", type: "audio" as const, status: "completed" as const, mimeType: "audio/mpeg" },
     ]);
     state.resolveAsset.mockImplementation(async (_owner: string, assetId: string) => ({
       url: `https://signed.example/${assetId}`, mimeType: assetId === "audio-1" ? "audio/mpeg" : mimeType,
@@ -615,36 +535,9 @@ describe("nodeExecutionService", () => {
     }));
     const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
     const inputs: Array<{ assetId: string; portId: string; sortOrder: number }> = ["b", "a", "c"].map((suffix, sortOrder) => ({ assetId: `asset-${suffix}`, portId, sortOrder }));
-    if (!isGif) inputs.push({ assetId: "audio-1", portId: "soundtrack", sortOrder: 0 });
+    inputs.push({ assetId: "audio-1", portId: "soundtrack", sortOrder: 0 });
     expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ inputs }));
     expect(result).toMatchObject({ plan: { inputs: inputs.map((input) => ({ ...input, url: `https://signed.example/${input.assetId}` })) } });
-  });
-
-  it("keeps each ordered-list edge's assets together when reordering GIF frames", async () => {
-    const state = setup();
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
-      ...storedNode("edit.image.gif"),
-      config: { parameters: { clipOrder: ["edge-b", "edge-a"] } },
-      incomingEdges: ["a", "b"].map((suffix, sortOrder) => ({
-        id: `edge-${suffix}`, sourcePortId: "images", targetPortId: "frames", sortOrder,
-        createdAt: new Date(), sourceNodeId: `split-${suffix}`,
-        sourceNode: {
-          id: `split-${suffix}`, kind: "edit.image.splitGrid", configVersion: 1, config: {},
-          selectedOutputAssetId: `${suffix}-1`,
-          outputs: [1, 2].map((number) => ({ portId: "images", sortOrder: number - 1, assetId: `${suffix}-${number}` })),
-        },
-      })),
-    });
-    vi.mocked(state.repository.getAssets).mockResolvedValue(["a-1", "a-2", "b-1", "b-2"].map((id) => ({
-      id, ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png",
-    })));
-    state.resolveAsset.mockImplementation(async (_owner: string, id: string) => ({
-      url: `https://signed.example/${id}`, mimeType: "image/png", bytes: "256", width: 16, height: 16,
-    }));
-    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-    const inputs = ["b-1", "b-2", "a-1", "a-2"].map((assetId, sortOrder) => ({ assetId, portId: "frames", sortOrder }));
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ inputs }));
-    expect(result).toMatchObject({ plan: { inputs } });
   });
 
   it("rejects a video Trim interval beyond the verified source duration", async () => {
@@ -686,78 +579,6 @@ describe("nodeExecutionService", () => {
     })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
     expect(state.createOperation).not.toHaveBeenCalled();
     expect(state.repository.getAssets).not.toHaveBeenCalled();
-  });
-
-  it("inherits upstream Ease Curve settings through the Settings handle", async () => {
-    const state = setup();
-    const inherited = {
-      outputDurationMs: 2_000,
-      easingPreset: "linear",
-      bezier: [0, 0, 1, 1],
-    };
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
-      ...storedNode("edit.video.easeCurve"),
-      config: { parameters: { outputDurationMs: 1_500, easingPreset: "easeInOutSine", bezier: [0.42, 0, 0.58, 1] } },
-      incomingEdges: [
-        {
-          id: "edge-video", sourcePortId: "video", targetPortId: "video", sortOrder: 0,
-          createdAt: new Date(), sourceNodeId: "input-video",
-          sourceNode: { id: "input-video", kind: "input.video", configVersion: 1, config: { assetId: "video-a" }, selectedOutputAssetId: null },
-        },
-        {
-          id: "edge-settings", sourcePortId: "settings", targetPortId: "settings", sortOrder: 0,
-          createdAt: new Date(), sourceNodeId: "ease-parent",
-          sourceNode: { id: "ease-parent", kind: "edit.video.easeCurve", configVersion: 1, config: { parameters: inherited }, selectedOutputAssetId: null },
-        },
-      ],
-    });
-    vi.mocked(state.repository.getAssets).mockResolvedValue([
-      { id: "video-a", ownerEmail: "owner@example.com", type: "video", status: "completed", mimeType: "video/mp4" },
-    ]);
-    state.resolveAsset.mockResolvedValue({
-      id: "video-a", type: "video", mimeType: "video/mp4", bytes: "2048",
-      width: 640, height: 360, durationMs: 3_000, url: "https://signed.example/video-a",
-    });
-
-    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      type: "edit.video.easeCurve",
-      parameters: inherited,
-      inputs: [{ assetId: "video-a", portId: "video", sortOrder: 0 }],
-    }));
-  });
-
-  it("starts server background removal only when a catalog capability exists", async () => {
-    const state = setup();
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
-      ...storedNode("edit.image.removeBackground"),
-      config: { parameters: {} },
-      incomingEdges: [{
-        id: "edge-image",
-        sourcePortId: "image",
-        targetPortId: "image",
-        sortOrder: 0,
-        createdAt: new Date(),
-        sourceNodeId: "input-1",
-        sourceNode: {
-          id: "input-1", kind: "input.image", configVersion: 1,
-          config: { assetId: "asset-1" }, selectedOutputAssetId: null,
-        },
-      }],
-    });
-    vi.mocked(state.repository.getAssets).mockResolvedValue([
-      { id: "asset-1", ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" },
-    ]);
-    state.resolveAsset.mockResolvedValue({
-      url: "https://signed.example/input.png", bytes: "1024", width: 32, height: 32,
-    });
-
-    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-    expect(state.startOperationWorker).toHaveBeenCalledOnce();
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      type: "edit.image.removeBackground",
-    }));
   });
 
   it("reads the durable node selection after completed history while retaining owner scope", async () => {

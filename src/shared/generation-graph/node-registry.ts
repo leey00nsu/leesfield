@@ -2,6 +2,7 @@ import { z } from "zod";
 import { splitTemplateSchema } from "./split-grid-template";
 
 export const canonicalNodeKinds = [
+  "note.memo",
   "input.image",
   "input.audio",
   "input.video",
@@ -286,6 +287,14 @@ function definition(
 }
 
 export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefinition>> = {
+  "note.memo": definition("note.memo", z.object({
+    text: z.string().max(20_000),
+    size: z.object({
+      width: z.number().int().min(220).max(2000),
+      height: z.number().int().min(140).max(1600),
+    }).strict().optional(),
+    ...presentationField,
+  }).strict(), []),
   "input.image": definition("input.image", assetInputConfigSchema, [
     input("reference", "image", { acceptedMimeTypes: imageMime }),
     output("image", "image", { acceptedMimeTypes: imageMime }),

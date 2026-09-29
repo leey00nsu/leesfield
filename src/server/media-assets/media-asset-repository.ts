@@ -15,6 +15,7 @@ import {
   type MediaOperationLease,
 } from "@/server/media-operations/media-operation-lease";
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import type {
   CreateMediaOperationInput,
   CreateMediaUploadInput,
@@ -471,6 +472,9 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
         select: { id: true, graphId: true, kind: true, configVersion: true },
       });
       if (!node) throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+      if (isUnavailableEditNodeKind(node.kind)) {
+        throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+      }
       const definition = node.kind ? findNodeDefinition(node.kind) : null;
       if (
         !definition ||

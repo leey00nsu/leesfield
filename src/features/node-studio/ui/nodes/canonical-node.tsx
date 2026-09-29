@@ -3,8 +3,8 @@ import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
-import { memo, useRef, useState } from "react";
-import { Handle, NodeResizer, Position, useEdges, type Node, type NodeProps } from "@xyflow/react";
+import { memo, useEffect, useRef, useState } from "react";
+import { Handle, NodeResizer, Position, useEdges, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/shared/lib/utils";
@@ -129,6 +129,38 @@ function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNod
   );
 }
 
+function MemoNodeControls({ id, data }: { id: string; data: NodeBananaNodeData }) {
+  const tc = useCanvasTranslation();
+  const authoring = useNodeAuthoring();
+  const { setNodes } = useReactFlow();
+  const config = data.config && typeof data.config === "object" && !Array.isArray(data.config)
+    ? data.config as Record<string, CanonicalJsonValue>
+    : {};
+  const savedSize = config.size && typeof config.size === "object" && !Array.isArray(config.size)
+    ? config.size as { width: number; height: number }
+    : nodeBananaNodeGeometry["note.memo"];
+  useEffect(() => {
+    setNodes((nodes) => nodes.map((node) => node.id === id
+      && (node.width !== savedSize.width || node.height !== savedSize.height)
+        ? { ...node, width: savedSize.width, height: savedSize.height,
+          style: { ...node.style, width: savedSize.width, height: savedSize.height } }
+        : node));
+  }, [id, savedSize.width, savedSize.height, setNodes]);
+  return (
+    <AppTextarea
+      data-node-banana-component="MemoNode"
+      aria-label={tc("Memo")}
+      value={typeof config.text === "string" ? config.text : ""}
+      maxLength={20_000}
+      disabled={authoring.writable === false || !authoring.updateCanonicalNodeConfig}
+      placeholder={tc("Write a note...")}
+      className="nodrag nopan nowheel min-h-0 w-full flex-1 resize-none rounded border border-neutral-700 bg-neutral-900/60 p-3 text-sm leading-relaxed text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-blue-500/60"
+      onPointerDown={(event) => event.stopPropagation()}
+      onChange={(event) => authoring.updateCanonicalNodeConfig?.(id, { ...config, text: event.target.value })}
+    />
+  );
+}
+
 export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }: NodeProps<CanonicalRuntimeNode>) {
   const t = useTranslations("nodeStudio");
   const authoring = useNodeAuthoring();
@@ -154,6 +186,7 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
   const dynamicHandleCount = dynamicInput ? Math.max(highestDynamicIndex + 2, 2) : 0;
   const regularInputs = dynamicInput ? inputs.filter((port) => port !== dynamicInput) : inputs;
   const isPrompt = data.canonicalKind === "input.prompt";
+  const isMemo = data.canonicalKind === "note.memo";
   const isAnnotation = data.canonicalKind === "edit.image.annotation";
   const isMediaInput = data.canonicalKind === "input.image" || data.canonicalKind === "input.audio" || data.canonicalKind === "input.video";
   const fullBleed = isPrompt || isMediaInput;
@@ -169,20 +202,27 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
       ref={articleRef}
       className={cn(
         "group relative rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 shadow-lg",
+        isMemo && "flex h-full w-full flex-col",
         fullBleed ? "min-h-[160px] overflow-visible p-0" : "min-h-[180px] overflow-visible p-3",
-        selected && "ring-2 ring-primary/40 shadow-primary/20",
+        isMemo && "!min-h-0",
+        selected && (isMemo ? "border-blue-500 ring-2 ring-blue-500/40 shadow-blue-500/25" : "ring-2 ring-primary/40 shadow-primary/20"),
         !data.supported && "border-amber-500/60",
       )}
-      style={{ width: geometry.width, minHeight: geometry.height }}
+      style={isMemo ? undefined : { width: geometry.width, minHeight: geometry.height }}
       aria-label={title}
       aria-current={selected ? "true" : undefined}
     >
       <NodeResizer
-        isVisible={selected}
+        isVisible={selected && (!isMemo || authoring.writable !== false)}
         minWidth={geometry.minWidth}
         minHeight={geometry.minHeight}
-        lineClassName="!border-primary/45"
-        handleClassName="!h-2.5 !w-2.5 !border-primary !bg-neutral-900"
+        maxWidth={isMemo ? 2000 : undefined}
+        maxHeight={isMemo ? 1600 : undefined}
+        lineClassName={isMemo ? "!border-transparent" : "!border-primary/45"}
+        handleClassName={isMemo ? "!h-5 !w-5 !border-none !bg-transparent" : "!h-2.5 !w-2.5 !border-primary !bg-neutral-900"}
+        onResizeEnd={isMemo ? (_event, params) => authoring.updateMemoNodeSize?.(id, {
+          width: Math.round(params.width), height: Math.round(params.height),
+        }) : undefined}
       />
       <NodeBananaFloatingNodeHeader
         nodeId={id}
@@ -215,6 +255,9 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
         <div className="mt-3 rounded border border-neutral-700 bg-neutral-900/45 px-3 py-2 text-[11px] leading-5 text-neutral-400">
           {t("runtime.unsupportedDescription", { reason: data.supportReason ?? "UNKNOWN" })}
         </div>
+      ) : null}
+      {data.supported && data.canonicalKind === "note.memo" ? (
+        <MemoNodeControls id={id} data={data} />
       ) : null}
       {data.supported && data.canonicalKind === "input.prompt" ? (
         <PromptInputNodeControls id={id} data={data} />

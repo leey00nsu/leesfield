@@ -1,4 +1,5 @@
 import { splitTemplateSchema, type CanonicalSplitTemplate } from "@/shared/generation-graph/split-grid-template";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { defaultConfigForKind } from "../runtime/node-banana/node-banana-runtime-adapter";
 
 export type HostedSplitTemplate = {
@@ -15,6 +16,7 @@ export function canonicalSplitTemplate(value: HostedSplitTemplate): CanonicalSpl
   const nodes = value.nodes.map((node) => {
     const kind = Object.hasOwn(kinds, node.type) ? kinds[node.type as keyof typeof kinds] : null;
     if (!kind) throw new Error("Unsupported cell template node.");
+    if (isUnavailableEditNodeKind(kind)) throw new Error("This edit node is no longer available.");
     const data = object(node.data), config = { ...object(defaultConfigForKind(kind)), ...object(data.canonicalConfig) };
     if (kind === "input.prompt") config.text = data.prompt ?? config.text;
     if (kind === "generate.image") {

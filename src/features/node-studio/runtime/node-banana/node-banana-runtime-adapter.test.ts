@@ -55,6 +55,37 @@ const graph: GenerationGraphSnapshotDto = {
 };
 
 describe("nodeBananaRuntimeAdapter", () => {
+  it("stores a portless memo and leaves an existing image annotation unchanged", () => {
+    const canonical = graphSnapshotToCanonicalDocument({
+      ...graph,
+      nodes: [
+        { id: "memo", kind: "note.memo", position: { x: 10, y: 20 }, configVersion: 1, config: { text: "첫 줄\n둘째 줄" }, selectedOutputAssetId: null },
+        { id: "annotation", kind: "edit.image.annotation", position: { x: 50, y: 70 }, configVersion: 1, config: { parameters: { shapes: [] } }, selectedOutputAssetId: "asset_1" },
+      ],
+      edges: [],
+    });
+    const projected = nodeBananaRuntimeAdapter.project(canonical);
+    expect(projected.state.nodes[0]).toMatchObject({ type: "memoNode", data: { ports: [], config: { text: "첫 줄\n둘째 줄" } } });
+    expect(projected.state.nodes[0]).toMatchObject({ width: 300, height: 220 });
+    expect(runtimeGraphToCanonicalDocument(canonical, projected.state)).toEqual(canonical);
+    const draft = canonicalDocumentToV3Draft(canonical);
+    expect(draft.nodes).toEqual(canonical.nodes);
+    expect(draft.nodes[1].kind).toBe("edit.image.annotation");
+  });
+
+  it("projects a saved memo size into the hosted canvas and preserves it in the Graph draft", () => {
+    const canonical = graphSnapshotToCanonicalDocument({
+      ...graph,
+      nodes: [{ id: "memo", kind: "note.memo", position: { x: 10, y: 20 }, configVersion: 1,
+        config: { text: "촬영 메모", size: { width: 480, height: 320 } }, selectedOutputAssetId: null }],
+      edges: [],
+    });
+    const projected = nodeBananaRuntimeAdapter.project(canonical);
+    expect(projected.state.nodes[0]).toMatchObject({ width: 480, height: 320, style: { width: 480, height: 320 } });
+    expect(canonicalDocumentToV3Draft(runtimeGraphToCanonicalDocument(canonical, projected.state)).nodes[0].config)
+      .toEqual({ text: "촬영 메모", size: { width: 480, height: 320 } });
+  });
+
   it("projects canonical Graph data without leaking runtime types into the v2 draft", () => {
     const canonical = graphSnapshotToCanonicalDocument(graph);
     const projection = nodeBananaRuntimeAdapter.project(canonical);

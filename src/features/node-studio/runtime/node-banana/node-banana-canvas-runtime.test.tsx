@@ -549,6 +549,25 @@ describe("NodeBananaCanvasRuntime", () => {
     );
   });
 
+  it("preserves memo text when copied and restores the original graph on undo", () => {
+    const graph: NodeBananaRuntimeGraph = {
+      nodes: [{ id: "memo", type: "memoNode", position: { x: 10, y: 20 }, data: {
+        canonicalKind: "note.memo", configVersion: 1, config: { text: "장면 메모" },
+        selectedOutputAssetId: null, ports: [], supported: true, supportReason: null,
+      } }],
+      edges: [],
+    };
+    const changed = renderRuntime(graph);
+    fireEvent.click(screen.getByRole("button", { name: "select-first" }));
+    fireEvent.keyDown(screen.getByRole("application"), { key: "c", ctrlKey: true });
+    fireEvent.keyDown(screen.getByRole("application"), { key: "v", ctrlKey: true });
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({
+      nodes: [graph.nodes[0], expect.objectContaining({ id: "created_1", data: expect.objectContaining({ config: { text: "장면 메모" } }) })],
+    }), "paste");
+    fireEvent.keyDown(screen.getByRole("application"), { key: "z", ctrlKey: true });
+    expect(changed).toHaveBeenLastCalledWith(graph, "undo");
+  });
+
   it("includes external Split snapshots in the same undo and redo history", () => {
     const current: NodeBananaRuntimeGraph = {
       nodes: [{ id: "cell", type: "canonicalNode", position: { x: 10, y: 20 }, data: {} }], edges: [],

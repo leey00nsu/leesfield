@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 
 import { mediaAssetKeys, useMediaAsset, useMediaAssetList } from "@/features/media-assets/hook/use-media-assets";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { AppButton } from "@/shared/ui/app-button";
 
 import {
@@ -122,7 +123,7 @@ export function VideoOperationNodeControls({
   const latest = active ?? executions.data?.[0];
   const operationOutputs = useOperationOutputAssets(executions.data, data.selectedOutputAssetId);
   const outputAsset = operationOutputs.assets[0] ?? selectedOutputAsset.data ?? null;
-  const writable = authoring.writable !== false && Boolean(authoring.updateCanonicalNodeConfig);
+  const writable = authoring.writable !== false && Boolean(authoring.updateCanonicalNodeConfig) && !isUnavailableEditNodeKind(kind);
   const settingsInherited = kind === "edit.video.easeCurve" && Boolean(authoring.isNodePortConnected?.(id, "settings"));
   const controlsWritable = writable && !settingsInherited;
   const runReadiness = authoring.getNodeRunReadiness?.(id) ?? { ready: true, reasons: [] };

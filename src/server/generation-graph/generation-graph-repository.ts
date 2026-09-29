@@ -11,6 +11,7 @@ import {
   type CanonicalNode,
 } from "@/shared/generation-graph/canonical-graph";
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 
 import { updateGenerationGraphSchema, type UpdateGenerationGraphInput } from "./generation-graph-contract";
 import {
@@ -204,6 +205,22 @@ function nodeBaseChanged(
     || !sameJson(existing.config, input.config);
 }
 
+function assertUnavailableNodesPreserved(
+  existing: readonly { id: string; kind: string; configVersion: number; config: Prisma.JsonValue }[],
+  requested: UpdateGenerationGraphInput["nodes"],
+) {
+  const byId = new Map(existing.map((node) => [node.id, node]));
+  if (requested.some((node) => {
+    const previous = byId.get(node.id);
+    return isUnavailableEditNodeKind(node.kind)
+      ? !previous || previous.kind !== node.kind || previous.configVersion !== node.configVersion
+        || !sameJson(previous.config, node.config)
+      : Boolean(previous && isUnavailableEditNodeKind(previous.kind));
+  })) {
+    throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
+  }
+}
+
 function edgeChanged(
   existing: {
     sourceNodeId: string;
@@ -221,6 +238,25 @@ function edgeChanged(
     || existing.targetPortId !== input.targetPortId
     || existing.sortOrder !== input.sortOrder
     || existing.hasPause !== (input.hasPause ?? false);
+}
+
+function assertUnavailableEdgesPreserved(
+  existing: {
+    nodes: readonly { id: string; kind: string }[];
+    edges?: readonly { id: string; sourceNodeId: string; targetNodeId: string; sourcePortId: string; targetPortId: string; sortOrder: number; hasPause: boolean }[];
+  },
+  input: UpdateGenerationGraphInput,
+) {
+  const unavailableIds = new Set(existing.nodes.filter((node) => isUnavailableEditNodeKind(node.kind)).map((node) => node.id));
+  const previousEdges = new Map((existing.edges ?? []).map((edge) => [edge.id, edge]));
+  if (input.edges.some((edge) => {
+    const previous = previousEdges.get(edge.id);
+    return (unavailableIds.has(edge.sourceNodeId) || unavailableIds.has(edge.targetNodeId)
+      || (previous && (unavailableIds.has(previous.sourceNodeId) || unavailableIds.has(previous.targetNodeId))))
+      && (!previous || edgeChanged(previous, edge));
+  })) {
+    throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
+  }
 }
 
 async function updateNodesInBatch(
@@ -461,6 +497,8 @@ async function update(
     if (existing.version !== input.expectedVersion) {
       throw new GenerationGraphVersionConflictError();
     }
+    assertUnavailableNodesPreserved(existing.nodes, input.nodes);
+    assertUnavailableEdgesPreserved(existing, input);
     await assertIdsBelongToGraph(tx, graphId, existing, input);
     await assertCanonicalAssets(tx, ownerEmail, input);
     await assertRuntimeTransitionIsIdle(tx, existing, input);
@@ -580,6 +618,9 @@ async function copy(ownerEmail: string, graphId: string): Promise<GenerationGrap
     if (!source) throw new GenerationGraphNotFoundError();
     const snapshot = mapGraph(source);
     if (!snapshot.writable) throw new GenerationGraphInputError({ graph: "UNSUPPORTED_SPACE" });
+    if (snapshot.nodes.some((node) => isUnavailableEditNodeKind(node.kind))) {
+      throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
+    }
     const input = updateGenerationGraphSchema.parse({ title: snapshot.title, nodes: snapshot.nodes, edges: snapshot.edges,
       schemaVersion: 3, groups: snapshot.groups, expectedVersion: source.version });
     await assertCanonicalAssets(tx, ownerEmail, input);

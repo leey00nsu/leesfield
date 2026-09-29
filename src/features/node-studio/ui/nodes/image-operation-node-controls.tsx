@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import type { AnnotationShape } from "@node-banana-runtime/runtime-entry";
 import { mediaAssetKeys, useMediaAsset, useMediaAssetList } from "@/features/media-assets/hook/use-media-assets";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { getMediaAssetContentUrl } from "@/shared/media-assets/media-asset-content";
 import { AppButton } from "@/shared/ui/app-button";
 
@@ -174,7 +175,7 @@ export function ImageOperationNodeControls({
     data.selectedOutputAssetId,
   );
   const outputAsset = operationOutputs.assets[0] ?? selectedOutputAsset.data ?? null;
-  const writable = authoring.writable !== false && Boolean(authoring.updateCanonicalNodeConfig);
+  const writable = authoring.writable !== false && Boolean(authoring.updateCanonicalNodeConfig) && !isUnavailableEditNodeKind(kind);
   const unavailable = kind === "edit.image.removeBackground" && !authoring.backgroundRemovalAvailable;
   const runReadiness = authoring.getNodeRunReadiness?.(id) ?? {
     ready: !unavailable,

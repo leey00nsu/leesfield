@@ -35,6 +35,7 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   prepareNodeExecution?: () => Promise<number>;
   writable?: boolean;
   updateCanonicalNodeConfig?: (nodeId: string, config: CanonicalJsonValue) => void;
+  updateMemoNodeSize?: (nodeId: string, size: { width: number; height: number }) => void;
   getImageNodeInputReadiness: (nodeId: string) => ImageNodeInputReadiness;
   getNodeRunReadiness?: (nodeId: string) => NodeRunReadiness;
   getNodePromptInput?: (nodeId: string) => NodePromptInputState;

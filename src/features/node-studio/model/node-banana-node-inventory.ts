@@ -10,7 +10,7 @@ export type NodeBananaNodeInventoryItem = {
   category: "Input" | "Text" | "Generate" | "Process" | "Output";
   mediaType: PortValueType;
   upstreamComponent: string | null;
-  parity: "upstream" | "upstream-extended";
+  parity: "upstream" | "upstream-extended" | "leesfield";
 };
 
 export type NodeBananaNodeGeometry = {
@@ -25,6 +25,7 @@ export type NodeBananaNodeGeometry = {
  * Canonical kinds stay on the adapter side and must never be used as labels.
  */
 export const nodeBananaNodeInventory = {
+  "note.memo": { title: "Memo", paletteLabel: "Annotate", category: "Process", mediaType: "text", upstreamComponent: null, parity: "leesfield" },
   "input.image": { title: "Image Input", paletteLabel: "Image Input", category: "Input", mediaType: "image", upstreamComponent: "ImageInputNode.tsx", parity: "upstream" },
   "input.audio": { title: "Audio Input", paletteLabel: "Audio Input", category: "Input", mediaType: "audio", upstreamComponent: "AudioInputNode.tsx", parity: "upstream" },
   "input.video": { title: "Video Input", paletteLabel: "Video Input", category: "Input", mediaType: "video", upstreamComponent: "VideoInputNode.tsx", parity: "upstream" },
@@ -51,6 +52,7 @@ export const nodeBananaNodeInventory = {
  * Default dimensions copied from Node Banana v1.9.0 nodeDefaults.ts.
  */
 export const nodeBananaNodeGeometry = {
+  "note.memo": { width: 300, height: 220, minWidth: 220, minHeight: 140 },
   "input.image": { width: 300, height: 280, minWidth: 180, minHeight: 100 },
   "input.audio": { width: 300, height: 200, minWidth: 250, minHeight: 150 },
   "input.video": { width: 300, height: 280, minWidth: 180, minHeight: 100 },
@@ -89,6 +91,7 @@ const header = (...actions: NodeBananaHeaderAction[]) => actions;
  * through a ViewportPortal rather than inside individual Node components.
  */
 export const nodeBananaUpstreamHeaderContract = {
+  "note.memo": header(),
   "input.image": header("required", "comment"),
   "input.audio": header("required", "comment"),
   "input.video": header("comment"),
@@ -131,6 +134,7 @@ export const nodeBananaHostedHeaderContract = {
  * canonical ordered-list port in the Leesfield adapter.
  */
 export const nodeBananaUpstreamContract = {
+  "note.memo": { handles: [], behavior: "leesfield-memo" },
   "input.image": { handles: [{ direction: "input", label: "Ref" }, { direction: "output", label: "Image" }], behavior: "upload-or-connected-image" },
   "input.audio": { handles: [{ direction: "input", label: "Audio" }, { direction: "output", label: "Audio" }], behavior: "upload-or-connected-audio" },
   "input.video": { handles: [{ direction: "input", label: "Video" }, { direction: "output", label: "Video" }], behavior: "upload-or-connected-video" },

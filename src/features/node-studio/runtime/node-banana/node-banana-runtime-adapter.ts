@@ -48,7 +48,9 @@ export type NodeBananaNodeData = Record<string, unknown> & {
 };
 
 const runtimeTypeForKind = (kind: string) =>
-  kind.startsWith("generate.") ? "generationNode" : findNodeDefinition(kind) ? "canonicalNode" : "unsupportedNode";
+  kind === "note.memo" ? "memoNode"
+    : kind.startsWith("generate.") ? "generationNode"
+      : findNodeDefinition(kind) ? "canonicalNode" : "unsupportedNode";
 
 const canonicalToRuntimeHandle = (
   kind: string,
@@ -170,15 +172,23 @@ export function canonicalDocumentToV3Draft(
 export function canonicalDocumentToRuntimeGraph(graph: GraphDocumentV3): NodeBananaRuntimeGraph {
   const nodes: NodeBananaRuntimeNode[] = graph.nodes.map((node) => {
     const geometry = nodeBananaNodeGeometry[node.kind as CanonicalNodeKind];
+    const memoSize = node.kind === "note.memo"
+      && node.config && typeof node.config === "object" && !Array.isArray(node.config)
+      && "size" in node.config && node.config.size
+      && typeof node.config.size === "object" && !Array.isArray(node.config.size)
+        ? node.config.size as { width: number; height: number }
+        : null;
+    const width = memoSize?.width ?? geometry?.width;
+    const height = memoSize?.height ?? geometry?.height;
     return {
       id: node.id,
       type: runtimeTypeForKind(node.kind),
       position: node.position,
       data: runtimeNodeData(node),
-      ...(geometry ? {
-        width: geometry.width,
-        height: geometry.height,
-        style: { width: geometry.width, height: geometry.height },
+      ...(width && height ? {
+        width,
+        height,
+        style: { width, height },
       } : {}),
     };
   });
@@ -405,6 +415,7 @@ export const nodeBananaRuntimeAdapter: EditorRuntimeAdapter<NodeBananaRuntimeGra
 };
 
 export function defaultConfigForKind(kind: CanonicalNodeKind): CanonicalJsonValue {
+  if (kind === "note.memo") return { text: "" };
   if (kind === "process.promptConstructor") return { template: "" };
   if (kind.startsWith("input.")) {
     return kind === "input.prompt" ? { text: "" } : { assetId: null };

@@ -20,6 +20,7 @@ vi.mock("@xyflow/react", () => ({
   NodeResizer: () => <span data-node-resizer="" />,
   Position: { Left: "left", Right: "right" },
   useEdges: () => mocks.edges,
+  useReactFlow: () => ({ setNodes: vi.fn() }),
 }));
 
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
@@ -84,8 +85,8 @@ import { GenerationNode } from "./generation-node";
 
 // Constructor ships only through the vendored runtime. Its actual body and edits
 // are covered by node-banana-upstream-components.test.tsx and the browser suite.
-const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor");
-const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor">, string>> = {
+const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo");
+const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor" | "note.memo">, string>> = {
   "input.image": '[data-node-banana-component="ImageInputNode"]',
   "input.audio": '[data-node-banana-component="AudioInputNode"]',
   "input.video": '[data-node-banana-component="VideoInputNode"]',
@@ -147,6 +148,15 @@ describe("legacy Node Banana body presenters", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it("edits the Leesfield memo without requiring an image or creating ports", () => {
+    const view = renderNode("note.memo");
+    const editor = screen.getByRole("textbox", { name: "메모" });
+    expect(view.container.querySelector("[data-handle-id]")).toBeNull();
+    fireEvent.change(editor, { target: { value: "촬영 콘셉트\n푸른 조명" } });
+    expect(mocks.updateConfig).toHaveBeenCalledWith("node-note.memo", { text: "촬영 콘셉트\n푸른 조명" });
+    view.unmount();
   });
 
   it("renders a real, kind-specific body for every approved node", () => {

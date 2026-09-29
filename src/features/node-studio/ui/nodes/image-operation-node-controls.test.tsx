@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -92,53 +92,25 @@ describe("ImageOperationNodeControls", () => {
     mocks.runBrowser.mockResolvedValue([{ id: "asset-annotated" }]);
   });
 
-  it("keeps the newly flattened preview visible while a previous durable output exists", async () => {
+  it("shows a saved Annotation result while leaving the retired editor read-only", () => {
     renderControls("edit.image.annotation", { shapes: [] }, "asset-old");
-    expect(screen.getByRole("img", { name: "Annotated result" })).toHaveAttribute(
-      "src",
-      "https://read.example/old.png",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Add annotations/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
-
-    expect(screen.getByRole("img", { name: "Annotated result" })).toHaveAttribute(
-      "src",
-      "blob:annotation-preview",
-    );
-    await waitFor(() => expect(mocks.runBrowser).toHaveBeenCalled());
+    expect(screen.getByRole("img", { name: "Annotated result" })).toHaveAttribute("src", "https://read.example/old.png");
+    expect(screen.getByRole("button", { name: /Add annotations/ })).toBeDisabled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
-
-  it("persists, previews, executes, and selects the flattened Annotation result", async () => {
-    renderControls("edit.image.annotation", { shapes: [] });
-    expect(screen.queryByText(/pixel coordinates/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Add annotations/ }));
-    expect(screen.getByRole("dialog", { name: "Annotation editor" })).toHaveAttribute("data-node-banana-component", "AnnotationModal");
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(mocks.updateConfig).toHaveBeenCalledWith("image-operation-1", {
-      parameters: { shapes: [{ id: "shape-1", type: "rectangle", x: 1, y: 2, width: 3, height: 4, fill: null, stroke: "#ef4444", strokeWidth: 2, opacity: 1 }] },
-    });
-    expect(screen.getByRole("img", { name: "Annotated result" })).toHaveAttribute("src", "blob:annotation-preview");
-    await waitFor(() => expect(mocks.runBrowser).toHaveBeenCalledWith(expect.objectContaining({
-      graphId: "graph-1",
-      nodeId: "image-operation-1",
-    })));
-    await waitFor(() => expect(mocks.selectOutput).toHaveBeenCalledWith(
-      "image-operation-1",
-      "asset-annotated",
-    ));
-  });
-
-  it("exposes every persisted Resize and GIF parameter instead of silently using hidden defaults", () => {
+  it("keeps Resize settings editable while saved GIF settings stay read-only", () => {
     const resize = renderControls("edit.image.resize", { mode: "exact", width: 1024, height: 768, fit: "contain", padColor: "#00000000", format: "webp", quality: 0.8 });
     expect(screen.getByRole("combobox", { name: "Fit" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Pad color" })).toHaveValue("#00000000");
     expect(screen.getByRole("spinbutton", { name: "Quality" })).toHaveValue(0.8);
+    expect(screen.getByRole("spinbutton", { name: "Quality" })).toBeEnabled();
     resize.unmount();
 
     renderControls("edit.image.gif", { fps: 8, loopCount: 0, colorCount: 128, dither: false, targetMaxBytes: 131072 });
     expect(screen.getByRole("spinbutton", { name: "Loop count" })).toHaveValue(0);
     expect(screen.getByRole("switch", { name: "Dither" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Target (KB)" })).toHaveValue(128);
+    expect(screen.getByRole("spinbutton", { name: "Loop count" })).toBeDisabled();
   });
 });

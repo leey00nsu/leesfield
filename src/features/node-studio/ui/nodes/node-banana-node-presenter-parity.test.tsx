@@ -96,7 +96,7 @@ function renderNode(kind: CanonicalNodeKind) {
 
 // Production Constructor uses the vendored presenter/header, tested in the
 // upstream components and browser suites; there is no legacy implementation.
-const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor");
+const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo");
 describe("legacy Node Banana presenter parity", () => {
   afterEach(() => {
     cleanup();

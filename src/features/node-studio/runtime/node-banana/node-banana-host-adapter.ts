@@ -169,6 +169,7 @@ export type NodeBananaHostAdapterResult = {
 export const nodeBananaLegacyTypeByCanonicalKind: Readonly<
   Record<CanonicalNodeKind, string>
 > = {
+  "note.memo": "memo",
   "input.image": "imageInput",
   "input.audio": "audioInput",
   "input.video": "videoInput",
@@ -403,7 +404,9 @@ function legacyDataToConfig(kind: string, data: JsonObject): JsonObject {
   const parameters: JsonObject = isRecord(data.parameters) ? { ...data.parameters } : {};
   const config: JsonObject = { parameters };
 
-  if (kind === "input.image" || kind === "input.audio" || kind === "input.video") {
+  if (kind === "note.memo") {
+    config.text = data.text ?? "";
+  } else if (kind === "input.image" || kind === "input.audio" || kind === "input.video") {
     config.assetId = data.assetId ?? data.imageRef ?? data.audioFileRef ?? data.videoRef ?? null;
   } else if (kind === "process.promptConstructor") {
     config.template = data.template ?? "";
@@ -1039,7 +1042,9 @@ function projectNodeData(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.originalIndex - b.originalIndex)
     .map((edge) => edge.id);
 
-  if (kind === "input.image") {
+  if (kind === "note.memo") {
+    data.text = typeof config.text === "string" ? config.text : "";
+  } else if (kind === "input.image") {
     const assetId = stringValue(config.assetId);
     const asset = assetId
       ? resolveAsset(assetId, { nodeId: normalized.id, kind, portId: "image", role: "input" }, options, "image")
