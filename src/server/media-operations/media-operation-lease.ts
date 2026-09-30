@@ -10,7 +10,11 @@ export type MediaOperationLease = {
 export const MEDIA_OPERATION_GLOBAL_LIMIT = 2;
 export const MEDIA_OPERATION_LEASE_MS = 60_000;
 export const MEDIA_OPERATION_HEARTBEAT_MS = 10_000;
-export const MEDIA_OPERATION_WORKER_TYPE = "edit.image.removeBackground";
+export const MEDIA_OPERATION_WORKER_TYPES = [
+  "edit.image.removeBackground",
+  "edit.video.stitch",
+  "edit.video.trim",
+] as const;
 
 const MEDIA_OPERATION_ADVISORY_LOCK_KEY = 2_147_483_639;
 const ACTIVE_OPERATION_STATUSES = ["processing", "uploading"] as const;
@@ -68,7 +72,7 @@ export async function recoverMediaOperationRows(
   const model = client.mediaOperation;
   await model.updateMany({
     where: {
-      type: MEDIA_OPERATION_WORKER_TYPE,
+      type: { in: [...MEDIA_OPERATION_WORKER_TYPES] },
       status: { in: [...ACTIVE_OPERATION_STATUSES] },
       OR: [
         { executionLeaseToken: null },
@@ -86,7 +90,7 @@ export async function recoverMediaOperationRows(
   });
   await model.updateMany({
     where: {
-      type: MEDIA_OPERATION_WORKER_TYPE,
+      type: { in: [...MEDIA_OPERATION_WORKER_TYPES] },
       status: { in: [...ACTIVE_OPERATION_STATUSES] },
       executionLeaseToken: { not: null },
       executionLeaseUntil: { lte: now },
@@ -108,7 +112,7 @@ export async function countActiveMediaOperations(
 ) {
   return client.mediaOperation.count({
     where: {
-      type: MEDIA_OPERATION_WORKER_TYPE,
+      type: { in: [...MEDIA_OPERATION_WORKER_TYPES] },
       status: { in: [...ACTIVE_OPERATION_STATUSES] },
       executionLeaseToken: { not: null },
       executionLeaseUntil: { gt: now },
@@ -138,6 +142,7 @@ export async function renewMediaOperationLease(
 
 export type MediaOperationLeaseMonitor = {
   assertOwned(): void;
+  signal: AbortSignal;
   stop(): void;
 };
 
@@ -147,6 +152,7 @@ export function startMediaOperationLeaseMonitor(
 ): MediaOperationLeaseMonitor {
   let stopped = false;
   let lost: MediaOperationLeaseLostError | null = null;
+  const controller = new AbortController();
   let renewal: Promise<void> | null = null;
   const interval = setInterval(() => {
     if (stopped || lost || renewal) return;
@@ -155,6 +161,7 @@ export function startMediaOperationLeaseMonitor(
         lost = isMediaOperationLeaseLost(error)
           ? error
           : new MediaOperationLeaseLostError(operationId);
+        controller.abort();
       })
       .finally(() => {
         renewal = null;
@@ -164,6 +171,7 @@ export function startMediaOperationLeaseMonitor(
   interval.unref?.();
 
   return {
+    signal: controller.signal,
     assertOwned() {
       if (lost) throw lost;
     },

@@ -9,7 +9,7 @@ import {
   videoModels,
 } from "@/features/video-generation/model/video-models";
 
-export type ModelCatalogType = "image" | "video" | "audio";
+export type ModelCatalogType = "image" | "video" | "audio" | "llm";
 export type ModelCatalogFilterType = "all" | ModelCatalogType;
 
 interface BaseModelCatalogItem {
@@ -66,10 +66,16 @@ export interface AudioModelCatalogItem extends BaseModelCatalogItem {
   meta: AudioModelMeta;
 }
 
+export interface LlmModelCatalogItem extends BaseModelCatalogItem {
+  type: "llm";
+  meta: { modelId: string; supportsImages: boolean; hasApiKey: boolean };
+}
+
 export type ModelCatalogItem =
   | ImageModelCatalogItem
   | VideoModelCatalogItem
-  | AudioModelCatalogItem;
+  | AudioModelCatalogItem
+  | LlmModelCatalogItem;
 
 export const imageModelCatalog: ImageModelCatalogItem[] = imageModels.map(
   (model) => ({
@@ -115,17 +121,20 @@ export const videoModelCatalog: VideoModelCatalogItem[] = videoModels.map(
 );
 
 export const audioModelCatalog: AudioModelCatalogItem[] = [];
+export const llmModelCatalog: LlmModelCatalogItem[] = [];
 
 export const modelCatalog: ModelCatalogItem[] = [
   ...imageModelCatalog,
   ...videoModelCatalog,
   ...audioModelCatalog,
+  ...llmModelCatalog,
 ];
 
 export function getModelCatalogByType(type: ModelCatalogType) {
   if (type === "image") return imageModelCatalog;
   if (type === "video") return videoModelCatalog;
-  return audioModelCatalog;
+  if (type === "audio") return audioModelCatalog;
+  return llmModelCatalog;
 }
 
 export interface ModelCatalogFilterOptions {

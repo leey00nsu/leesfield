@@ -3,6 +3,7 @@ import {
   Circle,
   Image as ImageIcon,
   MoreVertical,
+  Sparkles,
   Video,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -43,6 +44,11 @@ const typeConfig = {
     iconClassName: neutralTypeCardIconClassName,
     surfaceClassName: neutralTypeCardSurfaceClassName,
   },
+  llm: {
+    icon: Sparkles,
+    iconClassName: neutralTypeCardIconClassName,
+    surfaceClassName: neutralTypeCardSurfaceClassName,
+  },
 };
 
 function resolveCatalogModalities(item: ModelCatalogItem) {
@@ -59,6 +65,8 @@ function resolveCatalogModalities(item: ModelCatalogItem) {
       i2vModelId: item.meta.i2vModelId,
     });
   }
+
+  if (item.type === "llm") return item.meta.supportsImages ? ["Text", "Image", "Video"] : ["Text"];
 
   return resolveAudioModalities({
     supportsInputAudio: item.meta.supportsInputAudio,

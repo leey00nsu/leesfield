@@ -50,6 +50,7 @@ enum ModelCatalogType {
   image
   video
   audio
+  llm
 }
 
 enum MediaType {
@@ -92,6 +93,14 @@ enum MediaOperationStatus {
   pending
   processing
   uploading
+  completed
+  failed
+  cancelled
+}
+
+enum AssistantExecutionStatus {
+  pending
+  processing
   completed
   failed
   cancelled
@@ -208,11 +217,36 @@ model GenerationGraphNode {
   outgoingEdges         GenerationGraphEdge[]       @relation("GraphEdgeSource")
   incomingEdges         GenerationGraphEdge[]       @relation("GraphEdgeTarget")
   mediaOperations       MediaOperation[]
+  assistantExecutions   AssistantExecution[]
   outputs               GenerationGraphNodeOutput[]
 
   @@index([graphId])
   @@index([kind])
   @@index([selectedOutputAssetId])
+}
+
+model AssistantExecution {
+  id                    String                   @id @default(cuid())
+  ownerEmail            String
+  graphId               String
+  graphNodeId           String
+  modelKey              String
+  inputSnapshot         Json
+  status                AssistantExecutionStatus @default(pending)
+  outputText            String?
+  errorCode             String?
+  executionLeaseToken   String?
+  executionLeaseUntil   DateTime?
+  executionLeaseVersion Int                      @default(0)
+  cancelRequestedAt     DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  completedAt           DateTime?
+  graphNode             GenerationGraphNode      @relation(fields: [graphNodeId], references: [id], onDelete: Cascade)
+
+  @@index([ownerEmail, graphNodeId, createdAt])
+  @@index([status, executionLeaseUntil])
+  @@index([graphId, graphNodeId, createdAt])
 }
 
 model GenerationGraphEdge {
@@ -521,9 +555,21 @@ model ModelCatalog {
   isDefault      Boolean          @default(false)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+  credential     ModelCredential?
 
   @@index([type, isActive])
   @@index([type, isDefault])
+}
+
+model ModelCredential {
+  id         String       @id @default(cuid())
+  modelId    String       @unique
+  ciphertext String
+  iv         String
+  tag        String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  model      ModelCatalog @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {

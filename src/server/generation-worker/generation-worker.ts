@@ -358,6 +358,8 @@ async function buildAudioPayload(
     restoreRequest(record.requestParams),
     "audio",
   );
+  // Snapshots omit inline reference audio with null; hydration restores real assets.
+  if (params.inputAudio === null) delete params.inputAudio;
   if (typeof params.model === "string" && !runtime.modelMap.has(params.model)) throw new Error("MODEL_NOT_FOUND");
   const model =
     typeof params.model === "string" && runtime.modelMap.has(params.model)

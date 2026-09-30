@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { deflateSync } from "node:zlib";
 
 import { test, expect } from "@playwright/test";
 
 const WORKFLOW_PATH = "/spaces";
 const E2E_TITLE_PREFIX = "T25 Chromium";
+const execFileAsync = promisify(execFile);
 
 const SUPPORTED_NODE_CASES = [
   { kind: "process.promptConstructor", palette: "Prompt Constructor", title: "Prompt Constructor", component: "PromptConstructorNode", config: { template: "" } },
@@ -110,12 +114,12 @@ async function waitForCanvas(page, graphId) {
   // error exists. Keep the product surface pointer-testable in dev-server E2E;
   // console/page errors are captured independently by attachErrorCapture.
   await page.addStyleTag({ content: "nextjs-portal { pointer-events: none !important; }" });
-  await expect(page.getByRole("application", { name: "Space canvas" })).toBeVisible();
+  await expect(page.getByRole("application", { name: /^(Space canvas|스페이스 캔버스)$/ })).toBeVisible();
   await expect(page.locator('[data-node-banana-component="WorkflowCanvas"]')).toBeVisible();
   await page.waitForTimeout(250);
 }
 
-async function expectPlayableVideo(video, assetId) {
+async function expectPlayableVideo(video, assetId, playbackMode = "hover") {
   const page = video.page();
   const pane = page.locator(".react-flow__pane");
   await pane.click({ position: { x: 8, y: 8 } });
@@ -126,19 +130,14 @@ async function expectPlayableVideo(video, assetId) {
   await video.hover();
   if (assetId) {
     const expectedDigest = await mediaAssetDigest(video.page(), assetId);
-    await expect.poll(() => video.evaluate(async (element) => {
-      if (!element.currentSrc || element.readyState < 2) return {
-        ready: element.readyState, network: element.networkState, paused: element.paused,
-        time: element.currentTime, error: element.error?.message ?? null,
-        width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height,
-        connected: element.isConnected, hasSource: Boolean(element.currentSrc),
-      };
-      const source = element.currentSrc;
-      const response = await fetch(source);
-      const hash = await crypto.subtle.digest("SHA-256", await response.arrayBuffer());
-      if (element.currentSrc !== source) return null;
-      return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    }), { timeout: 30_000, message: "Preview must decode the durable output, not its previous input" }).toBe(expectedDigest);
+    await expect.poll(async () => {
+      const current = await video.evaluate((element) => ({ src: element.currentSrc, ready: element.readyState >= 2 }));
+      if (!current.src || !current.ready) return null;
+      const response = await page.request.get(current.src);
+      if (!response.ok()) return null;
+      const digest = createHash("sha256").update(await response.body()).digest("hex");
+      return (await video.evaluate((element) => element.currentSrc)) === current.src ? digest : null;
+    }, { timeout: 30_000, message: "Preview must decode the durable output, not its previous input" }).toBe(expectedDigest);
   }
   await expect.poll(() => video.evaluate((element) => ({
     ready: element.readyState >= 2,
@@ -146,6 +145,12 @@ async function expectPlayableVideo(video, assetId) {
     error: element.error?.message ?? null,
   })), { timeout: 15_000, message: "Video source must finish loading before playback" }).toMatchObject({ ready: true, error: null });
   const source = await video.evaluate((element) => element.currentSrc);
+  if (playbackMode === "manual") {
+    await video.evaluate(async (element) => {
+      element.muted = true;
+      await element.play();
+    });
+  }
   await expect.poll(() => video.evaluate((element) => ({
     decoded: element.readyState >= 2 && element.videoWidth > 0 && element.videoHeight > 0,
     durationValid: Number.isFinite(element.duration) && element.duration > 0,
@@ -156,6 +161,7 @@ async function expectPlayableVideo(video, assetId) {
   await expect(video).toHaveJSProperty("currentSrc", source);
   const probe = await video.evaluate((element) => ({ duration: element.duration, width: element.videoWidth, height: element.videoHeight }));
   await pane.hover({ position: { x: 8, y: 8 } });
+  if (playbackMode === "manual") await video.evaluate((element) => element.pause());
   await expect(video).toHaveJSProperty("paused", true);
   return probe;
 }
@@ -289,8 +295,6 @@ const NODE_COMPONENT_NAMES = {
   "Remove Background": "RemoveBackgroundNode",
   "Split Grid": "SplitGridNode",
   "GIF Encoder": "GifEncoderNode",
-  "Video Stitch": "VideoStitchNode",
-  "Video Trim": "VideoTrimNode",
   "Frame Grab": "VideoFrameGrabNode",
   "Ease Curve": "EaseCurveNode",
   Output: "OutputNode",
@@ -544,7 +548,7 @@ async function runBrowserMediaOperation(page, graphId, nodeId, button, timeout =
 async function waitForCompletedGeneration(page, graphId, nodeId, timeout = 60_000) {
   const route = `/api/generation-graphs/${encodeURIComponent(graphId)}/nodes/${encodeURIComponent(nodeId)}/executions`;
   let latest = null;
-  await expect.poll(
+  try { await expect.poll(
     async () => {
       const response = await page.request.get(route);
       if (!response.ok()) return null;
@@ -558,7 +562,8 @@ async function waitForCompletedGeneration(page, graphId, nodeId, timeout = 60_00
       ) ?? null;
     },
     { timeout, intervals: [250, 500, 1_000, 2_000], message: "hosted generation did not complete" },
-  ).toMatchObject({ executionKind: "generation", status: "completed" });
+  ).toMatchObject({ executionKind: "generation", status: "completed" }); }
+  catch (error) { throw new Error(`hosted generation did not complete; latest=${JSON.stringify(latest)}`, {cause:error}); }
   const response = await page.request.get(route);
   if (!response.ok()) throw new Error(`read generation executions failed: ${response.status()} ${await response.text()}`);
   const payload = await response.json();
@@ -2322,6 +2327,171 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     }
   });
 
+  test("Media choices dismiss safely, keep image dragging, and pan empty canvas with middle mouse", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    const errors = attachErrorCapture(page);
+    const graph = await createWorkflowViaApi(page);
+    const imageId = `${graph.id}-image`;
+    const videoId = `${graph.id}-video`;
+    const generationId = `${graph.id}-generation`;
+    const mediaDir = await mkdtemp(path.join(os.tmpdir(), "jfeb-input-"));
+    try {
+      await page.addInitScript(() => {
+        window.localStorage.setItem("leesfield.locale", "en");
+        window.localStorage.setItem("node-studio.canvas-settings", JSON.stringify({panMode:"middleMouse",selectionMode:"shiftDrag",zoomMode:"scroll"}));
+      });
+      await replaceWorkflowViaApi(page, graph.id, [
+        {id:imageId,kind:"input.image",configVersion:1,position:{x:0,y:0},config:{assetId:null},selectedOutputAssetId:null},
+        {id:videoId,kind:"input.video",configVersion:1,position:{x:440,y:0},config:{assetId:null},selectedOutputAssetId:null},
+        {id:`${graph.id}-audio`,kind:"generate.audio",configVersion:1,position:{x:880,y:0},config:{prompt:"",modelKey:null,parameters:{}},selectedOutputAssetId:null},
+        {id:generationId,kind:"generate.video",configVersion:1,position:{x:440,y:430},config:{prompt:"a moving kite",modelKey:"wan2-2-hf",parameters:{}},selectedOutputAssetId:null},
+      ]);
+      await waitForCanvas(page, graph.id);
+      const image = nodeBody(page, "Image Input");
+      const video = nodeBody(page, "Video Input");
+      const generation = nodeBody(page, "Generate Video");
+      const canvas = page.locator('[data-node-banana-component="WorkflowCanvas"]');
+      const viewport = canvas.locator('.react-flow__viewport');
+      const beforePan = await viewport.getAttribute('style');
+      await page.mouse.move(70,120);
+      await page.mouse.down({button:'middle'});
+      await page.mouse.move(140,170,{steps:8});
+      await page.mouse.up({button:'middle'});
+      await expect(viewport).not.toHaveAttribute('style',beforePan);
+      await fitCanvas(page);
+
+      const trigger = image.getByRole('button',{name:'Choose image',exact:true});
+      await trigger.click();
+      await expect(image.getByRole('button',{name:'Upload',exact:true})).toBeFocused();
+      await page.mouse.click(65,120);
+      await expect(image.getByRole('button',{name:'Upload',exact:true})).toBeHidden();
+      await trigger.click();
+      await page.keyboard.press('Escape');
+      await expect(trigger).toBeFocused();
+      await expect(image.getByRole('button',{name:'Upload',exact:true})).toBeHidden();
+      await trigger.click();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
+      await expect(image.getByRole('button',{name:'Upload',exact:true})).toBeHidden();
+      await trigger.click();
+      const imageChooser = await Promise.all([page.waitForEvent('filechooser'),image.getByRole('button',{name:'Upload',exact:true}).click()]);
+      await imageChooser[0].setFiles({name:'jfeb-image.png',mimeType:'image/png',buffer:deterministicPng(64,48,1)});
+      await expect(image.locator('img')).toBeVisible({timeout:30_000});
+      const uploadedImage = await waitForWorkflowState(page,graph.id,snapshot=>!!snapshot.nodes.find(node=>node.id===imageId)?.config.assetId,'image upload not saved',30_000);
+      const imageAssetId = uploadedImage.nodes.find(node=>node.id===imageId).config.assetId;
+      const imgBox = await image.locator('img').boundingBox();
+      await page.mouse.move(imgBox.x+imgBox.width/2,imgBox.y+imgBox.height/2);
+      await page.mouse.down();
+      await page.mouse.move(imgBox.x+imgBox.width/2+80,imgBox.y+imgBox.height/2-35,{steps:12});
+      await page.mouse.up();
+      const dragged = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===imageId).position.x>40,'image body drag not saved');
+      expect(dragged.nodes.find(node=>node.id===imageId).config.assetId).toBe(imageAssetId);
+      await expect(image.getByRole('button',{name:'Upload',exact:true})).toBeHidden();
+      await image.getByRole('button',{name:'Choose image',exact:true}).click();
+      await image.getByRole('button',{name:'Assets',exact:true}).click();
+      const assets = page.getByRole('dialog',{name:'Assets',exact:true});
+      await expect(assets).toBeVisible();
+      await assets.getByRole('button',{name:'Close assets',exact:true}).click();
+      await expect(image.getByRole('button',{name:'Choose image',exact:true})).toBeFocused();
+
+      const videoFile = path.join(mediaDir,'input.mp4');
+      await execFileAsync('ffmpeg',['-hide_banner','-loglevel','error','-y','-f','lavfi','-i','testsrc2=size=160x90:rate=10:duration=1','-c:v','libx264','-pix_fmt','yuv420p',videoFile],{timeout:30_000});
+      await video.getByRole('button',{name:'Upload video file',exact:true}).click();
+      await expect(video.getByRole('button',{name:'Assets',exact:true})).toBeVisible();
+      const videoChooser = await Promise.all([page.waitForEvent('filechooser'),video.getByRole('button',{name:'Upload',exact:true}).click()]);
+      await videoChooser[0].setFiles(videoFile);
+      const uploadedVideo = await waitForWorkflowState(page,graph.id,snapshot=>!!snapshot.nodes.find(node=>node.id===videoId)?.config.assetId,'video upload not saved',30_000);
+      const videoAssetId = uploadedVideo.nodes.find(node=>node.id===videoId).config.assetId;
+      await video.getByRole('button',{name:'Choose video',exact:true}).click();
+      await video.getByRole('button',{name:'Assets',exact:true}).click();
+      await expect(assets).toBeVisible();
+      await assets.locator('input[placeholder="Search loaded assets..."]').fill(videoAssetId);
+      await assets.locator('button[aria-pressed]').click();
+      await expect(assets).toBeHidden();
+      await expect(video.getByRole('button',{name:'Choose video',exact:true})).toBeFocused();
+
+      await generation.getByRole('button',{name:'Choose image',exact:true}).click();
+      await expect(generation.getByRole('button',{name:'Upload',exact:true})).toBeVisible();
+      await captureEvidenceScreenshot(page,testInfo,'video-generation-media-choices');
+      await generation.getByRole('button',{name:'Assets',exact:true}).click();
+      await expect(assets).toBeVisible();
+      await assets.locator('input[placeholder="Search loaded assets..."]').fill(imageAssetId);
+      await assets.locator('button[aria-pressed]').click();
+      await expect(assets).toBeHidden();
+      const connected = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.edges.some(edge=>edge.targetNodeId===generationId&&edge.targetPortId==='initImage'),'generation body asset did not create durable reference input');
+      const referenceEdge = connected.edges.find(edge=>edge.targetNodeId===generationId);
+      expect(connected.nodes.find(node=>node.id===referenceEdge.sourceNodeId).config.assetId).toBe(imageAssetId);
+      await generation.getByRole('button',{name:'Choose image',exact:true}).click();
+      const referenceChooser = await Promise.all([page.waitForEvent('filechooser'),generation.getByRole('button',{name:'Upload',exact:true}).click()]);
+      await referenceChooser[0].setFiles({name:'jfeb-replacement.png',mimeType:'image/png',buffer:deterministicPng(64,48,0)});
+      const replaced = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.edges.some(edge=>edge.targetNodeId===generationId&&edge.sourceNodeId!==referenceEdge.sourceNodeId),'generation body upload did not replace reference',30_000);
+      expect(replaced.edges.filter(edge=>edge.targetNodeId===generationId)).toHaveLength(1);
+      expect(replaced.nodes.find(node=>node.id===referenceEdge.sourceNodeId).config.assetId).toBe(imageAssetId);
+      const audio = nodeBody(page,'Generate Audio');
+      await expect(audio.getByText('Run to generate',{exact:true})).toBeVisible();
+      const audioLayout = await audio.evaluate(element=>{const body=element.getBoundingClientRect(); const prompt=element.querySelector('textarea').getBoundingClientRect(); return {left:prompt.left-body.left,right:body.right-prompt.right,bottom:body.bottom-prompt.bottom};});
+      expect(Math.abs(audioLayout.left-audioLayout.right)).toBeLessThan(2);
+      expect(audioLayout.bottom).toBeGreaterThan(30);
+      await page.reload();
+      await expect(image.locator('img')).toBeVisible({timeout:30_000});
+      await expect(video.locator('video')).toBeVisible({timeout:30_000});
+      await captureEvidenceScreenshot(page,testInfo,'input-interactions-audio-reload');
+      const imageBox = await image.locator('img').boundingBox();
+      const beforeNodePan = await viewport.getAttribute('style');
+      await page.mouse.move(imageBox.x+imageBox.width/2,imageBox.y+imageBox.height/2);
+      await page.mouse.down({button:'middle'});
+      await page.mouse.move(imageBox.x+imageBox.width/2+60,imageBox.y+imageBox.height/2+40,{steps:8});
+      await page.mouse.up({button:'middle'});
+      await expect(viewport).not.toHaveAttribute('style',beforeNodePan);
+      expect(errors,errors.join('\n')).toEqual([]);
+    } finally {
+      await page.goto('about:blank');
+      await deleteWorkflowViaApi(page,graph.id);
+      await rm(mediaDir,{recursive:true,force:true});
+    }
+  });
+
+  test("Audio generation keeps its prompt and waveform controls inside the resized body", async ({page},testInfo) => {
+    const errors = attachErrorCapture(page);
+    const graph = await createWorkflowViaApi(page);
+    try {
+      const catalog = await (await page.request.get('/api/models?type=audio')).json();
+      const model = catalog.items.find(item=>item.isActive);
+      expect(model).toBeTruthy();
+      const nodeId = `${graph.id}-audio`;
+      await replaceWorkflowViaApi(page,graph.id,[{id:nodeId,kind:'generate.audio',configVersion:1,position:{x:0,y:0},config:{prompt:'A short deterministic spoken tone',modelKey:model.key,parameters:{}},selectedOutputAssetId:null}]);
+      await waitForCanvas(page,graph.id);
+      const body = nodeBody(page,'Generate Audio');
+      await expect(body.getByText('Run to generate',{exact:true})).toBeVisible();
+      await body.click({position:{x:4,y:4}});
+      const header = page.locator(`[data-node-banana-component="FloatingNodeHeader"][data-node-id="${nodeId}"]`);
+      const output = await runHostedGeneration(page,graph.id,nodeId,header,60_000);
+      expect(output.outputAssetIds).toHaveLength(1);
+      await expect(body.locator('canvas')).toBeVisible({timeout:30_000});
+      const node = page.locator(`.react-flow__node[data-id="${nodeId}"]`);
+      const grip = await node.locator('.react-flow__resize-control.handle.bottom.right').boundingBox();
+      await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);
+      await page.mouse.down();
+      await page.mouse.move(grip.x+grip.width/2-180,grip.y+grip.height/2-180,{steps:12});
+      await page.mouse.up();
+      const layout = await body.evaluate(element=>{const rect=element.getBoundingClientRect(); return ['textarea','canvas','button[title="Play"]'].map(selector=>{const b=element.querySelector(selector).getBoundingClientRect();return {left:b.left-rect.left,top:b.top-rect.top,right:rect.right-b.right,bottom:rect.bottom-b.bottom};});});
+      await captureEvidenceScreenshot(page,testInfo,'audio-generation-minimum-body');
+      for(const item of layout) for(const distance of Object.values(item)) expect(distance,JSON.stringify(layout)).toBeGreaterThanOrEqual(-1);
+      const promptBox = await body.getByRole('textbox',{name:'Prompt',exact:true}).boundingBox();
+      const waveBox = await body.locator('canvas').boundingBox();
+      expect(waveBox.y).toBeGreaterThan(promptBox.y+promptBox.height);
+      await body.getByRole('button',{name:'Play',exact:true}).click();
+      await expect(body.getByRole('button',{name:'Pause',exact:true})).toBeVisible();
+      await body.getByRole('button',{name:'Pause',exact:true}).click();
+      await captureEvidenceScreenshot(page,testInfo,'audio-generation-minimum-body');
+      await page.reload();
+      await expect(body.locator('canvas')).toBeVisible({timeout:30_000});
+      await expect(body.getByRole('textbox',{name:'Prompt',exact:true})).toHaveValue('A short deterministic spoken tone');
+      expect(errors,errors.join('\n')).toEqual([]);
+    } finally { await page.goto('about:blank'); await deleteWorkflowViaApi(page,graph.id); }
+  });
+
   test("Image Input history modal selects a durable asset and restores focus for close, Download, and X", async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
@@ -2637,12 +2807,420 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
     }
   });
 
+  test("Custom media and Assistant nodes match Space ports, resize and Korean titles", async ({ page, context }, testInfo) => {
+    test.skip(test.info().project.name !== "desktop", "Desktop integration boundary.");
+    const graph = await createWorkflowViaApi(page);
+    const errors = attachErrorCapture(page);
+    try {
+      await replaceWorkflowViaApi(page, graph.id, [
+        { id: "stitch", kind: "edit.video.stitch", configVersion: 1, position: { x: 0, y: 0 }, config: { parameters: { repeat: 1, stripAudio: false, clipOrder: [] } }, selectedOutputAssetId: null },
+        { id: "trim", kind: "edit.video.trim", configVersion: 1, position: { x: 500, y: 0 }, config: { parameters: { startMs: 0, endMs: 5000, stripAudio: false } }, selectedOutputAssetId: null },
+        { id: "assistant", kind: "generate.assistant", configVersion: 1, position: { x: 1000, y: 0 }, config: { prompt: "", modelKey: null }, selectedOutputAssetId: null },
+        { id: "generation", kind: "generate.video", configVersion: 1, position: { x: 1800, y: 0 }, config: { modelKey: null, parameters: {}, prompt: "" }, selectedOutputAssetId: null },
+      ]);
+      await waitForFreshWorkflow(page, graph);
+      await context.addCookies([{ name: "locale", value: "ko", url: new URL(page.url()).origin }]);
+      await page.reload();
+      await expect(page.locator(".react-flow__node")).toHaveCount(4);
+      await page.addStyleTag({ content: "nextjs-portal { pointer-events: none !important; }" });
+      await page.getByRole("button", { name: /Fit View|화면에 맞추기|전체 보기/ }).click();
+      await page.waitForTimeout(350); // Wait for the existing Fit View viewport animation.
+      const runMetrics = button => button.evaluate(element => {
+        const style = getComputedStyle(element);
+        const svg = element.querySelector("svg");
+        return { padding: style.padding, radius: style.borderRadius, border: style.borderTopWidth, background: style.backgroundImage,
+          font: style.fontSize, color: style.color, iconWidth: getComputedStyle(svg).width, iconHeight: getComputedStyle(svg).height,
+          iconPath: svg.querySelector("path").getAttribute("d") };
+      });
+      const nativeRun = page.locator('[data-node-banana-component="FloatingNodeHeader"][data-node-id="generation"] button[data-canvas-action="run"]');
+      await nativeRun.hover();
+      await expect.poll(() => nativeRun.locator("span").evaluate(element => getComputedStyle(element).maxWidth)).toBe("60px");
+      const nativeMetrics = await runMetrics(nativeRun);
+      for (const [id, title] of [["stitch", "비디오 이어 붙이기"], ["trim", "비디오 자르기"], ["assistant", "AI 어시스턴트"]]) {
+        const node = page.locator(`.react-flow__node[data-id="${id}"]`);
+        const body = node.getByRole("article", { name: title, exact: true });
+        await body.click({ position: { x: 6, y: 6 } });
+        await expect(node).toHaveClass(/selected/);
+        const run = node.locator('[data-node-banana-component="FloatingNodeHeader"] button[data-canvas-action="run"]');
+        await expect(run).toHaveCount(1);
+        await expect(run).toBeDisabled();
+        await run.hover();
+        await expect.poll(() => run.locator("span").evaluate(element => getComputedStyle(element).maxWidth)).toBe("60px");
+        expect(await runMetrics(run)).toEqual(nativeMetrics);
+        await expect(node.locator("[data-node-run]")).toHaveCount(0);
+        const port = node.locator(".react-flow__handle").first();
+        expect(await port.evaluate(element => ({ width: getComputedStyle(element).width, radius: getComputedStyle(element).borderRadius, icon: !!element.querySelector("svg") })))
+          .toEqual({ width: "30px", radius: "50%", icon: true });
+        const grip = node.locator(".react-flow__resize-control.handle.bottom.right");
+        expect(await grip.evaluate(element => ({ background: getComputedStyle(element).backgroundColor, border: getComputedStyle(element).borderTopWidth })))
+          .toEqual({ background: "rgba(0, 0, 0, 0)", border: "0px" });
+        const before = await body.boundingBox();
+        const corner = await grip.boundingBox();
+        await page.mouse.move(corner.x + corner.width / 2, corner.y + corner.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(corner.x + corner.width / 2 + 25, corner.y + corner.height / 2 + 25, { steps: 8 });
+        await page.mouse.up();
+        await expect.poll(async () => (await body.boundingBox()).width - before.width).toBeGreaterThan(15);
+        await expect.poll(async () => (await body.boundingBox()).height - before.height).toBeGreaterThan(15);
+      }
+      const panel = page.getByRole("region", { name: "AI 어시스턴트 설정" });
+      await expect(panel).toBeVisible();
+      const panelBox = await panel.boundingBox();
+      expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(1440);
+      const assistant = page.getByRole("article", { name: "AI 어시스턴트", exact: true });
+      const header = assistant.locator('[data-node-banana-component="FloatingNodeHeader"]');
+      await expect(header.getByRole("button", { name: "찾아보기" })).toBeVisible();
+      await expect(header.locator('button[data-canvas-action="run"]')).toBeVisible();
+      await captureEvidenceScreenshot(page, testInfo, "custom-node-ui-korean");
+      await header.getByRole("button", { name: "찾아보기" }).click();
+      await expect(page.getByRole("dialog", { name: "Browse Models" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await page.getByRole("article", { name: "비디오 자르기", exact: true }).click({ position: { x: 6, y: 6 } });
+      await expect(panel).toHaveCount(0);
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally {
+      await context.addCookies([{ name: "locale", value: "en", url: new URL(page.url()).origin }]);
+      await deleteWorkflowViaApi(page, graph.id);
+    }
+  });
+
+  test("Assistant shares the media model browser and preserves LLM catalog selection", async ({ page, context }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "Desktop modal integration.");
+    const graph = await createWorkflowViaApi(page);
+    const errors = attachErrorCapture(page);
+    const llm = { type: "llm", key: "e2e-shared-llm", label: "Creative LLM", vendor: "OpenAI", provider: "openai_compatible",
+      providerConfig: { base_url: "https://api.example.com/v1", model_id: "creative-shared", supports_images: true }, hasApiKey: true, isActive: true, isDefault: false };
+    const goat = { ...llm, key: "e2e-goat-llm", label: "Goat LLM", vendor: "GOAT", providerConfig: { ...llm.providerConfig, model_id: "goat-text", supports_images: false } };
+    let preferences = { schemaVersion: 1, revision: 0, recentModelKeys: [goat.key, "inactive-shared-llm"], defaults: {}, inlineParametersEnabled: false };
+    await page.route("**/api/spaces/preferences", async route => {
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON();
+        preferences = { ...preferences, revision: preferences.revision + 1,
+          recentModelKeys: body.action === "track" ? [body.modelKey, ...preferences.recentModelKeys.filter(key => key !== body.modelKey)] : preferences.recentModelKeys };
+      }
+      await route.fulfill({ json: { preferences } });
+    });
+    let catalogRefreshes = 0;
+    await page.route("**/api/models", async route => {
+      catalogRefreshes++;
+      const response = await route.fetch();
+      const payload = await response.json();
+      await route.fulfill({ response, json: { ...payload, items: [...payload.items, llm, goat, { ...llm, key: "inactive-shared-llm", label: "Inactive LLM", isActive: false }] } });
+    });
+    try {
+      const cases = [
+        { kind: "generate.assistant", id: `${graph.id}-assistant`, position: { x: 0, y: 0 } },
+        { kind: "generate.image", id: `${graph.id}-image`, position: { x: 650, y: 0 } },
+        { kind: "generate.video", id: `${graph.id}-video`, position: { x: 0, y: 560 } },
+        { kind: "generate.audio", id: `${graph.id}-audio`, position: { x: 650, y: 560 } },
+      ];
+      await replaceWorkflowViaApi(page, graph.id, cases.map(item => ({ ...item, configVersion: 1, config: item.kind === "generate.assistant" ? { prompt: "", modelKey: null } : { prompt: "", modelKey: null, parameters: {} }, selectedOutputAssetId: null })));
+      await page.goto(WORKFLOW_PATH);
+      await context.addCookies([{ name: "locale", value: "ko", url: new URL(page.url()).origin }]);
+      await waitForCanvas(page, graph.id);
+      const dialog = page.getByRole("dialog", { name: "Browse Models" });
+      const shape = element => {
+        const style = getComputedStyle(element);
+        const header = element.querySelector('[data-app-dialog-header]');
+        const card = element.querySelector('button.items-start');
+        const cardStyle = getComputedStyle(card);
+        const titleStyle = getComputedStyle(header.querySelector('[data-app-dialog-title]'));
+        return { width: Math.round(element.getBoundingClientRect().width), height: Math.round(element.getBoundingClientRect().height),
+          background: style.backgroundColor, radius: style.borderRadius, headerPadding: getComputedStyle(header).padding,
+          titleFont: titleStyle.fontSize, cardPadding: cardStyle.padding, cardBackground: cardStyle.backgroundColor, cardRadius: cardStyle.borderRadius };
+      };
+      const assistant = page.locator(`.react-flow__node[data-id="${cases[0].id}"]`);
+      await assistant.locator("article").click({ position: { x: 4, y: 4 } });
+      const modelButton = page.getByRole("button", { name: "Assistant 모델 선택" });
+      await modelButton.click();
+      await expect(dialog).toHaveAttribute("data-node-banana-component", "ModelSearchDialog");
+      await expect(dialog.getByRole("combobox", { name: "모델 기능" })).toContainText("LLM");
+      await expect(dialog.getByText("Inactive LLM")).toHaveCount(0);
+      await expect(dialog.getByText("최근 사용")).toBeVisible();
+      await dialog.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished)); });
+      const baseline = await dialog.evaluate(shape);
+      await captureEvidenceScreenshot(page, testInfo, "assistant-shared-model-browser");
+      await dialog.getByRole("combobox", { name: "제공업체" }).click();
+      await page.getByRole("option", { name: "GOAT", exact: true }).click();
+      await expect(dialog.locator("button.items-start")).toHaveCount(1);
+      await expect(dialog.locator("button.items-start")).toContainText("Goat LLM");
+      await dialog.getByRole("combobox", { name: "제공업체" }).click();
+      await page.getByRole("option", { name: "전체 제공업체", exact: true }).click();
+      const refreshBefore = catalogRefreshes;
+      await dialog.getByRole("button", { name: "모델 및 스키마 새로고침" }).click();
+      await expect.poll(() => catalogRefreshes).toBeGreaterThan(refreshBefore);
+      await dialog.getByRole("textbox", { name: "모델 검색" }).fill("creative-shared");
+      await expect(dialog.locator("button.items-start")).toHaveCount(1);
+      await dialog.locator("button.items-start").click();
+      await expect(dialog).toHaveCount(0);
+      await waitForWorkflowState(page, graph.id, value => value.nodes.find(node => node.id === cases[0].id)?.config.modelKey === llm.key, "shared LLM selection not saved");
+      await expect(modelButton).toBeFocused();
+      await modelButton.click();
+      await expect(dialog.getByRole("textbox", { name: "모델 검색" })).toHaveValue("");
+      await expect(dialog.locator('button[aria-pressed="true"]')).toHaveCount(2);
+      await page.keyboard.press("Escape");
+      await expect(modelButton).toBeFocused();
+      for (const item of cases.slice(1)) {
+        const node = page.locator(`.react-flow__node[data-id="${item.id}"]`);
+        await node.click({ position: { x: 4, y: 4 } });
+        await page.locator(`[data-node-banana-component="FloatingNodeHeader"][data-node-id="${item.id}"]`).getByRole("button", { name: "모델 살펴보기" }).click();
+        await expect(dialog).toHaveAttribute("data-node-banana-component", "ModelSearchDialog");
+        await expect(dialog.locator("button.items-start").first()).toBeVisible();
+        await page.mouse.move(8, 8);
+        await dialog.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished)); });
+        await expect.poll(() => dialog.evaluate(shape)).toEqual(baseline);
+        await expect(dialog.getByText("Creative LLM", { exact: true })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+      }
+      await page.reload();
+      await expect(assistant).toBeVisible({ timeout: 30_000 });
+      await assistant.locator("article").click({ position: { x: 4, y: 4 } });
+      await expect(modelButton).toContainText("Creative LLM");
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally {
+      if (page.url().startsWith("http")) await context.addCookies([{ name: "locale", value: "en", url: new URL(page.url()).origin }]);
+      await page.goto("about:blank");
+      await deleteWorkflowViaApi(page, graph.id);
+    }
+  });
+
+  test("Assistant shows references, LLM browse, durable prompt, and copied result", async ({ page, context }, testInfo) => {
+    test.setTimeout(160_000);
+    test.skip(test.info().project.name !== "desktop", "Assistant canvas flow is covered once on desktop.");
+    const errors = attachErrorCapture(page);
+    const graph = await createWorkflowViaApi(page);
+    const llm = { type: "llm", key: "e2e-creative-llm", label: "Creative LLM", vendor: "OpenAI", provider: "openai_compatible",
+      providerConfig: { base_url: "https://api.example.com/v1", model_id: "creative-1", supports_images: true }, hasApiKey: true, isActive: true, isDefault: false };
+    const assistantText = Array.from({ length: 35 }, (_, index) => `${index + 1}. A pink bandana and brown coat.`).join("\n\n");
+    let completed = false;
+    let assistantPreferences = { schemaVersion: 1, revision: 0, recentModelKeys: [], defaults: {}, inlineParametersEnabled: false };
+    await page.route("**/api/spaces/preferences", async route => {
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON();
+        assistantPreferences = { ...assistantPreferences, revision: assistantPreferences.revision + 1,
+          recentModelKeys: body.action === "track" ? [body.modelKey] : assistantPreferences.recentModelKeys };
+      }
+      await route.fulfill({ json: { preferences: assistantPreferences } });
+    });
+    await page.route("**/api/models", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      await route.fulfill({ response, json: { ...payload, items: [...payload.items, llm, { ...llm, key: "inactive-llm", isActive: false }] } });
+    });
+    await page.route(`**/api/generation-graphs/${graph.id}/nodes/assistant-1/executions`, async (route) => {
+      if (route.request().method() === "POST") {
+        completed = true;
+        await route.fulfill({ json: { execution: { executionId: "assistant-run-1", executionKind: "assistant", status: "pending", mediaType: "text", plan: undefined } } });
+      } else if (route.request().method() === "GET") {
+        await route.fulfill({ json: { executions: completed ? [{ executionId: "assistant-run-1", executionKind: "assistant", status: "completed", mediaType: "text", outputText: assistantText, outputAssetIds: [], errorCode: null, createdAt: new Date().toISOString() }] : [] } });
+      } else await route.continue();
+    });
+    try {
+      await replaceWorkflowViaApi(page, graph.id, [
+        { id: "image-1", kind: "input.image", configVersion: 1, position: { x: 0, y: 0 }, config: { assetId: null }, selectedOutputAssetId: null },
+        { id: "assistant-1", kind: "generate.assistant", configVersion: 1, position: { x: 460, y: 0 }, config: { prompt: "Describe these clothes", modelKey: null }, selectedOutputAssetId: null },
+        { id: "trim-tabs", kind: "edit.video.trim", configVersion: 1, position: { x: 0, y: 440 }, config: { parameters: { startMs: 0, endMs: 5000, stripAudio: false } }, selectedOutputAssetId: null },
+      ]);
+      await waitForFreshWorkflow(page, graph);
+      const image = nodeBody(page, "Image Input");
+      await image.locator('input[type="file"]').setInputFiles({ name: "assistant-reference.png", mimeType: "image/png", buffer: deterministicPng(32, 24, 1) });
+      const savedImage = await waitForWorkflowState(page, graph.id, (value) => Boolean(value.nodes.find((node) => node.id === "image-1")?.config.assetId), "Assistant reference upload not saved");
+      await replaceWorkflowViaApi(page, graph.id, savedImage.nodes, [
+        { id: "assistant-image", sourceNodeId: "image-1", sourcePortId: "image", targetNodeId: "assistant-1", targetPortId: "images", sortOrder: 0, hasPause: false },
+      ]);
+      await context.addCookies([{ name: "locale", value: "ko", url: new URL(page.url()).origin }]);
+      await page.reload(); await waitForFreshWorkflow(page, graph);
+      const body = page.locator('.react-flow__node[data-id="assistant-1"] article');
+      await expect(body.locator('[data-leesfield-component="AssistantNode"]')).toBeVisible();
+      await expect(body.getByRole("tab", { name: "원본" })).toHaveAttribute("aria-selected", "true");
+      await expect(body.getByRole("tab", { name: "원본" })).toHaveText("원본");
+      await expect(body.getByRole("tab", { name: "결과" })).toHaveText("결과");
+      const trimTabs = page.locator('.react-flow__node[data-id="trim-tabs"]').getByRole("tablist");
+      await expect(trimTabs.getByRole("tab").first()).toHaveText("원본");
+      await expect(trimTabs.getByRole("tab").nth(1)).toHaveText("결과");
+      await expect(trimTabs.getByRole("tab").nth(1)).toBeDisabled();
+      const tabStyle = element => {
+        const style = getComputedStyle(element);
+        return Object.fromEntries(["borderRadius", "backgroundColor", "borderColor", "padding", "fontSize", "fontWeight"].map(key => [key, style[key]]));
+      };
+      expect(await body.getByRole("tablist").evaluate(tabStyle)).toEqual(await trimTabs.evaluate(tabStyle));
+      expect(await body.getByRole("tab", { name: "원본" }).evaluate(tabStyle)).toEqual(await trimTabs.getByRole("tab").first().evaluate(tabStyle));
+      await expect(body.getByRole("img", { name: "이미지 참고자료 1" })).toBeVisible();
+      await body.getByRole("tab", { name: "결과" }).click();
+      await expect(body.getByRole("button", { name: "결과 복사" })).toBeVisible();
+      await expect(body.getByRole("button", { name: "결과 복사" })).toBeDisabled();
+      await body.getByRole("tab", { name: "원본" }).click();
+      await body.click({ position: { x: 8, y: 8 } });
+      await expect(page.getByRole("region", { name: "AI 어시스턴트 설정" })).toBeVisible();
+      await body.getByRole("textbox", { name: "Assistant 지시문" }).fill("Describe both items in detail");
+      await waitForWorkflowState(page, graph.id, (value) => value.nodes.find((node) => node.id === "assistant-1")?.config.prompt === "Describe both items in detail", "Assistant prompt not saved");
+      await page.getByRole("region", { name: "AI 어시스턴트 설정" }).getByRole("button", { name: "Assistant 모델 선택" }).click();
+      const browse = page.getByRole("dialog", { name: "Browse Models" });
+      await expect(browse).toBeVisible();
+      await captureEvidenceScreenshot(page, testInfo, "assistant-model-browser");
+      await expect(browse.getByRole("button", { name: /Creative LLM/ })).toHaveCount(1);
+      await browse.getByRole("textbox", { name: "모델 검색" }).fill("creative-1");
+      await browse.getByRole("button", { name: /Creative LLM/ }).click();
+      await waitForWorkflowState(page, graph.id, (value) => value.nodes.find((node) => node.id === "assistant-1")?.config.modelKey === llm.key, "Assistant model not saved");
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await body.getByRole("button", { name: "원본 복사" }).click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Describe both items in detail");
+      await expect(page.locator('[data-sonner-toast]').filter({ hasText: "복사했습니다." }).first()).toBeVisible();
+      await expect(body.getByText("복사했습니다.")).toHaveCount(0);
+      await expect.poll(async () => (await page.locator('[data-sonner-toast]').first().boundingBox()).y).toBeGreaterThan(10);
+      await captureEvidenceScreenshot(page, testInfo, "assistant-tabs-original");
+      await body.locator('[data-node-banana-component="FloatingNodeHeader"] button[data-canvas-action="run"]').click();
+      await expect(body.getByRole("tab", { name: "결과" })).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
+      await expect(body.getByRole("tabpanel", { name: "결과" })).toContainText("pink bandana");
+      const copy = body.getByRole("button", { name: "결과 복사" });
+      const resultPanel = body.getByRole("tabpanel", { name: "결과" });
+      const assertCopyPosition = async () => {
+        await expect(copy).toBeVisible();
+        const headerBox = await body.locator('[data-leesfield-component="AssistantViewHeader"]').boundingBox();
+        const tabsBox = await body.getByRole("tablist").boundingBox();
+        const copyBox = await copy.boundingBox();
+        const panelBox = await resultPanel.boundingBox();
+        expect(Math.abs(copyBox.x + copyBox.width - headerBox.x - headerBox.width)).toBeLessThan(2);
+        expect(Math.abs(copyBox.y + copyBox.height / 2 - tabsBox.y - tabsBox.height / 2)).toBeLessThan(2);
+        expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(panelBox.y);
+      };
+      await assertCopyPosition();
+      const node = page.locator('.react-flow__node[data-id="assistant-1"]');
+      const beforeResize = await body.boundingBox();
+      const gripBox = await node.locator(".react-flow__resize-control.handle.bottom.right").boundingBox();
+      await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(gripBox.x + gripBox.width / 2 - 120, gripBox.y + gripBox.height / 2 - 90, { steps: 8 });
+      await page.mouse.up();
+      await expect.poll(async () => beforeResize.width - (await body.boundingBox()).width).toBeGreaterThan(30);
+      await assertCopyPosition();
+      const beforeScroll = await copy.boundingBox();
+      expect(await resultPanel.evaluate(element => { element.scrollTop = element.scrollHeight; return element.scrollTop; })).toBeGreaterThan(0);
+      expect(await copy.boundingBox()).toEqual(beforeScroll);
+      await copy.focus();
+      await page.keyboard.press("Enter");
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(assistantText);
+      await expect(page.locator('[data-sonner-toast]').filter({ hasText: "복사했습니다." }).first()).toBeVisible();
+      await expect(body.getByText("복사했습니다.")).toHaveCount(0);
+      await expect.poll(async () => (await page.locator('[data-sonner-toast]').first().boundingBox()).y).toBeGreaterThan(10);
+      await resultPanel.evaluate(element => { element.scrollTop = 0; });
+      await captureEvidenceScreenshot(page, testInfo, "assistant-tabs-result");
+      await page.reload(); await waitForFreshWorkflow(page, graph);
+      await expect(body.getByRole("tabpanel", { name: "결과" })).toContainText("pink bandana");
+      await assertCopyPosition();
+      await copy.click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(assistantText);
+      await body.getByRole("tab", { name: "원본" }).click();
+      await body.getByRole("button", { name: "원본 복사" }).click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Describe both items in detail");
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally { await deleteWorkflowViaApi(page, graph.id); }
+  });
+
+  test("Video Generation connections render Stitch and Trim immediately and survive reload", async ({ page }) => {
+    test.setTimeout(200_000);
+    test.skip(test.info().project.name !== "desktop", "The generated-video connection is covered once on desktop.");
+    const errors = attachErrorCapture(page);
+    const graph = await createWorkflowViaApi(page);
+    try {
+      await waitForFreshWorkflow(page, graph);
+      for (const [label, position] of [
+        ["Image Input", { x: 24, y: 180 }],
+        ["Generate Video", { x: 400, y: 180 }],
+        ["Video Stitch", { x: 820, y: 180 }],
+        ["Video Trim", { x: 820, y: 600 }],
+      ]) {
+        await addNodeFromAllNodes(page, label);
+        const node = reactFlowNodeForArticle(page, label);
+        await expect(node).toBeVisible();
+        await dragNodeToViewportPosition(page, node, position);
+      }
+      await fitCanvas(page);
+
+      const imageInput = nodeBody(page, "Image Input");
+      await imageInput.locator('input[type="file"]').setInputFiles({
+        name: "video-connection-init.png",
+        mimeType: "image/png",
+        buffer: deterministicPng(40, 32, 1),
+      });
+      await expect(imageInput.locator("img")).toBeVisible({ timeout: 30_000 });
+      const source = reactFlowNodeForArticle(page, "Generate Video");
+      const stitch = reactFlowNodeForArticle(page, "Video Stitch");
+      const trim = reactFlowNodeForArticle(page, "Video Trim");
+      const sourceId = (await waitForWorkflowState(page, graph.id, (snapshot) =>
+        snapshot.nodes.some((node) => node.kind === "generate.video"),
+      "Video Generation was not saved")).nodes.find((node) => node.kind === "generate.video")?.id;
+      expect(sourceId).toEqual(expect.any(String));
+      const sourceBody = nodeBody(page, "Generate Video");
+      await sourceBody.click({ position: { x: 18, y: 18 }, force: true });
+      const header = page.locator(`[data-node-banana-component="FloatingNodeHeader"][data-node-id="${sourceId}"]`);
+      await header.getByRole("button", { name: "Browse models" }).click();
+      const dialog = page.getByRole("dialog", { name: "Browse Models" });
+      await dialog.getByRole("button", { name: "Wan 2.2 (HF Space)", exact: false })
+        .filter({ has: page.getByText("wan2-2-hf", { exact: true }) }).click();
+      const prompt = sourceBody.getByRole("textbox", { name: "Prompt" });
+      await prompt.fill("A short deterministic video clip");
+      await prompt.blur();
+      await waitForWorkflowState(page, graph.id, (snapshot) =>
+        snapshot.nodes.some((node) => node.id === sourceId && node.config?.modelKey === "wan2-2-hf" && node.config?.prompt === "A short deterministic video clip"),
+      "Video Generation model and prompt were not saved");
+      await fitCanvas(page);
+      await connectHandles(page, reactFlowNodeForArticle(page, "Image Input"), source, "image", "image");
+      await waitForWorkflowState(page, graph.id, (snapshot) =>
+        snapshot.edges.some((edge) => edge.targetNodeId === sourceId && edge.targetPortId === "initImage"),
+      "Video Generation input was not saved");
+      await sourceBody.click({ position: { x: 18, y: 18 }, force: true });
+      const completed = await runHostedGeneration(page, graph.id, sourceId, header, 120_000);
+      expect(completed.outputAssetIds).toHaveLength(1);
+      await expect(sourceBody.locator("video")).toBeVisible({ timeout: 30_000 });
+
+      await connectHandles(page, source, stitch, "video", "video");
+      await expect(nodeBody(page, "Video Stitch")).toBeVisible();
+      await expect(page.getByText("The canvas could not be displayed")).toHaveCount(0);
+      await connectHandles(page, source, trim, "video", "video");
+      await expect(nodeBody(page, "Video Trim")).toBeVisible();
+      await expect(page.getByText("The canvas could not be displayed")).toHaveCount(0);
+
+      const connected = await waitForWorkflowState(page, graph.id, (snapshot) => {
+        const sourceId = snapshot.nodes.find((node) => node.kind === "generate.video")?.id;
+        const stitchId = snapshot.nodes.find((node) => node.kind === "edit.video.stitch")?.id;
+        const trimId = snapshot.nodes.find((node) => node.kind === "edit.video.trim")?.id;
+        return snapshot.edges.some((edge) => edge.sourceNodeId === sourceId && edge.targetNodeId === stitchId) &&
+          snapshot.edges.some((edge) => edge.sourceNodeId === sourceId && edge.targetNodeId === trimId);
+      }, "Video Generation connections were not saved");
+      expect(connected.edges).toHaveLength(3);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(nodeBody(page, "Video Stitch")).toBeVisible();
+      await expect(nodeBody(page, "Video Trim")).toBeVisible();
+      await expect(page.getByText("The canvas could not be displayed")).toHaveCount(0);
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally {
+      await deleteWorkflowViaApi(page, graph.id);
+    }
+  });
+
   test("Video Trim and Stitch keep Leesfield inputs, operations, history, and outputs durable", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
-    const sampleVideoPath = path.resolve("public/sample-video.mp4");
+    const mediaTempDir = await mkdtemp(path.join(os.tmpdir(), "leesfield-video-e2e-"));
+    const sampleVideoPath = path.join(mediaTempDir, "source-aac-32k.mp4");
+    const probeAudio = async (filePath) => {
+      const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name,sample_rate,channels", "-of", "json", filePath], { timeout: 30_000 });
+      return JSON.parse(stdout).streams?.[0] ?? null;
+    };
+    const probeOutputAudio = async (assetId) => {
+      const response = await page.request.get(`/api/media-assets/${encodeURIComponent(assetId)}/content`);
+      expect(response.ok(), `could not download video output ${assetId}`).toBeTruthy();
+      const filePath = path.join(mediaTempDir, `${assetId}.mp4`);
+      await writeFile(filePath, await response.body());
+      return probeAudio(filePath);
+    };
     try {
+      await execFileAsync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=1",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=32000:duration=1", "-map", "0:v:0", "-map", "1:a:0",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "32000", "-ac", "2", "-shortest", sampleVideoPath], { timeout: 30_000 });
+      expect(await probeAudio(sampleVideoPath)).toMatchObject({ codec_name: "aac", sample_rate: "32000", channels: 2 });
       await waitForFreshWorkflow(page, graph);
       const canvas = page.locator('[data-node-banana-component="WorkflowCanvas"]');
       const narrow = (page.viewportSize()?.width ?? 0) < 600;
@@ -2708,12 +3286,15 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         return { body, node };
       };
       const trim = await addAndPlace("Video Trim", narrow ? { x: 24, y: 790 } : { x: 400, y: 48 });
-      const stitch = await addAndPlace("Video Stitch", narrow ? { x: 24, y: 1_150 } : { x: 790, y: 48 });
-      const gallery = await addAndPlace("Output Gallery", narrow ? { x: 24, y: 1_520 } : { x: 1_330, y: 48 });
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(5, { timeout: 15_000 });
-      await expect(canvas.locator('[data-node-banana-component="VideoInputNode"]')).toHaveCount(2);
-      await expect(canvas.locator('[data-node-banana-component="VideoTrimNode"]')).toHaveCount(1);
-      await expect(canvas.locator('[data-node-banana-component="VideoStitchNode"]')).toHaveCount(1);
+      const stitch = await addAndPlace("Video Stitch", narrow ? { x: 24, y: 1_300 } : { x: 880, y: 48 });
+      const gallery = await addAndPlace("Output Gallery", narrow ? { x: 24, y: 1_670 } : { x: 1_420, y: 48 });
+      await addNodeFromAllNodes(page, "Video Input");
+      await expect(videoInputBody(2)).toBeVisible();
+      await dragNodeToViewportPosition(page, videoInputNode(2), narrow ? { x: 24, y: 2_100 } : { x: 900, y: 600 });
+      await expect(canvas.locator(".react-flow__node")).toHaveCount(6, { timeout: 15_000 });
+      await expect(canvas.locator('[data-node-banana-component="VideoInputNode"]')).toHaveCount(3);
+      await expect(canvas.locator('[data-node-banana-kind="edit.video.trim"]')).toHaveCount(1);
+      await expect(canvas.locator('[data-node-banana-kind="edit.video.stitch"]')).toHaveCount(1);
       await expect(canvas.locator('[data-node-banana-component="OutputGalleryNode"]')).toHaveCount(1);
 
       // Fit after all additions so connectors remain usable regardless of the
@@ -2727,7 +3308,8 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       await connectHandleLocators(page, firstVideoSource, stitchVideoTargets.nth(0));
       await connectHandleLocators(page, secondVideoSource, stitchVideoTargets.nth(1));
       const galleryVideoTarget = gallery.node.locator('.react-flow__handle.target[data-handletype="video"]').first();
-      await connectHandles(page, trim.node, gallery.node, "video", "video");
+      await connectHandles(page, trim.node, videoInputNode(2), "video", "video");
+      await connectHandles(page, videoInputNode(2), gallery.node, "video", "video");
       await connectHandleLocators(page, stitch.node.locator('.react-flow__handle.source[data-handletype="video"]').first(), galleryVideoTarget);
 
       const connected = await waitForWorkflowState(
@@ -2738,10 +3320,12 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
           const trimId = snapshot.nodes.find((node) => node.kind === "edit.video.trim")?.id;
           const stitchId = snapshot.nodes.find((node) => node.kind === "edit.video.stitch")?.id;
           const galleryId = snapshot.nodes.find((node) => node.kind === "output.gallery")?.id;
-          return snapshot.edges.length === 5 &&
+          const relayId = snapshot.nodes.find((node) => node.kind === "input.video" && !node.config?.assetId)?.id;
+          return snapshot.edges.length === 6 &&
             snapshot.edges.some((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === trimId && edge.targetPortId === "video") &&
             snapshot.edges.filter((edge) => inputIds.has(edge.sourceNodeId) && edge.targetNodeId === stitchId && edge.targetPortId === "clips").length === 2 &&
-            snapshot.edges.filter((edge) => [trimId, stitchId].includes(edge.sourceNodeId) && edge.targetNodeId === galleryId && edge.targetPortId === "video").length === 2;
+            snapshot.edges.some((edge) => edge.sourceNodeId === trimId && edge.targetNodeId === relayId && edge.targetPortId === "video") &&
+            snapshot.edges.filter((edge) => [relayId, stitchId].includes(edge.sourceNodeId) && edge.targetNodeId === galleryId && edge.targetPortId === "video").length === 2;
         },
         "video operation graph connections were not persisted",
         45_000,
@@ -2753,36 +3337,30 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
 
       const stitchEdges = connected.edges.filter((edge) => edge.targetNodeId === stitchRecord.id && edge.targetPortId === "clips")
         .sort((left, right) => left.sortOrder - right.sortOrder);
-      await waitForWorkflowState(page, graph.id, (snapshot) =>
-        snapshot.nodes.find((node) => node.id === stitchRecord.id)?.config?.parameters?.clipOrder?.length === 2,
-      "Stitch filmstrip order was not initialized");
-      const firstClip = stitch.body.locator(`[data-clip-id="${stitchEdges[0].id}"]`);
-      const secondClip = stitch.body.locator(`[data-clip-id="${stitchEdges[1].id}"]`);
-      for (const clip of [firstClip, secondClip]) {
-        await expect(clip.locator("img")).toBeVisible({ timeout: 30_000 });
-        await expect.poll(() => clip.locator("img").evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
-        await expect(clip.locator("img")).toHaveAttribute("draggable", "false");
-      }
-      const from = await secondClip.boundingBox();
-      const to = await firstClip.boundingBox();
-      if (!from || !to) throw new Error("Stitch reorder filmstrip has no hit area");
-      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-      await page.waitForTimeout(100);
-      await page.mouse.up();
+      await expect(stitch.body.locator('[data-leesfield-component="VideoClipOrder"] video')).toHaveCount(2);
+      await stitch.body.getByRole("button", { name: "Move video 2 earlier" }).click();
       await waitForWorkflowState(page, graph.id, (snapshot) =>
         JSON.stringify(snapshot.nodes.find((node) => node.id === stitchRecord.id)?.config?.parameters?.clipOrder)
           === JSON.stringify([stitchEdges[1].id, stitchEdges[0].id]),
-      "Stitch pointer reorder was not persisted");
+      "Stitch clip reorder was not persisted");
 
-      // sample-video.mp4 is one second long; set the upstream dual-range end
-      // thumb below that duration so the server-side browser-operation plan is
-      // valid while still exercising the actual vendored Trim control.
-      const trimRanges = trim.body.locator('input[type="range"]');
-      await expect(trimRanges).toHaveCount(2);
-      await trimRanges.nth(1).fill("0.8");
-      await trimRanges.nth(1).press("Enter").catch(() => undefined);
+      // This moving test-pattern fixture is one second long. Exercise pointer
+      // handles before setting an exact 0.1–0.8s range with the keyboard.
+      const trackBox = await trim.body.locator("[data-trim-filmstrip]").boundingBox();
+      const boundaryBox = await trim.body.locator('[data-trim-boundary="start"]').boundingBox();
+      expect(trackBox).toBeTruthy();
+      expect(boundaryBox).toBeTruthy();
+      await page.mouse.move(boundaryBox.x + boundaryBox.width / 2, boundaryBox.y + boundaryBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(trackBox.x + trackBox.width * 0.2, boundaryBox.y + boundaryBox.height / 2, { steps: 12 });
+      await page.mouse.up();
+      await expect.poll(async () => Number(await trim.body.getByRole("spinbutton", { name: "Trim start time" }).inputValue())).toBeGreaterThanOrEqual(0.1);
+      await trim.body.getByRole("slider", { name: "Trim start", exact: true }).press("Home");
+      await expect(trim.body.getByRole("spinbutton", { name: "Trim start time" })).toHaveValue("0");
+      const trimEnd = trim.body.getByRole("slider", { name: "Trim end" });
+      await trimEnd.focus();
+      await trimEnd.press("ArrowLeft");
+      await trimEnd.press("ArrowLeft");
       await waitForWorkflowState(
         page,
         graph.id,
@@ -2791,17 +3369,50 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         30_000,
       );
 
-      const trimButton = trim.body.getByRole("button", { name: "Trim", exact: true });
+      const trimStart = trim.body.getByRole("slider", { name: "Trim start", exact: true });
+      await trimStart.focus();
+      await trimStart.press("ArrowRight");
+      await waitForWorkflowState(page, graph.id, (snapshot) =>
+        snapshot.nodes.some((node) => node.id === trimRecord.id && node.config?.parameters?.startMs === 100 && node.config?.parameters?.endMs === 800),
+      "Video Trim start and end did not persist");
+      const timeline = trim.body.locator('[data-leesfield-component="TrimTimeline"]');
+      await expect(timeline).toBeVisible();
+      await expect(timeline.locator("[data-trim-filmstrip] img")).toHaveCount(8, { timeout: 20_000 });
+      const playhead = timeline.getByRole("slider", { name: "Playback position" });
+      await playhead.focus();
+      await playhead.press("Home");
+      await playhead.press("ArrowRight");
+      await playhead.press("ArrowRight");
+      const sourcePreview = trim.body.locator('[data-preview-state="input"] video');
+      await expect(sourcePreview).toHaveJSProperty("currentTime", 0.2);
+      // Scrubbing previews a frame; it must never rewrite the selected range.
+      expect((await readWorkflowViaApi(page, graph.id)).nodes.find((node) => node.id === trimRecord.id)?.config?.parameters)
+        .toMatchObject({ startMs: 100, endMs: 800 });
+      await playhead.press("Home");
+      await trim.body.getByRole("button", { name: "Play selection", exact: true }).click();
+      await expect.poll(() => sourcePreview.evaluate((element) => element.currentTime), { timeout: 8_000 }).toBeGreaterThan(0.1);
+      await expect(sourcePreview).toHaveJSProperty("paused", true, { timeout: 8_000 });
+      await expect.poll(() => sourcePreview.evaluate((element) => element.currentTime)).toBeCloseTo(0.8, 2);
+      await playhead.press("Home");
+      await playhead.press("ArrowRight");
+      await captureEvidenceScreenshot(page, testInfo, "trim-timeline-source");
+      const trimScreenshot = path.join("artifacts/node-banana-e2e/evidence", `trim-timeline-editor-${testInfo.project.name}.png`);
+      await trim.body.screenshot({ path: trimScreenshot });
+
+      const trimButton = trim.body.locator('[data-node-banana-component="FloatingNodeHeader"] button[data-canvas-action="run"]');
       await expect(trimButton).toBeEnabled({ timeout: 30_000 });
       const trimmed = await runBrowserMediaOperation(page, graph.id, trimRecord.id, trimButton, 60_000);
-      expect(trimmed.plan).toMatchObject({ kind: "edit.video.trim", outputPortId: "video", outputMediaType: "video", expectedOutputCount: 1 });
-      expect(trimmed.plan.inputs.map((input) => input.assetId)).toEqual([firstInputAssetId]);
+      expect(trimmed.plan).toBeUndefined();
       expect(trimmed.outputAssetIds).toHaveLength(1);
       const trimmedAssetId = trimmed.outputAssetIds[0];
       expect(trimmedAssetId).toEqual(expect.any(String));
-      await expect(trim.body.locator("video")).toBeVisible({ timeout: 30_000 });
-      const trimProbe = await expectPlayableVideo(trim.body.locator("video"), trimmedAssetId);
-      expect(trimProbe.duration).toBeCloseTo(0.8, 1);
+      expect(await probeOutputAudio(trimmedAssetId)).toMatchObject({ codec_name: "aac", sample_rate: "48000", channels: 2 });
+      const trimOutputVideo = trim.body.locator('[data-node-banana-component="OperationPreview"][data-preview-state="output"] video');
+      await expect(trimOutputVideo).toBeVisible({ timeout: 30_000 });
+      const trimProbe = await expectPlayableVideo(trimOutputVideo, trimmedAssetId, "manual");
+      await expect(videoInputBody(2).locator("video")).toBeVisible({ timeout: 30_000 });
+      expect(await expectPlayableVideo(videoInputBody(2).locator("video"), trimmedAssetId, "manual")).toEqual(trimProbe);
+      expect(trimProbe.duration).toBeCloseTo(0.7, 1);
       expect(trimProbe).toMatchObject({ width: 640, height: 360 });
       const trimDurable = await waitForWorkflowState(
         page,
@@ -2811,18 +3422,22 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
         30_000,
       );
       expect(trimDurable.nodes.find((node) => node.id === trimRecord.id)?.selectedOutputAssetId).toBe(trimmedAssetId);
+      await trim.body.getByRole("tab", { name: "Source", exact: true }).click();
+      await expect(trim.body.getByRole("spinbutton", { name: "Trim start time" })).toHaveValue("0.1");
+      await expect(trim.body.getByRole("spinbutton", { name: "Trim end time" })).toHaveValue("0.8");
+      await trim.body.getByRole("tab", { name: "Result", exact: true }).click();
 
-      const stitchButton = stitch.body.getByRole("button", { name: "Stitch", exact: true });
+      const stitchButton = stitch.body.locator('[data-node-banana-component="FloatingNodeHeader"] button[data-canvas-action="run"]');
       await expect(stitchButton).toBeEnabled({ timeout: 30_000 });
       const stitched = await runBrowserMediaOperation(page, graph.id, stitchRecord.id, stitchButton, 60_000);
-      expect(stitched.plan).toMatchObject({ kind: "edit.video.stitch", outputPortId: "video", outputMediaType: "video", expectedOutputCount: 1 });
-      expect(stitched.plan.inputs.map((input) => input.assetId)).toEqual([secondInputAssetId, firstInputAssetId]);
-      expect(stitched.plan.inputs.map((input) => input.sortOrder)).toEqual([0, 1]);
+      expect(stitched.plan).toBeUndefined();
       expect(stitched.outputAssetIds).toHaveLength(1);
       const stitchedAssetId = stitched.outputAssetIds[0];
       expect(stitchedAssetId).toEqual(expect.any(String));
-      await expect(stitch.body.locator("video")).toBeVisible({ timeout: 30_000 });
-      const stitchProbe = await expectPlayableVideo(stitch.body.locator("video"));
+      expect(await probeOutputAudio(stitchedAssetId)).toMatchObject({ codec_name: "aac", sample_rate: "48000", channels: 2 });
+      const stitchOutputVideo = stitch.body.locator('[data-node-banana-component="OperationPreview"][data-preview-state="output"] video');
+      await expect(stitchOutputVideo).toBeVisible({ timeout: 30_000 });
+      const stitchProbe = await expectPlayableVideo(stitchOutputVideo, undefined, "manual");
       expect(stitchProbe.duration).toBeCloseTo(2, 1);
       expect(stitchProbe).toMatchObject({ width: 640, height: 360 });
       const stitchDurable = await waitForWorkflowState(
@@ -2849,10 +3464,12 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       await fitCanvas(page);
       await expect(videoInputBody(0).locator("video")).toBeVisible({ timeout: 30_000 });
       await expect(videoInputBody(1).locator("video")).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Video Trim").locator("video")).toBeVisible({ timeout: 30_000 });
-      await expect(nodeBody(page, "Video Stitch").locator("video")).toBeVisible({ timeout: 30_000 });
+      await expect(videoInputBody(2).locator("video")).toBeVisible({ timeout: 30_000 });
+      expect(await expectPlayableVideo(videoInputBody(2).locator("video"), trimmedAssetId, "manual")).toEqual(trimProbe);
+      await expect(nodeBody(page, "Video Trim").locator('[data-node-banana-component="OperationPreview"] video')).toBeVisible({ timeout: 30_000 });
+      await expect(nodeBody(page, "Video Stitch").locator('[data-node-banana-component="OperationPreview"] video')).toBeVisible({ timeout: 30_000 });
       for (const [label, probe] of [["Video Trim", trimProbe], ["Video Stitch", stitchProbe]]) {
-        expect(await expectPlayableVideo(nodeBody(page, label).locator("video"))).toEqual(probe);
+        expect(await expectPlayableVideo(nodeBody(page, label).locator('[data-node-banana-component="OperationPreview"] video'), undefined, "manual")).toEqual(probe);
       }
       await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "Open video 1" })).toBeVisible({ timeout: 30_000 });
       await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "Open video 2" })).toBeVisible({ timeout: 30_000 });
@@ -2860,11 +3477,17 @@ test.describe("Node Banana T25 real Chromium evidence", () => {
       expect(reloaded.nodes.find((node) => node.id === firstInputRecord.id)?.config?.assetId).toBe(firstInputAssetId);
       expect(reloaded.nodes.find((node) => node.id === secondInputRecord?.id)?.config?.assetId).toBe(secondInputAssetId);
       expect(reloaded.nodes.find((node) => node.id === trimRecord.id)?.selectedOutputAssetId).toBe(trimmedAssetId);
+      await nodeBody(page, "Video Trim").getByRole("tab", { name: "Source", exact: true }).click();
+      await expect(nodeBody(page, "Video Trim").getByRole("spinbutton", { name: "Trim start time" })).toHaveValue("0.1");
+      await expect(nodeBody(page, "Video Trim").getByRole("spinbutton", { name: "Trim end time" })).toHaveValue("0.8");
+      await nodeBody(page, "Video Trim").getByRole("tab", { name: "Result", exact: true }).click();
+      expect(reloaded.nodes.find((node) => node.kind === "input.video" && node.id !== firstInputRecord.id && node.id !== secondInputRecord.id)?.config?.assetId).toBeNull();
       expect(reloaded.nodes.find((node) => node.id === stitchRecord.id)?.selectedOutputAssetId).toBe(stitchedAssetId);
       await captureEvidenceScreenshot(page, testInfo, "video-trim-stitch-output-reload");
       expect(errors, errors.join("\n")).toEqual([]);
     } finally {
       await deleteWorkflowViaApi(page, graph.id);
+      await rm(mediaTempDir, { recursive: true, force: true });
     }
   });
 });

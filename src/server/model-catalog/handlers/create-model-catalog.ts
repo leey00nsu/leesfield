@@ -5,6 +5,7 @@ import {
   type ModelCatalogInput,
 } from "@/server/model-catalog/catalog-schema";
 import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-service";
+import { encryptModelApiKey } from "@/server/model-catalog/model-credential";
 
 function normalizeInput(input: ModelCatalogInput) {
   return {
@@ -23,6 +24,16 @@ export async function createModelCatalogHandler(payload: unknown) {
   }
 
   const data = normalizeInput(parsed.data);
+  const rawApiKey = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>).apiKey : undefined;
+  if (rawApiKey !== undefined && (data.type !== "llm" || typeof rawApiKey !== "string")) {
+    throw new Error("INVALID_PAYLOAD");
+  }
+  if (data.type === "llm" && data.isActive && !(typeof rawApiKey === "string" && rawApiKey.trim())) {
+    throw new Error("MODEL_API_KEY_REQUIRED");
+  }
+  const credential = typeof rawApiKey === "string" && rawApiKey.trim()
+    ? encryptModelApiKey(rawApiKey) : null;
 
   const existing = await prisma.modelCatalog.findUnique({
     where: { key: data.key },
@@ -41,7 +52,7 @@ export async function createModelCatalogHandler(payload: unknown) {
       });
     }
 
-    return tx.modelCatalog.create({
+    const model = await tx.modelCatalog.create({
       data: {
         ...data,
         providerConfig: data.providerConfig as Prisma.InputJsonValue,
@@ -49,9 +60,11 @@ export async function createModelCatalogHandler(payload: unknown) {
         meta: data.meta as Prisma.InputJsonValue,
       },
     });
+    if (credential) await tx.modelCredential.create({ data: { modelId: model.id, ...credential } });
+    return model;
   });
 
   invalidateModelCatalogCache();
 
-  return created;
+  return { ...created, ...(data.type === "llm" ? { hasApiKey: Boolean(credential) } : {}) };
 }

@@ -726,7 +726,8 @@
       "type": {
         "image": "IMAGE",
         "video": "VIDEO",
-        "audio": "AUDIO"
+        "audio": "AUDIO",
+        "llm": "AI ASSISTANT"
       },
       "default": "DEFAULT",
       "inactive": "INACTIVE",

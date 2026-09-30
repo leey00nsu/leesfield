@@ -4,7 +4,7 @@ import { useCanvasTranslation } from "../../leesfield/localization";
 import { Handle } from "../../leesfield/port-handle";
 
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
+import { Position, NodeProps, Node } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
 import { HandleLabel } from "./HandleLabel";
 import { InlineParameterPanel } from "./InlineParameterPanel";
@@ -111,24 +111,6 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
     [id, updateNodeData]
   );
 
-  const { setNodes } = useReactFlow();
-  const handleParametersExpandChange = useCallback(
-    (expanded: boolean, parameterCount: number) => {
-      const parameterHeight = expanded ? Math.max(parameterCount * 28 + 16, 60) : 0;
-      const baseHeight = 300;
-      const newHeight = baseHeight + parameterHeight;
-
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, style: { ...node.style, height: newHeight } }
-            : node
-        )
-      );
-    },
-    [id, setNodes]
-  );
-
   const regenerateNode = useWorkflowStore((state) => state.regenerateNode);
   const isRunning = useWorkflowStore((state) => state.isRunning);
 
@@ -204,6 +186,7 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
       <BaseNode
         id={id}
         selected={selected}
+        contentClassName="flex flex-col flex-1 min-h-0 relative"
         settingsExpanded={inlineParametersEnabled && isParamsExpanded}
         isExecuting={isRunning}
         hasError={nodeData.status === "error"}
@@ -269,18 +252,6 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
           </InlineParameterPanel>
         ) : undefined}
       >
-        {/* Model parameters (hidden when inline enabled - shown in panel below) */}
-        {!inlineParametersEnabled && nodeData.selectedModel?.modelId && (
-          <ModelParameters
-            provider={currentProvider}
-            modelId={nodeData.selectedModel.modelId}
-            parameters={nodeData.parameters || {}}
-            onParametersChange={handleParametersChange}
-            onInputsLoaded={handleInputsLoaded}
-            onExpandChange={handleParametersExpandChange}
-          />
-        )}
-
         <HostedGenerationPrompt
           nodeId={id}
           value={nodeData.internalPrompt}
@@ -290,7 +261,7 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
 
         {/* Output audio player */}
         {nodeData.outputAudio && (
-          <div className="relative group mt-2">
+          <div className="relative group flex flex-1 min-h-0 flex-col justify-center gap-2 overflow-hidden p-3">
             {nodeData.__usedFallback && (
               <div
                 className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-emerald-900/70 text-emerald-300 text-[9px] font-medium pointer-events-auto z-10"
@@ -305,7 +276,7 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
             ) : waveformData ? (
               <div
                 ref={waveformContainerRef}
-                className="h-16 bg-neutral-900/50 rounded cursor-pointer relative"
+                className="nodrag nopan shrink-0 h-16 bg-neutral-900/50 rounded cursor-pointer relative"
                 onClick={handleSeek}
               >
                 <canvas ref={canvasRef} className="w-full h-full" />
@@ -317,10 +288,10 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
             )}
 
             {/* Controls */}
-            <div className="flex items-center gap-2 mt-2">
+            <div className="nodrag nopan flex shrink-0 items-center gap-2">
               <button
                 onClick={handlePlayPause}
-                className="w-7 h-7 flex items-center justify-center bg-violet-600 hover:bg-violet-500 rounded transition-colors shrink-0"
+                className="nodrag nopan w-7 h-7 flex items-center justify-center bg-violet-600 hover:bg-violet-500 rounded transition-colors shrink-0"
                 title={isPlaying ? tc("Pause") : tc("Play")}
               >
                 {isPlaying ? (
@@ -402,6 +373,10 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
           </div>
         )}
 
+        {!nodeData.outputAudio && nodeData.status !== "loading" && nodeData.status !== "error" && (
+          <div className="flex flex-1 min-h-0 items-center justify-center rounded-lg bg-neutral-900/40 text-[10px] text-neutral-500">{tc("Run to generate")}</div>
+        )}
+
         {/* Status indicators */}
         {nodeData.status === "loading" && (
           <div className="flex items-center gap-2 mt-2">
@@ -430,6 +405,19 @@ export function GenerateAudioNode({ id, data, selected }: NodeProps<GenerateAudi
         <HandleLabel label={tc("Audio")} side="source" color="var(--handle-color-audio)" visible={showLabels} />
 
       </BaseNode>
+
+      {/* Load schema/defaults while the host's right panel displays model settings. */}
+      {!inlineParametersEnabled && nodeData.selectedModel?.modelId && (
+        <div className="hidden">
+          <ModelParameters
+            provider={currentProvider}
+            modelId={nodeData.selectedModel.modelId}
+            parameters={nodeData.parameters || {}}
+            onParametersChange={handleParametersChange}
+            onInputsLoaded={handleInputsLoaded}
+          />
+        </div>
+      )}
 
       {/* Browse dialog */}
       {isBrowseDialogOpen && (

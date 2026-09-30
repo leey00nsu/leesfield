@@ -3,9 +3,10 @@
 import { useCanvasTranslation } from "../../leesfield/localization";
 import { Handle } from "../../leesfield/port-handle";
 
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { Position, NodeProps, Node, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
+import { InputMediaChooser } from "./InputMediaChooser";
 import { HandleLabel } from "./HandleLabel";
 import { InlineParameterPanel } from "./InlineParameterPanel";
 import { ModelParameters } from "./ModelParameters";
@@ -65,6 +66,22 @@ type GenerateVideoNodeType = Node<GenerateVideoNodeData, "generateVideo">;
 export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVideoNodeType>) {
   const tc = useCanvasTranslation();
   const nodeData = data;
+  const writable = useWorkflowStore((state) => state.writable);
+  const [choosingInput, setChoosingInput] = useState(false);
+  const inputTriggerRef = useRef<HTMLDivElement>(null);
+  const referenceInput = ((nodeData as unknown as {providerInputSchema?: ModelInputDef[]}).providerInputSchema ?? nodeData.inputSchema ?? []).find(input => input.type === "image" || input.type === "video")
+    ?? (nodeData.supportsImageInput || !nodeData.selectedModel?.modelId ? {name: "image", type: "image" as const} : null);
+  const canChooseInput = writable && !!referenceInput && nodeData.status !== "loading";
+  useEffect(() => { setChoosingInput(false); }, [nodeData.selectedModel?.modelId, nodeData.outputVideo, nodeData.status]);
+  const requestReference = (action: "upload" | "assets") => {
+    const trigger = inputTriggerRef.current;
+    if (!canChooseInput || !referenceInput || !trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    trigger.dispatchEvent(new CustomEvent("node-banana-port-menu", { bubbles: true, detail: {
+      nodeId: id, handleType: "target", handleId: (nodeData as unknown as {providerInputSchema?: ModelInputDef[]}).providerInputSchema ? referenceInput.name : referenceInput.type === "image" ? "image" : "video-0",
+      mediaType: referenceInput.type, action, replaceExisting: !(referenceInput as ModelInputDef & { multiple?: boolean }).multiple, x: rect.left, y: rect.top,
+    }}));
+  };
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   // Use stable selector for API keys to prevent unnecessary re-fetches
   const { geminiApiKey, replicateApiKey, falApiKey, kieApiKey, replicateEnabled, kieEnabled } = useProviderApiKeys();
@@ -534,7 +551,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
       ) : (
         // Default handles when no schema
         <>
-          {nodeData.supportsImageInput && (
+          {(nodeData.supportsImageInput || !nodeData.selectedModel?.modelId) && (
             <>
               <Handle
                 type="target"
@@ -714,7 +731,10 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
             )}
           </>
         ) : (
-          <div className="w-full h-full min-h-[112px] bg-neutral-900/40 flex flex-col items-center justify-center">
+          <div ref={inputTriggerRef} role={canChooseInput ? "button" : undefined} tabIndex={canChooseInput ? 0 : undefined} aria-label={canChooseInput ? tc(referenceInput?.type === "video" ? "Choose video" : "Choose image") : undefined}
+            onClick={() => { if (canChooseInput) setChoosingInput(true); }}
+            onKeyDown={event => { if (canChooseInput && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setChoosingInput(true); } }}
+            className="w-full h-full min-h-[112px] bg-neutral-900/40 flex flex-col items-center justify-center">
             {nodeData.status === "loading" ? (
               <svg
                 className="w-4 h-4 animate-spin text-neutral-400"
@@ -744,6 +764,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
             )}
           </div>
         )}
+        <InputMediaChooser nodeId={id} mediaType={referenceInput?.type === "video" ? "video" : "image"} selectedAssetId={null} open={choosingInput && canChooseInput} onOpenChange={setChoosingInput} onUpload={() => requestReference("upload")} onAssets={() => requestReference("assets")} triggerRef={inputTriggerRef}/>
       </div>
 
     </BaseNode>

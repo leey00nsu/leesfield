@@ -9,13 +9,15 @@ import {
   getModelCatalogRecordByKey,
 } from "@/server/model-catalog/catalog-repository";
 import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-service";
+import { encryptModelApiKey } from "@/server/model-catalog/model-credential";
 
 const updatePayloadSchema = z.object({
-  type: z.enum(["image", "video", "audio"]).optional(),
+  type: z.enum(["image", "video", "audio", "llm"]).optional(),
   key: z.string().min(1).optional(),
   label: z.string().min(1).optional(),
   vendor: z.string().min(1).optional(),
-  provider: z.enum(["hf_space", "codex_cli", "codex_bridge", "modal_comfyui"]).optional(),
+  provider: z.enum(["hf_space", "codex_cli", "codex_bridge", "modal_comfyui", "openai_compatible"]).optional(),
+  apiKey: z.string().trim().min(1).max(8192).optional(),
   providerConfig: z.record(z.string(), z.unknown()).optional(),
   parameters: z.record(z.string(), z.unknown()).optional(),
   meta: z.record(z.string(), z.unknown()).optional(),
@@ -72,6 +74,7 @@ export async function updateModelCatalogHandler(params: {
   if (parsed.data.key && parsed.data.key !== existing.key) {
     throw new Error("KEY_IMMUTABLE");
   }
+  if (parsed.data.apiKey && existing.type !== "llm") throw new Error("INVALID_PAYLOAD");
 
   const base = toInput(existing);
   const merged = {
@@ -80,6 +83,7 @@ export async function updateModelCatalogHandler(params: {
     type: base.type,
     key: base.key,
   } as ModelCatalogInput;
+  delete (merged as ModelCatalogInput & { apiKey?: string }).apiKey;
 
   const validated = modelCatalogInputSchema.safeParse(merged);
   if (!validated.success) {
@@ -89,6 +93,10 @@ export async function updateModelCatalogHandler(params: {
   }
 
   const data = validated.data;
+  const credential = parsed.data.apiKey ? encryptModelApiKey(parsed.data.apiKey) : null;
+  if (data.type === "llm" && data.isActive && !existing.hasApiKey && !credential) {
+    throw new Error("MODEL_API_KEY_REQUIRED");
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     if (data.isDefault) {
@@ -98,7 +106,7 @@ export async function updateModelCatalogHandler(params: {
       });
     }
 
-    return tx.modelCatalog.update({
+    const model = await tx.modelCatalog.update({
       where: { key: params.key },
       data: {
         type: data.type,
@@ -112,6 +120,12 @@ export async function updateModelCatalogHandler(params: {
         isDefault: data.isDefault ?? false,
       },
     });
+    if (credential) await tx.modelCredential.upsert({
+      where: { modelId: model.id },
+      create: { modelId: model.id, ...credential },
+      update: credential,
+    });
+    return model;
   });
 
   invalidateModelCatalogCache();

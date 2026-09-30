@@ -124,7 +124,7 @@ function renderRuntime(
   writable = true,
   isNodeRunnable: (nodeId: string) => boolean = () => true,
   onRunNode?: (nodeId: string) => void | Promise<unknown>,
-  options: Partial<Pick<NodeBananaCanvasProps, "onUndoRecorderChange" | "remapPastedNodes" | "onImportCanvasMedia" | "onInputError" | "renderAssetPicker" | "onCreateNode">> = {},
+  options: Partial<Pick<NodeBananaCanvasProps, "canvasSettings" | "onUndoRecorderChange" | "remapPastedNodes" | "onImportCanvasMedia" | "onInputError" | "renderAssetPicker" | "onCreateNode">> = {},
 ) {
   let index = 0;
   render(
@@ -1141,6 +1141,12 @@ describe("NodeBananaCanvasRuntime", () => {
       "ImageVideoPromptGenerateOutputAll nodesAll modelsRun",
     );
     expect(screen.queryByText("＋")).not.toBeInTheDocument();
+  });
+
+  it("maps middle mouse panning to the actual middle button", () => {
+    renderRuntime(emptyGraph, vi.fn(), true, undefined, undefined, { canvasSettings: {panMode: "middleMouse", selectionMode: "shiftDrag", zoomMode: "scroll"} });
+    expect(flow.props?.panOnDrag).toEqual([1]);
+    expect(flow.props?.panActivationKeyCode).toBeNull();
   });
 
   it("gives the visible Fit View control the same mobile safe-area options as the canvas", () => {

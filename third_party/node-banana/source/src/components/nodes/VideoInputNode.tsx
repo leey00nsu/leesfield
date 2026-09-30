@@ -3,13 +3,13 @@
 import { useCanvasTranslation } from "../../leesfield/localization";
 import { Handle } from "../../leesfield/port-handle";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { Position, NodeProps, Node } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
+import { InputMediaChooser } from "./InputMediaChooser";
 import { HandleLabel } from "./HandleLabel";
 import {
   VideoInputNodeData,
-  HostedInputHistory,
   downloadMedia,
   useShowHandleLabels,
   useVideoBlobUrl,
@@ -26,7 +26,10 @@ export function VideoInputNode({ id, data, selected }: NodeProps<VideoInputNodeT
   const tc = useCanvasTranslation();
   const nodeData = data;
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
-  const writable = useWorkflowStore((state) => state.writable);
+  const writable = useWorkflowStore((state) => state.writable) && !nodeData.hasConnectedVideo;
+  const [choosingVideo, setChoosingVideo] = useState(false);
+  useEffect(() => { setChoosingVideo(false); }, [nodeData.video, nodeData.config?.assetId]);
+  const triggerRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const showLabels = useShowHandleLabels(selected);
 
@@ -143,10 +146,11 @@ export function VideoInputNode({ id, data, selected }: NodeProps<VideoInputNodeT
 
       {nodeData.video ? (
         <div className="relative group w-full h-full overflow-clip rounded-lg">
+          {!nodeData.hasConnectedVideo && <button ref={(element) => { triggerRef.current = element; }} type="button" className="absolute left-2 top-2 z-20 nodrag nopan rounded-md border border-neutral-600 bg-neutral-900/90 px-2 py-1.5 text-xs text-neutral-200" disabled={!writable} aria-label={tc("Choose video")} onClick={() => setChoosingVideo(true)}>{tc("Replace")}</button>}
           <video
             src={playbackUrl ?? undefined}
             controls
-            className="w-full h-full object-cover rounded-lg"
+            className="nodrag nopan w-full h-full object-cover rounded-lg"
             preload="metadata"
           />
           {nodeData.isOptional && (
@@ -174,12 +178,13 @@ export function VideoInputNode({ id, data, selected }: NodeProps<VideoInputNodeT
         </div>
       ) : (
         <div
+          ref={(element) => { triggerRef.current = element; }}
           role="button"
           tabIndex={writable ? 0 : -1}
           aria-label={tc("Upload video file")}
           aria-disabled={!writable}
-          onClick={() => { if (writable) fileInputRef.current?.click(); }}
-          onKeyDown={(e) => { if (writable && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fileInputRef.current?.click(); } }}
+          onClick={() => { if (writable) setChoosingVideo(true); }}
+          onKeyDown={(e) => { if (writable && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setChoosingVideo(true); } }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           className={`w-full h-full bg-neutral-900/40 flex flex-col items-center justify-center transition-colors ${writable ? "cursor-pointer hover:bg-neutral-900/60" : "cursor-not-allowed opacity-60"} ${nodeData.isOptional ? "border-2 border-dashed border-neutral-600" : ""}`}
@@ -191,7 +196,7 @@ export function VideoInputNode({ id, data, selected }: NodeProps<VideoInputNodeT
         </div>
       )}
 
-      <HostedInputHistory nodeId={id} mediaType="video" selectedAssetId={nodeData.config?.assetId ?? null} />
+      <InputMediaChooser nodeId={id} mediaType="video" selectedAssetId={nodeData.config?.assetId ?? null} open={choosingVideo && writable} onOpenChange={setChoosingVideo} onUpload={() => fileInputRef.current?.click()} triggerRef={triggerRef}/>
 
       <Handle
         type="target"

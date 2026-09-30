@@ -67,6 +67,7 @@ function setup() {
   const updateOperation = vi.fn();
   const cancelOperation = vi.fn();
   const hasBackgroundRemovalProcessor = vi.fn().mockResolvedValue(true);
+  const hasVideoProcessor = vi.fn().mockResolvedValue(true);
   const startOperationWorker = vi.fn();
   const service = createNodeExecutionService({
     repository,
@@ -84,6 +85,7 @@ function setup() {
     updateOperation,
     cancelOperation,
     hasBackgroundRemovalProcessor,
+    hasVideoProcessor,
     startOperationWorker,
   });
   return {
@@ -102,6 +104,7 @@ function setup() {
     updateOperation,
     cancelOperation,
     hasBackgroundRemovalProcessor,
+    hasVideoProcessor,
     startOperationWorker,
     service,
   };
@@ -425,7 +428,7 @@ describe("nodeExecutionService", () => {
     expect(state.createOperation).not.toHaveBeenCalled();
   });
 
-  it("creates a browser video Stitch plan from typed clip order and optional soundtrack", async () => {
+  it("creates a server video Stitch operation from typed clip order and optional soundtrack", async () => {
     const state = setup();
     const sourceNode = (id: string, kind: "input.video" | "input.audio", assetId: string) => ({
       id,
@@ -481,25 +484,14 @@ describe("nodeExecutionService", () => {
         { assetId: "audio-1", portId: "soundtrack", sortOrder: 0 },
       ],
     }));
-    expect(result).toMatchObject({
-      mediaType: "video",
-      plan: {
-        kind: "edit.video.stitch",
-        outputPortId: "video",
-        outputMediaType: "video",
-        inputs: [
-          { assetId: "video-a", portId: "clips", sortOrder: 0, durationMs: 2_000 },
-          { assetId: "video-b", portId: "clips", sortOrder: 1, durationMs: 3_000 },
-          { assetId: "audio-1", portId: "soundtrack", sortOrder: 0, durationMs: 10_000 },
-        ],
-      },
-    });
+    expect(result).toMatchObject({ mediaType: "video", plan: undefined });
+    expect(state.startOperationWorker).toHaveBeenCalledOnce();
   });
 
   it.each([
     ["edit.video.stitch", ["edge-b", "edge-a"]],
     ["edit.video.stitch", ["edge-soundtrack", "stale-edge", "asset-a", "input-a", "edge-b", "edge-b"]],
-  ] as const)("uses persisted filmstrip edge order for %s in snapshots and execution plans (%j)", async (kind, clipOrder) => {
+  ] as const)("uses persisted filmstrip edge order for %s in server snapshots (%j)", async (kind, clipOrder) => {
     const state = setup();
     const type = "video";
     const portId = "clips";
@@ -537,7 +529,8 @@ describe("nodeExecutionService", () => {
     const inputs: Array<{ assetId: string; portId: string; sortOrder: number }> = ["b", "a", "c"].map((suffix, sortOrder) => ({ assetId: `asset-${suffix}`, portId, sortOrder }));
     inputs.push({ assetId: "audio-1", portId: "soundtrack", sortOrder: 0 });
     expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ inputs }));
-    expect(result).toMatchObject({ plan: { inputs: inputs.map((input) => ({ ...input, url: `https://signed.example/${input.assetId}` })) } });
+    expect(result.plan).toBeUndefined();
+    expect(state.startOperationWorker).toHaveBeenCalledOnce();
   });
 
   it("rejects a video Trim interval beyond the verified source duration", async () => {

@@ -5,6 +5,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import type {
   RuntimeAudioModel,
   RuntimeImageModel,
+  RuntimeLlmModel,
   RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
@@ -17,6 +18,8 @@ export type NodeAuthoringCatalogState = {
   imageModels: readonly RuntimeImageModel[];
   videoModels?: readonly RuntimeVideoModel[];
   audioModels?: readonly RuntimeAudioModel[];
+  llmModels?: readonly RuntimeLlmModel[];
+  assistantResults?: Readonly<Record<string, string>>;
   isLoading: boolean;
   error: string | null;
   retry: () => void;

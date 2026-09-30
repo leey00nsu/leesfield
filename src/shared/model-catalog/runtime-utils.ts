@@ -8,6 +8,18 @@ import {
 
 export type RuntimeModelType = "image" | "video" | "audio";
 
+export type RuntimeLlmModel = {
+  type: "llm";
+  key: string;
+  label: string;
+  vendor: string;
+  provider: "openai_compatible";
+  providerConfig: { base_url: string; model_id: string; supports_images: boolean };
+  hasApiKey?: boolean;
+  isActive: boolean;
+  isDefault: boolean;
+};
+
 export type RuntimeParameterValue = string | number | boolean;
 
 export type RuntimeHfParameterBinding = {

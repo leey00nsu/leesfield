@@ -92,8 +92,11 @@ export type ImageResizeMode = string;
 export type AspectRatio = string;
 export type Resolution = string;
 export type ModelType = string;
-export type ProviderType = "gemini" | "openai" | "anthropic" | "replicate" | "fal" | "kie" | "wavespeed" | "hf_space" | "codex_cli" | "codex_bridge";
+export type ProviderType = "gemini" | "openai" | "anthropic" | "replicate" | "fal" | "kie" | "wavespeed" | "hf_space" | "codex_cli" | "codex_bridge" | "openai_compatible";
 export type ModelCapability =
+  | "text-to-text"
+  | "image-to-text"
+  | "video-to-text"
   | "text-to-image"
   | "image-to-image"
   | "text-to-video"
@@ -132,6 +135,9 @@ export type SelectedModel = {
 };
 export type ProviderModel = {
   id: string;
+  /** Display-only hosted metadata; id remains the catalog selection key. */
+  modelId?: string;
+  providerLabel?: string;
   name: string;
   description: string | null;
   provider: ProviderType;
@@ -272,6 +278,7 @@ type HostWorkflowState = {
     nodeId: string,
     mediaType: "image" | "audio" | "video",
     selectedAssetId: string | null,
+    options?: { open: boolean; onOpenChange: (open: boolean) => void },
   ) => ReactNode;
   onOutputGalleryRemove?: (input: HostOutputGalleryRemoveInput) => void;
   onOutputGalleryExtract?: (input: HostOutputGalleryExtractInput) => void;
@@ -475,13 +482,18 @@ export function HostedInputHistory({
   nodeId,
   mediaType,
   selectedAssetId,
+  open,
+  onOpenChange,
 }: {
   nodeId: string;
   mediaType: "image" | "audio" | "video";
   selectedAssetId?: string | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const host = useWorkflowStore();
-  return mediaType === "image" ? host.renderInputHistory(nodeId, mediaType, selectedAssetId ?? null) : null;
+  return host.renderInputHistory(nodeId, mediaType, selectedAssetId ?? null,
+    open === undefined ? undefined : { open, onOpenChange: onOpenChange ?? (() => {}) });
 }
 
 export function useAnnotationStore<T = typeof defaultAnnotationState>(

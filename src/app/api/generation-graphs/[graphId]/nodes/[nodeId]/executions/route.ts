@@ -69,7 +69,7 @@ export async function POST(request: Request, context: RouteContext) {
         }
       : {
           executionId: result.record.id,
-          executionKind: "generation" as const,
+          executionKind: "executionKind" in result ? result.executionKind : "generation" as const,
           mediaType: result.mediaType,
           graphNodeId: nodeId,
           status: result.record.status,

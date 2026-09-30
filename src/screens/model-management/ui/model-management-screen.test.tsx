@@ -10,12 +10,13 @@ import { renderWithIntl } from "@/test-utils/intl";
 
 type AdminModelRecord = {
   id: string;
-  type: "image" | "video" | "audio";
+  type: "image" | "video" | "audio" | "llm";
   key: string;
   label: string;
   vendor: string;
   provider: string;
   providerConfig: Record<string, unknown>;
+  hasApiKey?: boolean;
   parameters: Record<string, unknown>;
   meta: Record<string, unknown>;
   isActive: boolean;
@@ -71,6 +72,13 @@ function toRecord(item: ModelCatalogItem): AdminModelRecord {
     };
   }
 
+  if (item.type === "llm") return {
+    ...base,
+    providerConfig: { base_url: "https://api.openai.com/v1", model_id: item.meta.modelId, supports_images: item.meta.supportsImages },
+    hasApiKey: item.meta.hasApiKey,
+    meta: {},
+  };
+
   return {
     ...base,
     meta: {
@@ -119,6 +127,45 @@ afterEach(() => {
 });
 
 describe("ModelManagementScreen", () => {
+  it("OpenAI 호환 LLM을 등록하고 빈 수정 키는 서버에 보내지 않는다", async () => {
+    let llm: AdminModelRecord | null = null;
+    const writes: Array<Record<string, unknown>> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      if (init?.method === "POST" || init?.method === "PATCH") {
+        const payload = JSON.parse(init.body as string) as Record<string, unknown>;
+        writes.push(payload);
+        llm = {
+          id: "assistant-id", type: "llm", key: "assistant-test", label: String(payload.label),
+          vendor: "API", provider: "openai_compatible", providerConfig: payload.providerConfig as Record<string, unknown>,
+          parameters: {}, meta: {}, hasApiKey: true, isActive: true, isDefault: false,
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        };
+        return { ok: true, json: async () => llm };
+      }
+      return { ok: true, json: async () => ({ items: llm ? [...records, llm] : records }) };
+    }));
+    const user = userEvent.setup();
+    renderWithIntl(<ModelManagementScreen />);
+    await screen.findByText(imageModel!.label);
+    await user.click(screen.getByRole("button", { name: "모델 추가" }));
+    await user.click(screen.getByRole("button", { name: "API" }));
+    await user.type(screen.getByLabelText("모델 ID"), "gpt-4.1");
+    await user.type(screen.getByLabelText("API 키"), "sk-test-secret");
+    await user.type(screen.getByRole("textbox", { name: "키" }), "assistant-test");
+    await user.type(screen.getByRole("textbox", { name: "라벨" }), "Test Assistant");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({
+      type: "llm", provider: "openai_compatible", apiKey: "sk-test-secret",
+      providerConfig: { base_url: "https://api.openai.com/v1", model_id: "gpt-4.1", supports_images: true },
+    });
+    await user.click(await screen.findByRole("button", { name: "Test Assistant" }));
+    expect(screen.getByText("키가 저장되어 있습니다. 새 키를 입력하면 교체됩니다.")).toBeInTheDocument();
+    expect(screen.getByLabelText("API 키")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1]).not.toHaveProperty("apiKey");
+  });
   it.each([false,true])("Modal 가져오기 결과를 그대로 저장한다 (structured=%s)", async (structured) => {
     const { buildModalModelDraft } = await import("@/server/modal-comfyui/importer");
     const { modelCatalogInputSchema } = await import("@/server/model-catalog/catalog-schema");

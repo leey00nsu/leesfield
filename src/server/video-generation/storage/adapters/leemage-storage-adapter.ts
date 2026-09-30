@@ -16,6 +16,7 @@ import {
 } from "@/server/http/bounded-io";
 import { mapWithConcurrency } from "@/server/http/bounded-body";
 import { uploadLeemageFile } from "@/server/shared/leemage-bounded-upload";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 const MISSING_LEEMAGE_MESSAGE =
   "Leemage 저장소 설정이 없어 결과가 히스토리에 저장되지 않습니다.";
@@ -88,7 +89,9 @@ function buildUploadFile(
   name: string,
   contentType: string,
 ): UploadableFile {
-  const arrayBuffer = Uint8Array.from(buffer).buffer;
+  const arrayBuffer = buffer.byteOffset === 0 && buffer.byteLength === buffer.buffer.byteLength
+    ? buffer.buffer as ArrayBuffer
+    : Uint8Array.from(buffer).buffer;
   return {
     name: leemageFileName(name),
     type: contentType,
@@ -209,3 +212,30 @@ export const leemageVideoStorageAdapter: VideoStorageAdapter = {
   checkAvailability: checkLeemageAvailability,
   uploadVideos: uploadGeneratedVideos,
 };
+
+export async function uploadMediaOperationVideo(
+  requestId: string,
+  result: { buffer: Buffer; width: number; height: number; durationMs: number },
+): Promise<GeneratedMediaArtifact[]> {
+  if (result.buffer.byteLength > GENERATION_OUTPUT_LIMITS.video) {
+    throw new Error("VIDEO_OUTPUT_TOO_LARGE");
+  }
+  const file = await uploadLeemageFile(
+    getLeemageClient(),
+    getLeemageConfig().projectId,
+    buildUploadFile(result.buffer, `${requestId}.mp4`, "video/mp4"),
+    { cleanup: { requestId, reason: "media_operation_output" } },
+  );
+  if (!file.url) throw new Error("VIDEO_OUTPUT_UPLOAD_INVALID");
+  return [{
+    type: "video",
+    storageProvider: "leemage",
+    storageObjectId: file.id,
+    storageUrl: file.url,
+    mimeType: "video/mp4",
+    bytes: file.size,
+    width: result.width,
+    height: result.height,
+    durationMs: result.durationMs,
+  }];
+}

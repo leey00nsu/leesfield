@@ -13,6 +13,7 @@ import type {
   ModelCapability,
   ProviderModel,
   ProviderType,
+  RecentModel,
 } from "../../leesfield/upstream-node-host";
 
 const ReplicateIcon = () => (
@@ -55,7 +56,7 @@ const OpenAIIcon = () => (
   </svg>
 );
 
-type CapabilityFilter = "all" | "image" | "video" | "audio";
+type CapabilityFilter = "all" | "image" | "video" | "audio" | "llm";
 
 export type ModelSearchDialogHostedProps = {
   /** Models supplied by the embedding application; no provider/API fetches are made. */
@@ -64,6 +65,11 @@ export type ModelSearchDialogHostedProps = {
   isLoading?: boolean;
   error?: string | null;
   onRefresh?: () => Promise<void>;
+  recentModels?: readonly RecentModel[];
+  onTrackModelUsage?: (model: Omit<RecentModel, "timestamp">) => void;
+  disabled?: boolean;
+  selectedModelId?: string | null;
+  capabilityFilters?: readonly CapabilityFilter[];
 };
 
 interface ModelSearchDialogProps {
@@ -99,20 +105,22 @@ export function ModelSearchDialog({
   const {
     incrementModalCount,
     decrementModalCount,
-    recentModels,
-    trackModelUsage,
+    recentModels: workflowRecentModels,
+    trackModelUsage: workflowTrackModelUsage,
     hostedModels,
     hostedModelsLoading,
     hostedModelsError,
     refreshHostedModels,
   } = useWorkflowStore();
   const catalog = hosted?.hostedModels ?? hostedModels;
+  const recentModels = hosted?.recentModels ?? workflowRecentModels;
+  const trackModelUsage = hosted?.onTrackModelUsage ?? workflowTrackModelUsage;
   const refreshCatalog = hosted?.onRefresh ?? refreshHostedModels;
   const selectModel = hosted?.onHostedModelSelected ?? onModelSelected;
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [providerFilter, setProviderFilter] = useState<ProviderType | "all">(
+  const [providerFilter, setProviderFilter] = useState<string>(
     initialProvider || "all"
   );
   const [capabilityFilter, setCapabilityFilter] =
@@ -178,15 +186,16 @@ export function ModelSearchDialog({
   useEffect(() => { setIsRefreshing(false); }, [isOpen, catalog]);
 
   const supportedModels = useMemo(() => catalog.filter((model) =>
-    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "text-to-audio"].includes(cap))
+    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "text-to-audio", "text-to-text", "image-to-text", "video-to-text"].includes(cap))
   ), [catalog]);
   const models = useMemo(() => supportedModels.filter((model) => {
-    if (providerFilter !== "all" && model.provider !== providerFilter) return false;
+    if (providerFilter !== "all" && (model.providerLabel ?? model.provider) !== providerFilter) return false;
     const query = debouncedSearch.trim().toLowerCase();
-    if (query && !`${model.name} ${model.id} ${model.provider} ${model.description ?? ""}`.toLowerCase().includes(query)) return false;
+    if (query && !`${model.name} ${model.id} ${model.modelId ?? ""} ${model.providerLabel ?? model.provider} ${model.description ?? ""}`.toLowerCase().includes(query)) return false;
     const capabilities = capabilityFilter === "image" ? ["text-to-image", "image-to-image"]
       : capabilityFilter === "video" ? ["text-to-video", "image-to-video", "audio-to-video"]
-      : capabilityFilter === "audio" ? ["text-to-audio"] : null;
+      : capabilityFilter === "audio" ? ["text-to-audio"]
+      : capabilityFilter === "llm" ? ["text-to-text", "image-to-text", "video-to-text"] : null;
     return !capabilities || model.capabilities.some((cap) => capabilities.includes(cap));
   }), [supportedModels, providerFilter, capabilityFilter, debouncedSearch]);
 
@@ -202,7 +211,7 @@ export function ModelSearchDialog({
     (model: ProviderModel) => {
       // Selection must still belong to this authenticated, active catalog.
       const activeModel = supportedModels.find((item) => item.id === model.id && item.provider === model.provider);
-      if (!activeModel || !selectModel) return;
+      if (!activeModel || !selectModel || hosted?.disabled) return;
       selectModel(activeModel);
       trackModelUsage({
         provider: activeModel.provider,
@@ -211,7 +220,7 @@ export function ModelSearchDialog({
       });
       onClose();
     },
-    [supportedModels, selectModel, onClose, trackModelUsage]
+    [supportedModels, selectModel, onClose, trackModelUsage, hosted?.disabled]
   );
 
   // Get provider badge color
@@ -235,11 +244,12 @@ export function ModelSearchDialog({
   };
 
   // Get provider display name
-  const getProviderDisplayName = (provider: ProviderType) => {
+  const getProviderDisplayName = (provider: string) => {
     switch (provider) {
       case "hf_space": return "Hugging Face";
       case "codex_bridge": return "Codex Bridge";
       case "codex_cli": return "Codex CLI";
+      case "openai_compatible": return "OpenAI Compatible";
       case "gemini":
         return "Gemini";
       case "replicate":
@@ -258,13 +268,13 @@ export function ModelSearchDialog({
   };
 
   const availableProviders = useMemo(
-    () => new Set(supportedModels.map((model) => model.provider)),
+    () => new Set(supportedModels.map((model) => model.providerLabel ?? model.provider)),
     [supportedModels]
   );
 
   // Reset provider filter if current selection becomes unavailable
   useEffect(() => {
-    if (providerFilter !== "all" && !availableProviders.has(providerFilter as ProviderType)) {
+    if (providerFilter !== "all" && !availableProviders.has(providerFilter)) {
       setProviderFilter("all");
     }
   }, [providerFilter, availableProviders]);
@@ -313,6 +323,18 @@ export function ModelSearchDialog({
       let label = "";
 
       switch (cap) {
+        case "text-to-text":
+          color = "bg-purple-500/20 text-purple-300";
+          label = tc("Text");
+          break;
+        case "image-to-text":
+          color = "bg-green-500/20 text-green-300";
+          label = tc("Image");
+          break;
+        case "video-to-text":
+          color = "bg-pink-500/20 text-pink-300";
+          label = tc("Video");
+          break;
         case "text-to-image":
           color = "bg-green-500/20 text-green-300";
           label = "T2I";
@@ -387,7 +409,7 @@ export function ModelSearchDialog({
               />
             </div>
 
-            <CanvasSelect aria-label={tc("Provider")} value={providerFilter} onChange={event=>setProviderFilter(event.target.value as ProviderType | "all")}><option value="all">{tc("All Providers")}</option>{[...availableProviders].map(provider=><option key={provider} value={provider}>{getProviderDisplayName(provider)}</option>)}</CanvasSelect>
+            <CanvasSelect aria-label={tc("Provider")} value={providerFilter} onChange={event=>setProviderFilter(event.target.value)}><option value="all">{tc("All Providers")}</option>{[...availableProviders].map(provider=><option key={provider} value={provider}>{getProviderDisplayName(provider)}</option>)}</CanvasSelect>
             {/* Capability Filter */}
             <CanvasSelect
               aria-label={tc("Model capability")}
@@ -397,10 +419,7 @@ export function ModelSearchDialog({
               }
               className="px-3 py-2 text-sm bg-neutral-700 border border-neutral-600 rounded text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-500"
             >
-              <option value="all">{tc("All Types")}</option>
-              <option value="image">{tc("Image")}</option>
-              <option value="video">{tc("Video")}</option>
-              <option value="audio">{tc("Audio")}</option>
+              {(hosted?.capabilityFilters ?? ["all", "image", "video", "audio", ...(supportedModels.some(model => model.capabilities.includes("text-to-text")) ? ["llm"] : [])]).map(type => <option key={type} value={type}>{tc(type === "all" ? "All Types" : type === "image" ? "Image" : type === "video" ? "Video" : type === "audio" ? "Audio" : "LLM")}</option>)}
             </CanvasSelect>
 
             {/* Refresh Cache */}
@@ -543,6 +562,8 @@ export function ModelSearchDialog({
                         <button
                           key={`recent-${recent.provider}-${recent.modelId}`}
                           onClick={() => handleSelectModel(model)}
+                          disabled={hosted?.disabled}
+                          aria-pressed={hosted?.selectedModelId === undefined ? undefined : hosted.selectedModelId === model.id}
                           className="flex items-center gap-3 p-3 bg-neutral-700/50 hover:bg-neutral-700 border border-neutral-600/30 hover:border-neutral-500 rounded-lg transition-colors text-left cursor-pointer group"
                         >
                           {/* Small cover image */}
@@ -578,7 +599,7 @@ export function ModelSearchDialog({
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded ${getProviderBadgeColor(recent.provider)}`}
                             >
-                              {getProviderDisplayName(recent.provider)}
+                              {model.providerLabel ?? getProviderDisplayName(recent.provider)}
                             </span>
                           </div>
                         </button>
@@ -594,6 +615,8 @@ export function ModelSearchDialog({
                 <button
                   key={`${model.provider}-${model.id}`}
                   onClick={() => handleSelectModel(model)}
+                  disabled={hosted?.disabled}
+                  aria-pressed={hosted?.selectedModelId === undefined ? undefined : hosted.selectedModelId === model.id}
                   className="flex items-start gap-3 p-4 bg-neutral-700/50 hover:bg-neutral-700 border border-neutral-600/50 hover:border-neutral-500 rounded-lg transition-colors text-left cursor-pointer group"
                 >
                   {/* Cover Image - larger */}
@@ -637,7 +660,7 @@ export function ModelSearchDialog({
                     {/* Model ID with link to provider page */}
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-xs text-neutral-500 truncate font-mono">
-                        {model.id}
+                        {model.modelId ?? model.id}
                       </span>
                       {getModelUrl(model) && (
                         <a
@@ -670,7 +693,7 @@ export function ModelSearchDialog({
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${getProviderBadgeColor(model.provider)}`}
                       >
-                        {getProviderDisplayName(model.provider)}
+                        {model.providerLabel ?? getProviderDisplayName(model.provider)}
                       </span>
                       {getCapabilityBadges(model.capabilities)}
                     </div>

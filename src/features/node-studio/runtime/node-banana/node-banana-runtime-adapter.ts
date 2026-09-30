@@ -49,6 +49,8 @@ export type NodeBananaNodeData = Record<string, unknown> & {
 
 const runtimeTypeForKind = (kind: string) =>
   kind === "note.memo" ? "memoNode"
+    : kind === "generate.assistant" ? "leesfieldAssistantNode"
+    : kind === "edit.video.stitch" || kind === "edit.video.trim" ? "leesfieldVideoNode"
     : kind.startsWith("generate.") ? "generationNode"
       : findNodeDefinition(kind) ? "canonicalNode" : "unsupportedNode";
 
@@ -420,6 +422,7 @@ export function defaultConfigForKind(kind: CanonicalNodeKind): CanonicalJsonValu
   if (kind.startsWith("input.")) {
     return kind === "input.prompt" ? { text: "" } : { assetId: null };
   }
+  if (kind === "generate.assistant") return { prompt: "", modelKey: null };
   if (kind.startsWith("generate.")) return { prompt: "", modelKey: null, parameters: {} };
   if (kind === "edit.image.removeBackground") return { parameters: { model: "isnet_fp16" } };
   if (kind === "edit.image.resize") {
@@ -469,7 +472,7 @@ export function createCanonicalRuntimeNode(
     position,
     configVersion: 1,
     config: kind.startsWith("generate.") && initialModelKey
-      ? { prompt: "", modelKey: initialModelKey, parameters: {} }
+      ? kind === "generate.assistant" ? { prompt: "", modelKey: initialModelKey } : { prompt: "", modelKey: initialModelKey, parameters: {} }
       : defaultConfigForKind(kind),
     selectedOutputAssetId: null,
   };

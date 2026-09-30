@@ -52,6 +52,12 @@ type RouteContext = {
     if (error instanceof Error && error.message === "MODEL_NOT_FOUND") {
       return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
     }
+    if (error instanceof Error && ["MODEL_API_KEY_REQUIRED", "MODEL_API_KEY_INVALID"].includes(error.message)) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
+    if (error instanceof Error && error.message.startsWith("MODEL_CREDENTIAL_ENCRYPTION_KEY_")) {
+      return NextResponse.json({ message: "MODEL_CREDENTIAL_UNAVAILABLE" }, { status: 503 });
+    }
     if (
       error instanceof Error &&
       (error.message === "TYPE_IMMUTABLE" || error.message === "KEY_IMMUTABLE")

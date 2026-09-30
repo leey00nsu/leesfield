@@ -67,6 +67,9 @@ describe("Node Banana approved Node inventory", () => {
       .map(([kind, item]) => [kind, item.parity]))
       .toEqual([
         ["note.memo", "leesfield"],
+        ["generate.assistant", "leesfield"],
+        ["edit.video.stitch", "leesfield"],
+        ["edit.video.trim", "leesfield"],
         ["output.gallery", "upstream-extended"],
       ]);
   });
@@ -156,10 +159,10 @@ describe("Node Banana approved Node inventory", () => {
       "note.memo": "none",
       "input.image": "none", "input.audio": "none", "input.video": "none", "input.prompt": "none",
       "process.promptConstructor": "none",
-      "generate.image": "server-generation", "generate.audio": "server-generation", "generate.video": "server-generation",
+      "generate.image": "server-generation", "generate.audio": "server-generation", "generate.video": "server-generation", "generate.assistant": "server-generation",
       "edit.image.annotation": "browser-operation", "edit.image.resize": "browser-operation",
       "edit.image.removeBackground": "server-operation", "edit.image.splitGrid": "browser-operation", "edit.image.gif": "browser-operation",
-      "edit.video.stitch": "browser-operation", "edit.video.trim": "browser-operation",
+      "edit.video.stitch": "server-operation", "edit.video.trim": "server-operation",
       "edit.video.frameGrab": "browser-operation", "edit.video.easeCurve": "browser-operation",
       "output.single": "none", "output.gallery": "none", "inspect.imageCompare": "none",
     } as const;
@@ -180,7 +183,10 @@ describe("Node Banana approved Node inventory", () => {
       const definition = findNodeDefinition(kind);
 
       expect(runtime.nodes[0]).toMatchObject({
-        type: kind === "note.memo" ? "memoNode" : kind.startsWith("generate.") ? "generationNode" : "canonicalNode",
+        type: kind === "note.memo" ? "memoNode"
+          : kind === "edit.video.stitch" || kind === "edit.video.trim" ? "leesfieldVideoNode"
+            : kind === "generate.assistant" ? "leesfieldAssistantNode"
+            : kind.startsWith("generate.") ? "generationNode" : "canonicalNode",
         data: { canonicalKind: kind, config, ports: definition?.ports },
       });
       expect(restored).toEqual(document);

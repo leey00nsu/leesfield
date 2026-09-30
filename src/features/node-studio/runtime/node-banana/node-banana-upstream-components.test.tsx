@@ -1,4 +1,5 @@
 import { AppCanvasInputProvider } from "@/shared/ui/app-canvas-input-provider";
+import { AppDialog, AppDialogContent, AppDialogTitle } from "@/shared/ui/app-dialog";
 import { act, cleanup, fireEvent, render as baseRender, screen, waitFor, within } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -883,17 +884,29 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
     cleanup();
   });
 
-  it("opens upload and asset choices from the image input body", () => {
+  it.each([['input.image', 'Choose image'], ['input.video', 'Upload video file']] as const)("opens and dismisses %s choices while keeping the asset modal independent", (kind, label) => {
     const selectAsset = vi.fn();
     render(<ReactFlowProvider><NodeBananaUpstreamHostProvider value={{
-      renderInputHistory: (nodeId) => <button onClick={() => selectAsset(nodeId)}>Assets</button>,
-    }}>{identityNode("input.image", "direct-image")}</NodeBananaUpstreamHostProvider></ReactFlowProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "Choose image" }));
+      renderInputHistory: (nodeId, mediaType, selectedAssetId, options) => options?.open ? <AppDialog open onOpenChange={options.onOpenChange}><AppDialogContent aria-label="Assets"><AppDialogTitle>Assets</AppDialogTitle><button onClick={() => {selectAsset(nodeId); options.onOpenChange(false);}}>Select asset</button></AppDialogContent></AppDialog> : null,
+    }}>{identityNode(kind, "direct-image")}</NodeBananaUpstreamHostProvider><button>Outside</button></ReactFlowProvider>);
+    const trigger = screen.getByRole("button", { name: label });
+    fireEvent.click(trigger);
     expect(screen.getByRole("button", { name: "Upload" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Assets" }));
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Assets" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Select asset" }));
     expect(selectAsset).toHaveBeenCalledWith("direct-image");
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
     expect(screen.queryByRole("button", { name: "Assets" })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    act(() => screen.getByRole("button", { name: "Outside" }).focus());
+    expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
     cleanup();
   });
 

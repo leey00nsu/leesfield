@@ -8,7 +8,7 @@ import {
   lockMediaOperationClaims,
   MEDIA_OPERATION_GLOBAL_LIMIT,
   MEDIA_OPERATION_LEASE_MS,
-  MEDIA_OPERATION_WORKER_TYPE,
+  MEDIA_OPERATION_WORKER_TYPES,
   mediaOperationLeaseWhere,
   recoverMediaOperationRows,
   MediaOperationLeaseLostError,
@@ -189,7 +189,7 @@ async function failOperation(
     where: {
       id: operationId,
       ownerEmail,
-      ...(lease ? { type: MEDIA_OPERATION_WORKER_TYPE } : {}),
+      ...(lease ? { type: { in: [...MEDIA_OPERATION_WORKER_TYPES] } } : {}),
       status: { in: [...activeOperationStatuses] },
       ...(lease ? mediaOperationLeaseWhere(lease) : {}),
     },
@@ -228,7 +228,7 @@ async function claimPendingServerOperation(operationId: string) {
       where: {
         id: operationId,
         status: "pending",
-        type: MEDIA_OPERATION_WORKER_TYPE,
+        type: { in: [...MEDIA_OPERATION_WORKER_TYPES] },
         executionLeaseToken: null,
         executionLeaseUntil: null,
       },
@@ -260,7 +260,7 @@ async function claimPendingServerOperation(operationId: string) {
 
 async function listPendingServerOperationIds(take = 20) {
   return prisma.mediaOperation.findMany({
-    where: { status: "pending", type: "edit.image.removeBackground" },
+    where: { status: "pending", type: { in: [...MEDIA_OPERATION_WORKER_TYPES] } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take,
     select: { id: true },

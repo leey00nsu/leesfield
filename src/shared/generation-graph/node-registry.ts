@@ -11,6 +11,7 @@ export const canonicalNodeKinds = [
   "generate.image",
   "generate.audio",
   "generate.video",
+  "generate.assistant",
   "edit.image.annotation",
   "edit.image.resize",
   "edit.image.removeBackground",
@@ -87,6 +88,11 @@ const generationConfigSchema = z
     ...presentationField,
   })
   .strict();
+const assistantConfigSchema = z.object({
+  prompt: z.string().max(20_000),
+  modelKey: z.string().trim().min(1).max(200).nullable(),
+  ...presentationField,
+}).strict();
 const annotationShapeBaseSchema = {
   id: idSchema,
   x: z.number(),
@@ -355,6 +361,17 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
     ],
     "server-generation",
   ),
+  "generate.assistant": definition(
+    "generate.assistant",
+    assistantConfigSchema,
+    [
+      input("text", "text"),
+      input("images", "image", { edgeCardinality: "many", valueShape: "ordered-list", ordered: true, maxConnections: 4, acceptedMimeTypes: imageMime }),
+      input("videos", "video", { edgeCardinality: "many", valueShape: "ordered-list", ordered: true, maxConnections: 2, acceptedMimeTypes: videoMime }),
+      output("text", "text"),
+    ],
+    "server-generation",
+  ),
   "edit.image.annotation": definition(
     "edit.image.annotation",
     annotationConfigSchema,
@@ -434,7 +451,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
       input("soundtrack", "audio", { acceptedMimeTypes: audioMime }),
       output("video", "video", { acceptedMimeTypes: videoMime }),
     ],
-    "browser-operation",
+    "server-operation",
   ),
   "edit.video.trim": definition(
     "edit.video.trim",
@@ -448,7 +465,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
       }),
       output("video", "video", { acceptedMimeTypes: videoMime }),
     ],
-    "browser-operation",
+    "server-operation",
   ),
   "edit.video.frameGrab": definition(
     "edit.video.frameGrab",

@@ -12,6 +12,7 @@ import {
   resolveRuntimeVideoSupportsInitImage,
   type RuntimeAudioModel,
   type RuntimeImageModel,
+  type RuntimeLlmModel,
   type RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
 
@@ -57,6 +58,8 @@ export type NodeRunReadinessCatalog = {
   imageModels: readonly RuntimeImageModel[];
   videoModels?: readonly RuntimeVideoModel[];
   audioModels?: readonly RuntimeAudioModel[];
+  llmModels?: readonly RuntimeLlmModel[];
+  assistantResults?: Readonly<Record<string, string>>;
   backgroundRemovalAvailable?: boolean;
 };
 
@@ -78,6 +81,7 @@ function sourceReady(
   graph: Pick<GraphDocumentV2, "nodes" | "edges">,
   edge: GraphDocumentV2["edges"][number],
   visited: Set<string> = new Set(),
+  assistantResults: Readonly<Record<string, string>> = {},
 ) {
   const source = graph.nodes.find((node) => node.id === edge.sourceNodeId);
   if (!source) return false;
@@ -95,11 +99,11 @@ function sourceReady(
   const upstream = passThroughPort
     ? graph.edges.find((candidate) => candidate.targetNodeId === source.id && candidate.targetPortId === passThroughPort)
     : null;
-  if (upstream) return sourceReady(graph, upstream, nextVisited);
+  if (upstream) return sourceReady(graph, upstream, nextVisited, assistantResults);
   const sourcePort = findPortDefinition(source.kind, edge.sourcePortId, "output");
   if (!sourcePort) return false;
   if (sourcePort.valueType === "text") {
-    try { return Boolean(resolveGraphText(graph, source.id).trim()); } catch { return false; }
+    try { return Boolean(resolveGraphText(graph, source.id, new Set(), assistantResults).trim()); } catch { return false; }
   }
   return Boolean(selectedAssetId(source));
 }
@@ -135,7 +139,7 @@ export function resolveNodeRunReadiness(
   const readyCounts = new Map<string, number>();
 
   for (const edge of incoming) {
-    if (!sourceReady(graph, edge)) {
+    if (!sourceReady(graph, edge, new Set(), catalog.assistantResults)) {
       reasons.push("INPUT_NOT_READY");
       continue;
     }
@@ -155,7 +159,15 @@ export function resolveNodeRunReadiness(
 
   if (node.kind.startsWith("generate.")) {
     const promptFromConfig = typeof config.prompt === "string" && Boolean(config.prompt.trim());
-    const promptFromEdge = (readyCounts.get("prompt") ?? 0) > 0;
+    const promptFromEdge = (readyCounts.get(node.kind === "generate.assistant" ? "text" : "prompt") ?? 0) > 0;
+    if (node.kind === "generate.assistant") {
+      const model = (catalog.llmModels ?? []).find((candidate) => candidate.key === modelKey && candidate.isActive);
+      if (!model) reasons.push("MODEL_REQUIRED");
+      const visualCount = (readyCounts.get("images") ?? 0) + (readyCounts.get("videos") ?? 0);
+      if (visualCount && model && !model.providerConfig.supports_images) reasons.push("INPUT_UNSUPPORTED");
+      if (!promptFromConfig && !promptFromEdge && !visualCount) reasons.push("PROMPT_REQUIRED");
+      return uniqueReasons(reasons);
+    }
     const selectedModel = [...catalog.imageModels,...(catalog.videoModels??[]),...(catalog.audioModels??[])].find(m=>m.key===modelKey);
     const contract = selectedModel ? getGradioContract(selectedModel) : null;
     const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&f.default===undefined);

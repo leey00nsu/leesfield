@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@xyflow/react", () => ({
+  useStore: () => true,
   Handle: ({ id }: { id: string }) => <span data-handle-id={id} />,
   NodeResizer: () => <span data-node-resizer="" />,
   Position: { Left: "left", Right: "right" },
@@ -85,8 +86,8 @@ import { GenerationNode } from "./generation-node";
 
 // Constructor ships only through the vendored runtime. Its actual body and edits
 // are covered by node-banana-upstream-components.test.tsx and the browser suite.
-const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo");
-const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor" | "note.memo">, string>> = {
+const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo" && kind !== "generate.assistant");
+const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor" | "note.memo" | "generate.assistant">, string>> = {
   "input.image": '[data-node-banana-component="ImageInputNode"]',
   "input.audio": '[data-node-banana-component="AudioInputNode"]',
   "input.video": '[data-node-banana-component="VideoInputNode"]',
@@ -168,14 +169,14 @@ describe("legacy Node Banana body presenters", () => {
     }
   });
 
-  it("keeps the upstream operation-specific controls instead of a generic parameter form", async () => {
+  it("keeps kind-specific upstream or Leesfield operation controls", async () => {
     const probes: ReadonlyArray<[keyof typeof bodySelector, string]> = [
       ["edit.image.annotation", "button"],
       ["edit.image.resize", '[role="group"][aria-label="크기 조절 방식"]'],
       ["edit.image.removeBackground", '[data-node-banana-component="OperationPreview"]'],
       ["edit.image.splitGrid", 'input[aria-label="행"]'],
       ["edit.image.gif", '[data-node-banana-component="FrameFilmstrip"]'],
-      ["edit.video.stitch", '[data-node-banana-component="ClipFilmstrip"]'],
+      ["edit.video.stitch", '[data-leesfield-component="VideoClipOrder"]'],
       ["edit.video.trim", 'input[type="range"]'],
       ["edit.video.frameGrab", '[role="group"][aria-label="프레임 위치"]'],
       ["edit.video.easeCurve", '[role="combobox"]'],

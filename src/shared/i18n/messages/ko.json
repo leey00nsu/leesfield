@@ -726,7 +726,8 @@
       "type": {
         "image": "이미지",
         "video": "비디오",
-        "audio": "오디오"
+        "audio": "오디오",
+        "llm": "AI 어시스턴트"
       },
       "default": "기본",
       "inactive": "비활성",

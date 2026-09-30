@@ -12,6 +12,7 @@ function record(value: unknown) {
 export function resolveNodePromptInput(
   graph: NodeBananaRuntimeGraph,
   nodeId: string,
+  assistantResults: Readonly<Record<string, string>> = {},
 ): NodePromptInputState {
   const edge = graph.edges.find((candidate) => candidate.target === nodeId &&
     ["text", "prompt"].includes(String(candidate.data?.targetPortId ?? candidate.targetHandle)));
@@ -21,7 +22,7 @@ export function resolveNodePromptInput(
       nodes: graph.nodes.map((node) => ({ id: node.id, kind: String(node.data.canonicalKind), config: node.data.config })),
       edges: graph.edges.map((edge) => ({ sourceNodeId: edge.source, targetNodeId: edge.target,
         targetPortId: String(edge.data?.targetPortId ?? edge.targetHandle), sortOrder: Number(edge.data?.sortOrder ?? 0), hasPause: edge.data?.hasPause === true })),
-    }, edge.source) };
+    }, edge.source, new Set(), assistantResults) };
   } catch { return { connected: true, text: null }; }
 }
 

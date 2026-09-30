@@ -818,14 +818,53 @@ describe("NodeStudioWorkspace", () => {
       resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown>;
       onDraftChange: (draft: unknown) => void;
     };
-    await waitFor(() => expect(studio().resolveUpstreamNodeData("local", {})[type === "audio" ? "audioFile" : type]).toBe("/api/media-assets/local-asset/content"));
+    await waitFor(() => expect(mocks.nodeStudio).toHaveBeenCalled());
+    expect(studio().resolveUpstreamNodeData("local", {})[type === "audio" ? "audioFile" : type]).toBe(type === "video" ? null : "/api/media-assets/local-asset/content");
     expect(studio().resolveUpstreamNodeData("single", {})[type]).toBeNull();
     expect(studio().resolveUpstreamNodeData("gallery", {})[`${type}s`]).toEqual([]);
     expect(studio().resolveUpstreamNodeData("values", {})[valuePort]).toEqual(type === "video" ? [] : null);
     await act(async () => studio().onDraftChange({ ...connectedGraph, edges: consumerEdges }));
+    expect(studio().resolveUpstreamNodeData("local", {})[type === "audio" ? "audioFile" : type]).toBe("/api/media-assets/local-asset/content");
     expect(studio().resolveUpstreamNodeData("single", {})[type]).toBe("/api/media-assets/local-asset/content");
     expect(studio().resolveUpstreamNodeData("gallery", {})[`${type}s`]).toEqual(["/api/media-assets/local-asset/content"]);
     expect(studio().resolveUpstreamNodeData("values", {})[valuePort]).toEqual(type === "video" ? ["/api/media-assets/local-asset/content"] : "/api/media-assets/local-asset/content");
+  });
+
+  it.each(["edit.video.trim", "edit.video.stitch"])("previews %s through Video Input without replacing its upload", async (kind) => {
+    outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map((id) => ({
+      data: { id, type: "video", url: `https://cdn.test/${id}.mp4`, durationMs: id === "result" ? 700 : 2000,
+        mimeType: "video/mp4", width: 640, height: 360 },
+    })));
+    const snapshot: GenerationGraphSnapshotDto = { ...graph, nodes: [
+      { id: "operation", kind, position: { x: 0, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: "result" },
+      { id: "relay", kind: "input.video", position: { x: 300, y: 0 }, configVersion: 1,
+        config: { assetId: "local", filename: "local.mp4" }, selectedOutputAssetId: null },
+      { id: "gallery", kind: "output.gallery", position: { x: 600, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
+    ], edges: [
+      { id: "in", sourceNodeId: "operation", sourcePortId: "video", targetNodeId: "relay", targetPortId: "video", sortOrder: 0 },
+      { id: "out", sourceNodeId: "relay", sourcePortId: "video", targetNodeId: "gallery", targetPortId: "video", sortOrder: 0 },
+    ] };
+    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
+    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
+      resolveUpstreamNodeData: (id: string, data: Record<string, unknown>) => Record<string, unknown>;
+      onDraftChange: (draft: unknown) => void;
+    };
+    await waitFor(() => expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({
+      video: "/api/media-assets/result/content", videoRef: "result",
+      outputVideo: "/api/media-assets/result/content", outputVideoRef: "result",
+      duration: 0.7, dimensions: { width: 640, height: 360 }, format: "video/mp4",
+      filename: null, hasConnectedVideo: true,
+    }));
+    expect(studio().resolveUpstreamNodeData("gallery", {})).toMatchObject({ videoRefs: ["result"] });
+    const pending = { ...snapshot, nodes: snapshot.nodes.map((node) => node.id === "operation" ? { ...node, selectedOutputAssetId: null } : node) };
+    await act(async () => studio().onDraftChange(pending));
+    expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({ video: null, videoRef: null, duration: null, hasConnectedVideo: true });
+    expect(mocks.update.mock.lastCall?.[0].nodes.find((node: { id: string }) => node.id === "relay").config).toEqual({ assetId: "local", filename: "local.mp4" });
+    await act(async () => studio().onDraftChange({ ...pending, edges: snapshot.edges.filter((edge) => edge.id !== "in") }));
+    expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({
+      video: "/api/media-assets/local/content", videoRef: "local", duration: 2, filename: "local.mp4", hasConnectedVideo: false,
+    });
+    expect(studio().resolveUpstreamNodeData("gallery", {})).toMatchObject({ videoRefs: ["local"] });
   });
 
   it.each(["image", "audio", "video"] as const)("keeps an empty connected %s prompt authoritative until disconnect", async (type) => {

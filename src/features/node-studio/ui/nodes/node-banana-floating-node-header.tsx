@@ -2,7 +2,7 @@
 import { AppTextarea } from "@/shared/ui/app-form-control";
 
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Maximize2, MessageSquare, Minimize2, Play } from "lucide-react";
 
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
@@ -35,6 +35,8 @@ export function NodeBananaFloatingNodeHeader({
   onToggleExpanded,
   runnable = false,
   onRun,
+  beforeActions,
+  afterActions,
 }: {
   nodeId: string;
   title: string;
@@ -46,6 +48,8 @@ export function NodeBananaFloatingNodeHeader({
   onToggleExpanded?: () => void;
   runnable?: boolean;
   onRun?: () => void;
+  beforeActions?: ReactNode;
+  afterActions?: ReactNode;
 }) {
   const t = useTranslations("nodeStudio.host");
   const authoring = useNodeAuthoring();
@@ -132,6 +136,7 @@ export function NodeBananaFloatingNodeHeader({
           selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
         )}
       >
+        {beforeActions}
         {requiredToggle ? (
           <button
             type="button"
@@ -207,6 +212,7 @@ export function NodeBananaFloatingNodeHeader({
             </span>
           </button>
         ) : null}
+        {afterActions}
         {runnable && onRun ? (
           <button
             type="button"

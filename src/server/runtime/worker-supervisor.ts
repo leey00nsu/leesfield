@@ -11,6 +11,7 @@ import {
   stopMediaOperationWorker,
 } from "@/server/media-operations/media-operation-worker";
 import { prisma } from "@/server/db/prisma";
+import { startAssistantWorker, stopAssistantWorker } from "@/server/assistant-executions/assistant-worker";
 import {
   getMediaCleanupWorkerState,
   MEDIA_CLEANUP_WORKER_DRAIN_TIMEOUT_MS,
@@ -37,6 +38,7 @@ type WorkerLifecycle = {
 export type WorkerSupervisorDependencies = {
   generation: WorkerLifecycle;
   mediaOperation: WorkerLifecycle;
+  assistant?: WorkerLifecycle;
   cleanup?: WorkerLifecycle;
   disconnect(): Promise<void>;
 };
@@ -62,6 +64,7 @@ const defaultDependencies: WorkerSupervisorDependencies = {
     start: startMediaOperationWorker,
     stop: stopMediaOperationWorker,
   },
+  assistant: { start: startAssistantWorker, stop: stopAssistantWorker },
   cleanup: {
     start: startMediaCleanupWorker,
     stop: stopMediaCleanupWorker,
@@ -88,6 +91,7 @@ export function createWorkerSupervisor(
     if (started || stopping) return;
     dependencies.generation.start();
     dependencies.mediaOperation.start();
+    dependencies.assistant?.start();
     dependencies.cleanup?.start();
     runtimeProcess.once("SIGTERM", onSignal);
     runtimeProcess.once("SIGINT", onSignal);
@@ -113,6 +117,7 @@ export function createWorkerSupervisor(
       const workerResults = await Promise.allSettled([
         dependencies.generation.stop({ drainTimeoutMs }),
         dependencies.mediaOperation.stop({ drainTimeoutMs }),
+        ...(dependencies.assistant ? [dependencies.assistant.stop({ drainTimeoutMs })] : []),
         ...(dependencies.cleanup ? [dependencies.cleanup.stop({ drainTimeoutMs })] : []),
       ]);
       const disconnectResult = await Promise.allSettled([

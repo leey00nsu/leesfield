@@ -99,6 +99,7 @@ export type NodeBananaModelResolver = (
 ) => NodeBananaModelCatalogEntry | null | undefined;
 
 export type NodeBananaHostAdapterOptions = {
+  assistantResults?: Readonly<Record<string, string>>;
   /** Resolve both input asset IDs and selected output asset IDs. */
   resolveAsset?: NodeBananaAssetResolver;
   /** Alias useful to callers that already use an asset-resolver name. */
@@ -178,6 +179,7 @@ export const nodeBananaLegacyTypeByCanonicalKind: Readonly<
   "generate.image": "nanoBanana",
   "generate.audio": "generateAudio",
   "generate.video": "generateVideo",
+  "generate.assistant": "assistant",
   "edit.image.annotation": "annotation",
   "edit.image.resize": "imageResize",
   "edit.image.removeBackground": "removeBackground",
@@ -404,7 +406,10 @@ function legacyDataToConfig(kind: string, data: JsonObject): JsonObject {
   const parameters: JsonObject = isRecord(data.parameters) ? { ...data.parameters } : {};
   const config: JsonObject = { parameters };
 
-  if (kind === "note.memo") {
+  if (kind === "generate.assistant") {
+    config.prompt = data.prompt ?? "";
+    config.modelKey = data.modelKey ?? null;
+  } else if (kind === "note.memo") {
     config.text = data.text ?? "";
   } else if (kind === "input.image" || kind === "input.audio" || kind === "input.video") {
     config.assetId = data.assetId ?? data.imageRef ?? data.audioFileRef ?? data.videoRef ?? null;
@@ -713,10 +718,17 @@ function sourceValuesFor(
   const nextVisited = new Set(visited).add(node.id);
   const data = node.data;
   const kind = stringValue(data.canonicalKind) ?? "";
+  if (kind === "generate.assistant" && sourcePortId === "text") {
+    const text = stringValue(data.outputText);
+    return text ? [{ type: "text", value: text, sourceNodeId: node.id }] : [];
+  }
   if ((kind === "input.prompt" || kind === "process.promptConstructor") && sourcePortId === "text") {
     try {
+      const assistantResults = Object.fromEntries([...nodesById.values()]
+        .filter((source) => source.data.canonicalKind === "generate.assistant" && typeof source.data.outputText === "string")
+        .map((source) => [source.id, source.data.outputText as string]));
       const text = resolveGraphText({ nodes: [...nodesById.values()].map((source) => ({ id: source.id, kind: String(source.data.canonicalKind), config: source.data.config })),
-        edges: edges.map((edge) => ({ sourceNodeId: edge.source, targetNodeId: edge.target, targetPortId: edge.data.targetPortId, sortOrder: edge.data.sortOrder, hasPause: edge.data.hasPause })) }, node.id);
+        edges: edges.map((edge) => ({ sourceNodeId: edge.source, targetNodeId: edge.target, targetPortId: edge.data.targetPortId, sortOrder: edge.data.sortOrder, hasPause: edge.data.hasPause })) }, node.id, new Set(), assistantResults);
       return text ? [{ type: "text", value: text, sourceNodeId: node.id }] : [];
     } catch { return []; }
   }
@@ -1042,7 +1054,9 @@ function projectNodeData(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.originalIndex - b.originalIndex)
     .map((edge) => edge.id);
 
-  if (kind === "note.memo") {
+  if (kind === "generate.assistant") {
+    data.outputText = options.assistantResults?.[normalized.id] ?? null;
+  } else if (kind === "note.memo") {
     data.text = typeof config.text === "string" ? config.text : "";
   } else if (kind === "input.image") {
     const assetId = stringValue(config.assetId);
@@ -1249,7 +1263,7 @@ export function adaptNodeBananaHostGraph(
     const data = projectNodeData(node, incoming, options);
     if (node.kind === "process.promptConstructor" || node.kind === "input.prompt") {
       try {
-        const text = resolveGraphText(normalized, node.id);
+        const text = resolveGraphText(normalized, node.id, new Set(), options.assistantResults);
         if (node.kind === "process.promptConstructor") data.outputText = text || null;
         else data.resolvedPrompt = text;
       } catch { data.outputText = null; data.error = "Unable to resolve prompt inputs."; }

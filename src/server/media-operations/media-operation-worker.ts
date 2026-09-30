@@ -1,4 +1,5 @@
 import { uploadMediaOperationImages } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
+import { uploadMediaOperationVideo } from "@/server/video-generation/storage/adapters/leemage-storage-adapter";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
 import { releaseStorageCleanupsForRequest } from "@/server/media-assets/media-cleanup-repository";
@@ -9,6 +10,7 @@ import {
 } from "./media-operation-lease";
 
 import { removeImageBackground } from "./hf-background-removal-adapter";
+import { processVideoOperation, VideoOperationError } from "./ffmpeg-video-processor";
 import { recordWorkerFailure } from "@/server/observability/metrics";
 import { logStructured } from "@/server/observability/request-observability";
 
@@ -57,20 +59,28 @@ async function handleOperation(operationId: string) {
   );
   const monitor = startMediaOperationLeaseMonitor(operation.id, ownedLease);
   try {
-    const input = operation.inputs[0];
-    if (!input) throw new Error("NODE_INPUT_INVALID");
-    const asset = await mediaAssetService.get(operation.ownerEmail, input.assetId);
-    monitor.assertOwned();
-    const result = await removeImageBackground(asset.url);
-    monitor.assertOwned();
-    const current = await mediaAssetRepository.getOperation(operation.ownerEmail, operation.id);
-    if (current.status !== "processing") return;
-    monitor.assertOwned();
-    const artifacts = await uploadMediaOperationImages(operation.id, [{
-      dataUrl: result.dataUrl,
-      width: asset.width,
-      height: asset.height,
-    }]);
+    let artifacts;
+    if (operation.type === "edit.image.removeBackground") {
+      const input = operation.inputs[0];
+      if (!input) throw new Error("NODE_INPUT_INVALID");
+      const asset = await mediaAssetService.get(operation.ownerEmail, input.assetId);
+      monitor.assertOwned();
+      const result = await removeImageBackground(asset.url);
+      monitor.assertOwned();
+      const current = await mediaAssetRepository.getOperation(operation.ownerEmail, operation.id);
+      if (current.status !== "processing") return;
+      artifacts = await uploadMediaOperationImages(operation.id, [{
+        dataUrl: result.dataUrl,
+        width: asset.width,
+        height: asset.height,
+      }]);
+    } else {
+      const video = await processVideoOperation(operation, monitor.signal);
+      monitor.assertOwned();
+      const current = await mediaAssetRepository.getOperation(operation.ownerEmail, operation.id);
+      if (current.status !== "processing") return;
+      artifacts = await uploadMediaOperationVideo(operation.id, video);
+    }
     monitor.assertOwned();
     await mediaAssetRepository.completeServerOperation(
       operation.ownerEmail,
@@ -87,9 +97,11 @@ async function handleOperation(operationId: string) {
       errorType: error instanceof Error ? error.name : typeof error,
     }, "error");
     await releaseStorageCleanupsForRequest(undefined, operation.id).catch(() => undefined);
-    const code = error instanceof Error && error.message === "PROCESSOR_UNAVAILABLE"
-      ? "PROCESSOR_UNAVAILABLE"
-      : "PROCESSOR_FAILED";
+    const code = error instanceof VideoOperationError
+      ? error.code
+      : error instanceof Error && error.message === "PROCESSOR_UNAVAILABLE"
+        ? "PROCESSOR_UNAVAILABLE"
+        : "PROCESSOR_FAILED";
     if (isMediaOperationLeaseLost(error)) return;
     try {
       await mediaAssetRepository.failOperation(

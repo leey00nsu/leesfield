@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Plus,
   RefreshCw,
+  Sparkles,
   Video,
 } from "lucide-react";
 import { gradioDiagnosticMessage } from "@/shared/model-catalog/gradio-diagnostic-message";
@@ -69,14 +70,14 @@ import { AppCard } from "@/shared/ui/app-card";
 const DEFAULT_VENDOR = "HUGGINGFACE";
 const DEFAULT_PROVIDER = "hf_space";
 
-type ModelType = "image" | "video" | "audio";
+type ModelType = "image" | "video" | "audio" | "llm";
 type VendorOption = "HUGGINGFACE" | "API" | "MODAL";
 type ModelSortOption = "latest" | "name" | "type";
 
 const vendorOptions: Array<{ value: VendorOption; disabled?: boolean }> = [
   { value: "HUGGINGFACE" },
   { value: "MODAL" },
-  { value: "API", disabled: true },
+  { value: "API" },
 ];
 
 const modelSortOptions: ModelSortOption[] = ["latest", "name", "type"];
@@ -89,6 +90,7 @@ type AdminModelRecord = {
   vendor: string;
   provider: string;
   providerConfig: Record<string, unknown>;
+  hasApiKey?: boolean;
   parameters: Record<string, unknown>;
   meta: Record<string, unknown>;
   isActive: boolean;
@@ -108,6 +110,11 @@ type ModelDraft = {
   providerConfigText: string;
   parametersText: string;
   metaText: string;
+  llmBaseUrl: string;
+  llmModelId: string;
+  llmSupportsImages: boolean;
+  apiKey: string;
+  hasApiKey: boolean;
 };
 
 type JsonErrors = {
@@ -133,6 +140,12 @@ const defaultAudioProviderConfig = {
   space_id: "owner/space",
   api_name: "/run_generation",
   timeout_ms: 300000,
+};
+
+const defaultLlmProviderConfig = {
+  base_url: "https://api.openai.com/v1",
+  model_id: "",
+  supports_images: true,
 };
 
 const defaultImageParameters = {
@@ -222,16 +235,19 @@ const resolvePipeline = (value: unknown): PipelineOption =>
 function getDefaultProviderConfig(type: ModelType) {
   if (type === "image") return defaultImageProviderConfig;
   if (type === "video") return defaultVideoProviderConfig;
+  if (type === "llm") return defaultLlmProviderConfig;
   return defaultAudioProviderConfig;
 }
 
 function getDefaultParameters(type: ModelType) {
+  if (type === "llm") return {};
   if (type === "image") return defaultImageParameters;
   if (type === "video") return defaultVideoParameters;
   return defaultAudioParameters;
 }
 
 function getDefaultMeta(type: ModelType) {
+  if (type === "llm") return {};
   if (type === "image") return defaultImageMeta;
   if (type === "video") return defaultVideoMeta;
   return defaultAudioMeta;
@@ -242,13 +258,18 @@ function buildDraft(type: ModelType): ModelDraft {
     type,
     key: "",
     label: "",
-    vendor: DEFAULT_VENDOR,
-    provider: DEFAULT_PROVIDER,
+    vendor: type === "llm" ? "API" : DEFAULT_VENDOR,
+    provider: type === "llm" ? "openai_compatible" : DEFAULT_PROVIDER,
     isActive: true,
     isDefault: false,
     providerConfigText: stringifyJson(getDefaultProviderConfig(type)),
     parametersText: stringifyJson(getDefaultParameters(type)),
     metaText: stringifyJson(getDefaultMeta(type)),
+    llmBaseUrl: defaultLlmProviderConfig.base_url,
+    llmModelId: "",
+    llmSupportsImages: true,
+    apiKey: "",
+    hasApiKey: false,
   };
 }
 
@@ -264,6 +285,11 @@ function buildDraftFromRecord(record: AdminModelRecord): ModelDraft {
     providerConfigText: stringifyJson(record.providerConfig),
     parametersText: stringifyJson(record.parameters),
     metaText: stringifyJson(record.meta),
+    llmBaseUrl: typeof record.providerConfig.base_url === "string" ? record.providerConfig.base_url : "",
+    llmModelId: typeof record.providerConfig.model_id === "string" ? record.providerConfig.model_id : "",
+    llmSupportsImages: record.providerConfig.supports_images === true,
+    apiKey: "",
+    hasApiKey: record.hasApiKey === true,
   };
 }
 
@@ -313,6 +339,14 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
         defaultGuidanceScale: safeNumber(meta.default_guidance_scale, 1),
       },
     };
+  }
+
+  if (record.type === "llm") {
+    return { ...base, type: "llm", meta: {
+      modelId: safeString(record.providerConfig.model_id, record.key),
+      supportsImages: record.providerConfig.supports_images === true,
+      hasApiKey: record.hasApiKey === true,
+    } };
   }
 
   return {
@@ -465,8 +499,11 @@ export function ModelManagementScreen() {
     if (dialogMode === "edit") return;
     const option = vendorOptions.find((item) => item.value === vendor);
     if (!option || option.disabled) return;
-    setDraft(buildDraft("image"));
-    updateDraft({ vendor: vendor === "MODAL" ? "MODAL" : DEFAULT_VENDOR, provider: vendor === "MODAL" ? "modal_comfyui" : DEFAULT_PROVIDER });
+    setDraft(vendor === "API" ? buildDraft("llm") : {
+      ...buildDraft("image"),
+      vendor: vendor === "MODAL" ? "MODAL" : DEFAULT_VENDOR,
+      provider: vendor === "MODAL" ? "modal_comfyui" : DEFAULT_PROVIDER,
+    });
     setImportError(null);
     setImportWarnings([]);
   };
@@ -485,6 +522,7 @@ export function ModelManagementScreen() {
   }) => {
     const vendorIsHuggingFace = isHuggingFaceVendorValue(payload.vendor);
     setDraft({
+      ...buildDraft(payload.type),
       type: payload.type,
       key: payload.key,
       label: payload.label,
@@ -508,8 +546,8 @@ export function ModelManagementScreen() {
         ...defaults,
         key: prev.key,
         label: prev.label,
-        vendor: prev.vendor,
-        provider: prev.provider,
+        vendor: nextType === "llm" ? "API" : prev.type === "llm" ? DEFAULT_VENDOR : prev.vendor,
+        provider: nextType === "llm" ? "openai_compatible" : prev.type === "llm" ? DEFAULT_PROVIDER : prev.provider,
         isActive: prev.isActive,
         isDefault: prev.isDefault,
       };
@@ -528,6 +566,11 @@ export function ModelManagementScreen() {
   const handleSave = async () => {
     if (!draft.key.trim() || !draft.label.trim()) {
       setSaveError(tAdmin("errors.required"));
+      return;
+    }
+    if (draft.type === "llm" && (!draft.llmBaseUrl.trim() || !draft.llmModelId.trim() ||
+      (draft.isActive && dialogMode === "create" && !draft.apiKey.trim()))) {
+      setSaveError(locale === "ko" ? "API 주소, 모델 ID, API 키를 입력하세요." : "Enter an API URL, model ID, and API key.");
       return;
     }
 
@@ -554,14 +597,14 @@ export function ModelManagementScreen() {
     }
 
     // Modal's source schema validates nullable and structured defaults below.
-    const parameterIssues = draft.provider === "modal_comfyui" ? [] : parameterConfigurationIssues(parametersResult.parsed);
+    const parameterIssues = draft.provider === "modal_comfyui" || draft.type === "llm" ? [] : parameterConfigurationIssues(parametersResult.parsed);
     if (parameterIssues.length) {
       setJsonErrors({...nextJsonErrors, parameters: parameterIssues.map(issue => issue.name + ": " + (locale === "ko" ? "타입·기본값·범위·선택값을 확인하세요." : "Check the type, default, range and choices.")).join("\n")});
       setSaveError(tAdmin("errors.configuration"));
       return;
     }
     try {
-      const mapped = getGradioContract({ providerConfig: providerConfigResult.parsed, parameters: parametersResult.parsed });
+      const mapped = draft.type === "llm" ? null : getGradioContract({ providerConfig: providerConfigResult.parsed, parameters: parametersResult.parsed });
       if (mapped && draft.isActive) {
         assertGradioExecutable(mapped);
         if (mapped.output?.media !== draft.type) throw new Error("HF_CONTRACT_MEDIA");
@@ -579,9 +622,12 @@ export function ModelManagementScreen() {
       label: draft.label.trim(),
       vendor: draft.vendor.trim(),
       provider: draft.provider.trim(),
-      providerConfig: providerConfigResult.parsed,
-      parameters: parametersResult.parsed,
-      meta: metaResult.parsed,
+      providerConfig: draft.type === "llm" ? {
+        base_url: draft.llmBaseUrl.trim(), model_id: draft.llmModelId.trim(), supports_images: draft.llmSupportsImages,
+      } : providerConfigResult.parsed,
+      parameters: draft.type === "llm" ? {} : parametersResult.parsed,
+      meta: draft.type === "llm" ? {} : metaResult.parsed,
+      ...(draft.type === "llm" && draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
       isActive: draft.isActive,
       isDefault: draft.isDefault,
     };
@@ -606,6 +652,7 @@ export function ModelManagementScreen() {
                   meta: payload.meta,
                   isActive: payload.isActive,
                   isDefault: payload.isDefault,
+                  ...(draft.type === "llm" && draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
                 },
           ),
         },
@@ -810,6 +857,14 @@ export function ModelManagementScreen() {
               >
                 {tCommonLabels("audios")}
               </AppFilterToggle>
+              <AppFilterToggle
+                onClick={() => setType("llm")}
+                aria-pressed={type === "llm"}
+                active={type === "llm"}
+                icon={<Sparkles className="h-4 w-4" />}
+              >
+                {locale === "ko" ? "AI 어시스턴트" : "AI Assistant"}
+              </AppFilterToggle>
             </AppFilterGroup>
           </ModelFilterGroup>
 
@@ -890,8 +945,7 @@ export function ModelManagementScreen() {
                       option.value === "HUGGINGFACE"
                         ? "vendor.huggingface"
                         : "vendor.api";
-                    const isActive =
-                      (isHuggingFaceVendor && option.value === "HUGGINGFACE") || (draft.vendor === "MODAL" && option.value === "MODAL");
+                    const isActive = draft.vendor === option.value;
                     return (
                       <AppFilterToggle
                         key={option.value}
@@ -972,7 +1026,7 @@ export function ModelManagementScreen() {
                   </div>
                 ) : (
                   <p className="mt-4 text-xs text-gray-500">
-                    {tAdmin("vendor.apiDisabled")}
+                    {locale === "ko" ? "OpenAI 호환 API의 모델과 키를 등록합니다." : "Register an OpenAI-compatible model and API key."}
                   </p>
                 )}
               </div>
@@ -992,20 +1046,23 @@ export function ModelManagementScreen() {
                     { value: "image", label: tCommonLabels("images") },
                     { value: "video", label: tCommonLabels("videos") },
                     { value: "audio", label: tCommonLabels("audios") },
+                    { value: "llm", label: locale === "ko" ? "AI 어시스턴트" : "AI Assistant" },
                   ]}
                 />
               </AppFormField>
               <AppFormField>
-                <AppLabel>{tAdmin("fields.key")}</AppLabel>
+                <AppLabel htmlFor="model-key">{tAdmin("fields.key")}</AppLabel>
                 <AppInput
+                  id="model-key"
                   value={draft.key}
                   disabled={dialogMode === "edit"}
                   onChange={(event) => updateDraft({ key: event.target.value })}
                 />
               </AppFormField>
               <AppFormField>
-                <AppLabel>{tAdmin("fields.label")}</AppLabel>
+                <AppLabel htmlFor="model-label">{tAdmin("fields.label")}</AppLabel>
                 <AppInput
+                  id="model-label"
                   value={draft.label}
                   onChange={(event) =>
                     updateDraft({ label: event.target.value })
@@ -1039,6 +1096,33 @@ export function ModelManagementScreen() {
               />
             </div>
 
+            {draft.type === "llm" ? <div className="grid gap-4">
+              <AppFormField>
+                <AppLabel htmlFor="llm-base-url">{locale === "ko" ? "API 주소" : "API URL"}</AppLabel>
+                <AppInput id="llm-base-url" type="url" value={draft.llmBaseUrl}
+                  onChange={(event) => updateDraft({ llmBaseUrl: event.target.value })}
+                  placeholder="https://api.openai.com/v1" />
+              </AppFormField>
+              <AppFormField>
+                <AppLabel htmlFor="llm-model-id">{locale === "ko" ? "모델 ID" : "Model ID"}</AppLabel>
+                <AppInput id="llm-model-id" value={draft.llmModelId}
+                  onChange={(event) => updateDraft({ llmModelId: event.target.value })}
+                  placeholder="gpt-4.1" />
+              </AppFormField>
+              <AppCheckbox label={locale === "ko" ? "이미지·비디오 입력 지원" : "Supports image and video input"}
+                checked={draft.llmSupportsImages}
+                onChange={(event) => updateDraft({ llmSupportsImages: event.target.checked })} />
+              <AppFormField>
+                <AppLabel htmlFor="llm-api-key">{locale === "ko" ? "API 키" : "API key"}</AppLabel>
+                <AppInput id="llm-api-key" type="password" autoComplete="new-password" value={draft.apiKey}
+                  onChange={(event) => updateDraft({ apiKey: event.target.value })}
+                  placeholder={dialogMode === "edit" ? (locale === "ko" ? "비워두면 기존 키 유지" : "Leave blank to keep the current key") : "sk-..."} />
+                {dialogMode === "edit" ? <p className="text-xs text-gray-500">
+                  {draft.hasApiKey ? (locale === "ko" ? "키가 저장되어 있습니다. 새 키를 입력하면 교체됩니다." : "A key is stored. Enter a new key to replace it.")
+                    : (locale === "ko" ? "저장된 키가 없습니다." : "No key is stored.")}
+                </p> : null}
+              </AppFormField>
+            </div> : <>
             <AppFormField>
               <AppLabel>{tAdmin("fields.providerConfig")}</AppLabel>
               <AppTextarea
@@ -1082,6 +1166,7 @@ export function ModelManagementScreen() {
                 <p className="text-xs text-red-300">{jsonErrors.meta}</p>
               ) : null}
             </AppFormField>
+            </>}
             {deleteError || saveError ? (
               <p className="text-xs text-red-300">{deleteError ?? saveError}</p>
             ) : null}

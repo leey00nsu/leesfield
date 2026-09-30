@@ -67,6 +67,22 @@ const resolver: NodeBananaAssetResolver = (assetId, context) => {
 };
 
 describe("Node Banana v1.9 host adapter", () => {
+  it("projects the latest Assistant text through Prompt and Prompt Constructor", () => {
+    const result = adaptNodeBananaHostGraph(graph([
+      canonicalNode("assistant", "generate.assistant", { prompt: "Improve this", modelKey: "llm-1" }),
+      canonicalNode("prompt", "input.prompt", { text: "local fallback", variableName: "input" }),
+      canonicalNode("constructor", "process.promptConstructor", { template: "Result: @input" }),
+      canonicalNode("image", "generate.image", { prompt: "", modelKey: null, parameters: {} }),
+    ], [
+      { id: "a-p", sourceNodeId: "assistant", sourcePortId: "text", targetNodeId: "prompt", targetPortId: "text" },
+      { id: "p-c", sourceNodeId: "prompt", sourcePortId: "text", targetNodeId: "constructor", targetPortId: "text" },
+      { id: "c-i", sourceNodeId: "constructor", sourcePortId: "text", targetNodeId: "image", targetPortId: "prompt" },
+    ]), { assistantResults: { assistant: "A brown coat" } });
+    expect(result.nodes.find((node) => node.id === "prompt")?.data.resolvedPrompt).toBe("A brown coat");
+    expect(result.nodes.find((node) => node.id === "constructor")?.data.outputText).toContain("A brown coat");
+    expect(result.getConnectedInputs("image").text).toContain("A brown coat");
+  });
+
   it.each(canonicalNodeKinds)("projects %s to its audited upstream legacy node type and handles", (kind) => {
     const result = adaptNodeBananaHostGraph(graph([canonicalNode("node", kind)]), resolver);
     const node = result.nodes[0];

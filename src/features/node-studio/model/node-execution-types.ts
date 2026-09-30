@@ -10,14 +10,15 @@ export type NodeExecutionMediaType = "image" | "audio" | "video";
 
 export type NodeExecutionDto = {
   executionId: string;
-  executionKind: "generation" | "media_operation";
-  mediaType: NodeExecutionMediaType;
+  executionKind: "generation" | "media_operation" | "assistant";
+  mediaType: NodeExecutionMediaType | "text";
   graphNodeId: string;
   status: NodeExecutionStatus;
   progress: number;
-  errorCode: "GENERATION_FAILED" | "MODAL_TIMEOUT" | "MODAL_OUTPUT_MEDIA" | "PROCESSOR_FAILED" | "PROCESSOR_UNAVAILABLE" | "MEDIA_UPLOAD_FAILED" | null;
+  errorCode: string | null;
   modelKey: string | null;
   outputAssetIds: string[];
+  outputText?: string | null;
   createdAt: string;
   /** Current durable node selection, read after execution history. */
   selectedOutputAssetId?: string | null;

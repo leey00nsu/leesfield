@@ -4,7 +4,8 @@ import { AppTextarea } from "@/shared/ui/app-form-control";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { Handle, NodeResizer, Position, useEdges, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
+import { ImageIcon, Video, AudioLines, Type, Settings2 } from "lucide-react";
+import { Handle, NodeResizer, Position, useEdges, useReactFlow, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/shared/lib/utils";
@@ -21,6 +22,7 @@ import { MediaInputNodeControls, MediaOutputNodeControls } from "./media-node-co
 import { ImageOperationNodeControls } from "./image-operation-node-controls";
 import { NodeBananaFloatingNodeHeader } from "./node-banana-floating-node-header";
 import { NodeBananaPromptEditor } from "./node-banana-prompt-editor";
+import { AssistantNodeControls } from "./assistant-node-controls";
 import {
   VideoOperationNodeControls,
   type VideoOperationKind,
@@ -53,6 +55,7 @@ function portColor(kind: keyof typeof nodeBananaNodeInventory, port: PortDefinit
 }
 
 function PortHandle({
+  nodeId,
   kind,
   port,
   index,
@@ -62,6 +65,7 @@ function PortHandle({
   label: labelOverride,
   top: topOverride,
 }: {
+  nodeId: string;
   kind: keyof typeof nodeBananaNodeInventory;
   port: PortDefinition;
   index: number;
@@ -71,22 +75,54 @@ function PortHandle({
   label?: string;
   top?: string;
 }) {
+  const authoring = useNodeAuthoring();
+  const edges = useEdges();
+  const origin = useRef<{ x: number; y: number } | null>(null);
+  const iconPort = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim";
+  const Icon = { image: ImageIcon, media: ImageIcon, video: Video, audio: AudioLines, text: Type, settings: Settings2 }[port.valueType];
   const top = topOverride ?? portTop(kind, port, index, count);
   const input = port.direction === "input";
   const label = labelOverride ?? getNodeBananaPortLabel(kind, port);
   const accessibleLabel = port.required ? `${label}, required` : label;
+  const connected = edges.some(edge => input
+    ? edge.target === nodeId && edge.targetHandle === (handleId ?? port.id)
+    : edge.source === nodeId && edge.sourceHandle === (handleId ?? port.id));
+  const openMenu = (element: HTMLDivElement) => {
+    if (!iconPort || authoring.writable === false) return;
+    const rect = element.getBoundingClientRect();
+    element.dispatchEvent(new CustomEvent("node-banana-port-menu", { bubbles: true, detail: {
+      nodeId, handleId: handleId ?? port.id, handleType: input ? "target" : "source", x: rect.right + 8, y: rect.top,
+    } }));
+  };
   return (
     <>
       <Handle
         id={handleId ?? port.id}
         type={input ? "target" : "source"}
         position={input ? Position.Left : Position.Right}
-        className="!z-20 !h-3 !w-3 !border-2 !border-neutral-900"
+        className={iconPort ? "node-banana-port-action" : "!z-20 !h-3 !w-3 !border-2 !border-neutral-900"}
+        isConnectable={authoring.writable !== false}
+        data-connected={connected ? "true" : "false"}
+        role={iconPort ? "button" : undefined}
+        tabIndex={iconPort && authoring.writable !== false ? 0 : -1}
+        onPointerDown={event => { origin.current = { x: event.clientX, y: event.clientY }; }}
+        onClick={event => {
+          const start = origin.current;
+          origin.current = null;
+          if (!iconPort || (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4)) return;
+          event.stopPropagation();
+          openMenu(event.currentTarget);
+        }}
+        onKeyDown={event => {
+          if (iconPort && !event.nativeEvent.isComposing && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault(); event.stopPropagation(); openMenu(event.currentTarget);
+          }
+        }}
         data-handletype={port.valueType}
-        style={{ top, background: portColor(kind, port) }}
+        style={iconPort ? { top } : { top, background: portColor(kind, port) }}
         aria-label={accessibleLabel}
-      />
-      <span
+      >{iconPort ? <Icon size={16} strokeWidth={1.7} aria-hidden="true" /> : null}</Handle>
+      {!iconPort ? <span
         className={cn(
           "pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-neutral-400 transition-opacity",
           input ? "right-[calc(100%+8px)] text-right" : "left-[calc(100%+8px)]",
@@ -95,7 +131,7 @@ function PortHandle({
         style={{ top }}
       >
         {label}
-      </span>
+      </span> : null}
     </>
   );
 }
@@ -162,11 +198,14 @@ function MemoNodeControls({ id, data }: { id: string; data: NodeBananaNodeData }
 }
 
 export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }: NodeProps<CanonicalRuntimeNode>) {
+  const singleSelection = useStore(state => [...state.nodeLookup.values()].filter(node => node.selected).length === 1);
   const t = useTranslations("nodeStudio");
+  const tc = useCanvasTranslation();
   const authoring = useNodeAuthoring();
   const kind = data.canonicalKind as keyof typeof nodeBananaNodeInventory;
   const geometry = nodeBananaNodeGeometry[kind] ?? { width: 320, height: 180, minWidth: 200, minHeight: 100 };
-  const title = nodeBananaNodeInventory[kind]?.title ?? data.canonicalKind;
+  const rawTitle = nodeBananaNodeInventory[kind]?.title ?? data.canonicalKind;
+  const title = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim" ? tc(rawTitle) : rawTitle;
   const edges = useEdges();
   const inputs = data.ports.filter((port) => port.direction === "input");
   const outputs = data.ports.filter((port) => port.direction === "output");
@@ -187,6 +226,8 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
   const regularInputs = dynamicInput ? inputs.filter((port) => port !== dynamicInput) : inputs;
   const isPrompt = data.canonicalKind === "input.prompt";
   const isMemo = data.canonicalKind === "note.memo";
+  const isAssistant = data.canonicalKind === "generate.assistant";
+  const isCustom = isAssistant || kind === "edit.video.stitch" || kind === "edit.video.trim";
   const isAnnotation = data.canonicalKind === "edit.image.annotation";
   const isMediaInput = data.canonicalKind === "input.image" || data.canonicalKind === "input.audio" || data.canonicalKind === "input.video";
   const fullBleed = isPrompt || isMediaInput;
@@ -202,29 +243,30 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
       ref={articleRef}
       className={cn(
         "group relative rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 shadow-lg",
-        isMemo && "flex h-full w-full flex-col",
+        (isMemo || isCustom) && "flex h-full w-full flex-col",
+        isCustom && "border-neutral-700/60",
         fullBleed ? "min-h-[160px] overflow-visible p-0" : "min-h-[180px] overflow-visible p-3",
         isMemo && "!min-h-0",
-        selected && (isMemo ? "border-blue-500 ring-2 ring-blue-500/40 shadow-blue-500/25" : "ring-2 ring-primary/40 shadow-primary/20"),
+        selected && (isMemo || isCustom ? "border-blue-500 ring-2 ring-blue-500/40 shadow-blue-500/25" : "ring-2 ring-primary/40 shadow-primary/20"),
         !data.supported && "border-amber-500/60",
       )}
-      style={isMemo ? undefined : { width: geometry.width, minHeight: geometry.height }}
+      style={isMemo || isCustom ? undefined : { width: geometry.width, minHeight: geometry.height }}
       aria-label={title}
       aria-current={selected ? "true" : undefined}
     >
       <NodeResizer
-        isVisible={selected && (!isMemo || authoring.writable !== false)}
-        minWidth={geometry.minWidth}
+        isVisible={selected && authoring.writable !== false}
+        minWidth={isCustom ? Math.min(geometry.width, geometry.minWidth) : geometry.minWidth}
         minHeight={geometry.minHeight}
         maxWidth={isMemo ? 2000 : undefined}
         maxHeight={isMemo ? 1600 : undefined}
-        lineClassName={isMemo ? "!border-transparent" : "!border-primary/45"}
-        handleClassName={isMemo ? "!h-5 !w-5 !border-none !bg-transparent" : "!h-2.5 !w-2.5 !border-primary !bg-neutral-900"}
+        lineClassName={isMemo || isCustom ? "!border-transparent" : "!border-primary/45"}
+        handleClassName={isMemo || isCustom ? "!h-5 !w-5 !border-none !bg-transparent" : "!h-2.5 !w-2.5 !border-primary !bg-neutral-900"}
         onResizeEnd={isMemo ? (_event, params) => authoring.updateMemoNodeSize?.(id, {
           width: Math.round(params.width), height: Math.round(params.height),
         }) : undefined}
       />
-      <NodeBananaFloatingNodeHeader
+      {!isCustom ? <NodeBananaFloatingNodeHeader
         nodeId={id}
         title={title}
         config={data.config}
@@ -235,9 +277,10 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
         onToggleExpanded={() => setEditorOpen(true)}
         runnable={runnableFromHeader}
         onRun={() => articleRef.current?.querySelector<HTMLButtonElement>("[data-node-run]")?.click()}
-      />
+      /> : null}
       {dynamicInput ? Array.from({ length: dynamicHandleCount }, (_, index) => (
         <PortHandle
+          nodeId={id}
           key={`${dynamicPrefix}-${index}`}
           kind={kind}
           port={dynamicInput}
@@ -248,8 +291,8 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
           label={`${kind === "edit.image.gif" ? "Frame" : "Video"} ${index + 1}`}
         />
       )) : null}
-      {regularInputs.map((port, index) => <PortHandle key={port.id} kind={kind} port={port} index={index} count={regularInputs.length} selected={selected} />)}
-      {outputs.map((port, index) => <PortHandle key={port.id} kind={kind} port={port} index={index} count={outputs.length} selected={selected} />)}
+      {regularInputs.map((port, index) => <PortHandle nodeId={id} key={port.id} kind={kind} port={port} index={index} count={regularInputs.length} selected={selected} />)}
+      {outputs.map((port, index) => <PortHandle nodeId={id} key={port.id} kind={kind} port={port} index={index} count={outputs.length} selected={selected} />)}
 
       {!data.supported ? (
         <div className="mt-3 rounded border border-neutral-700 bg-neutral-900/45 px-3 py-2 text-[11px] leading-5 text-neutral-400">
@@ -259,6 +302,7 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
       {data.supported && data.canonicalKind === "note.memo" ? (
         <MemoNodeControls id={id} data={data} />
       ) : null}
+      {data.supported && isAssistant ? <AssistantNodeControls id={id} data={data} selected={selected && singleSelection} title={title} /> : null}
       {data.supported && data.canonicalKind === "input.prompt" ? (
         <PromptInputNodeControls id={id} data={data} />
       ) : null}
@@ -298,7 +342,14 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
         <VideoOperationNodeControls
           id={id}
           data={data}
+          selected={selected}
+          title={title}
           kind={data.canonicalKind as VideoOperationKind}
+          clipEdgeIds={kind === "edit.video.stitch"
+            ? edges.filter((edge) => edge.target === id && edge.targetHandle?.startsWith("video-"))
+              .sort((a, b) => Number(a.data?.sortOrder ?? 0) - Number(b.data?.sortOrder ?? 0))
+              .map((edge) => edge.id)
+            : undefined}
         />
       ) : null}
       {isPrompt ? (

@@ -1,13 +1,12 @@
 "use client";
 import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
 import { Switch } from "@/shared/ui/brand/switch/switch";
-import { AppRangeSlider } from "@/shared/ui/app-range-slider";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle, Play, Square } from "lucide-react";
+import { ArrowLeft, ArrowRight, LoaderCircle, Play, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { mediaAssetKeys, useMediaAsset, useMediaAssetList } from "@/features/media-assets/hook/use-media-assets";
@@ -26,6 +25,8 @@ import { getPrimaryNodeRunReadinessReason } from "../../model/node-run-readiness
 import type { NodeBananaNodeData } from "../../runtime/node-banana/node-banana-runtime-adapter";
 import { NodeBananaOperationPreview } from "./node-banana-operation-preview";
 import { useOperationOutputAssets } from "./use-operation-output-assets";
+import { NodeBananaExecutionHeader } from "./node-banana-execution-header";
+import { VideoTrimEditor } from "./video-trim-editor";
 
 export type VideoOperationKind =
   | "edit.video.stitch"
@@ -91,20 +92,30 @@ export function VideoOperationNodeControls({
   id,
   data,
   kind,
+  clipEdgeIds = [],
+  selected = false,
+  title,
 }: {
   id: string;
   data: NodeBananaNodeData;
   kind: VideoOperationKind;
+  clipEdgeIds?: string[];
+  selected?: boolean;
+  title?: string;
 }) {
   const tc = useCanvasTranslation();
   const t = useTranslations("nodeStudio");
   const authoring = useNodeAuthoring();
   const queryClient = useQueryClient();
-  const executions = useNodeExecutions(authoring.graphId, id);
+  const [executionPrepared, setExecutionPrepared] = useState(false);
+  const executions = useNodeExecutions(authoring.graphId, id, executionPrepared || (authoring.isNodePersisted?.(id) ?? true));
   const start = useStartNodeExecution();
   const cancel = useCancelNodeExecution();
   const controller = useRef<AbortController | null>(null);
+  const pendingServerExecutionId = useRef<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const customHeader = kind === "edit.video.stitch" || kind === "edit.video.trim";
   const config = data.config && typeof data.config === "object" && !Array.isArray(data.config)
     ? data.config as Record<string, unknown>
     : {};
@@ -117,6 +128,17 @@ export function VideoOperationNodeControls({
   const clipAssets = useMediaAssetList(
     kind === "edit.video.stitch" ? authoring.getNodeInputAssetIds?.(id, "clips") ?? [] : [],
   );
+  const configuredClipOrder = Array.isArray(parameters.clipOrder)
+    ? parameters.clipOrder.filter((id): id is string => typeof id === "string")
+    : [];
+  const orderedClipIndices = clipEdgeIds.map((edgeId, index) => ({ edgeId, index }))
+    .sort((left, right) => {
+      const leftRank = configuredClipOrder.indexOf(left.edgeId);
+      const rightRank = configuredClipOrder.indexOf(right.edgeId);
+      return (leftRank < 0 ? Number.MAX_SAFE_INTEGER : leftRank)
+        - (rightRank < 0 ? Number.MAX_SAFE_INTEGER : rightRank)
+        || left.index - right.index;
+    });
   const active = executions.data?.find((execution) =>
     execution.status === "pending" || execution.status === "processing" || execution.status === "uploading",
   );
@@ -128,9 +150,26 @@ export function VideoOperationNodeControls({
   const controlsWritable = writable && !settingsInherited;
   const runReadiness = authoring.getNodeRunReadiness?.(id) ?? { ready: true, reasons: [] };
   const blockedReason = getPrimaryNodeRunReadinessReason(runReadiness);
-  const runnable = writable && runReadiness.ready && !start.isPending;
+  const trimRangeValid = kind !== "edit.video.trim" || !inputAsset.data?.durationMs ||
+    (number(parameters.startMs, 0) >= 0 &&
+      number(parameters.endMs, 5_000) > number(parameters.startMs, 0) &&
+      number(parameters.endMs, 5_000) <= inputAsset.data.durationMs);
+  const runnable = writable && runReadiness.ready && trimRangeValid && !start.isPending && !active && !submitting;
 
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    const pendingId = pendingServerExecutionId.current;
+    if (!pendingId) return;
+    const completed = executions.data?.find((execution) => execution.executionId === pendingId && execution.status === "completed");
+    if (completed?.outputAssetIds[0]) {
+      pendingServerExecutionId.current = null;
+      authoring.selectNodeOutputAsset?.(id, completed.outputAssetIds[0]);
+      void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
+    } else if (executions.data?.some((execution) => execution.executionId === pendingId &&
+      (execution.status === "failed" || execution.status === "cancelled"))) {
+      pendingServerExecutionId.current = null;
+    }
+  }, [authoring, executions.data, id, queryClient]);
 
   const updateParameters = (patch: Record<string, unknown>) => {
     authoring.updateCanonicalNodeConfig?.(id, {
@@ -162,25 +201,10 @@ export function VideoOperationNodeControls({
       );
     }
     if (kind === "edit.video.trim") {
-      const durationSeconds = Math.max(0.001, (inputAsset.data?.durationMs ?? 600_000) / 1_000);
-      const startSeconds = number(parameters.startMs, 0) / 1_000;
-      const endSeconds = Math.min(durationSeconds, number(parameters.endMs, 5_000) / 1_000);
-      return (
-        <div className="grid gap-2">
-          <AppRangeSlider labels={[tc("Trim start"),tc("Trim end")]} min={0} max={durationSeconds} step={0.1} value={[Math.min(startSeconds,endSeconds),Math.max(startSeconds,endSeconds)]} disabled={!writable} onValueChange={([start,end])=>updateParameters({startMs:Math.round(start*1000),endMs:Math.round(end*1000)})} />
-          <div className="flex justify-between font-mono text-[10px] text-neutral-400">
-            <span>{tc("Start")}{startSeconds.toFixed(1)}s</span>
-            <span>{tc("Duration")}{Math.max(0, endSeconds - startSeconds).toFixed(1)}s</span>
-            <span>{tc("End")}{endSeconds.toFixed(1)}s</span>
-          </div>
-          <label className="col-span-2 flex items-center gap-2 text-[11px] text-white/60">
-            <Switch
-              checked={stripAudio}
-              disabled={!writable}
-              onCheckedChange={stripAudio => updateParameters({stripAudio})}
-            />{tc("Remove embedded audio")}</label>
-        </div>
-      );
+      return <VideoTrimEditor key={inputAsset.data?.id ?? "empty"} source={inputAsset.data} output={outputAsset}
+        startMs={number(parameters.startMs, 0)} endMs={number(parameters.endMs, 5_000)}
+        stripAudio={stripAudio} writable={writable} onChange={updateParameters}
+        onClearOutput={data.selectedOutputAssetId ? () => authoring.selectNodeOutputAsset?.(id, null) : undefined} />;
     }
     if (kind === "edit.video.frameGrab") {
       const position = parameters.position === "last" ? "last" : "first";
@@ -244,12 +268,17 @@ export function VideoOperationNodeControls({
 
   const run = async () => {
     if (!runnable) return;
+    setSubmitting(true);
     setLocalError(null);
     try {
       const prepare = authoring.prepareNodeExecution ?? authoring.prepareImageNodeExecution;
       const expectedGraphVersion = await prepare();
+      setExecutionPrepared(true);
       const execution = await start.mutateAsync({ graphId: authoring.graphId, nodeId: id, expectedGraphVersion });
-      if (execution.plan) {
+      if (!execution.plan && (kind === "edit.video.stitch" || kind === "edit.video.trim")) {
+        pendingServerExecutionId.current = execution.executionId;
+      }
+      if (execution.plan && kind !== "edit.video.stitch" && kind !== "edit.video.trim") {
         controller.current = new AbortController();
         const assets = await runBrowserVideoOperation({
           graphId: authoring.graphId,
@@ -269,6 +298,7 @@ export function VideoOperationNodeControls({
       }
     } finally {
       controller.current = null;
+      setSubmitting(false);
     }
   };
 
@@ -283,18 +313,41 @@ export function VideoOperationNodeControls({
     }
   };
 
-  return (
-    <div className="nodrag nowheel mt-4 grid gap-2" data-node-banana-kind={kind} onPointerDown={(event) => event.stopPropagation()}>
+  return (<>
+    {customHeader ? <NodeBananaExecutionHeader
+      id={id} title={title ?? tc(kind === "edit.video.stitch" ? "Video Stitch" : "Video Trim")}
+      config={data.config} selected={selected} ready={writable && runReadiness.ready && trimRangeValid}
+      executing={Boolean(active) || submitting || start.isPending}
+      disabledReason={blockedReason ? t(`execution.blocked.${blockedReason}`) : !trimRangeValid ? tc("Adjust the trim range to fit the video.") : null}
+      onRun={() => void run()} onCancel={active ? () => void stop() : undefined} cancelling={cancel.isPending}
+    /> : null}
+    <div className="nodrag nowheel mt-4 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto" data-node-banana-kind={kind} onPointerDown={(event) => event.stopPropagation()}>
       {kind === "edit.video.stitch" ? (
-        <div className="flex h-20 gap-1 overflow-x-auto rounded border border-neutral-700 bg-neutral-900/40 p-1" data-node-banana-component="ClipFilmstrip">
-          {clipAssets.length ? clipAssets.map((query, index) => query.data?.type === "video" ? (
-            <video key={query.data.id} src={query.data.url} muted playsInline preload="metadata" aria-label={`Video ${index + 1}`} className="aspect-video h-full shrink-0 rounded object-cover" />
-          ) : null) : (
+        <div className="flex min-h-20 gap-1 overflow-x-auto rounded border border-neutral-700 bg-neutral-900/40 p-1" data-leesfield-component="VideoClipOrder">
+          {clipAssets.length ? orderedClipIndices.map(({ edgeId, index: sourceIndex }, index) => {
+            const asset = clipAssets[sourceIndex]?.data;
+            if (asset?.type !== "video") return null;
+            const move = (direction: -1 | 1) => {
+              const reordered = [...orderedClipIndices.map((item) => item.edgeId)];
+              const next = index + direction;
+              if (next < 0 || next >= reordered.length) return;
+              [reordered[index], reordered[next]] = [reordered[next], reordered[index]];
+              updateParameters({ clipOrder: reordered });
+            };
+            return <div key={edgeId} className="relative aspect-video h-20 shrink-0 overflow-hidden rounded" >
+              <video src={asset.url} muted playsInline preload="metadata" aria-label={`Video ${index + 1}`} className="h-full w-full object-cover" />
+              <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[10px]">{index + 1}</span>
+              <div className="absolute bottom-0 right-0 flex gap-0.5 bg-black/70">
+                <button type="button" aria-label={`Move video ${index + 1} earlier`} disabled={!writable || index === 0} onClick={() => move(-1)}><ArrowLeft size={14} /></button>
+                <button type="button" aria-label={`Move video ${index + 1} later`} disabled={!writable || index === orderedClipIndices.length - 1} onClick={() => move(1)}><ArrowRight size={14} /></button>
+              </div>
+            </div>;
+          }) : (
             <span className="m-auto text-[10px] text-neutral-500">{tc("Connect videos")}</span>
           )}
         </div>
       ) : null}
-      <NodeBananaOperationPreview
+      {kind !== "edit.video.trim" ? <NodeBananaOperationPreview
         asset={outputAsset ?? inputAsset.data}
         expectedType={kind === "edit.video.frameGrab" ? "image" : "video"}
         output={Boolean(outputAsset)}
@@ -302,7 +355,7 @@ export function VideoOperationNodeControls({
         onClearOutput={data.selectedOutputAssetId
           ? () => authoring.selectNodeOutputAsset?.(id, null)
           : undefined}
-      />
+      /> : null}
       {controls}
       <div className="flex items-center justify-between gap-2">
         {latest || blockedReason ? (
@@ -313,19 +366,19 @@ export function VideoOperationNodeControls({
               : ""}
           </span>
         ) : <span />}
-        {active || controller.current ? (
-          <AppButton type="button" size="sm" variant="surface-muted" disabled={cancel.isPending} onClick={() => void stop()}>
+        {!customHeader && (active || controller.current) ? (
+          <AppButton type="button" size="sm" variant="surface-muted" aria-label={t("actions.cancel")} disabled={cancel.isPending} onClick={() => void stop()}>
             <Square className="h-3.5 w-3.5" aria-hidden="true" />
           </AppButton>
-        ) : (
-          <AppButton type="button" size="sm" data-node-run disabled={!runnable} onClick={() => void run()}>
+        ) : !customHeader ? (
+          <AppButton type="button" size="sm" data-node-run aria-label={t("actions.runNode")} disabled={!runnable} onClick={() => void run()}>
             {start.isPending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
           </AppButton>
-        )}
+        ) : null}
       </div>
-      {localError || executions.isError || start.isError || cancel.isError ? (
-        <p className="text-[11px] text-red-200" role="alert">{localError ?? t("generationNode.executionError")}</p>
+      {localError || latest?.status === "failed" || executions.isError || start.isError || cancel.isError ? (
+        <p className="text-[11px] text-red-200" role="alert">{localError ?? latest?.errorCode ?? t("generationNode.executionError")}</p>
       ) : null}
-    </div>
+    </div></>
   );
 }

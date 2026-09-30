@@ -296,6 +296,15 @@ function validateTarget(rawUrl: string, options: RemoteRequestOptions): URL {
   return target;
 }
 
+/** Validate a configured URL before saving it; requestRemote pins DNS again when called. */
+export function validateRemoteUrl(rawUrl: string): URL {
+  const target = validateTarget(rawUrl, { maxRedirects: 0 });
+  if (net.isIP(target.hostname) && isForbiddenRemoteAddress(target.hostname)) {
+    throw new RemoteAccessError("REMOTE_ADDRESS_BLOCKED");
+  }
+  return target;
+}
+
 export async function resolvePinnedAddress(
   hostname: string,
   options: RemoteRequestOptions = {},

@@ -640,12 +640,17 @@ describe("generation worker", () => {
     );
   });
 
-  it.each(["image", "video", "audio"] as const)("replays mapped %s settings without common defaults", async media => {
+  it.each([
+    ["image", undefined],
+    ["video", undefined],
+    ["audio", null],
+    ["audio", "https://example.com/reference.wav"],
+  ] as const)("replays mapped %s settings without common defaults (reference: %s)", async (media, inputAudio) => {
     const runtime = await mockGetRuntimeCatalog();
     const model = runtime[media + "Models"][0];
     model.mapped = true;
     // Deliberately retain stale legacy defaults to prove the mapped branch ignores them.
-    const record = { id: "mapped-id", requestId: "mapped-request", prompt: "edit", requestParams: { model: model.key, dynamicParams: { duration: 0, enabled: false, text: "", options: null } }, imageCount: null, steps: null, seed: null, progress: 0 };
+    const record = { id: "mapped-id", requestId: "mapped-request", prompt: "edit", requestParams: { model: model.key, ...(media === "audio" ? { inputAudio } : {}), dynamicParams: { duration: 0, enabled: false, text: "", options: null } }, imageCount: null, steps: null, seed: null, progress: 0 };
     const table = prisma[media === "image" ? "imageGeneration" : media === "video" ? "videoGeneration" : "audioGeneration"];
     vi.mocked(table.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([record] as never);
     vi.mocked(table.updateMany).mockResolvedValue({ count: 1 });
@@ -655,6 +660,12 @@ describe("generation worker", () => {
     await run();
     const submitted = vi.mocked(resolve).mock.calls.at(-1)?.[0];
     expect(submitted).toMatchObject({ model: model.key, dynamicParams: record.requestParams.dynamicParams });
+    if (media === "audio" && inputAudio === null) {
+      expect(mockValidateAudioPayload.mock.calls.at(-1)?.[0]).not.toHaveProperty("inputAudio");
+      expect(submitted).not.toHaveProperty("inputAudio");
+    } else if (media === "audio") {
+      expect(submitted).toHaveProperty("inputAudio", inputAudio);
+    }
     for (const key of ["width", "height", "steps", "imageCount", "durationSec", "fps", "aspectRatio", "resolution", "voice", "speed"]) expect(submitted).not.toHaveProperty(key);
   });
 

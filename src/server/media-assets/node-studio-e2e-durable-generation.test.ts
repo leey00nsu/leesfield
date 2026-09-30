@@ -47,6 +47,7 @@ vi.mock("@/server/media-assets/media-asset-repository", () => ({
     claimPendingServerOperation: async () => ({
       operation: {
         id: "operation-test",
+        type: "edit.image.removeBackground",
         ownerEmail: "test@example.com",
         inputs: [{ assetId: "input-test" }],
         executionLeaseToken: "test-operation-lease",

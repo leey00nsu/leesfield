@@ -55,6 +55,38 @@ const graph: GenerationGraphSnapshotDto = {
 };
 
 describe("nodeBananaRuntimeAdapter", () => {
+  it.each(["edit.video.trim", "edit.video.stitch"])("allows %s output to a Video Input and saves typed ports", (kind) => {
+    const canonical = graphSnapshotToCanonicalDocument({ ...graph, nodes: [
+      { id: "operation", kind, position: { x: 0, y: 0 }, configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: "result" },
+      { id: "relay", kind: "input.video", position: { x: 400, y: 0 }, configVersion: 1, config: { assetId: null }, selectedOutputAssetId: null },
+    ], edges: [] });
+    const runtime = nodeBananaRuntimeAdapter.project(canonical).state;
+    const connection = { id: "connected", source: "operation", sourceHandle: "video", target: "relay", targetHandle: "video" };
+    expect(isRuntimeConnectionValid(canonical, runtime, connection)).toBe(true);
+    expect(runtimeGraphToCanonicalDocument(canonical, { ...runtime, edges: [connection] }).edges).toEqual([
+      expect.objectContaining({ sourceNodeId: "operation", sourcePortId: "video", targetNodeId: "relay", targetPortId: "video" }),
+    ]);
+  });
+
+  it("projects saved Stitch and Trim nodes through the Leesfield presenter without changing ports or config", () => {
+    const canonical = graphSnapshotToCanonicalDocument({
+      ...graph,
+      nodes: [
+        { id: "stitch", kind: "edit.video.stitch", position: { x: 10, y: 20 }, configVersion: 1,
+          config: { parameters: { repeat: 2, stripAudio: false, clipOrder: ["clip-b", "clip-a"] } }, selectedOutputAssetId: "video-output" },
+        { id: "trim", kind: "edit.video.trim", position: { x: 500, y: 20 }, configVersion: 1,
+          config: { parameters: { startMs: 500, endMs: 1500, stripAudio: true } }, selectedOutputAssetId: null },
+      ],
+      edges: [{ id: "stitch-to-trim", sourceNodeId: "stitch", sourcePortId: "video", targetNodeId: "trim", targetPortId: "video", sortOrder: 0 }],
+    });
+    const projected = nodeBananaRuntimeAdapter.project(canonical);
+    expect(projected.state.nodes.map((node) => node.type)).toEqual(["leesfieldVideoNode", "leesfieldVideoNode"]);
+    expect(projected.state.nodes[0]?.data).toMatchObject({
+      selectedOutputAssetId: "video-output", config: { parameters: { clipOrder: ["clip-b", "clip-a"] } },
+    });
+    expect(runtimeGraphToCanonicalDocument(canonical, projected.state)).toEqual(canonical);
+  });
+
   it("stores a portless memo and leaves an existing image annotation unchanged", () => {
     const canonical = graphSnapshotToCanonicalDocument({
       ...graph,

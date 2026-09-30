@@ -189,6 +189,7 @@ function NodeStudioWorkspaceContent({
     audioModels,
     error: catalogError,
     imageModels,
+    llmModels,
     isLoading: catalogLoading,
     refetch: refetchCatalog,
     videoModels,
@@ -198,6 +199,7 @@ function NodeStudioWorkspaceContent({
       imageModels: imageModels.filter((model) => model.isActive),
       videoModels: (videoModels ?? []).filter((model) => model.isActive),
       audioModels: (audioModels ?? []).filter((model) => model.isActive),
+      llmModels: (llmModels ?? []).filter((model) => model.isActive),
       isLoading: catalogLoading,
       error: catalogError,
       retry: () => {
@@ -221,6 +223,7 @@ function NodeStudioWorkspaceContent({
       catalogLoading,
       e2eBackgroundRemovalAvailable,
       imageModels,
+      llmModels,
       refetchCatalog,
       videoModels,
     ],
@@ -284,7 +287,8 @@ function NodeStudioWorkspaceContent({
         return executions;
       },
       refetchInterval: (query: { state: { data?: NodeExecutionDto[]; status: string } }) =>
-        nodeExecutionRefetchInterval(query.state.status === "error" ? undefined : query.state.data, eventChannelState),
+        query.state.data?.some((execution) => execution.executionKind === "assistant" && activeExecution(execution))
+          ? 2_000 : nodeExecutionRefetchInterval(query.state.status === "error" ? undefined : query.state.data, eventChannelState),
       staleTime: 0,
     })),
   });
@@ -294,6 +298,12 @@ function NodeStudioWorkspaceContent({
     ),
     [draftNodeIds, executionQueries],
   );
+  const assistantResults = useMemo(() => Object.fromEntries(
+    [...executionByNodeId].flatMap(([nodeId, executions]) => {
+      const completed = executions.find((execution) => execution.executionKind === "assistant" && execution.status === "completed" && execution.outputText);
+      return completed?.outputText ? [[nodeId, completed.outputText]] : [];
+    }),
+  ), [executionByNodeId]);
   const executionOutputAssetIds = useMemo(
     () => Array.from(new Set(
       Array.from(executionByNodeId.values()).flatMap((executions) =>
@@ -477,7 +487,11 @@ function NodeStudioWorkspaceContent({
         return direct ? [direct] : [];
       }
       if (node.kind === "process.promptConstructor" && currentPortId === "text") {
-        try { const text = resolveGraphText(draftRef.current, currentNodeId); return text ? [text] : []; } catch { return []; }
+        try { const text = resolveGraphText(draftRef.current, currentNodeId, new Set(), assistantResults); return text ? [text] : []; } catch { return []; }
+      }
+      if (node.kind === "generate.assistant" && currentPortId === "text") {
+        const text = assistantResults[currentNodeId];
+        return text ? [text] : [];
       }
       if (node.kind === "input.prompt" && (currentPortId === "text" || currentPortId === "prompt")) {
         if (incomingEdges("text").length > 0) return incoming("text");
@@ -490,7 +504,7 @@ function NodeStudioWorkspaceContent({
       return [];
     };
     return resolve(nodeId, portId, new Set());
-  }, [currentOutputAssetsForPort, resolvedAssets]);
+  }, [assistantResults, currentOutputAssetsForPort, resolvedAssets]);
 
   const resolveUpstreamMediaAssets = useCallback((nodeId: string, portId: string): ResolvedMediaAsset[] => {
     const resolve = (currentNodeId: string, currentPortId: string, visited: Set<string>): ResolvedMediaAsset[] => {
@@ -712,33 +726,41 @@ function NodeStudioWorkspaceContent({
             : null,
           format: inputAsset?.mimeType ?? null,
         };
-      case "input.video":
+      case "input.video": {
+        // The connected output is authoritative, including an empty pending
+        // result. Keep config.assetId untouched so disconnect restores uploads.
+        const connected = draftRef.current.edges.some((edge) => edge.targetNodeId === nodeId && edge.targetPortId === "video");
+        const video = resolveUpstreamMediaAssets(nodeId, "video")[0];
+        const asset = video?.asset;
         return {
           ...base,
-          video: inputAsset ? getMediaAssetContentUrl(inputAsset.id) : null,
+          video: video?.url ?? null,
+          videoRef: video?.assetId ?? null,
           // Vendored video operation presenters read source clips through the
           // upstream outputVideo field. Keep the canonical video field too so
           // input uploads remain round-trippable at the host boundary.
-          outputVideo: inputAsset ? getMediaAssetContentUrl(inputAsset.id) : null,
-          outputVideoRef: inputAsset?.id ?? null,
-          filename: typeof config.filename === "string" ? config.filename : null,
-          duration: inputAsset?.durationMs !== null && inputAsset?.durationMs !== undefined
-            ? inputAsset.durationMs / 1_000
+          outputVideo: video?.url ?? null,
+          outputVideoRef: video?.assetId ?? null,
+          hasConnectedVideo: connected,
+          filename: connected ? null : typeof config.filename === "string" ? config.filename : null,
+          duration: asset?.durationMs !== null && asset?.durationMs !== undefined
+            ? asset.durationMs / 1_000
             : null,
-          dimensions: inputAsset?.width !== null && inputAsset?.width !== undefined
-            && inputAsset?.height !== null && inputAsset?.height !== undefined
-            ? { width: inputAsset.width, height: inputAsset.height }
+          dimensions: asset?.width !== null && asset?.width !== undefined
+            && asset?.height !== null && asset?.height !== undefined
+            ? { width: asset.width, height: asset.height }
             : null,
-          format: inputAsset?.mimeType ?? null,
+          format: asset?.mimeType ?? null,
         };
+      }
       case "process.promptConstructor": {
         let outputText: string | null = null;
-        try { outputText = resolveGraphText(draftRef.current, nodeId) || null; } catch { /* Invalid graphs show unresolved text. */ }
+        try { outputText = resolveGraphText(draftRef.current, nodeId, new Set(), assistantResults) || null; } catch { /* Invalid graphs show unresolved text. */ }
         return { ...base, template: typeof config.template === "string" ? config.template : "", outputText };
       }
       case "input.prompt": {
         let prompt = "";
-        try { prompt = resolveGraphText(draftRef.current, nodeId); } catch { /* Invalid graphs have no resolved prompt. */ }
+        try { prompt = resolveGraphText(draftRef.current, nodeId, new Set(), assistantResults); } catch { /* Invalid graphs have no resolved prompt. */ }
         return {
           ...base,
           prompt: typeof config.text === "string" ? config.text : "",
@@ -746,6 +768,8 @@ function NodeStudioWorkspaceContent({
           variableName: typeof config.variableName === "string" ? config.variableName : "",
         };
       }
+      case "generate.assistant":
+        return { ...base, outputText: assistantResults[nodeId] ?? null };
       case "generate.image":
         return {
           ...base,
@@ -869,7 +893,7 @@ function NodeStudioWorkspaceContent({
       default:
         return { ...runtimeData, ...base };
     }
-  }, [missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
+  }, [assistantResults, missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
 
   const handleHostError = useCallback((error: Error) => {
     setHostError(error.message);
@@ -1070,6 +1094,7 @@ function NodeStudioWorkspaceContent({
     conflict: tHost("conflict"),
   }[autosave.status];
   const hostedGraph = useMemo(() => { void draftRevision; return { ...graph, ...draftRef.current, title }; }, [graph, title, draftRevision]);
+  const persistedNodeIds = useMemo(() => new Set(graph.nodes.map((node) => node.id)), [graph.nodes]);
   const commentNodes = useMemo(() => {
     void draftRevision;
     return draftRef.current.nodes.map((node) => ({
@@ -1181,9 +1206,10 @@ function NodeStudioWorkspaceContent({
 
         <NodeStudio
           graph={hostedGraph}
+          persistedNodeIds={persistedNodeIds}
           onDraftChange={handleCanvasDraft}
           prepareImageNodeExecution={prepareExecution}
-          catalog={nodeCatalog}
+          catalog={{ ...nodeCatalog, assistantResults }}
           canvasSettings={canvasSettings}
           onRegenerateNode={handleRegenerateNode}
           onCancelNode={handleCancelNode}

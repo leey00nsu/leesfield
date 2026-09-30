@@ -42,14 +42,15 @@ export function nodeExecutionRefetchInterval(
     : FALLBACK_POLL_INTERVAL_MS;
 }
 
-export function useNodeExecutions(graphId: string, nodeId: string, enabled = true) {
+export function useNodeExecutions(graphId: string, nodeId: string, enabled = true, activePollMs?: number) {
   const eventChannelState = useGenerationEventChannelState();
   return useQuery({
     queryKey: nodeExecutionKeys.list(graphId, nodeId),
     queryFn: ({ signal }) => listNodeExecutions(graphId, nodeId, signal),
     enabled,
     refetchInterval: (query) =>
-      nodeExecutionRefetchInterval(query.state.data, eventChannelState),
+      activePollMs && hasActiveNodeExecution(query.state.data) ? activePollMs
+        : nodeExecutionRefetchInterval(query.state.data, eventChannelState),
   });
 }
 

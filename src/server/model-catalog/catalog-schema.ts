@@ -8,6 +8,7 @@ import {
   assertGradioExecutable,
 } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
+import { validateRemoteUrl } from "@/server/http/safe-remote";
 
 const parameterUiOptions = [
   "range",
@@ -197,6 +198,38 @@ const audioMetaSchema = z.object({
   supports_input_audio: z.boolean().optional(),
 });
 
+export const llmProviderConfigSchema = z.object({
+  base_url: z.string().trim().min(1).max(2048).refine((value) => {
+    try {
+      const url = validateRemoteUrl(value);
+      return !url.search && !url.hash && ![".local", ".internal"].some((suffix) => url.hostname.endsWith(suffix));
+    } catch { return false; }
+  }, "LLM_BASE_URL_BLOCKED"),
+  model_id: z.string().trim().min(1).max(256),
+  supports_images: z.boolean(),
+  timeout_ms: z.number().int().min(1_000).max(120_000).optional(),
+}).strict();
+
+const llmModelSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("llm"),
+  key: z.string().min(1),
+  label: z.string().min(1),
+  vendor: z.string().min(1),
+  provider: z.literal("openai_compatible"),
+  providerConfig: llmProviderConfigSchema,
+  parameters: z.object({}).strict(),
+  meta: z.object({}).strict(),
+  hasApiKey: z.boolean().optional(),
+  isActive: z.boolean(),
+  isDefault: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+const llmModelInputSchema = llmModelSchema.omit({ id: true, createdAt: true, updatedAt: true, hasApiKey: true })
+  .extend({ isActive: z.boolean().optional(), isDefault: z.boolean().optional() });
+
 const baseModelSchema = z.object({
   id: z.string().min(1),
   type: z.enum(["image", "video", "audio"]),
@@ -340,7 +373,8 @@ const normalizeStoredModel = (value: unknown) => {
   } // Let the schema report invalid legacy data as a validation error.
 };
 
-function validateLegacyModel(model: { type: "image" | "video" | "audio"; providerConfig: unknown; parameters: unknown; meta: unknown }, ctx: z.RefinementCtx) {
+function validateLegacyModel(model: { type: "image" | "video" | "audio" | "llm"; providerConfig: unknown; parameters: unknown; meta: unknown }, ctx: z.RefinementCtx) {
+  if (model.type === "llm") return;
   try { if (getGradioContract(model)) return; } catch { return; }
   const schemas = { image: [imageParametersSchema, imageMetaSchema], video: [videoParametersSchema, videoMetaSchema], audio: [audioParametersSchema, audioMetaSchema] } as const;
   for (const [index, key] of (["parameters", "meta"] as const).entries()) {
@@ -352,7 +386,7 @@ function validateLegacyModel(model: { type: "image" | "video" | "audio"; provide
 export const modelCatalogSchema = z.array(
   z.preprocess(
     normalizeStoredModel,
-    z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema]).superRefine(validateLegacyModel),
+    z.union([imageModelProviderSchema, videoModelSchema, audioModelSchema, llmModelSchema]).superRefine(validateLegacyModel),
   ),
 );
 
@@ -363,12 +397,13 @@ export const modelCatalogInputSchema = z.preprocess(
       imageModelProviderInputSchema,
       videoModelInputSchema,
       audioModelInputSchema,
+      llmModelInputSchema,
     ])
     .superRefine((model, ctx) => {
       validateLegacyModel(model, ctx);
       // Modal defaults (including null/objects) are checked against their source
       // JSON Schema below; legacy scalar inference is not its input contract.
-      if(model.provider!=="modal_comfyui") for (const issue of parameterConfigurationIssues(model.parameters)) ctx.addIssue({code:"custom",path:["parameters",issue.name],message:"Invalid parameter configuration: "+issue.reason});
+      if(model.provider!=="modal_comfyui" && model.provider!=="openai_compatible") for (const issue of parameterConfigurationIssues(model.parameters)) ctx.addIssue({code:"custom",path:["parameters",issue.name],message:"Invalid parameter configuration: "+issue.reason});
       if (model.provider !== "hf_space" && model.provider !== "modal_comfyui") return;
       try {
         const contract = getGradioContract(model);
@@ -392,6 +427,7 @@ export type ModelCatalogItem = z.infer<typeof modelCatalogSchema>[number];
 export type ImageModelCatalogItem = z.infer<typeof imageModelProviderSchema>;
 export type VideoModelCatalogItem = z.infer<typeof videoModelSchema>;
 export type AudioModelCatalogItem = z.infer<typeof audioModelSchema>;
+export type LlmModelCatalogItem = z.infer<typeof llmModelSchema>;
 export type ModelCatalogType = ModelCatalogItem["type"];
 export type ModelCatalogInput = z.infer<typeof modelCatalogInputSchema>;
 export type CodexBridgeProviderConfig = z.infer<typeof codexBridgeConfigSchema>;

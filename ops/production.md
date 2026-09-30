@@ -18,7 +18,9 @@ Coolify pre-deployment command는 교체 전의 현재 컨테이너에서 실행
 
 ## Nixpacks image와 종료
 
-Nixpacks는 repository의 manifest와 lockfile로 install/build/start plan을 만들고 Coolify가 생성된 image를 실행한다. `.dockerignore`는 `.env`, build output, backup 등 불필요하거나 민감한 파일을 build context에서 제외한다. `docker-compose.yml`은 로컬 PostgreSQL 용도이며 production application 배포에는 사용하지 않는다.
+Nixpacks는 repository의 manifest와 lockfile로 install/build/start plan을 만들고 Coolify가 생성된 image를 실행한다. `nixpacks.toml`은 영상 Stitch/Trim worker가 사용하는 `ffmpeg`와 `ffprobe`도 설치한다. `.dockerignore`는 `.env`, build output, backup 등 불필요하거나 민감한 파일을 build context에서 제외한다. `docker-compose.yml`은 로컬 PostgreSQL 용도이며 production application 배포에는 사용하지 않는다.
+
+영상 작업 접수 전에 두 실행 파일의 `-version`을 확인한다. 누락되면 `PROCESSOR_UNAVAILABLE`을 반환한다. 배포 후 영상 노드가 이 오류를 보이면 컨테이너 안에서 `ffmpeg -version`과 `ffprobe -version`을 확인하고 Nixpacks setup을 다시 빌드한다. 서버는 입력 자산을 owner 범위로 조회한 뒤 public URL만 DNS 고정·redirect 검증을 거쳐 가져온다. 영상 입력 한 개 500 MiB, 오디오 100 MiB, 합계 600 MiB, Stitch 클립 20개, 출력 500 MiB, 작업 12분, 임시 파일 2 GiB를 상한으로 둔다. 작업 완료·실패 후 임시 파일을 지우고, 업로드 뒤 DB 연결이 실패하면 cleanup ledger로 정리한다.
 
 Coolify의 stop grace period는 35초로 설정한다. `SIGTERM` 이후 worker drain 상한은 25초이므로 강제 종료 전에 10초의 여유가 있다. readiness health check는 interval 10초, timeout 3초, retries 6회, start period 120초와 `/api/health/ready`를 사용한다. Nixpacks setup에 포함한 `wget`이 Coolify의 컨테이너 내부 HTTP probe를 실행한다.
 
@@ -83,6 +85,8 @@ k6 run scripts/load/production-readiness.k6.js
 
 ## Catalog와 API key 사용 시각
 
+AI Assistant용 OpenAI 호환 LLM은 관리자 모델 페이지에서 API 주소(`/v1`까지), 모델 ID, 시각 입력 지원 여부와 API 키를 등록한다. 주소는 공개 HTTPS 443 endpoint여야 하며 내부망·loopback·URL credential을 거부한다. 실제 호출에서도 DNS를 고정해 사설주소와 redirect를 차단한다. API 키 원문은 별도 `ModelCredential` 행에 AES-256-GCM으로 암호화하고 모델 JSON/Space Graph/목록 응답에 포함하지 않는다. 관리자 화면에서 빈 키로 저장하면 기존 키를 유지하고 새 키를 입력하면 교체한다. `MODEL_CREDENTIAL_ENCRYPTION_KEY`는 `openssl rand -base64 32`로 만든 32바이트 서버 비밀키를 모든 인스턴스에 동일하게 설정한다. 이 값을 잃거나 바꾸면 기존 LLM 키를 복호화할 수 없으므로 별도 비밀 저장소에 백업하고, 키 교체 전에는 credential 재암호화 절차를 준비한다. 미설정·잘못된 값에서는 LLM 키 등록/교체와 실행만 실패한다.
+
 ModelCatalog cache는 프로세스별로 active/all 두 범위를 각각 60초 동안 보관한다. 같은 범위의 동시 cache miss는 하나의 in-flight DB 조회를 공유하고, 조회 실패는 cache에 기록하지 않아 다음 요청이 재시도한다. 관리자 변경 뒤 진행 중인 이전 조회가 새 cache를 복원하지 않으며, 변경 endpoint는 현재 프로세스 cache도 무효화한다.
 
 다른 프로세스의 cache 무효화 전파를 운영 구성에 의존하지 않는다. Classic·Node·외부 generation admission은 제출 transaction 안에서 ModelCatalog의 현재 `isActive`와 media type을 다시 확인하므로 오래된 catalog로 신규 실행을 예약할 수 없다. 이미 예약된 작업은 worker claim 시 DB의 현재 `meta.concurrent_limit`를 읽어 오래된 runtime 설정으로 모델별 한도를 초과하지 않는다.
@@ -119,7 +123,7 @@ Leemage 파일은 presign → bounded PUT → confirm 순서로 처리한다. up
 
 - lease가 없는 legacy `processing`/`uploading` generation은 자동 재실행하지 않고 `failed`와 `EXECUTION_LEASE_RECOVERY_REQUIRED`로 수렴한다. 취소가 기록된 row는 `cancelled`로 수렴한다.
 - lease가 만료된 generation은 `failed`와 `EXECUTION_LEASE_EXPIRED`로 수렴하며 이전 worker의 heartbeat와 terminal write는 fencing 조건에서 거절된다.
-- remove-background media operation은 인스턴스 전체에서 최대 2개만 claim한다. 각 claim은 60초 lease를 갖고 10초마다 heartbeat를 갱신하며, legacy lease 없는 row는 `MEDIA_OPERATION_LEASE_RECOVERY_REQUIRED`, 만료 row는 `MEDIA_OPERATION_LEASE_EXPIRED`로 수렴한다.
+- 서버 media operation(Remove Background, Video Stitch, Video Trim)은 인스턴스 전체에서 합쳐 최대 2개만 claim한다. 각 claim은 60초 lease를 갖고 10초마다 heartbeat를 갱신하며, legacy lease 없는 row는 `MEDIA_OPERATION_LEASE_RECOVERY_REQUIRED`, 만료 row는 `MEDIA_OPERATION_LEASE_EXPIRED`로 수렴한다. 영상 FFmpeg 작업은 lease 갱신 실패·취소 때 abort 신호를 받아 중단하고, terminal DB 쓰기는 lease token/version으로 fencing한다.
 - Modal 작업은 저장된 submission과 remote `jobId`가 있으면 상태·결과 조회를 재개한다. POST 직후 ID 저장이 불확실하면 동일 durable payload와 idempotency key로 먼저 reconcile하며, 확인되지 않은 비멱등 작업을 임의로 다시 만들지 않는다.
 - provider/storage 결과 commit이 lease를 잃으면 DB 결과를 저장하지 않는다. media operation이 upload 단계에서 lease를 잃으면 이미 생성된 storage object를 정리하고, 확인되지 않은 원격 side effect는 후속 cleanup/reconcile 관찰 대상으로 남는다.
 

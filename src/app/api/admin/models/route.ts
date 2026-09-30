@@ -100,6 +100,12 @@ export async function GET(request: Request) {
     if (error instanceof Error && error.message === "MODEL_KEY_EXISTS") {
       return NextResponse.json({ message: "CONFLICT" }, { status: 409 });
     }
+    if (error instanceof Error && ["MODEL_API_KEY_REQUIRED", "MODEL_API_KEY_INVALID"].includes(error.message)) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
+    if (error instanceof Error && error.message.startsWith("MODEL_CREDENTIAL_ENCRYPTION_KEY_")) {
+      return NextResponse.json({ message: "MODEL_CREDENTIAL_UNAVAILABLE" }, { status: 503 });
+    }
     logSafeError("admin_model.create_failed", error);
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type {
   RuntimeAudioModel,
   RuntimeImageModel,
+  RuntimeLlmModel,
   RuntimeModelBase,
   RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
@@ -15,14 +16,14 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 
 type ModelCatalogResponse = {
-  items: RuntimeModelBase[];
+  items: (RuntimeModelBase | RuntimeLlmModel)[];
 };
 
 const RUNTIME_MODELS_QUERY_KEY = ["runtime-models"] as const;
 
 async function fetchRuntimeModelCatalog(
   signal?: AbortSignal,
-): Promise<RuntimeModelBase[]> {
+): Promise<(RuntimeModelBase | RuntimeLlmModel)[]> {
   const response = await fetch("/api/models", {
     method: "GET",
     cache: "no-store",
@@ -67,16 +68,21 @@ export function useRuntimeModelCatalog(
   });
 
   const items = useMemo(() => queryResult.data ?? [], [queryResult.data]);
+  const mediaItems = useMemo(() => items.filter((item): item is RuntimeModelBase => item.type !== "llm"), [items]);
   const imageModels = useMemo<RuntimeImageModel[]>(
-    () => items.filter(isRuntimeImageModel),
-    [items],
+    () => mediaItems.filter(isRuntimeImageModel),
+    [mediaItems],
   );
   const videoModels = useMemo<RuntimeVideoModel[]>(
-    () => items.filter(isRuntimeVideoModel),
-    [items],
+    () => mediaItems.filter(isRuntimeVideoModel),
+    [mediaItems],
   );
   const audioModels = useMemo<RuntimeAudioModel[]>(
-    () => items.filter(isRuntimeAudioModel),
+    () => mediaItems.filter(isRuntimeAudioModel),
+    [mediaItems],
+  );
+  const llmModels = useMemo<RuntimeLlmModel[]>(
+    () => items.filter((item): item is RuntimeLlmModel => item.type === "llm"),
     [items],
   );
 
@@ -85,6 +91,7 @@ export function useRuntimeModelCatalog(
     imageModels,
     videoModels,
     audioModels,
+    llmModels,
     isLoading: enabled ? queryResult.isLoading : false,
     error: !enabled
       ? null

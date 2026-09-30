@@ -2,6 +2,25 @@ import { describe, expect, it } from "vitest";
 import { modelCatalogInputSchema, modelCatalogSchema } from "@/server/model-catalog/catalog-schema";
 
 describe("model-catalog option normalization", () => {
+  it("OpenAI 호환 LLM 설정에서 내부 주소와 JSON 키를 거부한다", () => {
+    const input = {
+      type: "llm", key: "assistant-openai", label: "Assistant OpenAI", vendor: "OPENAI",
+      provider: "openai_compatible", providerConfig: {
+        base_url: "https://api.openai.com/v1", model_id: "gpt-4.1", supports_images: true,
+      }, parameters: {}, meta: {}, isActive: true, isDefault: false,
+    };
+    expect(modelCatalogInputSchema.safeParse(input).success).toBe(true);
+    expect(modelCatalogInputSchema.safeParse({ ...input, vendor: "COMMAND CODE GOAT",
+      providerConfig: { ...input.providerConfig, base_url: "https://goat.example/v1", model_id: "custom-chat-model" },
+    }).success).toBe(true);
+    for (const base_url of ["http://api.openai.com/v1", "https://localhost/v1", "https://127.0.0.1/v1",
+      "https://10.0.0.1/v1", "https://169.254.169.254/v1", "https://user:pass@api.openai.com/v1",
+      "https://api.openai.com:8443/v1", "https://model.internal/v1"]) {
+      expect(modelCatalogInputSchema.safeParse({ ...input, providerConfig: { ...input.providerConfig, base_url } }).success).toBe(false);
+    }
+    expect(modelCatalogInputSchema.safeParse({ ...input, providerConfig: { ...input.providerConfig, api_key: "secret" } }).success).toBe(false);
+    expect(modelCatalogInputSchema.safeParse({ ...input, type: "image" }).success).toBe(false);
+  });
   it("HF parameter binding을 검증하고 generic parameter metadata를 보존한다", () => {
     const base = {
       type: "audio",

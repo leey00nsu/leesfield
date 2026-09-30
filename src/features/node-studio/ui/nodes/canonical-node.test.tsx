@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@xyflow/react", () => ({
+  useStore: () => true,
   Handle: ({ id, "aria-label": ariaLabel }: { id: string; "aria-label"?: string }) => <span data-testid={`handle-${id}`} aria-label={ariaLabel} />,
   NodeResizer: () => <span data-testid="node-resizer" />,
   Position: { Left: "left", Right: "right" },

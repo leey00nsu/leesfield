@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@xyflow/react", () => ({
+  useStore: () => true,
   Handle: ({ id, type, style, "aria-label": ariaLabel }: { id: string; type: string; style?: { top?: string }; "aria-label"?: string }) => <span data-handle-id={id} data-handle-type={type} data-handle-top={style?.top} aria-label={ariaLabel} />,
   NodeResizer: ({ minWidth, minHeight }: { minWidth: number; minHeight: number }) => <span data-node-resizer="" data-min-width={minWidth} data-min-height={minHeight} />,
   Position: { Left: "left", Right: "right" },
@@ -96,7 +97,8 @@ function renderNode(kind: CanonicalNodeKind) {
 
 // Production Constructor uses the vendored presenter/header, tested in the
 // upstream components and browser suites; there is no legacy implementation.
-const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo");
+const sizedKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo" && kind !== "generate.assistant");
+const legacyKinds = sizedKinds.filter((kind) => kind !== "edit.video.stitch" && kind !== "edit.video.trim");
 describe("legacy Node Banana presenter parity", () => {
   afterEach(() => {
     cleanup();
@@ -139,14 +141,14 @@ describe("legacy Node Banana presenter parity", () => {
 
   it("edits and persists a custom title from every real FloatingNodeHeader", async () => {
     const user = userEvent.setup();
-    renderNode("edit.video.trim");
+    renderNode("input.prompt");
     await user.click(screen.getByRole("button", { name: "제목 편집" }));
     const input = screen.getByRole("textbox", { name: "사용자 지정 제목" });
     await user.type(input, "Cut A");
     await user.keyboard("{Enter}");
 
     expect(mocks.updateConfig).toHaveBeenCalledWith(
-      "node-edit.video.trim",
+      "node-input.prompt",
       expect.objectContaining({ presentation: { customTitle: "Cut A" } }),
     );
   });
@@ -194,17 +196,21 @@ describe("legacy Node Banana presenter parity", () => {
   });
 
   it("uses every upstream default footprint and exposes its resize affordance", () => {
-    for (const kind of legacyKinds) {
+    for (const kind of sizedKinds) {
       const view = renderNode(kind);
       const article = screen.getByRole("article");
       const resizer = article.querySelector<HTMLElement>("[data-node-resizer]");
       const geometry = nodeBananaNodeGeometry[kind];
 
-      expect(article, kind).toHaveStyle({
+      if (kind === "edit.video.stitch" || kind === "edit.video.trim") {
+        // React Flow owns dimensions; the presenter must follow user resizing.
+        expect(article, kind).toHaveClass("h-full", "w-full");
+        expect(article.style.width, kind).toBe("");
+      } else expect(article, kind).toHaveStyle({
         width: `${geometry.width}px`,
         minHeight: `${geometry.height}px`,
       });
-      expect(resizer, kind).toHaveAttribute("data-min-width", String(geometry.minWidth));
+      expect(resizer, kind).toHaveAttribute("data-min-width", String(kind === "edit.video.stitch" || kind === "edit.video.trim" ? Math.min(geometry.width, geometry.minWidth) : geometry.minWidth));
       expect(resizer, kind).toHaveAttribute("data-min-height", String(geometry.minHeight));
       view.unmount();
     }

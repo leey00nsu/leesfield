@@ -9,6 +9,7 @@ import { NodeBananaStudio } from "./node-banana-studio";
 
 type NodeStudioProps = {
   graph: GenerationGraphSnapshotDto;
+  persistedNodeIds?: ReadonlySet<string>;
   onDraftChange: (draft: GraphDraft) => void;
   prepareImageNodeExecution?: () => Promise<number>;
   catalog?: NodeAuthoringCatalogState;
@@ -46,6 +47,7 @@ const emptyCatalog: NodeAuthoringCatalogState = {
 
 export function NodeStudio({
   graph,
+  persistedNodeIds,
   onDraftChange,
   prepareImageNodeExecution = async () => graph.version,
   catalog = emptyCatalog,
@@ -63,6 +65,7 @@ export function NodeStudio({
   return (
     <NodeBananaStudio
       graph={graph}
+      persistedNodeIds={persistedNodeIds}
       onDraftChange={onDraftChange}
       prepareImageNodeExecution={prepareImageNodeExecution}
       catalog={catalog}

@@ -6,10 +6,10 @@ import { Handle } from "../../leesfield/port-handle";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { Position, NodeProps, Node } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
+import { InputMediaChooser } from "./InputMediaChooser";
 import { HandleLabel } from "./HandleLabel";
 import {
   ImageInputNodeData,
-  HostedInputHistory,
   downloadMedia,
   useAdaptiveImageSrc,
   useCommentNavigation,
@@ -29,6 +29,7 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const writable = useWorkflowStore((state) => state.writable) && !nodeData.hasConnectedImage;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   const showLabels = useShowHandleLabels(selected);
 
   const handleFileChange = useCallback(
@@ -119,10 +120,11 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
 
       {nodeData.image ? (
         <div className="relative group w-full h-full overflow-clip rounded-lg">
-          {!nodeData.hasConnectedImage && <button type="button" className="absolute inset-0 z-10 nodrag nopan" disabled={!writable} aria-label={tc("Choose image")} onClick={() => setChoosingImage(true)} />}
+          {!nodeData.hasConnectedImage && <button ref={(element) => { triggerRef.current = element; }} type="button" className="absolute left-2 top-2 z-20 nodrag nopan rounded-md border border-neutral-600 bg-neutral-900/90 px-2 py-1.5 text-xs text-neutral-200" disabled={!writable} aria-label={tc("Choose image")} onClick={() => setChoosingImage(true)}>{tc("Replace")}</button>}
           <img
             src={adaptiveImage ?? undefined}
             alt={nodeData.hasConnectedImage ? tc("Connected image") : nodeData.filename || tc("Uploaded image")}
+            draggable={false}
             className="w-full h-full object-cover rounded-lg"
           />
           {nodeData.hasConnectedImage && (
@@ -134,7 +136,7 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
           <button
             onClick={() => downloadMedia(nodeData.image!, "image")}
             aria-label={tc("Download image")}
-            className="absolute z-20 top-2 right-10 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded text-xs opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all flex items-center justify-center"
+            className="nodrag nopan absolute z-20 top-2 right-10 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded text-xs opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all flex items-center justify-center"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -155,6 +157,7 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
         <div role="status" className="w-full h-full flex items-center justify-center text-xs text-neutral-500">{tc("Waiting for connected image")}</div>
       ) : (
         <div
+          ref={(element) => { triggerRef.current = element; }}
           role="button"
           tabIndex={writable ? 0 : -1}
           aria-label={tc("Choose image")}
@@ -177,11 +180,7 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
         </div>
       )}
 
-      {choosingImage && writable && <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg bg-neutral-900 nodrag nopan" style={{ backgroundColor: "#171717" }} role="group" aria-label={tc("Choose image")}>
-        <button type="button" className="h-10 w-32 rounded-md border border-neutral-600 bg-neutral-900 px-4 text-xs text-neutral-200" onClick={() => fileInputRef.current?.click()}>{tc("Upload")}</button>
-        <div className="flex h-10 w-32 items-center justify-center [&>button]:!static [&>button]:!h-10 [&>button]:!w-full [&>button]:!justify-center"><HostedInputHistory nodeId={id} mediaType="image" selectedAssetId={nodeData.config?.assetId ?? null} /></div>
-        <button type="button" className="text-xs text-neutral-400" onClick={() => setChoosingImage(false)}>{tc("Cancel")}</button>
-      </div>}
+      <InputMediaChooser nodeId={id} mediaType="image" selectedAssetId={nodeData.config?.assetId ?? null} open={choosingImage && writable} onOpenChange={setChoosingImage} onUpload={() => fileInputRef.current?.click()} triggerRef={triggerRef}/>
 
       {/* Handles rendered after visual content so they paint on top */}
       <Handle

@@ -45,6 +45,7 @@ function fileInput(name: string, multiple: boolean, maxItems = 8): FileInput {
 
 /** The authenticated schema and submission parser share the same model contract. */
 export function getExternalModelInput(model: ModelCatalogItem) {
+  if (model.type === "llm") throw new Error("MODEL_TYPE_UNSUPPORTED");
   const runtime = getModelGenerationSchema(model);
   const contract = getGradioContract(model);
   const files: FileInput[] = [];

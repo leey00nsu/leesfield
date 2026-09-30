@@ -105,6 +105,7 @@ function withNodeErrorBoundary(
 
 type NodeBananaStudioProps = {
   graph: GenerationGraphSnapshotDto;
+  persistedNodeIds?: ReadonlySet<string>;
   onDraftChange: (draft: GraphDraft) => void;
   prepareImageNodeExecution: () => Promise<number>;
   catalog: NodeAuthoringCatalogState;
@@ -226,6 +227,7 @@ function outputGalleryExcludedAssetIds(config: unknown) {
 
 export function NodeBananaStudio({
   graph,
+  persistedNodeIds,
   onDraftChange,
   prepareImageNodeExecution,
   catalog,
@@ -313,13 +315,15 @@ export function NodeBananaStudio({
       title: graph.title,
       version: graph.version,
     };
-    runtimeGraphRef.current = runtimeGraph;
+    // publishRuntimeGraph updates this ref synchronously. A later effect from
+    // an older render can otherwise restore stale node config (including
+    // Stitch clipOrder) while canonicalRef already contains the new graph.
     onDraftChangeRef.current = onDraftChange;
     prepareImageNodeExecutionRef.current = prepareImageNodeExecution;
     publishedSignatureRef.current = graphDraftSignature(
       canonicalDocumentToV3Draft(canonicalRef.current),
     );
-  }, [graph.title, graph.version, onDraftChange, prepareImageNodeExecution, runtimeGraph]);
+  }, [graph.title, graph.version, onDraftChange, prepareImageNodeExecution]);
 
   const publishRuntimeGraph = useCallback((nextRuntime: NodeBananaRuntimeGraph) => {
     const canonical = runtimeGraphToCanonicalDocument(canonicalRef.current, nextRuntime);
@@ -409,6 +413,7 @@ export function NodeBananaStudio({
       })),
     };
     return adaptNodeBananaHostGraph(graphWithResolvedData as never, {
+      assistantResults: catalog.assistantResults,
       modelCatalog: [
         ...catalog.imageModels,
         ...(catalog.videoModels ?? []),
@@ -446,7 +451,7 @@ export function NodeBananaStudio({
         return url ? { id: assetId, url } : undefined;
       },
     });
-  }, [catalog.audioModels, catalog.imageModels, catalog.videoModels, resolveHostedNodeData, runtimeGraph]);
+  }, [catalog.assistantResults, catalog.audioModels, catalog.imageModels, catalog.videoModels, resolveHostedNodeData, runtimeGraph]);
 
   const reconcileEdgesForConfig = useCallback((
     currentGraph: NodeBananaRuntimeGraph,
@@ -722,12 +727,15 @@ export function NodeBananaStudio({
     nodeId: string,
     mediaType: "image" | "audio" | "video",
     selectedAssetId: string | null,
+    options?: { open: boolean; onOpenChange: (open: boolean) => void },
   ) => (
     <NodeBananaInputHistoryControl
       key={`${graph.id}:${nodeId}`}
       nodeId={nodeId}
       mediaType={mediaType}
       selectedAssetId={selectedAssetId}
+      open={options?.open}
+      onOpenChange={options?.onOpenChange}
       writable={effectiveWritable}
       onSelect={(assetId) => {
         const current = runtimeGraphRef.current.nodes.find((node) => node.id === nodeId);
@@ -735,6 +743,7 @@ export function NodeBananaStudio({
           ? current.data.config as Record<string, unknown>
           : {};
         updateUpstreamNodeData(nodeId, { config: { ...currentConfig, assetId } });
+        options?.onOpenChange(false);
       }}
     />
   ), [effectiveWritable, updateUpstreamNodeData, graph.id]);
@@ -1050,7 +1059,10 @@ export function NodeBananaStudio({
 
   const HostedUpstreamHeader = useCallback(
     (node: NodeBananaCanvasProps["graph"]["nodes"][number]) => (
-      node.data.canonicalKind === "note.memo" || isUnavailableEditNodeKind(String(node.data.canonicalKind ?? ""))
+      node.data.canonicalKind === "note.memo" || node.data.canonicalKind === "edit.video.stitch"
+        || node.data.canonicalKind === "generate.assistant"
+        || node.data.canonicalKind === "edit.video.trim"
+        || isUnavailableEditNodeKind(String(node.data.canonicalKind ?? ""))
         ? null : <HostedUpstreamHeaderComponent node={node} />
     ),
     [HostedUpstreamHeaderComponent],
@@ -1059,6 +1071,8 @@ export function NodeBananaStudio({
   const hostedNodeTypes = useMemo<NodeTypes>(
     () => ({
       memoNode: withNodeErrorBoundary("memo", CanonicalNode as unknown as ComponentType<NodeProps>),
+      leesfieldVideoNode: withNodeErrorBoundary("leesfield-video", CanonicalNode as unknown as ComponentType<NodeProps>),
+      leesfieldAssistantNode: withNodeErrorBoundary("leesfield-assistant", CanonicalNode as unknown as ComponentType<NodeProps>),
       generationNode: withNodeErrorBoundary("generation", HostedUpstreamNode),
       canonicalNode: withNodeErrorBoundary("canonical", HostedUpstreamNode),
       unsupportedNode: withNodeErrorBoundary(
@@ -1136,8 +1150,8 @@ export function NodeBananaStudio({
     [catalog, hasMissingInput],
   );
   const getNodePromptInput = useCallback((nodeId: string) => {
-    return resolveNodePromptInput(runtimeGraphRef.current, nodeId);
-  }, []);
+    return resolveNodePromptInput(runtimeGraphRef.current, nodeId, catalog.assistantResults);
+  }, [catalog.assistantResults]);
   const getNodeInputAssetId = useCallback((nodeId: string, targetPortId: string) => {
     return resolveNodeInputAssetId(runtimeGraphRef.current, nodeId, targetPortId);
   }, []);
@@ -1197,7 +1211,7 @@ export function NodeBananaStudio({
       getNodeInputAssetId,
       getNodeInputAssetIds,
       isNodePortConnected,
-      isNodePersisted: (nodeId: string) => graph.nodes.some((node) => node.id === nodeId),
+      isNodePersisted: (nodeId: string) => persistedNodeIds?.has(nodeId) ?? graph.nodes.some((node) => node.id === nodeId),
       selectNodeOutputAsset: (nodeId: string, selectedOutputAssetId: string | null) =>
         replaceNodeData(nodeId, { selectedOutputAssetId }),
       updateImageNodeConfig: (nodeId: string, config: ImageGenerationFlowNode["data"]["config"]) => {
@@ -1249,6 +1263,7 @@ export function NodeBananaStudio({
       effectiveWritable,
       graph.id,
       graph.nodes,
+      persistedNodeIds,
       getNodeRunReadiness,
       getNodeInputAssetId,
       getNodeInputAssetIds,
@@ -1371,7 +1386,11 @@ export function NodeBananaStudio({
           pending,
           crypto.randomUUID(),
         );
-      if (pending && (!edge || !isRuntimeConnectionValid(canonicalRef.current, { ...currentGraph, nodes: [...currentGraph.nodes, node] }, edge, connectionCapabilities))) {
+      const validationGraph = pending?.replaceExisting && edge ? {
+        ...currentGraph,
+        edges: currentGraph.edges.filter(existing => existing.target !== edge.target || existing.targetHandle !== edge.targetHandle),
+      } : currentGraph;
+      if (pending && (!edge || !isRuntimeConnectionValid(canonicalRef.current, { ...validationGraph, nodes: [...currentGraph.nodes, node] }, edge, connectionCapabilities))) {
         throw new Error("CONNECTION_NOT_AVAILABLE");
       }
       return { node, edge };

@@ -4,6 +4,7 @@ import type { GraphDocumentV2 } from "@/shared/generation-graph/canonical-graph"
 import { resolveRuntimeVideoDefaults } from "@/shared/model-catalog/runtime-utils";
 import type {
   RuntimeImageModel,
+  RuntimeLlmModel,
   RuntimeVideoModel,
 } from "@/shared/model-catalog/runtime-utils";
 
@@ -58,8 +59,30 @@ function edge(
 }
 
 const catalog = { imageModels: [imageModel], videoModels: [videoModel] };
+const llmModel: RuntimeLlmModel = {
+  type: "llm", key: "llm-model", label: "Assistant", vendor: "OpenAI", provider: "openai_compatible",
+  providerConfig: { base_url: "https://api.example.com/v1", model_id: "creative-1", supports_images: false },
+  isActive: true, isDefault: false,
+};
 
 describe("resolveNodeRunReadiness", () => {
+  it("checks Assistant visual capability and uses its latest text through a Prompt edge", () => {
+    const assistant = node("assistant", "generate.assistant", { prompt: "Describe this", modelKey: llmModel.key });
+    const image = node("reference", "input.image", { assetId: "asset-image" });
+    const prompt = node("prompt", "input.prompt", { text: "fallback" });
+    const generate = node("generate", "generate.image", {
+      prompt: "", modelKey: imageModel.key, parameters: { width: 1024, height: 1024, imageCount: 1, steps: 10 },
+    });
+    const graph = { nodes: [assistant, image, prompt, generate], edges: [
+      edge("visual", "reference", "image", "assistant", "images"),
+      edge("text", "assistant", "text", "prompt", "text"),
+      edge("prompt", "prompt", "text", "generate", "prompt"),
+    ] };
+    expect(resolveNodeRunReadiness(graph, "assistant", { ...catalog, llmModels: [llmModel] }).reasons).toContain("INPUT_UNSUPPORTED");
+    expect(resolveNodeRunReadiness(graph, "generate", { ...catalog, assistantResults: { assistant: "A brown coat" } })).toEqual({ ready: true, reasons: [] });
+    expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).toContain("INPUT_NOT_READY");
+  });
+
   it("requires every operation input to resolve to a durable asset", () => {
     const edit = node("edit", "edit.image.resize", {
       parameters: {

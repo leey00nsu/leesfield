@@ -97,6 +97,7 @@ export type NodeBananaPendingConnection = {
   nodeId: string;
   handleId: string | null;
   handleType: "source" | "target";
+  replaceExisting?: boolean;
 };
 
 export type NodeBananaRuntimePaletteItem = {
@@ -769,10 +770,23 @@ export function NodeBananaCanvasRuntime({
       event.stopPropagation(); const rect=root.getBoundingClientRect();
       const flow=instanceRef.current?.screenToFlowPosition({x:detail.x,y:detail.y}) ?? {x:80,y:80};
       if(detail.handleType === "target") flow.x -= 360;
-      openMenu({x:detail.x-rect.left,y:detail.y-rect.top}, flow, {nodeId:detail.nodeId,handleId:detail.handleId,handleType:detail.handleType});
+      const pendingConnection = {nodeId:detail.nodeId,handleId:detail.handleId,handleType:detail.handleType, ...(detail.replaceExisting === true ? {replaceExisting: true} : {})};
+      if ((detail.action === "upload" || detail.action === "assets") && detail.handleType === "target" && (detail.mediaType === "image" || detail.mediaType === "video")) {
+        const request = {mediaType: detail.mediaType, menu: {open: false, screen: {x: detail.x-rect.left, y: detail.y-rect.top}, flow, pendingConnection, query: ""}, picker: detail.action === "assets"};
+        assetRequestRef.current = request;
+        setAssetRequest(request);
+        store.setState({menu: closedMenu});
+        if (detail.action === "upload" && mediaFileRef.current) {
+          mediaFileRef.current.accept = detail.mediaType + "/*";
+          mediaFileRef.current.value = "";
+          mediaFileRef.current.click();
+        }
+        return;
+      }
+      openMenu({x:detail.x-rect.left,y:detail.y-rect.top}, flow, pendingConnection);
     };
     root?.addEventListener("node-banana-port-menu",listener); return ()=>root?.removeEventListener("node-banana-port-menu",listener);
-  },[writable,graph.nodes,openMenu]);
+  },[writable,graph.nodes,openMenu,store]);
   const [assetRequest,setAssetRequest]=useState<{mediaType:"image"|"audio"|"video";menu:MenuState;picker:boolean}|null>(null);
   const assetController=useRef<AbortController|null>(null);
   const assetRequestRef=useRef(assetRequest); assetRequestRef.current=assetRequest;
@@ -805,7 +819,9 @@ export function NodeBananaCanvasRuntime({
       const result=current.onCreateNode(item,request.menu.flow,pending);
       if(!result.edge) throw new Error("CONNECTION_NOT_AVAILABLE");
       result.node={...result.node,data:{...result.node.data,config:{assetId:imported.assetId}}};
-      current.publish({nodes:[...current.graph.nodes,result.node],edges:[...current.graph.edges,result.edge]},"create");
+      const retainedEdges = pending.replaceExisting ? current.graph.edges.filter(edge =>
+        edge.target !== result.edge!.target || edge.targetHandle !== result.edge!.targetHandle) : current.graph.edges;
+      current.publish({nodes:[...current.graph.nodes,result.node],edges:[...retainedEdges,result.edge]},"create");
       closeAssets();
     } catch(error) { if(!controller.signal.aborted) {onInputError?.(error instanceof Error?error:new Error("MEDIA_IMPORT_FAILED"));closeAssets();} }
     finally {setMediaUpload(current => current?.controller === controller ? null : current);}
@@ -1325,7 +1341,7 @@ export function NodeBananaCanvasRuntime({
         }
         selectionKeyCode={canvasSettings.selectionMode === "altDrag" ? "Alt" : "Shift"}
         panOnDrag={
-          canvasSettings.panMode === "always" ? true : canvasSettings.panMode === "middleMouse" ? [2] : !(typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
+          canvasSettings.panMode === "always" ? true : canvasSettings.panMode === "middleMouse" ? [1] : !(typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
         }
         panActivationKeyCode={canvasSettings.panMode === "space" ? "Space" : null}
         zoomOnScroll

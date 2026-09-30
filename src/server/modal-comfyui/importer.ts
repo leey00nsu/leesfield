@@ -1,6 +1,6 @@
 import { modalWorkflowSchema, modalInputContract, modalExecutionLimitsSchema } from "@/shared/model-catalog/modal-comfyui-contract";
 import { assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
-import { modelCatalogInputSchema } from "@/server/model-catalog/catalog-schema";
+import { modelCatalogInputSchema, type ModelCatalogInput } from "@/server/model-catalog/catalog-schema";
 
 export function buildModalModelDraft(raw: unknown) {
  const workflow = modalWorkflowSchema.parse(raw);
@@ -29,5 +29,5 @@ export function buildModalModelDraft(raw: unknown) {
    concurrent_limit:1,
   },
   isActive:false,isDefault:false,
- });
+ }) as Extract<ModelCatalogInput, { provider: "modal_comfyui" }>;
 }

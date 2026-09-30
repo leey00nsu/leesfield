@@ -8,6 +8,10 @@ import {
 import {fileInputsFromAssets,parseFileInputPort} from "@/shared/model-catalog/file-input-ports";
 import { ZodError } from "zod";
 import { constructPrompt } from "@/shared/generation-graph/prompt-constructor";
+import { createAssistantExecution, listAssistantExecutions, getAssistantExecution, cancelAssistantExecution, latestAssistantText } from "@/server/assistant-executions/assistant-execution-repository";
+import { startAssistantWorker } from "@/server/assistant-executions/assistant-worker";
+import { getLlmModelApiKey } from "@/server/model-catalog/model-credential";
+import type { AssistantExecution } from "@prisma/client";
 
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
@@ -16,6 +20,7 @@ import { submitAudioGeneration } from "@/server/audio-generation/audio-generatio
 import { submitImageGeneration } from "@/server/image-generation/image-generation-submission";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
 import { startMediaOperationWorker } from "@/server/media-operations/media-operation-worker";
+import { hasFfmpegVideoProcessor } from "@/server/media-operations/ffmpeg-video-processor";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import {
   validateAudioGenerationPayload,
@@ -76,6 +81,7 @@ type NodeExecutionDependencies = {
   updateOperation: typeof mediaAssetService.updateOperation;
   cancelOperation: typeof mediaAssetService.cancelOperation;
   hasBackgroundRemovalProcessor: () => Promise<boolean>;
+  hasVideoProcessor: () => Promise<boolean>;
   startOperationWorker: () => void;
 };
 
@@ -104,6 +110,7 @@ const defaultDependencies: NodeExecutionDependencies = {
     );
   },
   startOperationWorker: startMediaOperationWorker,
+  hasVideoProcessor: hasFfmpegVideoProcessor,
   assertStorage(mediaType) {
     const provider = mediaType === "image"
       ? resolveImageStorageProvider().provider
@@ -224,6 +231,9 @@ async function effectivePromptFromEdge(
   ownerEmail: string, graphId: string, edge: StoredNodeExecutionEdge,
   dependencies: NodeExecutionDependencies, visited: Set<string> = new Set(),
 ): Promise<string | null> {
+  if (sourceKind(edge) === "generate.assistant") {
+    return latestAssistantText(ownerEmail, graphId, edge.sourceNodeId);
+  }
   if (sourceKind(edge) === "process.promptConstructor") {
     if (visited.has(edge.sourceNodeId)) throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", { reason: "PROMPT_INPUT_CYCLE" });
     const nextVisited = new Set(visited).add(edge.sourceNodeId);
@@ -346,7 +356,7 @@ async function resolveInputs(
     }
     if (targetPort.valueType === "text") {
       const value = await effectivePromptFromEdge(ownerEmail, graphId, edge, dependencies);
-      if (!["input.prompt", "process.promptConstructor"].includes(fromKind) || value === null) {
+      if (!["input.prompt", "process.promptConstructor", "generate.assistant"].includes(fromKind) || value === null) {
         throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", {
           edgeId: edge.id,
           sourceNodeId: edge.sourceNodeId,
@@ -530,6 +540,22 @@ function operationToDto(operation: MediaOperationDto): NodeExecutionDto {
   };
 }
 
+function assistantToDto(row: AssistantExecution): NodeExecutionDto {
+  return {
+    executionId: row.id,
+    executionKind: "assistant",
+    mediaType: "text",
+    graphNodeId: row.graphNodeId,
+    status: row.status,
+    progress: row.status === "completed" ? 100 : row.status === "processing" ? 20 : 0,
+    errorCode: row.errorCode,
+    modelKey: row.modelKey,
+    outputAssetIds: [],
+    outputText: row.outputText,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 function expectedOperationOutputs(kind: string, parameters: Record<string, unknown>) {
   if (kind !== "edit.image.splitGrid") return 1;
   const rows = typeof parameters.rows === "number" ? parameters.rows : 2;
@@ -598,7 +624,7 @@ const VIDEO_OPERATION_MAX_DURATION_MS = 10 * 60 * 1_000;
 const VIDEO_OPERATION_MAX_EDGE = 8_192;
 const VIDEO_OPERATION_MAX_PIXELS = 32 * 1024 * 1024;
 
-function assertBrowserVideoOperationCapabilities(
+function assertVideoOperationCapabilities(
   kind: string,
   parameters: Record<string, unknown>,
   inputs: ResolvedNodeInputs["assets"],
@@ -639,6 +665,12 @@ function assertBrowserVideoOperationCapabilities(
   }
 
   const videos = inputs.filter((input) => input.type === "video");
+  if (kind === "edit.video.stitch" && videos.length > 20) {
+    throw new NodeExecutionInputResolutionError("NODE_INPUT_LIMIT_EXCEEDED", {
+      reason: "VIDEO_OPERATION_CLIP_LIMIT_EXCEEDED",
+      limit: 20,
+    });
+  }
   if (kind === "edit.video.trim") {
     const startMs = Number(parameters.startMs);
     const endMs = Number(parameters.endMs);
@@ -674,7 +706,7 @@ function assertBrowserOperationCapabilities(
     return;
   }
   if (kind.startsWith("edit.video.")) {
-    assertBrowserVideoOperationCapabilities(kind, parameters, inputs);
+    assertVideoOperationCapabilities(kind, parameters, inputs);
     return;
   }
 }
@@ -702,7 +734,7 @@ export function createNodeExecutionService(
       if (kind && isUnavailableEditNodeKind(kind)) {
         throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNAVAILABLE"] });
       }
-      if (!kind || !mediaType || !definition || definition.executionMode === "none") {
+      if (!kind || (!mediaType && kind !== "generate.assistant") || !definition || definition.executionMode === "none") {
         throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       }
       const parsedConfig = definition.configSchema.safeParse(node.config);
@@ -716,7 +748,36 @@ export function createNodeExecutionService(
         modelKey: string | null;
         parameters: Record<string, unknown>;
       };
-      const resolved = await resolveInputs(ownerEmail, graphId, node, kind, dependencies, config.parameters);
+      const resolved = await resolveInputs(ownerEmail, graphId, node, kind, dependencies, config.parameters ?? {});
+      if (kind === "generate.assistant") {
+        if (!config.modelKey) throw new NodeExecutionConfigError({ model: ["MODEL_REQUIRED"] });
+        const model = (await getModelCatalog({ bypassCache: true })).find((candidate) => candidate.type === "llm" && candidate.key === config.modelKey && candidate.isActive);
+        if (!model || model.type !== "llm") throw new NodeExecutionConfigError({ model: ["MODEL_NOT_FOUND"] });
+        try { await getLlmModelApiKey(config.modelKey); }
+        catch { throw new NodeExecutionConfigError({ model: ["MODEL_API_KEY_MISSING"] }); }
+        if (resolved.assets.length && !model.providerConfig.supports_images) {
+          throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { reason: "ASSISTANT_VISUAL_UNSUPPORTED" });
+        }
+        for (const asset of resolved.assets) {
+          const bytes = Number(asset.bytes);
+          const limit = asset.type === "image" ? 8 * 1024 * 1024 : 60 * 1024 * 1024;
+          if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > limit ||
+            (asset.type === "video" && (!asset.durationMs || asset.durationMs > 60_000))) {
+            throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { assetId: asset.assetId, reason: "ASSISTANT_INPUT_LIMIT_EXCEEDED" });
+          }
+        }
+        const record = await createAssistantExecution({
+          ownerEmail, graphId, graphNodeId: node.id, modelKey: config.modelKey,
+          snapshot: {
+            instruction: config.prompt,
+            text: resolved.prompt,
+            assets: resolved.assets.map(({ assetId, type, portId, sortOrder }) => ({ assetId, type: type as "image" | "video", portId, sortOrder })),
+          },
+        });
+        startAssistantWorker();
+        return { record: { id: record.id, status: record.status, progress: 0 }, mediaType: "text" as const, executionKind: "assistant" as const };
+      }
+      if (!mediaType) throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       if (definition.executionMode === "browser-operation" || definition.executionMode === "server-operation") {
         dependencies.assertStorage(mediaType);
         if (
@@ -726,12 +787,22 @@ export function createNodeExecutionService(
         ) {
           throw new NodeExecutionProcessorUnavailableError();
         }
+        if (
+          definition.executionMode === "server-operation" &&
+          (kind === "edit.video.stitch" || kind === "edit.video.trim") &&
+          !(await dependencies.hasVideoProcessor())
+        ) {
+          throw new NodeExecutionProcessorUnavailableError();
+        }
         const ownParameters = (parsedConfig.data as { parameters: Record<string, unknown> }).parameters;
         const parameters = kind === "edit.video.easeCurve" && resolved.settingsParameters
           ? resolved.settingsParameters
           : ownParameters;
         if (definition.executionMode === "browser-operation") {
           assertBrowserOperationCapabilities(kind, parameters, resolved.assets);
+        }
+        if (kind === "edit.video.stitch" || kind === "edit.video.trim") {
+          assertVideoOperationCapabilities(kind, parameters, resolved.assets);
         }
         const expectedOutputCount = expectedOperationOutputs(kind, parameters);
         const outputPort = definition.ports.find((port) => port.direction === "output");
@@ -908,6 +979,7 @@ export function createNodeExecutionService(
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
       const kind = targetKind(node);
       const mediaType = mediaTypeForKind(kind);
+      if (kind === "generate.assistant") return (await listAssistantExecutions(ownerEmail, graphId, nodeId)).map(assistantToDto);
       if (!mediaType) throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       const definition = kind ? findNodeDefinition(kind) : null;
       const executions = definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation"
@@ -920,6 +992,7 @@ export function createNodeExecutionService(
 
     async get(ownerEmail: string, graphId: string, nodeId: string, executionId: string) {
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
+      if (node.kind === "generate.assistant") return assistantToDto(await getAssistantExecution(ownerEmail, graphId, nodeId, executionId));
       const definition = findNodeDefinition(targetKind(node) ?? "");
       if (definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation") {
         const operation = await dependencies.getOperation(ownerEmail, executionId);
@@ -933,6 +1006,7 @@ export function createNodeExecutionService(
 
     async cancel(ownerEmail: string, graphId: string, nodeId: string, executionId: string) {
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
+      if (node.kind === "generate.assistant") return assistantToDto(await cancelAssistantExecution(ownerEmail, graphId, nodeId, executionId));
       const definition = findNodeDefinition(targetKind(node) ?? "");
       if (definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation") {
         const operation = await dependencies.getOperation(ownerEmail, executionId);
