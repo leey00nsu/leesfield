@@ -34,6 +34,16 @@ describe("node execution API", () => {
     );
   });
 
+  it("sends repeat reference and independent idempotency keys without provider payload", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ execution: { executionId: "iteration" } }), { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await startNodeExecution("g", "n", 4, { repeatOfExecutionId: "root", repeatIndex: 1 });
+    await startNodeExecution("g", "n", 4, { repeatOfExecutionId: "root", repeatIndex: 2 });
+    const requests = fetchMock.mock.calls.map(call => call[1]);
+    expect(JSON.parse(requests[0].body)).toEqual({ expectedGraphVersion: 4, repeatOfExecutionId: "root", repeatIndex: 1 });
+    expect(requests[0].headers["Idempotency-Key"]).not.toBe(requests[1].headers["Idempotency-Key"]);
+  });
+
   it("lists and cancels through the unified endpoint", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ executions: [] })))

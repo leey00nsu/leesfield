@@ -73,7 +73,7 @@ export function ApiKeyEditModal({
           />
           <div className="min-h-8" aria-live="polite">{error ? <p className="text-xs text-red-300">{error}</p> : null}</div>
         </div>
-        <AppDialogFooter className="justify-between">
+        <AppDialogFooter>
           <AppDialogDangerButton
             type="button"
             onClick={onRevoke}
@@ -86,7 +86,6 @@ export function ApiKeyEditModal({
                 ? t("revoking")
                 : t("revoke")}
           </AppDialogDangerButton>
-          <div className="flex gap-2">
             <AppDialogClose asChild>
               <AppDialogCancelButton
                 type="button"
@@ -101,7 +100,6 @@ export function ApiKeyEditModal({
             >
               {isSaving ? t("saving") : t("save")}
             </AppDialogActionButton>
-          </div>
         </AppDialogFooter>
       </AppDialogContent>
     </AppDialog>

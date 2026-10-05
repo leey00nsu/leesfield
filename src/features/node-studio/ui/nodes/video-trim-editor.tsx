@@ -111,7 +111,7 @@ function useFilmstrip(asset: MediaAssetDto | null | undefined) {
 }
 
 export function VideoTrimEditor({
-  source, output, startMs, endMs, stripAudio, writable, onChange, onClearOutput,
+  source, output, startMs, endMs, stripAudio, writable, onChange, onClearOutput, externalResults = false,
 }: {
   source: MediaAssetDto | null | undefined;
   output: MediaAssetDto | null | undefined;
@@ -121,6 +121,7 @@ export function VideoTrimEditor({
   writable: boolean;
   onChange: (patch: Record<string, unknown>) => void;
   onClearOutput?: () => void;
+  externalResults?: boolean;
 }) {
   const tc = useCanvasTranslation();
   const video = useRef<HTMLVideoElement>(null);
@@ -208,9 +209,9 @@ export function VideoTrimEditor({
   return (
     <div className="grid gap-2" data-leesfield-component="VideoTrimEditor">
       <div className="flex items-center justify-between">
-        <NodeViewTabs id={tabsId} label={tc("Video preview")} value={tab}
+        {!externalResults && <NodeViewTabs id={tabsId} label={tc("Video preview")} value={tab}
           tabs={[{ value: "source", label: tc("Source") }, { value: "output", label: tc("Result"), disabled: !output }]}
-          onChange={changeTab} />
+          onChange={changeTab} />}
         {result && onClearOutput ? <button type="button" aria-label={tc("Clear result")}
           disabled={!writable} onClick={() => { changeTab("source"); onClearOutput(); }}
           className="grid h-6 w-6 place-items-center rounded text-neutral-400 hover:bg-white/10 disabled:opacity-30">
@@ -218,7 +219,7 @@ export function VideoTrimEditor({
         </button> : <Scissors size={14} className="text-neutral-500" aria-hidden="true" />}
       </div>
       <div className="relative aspect-video min-h-36 overflow-hidden rounded-md bg-black/60"
-        role="tabpanel" id={`${tabsId}-${tab}-panel`} aria-labelledby={`${tabsId}-${tab}-tab`}
+        role={externalResults ? "region" : "tabpanel"} id={`${tabsId}-${tab}-panel`} aria-label={externalResults ? tc("Operation source") : undefined} aria-labelledby={externalResults ? undefined : `${tabsId}-${tab}-tab`}
         data-node-banana-component="OperationPreview" data-preview-state={result ? "output" : source ? "input" : "empty"}>
         {asset?.type === "video" ? (
           <video key={asset.url} ref={video} src={asset.url} playsInline preload="metadata"

@@ -8,6 +8,132 @@
   background: var(--background);
 }
 
+/* BaseNode owns the 1px outline and rounded-lg corners. Status content stays
+   inside that outline and below the existing port interaction layer (20). */
+.resultStatus {
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--radius-lg, 0.5rem) - 1px);
+  z-index: 10;
+}
+
+.mediaOpen {
+  position: absolute;
+  /* Native controls live inside the BaseNode's 1px border. Include that
+     inset here, then leave the same 8px gap used by download/remove. */
+  top: calc(0.5rem + 1px);
+  right: calc(4.5rem + 1px);
+  border-radius: 0.25rem;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.mediaOpenAudio {
+  /* Audio's preview also has the BaseNode's 12px horizontal padding. */
+  top: calc(0.25rem + 1px);
+  right: calc(4.25rem + 1px);
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mediaOpenAudio svg { width: 0.75rem; height: 0.75rem; }
+.runtime :global(.react-flow__node:hover) .mediaOpen,
+.mediaOpen:focus-visible { opacity: 1; }
+/* The host action is a sibling of the native preview group. Keep its
+   download/remove controls visible while hovering that action as well. */
+.runtime :global(.react-flow__node:hover):has(.mediaOpen) :global(button[class*="group-hover:opacity-100"]) {
+  opacity: 1;
+}
+@media (hover: none) { .mediaOpen { opacity: 1; } }
+
+.mediaDisconnect {
+  position: absolute;
+  top: calc(0.5rem + 1px);
+  right: calc(0.5rem + 1px);
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.6);
+  color: white;
+  opacity: 0;
+}
+.mediaDisconnect svg { width: 0.875rem; height: 0.875rem; }
+.mediaDisconnect:hover { background: rgb(220 38 38 / 0.8); }
+.mediaDisconnect:disabled { cursor: not-allowed; }
+.mediaDisconnectAudio {
+  top: calc(0.25rem + 1px);
+  right: calc(1rem + 1px);
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mediaDisconnectAudio svg { width: 0.75rem; height: 0.75rem; }
+.runtime :global(.react-flow__node:hover) .mediaDisconnect,
+.mediaDisconnect:focus-visible { opacity: 1; }
+@media (hover: none) { .mediaDisconnect { opacity: 1; } }
+
+/* Each node is one stacking context: its header, controls and handles cannot
+   rise above the body of a node with a higher React Flow elevation. */
+.runtime :global(.react-flow__node) { isolation: isolate; }
+.runtime :global(.react-flow__node [data-node-banana-component="FloatingNodeHeader"]) {
+  /* The in-node header follows live resizing, not the persisted graph width. */
+  width: 100% !important;
+  z-index: 20 !important;
+}
+
+/* A common inset editing surface, including the native Prompt/Constructor. */
+.runtime :global([data-node-text-editor]) {
+  background: rgb(23 23 23 / 0.6) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  padding: 0 !important;
+}
+.runtime :global([data-node-text-editor][data-editing="true"]) { border-color: var(--data-accent) !important; }
+.runtime :global([data-node-text-editor] textarea:focus-visible) { outline: none; box-shadow: none; }
+.runtime :global([data-node-banana-component="PromptNode"] [data-node-text-editor]),
+.runtime :global([data-node-banana-component="PromptConstructorNode"] [data-node-text-editor]) {
+  margin: 0.75rem;
+  width: calc(100% - 1.5rem);
+  height: calc(100% - 1.5rem);
+}
+.runtime :global([data-node-banana-component="PromptNode"] [data-node-text-editor]) {
+  height: calc(100% - 3rem);
+}
+.runtime :global([data-node-banana-component="PromptConstructorNode"] div:has(> [data-node-text-editor]) > div[aria-hidden="true"]) {
+  inset: 0.75rem;
+  background: rgb(23 23 23 / 0.6);
+}
+.runtime :global([data-node-banana-component="PromptConstructorNode"] div:has(> div[aria-hidden="true"]) > [data-node-text-editor]) {
+  background: transparent !important;
+}
+.runtime :global([data-node-banana-component="PromptConstructorNode"] div:has(> [data-node-text-editor]) > div.absolute:not([aria-hidden])) {
+  translate: 0.75rem 0.75rem;
+}
+
+/* Audio keeps its waveform/player when populated; its empty body uses the
+   same full surface as image/video instead of a darker inset rectangle. */
+.runtime :global([data-space-media-empty="true"][data-space-media-input="audio"] [data-node-banana-component="AudioInputNode"] > div > div.border) {
+  background: rgb(38 38 38 / 0.5);
+}
+.runtime :global([data-space-media-empty="true"][data-space-media-input="audio"] [role="button"]) {
+  background: rgb(23 23 23 / 0.4);
+  border-radius: 0.5rem;
+}
+.runtime :global([data-space-media-empty="true"][data-space-media-input="audio"] [data-node-banana-component="AudioInputNode"] > div > div.border > div) {
+  padding: 0;
+}
+.runtime :global([data-space-media-input="audio"][data-space-connected-media="true"] button:has(path[d="M6 18L18 6M6 6l12 12"])) {
+  display: none;
+}
+
+/* The brand popover positioner owns the stacking context. Lift only the
+   Space preset menu above the existing fixed inspector; keep brand source. */
+:global(.isolate:has(> [data-space-preset-picker])) {
+  z-index: 2000;
+}
+
 .runtime :global(.react-flow) {
   position: absolute;
   inset: 0;
@@ -771,16 +897,34 @@
 }
 
 :global(.node-banana-space-browser footer button) {
-  padding: 0.5rem 0.75rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 1.25rem;
   border: 1px solid var(--input);
-  border-radius: 0.5rem;
+  border-radius: calc(var(--radius) - 2px);
   background: var(--border);
   font-size: 0.875rem;
+  font-weight: 600;
   line-height: 1.25rem;
 }
 
 :global(.node-banana-space-browser footer button[data-variant="danger"]) {
-  color: rgb(252 165 165);
+  border-color: transparent;
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
+}
+
+:global(.node-banana-space-browser__form footer button[type="submit"]) {
+  border-color: transparent;
+  color: white;
+  background: var(--data-accent);
+}
+
+:global(.node-banana-space-browser__form footer button[type="submit"]:hover:not(:disabled)) {
+  background: color-mix(in oklab, var(--data-accent) 90%, transparent);
+}
+
+:global(.node-banana-space-browser footer button[data-variant="danger"]:hover:not(:disabled)) {
+  background: color-mix(in oklab, var(--destructive) 30%, transparent);
 }
 
 :global(.node-banana-space-browser button:hover:not(:disabled)) {
@@ -981,7 +1125,7 @@
   padding: 1rem;
 }
 
-:global(.node-banana-hosted__settings footer button) {
+:global(.node-banana-hosted__settings footer button:not([data-app-button])) {
   border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.45rem 0.75rem;
@@ -990,13 +1134,13 @@
   font-size: 0.75rem;
 }
 
-:global(.node-banana-hosted__settings footer button[data-variant="primary"]) {
-  border-color: var(--data-accent);
+:global(.node-banana-hosted__settings footer button[data-variant="primary"]:not([data-app-button])) {
+  border-color: transparent;
   color: white;
   background: var(--data-accent);
 }
 
-:global(.node-banana-hosted__dialog footer button) {
+:global(.node-banana-hosted__dialog footer button:not([data-app-button])) {
   border: 1px solid var(--input);
   border-radius: 0.375rem;
   padding: 0.45rem 0.75rem;
@@ -1005,20 +1149,20 @@
   font-size: 0.75rem;
 }
 
-:global(.node-banana-hosted__dialog footer button[type="submit"]),
-:global(.node-banana-hosted__dialog footer button[data-variant="primary"]) {
-  border-color: var(--data-accent);
+:global(.node-banana-hosted__dialog footer button[type="submit"]:not([data-app-button])),
+:global(.node-banana-hosted__dialog footer button[data-variant="primary"]:not([data-app-button])) {
+  border-color: transparent;
   color: white;
   background: var(--data-accent);
 }
 
-:global(.node-banana-hosted__dialog footer button[data-variant="danger"]) {
-  border-color: rgb(248 113 113 / 0.65);
-  color: rgb(254 226 226);
-  background: rgb(127 29 29 / 0.7);
+:global(.node-banana-hosted__dialog footer button[data-variant="danger"]:not([data-app-button])) {
+  border-color: transparent;
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
 }
 
-:global(.node-banana-hosted__dialog footer button:disabled) {
+:global(.node-banana-hosted__dialog footer button:disabled:not([data-app-button])) {
   opacity: 0.45;
 }
 
@@ -1182,7 +1326,28 @@
 
 /* Brand adapters preserve upstream node geometry and interaction layers. */
 .runtime { font-family: var(--font-sans); }
-.runtime :global(.react-flow__node.selected [data-tutorial$="-node"]) { border-color: var(--data-accent); box-shadow: 0 0 0 1px var(--data-accent); }
+/* One selection surface for every native and custom node. Tutorial markers
+   are optional and must not decide whether a node receives the glow. */
+.runtime :global(.react-flow__node.selected:has([data-node-banana-component], article[aria-current])) {
+  border-radius: var(--radius-lg, 0.5rem);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--data-accent) 40%, transparent),
+    0 10px 15px -3px color-mix(in srgb, var(--data-accent) 25%, transparent),
+    0 4px 6px -4px color-mix(in srgb, var(--data-accent) 25%, transparent);
+}
+.runtime :global(.react-flow__node.selected :is(
+  [data-node-banana-component] > div,
+  [data-node-banana-component] > div > div.border,
+  article[aria-current="true"]
+)) {
+  box-shadow: none;
+}
+.runtime :global(.react-flow__node.selected :is(
+  [data-node-banana-component] > div > div.border.rounded-lg:not([class*="border-red-"]),
+  article[aria-current="true"]:not([class*="border-amber-"])
+)) {
+  border-color: var(--data-accent);
+}
 .runtime :global(.node-banana-runtime__model-tabs button[aria-selected="true"]),
 :global(.node-banana-hosted__settings nav button[aria-selected="true"]) { color: var(--data-accent-foreground); background: color-mix(in srgb, var(--data-accent) 15%, transparent); }
 .runtime :global(button:focus-visible),

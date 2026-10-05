@@ -13,13 +13,17 @@ import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-gra
 import type { ImageGenerationNodeConfigDto } from "./graph-types";
 import type { ImageNodeInputReadiness } from "./node-input-readiness";
 import type { NodeRunReadiness } from "./node-run-readiness";
+import type { AssistantResults } from "@/shared/generation-graph/assistant-output";
+import type { MediaOutputBinding } from "@/shared/generation-graph/media-output";
+import type { GenerationAttachmentSlot } from "./generation-prompt-attachments";
 
 export type NodeAuthoringCatalogState = {
   imageModels: readonly RuntimeImageModel[];
   videoModels?: readonly RuntimeVideoModel[];
   audioModels?: readonly RuntimeAudioModel[];
   llmModels?: readonly RuntimeLlmModel[];
-  assistantResults?: Readonly<Record<string, string>>;
+  assistantResults?: AssistantResults;
+  mediaOutputs?: Readonly<Record<string, readonly MediaOutputBinding[]>>;
   isLoading: boolean;
   error: string | null;
   retry: () => void;
@@ -36,6 +40,8 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   graphId: string;
   prepareImageNodeExecution: () => Promise<number>;
   prepareNodeExecution?: () => Promise<number>;
+  runNode?: (nodeId: string) => Promise<unknown>;
+  cancelNode?: (nodeId: string) => Promise<void>;
   writable?: boolean;
   updateCanonicalNodeConfig?: (nodeId: string, config: CanonicalJsonValue) => void;
   updateMemoNodeSize?: (nodeId: string, size: { width: number; height: number }) => void;
@@ -44,6 +50,8 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   getNodePromptInput?: (nodeId: string) => NodePromptInputState;
   getNodeInputAssetId?: (nodeId: string, targetPortId: string) => string | null;
   getNodeInputAssetIds?: (nodeId: string, targetPortId: string) => string[];
+  replaceNodeInputAssets?: (nodeId: string, slot: GenerationAttachmentSlot, assetIds: readonly string[],
+    expected: { modelKey: unknown; assetIds: readonly string[] }) => boolean;
   isNodePortConnected?: (nodeId: string, targetPortId: string) => boolean;
   isNodePersisted?: (nodeId: string) => boolean;
   selectNodeOutputAsset?: (nodeId: string, assetId: string | null) => void;

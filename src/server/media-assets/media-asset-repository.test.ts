@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     },
     mediaAsset: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
     mediaOperation: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    mediaOperationOutput: { createMany: vi.fn() },
     generationGraphNodeOutput: { deleteMany: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     generationGraphNode: { updateMany: vi.fn(), findFirst: vi.fn() },
   };
@@ -282,6 +283,7 @@ describe("mediaAssetRepository", () => {
       graphId: "graph_1",
       graphNodeId: "node_1",
       type: "edit.image.removeBackground",
+      graphNode: { id: "node_1", kind: "edit.image.removeBackground", configVersion: 1 },
       configVersion: 1,
       parametersJson: {},
       inputAssetIdsJson: ["source_1"],

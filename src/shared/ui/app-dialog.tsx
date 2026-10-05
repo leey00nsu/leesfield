@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
 import { AppCloseButton } from "./app-close-button";
 import { AppButton } from "@/shared/ui/app-button";
+import { useAppOverlayScope } from "./app-overlay-scope";
 import {
   Dialog,
   DialogClose,
@@ -47,7 +48,7 @@ export function AppDialogContent({
   overlayClassName,
   size = "md",
   stableHeight = false,
-  surface = "default",
+  surface,
   padding = "default",
   ...props
 }: ComponentProps<typeof DialogContent> & {
@@ -56,21 +57,23 @@ export function AppDialogContent({
   surface?: AppDialogSurface;
   padding?: AppDialogPadding;
 }) {
+  const scope = useAppOverlayScope();
+  const effectiveSurface = surface ?? (scope === "canvas" ? "canvas" : "default");
   return (
     <DialogContent
       data-app-dialog-content=""
       overlayClassName={cn(
-        (surface === "editor" || surface === "canvas") && "z-[10000]",
+        (effectiveSurface === "editor" || effectiveSurface === "canvas") && "z-[10000]",
         overlayClassName,
       )}
       className={cn(
         "w-[calc(100%-2rem)]",
-        (surface === "editor" || surface === "canvas") && "z-[10001]",
+        (effectiveSurface === "editor" || effectiveSurface === "canvas") && "z-[10001]",
         appDialogSizeClassNames[size],
         "[scrollbar-gutter:stable]",
         stableHeight && "h-[min(760px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden",
-        size === "full" && surface === "media" && "max-h-none rounded-none border-0 bg-black/88 text-white ring-0",
-        appDialogSurfaceClassNames[surface],
+        size === "full" && effectiveSurface === "media" && "max-h-none rounded-none border-0 bg-black/88 text-white ring-0",
+        appDialogSurfaceClassNames[effectiveSurface],
         appDialogPaddingClassNames[padding],
         className,
       )}
@@ -125,7 +128,7 @@ export function AppDialogFooter({
   return (
     <DialogFooter
       data-app-dialog-footer=""
-      className={cn("", className)}
+      className={cn("flex-col", className)}
       {...props}
     />
   );
@@ -180,12 +183,14 @@ export function AppDialogCancelButton({
 
 export function AppDialogActionButton({
   className,
+  variant = "brand",
   size = "md",
   ...props
 }: AppDialogButtonProps) {
   return (
     <AppButton
       data-app-dialog-action-button=""
+      variant={variant}
       size={size}
       className={cn("px-5 font-semibold", className)}
       {...props}

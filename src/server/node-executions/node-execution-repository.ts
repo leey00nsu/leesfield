@@ -112,6 +112,15 @@ async function getOwnedNode(ownerEmail: string, graphId: string, nodeId: string)
   return node as StoredNodeExecutionTarget;
 }
 
+async function getRepeatSnapshot(ownerEmail: string, graphId: string, graphNodeId: string, requestId: string) {
+  const record = await prisma.imageGeneration.findFirst({
+    where: { requestId, ownerEmail, graphNodeId, graphNode: { graphId, graph: { ownerEmail } } },
+    select: { status: true, requestParams: true },
+  });
+  if (!record) throw new NodeExecutionNotFoundError();
+  return record;
+}
+
 async function getAssets(ownerEmail: string, assetIds: string[]) {
   if (assetIds.length === 0) return [];
   return prisma.mediaAsset.findMany({
@@ -150,7 +159,7 @@ async function listExecutions(
     const records = await prisma.imageGeneration.findMany({
       where,
       orderBy,
-      take,
+      take: Math.max(take, 100),
       select: {
         requestId: true,
         status: true,
@@ -629,6 +638,7 @@ async function completeGeneration(
 
 export const nodeExecutionRepository = {
   getOwnedNode,
+  getRepeatSnapshot,
   getAssets,
   listExecutions,
   findExecution,

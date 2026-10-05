@@ -10,12 +10,13 @@ import { copyGenerationGraph, getGenerationGraph, updateGenerationGraph } from "
 import { AppButton } from "@/shared/ui/app-button";
 import { AppInput } from "@/shared/ui/app-input";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
-import { AppResourceList } from "@/shared/ui/app-resource-list";
+import { AppResourceList, appResourceRowLayoutClassName, appResourceRowIconClassName } from "@/shared/ui/app-resource-list";
 import { AppCard } from "@/shared/ui/app-card";
-import { AppFilterToolbar, AppSearchField, AppSortSelect } from "@/shared/ui/app-filter-toolbar";
+import { AppFilterToolbar, AppFilterActions, appFilterSearchLayoutClassName, AppSearchField, AppSortSelect } from "@/shared/ui/app-filter-toolbar";
 import { ResourceRowLink, resourceRowInteractiveClassName } from "@/shared/ui/brand/resource-row-link/resource-row-link";
 import { rememberSpaceListEntry, restoreSpaceListScroll } from "@/features/node-studio/model/space-navigation";
-import { AppDialog, AppDialogContent, AppDialogTitle, AppDialogDescription } from "@/shared/ui/app-dialog";
+import { AppDialog, AppDialogContent, AppDialogTitle, AppDialogDescription, AppDialogFooter, AppDialogCancelButton, AppDialogActionButton, AppDialogDangerButton } from "@/shared/ui/app-dialog";
+import { cn } from "@/shared/lib/utils";
 
 type SpaceAction = { kind: "create" } | { kind: "rename" | "delete"; id: string; title: string };
 
@@ -77,13 +78,13 @@ export function SpacesScreen() {
     <AppPageShell aria-label={t("title")}>
       <h1 className="sr-only">{t("title")}</h1>
       <AppFilterToolbar>
-        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-          <AppSearchField value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("search")} aria-label={t("search")} containerClassName="sm:max-w-sm" />
+        <AppFilterActions>
+          <AppSearchField value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("search")} aria-label={t("search")} containerClassName={appFilterSearchLayoutClassName} />
           <AppSortSelect
             value={sort}
             onValueChange={setSort}
             ariaLabel={t("sort")}
-            className="w-full sm:w-40"
+            className="w-full sm:w-[12rem]"
             options={[
               { value: "updated", label: t("updated") },
               { value: "created", label: t("created") },
@@ -91,8 +92,8 @@ export function SpacesScreen() {
             ]}
           />
           <span role="status" className="shrink-0 text-xs text-muted-foreground sm:ml-2">{term ? t("filteredCount", { count: spaces.length, total: query.data?.length ?? 0 }) : t("count", { count: spaces.length })}</span>
-        </div>
-        <AppButton variant="brand" size="toolbar" onClick={() => begin({ kind: "create" })} disabled={busy}><Plus aria-hidden="true" />{t("new")}</AppButton>
+        <AppButton variant="brand" size="md" className="shrink-0 self-end" onClick={() => begin({ kind: "create" })} disabled={busy}><Plus aria-hidden="true" />{t("new")}</AppButton>
+        </AppFilterActions>
       </AppFilterToolbar>
       {error && !action ? <p role="alert" className="text-destructive">{t(error)}</p> : null}
       {query.isLoading ? <ResourceListLoading label={t("loading")} /> : null}
@@ -108,13 +109,13 @@ export function SpacesScreen() {
       </AppCard> : null}
       {spaces.length ? <AppResourceList aria-label={t("title")}>
         {spaces.map((space) => <div key={space.id} role="listitem">
-          <article className={resourceRowInteractiveClassName + " grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-4 border-b px-4 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]"}>
-            <div className="flex size-10 items-center justify-center rounded-md border border-white/10 bg-white/[0.035]"><Workflow className="size-6 text-white/66" aria-hidden /></div>
+          <article className={cn(resourceRowInteractiveClassName, appResourceRowLayoutClassName, "md:grid-cols-[2.5rem_minmax(0,1fr)_auto]")}>
+            <div className={appResourceRowIconClassName}><Workflow className="size-6 text-white/66" aria-hidden /></div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-medium"><ResourceRowLink href={`/spaces/${space.id}`} aria-disabled={busy || undefined} onNavigate={(event) => { if (busy) event.preventDefault(); else rememberSpaceListEntry(space.id); }}>{space.title}</ResourceRowLink></h2>
               <p className="mt-2 text-xs text-muted-foreground">{t("modified")} <time dateTime={space.updatedAt}>{format.dateTime(new Date(space.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</time></p>
             </div>
-            <div className="relative z-20 col-start-2 flex gap-2 sm:col-auto">
+            <div className="relative z-20 col-start-2 flex flex-wrap gap-2 md:col-auto md:justify-end">
               <AppButton variant="ghost" size="icon-sm" disabled={busy} aria-label={t("renameLabel", { title: space.title })} onClick={() => begin({ kind: "rename", id: space.id, title: space.title })}><Pencil aria-hidden="true" /></AppButton>
               <AppButton variant="ghost" size="icon-sm" disabled={busy} aria-label={t("duplicateLabel", { title: space.title })} onClick={() => void duplicate(space.id)}><Copy aria-hidden="true" /></AppButton>
               <AppButton variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" disabled={busy} aria-label={t("deleteLabel", { title: space.title })} onClick={() => begin({ kind: "delete", id: space.id, title: space.title })}><Trash2 aria-hidden="true" /></AppButton>
@@ -129,8 +130,8 @@ export function SpacesScreen() {
           <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void confirm(); }}>
             {action?.kind !== "delete" ? <AppInput aria-label={t("name")} autoFocus maxLength={120} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /> : null}
             <div className="min-h-10" aria-live="polite">{error ? <p role="alert" className="text-red-300">{t(error)}</p> : null}</div>
-            <div className="flex justify-end gap-2"><AppButton type="button" variant="surface" disabled={busy} onClick={() => setAction(null)}>{t("cancel")}</AppButton>
-              <AppButton type="submit" className="min-w-28" variant={action?.kind === "delete" ? "danger" : "brand"} disabled={busy || (action?.kind !== "delete" && !name.trim())}>{busy ? t("busy") : action?.kind === "delete" ? t("delete") : t("save")}</AppButton></div>
+            <AppDialogFooter><AppDialogCancelButton type="button" disabled={busy} onClick={() => setAction(null)}>{t("cancel")}</AppDialogCancelButton>
+              {action?.kind === "delete" ? <AppDialogDangerButton type="submit" disabled={busy}>{busy ? t("busy") : t("delete")}</AppDialogDangerButton> : <AppDialogActionButton type="submit" disabled={busy || !name.trim()}>{busy ? t("busy") : t("save")}</AppDialogActionButton>}</AppDialogFooter>
           </form>
         </AppDialogContent>
       </AppDialog>

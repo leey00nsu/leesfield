@@ -1,0 +1,14 @@
+{
+  "key": "multi-camera-nine-grid",
+  "revision": 1,
+  "name": "멀티 카메라 9 그리드",
+  "description": "같은 참고 이미지로 구성한 3×3 시네마틱 카메라 시트",
+  "modality": "image",
+  "prompt": "Analyze the entire input image and identify all key subjects, their appearance,\nclothing, objects, environment, spatial relationships, lighting, and overall mood.\n\nUsing the uploaded image as the strict visual reference, create ONE single image\ncontaining a clean 3x3 cinematic contact sheet with exactly 9 panels.\n\nThe same subject(s), identity, face, hairstyle, clothing, props, environment,\nlighting direction, time of day, and overall visual style must remain consistent\nacross all 9 panels.\n\nOnly change the camera position, camera angle, framing, distance, and focal length.\n\nROW 1 — Establishing shots\n1. Extreme Long Shot — subject small within the full environment\n2. Long Shot — full body / full object visible\n3. Medium Long Shot — knees-up for a person, 3/4 view for an object\n\nROW 2 — Main coverage\n4. Medium Shot — waist-up\n5. Medium Close-Up — chest-up\n6. Close-Up — tight face / main object detail\n\nROW 3 — Detail and camera angles\n7. Extreme Close-Up — eyes, hands, texture, logo, or defining detail\n8. Low Angle Shot — camera near ground looking upward\n9. High Angle Shot — camera above looking downward\n\nMaintain strict visual continuity in every panel.\nDo not redesign the subject.\nDo not change clothing, hairstyle, age, facial identity, environment, or lighting.\nDo not add new people or objects unless they already exist in the reference image.\n\nUse realistic perspective and lens behavior.\nWide shots should have deeper depth of field;\nclose-ups should have natural shallow depth of field and bokeh.\n\nOutput:\none professional 3x3 cinematic storyboard/contact sheet,\nexactly nine frames, evenly divided, photorealistic,\nconsistent cinematic color grading.\n",
+  "requiredInputs": {
+    "referenceImageCount": 1
+  },
+  "recommendedParameters": {
+    "imageCount": 1
+  }
+}

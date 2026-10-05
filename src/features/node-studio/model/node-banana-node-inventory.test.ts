@@ -70,6 +70,7 @@ describe("Node Banana approved Node inventory", () => {
         ["generate.assistant", "leesfield"],
         ["edit.video.stitch", "leesfield"],
         ["edit.video.trim", "leesfield"],
+        ["edit.video.extractFrames", "leesfield"],
         ["output.gallery", "upstream-extended"],
       ]);
   });
@@ -163,6 +164,7 @@ describe("Node Banana approved Node inventory", () => {
       "edit.image.annotation": "browser-operation", "edit.image.resize": "browser-operation",
       "edit.image.removeBackground": "server-operation", "edit.image.splitGrid": "browser-operation", "edit.image.gif": "browser-operation",
       "edit.video.stitch": "server-operation", "edit.video.trim": "server-operation",
+      "edit.video.extractFrames": "server-operation",
       "edit.video.frameGrab": "browser-operation", "edit.video.easeCurve": "browser-operation",
       "output.single": "none", "output.gallery": "none", "inspect.imageCompare": "none",
     } as const;
@@ -184,7 +186,7 @@ describe("Node Banana approved Node inventory", () => {
 
       expect(runtime.nodes[0]).toMatchObject({
         type: kind === "note.memo" ? "memoNode"
-          : kind === "edit.video.stitch" || kind === "edit.video.trim" ? "leesfieldVideoNode"
+          : kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames" ? "leesfieldVideoNode"
             : kind === "generate.assistant" ? "leesfieldAssistantNode"
             : kind.startsWith("generate.") ? "generationNode" : "canonicalNode",
         data: { canonicalKind: kind, config, ports: definition?.ports },

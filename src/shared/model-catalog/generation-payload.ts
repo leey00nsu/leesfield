@@ -45,7 +45,7 @@ export function generationPayload(model: Model, payload: unknown) {
     result.dynamicParams = dynamic;
     // Only the generic routing/media envelope and actual provider inputs survive.
     // Old nodes may still contain unrelated width/duration/steps placeholders.
-    for (const key of Object.keys(result)) if (!["model", "prompt", "dynamicParams", "initImages", "initImage", "inputAudio"].includes(key)) delete result[key];
+    for (const key of Object.keys(result)) if (!["model", "prompt", "promptPreset", "dynamicParams", "initImages", "initImage", "inputAudio"].includes(key)) delete result[key];
     return result;
   }
   // Request envelopes retain their stable public types; provider values above

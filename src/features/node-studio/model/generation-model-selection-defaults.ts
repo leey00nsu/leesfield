@@ -1,5 +1,8 @@
 import { contractAuthoringDefaults, contractAuthoringParameters } from "@/shared/model-catalog/gradio-contract";
 import { authoringValuesToImageConfig, resolveImageAuthoringDefaults } from "@/shared/generation/image-authoring";
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
+import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
+import { promptPresetRecommendations } from "@/shared/prompt-presets/prompt-preset-application";
 import {
   getRuntimeAudioDynamicParameters,
   resolveRuntimeAudioDefaults,
@@ -16,6 +19,20 @@ function record(value: unknown): Record<string, unknown> {
     ? value as Record<string, unknown>
     : {};
 }
+function recommendForNewModel(current: Record<string, unknown>, next: Record<string, unknown>, result: Record<string, unknown>, model: Model) {
+  const ref = promptPresetRefSchema.safeParse(next.promptPreset);
+  if (!ref.success || current.modelKey === next.modelKey) return result;
+  const parameters = { ...record(result.parameters) };
+  const explicit = record(generationPayload(model, record(next.parameters)));
+  const values = record(generationPayload(model, parameters));
+  const recommendation = promptPresetRecommendations(model, values, ref.data, path => path.startsWith("dynamicParams.")
+    ? Object.hasOwn(record(explicit.dynamicParams), path.slice(14)) : Object.hasOwn(explicit, path));
+  for (const [path, value] of Object.entries(recommendation.updates)) {
+    if (path.startsWith("dynamicParams.")) parameters.dynamicParams = { ...record(parameters.dynamicParams), [path.slice(14)]: value };
+    else parameters[path] = value;
+  }
+  return { ...result, parameters };
+}
 
 export function projectGenerationModelSelectionDefaults(
   currentConfig: Record<string, unknown>,
@@ -30,7 +47,7 @@ export function projectGenerationModelSelectionDefaults(
   if (contractDefaults) {
     const reset = Object.hasOwn(nextConfig, "parameters") && Object.keys(record(nextConfig.parameters)).length === 0;
     const previous = currentConfig.modelKey === nextConfig.modelKey && !reset ? record(currentConfig.parameters) : {};
-    return { ...nextConfig, parameters: { ...contractDefaults, ...contractAuthoringParameters(model, { ...previous, ...record(nextConfig.parameters) }) } };
+    return recommendForNewModel(currentConfig, nextConfig, { ...nextConfig, parameters: { ...contractDefaults, ...contractAuthoringParameters(model, { ...previous, ...record(nextConfig.parameters) }) } }, model);
   }
   const defaults = model.type === "image"
     ? authoringValuesToImageConfig(resolveImageAuthoringDefaults(model, prompt), model).parameters
@@ -50,7 +67,7 @@ export function projectGenerationModelSelectionDefaults(
       .filter(({ config }) => config.default !== undefined)
       .map(({ key, config }) => [key, config.default]))
     : {};
-  return {
+  return recommendForNewModel(currentConfig, nextConfig, {
     ...nextConfig,
     parameters: {
       ...defaults,
@@ -65,5 +82,5 @@ export function projectGenerationModelSelectionDefaults(
           } }
         : {}),
     },
-  };
+  }, model);
 }

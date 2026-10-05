@@ -5,6 +5,18 @@ const remote = vi.hoisted(() => ({ requestRemote: vi.fn() }));
 vi.mock("@/server/http/safe-remote", () => ({ requestRemote: remote.requestRemote }));
 import { completeAssistant } from "./assistant-provider";
 
+it("adds list format instructions without requiring provider native JSON mode or extra calls", async () => {
+  remote.requestRemote.mockReset();
+  remote.requestRemote.mockResolvedValue({ status: 200, body: Buffer.from(JSON.stringify({ choices: [{ message: { content: '{"items":["coat","scarf"]}' } }] })) });
+  expect(await completeAssistant({ baseUrl: "https://api.example.com/v1", modelId: "text-model", apiKey: "test-key", timeoutMs: 60_000,
+    instruction: "suggest prompts", text: "brown coat", visuals: [], outputMode: "list", signal: new AbortController().signal })).toBe('{"items":["coat","scarf"]}');
+  expect(remote.requestRemote).toHaveBeenCalledTimes(1);
+  const body = JSON.parse(remote.requestRemote.mock.calls[0][1].body);
+  expect(body.messages).toEqual([{ role: "system", content: expect.stringContaining('{"items":') }, { role: "user", content: "suggest prompts\n\nbrown coat" }]);
+  expect(body).not.toHaveProperty("response_format");
+  remote.requestRemote.mockReset();
+});
+
 it("sends bounded visual Chat Completions input without leaking the key in the result", async () => {
   remote.requestRemote.mockResolvedValueOnce({ status: 200, body: Buffer.from(JSON.stringify({ choices: [{ message: { content: "  blue coat  " } }] })) });
   const answer = await completeAssistant({

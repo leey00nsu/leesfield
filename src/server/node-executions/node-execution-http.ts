@@ -16,9 +16,11 @@ import {
   NodeExecutionQueueFullError,
   NodeExecutionStorageUnavailableError,
   NodeExecutionVersionConflictError,
+  NodeExecutionSelectionConflictError,
 } from "./node-execution-errors";
 
 export function nodeExecutionErrorResponse(error: unknown) {
+  if (error instanceof NodeExecutionSelectionConflictError) return buildErrorResponse(error.code, 409);
   if (error instanceof NodeExecutionInputError) {
     return buildInvalidRequestResponse(error.details);
   }

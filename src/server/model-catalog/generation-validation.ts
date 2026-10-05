@@ -7,6 +7,7 @@ import {
   gradioInputValues,
 } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
+import { promptPresetInputIssue, promptPresetInputMessages } from "@/shared/prompt-presets/prompt-preset-application";
 import {
   normalizeRuntimeParameterOptions,
   hasRuntimeParameterOption,
@@ -930,7 +931,10 @@ export function getModelGenerationSchema(
       : model.type === "video"
         ? buildVideoSchema([model], t)
         : buildAudioSchema([model], t))
-  );
+  ).superRefine((data, ctx) => {
+    const issue = promptPresetInputIssue(model, data as Record<string, unknown>, data.promptPreset);
+    if (issue) ctx.addIssue({ code: "custom", path: ["promptPreset"], message: promptPresetInputMessages[issue] });
+  });
 }
 
 export async function validateImageGenerationPayload(

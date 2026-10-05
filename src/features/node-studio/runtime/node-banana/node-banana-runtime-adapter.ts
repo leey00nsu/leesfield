@@ -1,4 +1,6 @@
 import type { Connection, XYPosition } from "@xyflow/react";
+import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
+import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
 
 import type {
   NodeBananaPendingConnection,
@@ -50,7 +52,7 @@ export type NodeBananaNodeData = Record<string, unknown> & {
 const runtimeTypeForKind = (kind: string) =>
   kind === "note.memo" ? "memoNode"
     : kind === "generate.assistant" ? "leesfieldAssistantNode"
-    : kind === "edit.video.stitch" || kind === "edit.video.trim" ? "leesfieldVideoNode"
+    : kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames" ? "leesfieldVideoNode"
     : kind.startsWith("generate.") ? "generationNode"
       : findNodeDefinition(kind) ? "canonicalNode" : "unsupportedNode";
 
@@ -251,6 +253,9 @@ export function reconcileRuntimeEdgesForModelChange(
   const node = runtime.nodes.find((candidate) => candidate.id === nodeId);
   if (!node) return runtime.edges;
   const data = nodeData(node);
+  // A preset change must never silently delete an authored connection.
+  if (promptPresetRefSchema.safeParse((data.config as Record<string, unknown>)?.promptPreset).success
+    || promptPresetRefSchema.safeParse((nextConfig as Record<string, unknown>)?.promptPreset).success) return runtime.edges;
   const previousModelKey = configModelKey(data.config);
   const nextModelKey = configModelKey(nextConfig);
   if (previousModelKey === nextModelKey) return runtime.edges;
@@ -575,8 +580,13 @@ export function isRuntimeConnectionValid(
     ? targetData.config as Record<string, unknown>
     : {};
   const modelKey = typeof targetConfig.modelKey === "string" ? targetConfig.modelKey : null;
+  const preset = promptPresetRefSchema.safeParse(targetConfig.promptPreset);
+  const presetImage = preset.success ? promptPresetReferenceImageCount(preset.data) > 0 : undefined;
+  const mediaInput = connection.targetHandle === "image" || /^(image|video|audio)-field-/.test(connection.targetHandle ?? "");
+  if (presetImage === false && mediaInput) return false;
   if (targetData.canonicalKind === "generate.image" && connection.targetHandle === "image") {
-    const limit = capabilities?.imageInputLimit(modelKey) ?? Number.POSITIVE_INFINITY;
+    const limit = presetImage ? Math.max(1, capabilities?.imageInputLimit(modelKey) ?? 1)
+      : capabilities?.imageInputLimit(modelKey) ?? Number.POSITIVE_INFINITY;
     const connected = runtime.edges.filter((edge) =>
       edge.target === connection.target &&
       (edge.targetHandle === "image" || edge.data?.targetPortId === "primary" || edge.data?.targetPortId === "references"),
@@ -586,6 +596,7 @@ export function isRuntimeConnectionValid(
   if (
     targetData.canonicalKind === "generate.video" &&
     connection.targetHandle === "image" &&
+    !presetImage &&
     capabilities &&
     !capabilities.videoSupportsInitImage(modelKey)
   ) return false;

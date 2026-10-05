@@ -53,6 +53,15 @@ describe("server execution observation", () => {
       .toEqual({ selection: "result" });
   });
 
+  it("keeps an explicit output choice across subsequent repeat submissions", () => {
+    const tracker = new ExecutionSelectionTracker();
+    const baseline = tracker.selectionRevision("n");
+    tracker.beginSubmission("n", baseline); tracker.submitted("n", "first");
+    tracker.changed("n");
+    tracker.beginSubmission("n", baseline); tracker.submitted("n", "second");
+    expect(tracker.observe("n", [{ ...completed, executionId: "second" }], tracker.beginRead("n"), "user-choice"))
+      .toEqual({ preserve: true });
+  });
   it("preserves selection revisions across reads and resets the baseline for a new execution", () => {
     const tracker = new ExecutionSelectionTracker();
     const first = tracker.beginRead("n");

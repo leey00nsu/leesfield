@@ -1,8 +1,11 @@
+import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { userEvent } from "storybook/test";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { NodeBananaConfirmDialog } from "./node-banana-confirm-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { NodeBananaHostedHeader } from "@node-banana-runtime/runtime-entry";
+import { CanvasProviders } from "@/shared/ui/canvas-providers";
 
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import {
@@ -223,13 +226,13 @@ const storyImageAsset: MediaAssetDto = {
   type: "image",
   status: "completed",
   origin: "generation",
-  mimeType: "image/png",
-  bytes: "24000",
-  width: 1024,
-  height: 1024,
+  mimeType: "image/jpeg",
+  bytes: "94651",
+  width: storybookImage.width,
+  height: storybookImage.height,
   durationMs: null,
   sourceOperationId: null,
-  url: "/sample-image.png",
+  url: storybookImage.url,
   createdAt: "2026-09-03T10:00:00.000Z",
   updatedAt: "2026-09-03T10:00:00.000Z",
 };
@@ -474,6 +477,7 @@ function NodeStudioShowcase({
 
 const meta = {
   title: "Features/Node Studio/Canvas",
+  decorators: [(Story) => <CanvasProviders><Story /></CanvasProviders>],
   component: NodeStudioShowcase,
   parameters: { layout: "fullscreen" },
 } satisfies Meta<typeof NodeStudioShowcase>;
@@ -484,6 +488,22 @@ type Story = StoryObj<typeof meta>;
 
 export const Empty: Story = {
   args: { populated: false, status: "saved" },
+};
+
+export const ConfirmReload: Story = {
+  args: { populated: false, status: "saved" },
+  render: function ConfirmReloadPreview() {
+    const [open, setOpen] = useState(true);
+    return <NodeBananaConfirmDialog open={open} title="최신 저장본을 불러올까요?" description="현재 초안을 최신 저장본으로 교체합니다." confirmLabel="불러오기" onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
+  },
+};
+
+export const ConfirmDelete: Story = {
+  args: { populated: false, status: "saved" },
+  render: function ConfirmDeletePreview() {
+    const [open, setOpen] = useState(true);
+    return <NodeBananaConfirmDialog open={open} title="스페이스를 삭제할까요?" description="이 스페이스를 삭제합니다." confirmLabel="삭제" danger onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
+  },
 };
 
 export const Populated: Story = {

@@ -1,8 +1,12 @@
 "use client";
 import { Children, type ReactElement, type ComponentProps } from "react";
 import * as B from "@/shared/ui/brand/popover/popover";
-export const Popover = B.Popover,
-  PopoverContent = B.PopoverContent;
+import { useAppOverlayScope } from "./app-overlay-scope";
+export const Popover = B.Popover;
+export function PopoverContent(props: ComponentProps<typeof B.PopoverContent>) {
+  const scope = useAppOverlayScope();
+  return <B.PopoverContent {...props} data-app-overlay-scope={scope} />;
+}
 export function PopoverTrigger({
   asChild,
   children,

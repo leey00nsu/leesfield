@@ -1,6 +1,7 @@
 "use client";
 import { ModalWorkflowImport } from "@/features/model-management/ui/modal-workflow-import";
 import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
+import { ModelImageInputLimits } from "./model-image-input-limits";
 import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { ModelFilterGroup } from "@/features/model-management/ui/model-filter-group";
@@ -61,6 +62,8 @@ import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   AppFilterGroup,
   AppFilterToolbar,
+  AppFilterActions,
+  appFilterSearchLayoutClassName,
   AppFilterToggle,
   AppSearchField,
   AppSortSelect,
@@ -153,7 +156,7 @@ const defaultImageParameters = {
   width: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
   height: { ui: "input", min: 512, max: 2048, step: 1, default: 1024 },
   steps: { ui: "range", min: 1, max: 30, step: 1, default: 10 },
-  seed: { ui: "input", default: "" },
+  seed: { ui: "input" },
   imageCount: { ui: "hidden", min: 1, max: 1, default: 1 },
 };
 
@@ -868,10 +871,10 @@ export function ModelManagementScreen() {
             </AppFilterGroup>
           </ModelFilterGroup>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:max-w-none lg:flex-[1_1_34rem]">
+          <AppFilterActions>
               <AppSearchField
                 aria-label={tCommonLabels("searchPlaceholder")}
-                containerClassName="sm:min-w-[18rem] sm:flex-[1_1_18rem]"
+                containerClassName={appFilterSearchLayoutClassName}
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder={tCommonLabels("searchPlaceholder")}
@@ -908,7 +911,7 @@ export function ModelManagementScreen() {
               <Plus className="h-4 w-4" />
               {tAdmin("toolbar.create")}
             </AppButton>
-          </div>
+          </AppFilterActions>
         </AppFilterToolbar>
 
         {content}
@@ -1123,6 +1126,8 @@ export function ModelManagementScreen() {
                 </p> : null}
               </AppFormField>
             </div> : <>
+            <ModelImageInputLimits type={draft.type} providerConfigText={draft.providerConfigText}
+              parametersText={draft.parametersText} metaText={draft.metaText} onChange={updateDraft}/>
             <AppFormField>
               <AppLabel>{tAdmin("fields.providerConfig")}</AppLabel>
               <AppTextarea
@@ -1226,7 +1231,7 @@ export function ModelManagementScreen() {
             <AppConfirmDialogCancel>
               {tAdmin("dialog.cancel")}
             </AppConfirmDialogCancel>
-            <AppConfirmDialogAction
+            <AppConfirmDialogAction variant="danger"
               disabled={isDeleting}
               onClick={() => {
                 setDeleteDialogOpen(false);

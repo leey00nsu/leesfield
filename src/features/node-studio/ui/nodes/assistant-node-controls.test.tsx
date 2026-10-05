@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   start: vi.fn(),
   refetch: vi.fn(),
   cancel: vi.fn(),
+  selectItem: vi.fn(),
+  selecting: false,
   executions: [] as Array<Record<string, unknown>>,
   models: [] as RuntimeLlmModel[],
   videoIds: [] as string[],
@@ -51,6 +53,7 @@ vi.mock("../../hook/use-node-executions", () => ({
   useNodeExecutions: () => ({ data: mocks.executions, refetch: mocks.refetch }),
   useStartNodeExecution: () => ({ mutateAsync: mocks.start, isPending: false }),
   useCancelNodeExecution: () => ({ mutateAsync: mocks.cancel, isPending: false }),
+  useSelectAssistantItem: () => ({ mutateAsync: mocks.selectItem, isPending: mocks.selecting }),
 }));
 
 import { AssistantNodeControls } from "./assistant-node-controls";
@@ -74,6 +77,48 @@ function renderAssistant(modelKey: string | null = "llm-1") {
 }
 
 describe("AssistantNodeControls", () => {
+  it("displays the saved list mode, selects without running, and copies individual or whole output", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    mocks.executions = [{ executionId: "list-run", executionKind: "assistant", status: "completed", outputMode: "list", outputText: "1. coat\n\n2. coat\n\n3. scarf",
+      outputItems: [{ id: "list-run:1", text: "coat" }, { id: "list-run:2", text: "coat" }, { id: "list-run:3", text: "scarf" }], selectedItemId: "list-run:1", selectionVersion: 4 }];
+    const { redraw } = renderAssistant();
+    expect(screen.getByRole("combobox", { name: "출력 형식" })).toHaveValue("text");
+    const list = screen.getByRole("list", { name: "생성된 목록" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "1번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(screen.getByRole("combobox", { name: "출력 형식" }), { target: { value: "list" } });
+    expect(mocks.updateConfig).toHaveBeenCalledWith("assistant-1", expect.objectContaining({ outputMode: "list" }));
+    expect(screen.getByRole("list", { name: "생성된 목록" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "3번 항목 선택" }));
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenCalledWith({ graphId: "graph-assistant", nodeId: "assistant-1", executionId: "list-run", itemId: "list-run:3", expectedSelectionVersion: 4 }));
+    expect(mocks.start).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "1번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
+    mocks.executions[0].selectedItemId = "list-run:3"; mocks.executions[0].selectionVersion = 5; redraw();
+    expect(screen.getByRole("button", { name: "3번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "3번 항목 복사" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("scarf"));
+    fireEvent.click(screen.getByRole("button", { name: "결과 복사" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("1. coat\n\n2. coat\n\n3. scarf"));
+    expect(mocks.copied).toHaveBeenCalledWith("복사했습니다.");
+    mocks.executions.unshift({ executionId: "failed-run", executionKind: "assistant", status: "failed", errorCode: "ASSISTANT_LIST_INVALID" }); redraw();
+    expect(screen.getByRole("button", { name: "3번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("올바른 목록");
+    expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it("reports stale selection without changing the visible choice and disables Run during saving", async () => {
+    mocks.executions = [{ executionId: "list", executionKind: "assistant", status: "completed", outputMode: "list", outputText: "1. coat\n\n2. scarf",
+      outputItems: [{ id: "list:1", text: "coat" }, { id: "list:2", text: "scarf" }], selectedItemId: "list:1", selectionVersion: 0 }];
+    mocks.selectItem.mockRejectedValueOnce(new Error("ASSISTANT_SELECTION_CONFLICT"));
+    const { redraw } = renderAssistant();
+    fireEvent.click(screen.getByRole("button", { name: "2번 항목 선택" }));
+    await waitFor(() => expect(mocks.copyError).toHaveBeenCalledWith(expect.stringContaining("선택 상태가 변경")));
+    expect(screen.getByRole("button", { name: "1번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
+    mocks.selecting = true; redraw();
+    expect(screen.getByRole("button", { name: "2번 항목 선택" })).toBeDisabled();
+    expect(document.querySelector('button[data-canvas-action="run"]')).toBeDisabled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.executions = [];
@@ -83,6 +128,8 @@ describe("AssistantNodeControls", () => {
     mocks.start.mockResolvedValue({ executionId: "run-1" });
     mocks.refetch.mockResolvedValue({ data: [] });
     mocks.cancel.mockResolvedValue(undefined);
+    mocks.selecting = false;
+    mocks.selectItem.mockResolvedValue(undefined);
   });
 
   it("edits the original, chooses an active LLM through the right-side browse flow, and runs explicitly", async () => {

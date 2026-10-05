@@ -110,6 +110,7 @@ async function postHandler(request: Request) {
           topK: getNumber(formData, "topK"),
           repetitionPenalty: getNumber(formData, "repetitionPenalty"),
           dynamicParams: getDynamicParams(formData),
+          promptPreset: formData.has("promptPreset") ? JSON.parse(getString(formData, "promptPreset") ?? "") : undefined,
           }
         : null;
     } else {

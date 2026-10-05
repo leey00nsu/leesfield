@@ -50,7 +50,7 @@ function AppConfirmDialogPreview({
         </AppConfirmDialogHeader>
         <AppConfirmDialogFooter>
           <AppConfirmDialogCancel>Cancel</AppConfirmDialogCancel>
-          <AppConfirmDialogAction>{actionLabel}</AppConfirmDialogAction>
+          <AppConfirmDialogAction variant={destructive ? "danger" : "primary"}>{actionLabel}</AppConfirmDialogAction>
         </AppConfirmDialogFooter>
       </AppConfirmDialogContent>
     </AppConfirmDialog>
@@ -105,10 +105,12 @@ export const DeleteModel: Story = {
           </AppConfirmDialogHeader>
           <AppConfirmDialogFooter>
             <AppConfirmDialogCancel>Cancel</AppConfirmDialogCancel>
-            <AppConfirmDialogAction>Delete</AppConfirmDialogAction>
+            <AppConfirmDialogAction variant="danger">Delete</AppConfirmDialogAction>
           </AppConfirmDialogFooter>
         </AppConfirmDialogContent>
       </AppConfirmDialog>
     );
   },
 };
+
+export const ConfirmChange: Story = { args: { title: "Apply changes?", description: "Apply the selected settings.", actionLabel: "Apply", destructive: false } };

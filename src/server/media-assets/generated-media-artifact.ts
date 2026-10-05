@@ -2,6 +2,8 @@ import type { ImageVariants } from "@/shared/media-assets/image-variants";
 import type { MediaType } from "@/shared/media-assets/media-asset-contract";
 
 export type GeneratedMediaArtifact = {
+  outputPortId?: string;
+  sortOrder?: number;
   imageVariants?: ImageVariants | null;
   type: MediaType;
   storageProvider: "leemage";

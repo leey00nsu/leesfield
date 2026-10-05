@@ -11,6 +11,7 @@ import {
 
 import { removeImageBackground } from "./hf-background-removal-adapter";
 import { processVideoOperation, VideoOperationError } from "./ffmpeg-video-processor";
+import { processVideoFrameOperation } from "./ffmpeg-frame-processor";
 import { recordWorkerFailure } from "@/server/observability/metrics";
 import { logStructured } from "@/server/observability/request-observability";
 
@@ -74,6 +75,16 @@ async function handleOperation(operationId: string) {
         width: asset.width,
         height: asset.height,
       }]);
+    } else if (operation.type === "edit.video.extractFrames") {
+      const frames = await processVideoFrameOperation(operation, monitor.signal);
+      monitor.assertOwned();
+      const current = await mediaAssetRepository.getOperation(operation.ownerEmail, operation.id);
+      if (current.status !== "processing") return;
+      const uploaded = await uploadMediaOperationImages(operation.id, frames.map(frame => ({
+        dataUrl: `data:image/png;base64,${frame.buffer.toString("base64")}`,
+        width: frame.width, height: frame.height,
+      })));
+      artifacts = uploaded.map((artifact, index) => ({ ...artifact, outputPortId: frames[index].outputPortId, sortOrder: 0 }));
     } else {
       const video = await processVideoOperation(operation, monitor.signal);
       monitor.assertOwned();

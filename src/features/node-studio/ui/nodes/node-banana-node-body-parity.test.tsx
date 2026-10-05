@@ -86,8 +86,8 @@ import { GenerationNode } from "./generation-node";
 
 // Constructor ships only through the vendored runtime. Its actual body and edits
 // are covered by node-banana-upstream-components.test.tsx and the browser suite.
-const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo" && kind !== "generate.assistant");
-const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor" | "note.memo" | "generate.assistant">, string>> = {
+const legacyKinds = canonicalNodeKinds.filter((kind) => kind !== "process.promptConstructor" && kind !== "note.memo" && kind !== "generate.assistant" && kind !== "edit.video.extractFrames");
+const bodySelector: Readonly<Record<Exclude<CanonicalNodeKind, "process.promptConstructor" | "note.memo" | "generate.assistant" | "edit.video.extractFrames">, string>> = {
   "input.image": '[data-node-banana-component="ImageInputNode"]',
   "input.audio": '[data-node-banana-component="AudioInputNode"]',
   "input.video": '[data-node-banana-component="VideoInputNode"]',

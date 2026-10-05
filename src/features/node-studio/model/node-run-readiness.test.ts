@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 
 import type { GraphDocumentV2 } from "@/shared/generation-graph/canonical-graph";
 import { resolveRuntimeVideoDefaults } from "@/shared/model-catalog/runtime-utils";
@@ -66,6 +67,43 @@ const llmModel: RuntimeLlmModel = {
 };
 
 describe("resolveNodeRunReadiness", () => {
+  it.each(["generate.image", "generate.video"])("blocks retained media connections after switching %s to a text preset", kind => {
+    const graph = { nodes: [
+      node("generate", kind, { prompt: "draft", modelKey: kind === "generate.image" ? imageModel.key : videoModel.key,
+        parameters: {}, promptPreset: { key: "personal", revision: 1, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} } }),
+      node("image", "input.image", { assetId: "reference" }),
+    ], edges: [edge("reference", "image", "image", "generate", kind === "generate.image" ? "primary" : "initImage")] };
+    expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).toContain("INPUT_UNSUPPORTED");
+    expect(graph.edges).toHaveLength(1);
+  });
+  it("checks the connected frame slot independently of the representative selection", () => {
+    const graph = { nodes: [
+      node("frames", "edit.video.extractFrames", { parameters: {} }, "start"),
+      node("video", "generate.video", { prompt: "move", modelKey: videoModel.key, parameters: {} }),
+    ], edges: [edge("e", "frames", "endFrame", "video", "initImage")] };
+    const outputs = { frames: [{ portId: "startFrame", sortOrder: 0, assetId: "start" },
+      { portId: "endFrame", sortOrder: 0, assetId: "end" }] };
+    expect(resolveNodeRunReadiness(graph, "video", { ...catalog, mediaOutputs: outputs }).reasons).not.toContain("INPUT_NOT_READY");
+    expect(resolveNodeRunReadiness(graph, "video", { ...catalog, mediaOutputs: { frames: outputs.frames.slice(0, 1) } }).reasons)
+      .toContain("INPUT_NOT_READY");
+  });
+  it.each(builtinPromptPresets)("requires an actual supported ready reference for $key", preset => {
+    const config = { prompt: preset.prompt, modelKey: imageModel.key, parameters: { width: 1024, height: 1024, imageCount: 1, steps: 10 }, promptPreset: {
+      key: preset.key, revision: 1, builtinRevision: 1, requiredInputs: preset.requiredInputs, recommendedParameters: preset.recommendedParameters,
+    } };
+    const generate = node("generate", "generate.image", config);
+    const graph = { nodes: [generate, node("image", "input.image", { assetId: "reference" })], edges: [] as GraphDocumentV2["edges"] };
+    expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).toContain("INPUT_UNSUPPORTED");
+    const supported = { ...catalog, imageModels: [{ ...imageModel, meta: { max_input_images: 1 } }] };
+    expect(resolveNodeRunReadiness(graph, "generate", supported).reasons).toContain("INPUT_REQUIRED");
+    graph.edges = [edge("reference", "image", "image", "generate", "primary")];
+    expect(resolveNodeRunReadiness(graph, "generate", supported)).toEqual({ ready: true, reasons: [] });
+    graph.edges[0] = { ...graph.edges[0], hasPause: true };
+    expect(resolveNodeRunReadiness(graph, "generate", supported).reasons).toContain("INPUT_REQUIRED");
+    graph.edges[0] = { ...graph.edges[0], hasPause: false };
+    graph.nodes[1] = node("image", "input.image", { assetId: null });
+    expect(resolveNodeRunReadiness(graph, "generate", supported).ready).toBe(false);
+  });
   it("checks Assistant visual capability and uses its latest text through a Prompt edge", () => {
     const assistant = node("assistant", "generate.assistant", { prompt: "Describe this", modelKey: llmModel.key });
     const image = node("reference", "input.image", { assetId: "asset-image" });
@@ -81,6 +119,9 @@ describe("resolveNodeRunReadiness", () => {
     expect(resolveNodeRunReadiness(graph, "assistant", { ...catalog, llmModels: [llmModel] }).reasons).toContain("INPUT_UNSUPPORTED");
     expect(resolveNodeRunReadiness(graph, "generate", { ...catalog, assistantResults: { assistant: "A brown coat" } })).toEqual({ ready: true, reasons: [] });
     expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).toContain("INPUT_NOT_READY");
+    graph.edges[1].sourcePortId = "item";
+    expect(resolveNodeRunReadiness(graph, "generate", { ...catalog, assistantResults: { assistant: "legacy text" } }).reasons).toContain("INPUT_NOT_READY");
+    expect(resolveNodeRunReadiness(graph, "generate", { ...catalog, assistantResults: { assistant: { text: "1. coat\n\n2. scarf", item: "scarf" } } }).ready).toBe(true);
   });
 
   it("requires every operation input to resolve to a durable asset", () => {

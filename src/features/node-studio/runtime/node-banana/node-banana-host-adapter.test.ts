@@ -67,6 +67,35 @@ const resolver: NodeBananaAssetResolver = (assetId, context) => {
 };
 
 describe("Node Banana v1.9 host adapter", () => {
+  it("routes each named frame to an independent input and exposes no fallback for a missing frame", () => {
+    const runtime = { nodes: [
+      { id: "frames", data: { canonicalKind: "edit.video.extractFrames", config: { parameters: {} },
+        selectedOutputAssetId: "start", outputAssetsByPort: {
+          startFrame: [{ id: "start", type: "image", url: "https://cdn.test/start.png" }],
+          endFrame: [{ id: "end", type: "image", url: "https://cdn.test/end.png" }],
+        } } },
+      { id: "input", data: { canonicalKind: "input.image", config: { assetId: null } } },
+    ], edges: [{ id: "e", source: "frames", sourceHandle: "endFrame", target: "input", targetHandle: "reference",
+      data: { sourcePortId: "endFrame", targetPortId: "reference" } }] };
+    expect(adaptNodeBananaHostGraph(runtime).getConnectedInputs("input").images).toEqual(["https://cdn.test/end.png"]);
+    runtime.nodes[0].data.outputAssetsByPort!.endFrame = [];
+    expect(adaptNodeBananaHostGraph(runtime).getConnectedInputs("input").images).toEqual([]);
+  });
+  it("projects selected item separately through the hosted prompt resolver", () => {
+    const result = adaptNodeBananaHostGraph(graph([
+      canonicalNode("assistant", "generate.assistant", { prompt: "ideas", modelKey: "llm", outputMode: "list" }),
+      canonicalNode("prompt", "input.prompt", { text: "fallback", variableName: "idea" }),
+      canonicalNode("constructor", "process.promptConstructor", { template: "Use @idea" }),
+      canonicalNode("image", "generate.image", { prompt: "", modelKey: null, parameters: {} }),
+    ], [
+      { id: "a-p", sourceNodeId: "assistant", sourcePortId: "item", targetNodeId: "prompt", targetPortId: "text" },
+      { id: "p-c", sourceNodeId: "prompt", sourcePortId: "text", targetNodeId: "constructor", targetPortId: "text" },
+      { id: "c-i", sourceNodeId: "constructor", sourcePortId: "text", targetNodeId: "image", targetPortId: "prompt" },
+    ]), { assistantResults: { assistant: { text: "1. coat\n\n2. scarf", item: "scarf" } } });
+    expect(result.nodes.find(node => node.id === "assistant")?.data.outputText).toBe("1. coat\n\n2. scarf");
+    expect(result.nodes.find(node => node.id === "prompt")?.data.resolvedPrompt).toBe("scarf");
+    expect(result.getConnectedInputs("image").text).toBe("Use scarf");
+  });
   it("projects the latest Assistant text through Prompt and Prompt Constructor", () => {
     const result = adaptNodeBananaHostGraph(graph([
       canonicalNode("assistant", "generate.assistant", { prompt: "Improve this", modelKey: "llm-1" }),
@@ -102,6 +131,19 @@ describe("Node Banana v1.9 host adapter", () => {
     });
   });
 
+  it.each(["image", "video", "audio"] as const)("keeps an earlier %s result fixed for downstream nodes while its producer changes", type => {
+    const result = adaptNodeBananaHostGraph(graph([
+      canonicalNode("producer", `generate.${type}`, {}, `${type}-latest`),
+      canonicalNode("result", `input.${type}`, { assetId: `${type}-old`,
+        resultSource: { nodeId: "producer", executionId: "old", portId: type, index: 0, state: "completed" } }),
+      canonicalNode("gallery", "output.gallery", { mediaType: null }),
+    ], [
+      { id: "result-edge", sourceNodeId: "producer", sourcePortId: type, targetNodeId: "result", targetPortId: type === "image" ? "reference" : type },
+      { id: "consumer-edge", sourceNodeId: "result", sourcePortId: type, targetNodeId: "gallery", targetPortId: type },
+    ]), resolver);
+    const field = type === "image" ? "images" : type === "video" ? "videos" : "audios";
+    expect(result.nodes.find(node => node.id === "gallery")?.data[field]).toEqual([`https://cdn.test/${type}-old`]);
+  });
   it("maps input asset IDs to upstream content URLs and keeps resolver metadata", () => {
     const result = adaptNodeBananaHostGraph(graph([
       canonicalNode("image", "input.image", { assetId: "image-1" }),

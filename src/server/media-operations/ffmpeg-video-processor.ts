@@ -21,6 +21,12 @@ const MAX_DIMENSION = 8_192;
 const MAX_PIXELS = 32 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 120_000;
 const PROCESS_TIMEOUT_MS = 180_000;
+export const videoProcessorLimits = {
+  inputBytes: INPUT_MAX_BYTES, tempBytes: TEMP_MAX_BYTES, durationMs: MAX_DURATION_MS,
+  dimension: MAX_DIMENSION, pixels: MAX_PIXELS, jobTimeoutMs: JOB_TIMEOUT_MS,
+} as const;
+export { run as runVideoProcess, download as downloadVideoInput,
+  assertTempBudget as assertVideoTempBudget, assertActive as assertVideoOperationActive };
 
 type Probe = {
   streams?: Array<{ codec_type?: string; width?: number; height?: number }>;

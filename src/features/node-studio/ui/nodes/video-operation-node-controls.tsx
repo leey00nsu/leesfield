@@ -201,7 +201,8 @@ export function VideoOperationNodeControls({
       );
     }
     if (kind === "edit.video.trim") {
-      return <VideoTrimEditor key={inputAsset.data?.id ?? "empty"} source={inputAsset.data} output={outputAsset}
+      return <VideoTrimEditor key={inputAsset.data?.id ?? "empty"} source={inputAsset.data} output={authoring.runNode ? null : outputAsset}
+        externalResults={Boolean(authoring.runNode)}
         startMs={number(parameters.startMs, 0)} endMs={number(parameters.endMs, 5_000)}
         stripAudio={stripAudio} writable={writable} onChange={updateParameters}
         onClearOutput={data.selectedOutputAssetId ? () => authoring.selectNodeOutputAsset?.(id, null) : undefined} />;
@@ -271,6 +272,7 @@ export function VideoOperationNodeControls({
     setSubmitting(true);
     setLocalError(null);
     try {
+      if (authoring.runNode) { await authoring.runNode(id); return; }
       const prepare = authoring.prepareNodeExecution ?? authoring.prepareImageNodeExecution;
       const expectedGraphVersion = await prepare();
       setExecutionPrepared(true);
@@ -303,6 +305,7 @@ export function VideoOperationNodeControls({
   };
 
   const stop = async () => {
+    if (authoring.cancelNode) { await authoring.cancelNode(id); return; }
     controller.current?.abort();
     if (active) {
       await cancel.mutateAsync({
@@ -348,11 +351,11 @@ export function VideoOperationNodeControls({
         </div>
       ) : null}
       {kind !== "edit.video.trim" ? <NodeBananaOperationPreview
-        asset={outputAsset ?? inputAsset.data}
+        asset={authoring.runNode ? inputAsset.data : outputAsset ?? inputAsset.data}
         expectedType={kind === "edit.video.frameGrab" ? "image" : "video"}
-        output={Boolean(outputAsset)}
+        output={!authoring.runNode && Boolean(outputAsset)}
         emptyLabel={kind === "edit.video.stitch" ? tc("Connect videos to stitch") : tc("Connect a video")}
-        onClearOutput={data.selectedOutputAssetId
+        onClearOutput={!authoring.runNode && data.selectedOutputAssetId
           ? () => authoring.selectNodeOutputAsset?.(id, null)
           : undefined}
       /> : null}

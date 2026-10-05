@@ -13,7 +13,9 @@ import {
   ResourceRowButton,
   resourceRowInteractiveClassName,
 } from "@/shared/ui/brand/resource-row-link/resource-row-link";
+import { AppModalityTag } from "@/shared/ui/app-modality-tag";
 import { Badge } from "@/shared/ui/brand/badge/badge";
+import { appResourceRowLayoutClassName } from "@/shared/ui/app-resource-list";
 import {
   resolveAudioModalities,
   resolveImageModalities,
@@ -125,12 +127,9 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
           />
           <span>{tCard(`type.${item.type}`)}</span>
           {modalities.map((modality) => (
-            <span
-              key={`${item.key}-${modality}`}
-              className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-white/62"
-            >
+            <AppModalityTag key={`${item.key}-${modality}`}>
               {modality}
-            </span>
+            </AppModalityTag>
           ))}
         </div>
       </div>
@@ -161,4 +160,4 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
   );
 }
 
-export const modelRowLayoutClassName = "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b px-4 py-5 md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_2rem]";
+export const modelRowLayoutClassName = appResourceRowLayoutClassName;

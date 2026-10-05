@@ -13,6 +13,8 @@ import {
 } from "@node-banana-runtime/runtime-entry";
 import {
   AppDialog,
+  AppDialogActionButton,
+  AppDialogCancelButton,
   AppDialogContent,
   AppDialogDescription,
   AppDialogTitle,
@@ -330,8 +332,8 @@ function NodeBananaAnnotationEditorSession({
           <button type="button" onClick={() => checkpoint([])} className="px-3 py-1.5 text-xs text-neutral-400 hover:text-red-400">{tc("Clear")}</button>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-white">{tc("Cancel")}</button>
-          <button type="button" disabled={imageStatus !== "ready" || saveStatus === "saving"} onClick={() => void handleDone()} className="rounded bg-white px-4 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40">{saveStatus === "saving" ? tc("Saving…") : tc("Done")}</button>
+          <AppDialogCancelButton type="button" size="sm" onClick={onClose}>{tc("Cancel")}</AppDialogCancelButton>
+          <AppDialogActionButton type="button" size="sm" disabled={imageStatus !== "ready" || saveStatus === "saving"} onClick={() => void handleDone()}>{saveStatus === "saving" ? tc("Saving…") : tc("Done")}</AppDialogActionButton>
         </div>
       </div>
       <div

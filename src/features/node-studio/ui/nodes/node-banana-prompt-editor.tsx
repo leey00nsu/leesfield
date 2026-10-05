@@ -8,6 +8,7 @@ import { useState } from "react";
 import {
   AppDialog,
   AppDialogActionButton,
+  AppDialogDangerButton,
   AppDialogCancelButton,
   AppDialogContent,
   AppDialogFooter,
@@ -96,11 +97,11 @@ export function NodeBananaPromptEditor({
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/60">
             <section className="relative mx-4 w-full max-w-sm rounded-lg border border-neutral-600 bg-neutral-800 p-6 shadow-xl" role="alertdialog" aria-modal="true" aria-label={t("unsavedTitle")}>
               <p className="mb-6 text-center text-neutral-100">{t("unsaved")}</p>
-              <div className="flex justify-center gap-3">
+              <AppDialogFooter>
                 <AppDialogCancelButton type="button" onClick={() => setConfirmDiscard(false)}>{t("cancel")}</AppDialogCancelButton>
-                <AppDialogCancelButton type="button" onClick={() => { setConfirmDiscard(false); onClose(); }}>{t("discard")}</AppDialogCancelButton>
+                <AppDialogDangerButton type="button" onClick={() => { setConfirmDiscard(false); onClose(); }}>{t("discard")}</AppDialogDangerButton>
                 <AppDialogActionButton type="button" onClick={submit}>{t("submit")}</AppDialogActionButton>
-              </div>
+              </AppDialogFooter>
             </section>
           </div>
         ) : null}

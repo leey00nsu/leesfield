@@ -7,7 +7,8 @@
 - Source: https://github.com/shrimbly/node-banana/tree/v1.9.0
 - Commit: `5c0e0ae6150f29a6de819f8d6f1dedba15151f7c`
 - Leesfield fork: https://github.com/leey00nsu/node-banana/tree/leesfield/v1.9.0
-- Pinned fork commit: `5a52b8c2d249cd48406789bde288b58d0289f3e5`
+- Pinned local fork candidate: `d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b`
+- Last observed published branch revision: `5a52b8c2d249cd48406789bde288b58d0289f3e5`
 - License: MIT
 - Copyright: Node Banana contributors
 
@@ -34,3 +35,5 @@ entry accepts this verified expression without granting a general copyleft excep
 The production runtime must not include Node Banana provider SDKs/routes, browser API-key storage, local workflow/media persistence, ComfyUI, AI authoring, 3D, project-directory access, or the upstream `@imgly/background-removal` implementation. The latter is AGPL-licensed and is replaced by a Leesfield server-side, license-compatible media-operation adapter.
 
 Sample images and template thumbnails remain only in the immutable provenance snapshot. They are not runtime entrypoints, are not copied into Leesfield public assets, and must not be included in the production bundle.
+
+This snapshot includes local candidate commit d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b (parent 41fe90b03bc9a3d70193104d716db78f6da24671), adding an optional host generation-prompt render slot. Remote publication is pending; this SHA is not represented as a published remote revision.

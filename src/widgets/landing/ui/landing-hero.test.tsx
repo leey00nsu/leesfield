@@ -1,13 +1,8 @@
-vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
-  useRuntimeModelCatalog: () => ({
-    imageModels: [],
-    videoModels: [],
-    audioModels: [],
-  }),
-}));
+const privateCatalog = vi.hoisted(() => vi.fn(() => ({ imageModels: [], videoModels: [], audioModels: [] })));
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({ useRuntimeModelCatalog: privateCatalog }));
 import type React from "react";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LandingHero } from "@/widgets/landing/ui/landing-hero";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -22,6 +17,7 @@ vi.mock("next/image", () => ({
     const imageProps = { ...props };
     delete imageProps.fill;
     delete imageProps.priority;
+    delete (imageProps as Record<string, unknown>).unoptimized;
 
     // eslint-disable-next-line @next/next/no-img-element
     return <img {...imageProps} alt={imageProps.alt ?? ""} />;
@@ -76,14 +72,9 @@ describe("LandingHero", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getAllByRole("link", { name: "생성" }).find(link => link.getAttribute("href")?.includes("?type="))!).toHaveAttribute(
-      "href",
-      expect.stringContaining("/generate?type=audio"),
-    );
-    expect(screen.getByRole("textbox")).toHaveAttribute(
-      "placeholder",
-      "생성할 음성이나 오디오를 설명해 주세요.",
-    );
+    expect(screen.getByTestId("landing-generation-entry")).toHaveAttribute("href", "/login?returnTo=%2Fgenerate%3Ftype%3Daudio");
+    expect(screen.getByText("생성할 음성이나 오디오를 설명해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
   it("shows media-first creation entry points before technical documentation", () => {
     renderWithIntl(<LandingHero />);
@@ -207,13 +198,27 @@ describe("LandingHero", () => {
       ),
     ).not.toBeInTheDocument();
 
-    expect(
-      screen.getByRole("textbox", { name: "프롬프트" }),
-    ).not.toHaveAttribute("readonly");
-    expect(screen.getAllByRole("link", { name: "생성" }).find(link => link.getAttribute("href")?.includes("?type="))!).toHaveAttribute(
-      "href",
-      expect.stringContaining("/generate?type=image"),
-    );
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-generation-entry")).toHaveAttribute("href", "/login?returnTo=%2Fgenerate%3Ftype%3Dimage");
+  });
+
+  it.each([false, true])("uses one private-catalog-free entry action with authentication %s", async isAuthenticated => {
+    privateCatalog.mockClear();
+    const user = userEvent.setup();
+    renderWithIntl(<LandingHero isAuthenticated={isAuthenticated} />);
+    for (const [label, type] of [["이미지", "image"], ["비디오", "video"], ["오디오", "audio"]]) {
+      await user.click(screen.getByRole("tab", { name: label }));
+      const field = screen.getByTestId("landing-hero-form-surface");
+      const entry = within(field).getByRole("link", { name: "생성" });
+      expect(entry).toHaveAttribute("href", isAuthenticated ? `/generate?type=${type}` : `/login?returnTo=${encodeURIComponent(`/generate?type=${type}`)}`);
+      expect(within(field).queryAllByRole("button")).toHaveLength(0);
+      expect(field.querySelectorAll("input,textarea,[contenteditable=true]")).toHaveLength(0);
+      expect(field).toHaveTextContent("GPT Image 2.5");
+      expect(field).not.toHaveTextContent("model-a");
+      expect(entry.getAttribute("href")).not.toMatch(/model|vendor|preset|prompt|key/i);
+      entry.focus(); expect(entry).toHaveFocus();
+    }
+    expect(privateCatalog).not.toHaveBeenCalled();
   });
 
   it("keeps the blur surface stable while motion fades inner content after client-side navigation", () => {

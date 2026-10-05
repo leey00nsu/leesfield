@@ -1,10 +1,12 @@
 import { Prisma, type AssistantExecution } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/server/db/prisma";
-import { NodeExecutionActiveError, NodeExecutionNotFoundError } from "@/server/node-executions/node-execution-errors";
+import { NodeExecutionActiveError, NodeExecutionNotFoundError, NodeExecutionInputError, NodeExecutionSelectionConflictError } from "@/server/node-executions/node-execution-errors";
+import { assistantItemsSchema, assistantSelectionSchema, assistantTextForPort, assistantTextResult, type AssistantItem, type AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
 
 export type AssistantInputSnapshot = {
   instruction: string;
+  outputMode?: AssistantOutputMode;
   text: string | null;
   assets: Array<{ assetId: string; type: "image" | "video"; portId: string; sortOrder: number }>;
 };
@@ -64,13 +66,33 @@ export async function getAssistantExecution(ownerEmail: string, graphId: string,
   return row;
 }
 
-export async function latestAssistantText(ownerEmail: string, graphId: string, graphNodeId: string) {
+export async function latestAssistantText(ownerEmail: string, graphId: string, graphNodeId: string, portId = "text") {
   const row = await prisma.assistantExecution.findFirst({
     where: { ownerEmail, graphId, graphNodeId, status: "completed", outputText: { not: null } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { outputText: true },
+    select: { outputText: true, outputListJson: true, selectedItemId: true },
   });
-  return row?.outputText ?? null;
+  return row ? assistantTextForPort(assistantTextResult(row.outputText, row.outputListJson, row.selectedItemId), portId) : null;
+}
+
+export async function selectAssistantItem(ownerEmail: string, graphId: string, graphNodeId: string, id: string, body: unknown) {
+  const parsed = assistantSelectionSchema.safeParse(body);
+  if (!parsed.success) throw new NodeExecutionInputError(parsed.error.flatten());
+  return prisma.$transaction(async tx => {
+    // Serialize selections with successful settlement, so an older run cannot
+    // become writable between the latest-result check and the update.
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
+    const row = await tx.assistantExecution.findFirst({ where: { id, ownerEmail, graphId, graphNodeId } });
+    if (!row) throw new NodeExecutionNotFoundError();
+    const node = await tx.generationGraphNode.findFirst({ where: { id: graphNodeId, graphId, kind: "generate.assistant", graph: { ownerEmail } } });
+    if (!node) throw new NodeExecutionNotFoundError();
+    const latest = await tx.assistantExecution.findFirst({ where: { ownerEmail, graphId, graphNodeId, status: "completed", outputText: { not: null } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true } });
+    if (row.status !== "completed" || latest?.id !== id || row.selectionVersion !== parsed.data.expectedSelectionVersion) throw new NodeExecutionSelectionConflictError();
+    const items = assistantItemsSchema.safeParse(row.outputListJson);
+    if (!items.success || !items.data.some(item => item.id === parsed.data.itemId)) throw new NodeExecutionInputError({ itemId: ["ASSISTANT_ITEM_INVALID"] });
+    await tx.assistantExecution.update({ where: { id }, data: { selectedItemId: parsed.data.itemId, selectionVersion: { increment: 1 } } });
+    return tx.assistantExecution.findUniqueOrThrow({ where: { id } });
+  });
 }
 
 export async function cancelAssistantExecution(ownerEmail: string, graphId: string, graphNodeId: string, id: string) {
@@ -120,14 +142,18 @@ export async function renewAssistantLease(id: string, lease: AssistantLease) {
   if (!result.count) throw new AssistantLeaseLostError();
 }
 
-export async function settleAssistantExecution(id: string, lease: AssistantLease, result: { text: string } | { errorCode: string }) {
-  const update = await prisma.assistantExecution.updateMany({
+export async function settleAssistantExecution(id: string, lease: AssistantLease, result: { text: string; items?: AssistantItem[] } | { errorCode: string }) {
+  return prisma.$transaction(async tx => {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
+  const items = "text" in result && result.items ? assistantItemsSchema.parse(result.items) : null;
+  const update = await tx.assistantExecution.updateMany({
     where: { id, ...leaseWhere(lease) },
     data: "text" in result
-      ? { status: "completed", outputText: result.text, completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null }
+      ? { status: "completed", outputText: result.text, outputListJson: items ?? Prisma.DbNull, selectedItemId: items?.[0].id ?? null, completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null }
       : { status: "failed", errorCode: result.errorCode, completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
   });
   if (!update.count) throw new AssistantLeaseLostError();
+  });
 }
 
 export async function finalizeAssistantCancellation(id: string, lease: AssistantLease) {

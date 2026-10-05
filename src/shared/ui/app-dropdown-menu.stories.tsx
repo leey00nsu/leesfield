@@ -41,7 +41,7 @@ function AppDropdownMenuPreview({
           Copy
         </AppDropdownMenuItem>
         {showDanger ? (
-          <AppDropdownMenuItem className="gap-2 text-red-200">
+          <AppDropdownMenuItem variant="destructive" className="gap-2">
             <Trash2 className="h-4 w-4" />
             Delete
           </AppDropdownMenuItem>
@@ -74,3 +74,4 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   render: (args) => <AppDropdownMenuPreview {...args} />,
 };
+export const WithDanger: Story = { args: { showDanger: true } };

@@ -46,7 +46,7 @@ integration("media operation execution leases", () => {
   });
 
   it("keeps the shared server-operation limit under concurrent claims", async () => {
-    const types = ["edit.image.removeBackground", "edit.video.stitch", "edit.video.trim", "edit.video.stitch", "edit.video.trim"];
+    const types = ["edit.image.removeBackground", "edit.video.stitch", "edit.video.trim", "edit.video.extractFrames", "edit.video.trim"];
     const rows = await Promise.all(types.map((type) => createOperation("pending", type)));
     const results = await Promise.all(
       rows.map((operation) =>

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { randomUUID } from "node:crypto";
 import {
   beginSubmission,
@@ -6,9 +7,12 @@ import {
   hashSubmissionPayload,
 } from "@/server/generation-admission/submission-ledger";
 import {fileInputsFromAssets,parseFileInputPort} from "@/shared/model-catalog/file-input-ports";
+import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
+import { recordObject } from "@/server/generation-request/request-snapshot";
 import { ZodError } from "zod";
 import { constructPrompt } from "@/shared/generation-graph/prompt-constructor";
-import { createAssistantExecution, listAssistantExecutions, getAssistantExecution, cancelAssistantExecution, latestAssistantText } from "@/server/assistant-executions/assistant-execution-repository";
+import { createAssistantExecution, listAssistantExecutions, getAssistantExecution, cancelAssistantExecution, latestAssistantText, selectAssistantItem } from "@/server/assistant-executions/assistant-execution-repository";
+import { assistantItemsSchema, type AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
 import { startAssistantWorker } from "@/server/assistant-executions/assistant-worker";
 import { getLlmModelApiKey } from "@/server/model-catalog/model-credential";
 import type { AssistantExecution } from "@prisma/client";
@@ -166,7 +170,10 @@ function selectedAssetId(edge: StoredNodeExecutionEdge, kind: string) {
       return typeof value === "string" ? value : null;
     }
   }
-  return edge.sourceNode.selectedOutputAssetId;
+  return mediaOutputPorts(kind).length > 1
+    ? mediaAssetIdsForPort(kind, edge.sourcePortId, edge.sourceNode.selectedOutputAssetId,
+      edge.sourceNode.outputs)[0] ?? null
+    : edge.sourceNode.selectedOutputAssetId;
 }
 
 function inputPassThroughPort(kind: string) {
@@ -185,6 +192,8 @@ async function loadPassThroughEdge(
   visited: Set<string>,
 ) {
   const kind = sourceKind(edge);
+  if (["input.image", "input.audio", "input.video"].includes(kind) &&
+    (edge.sourceNode.config as { resultSource?: unknown } | null)?.resultSource) return null;
   const targetPortId = inputPassThroughPort(kind);
   if (!targetPortId) return null;
   if (visited.has(edge.sourceNodeId)) {
@@ -232,7 +241,7 @@ async function effectivePromptFromEdge(
   dependencies: NodeExecutionDependencies, visited: Set<string> = new Set(),
 ): Promise<string | null> {
   if (sourceKind(edge) === "generate.assistant") {
-    return latestAssistantText(ownerEmail, graphId, edge.sourceNodeId);
+    return latestAssistantText(ownerEmail, graphId, edge.sourceNodeId, edge.sourcePortId);
   }
   if (sourceKind(edge) === "process.promptConstructor") {
     if (visited.has(edge.sourceNodeId)) throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", { reason: "PROMPT_INPUT_CYCLE" });
@@ -536,6 +545,7 @@ function operationToDto(operation: MediaOperationDto): NodeExecutionDto {
     errorCode,
     modelKey: null,
     outputAssetIds: operation.outputAssetIds,
+    outputBindings: operation.outputBindings,
     createdAt: operation.createdAt,
   };
 }
@@ -552,11 +562,16 @@ function assistantToDto(row: AssistantExecution): NodeExecutionDto {
     modelKey: row.modelKey,
     outputAssetIds: [],
     outputText: row.outputText,
+    outputMode: (row.inputSnapshot as { outputMode?: string } | null)?.outputMode === "list" ? "list" : "text",
+    outputItems: assistantItemsSchema.safeParse(row.outputListJson).data ?? null,
+    selectedItemId: row.selectedItemId ?? null,
+    selectionVersion: row.selectionVersion ?? 0,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
 function expectedOperationOutputs(kind: string, parameters: Record<string, unknown>) {
+  if (kind === "edit.video.extractFrames") return 2;
   if (kind !== "edit.image.splitGrid") return 1;
   const rows = typeof parameters.rows === "number" ? parameters.rows : 2;
   const cols = typeof parameters.cols === "number" ? parameters.cols : 2;
@@ -747,7 +762,12 @@ export function createNodeExecutionService(
         prompt: string;
         modelKey: string | null;
         parameters: Record<string, unknown>;
+        promptPreset?: import("@/shared/prompt-presets/prompt-preset-contract").PromptPresetRef;
+        outputMode?: AssistantOutputMode;
       };
+      if (input.repeatOfExecutionId && kind !== "generate.image") {
+        throw new NodeExecutionConfigError({ repeat: ["IMAGE_REPEAT_ONLY"] });
+      }
       const resolved = await resolveInputs(ownerEmail, graphId, node, kind, dependencies, config.parameters ?? {});
       if (kind === "generate.assistant") {
         if (!config.modelKey) throw new NodeExecutionConfigError({ model: ["MODEL_REQUIRED"] });
@@ -770,6 +790,7 @@ export function createNodeExecutionService(
           ownerEmail, graphId, graphNodeId: node.id, modelKey: config.modelKey,
           snapshot: {
             instruction: config.prompt,
+            outputMode: config.outputMode ?? "text",
             text: resolved.prompt,
             assets: resolved.assets.map(({ assetId, type, portId, sortOrder }) => ({ assetId, type: type as "image" | "video", portId, sortOrder })),
           },
@@ -789,7 +810,7 @@ export function createNodeExecutionService(
         }
         if (
           definition.executionMode === "server-operation" &&
-          (kind === "edit.video.stitch" || kind === "edit.video.trim") &&
+          (kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames") &&
           !(await dependencies.hasVideoProcessor())
         ) {
           throw new NodeExecutionProcessorUnavailableError();
@@ -848,6 +869,9 @@ export function createNodeExecutionService(
       }
       const prompt = resolved.prompt ?? config.prompt;
       const fileInputs = fileInputsFromAssets(resolved.assets);
+      if (config.promptPreset && !promptPresetReferenceImageCount(config.promptPreset) && resolved.assets.length) {
+        throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { reason: "PRESET_TEXT_INPUT_ONLY" });
+      }
       const assetInputs = inputSnapshot(resolved);
       dependencies.assertStorage(mediaType);
 
@@ -897,11 +921,47 @@ export function createNodeExecutionService(
         const initImages = resolved.assets
           .filter((asset) => asset.type === "image" && !parseFileInputPort(asset.portId))
           .map((asset) => asset.url);
-        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImages, fileInputs };
-        const validated = await dependencies.validateImage(candidate);
+        const candidate = { ...config.parameters, prompt, model: config.modelKey, initImages, fileInputs,
+          ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
+        // Persist normalized, file-free inputs. URLs are resolved afresh from
+        // owner-scoped durable assets; neither client payload nor live defaults
+        // can silently replace the first accepted request's settings.
+        const withoutFiles = (payload: Record<string, unknown>) => {
+          const dynamicParams = { ...recordObject(payload.dynamicParams) };
+          const result: Record<string, unknown> = { ...payload, initImages: [], fileInputs: {}, dynamicParams };
+          for (const asset of resolved.assets) {
+            const filePort = parseFileInputPort(asset.portId);
+            if (filePort) delete dynamicParams[filePort.name];
+          }
+          if (payload.dynamicParams === undefined) {
+            delete result.dynamicParams;
+          }
+          return result;
+        };
+        const sourceHash = hashSubmissionPayload({ prompt, model: config.modelKey, parameters: config.parameters,
+          promptPreset: config.promptPreset, assets: assetInputs });
+        let frozen: Record<string, unknown> | null = null;
+        let repeatCount = (parsedConfig.data as { repeatCount?: number }).repeatCount ?? 1;
+        if (input.repeatOfExecutionId) {
+          const root = await dependencies.repository.getRepeatSnapshot(ownerEmail, graphId, nodeId, input.repeatOfExecutionId);
+          const snapshot = recordObject(recordObject(root.requestParams).nodeRepeat);
+          if (!["completed", "failed"].includes(root.status) || snapshot.sourceHash !== sourceHash ||
+            snapshot.graphId !== graphId || !Number.isInteger(snapshot.repeatCount) ||
+            input.repeatIndex! >= Number(snapshot.repeatCount) || input.repeatIndex! >= repeatCount) {
+            throw new NodeExecutionConfigError({ repeat: ["REPEAT_INPUT_CHANGED"] });
+          }
+          repeatCount = Number(snapshot.repeatCount);
+          frozen = recordObject(snapshot.payload);
+          if (!Object.keys(frozen).length) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
+        }
+        const validated = await dependencies.validateImage(frozen ? { ...frozen, initImages, fileInputs } : candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
+        const normalized = withoutFiles(validated.data as unknown as Record<string, unknown>);
+        if (frozen && hashSubmissionPayload(normalized) !== hashSubmissionPayload(frozen)) {
+          throw new NodeExecutionConfigError({ repeat: ["REPEAT_MODEL_CONTRACT_CHANGED"] });
+        }
         const submission = await submitAdmitted(
-          validated.data,
+          { payload: normalized, assets: assetInputs, repeatOfExecutionId: input.repeatOfExecutionId, repeatIndex: input.repeatIndex },
           (requestId) => dependencies.submitImage({
             payload: validated.data,
             ownerEmail,
@@ -910,6 +970,7 @@ export function createNodeExecutionService(
             requestSnapshot: jsonRecord({
               ...validated.data,
               initImages: [],
+              nodeRepeat: { graphId, sourceHash, repeatCount, payload: normalized },
               inputAssets: assetInputs,
               graphId,
               graphNodeId: node.id,
@@ -924,7 +985,8 @@ export function createNodeExecutionService(
       }
       if (mediaType === "video") {
         const initImage = resolved.assets.find((asset) => asset.portId === "initImage")?.url ?? "";
-        const candidate = { prompt, model: config.modelKey, ...config.parameters, initImage, fileInputs };
+        const candidate = { ...config.parameters, prompt, model: config.modelKey, initImage, fileInputs,
+          ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
         const validated = await dependencies.validateVideo(candidate);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const submission = await submitAdmitted(
@@ -949,7 +1011,8 @@ export function createNodeExecutionService(
         );
         return { ...submission, mediaType };
       }
-      const candidate = { prompt, model: config.modelKey, ...config.parameters };
+      const candidate = { ...config.parameters, prompt, model: config.modelKey,
+        ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
       const validated = await dependencies.validateAudio(candidate);
       if (!validated.success) throw mapValidationError(validated.error, mediaType);
       const submission = await submitAdmitted(
@@ -1020,6 +1083,7 @@ export function createNodeExecutionService(
 
     async update(ownerEmail: string, graphId: string, nodeId: string, executionId: string, body: unknown) {
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
+      if (targetKind(node) === "generate.assistant") return assistantToDto(await selectAssistantItem(ownerEmail, graphId, nodeId, executionId, body));
       const definition = findNodeDefinition(targetKind(node) ?? "");
       if (definition?.executionMode !== "browser-operation") {
         throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });

@@ -15,6 +15,7 @@ import {
   type MediaOperationLease,
 } from "@/server/media-operations/media-operation-lease";
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
+import { mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import type {
   CreateMediaOperationInput,
@@ -108,6 +109,10 @@ const operationSelect = {
   outputs: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
     select: { id: true },
+  },
+  outputBindings: {
+    orderBy: [{ portId: "asc" as const }, { sortOrder: "asc" as const }],
+    select: { portId: true, sortOrder: true, assetId: true },
   },
 } satisfies Prisma.MediaOperationSelect;
 
@@ -290,8 +295,29 @@ async function completeServerOperation(
     if (artifacts.length !== operation.expectedOutputCount) {
       throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
     }
-    const outputPort = findNodeDefinition(operation.type)?.ports.find((port) => port.direction === "output");
-    if (!outputPort) throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    const ports = mediaOutputPorts(operation.type);
+    if (!ports.length || !operation.graphNode || operation.graphNode.kind !== operation.type ||
+      operation.graphNode.configVersion !== operation.configVersion) {
+      throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    }
+    const slots = artifacts.map((artifact, index) => ({
+      portId: artifact.outputPortId ?? (ports.length === 1 ? ports[0].id : ""),
+      sortOrder: artifact.sortOrder ?? (ports.length === 1 ? index : 0),
+    }));
+    if (new Set(slots.map(slot => `${slot.portId}:${slot.sortOrder}`)).size !== slots.length ||
+      artifacts.some((artifact, index) => {
+        const port = ports.find(port => port.id === slots[index].portId);
+        return !port || artifact.type !== port.valueType ||
+          !Number.isSafeInteger(slots[index].sortOrder) || slots[index].sortOrder < 0 ||
+          (port.valueShape === "single" && slots[index].sortOrder !== 0) ||
+          !artifact.storageObjectId || !artifact.storageUrl || artifact.storageProvider !== "leemage" ||
+          !Number.isSafeInteger(artifact.bytes) || artifact.bytes <= 0 ||
+          (port.acceptedMimeTypes !== undefined && !port.acceptedMimeTypes.some(mime =>
+            mime === artifact.mimeType || (mime.endsWith("/*") && artifact.mimeType.startsWith(mime.slice(0, -1)))));
+      }) || ports.some(port => !slots.some(slot => slot.portId === port.id)) ||
+      new Set(artifacts.map(artifact => artifact.storageObjectId)).size !== artifacts.length) {
+      throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    }
     const uploading = await tx.mediaOperation.updateMany({
       where: {
         id: operationId,
@@ -342,13 +368,15 @@ async function completeServerOperation(
       }
     }
     await tx.generationGraphNodeOutput.deleteMany({
-      where: { graphNodeId: operation.graphNodeId, portId: outputPort.id },
+      where: { graphNodeId: operation.graphNodeId, portId: { in: ports.map(port => port.id) } },
+    });
+    await tx.mediaOperationOutput.createMany({
+      data: assetIds.map((assetId, index) => ({ operationId, ...slots[index], assetId })),
     });
     await tx.generationGraphNodeOutput.createMany({
-      data: assetIds.map((assetId, sortOrder) => ({
+      data: assetIds.map((assetId, index) => ({
         graphNodeId: operation.graphNodeId as string,
-        portId: outputPort.id,
-        sortOrder,
+        ...slots[index],
         assetId,
         createdAt: now,
       })),
@@ -529,10 +557,10 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
       ) {
         throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
       }
-      const outputPort = definition.ports.find((port) => port.direction === "output");
+      const outputPorts = mediaOutputPorts(node.kind);
       if (
-        !outputPort ||
-        (outputPort.valueShape === "single" && input.expectedOutputCount !== 1)
+        !outputPorts.length ||
+        (outputPorts.every(port => port.valueShape === "single") && input.expectedOutputCount !== outputPorts.length)
       ) {
         throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
       }

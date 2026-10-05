@@ -7,6 +7,8 @@ import type { GenerationModality } from "@/shared/generation/generation-presets"
 import { cn } from "@/shared/lib/utils";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppPickerItem } from "@/shared/ui/app-picker-item";
+import { AppModalityTag } from "@/shared/ui/app-modality-tag";
 import {
   AppPopover,
   AppPopoverContent,
@@ -66,18 +68,12 @@ export function GenerationModelSection<T extends string>({
     if (!normalizedQuery) return items;
 
     return items.filter((model) => {
-      return [model.id, model.name, model.vendor]
+      return [model.id, model.name, model.vendor, ...(model.modalities ?? [])]
         .join(" ")
         .toLowerCase()
         .includes(normalizedQuery);
     });
   }, [items, query]);
-  const featuredItems = filteredItems.slice(
-    0,
-    Math.min(6, filteredItems.length),
-  );
-  const featuredIds = new Set(featuredItems.map((model) => model.id));
-  const allItems = filteredItems.filter((model) => !featuredIds.has(model.id));
   const renderDefaultBadge = (model: GenerationModelOption<T>) => {
     if (model.id !== defaultModelId) return null;
 
@@ -95,7 +91,7 @@ export function GenerationModelSection<T extends string>({
     const isActive = activeId === model.id;
 
     return (
-      <AppButton
+      <AppPickerItem
         key={`${scope}-${model.id}`}
         type="button"
         onClick={() => {
@@ -103,11 +99,7 @@ export function GenerationModelSection<T extends string>({
           setIsOpen(false);
           setQuery("");
         }}
-        variant="ghost"
-        className={cn(
-          "h-auto min-h-12 w-full justify-start rounded-xl px-3 py-2.5 text-left hover:bg-interaction-hover",
-          isActive && "bg-data-accent/15 ring-1 ring-inset ring-data-accent/40 hover:bg-data-accent/25",
-        )}
+        selected={isActive}
       >
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -116,6 +108,9 @@ export function GenerationModelSection<T extends string>({
             </span>
             {renderDefaultBadge(model)}
           </span>
+          {!!model.modalities?.length && <span className="mt-2 flex flex-wrap gap-1.5">
+            {model.modalities.map(modality => <AppModalityTag key={modality} data-picker-secondary="">{modality}</AppModalityTag>)}
+          </span>}
         </span>
         {isActive ? (
           <span
@@ -125,7 +120,7 @@ export function GenerationModelSection<T extends string>({
             <Check className="h-4 w-4" />
           </span>
         ) : null}
-      </AppButton>
+      </AppPickerItem>
     );
   };
 
@@ -181,28 +176,12 @@ export function GenerationModelSection<T extends string>({
           </div>
 
           <div className="flex min-h-0 flex-col gap-5 overflow-y-auto p-4">
-            <section className="flex flex-col gap-2">
-              <h3 className="px-1 text-sm font-bold text-gray-400">
-                {tPicker("featured")}
-              </h3>
-              {featuredItems.length > 0 ? (
-                featuredItems.map((model) => renderModelRow(model, "featured"))
-              ) : (
-                <p className="px-1 text-sm text-gray-500">{tPicker("empty")}</p>
-              )}
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <h3 className="px-1 text-sm font-bold text-gray-400">
-                {tPicker("all")}
-              </h3>
-              {allItems.length > 0 ? (
-                allItems.map((model) => renderModelRow(model, "all"))
-              ) : (
-                <p className="px-1 text-sm text-gray-500">{tPicker("empty")}</p>
-              )}
-            </section>
+            {filteredItems.length > 0 ? filteredItems.map(model => renderModelRow(model, "all"))
+              : <p className="px-1 text-sm text-muted-foreground">{tPicker("empty")}</p>}
           </div>
+        </div>
+        <div className="shrink-0 border-t border-border p-3">
+          <AppButton size="sm" variant="surface" asChild><a href="/model" target="_blank" rel="noopener noreferrer">{tPicker("manage")}</a></AppButton>
         </div>
       </AppPopoverContent>
     </AppPopover>

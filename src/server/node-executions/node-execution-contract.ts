@@ -1,7 +1,9 @@
 import { z } from "zod";
+import type { AssistantItem, AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
 
 export const executeNodeSchema = z
-  .object({ expectedGraphVersion: z.number().int().positive() })
+  .object({ expectedGraphVersion: z.number().int().positive(), repeatOfExecutionId: z.string().min(1).max(200).optional(), repeatIndex: z.number().int().min(1).max(99).optional() })
+  .refine(value => Boolean(value.repeatOfExecutionId) === (value.repeatIndex !== undefined), { message: "REPEAT_REFERENCE_REQUIRED" })
   .strict();
 
 export const nodeExecutionStatusSchema = z.enum([
@@ -26,7 +28,12 @@ export type NodeExecutionDto = {
   errorCode: "GENERATION_FAILED" | "MODAL_TIMEOUT" | "MODAL_OUTPUT_MEDIA" | "PROCESSOR_FAILED" | "PROCESSOR_UNAVAILABLE" | "MEDIA_UPLOAD_FAILED" | string | null;
   modelKey: string | null;
   outputAssetIds: string[];
+  outputBindings?: Array<{ portId: string; sortOrder: number; assetId: string | null }>;
   outputText?: string | null;
+  outputMode?: AssistantOutputMode;
+  outputItems?: AssistantItem[] | null;
+  selectedItemId?: string | null;
+  selectionVersion?: number;
   selectedOutputAssetId?: string | null;
   createdAt: string;
 };

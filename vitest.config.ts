@@ -11,6 +11,7 @@ export default defineConfig({
       ...configDefaults.exclude,
       "third_party/**",
       ".generated/**",
+      ".next/**",
       ".tmp-node-banana-*/**",
       "artifacts/**",
       "scripts/node-banana/e2e/**",

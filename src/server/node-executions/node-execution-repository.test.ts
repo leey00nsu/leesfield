@@ -54,6 +54,17 @@ describe("nodeExecutionRepository", () => {
     }));
   });
 
+  it("reads repeat snapshots only for the owner, graph, node and request", async () => {
+    mocks.imageGeneration.findFirst.mockResolvedValue({ status: "completed", requestParams: { nodeRepeat: { prompt: "original" } } });
+    await expect(nodeExecutionRepository.getRepeatSnapshot("owner@example.com", "graph-1", "node-1", "root")).resolves.toMatchObject({ status: "completed" });
+    expect(mocks.imageGeneration.findFirst).toHaveBeenCalledWith({
+      where: { requestId: "root", ownerEmail: "owner@example.com", graphNodeId: "node-1", graphNode: { graphId: "graph-1", graph: { ownerEmail: "owner@example.com" } } },
+      select: { status: true, requestParams: true },
+    });
+    mocks.imageGeneration.findFirst.mockResolvedValue(null);
+    await expect(nodeExecutionRepository.getRepeatSnapshot("other", "graph-1", "node-1", "root")).rejects.toMatchObject({ code: "NODE_EXECUTION_NOT_FOUND" });
+  });
+
   it("finds an exact execution through owner and Node scope", async () => {
     mocks.imageGeneration.findFirst.mockResolvedValue({
       requestId: "request-101",

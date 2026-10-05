@@ -1,3 +1,8 @@
+export class NodeExecutionSelectionConflictError extends Error {
+  readonly code = "ASSISTANT_SELECTION_CONFLICT";
+  constructor() { super("ASSISTANT_SELECTION_CONFLICT"); }
+}
+
 export class NodeExecutionInputError extends Error {
   readonly code = "NODE_EXECUTION_INPUT_INVALID";
   constructor(readonly details: unknown) {

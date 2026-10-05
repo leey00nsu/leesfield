@@ -69,6 +69,21 @@ function serviceFor(node: StoredDisplayNode, assets: Record<string, MediaAssetDt
 }
 
 describe("nodeOutputService", () => {
+  it("resolves named frames independently and never substitutes a missing start slot", async () => {
+    const frames = source({ kind: "edit.video.extractFrames", selectedOutputAssetId: "start",
+      outputs: [{ portId: "startFrame", sortOrder: 0, assetId: "start" },
+        { portId: "endFrame", sortOrder: 0, assetId: "end" }] });
+    const node = target("inspect.imageCompare", [
+      edge({ sourceNode: frames, sourcePortId: "startFrame", targetPortId: "before" }),
+      edge({ id: "edge-end", sourceNode: frames, sourcePortId: "endFrame", targetPortId: "after" }),
+    ]);
+    const { service } = serviceFor(node, { start: asset("start", "image"), end: asset("end", "image") });
+    expect((await service.resolve("owner@example.com", "graph-1", "target")).groups.map(group => group.assets[0]?.id))
+      .toEqual(["start", "end"]);
+    frames.outputs = frames.outputs.filter(output => output.portId !== "startFrame");
+    expect((await service.resolve("owner@example.com", "graph-1", "target")).groups.map(group => group.assets[0]?.id))
+      .toEqual([undefined, "end"]);
+  });
   it.each([
     ["generate.image", "image", "output.single"],
     ["generate.audio", "audio", "output.single"],
@@ -214,6 +229,15 @@ describe("nodeOutputService", () => {
     expect(resolveAsset).toHaveBeenCalledTimes(1);
   });
 
+  it("uses a fixed result asset instead of the producer's latest output", async () => {
+    const output = target("output.single", [edge({sourceNode:source({id:"result",kind:"input.image",config:{assetId:"fixed",resultSource:{nodeId:"producer",executionId:"old"}}})})]);
+    const getOwnedDisplayNode = vi.fn().mockResolvedValue(output);
+    const resolveAsset = vi.fn(async (_owner:string,id:string)=>asset(id,"image"));
+    const service = createNodeOutputService({repository:{getOwnedDisplayNode} as NodeOutputRepository,resolveAsset});
+    await expect(service.resolve("owner@example.com","graph-1","target")).resolves.toMatchObject({groups:[{assets:[{id:"fixed"}]}]});
+    expect(getOwnedDisplayNode).toHaveBeenCalledTimes(1);
+    expect(resolveAsset).toHaveBeenCalledWith("owner@example.com","fixed");
+  });
   it("rejects a cyclic Input chain instead of displaying a local fallback", async () => {
     const output = target("output.single", [edge({
       sourceNode: source({ id: "relay", kind: "input.image", config: { assetId: "local-preserved" } }),

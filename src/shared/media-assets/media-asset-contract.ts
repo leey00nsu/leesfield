@@ -156,6 +156,7 @@ export type MediaOperationDto = {
   expectedOutputCount: number;
   errorCode: string | null;
   outputAssetIds: string[];
+  outputBindings?: Array<{ portId: string; sortOrder: number; assetId: string | null }>;
   inputs: Array<{
     assetId: string;
     portId: string;

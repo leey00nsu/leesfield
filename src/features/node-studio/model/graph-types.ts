@@ -1,4 +1,5 @@
 import type { CanonicalGroup } from "@/shared/generation-graph/canonical-graph";
+import type { PromptPresetRef, PromptPresetWorkState } from "@/shared/prompt-presets/prompt-preset-contract";
 
 export type JsonValue =
   | string
@@ -22,6 +23,8 @@ export type ImageGenerationNodeConfigDto = {
   prompt: string;
   modelKey: string | null;
   parameters: Record<string, JsonValue>;
+  promptPreset?: PromptPresetRef;
+  promptPresetState?: PromptPresetWorkState;
   presentation?: {
     customTitle?: string;
     comment?: string;
@@ -49,6 +52,7 @@ export type GenerationGraphEdgeDto = {
 };
 
 export type GenerationGraphSnapshotDto = GenerationGraphSummaryDto & {
+  outputBindings?: Array<{ graphNodeId: string; portId: string; sortOrder: number; assetId: string }>;
   groups: CanonicalGroup[];
   nodes: GenerationGraphNodeDto[];
   edges: GenerationGraphEdgeDto[];

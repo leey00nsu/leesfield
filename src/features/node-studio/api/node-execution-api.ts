@@ -44,10 +44,11 @@ export async function startNodeExecution(
   graphId: string,
   nodeId: string,
   expectedGraphVersion: number,
+  repeat?: { repeatOfExecutionId: string; repeatIndex: number },
 ) {
-  const body = JSON.stringify({ expectedGraphVersion });
+  const body = JSON.stringify({ expectedGraphVersion, ...repeat });
   const key = nodeExecutionIntent.take(
-    JSON.stringify({ graphId, nodeId, expectedGraphVersion }),
+    JSON.stringify({ graphId, nodeId, expectedGraphVersion, ...repeat }),
   );
   try {
     const response = await fetch(executionsUrl(graphId, nodeId), {
@@ -87,6 +88,7 @@ export async function updateNodeExecution(
   executionId: string,
   update:
     | { status: "processing"; progress: number }
+    | { action: "select-item"; itemId: string; expectedSelectionVersion: number }
     | { status: "failed"; errorCode: "PROCESSOR_FAILED" | "MEDIA_UPLOAD_FAILED" },
 ) {
   const response = await fetch(

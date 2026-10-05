@@ -4,14 +4,16 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueries } from "@tanstack/react-query";
 import { Copy, Video } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 import { getMediaAsset } from "@/features/media-assets/api/media-asset-api";
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import { AppTextarea } from "@/shared/ui/app-form-control";
+import { NodeTextEditor } from "@/shared/ui/node-text-editor";
 import { appToast } from "@/shared/ui/app-toast";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
-import { useCancelNodeExecution, useNodeExecutions, useStartNodeExecution } from "../../hook/use-node-executions";
+import { useCancelNodeExecution, useNodeExecutions, useStartNodeExecution, useSelectAssistantItem } from "../../hook/use-node-executions";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
 import type { NodeBananaNodeData } from "../../runtime/node-banana/node-banana-runtime-adapter";
 import { AssistantModelPicker } from "./assistant-model-picker";
@@ -32,12 +34,14 @@ function errorMessage(code: string | null) {
     ASSISTANT_INPUT_UNAVAILABLE: "연결된 참고자료를 읽을 수 없습니다.",
     ASSISTANT_FRAME_EXTRACTION_FAILED: "비디오의 대표 프레임을 추출하지 못했습니다.",
     ASSISTANT_LEASE_EXPIRED: "실행 시간이 초과됐습니다. 다시 실행해 주세요.",
+    ASSISTANT_LIST_INVALID: "모델이 올바른 목록을 반환하지 않았습니다. 지시문을 확인하고 다시 실행해 주세요.",
   };
   return messages[code] ?? `생성에 실패했습니다. (${code})`;
 }
 
 export function AssistantNodeControls({ id, data, selected = false, title = "AI 어시스턴트" }: { id: string; data: NodeBananaNodeData; selected?: boolean; title?: string }) {
   const tc = useCanvasTranslation();
+  const t = useTranslations("assistantList");
   const authoring = useNodeAuthoring();
   const [browseOpen, setBrowseOpen] = useState(false);
   const config = record(data.config);
@@ -53,6 +57,7 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
   const executions = useNodeExecutions(authoring.graphId, id, persisted, 2_000);
   const start = useStartNodeExecution();
   const cancel = useCancelNodeExecution();
+  const selectItem = useSelectAssistantItem();
   const records = (executions.data ?? []).filter((item) => item.executionKind === "assistant");
   const latest = records[0];
   const result = records.find((item) => item.status === "completed" && item.outputText);
@@ -70,7 +75,7 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
   const selectedModel = models.find((model) => model.key === modelKey);
   const writable = authoring.writable !== false && Boolean(authoring.updateCanonicalNodeConfig);
   const readiness = authoring.getNodeRunReadiness?.(id);
-  const ready = writable && Boolean(modelKey) && readiness?.ready !== false;
+  const ready = writable && Boolean(modelKey) && readiness?.ready !== false && !selectItem.isPending;
   const canRun = ready && !active && !start.isPending && !submitting;
 
   const publishPrompt = (prompt: string) => authoring.updateCanonicalNodeConfig?.(id, { ...config, prompt } as CanonicalJsonValue);
@@ -95,27 +100,38 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
     });
   };
   const copyText = tab === "original" ? draft : result?.outputText;
-  const copy = async () => {
-    if (!copyText) return;
-    try { await navigator.clipboard.writeText(copyText); appToast.copied("복사했습니다."); }
+  const copy = async (text = copyText) => {
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); appToast.copied("복사했습니다."); }
     catch { appToast.error("복사하지 못했습니다."); }
   };
+  const chooseItem = async (itemId: string) => {
+    if (!result || !writable || selectItem.isPending || result.selectedItemId === itemId) return;
+    try { await selectItem.mutateAsync({ graphId: authoring.graphId, nodeId: id, executionId: result.executionId, itemId, expectedSelectionVersion: result.selectionVersion ?? 0 }); }
+    catch (error) { appToast.error(error instanceof Error && error.message === "ASSISTANT_SELECTION_CONFLICT" ? t("selectionConflict") : t("selectionFailed")); }
+  };
 
-  return <div className="nodrag nowheel flex min-h-0 flex-1 flex-col gap-3" data-leesfield-component="AssistantNode">
+  return <div className="flex min-h-0 flex-1 flex-col gap-3" data-leesfield-component="AssistantNode">
     <NodeBananaExecutionHeader id={id} title={title} config={data.config} selected={selected}
       ready={ready} executing={Boolean(active) || submitting || start.isPending}
       disabledReason={!modelKey ? "모델을 선택해 주세요" : readiness?.ready === false ? "This node is not ready to run." : null}
       onRun={() => void run()} onCancel={active ? () => void stop() : undefined} cancelling={cancel.isPending}
       browseAction={<button type="button" onClick={() => setBrowseOpen(true)} disabled={!writable} className="nodrag nopan rounded border border-neutral-600 bg-neutral-700 px-1.5 py-0.5 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-600 disabled:cursor-not-allowed disabled:opacity-50">찾아보기</button>} />
-    {selected && typeof document !== "undefined" ? createPortal(<aside role="region" aria-label="AI 어시스턴트 설정" className="fixed right-3 top-0 z-[2000] flex h-screen items-center pointer-events-none sm:right-6"
+    {selected && typeof document !== "undefined" ? createPortal(<aside role="region" aria-label="AI 어시스턴트 설정" className="fixed right-3 top-0 z-[2000] flex h-screen items-center pointer-events-none max-sm:bottom-3 max-sm:top-auto max-sm:h-auto sm:right-6"
       onPointerDown={event => event.stopPropagation()}>
-      <div className="nodrag nopan nowheel pointer-events-auto max-h-[80vh] w-80 max-w-[calc(100vw-24px)] overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-800 p-4 shadow-lg">
+      <div className="nodrag nopan nowheel pointer-events-auto max-h-[80vh] w-80 max-w-[calc(100vw-24px)] overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-800 p-4 shadow-lg max-sm:max-h-[30vh]">
       <h3 className="mb-4 text-sm font-medium text-neutral-200">AI 어시스턴트 설정</h3>
       <label className="mb-1 block text-xs text-neutral-400" htmlFor={`${id}-model`}>모델</label>
       <button id={`${id}-model`} type="button" aria-label="Assistant 모델 선택" disabled={!writable} onClick={() => setBrowseOpen(true)}
         className="w-full truncate rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-left text-xs text-white hover:border-neutral-500 disabled:opacity-40">
         {selectedModel?.label ?? (modelKey ? "사용할 수 없는 모델" : "모델 선택...")}
       </button>
+      <label className="mb-1 mt-4 block text-xs text-neutral-400" htmlFor={`${id}-output-mode`}>{t("outputFormat")}</label>
+      <select id={`${id}-output-mode`} value={config.outputMode === "list" ? "list" : "text"} disabled={!writable}
+        onChange={event => authoring.updateCanonicalNodeConfig?.(id, { ...config, outputMode: event.target.value } as CanonicalJsonValue)}
+        className="nodrag nopan w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-white">
+        <option value="text">{t("text")}</option><option value="list">{t("list")}</option>
+      </select>
       </div>
     </aside>, document.body) : null}
     <AssistantModelPicker models={models} selectedKey={modelKey} disabled={!writable} loading={authoring.isLoading} error={authoring.error}
@@ -145,14 +161,30 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
 
     {tab === "original" ? <div role="tabpanel" id={`${id}-original-panel`} aria-labelledby={`${id}-original-tab`} className="flex min-h-0 flex-1 flex-col gap-2">
       {connectedText.connected ? <span className="max-w-full truncate rounded bg-white/5 px-2 py-1 text-[10px] text-white/50" title={connectedText.text ?? ""}>텍스트 입력: {connectedText.text || "결과를 기다리는 중"}</span> : null}
-      <AppTextarea surface="transparent" value={draft} maxLength={20_000} disabled={!writable} aria-label="Assistant 지시문" placeholder="무엇을 도와드릴까요?"
-        className="nodrag nowheel min-h-44 w-full flex-1 resize-none border-0 bg-transparent px-1 py-3 text-sm leading-relaxed text-white outline-none placeholder:text-white/35"
+      <NodeTextEditor label="Assistant 지시문 편집" disabled={!writable} className="flex min-h-44 flex-1 flex-col">
+      {editing => <AppTextarea surface="transparent" value={draft} maxLength={20_000} disabled={!writable} readOnly={!editing} tabIndex={editing ? 0 : -1} aria-label="Assistant 지시문" placeholder="무엇을 도와드릴까요?"
+        className="nodrag nowheel min-h-0 w-full flex-1 resize-none rounded-lg border-0 bg-transparent px-3 py-3 text-sm leading-relaxed text-white shadow-none outline-none !ring-0 placeholder:text-white/35"
         onPointerDown={(event) => event.stopPropagation()}
         onCompositionStart={() => { composing.current = true; }}
         onCompositionEnd={(event) => { composing.current = false; publishPrompt(event.currentTarget.value); }}
-        onChange={(event) => { setDraftState({ source: savedPrompt, value: event.target.value }); if (!composing.current) publishPrompt(event.target.value); }} />
+        onChange={(event) => { setDraftState({ source: savedPrompt, value: event.target.value }); if (!composing.current) publishPrompt(event.target.value); }} />}
+      </NodeTextEditor>
     </div> : <div role="tabpanel" id={`${id}-result-panel`} aria-labelledby={`${id}-result-tab`} className="nowheel min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-1 py-3 text-sm leading-relaxed text-white"
-      >{result?.outputText ?? (active ? "생성 중입니다…" : "아직 생성된 결과가 없습니다.")}</div>}
+      >{result?.outputMode === "list" && result.outputItems?.length ? <ol className="space-y-2 whitespace-normal" aria-label={t("results")}>
+        {result.outputItems.map((item, index) => <li key={item.id} className={`rounded-lg border p-3 ${result.selectedItemId === item.id ? "border-blue-400 bg-blue-500/10" : "border-white/15 bg-white/5"}`}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <button type="button" aria-label={t("selectItem", { number: index + 1 })} aria-pressed={result.selectedItemId === item.id}
+              disabled={!writable || selectItem.isPending} onClick={() => void chooseItem(item.id)}
+              className="nodrag nopan min-w-0 rounded px-2 py-1 text-xs text-white/80 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50">
+              {index + 1}. {result.selectedItemId === item.id ? t("selected") : t("select")}
+            </button>
+            <button type="button" aria-label={t("copyItem", { number: index + 1 })} onClick={() => void copy(item.text)}
+              className="nodrag nopan grid h-8 w-8 shrink-0 place-items-center rounded text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div><p className="whitespace-pre-wrap break-words">{item.text}</p>
+        </li>)}
+      </ol> : result?.outputText ?? (active ? "생성 중입니다…" : "아직 생성된 결과가 없습니다.")}</div>}
 
     {latest?.status === "failed" ? <span role="alert" className="text-[11px] text-red-300">{errorMessage(latest.errorCode)}</span> : null}
     {submitError ? <span role="alert" className="text-[11px] text-red-300">{submitError}</span> : null}

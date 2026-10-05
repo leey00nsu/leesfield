@@ -1,6 +1,8 @@
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 
-import { resolveNodeInputAssetId, resolveNodePromptInput } from "./node-graph-inputs";
+import { resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "./node-graph-inputs";
+import { replaceGenerationAttachments, generationAttachmentSlots, type GenerationAttachmentSlot } from "./generation-prompt-attachments";
+import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 const graph: NodeBananaRuntimeGraph = {
   nodes: [
@@ -17,6 +19,68 @@ const graph: NodeBananaRuntimeGraph = {
 };
 
 describe("Node graph input resolution", () => {
+  it("attaches durable input nodes in order and removes only the chosen edge", () => {
+    const slot: GenerationAttachmentSlot = { field: { name: "images", label: "Images", media: "image", kind: "files", schema: {}, required: true, nullable: false },
+      ports: ["primary", "references"], limit: 3 };
+    let counter = 0;
+    const attached = replaceGenerationAttachments(graph, "target", slot, ["a", "b", "c"], () => "new-" + ++counter);
+    expect(resolveNodeInputAssetIds(attached, "target", "primary")).toEqual(["a"]);
+    expect(resolveNodeInputAssetIds(attached, "target", "references")).toEqual(["b", "c"]);
+    expect(attached.edges).toEqual(expect.arrayContaining(graph.edges));
+    const sources = attached.nodes.filter(node => ["a","b","c"].includes(String((node.data.config as {assetId?:string})?.assetId)));
+    expect(sources).toHaveLength(3);
+    const removed = replaceGenerationAttachments(attached, "target", slot, ["b", "c"], () => "new-" + ++counter);
+    expect(removed.nodes).toEqual(attached.nodes);
+    expect(resolveNodeInputAssetIds(removed, "target", "primary")).toEqual(["b"]);
+    expect(resolveNodeInputAssetIds(removed, "target", "references")).toEqual(["c"]);
+    expect(removed.edges).toEqual(expect.arrayContaining(graph.edges));
+    expect(removed.edges).toHaveLength(attached.edges.length - 1);
+    const changedLimit = { ...slot, limit: 1, field: { ...slot.field, kind: "file" as const } };
+    const reduced = replaceGenerationAttachments(attached, "target", changedLimit, ["b","c"], () => "unused");
+    expect(reduced.nodes).toEqual(attached.nodes);
+    expect(resolveNodeInputAssetIds(reduced,"target","references")).toEqual(["c"]);
+    expect(() => replaceGenerationAttachments(graph, "target", slot, ["a","b","c","d"], () => "unused")).toThrow("ATTACHMENT_LIMIT");
+    expect(JSON.stringify(removed)).not.toMatch(/data:image|blob:/);
+  });
+  it.each(["image","video","audio"] as const)("preserves a mapped %s field's canonical port, type and limit", media => {
+    const slot: GenerationAttachmentSlot = { field: { name: "reference", label: "Reference", media, kind: "file", schema: {}, required: true, nullable: true },
+      ports: [media + "-field-reference"], limit: 1 };
+    const attached = replaceGenerationAttachments(graph, "target", slot, ["durable-id"], () => crypto.randomUUID());
+    expect(attached.nodes.at(-1)?.data).toMatchObject({canonicalKind:"input." + media, config:{assetId:"durable-id"}});
+    expect(resolveNodeInputAssetIds(attached,"target",slot.ports[0])).toEqual(["durable-id"]);
+    expect(attached.edges.at(-1)?.data).toMatchObject({targetPortId:slot.ports[0],sourcePortId:media});
+  });
+  it("uses the legacy model image limit rather than the output modality as attachment capability", () => {
+    const slot = generationAttachmentSlots({...runtimeImageModelsFixture[0],meta:{max_input_images:4}})[0];
+    expect(slot).toMatchObject({limit:4, ports:["primary","references"],field:{media:"image",kind:"files"}});
+    expect(generationAttachmentSlots({...runtimeImageModelsFixture[0],meta:{max_input_images:0}})).toEqual([]);
+  });
+  it("uses the frame source port through an image input and leaves a missing slot unresolved", () => {
+    const frames = { id: "frames", type: "canonicalNode", position: { x: 0, y: 0 },
+      data: { canonicalKind: "edit.video.extractFrames", config: {}, selectedOutputAssetId: "start",
+        outputBindings: [{ portId: "startFrame", sortOrder: 0, assetId: "start" },
+          { portId: "endFrame", sortOrder: 0, assetId: "end" }] } };
+    const chain: NodeBananaRuntimeGraph = { nodes: [frames, graph.nodes[1], graph.nodes[3]],
+      edges: [{ id: "frames-image", source: "frames", sourceHandle: "endFrame", target: "image", targetHandle: "reference" },
+        { id: "image-target", source: "image", sourceHandle: "image", target: "target", targetHandle: "primary" }] };
+    expect(resolveNodeInputAssetId(chain, "target", "primary")).toBe("end");
+    frames.data.outputBindings = frames.data.outputBindings.filter(binding => binding.portId !== "endFrame");
+    expect(resolveNodeInputAssetId(chain, "target", "primary")).toBeNull();
+  });
+  it("uses selected Assistant item through Prompt and Constructor while whole text remains distinct", () => {
+    const makeNode = (id: string, kind: string, config: Record<string, unknown>) => ({ id, type: "canonicalNode", position: { x: 0, y: 0 }, data: { canonicalKind: kind, config } });
+    const chain: NodeBananaRuntimeGraph = { nodes: [makeNode("a", "generate.assistant", {}), makeNode("p", "input.prompt", { variableName: "idea" }),
+      makeNode("c", "process.promptConstructor", { template: "Use @idea" }), makeNode("g", "generate.image", {})], edges: [
+      { id: "a-p", source: "a", sourceHandle: "item", target: "p", targetHandle: "text" },
+      { id: "p-c", source: "p", sourceHandle: "text", target: "c", targetHandle: "text" },
+      { id: "c-g", source: "c", sourceHandle: "text", target: "g", targetHandle: "prompt" },
+    ] };
+    expect(resolveNodePromptInput(chain, "g", { a: { text: "1. coat\n\n2. scarf", item: "scarf" } }).text).toBe("Use scarf");
+    chain.edges[0].sourceHandle = "text";
+    expect(resolveNodePromptInput(chain, "g", { a: { text: "1. coat\n\n2. scarf", item: "scarf" } }).text).toBe("Use 1. coat\n\n2. scarf");
+    chain.edges[0].sourceHandle = "item";
+    expect(resolveNodePromptInput(chain, "p", { a: "legacy" }).text).toBe("");
+  });
   it("resolves Constructor named and inline variables once, including pause, disconnect and cycle", () => {
     const makeNode = (id: string, kind: string, config: Record<string, unknown>) => ({ id, type: "canonicalNode", position: { x: 0, y: 0 }, data: { canonicalKind: kind, config } });
     const connect = (source: string, target: string) => ({ id: `${source}-${target}`, source, target, sourceHandle: "text", targetHandle: "text", data: { targetPortId: "text", hasPause: false } });

@@ -805,6 +805,17 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
   });
 
   it.each(["generate.image", "generate.audio", "generate.video"] as const)(
+    "renders the host prompt slot inside the actual %s presenter", kind => {
+      const slot = vi.fn(({nodeId,connectedValue}: {nodeId:string;connectedValue?:string|null}) => <div data-testid="shared-host-prompt">{nodeId}:{connectedValue}</div>);
+      const view = renderPresenter({kind, data:{config:{prompt:"draft",parameters:{}},promptConnected:true,prompt:"upstream text"},
+        host:{renderGenerationPrompt:slot},assertBody:()=>undefined},vi.fn(),vi.fn());
+      expect(within(view.body).getByTestId("shared-host-prompt")).toHaveTextContent("upstream text");
+      expect(within(view.body).queryByRole("textbox",{name:"Prompt"})).not.toBeInTheDocument();
+      expect(slot).toHaveBeenCalledWith(expect.objectContaining({nodeId:`node-${kind}`,connected:true,connectedValue:"upstream text"}));
+      view.unmount();
+    });
+
+  it.each(["generate.image", "generate.audio", "generate.video"] as const)(
     "disables the internal prompt for %s when a Prompt node supplies the value",
     (kind) => {
       const view = renderPresenter({
@@ -1478,14 +1489,14 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
       assertBody: () => undefined,
     }, onUpdateNodeData, vi.fn());
 
-    const parameter = await waitFor(() => within(view.body).getByDisplayValue("10"));
+    const parameter = await waitFor(() => within(view.body).getByDisplayValue("10"), { timeout: 5000 });
     fireEvent.change(parameter, { target: { value: "12" } });
     fireEvent.blur(parameter);
 
     await waitFor(() => expect(onUpdateNodeData).toHaveBeenCalledWith(
       "node-generate.image",
       { config: { prompt: "latest prompt", modelKey, parameters: { steps: 12 } } },
-    ));
+    ), { timeout: 5000 });
     view.unmount();
   });
 

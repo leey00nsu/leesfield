@@ -317,6 +317,7 @@ export function ImageOperationNodeControls({
     if (!runnable) return;
     setLocalError(null);
     try {
+      if (authoring.runNode) { await authoring.runNode(id); return; }
       const prepare = authoring.prepareNodeExecution ?? authoring.prepareImageNodeExecution;
       const expectedGraphVersion = await prepare();
       const execution = await start.mutateAsync({ graphId: authoring.graphId, nodeId: id, expectedGraphVersion });
@@ -345,6 +346,7 @@ export function ImageOperationNodeControls({
   runRef.current = run;
 
   const stop = async () => {
+    if (authoring.cancelNode) { await authoring.cancelNode(id); return; }
     controller.current?.abort();
     if (active) {
       await cancel.mutateAsync({
@@ -368,15 +370,15 @@ export function ImageOperationNodeControls({
       ) : null}
       {kind !== "edit.image.annotation" ? (
         <NodeBananaOperationPreview
-          asset={outputAsset ?? inputAsset.data}
+          asset={authoring.runNode ? inputAsset.data : outputAsset ?? inputAsset.data}
           expectedType="image"
-          output={Boolean(outputAsset)}
+          output={!authoring.runNode && Boolean(outputAsset)}
           emptyLabel={kind === "edit.image.gif" ? tc("Connect image frames") : tc("Connect an image")}
           grid={kind === "edit.image.splitGrid" ? {
             rows: number(parameters.rows, 2),
             columns: number(parameters.cols, 2),
           } : undefined}
-          onClearOutput={data.selectedOutputAssetId
+          onClearOutput={!authoring.runNode && data.selectedOutputAssetId
             ? () => authoring.selectNodeOutputAsset?.(id, null)
             : undefined}
         />

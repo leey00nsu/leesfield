@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { Button } from "@/shared/ui/button";
+import { Button, buttonVariants } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 type Variant =
   | "generate"
@@ -65,4 +65,11 @@ export function AppButton({
       {...props}
     />
   );
+}
+
+/** Visual control inside a single entry link; never focusable or interactive. */
+export function AppButtonPresentation({ variant = "surface", size = "md", className, ...props }: Omit<ComponentProps<"span">, "onClick"> & { variant?: Variant; size?: Size }) {
+  return <span data-app-button="" data-generation-action={variant === "generate" ? "" : undefined}
+    className={cn(buttonVariants({ variant: variants[variant], size: sizes[size] }),
+      (variant === "generate" || variant === "brand") && "bg-data-accent text-white", className)} {...props} />;
 }

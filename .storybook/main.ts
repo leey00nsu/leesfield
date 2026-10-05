@@ -19,6 +19,8 @@ const config: StorybookConfig = {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
+      "@/features/auth/logout/api/logout-action": resolve(dirname, "logout-action.mock.ts"),
+      "@/features/auth/login/api/login-action": resolve(dirname, "login-action.mock.ts"),
       "@": resolve(dirname, "../src"),
     };
 

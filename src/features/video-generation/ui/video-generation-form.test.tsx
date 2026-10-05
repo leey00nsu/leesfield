@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
@@ -75,8 +75,8 @@ describe("VideoGenerationForm", () => {
       result: string | null = null;
       onload: null | (() => void) = null;
 
-      readAsDataURL() {
-        this.result = "data:image/png;base64,AAAA";
+      readAsDataURL(file: File) {
+        this.result = "data:" + file.type + ";base64,AAAA";
         this.onload?.();
       }
     }
@@ -121,11 +121,11 @@ describe("VideoGenerationForm", () => {
     fireEvent.submit(container.querySelector("form")!);
     expect(startGenerationMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button",{name:/상세 옵션/}));
-    expect(screen.getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
+    expect(screen.getByRole("button",{name:/상세 옵션/})).toBeDisabled();
+    expect(within(screen.getByRole("region", {name:"작업 입력"})).getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
     await user.upload(screen.getByLabelText("First Frame"),new File(["test"],"frame.png",{type:"image/png"}));
     await user.keyboard("{Escape}");
     expect(submit).toBeEnabled();
-    await user.click(screen.getByRole("button",{name:/상세 옵션/}));
     await user.click(screen.getByRole("button",{name:"제거"}));
     await user.keyboard("{Escape}");
     expect(submit).toBeDisabled();
@@ -165,7 +165,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
-    expect(screen.getByDisplayValue("query prompt")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /프롬프트|장면|비디오/ })).toBeInTheDocument();
     expect(
       await screen.findByAltText("입력 이미지 미리보기"),
     ).toBeInTheDocument();
@@ -307,14 +307,14 @@ describe("VideoGenerationForm", () => {
     expect(startGenerationMock).not.toHaveBeenCalled();
   });
 
-  it("모델 카드에서 기술 배지와 설명을 제거하고 기본 모델만 표시한다", async () => {
+  it("모델 카드에서 입력 유형과 기본 배지를 표시하고 기술 설명을 생략한다", async () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
     await openModelPicker(userEvent.setup());
     expect(await screen.findByText("기본")).toBeInTheDocument();
-    expect(screen.queryByText("T2V")).not.toBeInTheDocument();
-    expect(screen.queryByText("I2V")).not.toBeInTheDocument();
+    expect(screen.getAllByText("T2V").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("I2V").length).toBeGreaterThan(0);
     expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
   });
 
@@ -359,7 +359,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
-    const uploadButton = screen.getByLabelText("레퍼런스 이미지 업로드");
+    const uploadButton = screen.getByRole("button", {name:"레퍼런스 이미지 업로드"});
 
     expect(uploadButton).toBeInTheDocument();
   });
@@ -379,4 +379,54 @@ describe("VideoGenerationForm", () => {
     );
     expect(startGenerationMock).not.toHaveBeenCalled();
   });
+
+  it("비디오 프리셋 선택을 실제 매체 요청과 별도 출처로 제출한다", async () => {
+    const preset = { key: "video-demo", revision: 2, name: "비디오 프리셋", description: "", modality: "video", prompt: "saved video direction", requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {}, builtinKey: null, builtinRevision: null, defaultPrompt: null, isActive: true, isModified: false };
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ items: url.startsWith("/api/prompt-presets") ? [preset] : runtimeVideoModelsFixture.map(m => ({
+      ...m, meta: { ...m.meta, supports_init_image: false },
+      parameters: { ...m.parameters, initImage: { ...m.parameters.initImage, required: false } },
+    })) }))));
+    const user = userEvent.setup(); renderWithIntl(<VideoGenerationForm isAuthenticated />); await waitForModels();
+    await user.click(screen.getByRole("button", { name: "프리셋" }));
+    await user.click(await screen.findByRole("button", { name: /비디오 프리셋.*내 프리셋/ }));
+    const prompt = within(screen.getByRole("region", { name: "작업 입력" })).getByRole("textbox");
+    expect(prompt.querySelector("[data-prompt-token]")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "비디오 프리셋 프리셋 설정" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    expect(startGenerationMock).toHaveBeenLastCalledWith(expect.objectContaining({ prompt: "saved video direction", promptPreset: expect.objectContaining({ key: "video-demo", revision: 2 }) }));
+    prompt.focus();
+    const cursor = document.createRange(); cursor.setStartAfter(prompt.querySelector("[data-prompt-token]")!); cursor.collapse(true);
+    window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(cursor);
+    await user.keyboard("slow camera");
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    expect(startGenerationMock).toHaveBeenLastCalledWith(expect.objectContaining({ prompt: "saved video direction\n\nslow camera" }));
+  });
+
+  it.each(["video","image"] as const)("비디오 출력 모델의 %s 입력은 첨부에서 원본 필드로 전달한다", async media => {
+    const {videoAttachmentModel,imageToVideoAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const model=media==="video"?videoAttachmentModel:imageToVideoAttachmentModel, user=userEvent.setup();
+    vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}))));
+    renderWithIntl(<VideoGenerationForm isAuthenticated/>);
+    await screen.findByRole("button",{name:new RegExp(model.label)});
+    const dock=screen.getByRole("region",{name:"작업 입력"});
+    const label=media==="video"?"Source video":"First frame";
+    const input=within(dock).getByLabelText(label);
+    expect(input).toHaveAttribute("accept",media+"/*");
+    await user.type(screen.getByRole("textbox"),"transform reference");
+    expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();
+    await user.upload(input,new File(["source"],"source."+media,{type:media+"/test"}));
+    await user.click(screen.getByRole("button",{name:"상세 옵션"}));
+    const options=document.querySelector('[data-contract-fields="options"]') as HTMLElement;
+    expect(within(options).queryByLabelText(label)).toBeNull();
+    fireEvent.change(within(options).getByLabelText("Strength"),{target:{value:"0.7"}});
+    expect(within(options).queryByRole("alert")).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({
+      model:model.key,prompt:"transform reference",dynamicParams:{source:"data:"+media+"/test;base64,AAAA",strength:0.7},
+    })));
+    await user.click(within(dock).getByRole("button",{name:"제거"}));
+    expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();
+  });
+
 });

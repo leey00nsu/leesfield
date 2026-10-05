@@ -18,13 +18,15 @@ const mocks = vi.hoisted(() => ({
   ready: true,
   executionData: [] as Array<Record<string, unknown>>,
   clips: [] as string[],
+  mediaOutputs: {} as Record<string, Array<{ portId: string; sortOrder: number; assetId: string | null }>>,
+  runNode: undefined as undefined | ((id:string)=>Promise<unknown>),
 }));
 
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
   mediaAssetKeys: { all: ["media-assets"] },
   useMediaAsset: () => ({ data: null }),
   useMediaAssetList: (ids: string[]) => ids.map((id) => ({
-    data: { id, type: "video", url: `https://example.com/${id}.mp4`, durationMs: 2000 },
+    data: { id, type: id.startsWith("frame-") ? "image" : "video", url: `https://example.com/${id}.mp4`, durationMs: 2000, variants: [] },
   })),
 }));
 
@@ -33,11 +35,13 @@ vi.mock("../../lib/browser-video-operation-runner", () => ({ runBrowserVideoOper
 vi.mock("../../model/node-authoring-context", () => ({
   useNodeAuthoring: () => ({
     graphId: "graph-1",
+    runNode: mocks.runNode,
     prepareNodeExecution: vi.fn().mockResolvedValue(1),
     writable: true,
     updateCanonicalNodeConfig: mocks.updateConfig,
     selectNodeOutputAsset: mocks.select,
     getNodeInputAssetIds: () => mocks.clips,
+    mediaOutputs: mocks.mediaOutputs,
     getNodeRunReadiness: () => ({ ready: mocks.ready, reasons: mocks.ready ? [] : ["input_missing"] }),
   }),
 }));
@@ -50,6 +54,41 @@ vi.mock("../../hook/use-node-executions", () => ({
 
 import { VideoOperationNodeControls } from "./video-operation-node-controls";
 import { VideoTrimEditor } from "./video-trim-editor";
+import { VideoFramesNodeControls } from "./video-frames-node-controls";
+
+describe("VideoFramesNodeControls", () => {
+  beforeEach(() => {
+    vi.clearAllMocks(); mocks.executionData = []; mocks.mediaOutputs = {}; mocks.ready = true; mocks.runNode = undefined;
+    mocks.start.mockResolvedValue({ executionId: "frame-run" });
+  });
+  const ui = () => <QueryClientProvider client={new QueryClient()}><NextIntlClientProvider locale="en" messages={messages}><ReactFlowProvider>
+    <VideoFramesNodeControls id="frames" title="Video Frames" selected data={{ canonicalKind: "edit.video.extractFrames", configVersion: 1,
+      config: { parameters: {} }, selectedOutputAssetId: "frame-start", ports: [], supported: true, supportReason: null }} />
+  </ReactFlowProvider></NextIntlClientProvider></QueryClientProvider>;
+
+  it("opens without execution, reads independent output ports and leaves a missing port empty", () => {
+    mocks.mediaOutputs = { frames: [{ portId: "endFrame", sortOrder: 0, assetId: "frame-end" }] };
+    render(ui());
+    expect(mocks.start).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Result" }));
+    const regions = screen.getAllByRole("region");
+    expect(regions[0].querySelector("img")).toBeNull();
+    expect(regions[1].querySelector("img")).toHaveAttribute("src", "https://example.com/frame-end.mp4");
+    expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it("only explicit Run starts a server execution and completion selects its result", async () => {
+    const result = render(ui());
+    fireEvent.click(screen.getByRole("button", { name: "Run this node" }));
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledWith({ graphId: "graph-1", nodeId: "frames", expectedGraphVersion: 1 }));
+    mocks.executionData = [{ executionId: "frame-run", status: "completed", outputAssetIds: ["frame-new-start", "frame-new-end"],
+      outputBindings: [{ portId: "startFrame", sortOrder: 0, assetId: "frame-new-start" }, { portId: "endFrame", sortOrder: 0, assetId: "frame-new-end" }], createdAt: "2026-10-01T00:00:00Z" }];
+    result.rerender(ui());
+    await waitFor(() => expect(mocks.select).toHaveBeenCalledWith("frames", "frame-new-start"));
+    expect(screen.getByRole("tab", { name: "Result" })).toHaveAttribute("aria-selected", "true");
+    expect(mocks.browser).not.toHaveBeenCalled();
+  });
+});
 
 function renderControls(
   kind: Parameters<typeof VideoOperationNodeControls>[0]["kind"],
@@ -88,13 +127,23 @@ function renderControls(
 describe("VideoOperationNodeControls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.runNode = undefined;
     mocks.executionData = [];
     mocks.clips = [];
     mocks.ready = true;
+    mocks.mediaOutputs = {};
     mocks.cancel.mockResolvedValue(undefined);
     mocks.start.mockResolvedValue({ executionId: "server-1", plan: undefined });
   });
 
+  it.each(["edit.video.stitch","edit.video.trim"] as const)("delegates %s to the workspace result-node executor", async kind => {
+    mocks.runNode = vi.fn().mockResolvedValue(undefined);
+    renderControls(kind,{startMs:0,endMs:1000,repeat:1,stripAudio:false});
+    fireEvent.click(screen.getByRole("button",{name:"Run this node"}));
+    await waitFor(()=>expect(mocks.runNode).toHaveBeenCalledWith("video-operation-1"));
+    expect(mocks.start).not.toHaveBeenCalled();
+    if(kind === "edit.video.trim") expect(screen.queryByRole("tab",{name:"Result"})).toBeNull();
+  });
   it("persists stripAudio only after an explicit Stitch checkbox change", () => {
     renderControls("edit.video.stitch", { repeat: 2, stripAudio: false });
 

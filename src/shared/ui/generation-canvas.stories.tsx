@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import { Download, Maximize2 } from "lucide-react";
 import { AppButton } from "@/shared/ui/app-button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
@@ -20,7 +21,7 @@ const meta = {
   decorators: [
     (Story) => (
       <div className="min-h-screen bg-background px-6 py-12">
-        <div className="mx-auto max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/10">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-[1.75rem]">
           <Story />
         </div>
       </div>
@@ -32,11 +33,8 @@ const meta = {
     hasContent: true,
     actions,
     children: (
-      <div className="grid h-full w-full place-items-center bg-[#111417]">
-        <div className="rounded-full border border-primary/30 bg-black/28 px-5 py-2 text-sm font-semibold text-white/78">
-          Generated result preview
-        </div>
-      </div>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={storybookImage.url} alt={storybookImage.alt} className="h-full w-full object-cover" />
     ),
   },
 } satisfies Meta<typeof GenerationCanvas>;
@@ -75,3 +73,6 @@ export const Failed: Story = {
     errorMessage: "The provider returned an unavailable response.",
   },
 };
+
+export const Queued: Story = { args: { isGenerating: true, status: "pending" } };
+export const Uploading: Story = { args: { isGenerating: true, status: "uploading" } };

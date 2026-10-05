@@ -1,10 +1,16 @@
 "use client";
 import { useState } from "react";
+import { ImageGenerationResult } from "./image-generation-result";
+import type { Path } from "react-hook-form";
+import { useGenerationPromptPreset } from "@/entities/prompt-preset/model/use-generation-prompt-preset";
+import { GenerationPromptPresetControls } from "@/entities/prompt-preset/ui/generation-prompt-preset-controls";
+import { GenerationPromptPresetChip } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
+import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
 import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
 import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
-import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
+import { GradioContractFields, contractOptionFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
@@ -13,13 +19,10 @@ import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dice5,
-  Download,
-  ExternalLink,
-  ImagePlus,
   SlidersHorizontal,
   Sparkles,
-  X,
 } from "lucide-react";
+import { GradioFileField } from "@/shared/ui/gradio-file-field";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppForm,
@@ -27,17 +30,17 @@ import {
   AppFormControllerField,
   AppFormItem,
   AppFormLabel,
-  AppFormMessage,
 } from "@/shared/ui/app-form";
+import { AppPromptFormMessage } from "@/shared/ui/app-prompt-message";
 import { AppInput } from "@/shared/ui/app-input";
-import { AppTextarea } from "@/shared/ui/app-form-control";
+import { AppPromptEditor } from "@/shared/ui/app-prompt-editor";
 import { cn } from "@/shared/lib/utils";
-import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
+import { isGenerationRepeatCount } from "@/shared/generation/generation-repeat";
+import { GenerationImageCountSelector } from "@/shared/ui/generation-image-count-selector";
+import { resolveImageOutputCount } from "@/shared/model-catalog/image-output-count";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
-import { GenerationResultReveal } from "@/shared/ui/generation-result-reveal";
-import { GenerationStudioIntro } from "@/shared/ui/generation-studio-intro";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   imageGenerationDefaults,
@@ -59,7 +62,7 @@ import {
   resolveRuntimeImageMaxInputImages,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
-import { resolveImageModalities } from "@/shared/model-catalog/modality";
+import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
 import {
   applyImageModeChoice,
   resolveImageAuthoringDefaults,
@@ -69,11 +72,6 @@ type ImageGenerationFormProps = {
   embedded?: boolean;
   isAuthenticated: boolean;
 };
-
-const studioPreviewShellClass =
-  "flex flex-col items-center px-4 pb-56 sm:px-6 lg:pb-64";
-const studioResultFrameClass =
-  "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
 export function ImageGenerationForm({
   isAuthenticated,
@@ -104,7 +102,7 @@ export function ImageGenerationForm({
         id: model.key,
         name: model.label,
         vendor: model.vendor,
-        modalities: resolveImageModalities(model.meta),
+        modalities: resolveGenerationModalities(model),
       })),
     [resolvedImageModels],
   );
@@ -175,9 +173,6 @@ export function ImageGenerationForm({
     });
   }, [form, hasModels, modelFromQuery, runtimeModelMap]);
 
-  const imageCount =
-    useWatch({ control: form.control, name: "imageCount" }) ??
-    imageGenerationDefaults.imageCount;
   const steps =
     useWatch({ control: form.control, name: "steps" }) ??
     imageGenerationDefaults.steps;
@@ -199,17 +194,36 @@ export function ImageGenerationForm({
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
   const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
   const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
+  const repeatQuery = searchParams.get("imageCount");
+  const repeatFromQuery = isGenerationRepeatCount(Number(repeatQuery)) ? Number(repeatQuery) : 1;
+  const [repeatChoice, setRepeatChoice] = useState({ query: repeatQuery, value: repeatFromQuery });
+  if (repeatChoice.query !== repeatQuery) setRepeatChoice({ query: repeatQuery, value: repeatFromQuery });
+  const repeatCount = repeatChoice.query === repeatQuery ? repeatChoice.value : repeatFromQuery;
+  const setRepeatCount = (value: number) => setRepeatChoice({ query: repeatQuery, value });
   const [promptWasEdited, setPromptWasEdited] = useState(false);
   const promptFeedbackSubmitted = form.formState.isSubmitted;
   const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
   const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
+  const presetValues = useWatch({ control: form.control });
+  // Subscribe to dirty state before edits, including unregistered provider fields.
+  const presetDirtyFields = form.formState.dirtyFields;
+  const promptPreset = useGenerationPromptPreset({
+    modality: "image", enabled: isAuthenticated, prompt: mappingPrompt, model: activeRuntimeModel,
+    getValues: () => form.getValues(),
+    isEdited: path => form.getFieldState(path as Path<ImageGenerationFormValues>, { ...form.formState, dirtyFields: presetDirtyFields }).isDirty,
+    onApply: (prompt, updates) => {
+      form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      for (const [path, value] of Object.entries(updates)) {
+        form.setValue(path as Path<ImageGenerationFormValues>, value as never, { shouldValidate: true });
+      }
+    },
+  });
+  const presetInputIssue = activeRuntimeModel
+    ? promptPresetInputIssue(activeRuntimeModel, presetValues as Record<string, unknown>, promptPreset.reference)
+    : null;
   const widthRange = getRuntimeImageParamRange(activeRuntimeModel, "width");
   const heightRange = getRuntimeImageParamRange(activeRuntimeModel, "height");
   const stepsRange = getRuntimeImageParamRange(activeRuntimeModel, "steps");
-  const imageCountRange = getRuntimeImageParamRange(
-    activeRuntimeModel,
-    "imageCount",
-  );
   const guidanceRange = getRuntimeImageParamRange(
     activeRuntimeModel,
     "guidanceScale",
@@ -264,15 +278,12 @@ export function ImageGenerationForm({
   const {
     previews: initImagePreviews,
     canUpload: canUploadImages,
-    inputRef: fileInputRef,
-    openPicker: handleOpenImagePicker,
-    handleFileChange: handleImageSelection,
     replaceImages: replaceInitImages,
-    removeImage: handleRemoveInitImage,
   } = useImageInitPreviews({
     maxInputImages,
     onChange: handleInitImagesChange,
   });
+  const attachmentImages = useMemo(() => initImagePreviews.map(item => item.dataUrl), [initImagePreviews]);
 
   useEffect(() => {
     if (hasInjectedInitImagesRef.current) return;
@@ -314,9 +325,14 @@ export function ImageGenerationForm({
     if (!model) return;
     if (getGradioContract(model)) {
       const current = form.getValues();
-      form.reset({ model: activeModel, prompt: current.prompt ?? "", dynamicParams: current.dynamicParams ?? {}, initImages: current.initImages });
+      const count = resolveImageOutputCount(model);
+      const dynamicParams = { ...current.dynamicParams };
+      if (count.fieldName && !Object.hasOwn(dynamicParams, count.fieldName)) dynamicParams[count.fieldName] = count.defaultValue;
+      form.reset({ model: activeModel, prompt: current.prompt ?? "", dynamicParams, initImages: current.initImages });
       return;
     }
+    const count = resolveImageOutputCount(model);
+    if (!count.accepts(form.getValues("imageCount"))) form.setValue("imageCount", count.defaultValue, { shouldValidate: true });
     const defaults = resolveImageAuthoringDefaults(model);
     form.setValue("steps", defaults.steps);
     form.setValue("width", defaults.width);
@@ -330,6 +346,7 @@ export function ImageGenerationForm({
     if (seedCfg?.ui === "hidden") {
       form.setValue("seed", "");
     }
+    void form.trigger();
   }, [activeModel, form, runtimeModelMap]);
 
   const appliedLandingSettings = useRef(false);
@@ -346,7 +363,6 @@ export function ImageGenerationForm({
       ["width", widthRange],
       ["height", heightRange],
       ["steps", stepsRange],
-      ["imageCount", imageCountRange],
     ] as const) {
       const value = Number(searchParams.get(name));
       if (!Number.isFinite(value) || value <= 0) continue;
@@ -368,7 +384,6 @@ export function ImageGenerationForm({
     widthRange,
     heightRange,
     stepsRange,
-    imageCountRange,
   ]);
 
   useEffect(() => {
@@ -407,8 +422,6 @@ export function ImageGenerationForm({
     state.status === "pending" ||
     state.status === "processing" ||
     state.status === "uploading";
-  const resultImages = state.result?.images ?? [];
-  const hasResults = state.status === "completed" && resultImages.length > 0;
 
   const handleSelectModel = (modelId: string) => {
     if (modelId === activeModel) return;
@@ -416,6 +429,7 @@ export function ImageGenerationForm({
       reset();
     }
     form.setValue("dynamicParams", {});
+    form.setValue("imageCount", resolveImageOutputCount(runtimeModelMap.get(modelId)).defaultValue);
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
@@ -433,41 +447,20 @@ export function ImageGenerationForm({
     });
   };
 
-  const handleImageCountStep = (direction: 1 | -1) => {
-    if (isGenerating) return;
-    const nextValue = Math.min(
-      imageCountRange.max,
-      Math.max(
-        imageCountRange.min,
-        imageCount + direction * Math.max(imageCountRange.step, 1),
-      ),
-    );
-    form.setValue("imageCount", nextValue, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-  };
-
-  const resultsGridClass =
-    resultImages.length <= 1
-      ? "grid-cols-1"
-      : resultImages.length === 2
-        ? "grid-cols-2"
-        : "grid-cols-2 lg:grid-cols-3";
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
       handleLoginRedirect();
       return;
     }
-    if (isModelLoading || !hasModels) {
+    if (isGenerating || isModelLoading || !hasModels) {
       event.preventDefault();
       return;
     }
 
+    if (presetInputIssue) { event.preventDefault(); return; }
     if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
-    void form.handleSubmit((values) => startGeneration(values))(event);
+    void form.handleSubmit((values) => startGeneration({ ...values, promptPreset: promptPreset.reference }, repeatCount))(event);
   };
   return (
     <AppForm {...form}>
@@ -481,88 +474,7 @@ export function ImageGenerationForm({
       >
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-6">
-            <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
-              {!embedded && (<GenerationStudioIntro
-                compact={embedded}
-                guidance={tGeneration("page.imageGuidance")}
-                eyebrow={tImage("previewEyebrow")}
-                title={tImage("previewTitle")}
-                description={tImage("previewDescription")}
-              />)}
-              <GenerationCanvas
-                isGenerating={isGenerating}
-                status={state.status}
-                errorMessage={state.errorMessage}
-                className={
-                  embedded
-                    ? "mx-auto w-full max-w-[400px] aspect-square rounded-xl border bg-card"
-                    : studioResultFrameClass
-                }
-              >
-                {hasResults ? (
-                  <div
-                    className={cn(
-                      "relative z-10 grid h-full w-full gap-3 p-4",
-                      resultsGridClass,
-                    )}
-                  >
-                    {resultImages.map((image, index) => {
-                      const downloadUrl = state.requestId
-                        ? `/api/image-generation/${state.requestId}/download?index=${index}`
-                        : image.url;
-
-                      return (
-                        <div
-                          key={`${image.url}-${index}`}
-                          className="group/result relative overflow-hidden rounded-xl border border-white/10 bg-surface-dark"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={image.url}
-                            alt={tImage("generatedImageAlt", {
-                              index: index + 1,
-                            })}
-                            className="h-full w-full object-contain transition-transform duration-500 group-hover/result:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover/result:opacity-100" />
-                          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover/result:opacity-100">
-                            <AppButton asChild variant="surface" size="icon-sm">
-                              <a
-                                href={image.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={tActions("open")}
-                                aria-label={tActions("open")}
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </AppButton>
-                            <AppButton asChild variant="surface" size="icon-sm">
-                              <a
-                                href={downloadUrl}
-                                download
-                                title={tActions("download")}
-                                aria-label={tActions("download")}
-                              >
-                                <Download className="h-4 w-4" />
-                              </a>
-                            </AppButton>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div aria-hidden="true" className="h-full w-full" />
-                )}
-              </GenerationCanvas>
-            </GenerationResultReveal>
-
-            {hasResults && state.errorMessage && (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-                {state.errorMessage}
-              </div>
-            )}
+            <ImageGenerationResult state={state} embedded={embedded} />
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4">
@@ -581,74 +493,36 @@ export function ImageGenerationForm({
                         }
                         textarea={
                           <AppFormControl>
-                            <AppTextarea
-                              surface="transparent"
-                              className="min-h-[160px]"
+                            <AppPromptEditor
                               placeholder={tImage("promptPlaceholder")}
                               {...field}
- onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
+                              value={promptPreset.text}
+                              disabled={isGuest || isGenerating}
+                              token={promptPreset.preset ? { id: promptPreset.preset.key, offset: promptPreset.tokenOffset, label: promptPreset.preset.name, content: <GenerationPromptPresetChip controller={promptPreset} disabled={isGuest || isGenerating} /> } : undefined}
+                              onChange={(text, present, offset) => { setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
                             />
                           </AppFormControl>
                         }
                         feedback={
                           gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
-                            <AppFormMessage className="text-xs text-red-400" />
+                            <AppPromptFormMessage />
                           ) : undefined
                         }
-                        attachments={gradioContract ? undefined : (
-                          <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
-                            {initImagePreviews.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {initImagePreviews.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40"
-                                  >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={item.url}
-                                      alt={tImage("initImageAlt")}
-                                      className="h-full w-full object-cover"
-                                    />
-                                    <AppButton
-                                      type="button"
-                                      onClick={() =>
-                                        handleRemoveInitImage(item.id)
-                                      }
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                                      title={tActions("remove")}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </AppButton>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                            <AppButton
-                              type="button"
-                              variant="surface"
-                              size="icon"
-                              onClick={handleOpenImagePicker}
-                              disabled={
-                                !canUploadImages ||
-                                initImagePreviews.length >= maxInputImages
-                              }
-
-                              title={
-                                canUploadImages
-                                  ? tImage("uploadReference")
-                                  : tImage("uploadUnsupported")
-                              }
-                            >
-                              <ImagePlus className="h-5 w-5" />
-                            </AppButton>
+                        attachments={gradioContract ? (<GradioContractFields key={activeModel} scope="attachments" disabled={isGuest || isGenerating}
+                    contract={gradioContract} values={contractValues} prompt={mappingPrompt}
+                    onChange={values => { promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
+                          <div className="px-4 pt-4">
+                            <GradioFileField key={activeModel} label={tImage("uploadReference")} buttonLabel={tImage("uploadReference")}
+                              previewLabel={tImage("initImageAlt")}
+                              field={{name:"initImages",label:tImage("uploadReference"),kind:"files",media:"image",schema:{},required:false,nullable:false}}
+                              maxItems={maxInputImages} value={attachmentImages}
+                              disabled={!canUploadImages || isGuest || isGenerating}
+                              onChange={value => replaceInitImages(Array.isArray(value) ? value as string[] : [])}/>
                           </div>
                         )}
-footerLeft={gradioContract ? <>
+footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="image" items={modelOptions} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
 </> : (
                           <>
                             {!isGuest && hasModels ? (
@@ -661,7 +535,7 @@ footerLeft={gradioContract ? <>
                             ) : (
                               <GenerationModelSection modality="image" items={[]} activeId={null} onSelect={() => {}} disabled loading={isModelLoading} selectionLabel={isGuest ? tGeneration("modelLoginRequired") : tGeneration("modelUnavailable")} />
                             )}
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!(showSizeControls || showModeChoice || showSteps || showGuidanceScale || showPromptUpsampling || showSeed || (getRuntimeImageParamConfig(activeRuntimeModel, "imageCount")?.ui !== "hidden" && imageCountRange.min !== imageCountRange.max))} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-1">
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!(showSizeControls || showModeChoice || showSteps || showGuidanceScale || showPromptUpsampling || showSeed)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-1">
                             {showSizeControls ? (
                               <div>
                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -724,44 +598,6 @@ footerLeft={gradioContract ? <>
                                 </div>
                               </div>
                             ) : null}
-                            {getRuntimeImageParamConfig(activeRuntimeModel, "imageCount")?.ui !== "hidden" && imageCountRange.min !== imageCountRange.max ? <div>
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-sm font-semibold text-gray-300">
-                                  {tLabels("imageCount")}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <AppButton
-                                    type="button"
-                                    variant="surface"
-                                    size="icon-sm"
-                                    onClick={() => handleImageCountStep(-1)}
-                                    disabled={
-                                      imageCount <= imageCountRange.min ||
-                                      isGenerating
-                                    }
-                                    aria-label={tLabels("decrease")}
-                                  >
-                                    -
-                                  </AppButton>
-                                  <span className="min-w-8 text-center text-lg font-black text-white">
-                                    {imageCount}
-                                  </span>
-                                  <AppButton
-                                    type="button"
-                                    variant="surface"
-                                    size="icon-sm"
-                                    onClick={() => handleImageCountStep(1)}
-                                    disabled={
-                                      imageCount >= imageCountRange.max ||
-                                      isGenerating
-                                    }
-                                    aria-label={tLabels("increase")}
-                                  >
-                                    +
-                                  </AppButton>
-                                </div>
-                              </div>
-                            </div> : null}
                             {showModeChoice ||
                             showSteps ||
                             showGuidanceScale ||
@@ -953,7 +789,7 @@ footerLeft={gradioContract ? <>
                             ) : null}
 </div></GenerationSettingsPopover>
                           </>
-                        )}
+                        )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating} inputIssue={presetInputIssue} /><GenerationImageCountSelector value={repeatCount} disabled={isGuest || isGenerating || isModelLoading || !hasModels} onChange={setRepeatCount} /></>}
 footerRight={
                           <>
                             <AppButton
@@ -966,7 +802,7 @@ footerRight={
                               disabled={
                                 isGenerating ||
                                 (isAuthenticated &&
-                                  (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !mappingPrompt.trim())))
+                                  (isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !mappingPrompt.trim())))
                               }
                               className="min-w-24"
                               onClick={
@@ -980,14 +816,6 @@ footerRight={
                             </AppButton>
                           </>
                         }
-                      />
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple={maxInputImages > 1}
-                        className="hidden"
-                        onChange={handleImageSelection}
                       />
                     </AppFormItem>
                   )}

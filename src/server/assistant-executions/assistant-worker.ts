@@ -4,6 +4,7 @@ import { getLlmModelApiKey } from "@/server/model-catalog/model-credential";
 import { logStructured } from "@/server/observability/request-observability";
 import { AssistantProviderError, completeAssistant } from "./assistant-provider";
 import { prepareAssistantVisuals } from "./assistant-visuals";
+import { assistantOutputModeSchema, AssistantListInvalidError, parseAssistantList } from "@/shared/generation-graph/assistant-output";
 import {
   AssistantLeaseLostError, claimAssistantExecution, finalizeAssistantCancellation,
   listPendingAssistantIds, renewAssistantLease, settleAssistantExecution,
@@ -12,6 +13,7 @@ import {
 
 const snapshotSchema = z.object({
   instruction: z.string().max(20_000), text: z.string().max(20_000).nullable(),
+  outputMode: assistantOutputModeSchema.optional(),
   assets: z.array(z.object({ assetId: z.string(), type: z.enum(["image", "video"]), portId: z.string(), sortOrder: z.number().int() })).max(6),
 }).strict();
 
@@ -42,15 +44,16 @@ async function handle(id: string) {
       baseUrl: model.providerConfig.base_url, modelId: model.providerConfig.model_id,
       timeoutMs: model.providerConfig.timeout_ms ?? 60_000, apiKey,
       instruction: snapshot.instruction, text: snapshot.text, visuals, signal: controller.signal,
+      outputMode: snapshot.outputMode ?? "text",
     });
     if (lost || controller.signal.aborted) throw new AssistantLeaseLostError();
-    await settleAssistantExecution(id, lease, { text });
+    await settleAssistantExecution(id, lease, snapshot.outputMode === "list" ? parseAssistantList(text, id) : { text });
   } catch (error) {
     if (lost || error instanceof AssistantLeaseLostError) {
       await finalizeAssistantCancellation(id, lease);
       return;
     }
-    const code = error instanceof AssistantProviderError ? error.code : "ASSISTANT_FAILED";
+    const code = error instanceof AssistantProviderError || error instanceof AssistantListInvalidError ? error.code : "ASSISTANT_FAILED";
     logStructured("job.failure", { worker: "assistant", jobId: id, errorType: code }, "error");
     await settleAssistantExecution(id, lease, { errorCode: code }).catch((failure) => {
       if (!(failure instanceof AssistantLeaseLostError)) throw failure;

@@ -127,7 +127,7 @@ const AlertDialogAction = React.forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     data-slot="alert-dialog-action"
-    className={cn(buttonVariants({ variant: "default" }), className)}
+    className={cn(!props.asChild && buttonVariants({ variant: "default" }), className)}
     {...props}
   />
 ))
@@ -140,7 +140,7 @@ const AlertDialogCancel = React.forwardRef<
   <AlertDialogPrimitive.Cancel
     ref={ref}
     data-slot="alert-dialog-cancel"
-    className={cn(buttonVariants({ variant: "ghost" }), className)}
+    className={cn(!props.asChild && buttonVariants({ variant: "ghost" }), className)}
     {...props}
   />
 ))

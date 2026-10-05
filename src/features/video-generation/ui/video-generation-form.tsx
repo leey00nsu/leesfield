@@ -1,17 +1,20 @@
 "use client";
 import { useState } from "react";
+import type { Path } from "react-hook-form";
+import { useGenerationPromptPreset } from "@/entities/prompt-preset/model/use-generation-prompt-preset";
+import { GenerationPromptPresetControls } from "@/entities/prompt-preset/ui/generation-prompt-preset-controls";
+import { GenerationPromptPresetChip } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
+import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
 import { SlidersHorizontal } from "lucide-react";
 import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
-import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
+import { GradioContractFields, contractOptionFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Download,
-  ExternalLink,
-  ImagePlus,
   Sparkles,
   Video,
 } from "lucide-react";
@@ -20,7 +23,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,7 +33,9 @@ import {
   type VideoGenerationFormValues,
 } from "@/features/video-generation/model/video-generation-schema";
 import { useVideoGeneration } from "@/features/video-generation/hook/use-video-generation";
+import { GradioFileField } from "@/shared/ui/gradio-file-field";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppMediaOpenButton } from "@/shared/ui/app-media-open-button";
 import { GenerationCanvas } from "@/shared/ui/generation-canvas";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
@@ -45,10 +49,9 @@ import {
   AppFormControllerField,
   AppFormItem,
   AppFormLabel,
-  AppFormMessage,
 } from "@/shared/ui/app-form";
-import { AppTextarea } from "@/shared/ui/app-form-control";
-import { cn } from "@/shared/lib/utils";
+import { AppPromptFormMessage } from "@/shared/ui/app-prompt-message";
+import { AppPromptEditor } from "@/shared/ui/app-prompt-editor";
 import { useTranslations } from "next-intl";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import {
@@ -59,7 +62,7 @@ import {
   resolveRuntimeVideoSupportsInitImage,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeVideoSchema } from "@/shared/model-catalog/runtime-schema";
-import { resolveVideoModalities } from "@/shared/model-catalog/modality";
+import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
 
 type VideoGenerationFormProps = {
   embedded?: boolean;
@@ -102,7 +105,7 @@ export function VideoGenerationForm({
         id: model.key,
         name: model.label,
         vendor: model.vendor,
-        modalities: resolveVideoModalities(model.meta),
+        modalities: resolveGenerationModalities(model),
       })),
     [resolvedVideoModels],
   );
@@ -188,6 +191,23 @@ export function VideoGenerationForm({
   const promptFeedbackSubmitted = form.formState.isSubmitted;
   const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
   const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
+  const presetValues = useWatch({ control: form.control });
+  // Subscribe to dirty state before edits, including unregistered provider fields.
+  const presetDirtyFields = form.formState.dirtyFields;
+  const promptPreset = useGenerationPromptPreset({
+    modality: "video", enabled: isAuthenticated, prompt: mappingPrompt, model: activeRuntimeModel,
+    getValues: () => form.getValues(),
+    isEdited: path => form.getFieldState(path as Path<VideoGenerationFormValues>, { ...form.formState, dirtyFields: presetDirtyFields }).isDirty,
+    onApply: (prompt, updates) => {
+      form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      for (const [path, value] of Object.entries(updates)) {
+        form.setValue(path as Path<VideoGenerationFormValues>, value as never, { shouldValidate: true });
+      }
+    },
+  });
+  const presetInputIssue = activeRuntimeModel
+    ? promptPresetInputIssue(activeRuntimeModel, presetValues as Record<string, unknown>, promptPreset.reference)
+    : null;
   const durationRange = getRuntimeVideoParamRange(
     activeRuntimeModel,
     "durationSec",
@@ -277,7 +297,6 @@ export function VideoGenerationForm({
     }
   }, [activeModel, form, runtimeModelMap]);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { state, startGeneration, reset } = useVideoGeneration(activeRuntimeModel?.provider==="modal_comfyui" ? Number(activeRuntimeModel.providerConfig?.timeout_ms??900_000) : undefined);
   const isGenerating =
     state.status === "pending" ||
@@ -296,35 +315,6 @@ export function VideoGenerationForm({
     form.setValue("model", modelId, { shouldValidate: true });
   };
 
-  const handleOpenImagePicker = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImageSelection = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        return;
-      }
-      form.setValue("initImage", result, { shouldValidate: true });
-      event.target.value = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveInitImage = () => {
-    form.setValue("initImage", "", { shouldValidate: true });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
@@ -336,8 +326,9 @@ export function VideoGenerationForm({
       return;
     }
 
+    if (presetInputIssue) { event.preventDefault(); return; }
     if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
-    void form.handleSubmit((values) => startGeneration(values))(event);
+    void form.handleSubmit((values) => startGeneration({ ...values, promptPreset: promptPreset.reference }))(event);
   };
 
   return (
@@ -394,17 +385,7 @@ export function VideoGenerationForm({
                 {primaryVideo.height ?? "--"}
               </div>
               <div className="flex items-center gap-2">
-                <AppButton asChild variant="surface" size="icon-sm">
-                  <a
-                    href={primaryVideo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={tActions("open")}
-                    aria-label={tActions("open")}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </AppButton>
+                <AppMediaOpenButton href={primaryVideo.url} />
                 <AppButton asChild variant="surface" size="icon-sm">
                   <a
                     href={primaryVideo.url}
@@ -434,66 +415,35 @@ export function VideoGenerationForm({
                   }
                   textarea={
                     <AppFormControl>
-                      <AppTextarea
-                        surface="transparent"
-                        className="min-h-[160px]"
+                      <AppPromptEditor
                         placeholder={tVideo("promptPlaceholder")}
                         {...field}
- onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
+                        value={promptPreset.text}
+                        disabled={isGuest || isGenerating}
+                        token={promptPreset.preset ? { id: promptPreset.preset.key, offset: promptPreset.tokenOffset, label: promptPreset.preset.name, content: <GenerationPromptPresetChip controller={promptPreset} disabled={isGuest || isGenerating} /> } : undefined}
+                        onChange={(text, present, offset) => { setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
                       />
                     </AppFormControl>
                   }
                   feedback={
                     gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
-                      <AppFormMessage className="text-xs text-red-400" />
+                      <AppPromptFormMessage />
                     ) : undefined
                   }
-                  attachments={gradioContract ? undefined : (
-                    <div className="flex flex-wrap items-start gap-2 px-4 pt-4">
-                      {initImageValue ? (
-                        <div className="flex flex-wrap gap-2">
-                          <div className="group relative h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={initImageValue}
-                              alt={tVideo("initImageAlt")}
-                              className="h-full w-full object-cover"
-                            />
-                            <AppButton
-                              type="button"
-                              onClick={handleRemoveInitImage}
-                              variant="ghost"
-                              size="icon-sm"
-                              className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                              title={tActions("remove")}
-                            >
-                              <span className="text-xs">×</span>
-                            </AppButton>
-                          </div>
-                        </div>
-                      ) : null}
-                      <AppButton
-                        type="button"
-                        variant="surface"
-                        size="icon"
-                        onClick={handleOpenImagePicker}
-                        aria-label={tVideo("uploadReference")}
-                        disabled={!supportsInitImage}
-                        className={cn(
-                          "",
-                          supportsInitImage
-                            ? "text-white hover:border-primary/20 hover:bg-black/16 hover:text-white"
-                            : "cursor-not-allowed text-gray-700",
-                        )}
-                        title={tVideo("uploadReference")}
-                      >
-                        <ImagePlus className="h-5 w-5" />
-                      </AppButton>
+                  attachments={gradioContract ? (<GradioContractFields key={activeModel} scope="attachments" disabled={isGuest || isGenerating}
+                    contract={gradioContract} values={contractValues} prompt={mappingPrompt}
+                    onChange={values => { promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
+                    <div className="px-4 pt-4">
+                      <GradioFileField key={activeModel} label={tVideo("uploadReference")} buttonLabel={tVideo("uploadReference")}
+                        previewLabel={tVideo("initImageAlt")}
+                        field={{name:"initImage",label:tVideo("uploadReference"),kind:"file",media:"image",schema:{},required:false,nullable:false}}
+                        value={initImageValue || undefined} disabled={!supportsInitImage || isGuest || isGenerating}
+                        onChange={value => form.setValue("initImage", typeof value === "string" ? value : "", {shouldValidate:true})}/>
                     </div>
                   )}
-footerLeft={gradioContract ? <>
+footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="video" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
 </> : (
                     <>
                       {!isGuest && hasModels ? (
@@ -563,7 +513,7 @@ footerLeft={gradioContract ? <>
                       ) : null}
 </div></GenerationSettingsPopover>
                     </>
-                  )}
+                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating} inputIssue={presetInputIssue} /></>}
 footerRight={
                     <>
                       <AppButton
@@ -576,7 +526,7 @@ footerRight={
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
-                            (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
+                            (isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
                         className="min-w-24"
                         onClick={
@@ -588,13 +538,6 @@ footerRight={
                       </AppButton>
                     </>
                   }
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageSelection}
                 />
               </AppFormItem>
             )}

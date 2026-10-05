@@ -1,4 +1,5 @@
 import type { RuntimeImageModel } from "@/shared/model-catalog/runtime-utils";
+import type { PromptPresetRef, PromptPresetWorkState } from "@/shared/prompt-presets/prompt-preset-contract";
 import {
   getRuntimeImageParamConfig,
   getRuntimeImageParamRange,
@@ -11,6 +12,8 @@ export type ImageAuthoringConfig = {
   prompt: string;
   modelKey: string | null;
   parameters: Record<string, unknown>;
+  promptPreset?: PromptPresetRef;
+  promptPresetState?: PromptPresetWorkState;
 };
 
 export type ImageAuthoringValues = {
@@ -139,6 +142,7 @@ function supportsParameter(model: RuntimeImageModel, key: string) {
 export function authoringValuesToImageConfig(
   values: ImageAuthoringValues,
   model: RuntimeImageModel,
+  preservedConfig?: Pick<ImageAuthoringConfig, "promptPreset" | "promptPresetState">,
 ): ImageAuthoringConfig & {
   parameters: Record<string, ImageAuthoringParameterValue>;
 } {
@@ -147,7 +151,7 @@ export function authoringValuesToImageConfig(
     if (!supportsParameter(model, key)) continue;
     parameters[key] = values[key];
   }
-  return { prompt: values.prompt, modelKey: model.key, parameters };
+  return { ...preservedConfig, prompt: values.prompt, modelKey: model.key, parameters };
 }
 
 export function migrateImageAuthoringValues(

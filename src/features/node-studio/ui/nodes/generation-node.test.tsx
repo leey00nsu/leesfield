@@ -1,12 +1,35 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/i18n/messages/en.json";
+import { createIntlWrapper } from "@/test-utils/intl";
+import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import { promptPresetReference } from "@/shared/prompt-presets/prompt-preset-contract";
+import { SpaceGenerationPrompt } from "./space-generation-prompt";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type ReactNode } from "react";
+import { composeNodePresetPrompt, hydrateNodePromptPreset, writeNodePromptPreset } from "../../model/node-prompt-presets";
+function promptWrapper({children}: {children: ReactNode}) {
+  const Intl = createIntlWrapper();
+  return <QueryClientProvider client={new QueryClient()}><Intl>{children}</Intl></QueryClientProvider>;
+}
+const presetFixtures = builtinPromptPresets.map(p => ({ ...p, builtinKey: p.key, builtinRevision: p.revision, defaultPrompt: p.prompt, isActive: true, isModified: false }));
+const personalPresetFixtures = (["video", "audio"] as const).map(modality => ({
+  key: "personal-" + modality, revision: 1, name: modality + " preset", description: "", modality, prompt: modality + " prompt",
+  requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {}, builtinKey: null, builtinRevision: null,
+  defaultPrompt: null, isActive: true, isModified: false,
+}));
+vi.mock("@/entities/prompt-preset/model/use-prompt-preset-catalog", () => ({
+  usePromptPresetCatalog: (modality: string) => ({ data: [...presetFixtures, ...personalPresetFixtures].filter(preset => preset.modality === modality), isLoading: false, isError: false, refetch: vi.fn() }),
+}));
 import type { NodeBananaNodeData } from "../../runtime/node-banana/node-banana-runtime-adapter";
 
 const mocks = vi.hoisted(() => ({
   updateConfig: vi.fn(),
+  replaceAssets: vi.fn().mockReturnValue(true),
+  ids: [] as string[],
+  writable: true,
   maxInputImages: 2,
   videoSupportsInitImage: true,
   promptInput: { connected: false, text: null } as { connected: boolean; text: string | null },
@@ -23,7 +46,7 @@ vi.mock("@xyflow/react", () => ({
 vi.mock("../../model/node-authoring-context", () => ({
   useNodeAuthoring: () => ({
     graphId: "graph-1",
-    writable: true,
+    writable: mocks.writable,
     updateCanonicalNodeConfig: mocks.updateConfig,
     prepareImageNodeExecution: vi.fn().mockResolvedValue(1),
     imageModels: [{
@@ -70,6 +93,8 @@ vi.mock("../../model/node-authoring-context", () => ({
     retry: vi.fn(),
     getNodeRunReadiness: () => ({ ready: true, reasons: [] }),
     getNodePromptInput: () => mocks.promptInput,
+    getNodeInputAssetIds: (_id:string,port:string) => port === "primary" ? mocks.ids.slice(0,1) : port === "references" ? mocks.ids.slice(1) : [],
+    replaceNodeInputAssets: mocks.replaceAssets,
   }),
 }));
 
@@ -132,8 +157,66 @@ function renderNodes() {
 }
 
 describe("GenerationNode common presenter", () => {
+  it.each(["video", "audio"] as const)("applies a %s inline preset and preserves user text and canonical state", async modality => {
+    const user = userEvent.setup(), config = { prompt: "My idea", modelKey: null, parameters: {} };
+    const view = render(<SpaceGenerationPrompt nodeId="node" config={config} modality={modality} />, { wrapper: promptWrapper });
+    await user.click(screen.getByRole("button", {name: "프리셋"}));
+    await user.click(screen.getByRole("button", {name: new RegExp(modality + " preset")}));
+    const applied = mocks.updateConfig.mock.lastCall![1];
+    expect(applied).toMatchObject({ prompt: modality + " prompt\n\nMy idea", promptPresetState: {userText: "My idea", tokenOffset: 0} });
+    view.rerender(<SpaceGenerationPrompt nodeId="node" config={applied} modality={modality} />);
+    expect(screen.getByRole("textbox", {name: "프롬프트"})).toHaveTextContent("My idea");
+    expect(screen.queryByText(modality + " prompt")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: new RegExp("제거")}));
+    expect(mocks.updateConfig.mock.lastCall![1]).toEqual(config);
+  });
+  it("shows connected attachment previews and removes an edge without changing the node prompt", async () => {
+    mocks.ids=["asset-A","asset-B"];
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async()=>new Response(JSON.stringify({asset:{url:"/assets/storybook/puppy.jpg"}}),{status:200}));
+    try {
+      const user=userEvent.setup();
+      render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"image-a",prompt:"Keep",parameters:{}}} modality="image" />,{wrapper:promptWrapper});
+      await waitFor(()=>expect(screen.getAllByRole("img")).toHaveLength(2));
+      await user.click(screen.getAllByRole("button",{name:"제거"})[0]);
+      await waitFor(()=>expect(mocks.replaceAssets).toHaveBeenCalledWith("node",expect.objectContaining({limit:2,ports:["primary","references"]}),["asset-B"],{modelKey:"image-a",assetIds:["asset-A","asset-B"]}));
+      expect(mocks.updateConfig).not.toHaveBeenCalled();
+    } finally {fetcher.mockRestore();}
+  });
+  it("disables prompt and attachment changes in a read-only Space", () => {
+    mocks.writable=false;
+    render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"image-a",prompt:"Keep",parameters:{}}} modality="image" />,{wrapper:promptWrapper});
+    expect(screen.getByRole("textbox",{name:"프롬프트"})).toHaveAttribute("contenteditable","false");
+    expect(screen.getByRole("button",{name:/Reference:.*파일 추가/})).toBeDisabled();
+    expect(screen.getByRole("button",{name:"프리셋"})).toBeDisabled();
+  });
+  it("rehydrates a token between paragraphs, clears only its body and never guesses legacy text", () => {
+    const preset = presetFixtures[0], base = {parameters: {width:640}};
+    const config = writeNodePromptPreset(base, "앞뒤", preset, "작업 본문", 1);
+    expect(config.prompt).toBe("앞\n\n작업 본문\n\n뒤");
+    expect(hydrateNodePromptPreset(JSON.parse(JSON.stringify(config)), "image")).toMatchObject({text:"앞뒤", body:"작업 본문",offset:1,preset:{key:preset.key}});
+    expect(writeNodePromptPreset(config,"앞뒤",null)).toEqual({parameters:{width:640},prompt:"앞뒤"});
+    expect(hydrateNodePromptPreset({...config,prompt:"기존 편집 문자열"},"image")).toMatchObject({preset:null,text:"기존 편집 문자열"});
+    expect(composeNodePresetPrompt("앞뒤", "작업 본문", 1)).toBe(config.prompt);
+  });
+  it("renders the connected prompt read-only and restores the persisted inline draft after disconnection", () => {
+    mocks.promptInput={connected:true,text:"연결된 문구"};
+    const preset = presetFixtures[0];
+    const config = { prompt: "개인 저장본", modelKey: null, parameters: {}, promptPreset: promptPresetReference(preset),
+      promptPresetState:{name:preset.name,appliedPrompt:"개인 저장본"}};
+    const view = render(<SpaceGenerationPrompt nodeId="node" config={config} modality="image" connected connectedValue="연결된 문구" />, {wrapper:promptWrapper});
+    const editor = screen.getByRole("textbox", {name:"프롬프트"});
+    expect(editor).toHaveTextContent("연결된 문구");
+    expect(editor).toHaveAttribute("contenteditable","false");
+    expect(screen.queryByText("캐릭터 시트")).not.toBeInTheDocument();
+    mocks.promptInput={connected:false,text:null};
+    view.rerender(<SpaceGenerationPrompt nodeId="node" config={config} modality="image" />);
+    expect(screen.getByText(/^캐릭터 시트/)).toBeVisible();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.ids = [];
+    mocks.writable = true;
     mocks.maxInputImages = 2;
     mocks.videoSupportsInitImage = true;
     mocks.promptInput = { connected: false, text: null };

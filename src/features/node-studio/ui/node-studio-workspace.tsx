@@ -1,11 +1,14 @@
 "use client";
 import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
 import {contractInputPorts} from "@/shared/model-catalog/file-input-ports";
+import { projectNodePromptPresetInputs } from "../model/node-prompt-presets";
 import { imageUrlsFor } from "@/shared/media-assets/image-variants";
 
 import { useTranslations } from "next-intl";
 
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
+import { assistantTextForPort, assistantTextResult } from "@/shared/generation-graph/assistant-output";
+import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { NodeBananaHostedHeader, CommentsNavigationIcon, clearThumbnailCache, ModelSearchDialog, NodeBananaUpstreamHostProvider, type NodeBananaCanvasSettings } from "@node-banana-runtime/runtime-entry";
@@ -37,13 +40,14 @@ import {
 } from "@/shared/model-catalog/runtime-utils";
 
 import { useGraphAutosave, type GraphDraft, type GraphAutosaveStatus } from "../hook/use-graph-autosave";
-import { observeServerExecution, ExecutionSelectionTracker } from "../model/server-execution-tracking";
+import { observeServerExecution, ExecutionSelectionTracker, generationInputIdentity } from "../model/server-execution-tracking";
 import { useGenerationEventChannelState } from "../model/generation-event-channel-context";
 import { GenerationEventChannelProvider } from "../hook/use-generation-event-channel";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import { canonicalDocumentToV3Draft, graphSnapshotToCanonicalDocument } from "../runtime/node-banana/node-banana-runtime-adapter";
 import { NodeBananaConfirmDialog } from "./node-banana-confirm-dialog";
 import { NodeStudio } from "./node-studio";
+import { appendResultNodes, automaticResultPorts, bindResultNodes, reconcileResultNodes, resultSource } from "../model/generation-result-nodes";
 
 type NodeStudioWorkspaceProps = {
   graph: GenerationGraphSnapshotDto;
@@ -241,6 +245,13 @@ function NodeStudioWorkspaceContent({
   const startExecution = useStartNodeExecution();
   const eventChannelState = useGenerationEventChannelState();
   const selectionTracker = useRef(new ExecutionSelectionTracker());
+  const repeatInputs = useRef(new Map<string, string>());
+  const [repeatProgress, setRepeatProgress] = useState<Record<string, { completed: number; failed: number; total: number; running: boolean }>>({});
+  useEffect(() => {
+    for (const [id, identity] of repeatInputs.current) {
+      if (generationInputIdentity(draftRef.current, id) !== identity) operationControllers.get(id)?.abort();
+    }
+  }, [draftRevision, operationControllers]);
   const reconcileReadRef = useRef<(nodeId: string, executions: NodeExecutionDto[], read: ReturnType<ExecutionSelectionTracker["beginRead"]>) => void>(() => {});
   const observingRef = useRef(true);
   useEffect(() => {
@@ -301,9 +312,19 @@ function NodeStudioWorkspaceContent({
   const assistantResults = useMemo(() => Object.fromEntries(
     [...executionByNodeId].flatMap(([nodeId, executions]) => {
       const completed = executions.find((execution) => execution.executionKind === "assistant" && execution.status === "completed" && execution.outputText);
-      return completed?.outputText ? [[nodeId, completed.outputText]] : [];
+      return completed?.outputText ? [[nodeId, assistantTextResult(completed.outputText, completed.outputItems, completed.selectedItemId ?? null)]] : [];
     }),
   ), [executionByNodeId]);
+  const mediaOutputs = useMemo(() => Object.fromEntries(draftRef.current.nodes.map(node => {
+    void draftRevision;
+    const selected = (executionByNodeId.get(node.id) ?? []).find(execution =>
+      execution.status === "completed" && node.selectedOutputAssetId &&
+      execution.outputAssetIds.includes(node.selectedOutputAssetId));
+    const explicitlyCleared = node.selectedOutputAssetId === null &&
+      graph.nodes.find(original => original.id === node.id)?.selectedOutputAssetId != null;
+    return [node.id, explicitlyCleared ? [] : selected?.outputBindings?.length ? selected.outputBindings :
+      (graph.outputBindings ?? []).filter(binding => binding.graphNodeId === node.id)];
+  })), [draftRevision, executionByNodeId, graph.nodes, graph.outputBindings]);
   const executionOutputAssetIds = useMemo(
     () => Array.from(new Set(
       Array.from(executionByNodeId.values()).flatMap((executions) =>
@@ -317,6 +338,7 @@ function NodeStudioWorkspaceContent({
     try {
       // Explicit user recovery also works after a reload. Never infer that a
       // discovered active record is abandoned; another tab may still own it.
+      operationControllers.get(nodeId)?.abort();
       const executions = await listNodeExecutions(graph.id, nodeId);
       const active = executions.find((item) => activeExecution(item));
       if (active) await cancelNodeExecution(graph.id, nodeId, active.executionId);
@@ -337,8 +359,9 @@ function NodeStudioWorkspaceContent({
     [draftRevision, graph.id],
   );
   const allAssetIds = useMemo(
-    () => Array.from(new Set([...inputAssetIds, ...executionOutputAssetIds, ...selectedOutputAssetIds])),
-    [executionOutputAssetIds, inputAssetIds, selectedOutputAssetIds],
+    () => Array.from(new Set([...inputAssetIds, ...executionOutputAssetIds, ...selectedOutputAssetIds,
+      ...Object.values(mediaOutputs).flatMap(bindings => bindings.flatMap(binding => binding.assetId ? [binding.assetId] : []))])),
+    [executionOutputAssetIds, inputAssetIds, selectedOutputAssetIds, mediaOutputs],
   );
   const assetQueries = useMediaAssetList(allAssetIds);
   const missingAssetIds = useMemo(() => new Set(allAssetIds.filter((_, index) => { const error = assetQueries[index]?.error; return error && typeof error === "object" && "status" in error && error.status === 404; })), [allAssetIds, assetQueries]);
@@ -374,6 +397,12 @@ function NodeStudioWorkspaceContent({
   reconcileReadRef.current = (nodeId, executions, read) => {
     const node = draftRef.current.nodes.find(candidate => candidate.id === nodeId);
     if (!node) return;
+    try {
+      for (const execution of executions) {
+        const next = reconcileResultNodes(draftRef.current, nodeId, execution);
+        if (next !== draftRef.current) updateDraft(next);
+      }
+    } catch (error) { setHostError(error instanceof Error ? error.message : "RESULT_NODE_LIMIT_EXCEEDED"); }
     const decision = selectionTracker.current.observe(nodeId, executions, read, node.selectedOutputAssetId);
     if (decision.preserve) preserveSelectionRef.current?.(nodeId);
     if (decision.selection !== undefined && decision.selection !== node.selectedOutputAssetId) {
@@ -393,6 +422,23 @@ function NodeStudioWorkspaceContent({
   }, [updateDraft]);
 
   const handleCanvasDraft = useCallback((next: GraphDraft) => {
+    next = { ...next, nodes: next.nodes.map(node => {
+      const previous = draftRef.current.nodes.find(item => item.id === node.id);
+      const source = resultSource(previous?.config);
+      const config = record(node.config);
+      if (!source) return node;
+      const incoming = (draft: GraphDraft) => draft.edges.filter(edge => edge.targetNodeId === node.id).map(edge => [edge.id, edge.sourceNodeId, edge.sourcePortId]);
+      if (JSON.stringify(incoming(draftRef.current)) !== JSON.stringify(incoming(next))) {
+        const ordinaryConfig = { ...config };
+        delete ordinaryConfig.resultSource;
+        return { ...node, config: ordinaryConfig };
+      }
+      if (record(previous?.config).assetId !== config.assetId) {
+        return { ...node, config: { ...config, resultSource: { ...source, executionId: null,
+          state: typeof config.assetId === "string" ? "completed" : "cancelled" } } };
+      }
+      return node;
+    }) } as GraphDraft;
     for (const node of next.nodes) {
       const previous = draftRef.current.nodes.find(candidate => candidate.id === node.id);
       if (previous && previous.selectedOutputAssetId !== node.selectedOutputAssetId) {
@@ -438,6 +484,10 @@ function NodeStudioWorkspaceContent({
 
   const currentOutputAssetsForPort = useCallback((nodeId: string, portId: string) => {
     const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
+    if (node && mediaOutputPorts(node.kind).length > 1) {
+      return mediaAssetIdsForPort(node.kind, portId, node.selectedOutputAssetId, mediaOutputs[nodeId])
+        .flatMap(id => resolvedAssets.get(id) ? [resolvedAssets.get(id)!] : []);
+    }
     const outputPort = node
       ? findNodeDefinition(node.kind)?.ports.find((port) => port.direction === "output" && port.id === portId)
       : null;
@@ -453,7 +503,7 @@ function NodeStudioWorkspaceContent({
       if (collection.length > 0) return collection;
     }
     return latestOutputAssetsForNode(nodeId);
-  }, [executionByNodeId, latestOutputAssetsForNode, resolvedAssets]);
+  }, [executionByNodeId, latestOutputAssetsForNode, resolvedAssets, mediaOutputs]);
 
   const resolveUpstreamMediaValues = useCallback((nodeId: string, portId: string): string[] => {
     const resolve = (currentNodeId: string, currentPortId: string, visited: Set<string>): string[] => {
@@ -469,18 +519,21 @@ function NodeStudioWorkspaceContent({
       const incoming = (targetPortId = currentPortId) => incomingEdges(targetPortId)
         .flatMap((edge) => resolve(edge.sourceNodeId, edge.sourcePortId, nextVisited));
       if (node.kind === "input.image" && (currentPortId === "image" || currentPortId === "reference")) {
+        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
         if (incomingEdges("reference").length > 0) return incoming("reference");
         const assetId = typeof config.assetId === "string" ? config.assetId : null;
         const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
         return direct ? [direct] : [];
       }
       if (node.kind === "input.audio" && currentPortId === "audio") {
+        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
         if (incomingEdges("audio").length > 0) return incoming("audio");
         const assetId = typeof config.assetId === "string" ? config.assetId : null;
         const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
         return direct ? [direct] : [];
       }
       if (node.kind === "input.video" && currentPortId === "video") {
+        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
         if (incomingEdges("video").length > 0) return incoming("video");
         const assetId = typeof config.assetId === "string" ? config.assetId : null;
         const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
@@ -489,8 +542,8 @@ function NodeStudioWorkspaceContent({
       if (node.kind === "process.promptConstructor" && currentPortId === "text") {
         try { const text = resolveGraphText(draftRef.current, currentNodeId, new Set(), assistantResults); return text ? [text] : []; } catch { return []; }
       }
-      if (node.kind === "generate.assistant" && currentPortId === "text") {
-        const text = assistantResults[currentNodeId];
+      if (node.kind === "generate.assistant" && ["text", "item"].includes(currentPortId)) {
+        const text = assistantTextForPort(assistantResults[currentNodeId], currentPortId);
         return text ? [text] : [];
       }
       if (node.kind === "input.prompt" && (currentPortId === "text" || currentPortId === "prompt")) {
@@ -520,7 +573,7 @@ function NodeStudioWorkspaceContent({
       const incoming = (targetPortId = currentPortId) => incomingEdges(targetPortId)
         .flatMap((edge) => resolve(edge.sourceNodeId, edge.sourcePortId, nextVisited));
       const inputAsset = (targetPortId: string) => {
-        if (incomingEdges(targetPortId).length > 0) return incoming(targetPortId);
+        if (!resultSource(config) && incomingEdges(targetPortId).length > 0) return incoming(targetPortId);
         const assetId = typeof config.assetId === "string" ? config.assetId : null;
         return assetId ? [{
           assetId,
@@ -572,10 +625,16 @@ function NodeStudioWorkspaceContent({
       : -1;
     const inputAssetId = typeof config.assetId === "string" ? config.assetId : null;
     const inputAsset = inputAssetId ? resolvedAssets.get(inputAssetId) : null;
+    const result = resultSource(config);
+    const resultExecution = result?.executionId ? executionByNodeId.get(result.nodeId)?.find(item => item.executionId === result.executionId) : null;
+    const resultQuery = result?.executionId ? queryClient.getQueryState(nodeExecutionKeys.list(graph.id, result.nodeId)) : null;
+    const resultStatus = result?.state === "pending" ? resultExecution?.status ??
+      (operationControllers.has(result.nodeId) || resultQuery?.status === "pending" || resultQuery?.fetchStatus === "fetching" ? "pending" : "failed") : result?.state;
+    const repetition = repeatProgress[nodeId];
     const executionPatch = latest
       ? {
-          executionStatus: latest.status,
-          executionProgress: latest.progress,
+          executionStatus: repetition?.running ? "processing" : latest.status,
+          executionProgress: repetition?.running ? Math.round(repetition.completed / repetition.total * 100) : latest.progress,
           error: latest.errorCode,
         }
       : {};
@@ -628,8 +687,11 @@ function NodeStudioWorkspaceContent({
     const declaredPorts = modelCatalogEntry ? contractInputPorts(modelCatalogEntry) : undefined;
     const hasLegacyImage = draftRef.current.edges.some(e=>e.targetNodeId===nodeId&&["primary","references","initImage"].includes(e.targetPortId));
     const singleImage = declaredPorts?.filter(p=>p.type==="image").length===1;
-    const providerInputSchema = declaredPorts?.map(p=>singleImage&&p.type==="image"?{...p,name:"image"}:p);
+    let providerInputSchema = declaredPorts?.map(p=>singleImage&&p.type==="image"?{...p,name:"image"}:p);
     if(providerInputSchema && hasLegacyImage && !singleImage)providerInputSchema.push({name:"image",type:"image",label:"이미지 입력 (대상 선택 필요)",required:false,multiple:true,maxItems:undefined});
+    const presetInputs = projectNodePromptPresetInputs(config, node.kind, modelCatalogEntry);
+    const presetRequiresImage = presetInputs.supportsImageInput;
+    if (presetInputs.providerInputSchema) providerInputSchema = presetInputs.providerInputSchema;
     const existingInputSchema = Array.isArray(configuredParameters.inputSchema)
       ? configuredParameters.inputSchema
       : Array.isArray(record(modelCatalogEntry?.meta).inputSchema)
@@ -695,10 +757,18 @@ function NodeStudioWorkspaceContent({
       : null;
     const outputBytes = primaryOutputAsset?.bytes ? Number(primaryOutputAsset.bytes) : null;
     const base = {
+      outputBindings: mediaOutputs[nodeId] ?? [],
+      outputAssetsByPort: Object.fromEntries(mediaOutputPorts(node.kind).map(port =>
+        [port.id, currentOutputAssetsForPort(nodeId, port.id).map(asset => ({
+          id: asset.id, type: asset.type, url: getMediaAssetContentUrl(asset.id),
+        }))])),
       missingMedia: [inputAssetId, node.selectedOutputAssetId, ...(latest?.outputAssetIds ?? [])].some(id => id && missingAssetIds.has(id)),
       imagePresentations,
       ...modelProjection,
       ...executionPatch,
+      repeatProgress: repetition,
+      ...(result ? { resultStatus, resultProgress: resultExecution?.progress ?? null,
+        resultError: resultExecution?.errorCode ?? (resultStatus === "failed" ? "RESULT_UNAVAILABLE" : null) } : {}),
       outputDimensions,
       outputBytes: Number.isFinite(outputBytes) ? outputBytes : null,
       customTitle: presentation.customTitle,
@@ -710,6 +780,7 @@ function NodeStudioWorkspaceContent({
         return {
           ...base,
           image: inputAsset ? getMediaAssetContentUrl(inputAsset.id) : null,
+          imageRef: inputAssetId,
           filename: typeof config.filename === "string" ? config.filename : null,
           dimensions: inputAsset?.width !== null && inputAsset?.width !== undefined
             && inputAsset?.height !== null && inputAsset?.height !== undefined
@@ -769,7 +840,7 @@ function NodeStudioWorkspaceContent({
         };
       }
       case "generate.assistant":
-        return { ...base, outputText: assistantResults[nodeId] ?? null };
+        return { ...base, outputText: assistantTextForPort(assistantResults[nodeId]), outputItemText: assistantTextForPort(assistantResults[nodeId], "item") };
       case "generate.image":
         return {
           ...base,
@@ -777,9 +848,9 @@ function NodeStudioWorkspaceContent({
           inputPrompt: promptInput,
           internalPrompt,
           promptConnected,
-          supportsImageInput: modelKey
+          supportsImageInput: presetRequiresImage ?? (modelKey
             ? resolveRuntimeImageMaxInputImages(imageModels.find((model) => model.key === modelKey)) > 0
-            : false,
+            : false),
           primary: primaryImage,
           references: referenceImageInputs,
           inputImages: [...(primaryImage ? [primaryImage] : []), ...referenceImageInputs],
@@ -805,9 +876,9 @@ function NodeStudioWorkspaceContent({
           inputPrompt: promptInput,
           internalPrompt,
           promptConnected,
-          supportsImageInput: modelKey
+          supportsImageInput: presetRequiresImage ?? (modelKey
             ? resolveRuntimeVideoSupportsInitImage(videoModels.find((model) => model.key === modelKey))
-            : false,
+            : false),
           initImage: initImageInputs[0] ?? null,
           inputImages: initImageInputs,
           outputVideo: selectedOutputUrl,
@@ -893,7 +964,7 @@ function NodeStudioWorkspaceContent({
       default:
         return { ...runtimeData, ...base };
     }
-  }, [assistantResults, missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
+  }, [graph.id, queryClient, repeatProgress, operationControllers, assistantResults, mediaOutputs, missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
 
   const handleHostError = useCallback((error: Error) => {
     setHostError(error.message);
@@ -939,6 +1010,7 @@ function NodeStudioWorkspaceContent({
     annotations: Record<string, unknown>[];
   }) => {
     if (graph.writable === false) throw new Error("WORKFLOW_READ_ONLY");
+    if (operationControllers.has(input.nodeId)) throw new Error("NODE_GENERATION_ACTIVE");
     setHostError(null);
     if (!input.dataUrl.startsWith("data:image/")) {
       throw new Error("ANNOTATION_OUTPUT_INVALID");
@@ -955,7 +1027,11 @@ function NodeStudioWorkspaceContent({
     }));
     const controller = new AbortController();
     operationControllers.set(input.nodeId, controller);
+    let resultIds: string[] = [];
     try {
+      const appended = appendResultNodes(draftRef.current, input.nodeId);
+      resultIds = appended.ids;
+      if (resultIds.length) updateDraft(appended.draft);
       const expectedGraphVersion = await prepareExecution();
       controller.signal.throwIfAborted();
       const execution = await startExecution.mutateAsync({
@@ -963,6 +1039,7 @@ function NodeStudioWorkspaceContent({
         nodeId: input.nodeId,
         expectedGraphVersion,
       });
+      if (appended.ids.length) { updateDraft(bindResultNodes(draftRef.current, appended.ids, execution.executionId)); await autosaveSaveNowRef.current(); }
       if (!execution.plan || execution.plan.kind !== "edit.image.annotation") {
         throw new Error("ANNOTATION_EXECUTION_PLAN_INVALID");
       }
@@ -976,57 +1053,123 @@ function NodeStudioWorkspaceContent({
       const asset = assets[0];
       if (!asset) throw new Error("ANNOTATION_OUTPUT_MISSING");
       setAssetOverrides((current) => ({ ...current, [asset.id]: asset }));
+      updateDraft(reconcileResultNodes(draftRef.current, input.nodeId, { executionId: execution.executionId, status: "completed", outputAssetIds: assets.map(item => item.id) }));
       updateDraftNode(input.nodeId, (node) => ({
         ...node,
         selectedOutputAssetId: asset.id,
       }));
       await queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, input.nodeId) });
+      await autosaveSaveNowRef.current();
       return { assetId: asset.id };
+    } catch (error) {
+      const source = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
+      if (source && !source.executionId) updateDraft(bindResultNodes(draftRef.current, resultIds, null, controller.signal.aborted ? "cancelled" : "failed"));
+      throw error;
     } finally {
       controller.abort();
       if (operationControllers.get(input.nodeId) === controller) operationControllers.delete(input.nodeId);
     }
-  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution, updateDraftNode]);
+  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution, updateDraftNode, updateDraft]);
 
   const handleRegenerateNode = useCallback(async (nodeId: string) => {
     if (graph.writable === false) throw new Error("WORKFLOW_READ_ONLY");
     setHostError(null);
     const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) throw new Error("UPSTREAM_NODE_NOT_FOUND");
+    if (operationControllers.has(nodeId)) throw new Error("NODE_GENERATION_ACTIVE");
+    const repeatCount = node.kind === "generate.image" ? Number(record(node.config).repeatCount ?? 1) : 1;
+    if (!Number.isInteger(repeatCount) || repeatCount < 1 || repeatCount > 100) throw new Error("INVALID_REPEAT_COUNT");
+    const identity = generationInputIdentity(draftRef.current, nodeId);
+    const assertCurrent = () => {
+      controller.signal.throwIfAborted();
+      if (!writableRef.current || generationInputIdentity(draftRef.current, nodeId) !== identity) throw new DOMException("Inputs changed", "AbortError");
+    };
     const controller = new AbortController();
     operationControllers.set(nodeId, controller);
-    selectionTracker.current.beginSubmission(nodeId);
+    if (repeatCount > 1) repeatInputs.current.set(nodeId, identity);
+    const selectionRevision = selectionTracker.current.selectionRevision(nodeId);
+    selectionTracker.current.beginSubmission(nodeId, selectionRevision);
     let serverAccepted = false;
+    let resultIds: string[] = [];
     try {
+      const ports = automaticResultPorts(node.kind);
+      if (draftRef.current.nodes.length + ports.length * repeatCount > 500 || draftRef.current.edges.length + ports.length * repeatCount > 2000) throw new Error("RESULT_NODE_LIMIT_EXCEEDED");
+      const appended = appendResultNodes(draftRef.current, nodeId);
+      resultIds = appended.ids;
+      if (resultIds.length) updateDraft(appended.draft);
       const expectedGraphVersion = await prepareExecution();
-      controller.signal.throwIfAborted();
+      assertCurrent();
       const execution = await startExecution.mutateAsync({
         graphId: graph.id,
         nodeId,
         expectedGraphVersion,
       });
+      if (resultIds.length) { updateDraft(bindResultNodes(draftRef.current, resultIds, execution.executionId)); await autosaveSaveNowRef.current(); }
       selectionTracker.current.submitted(nodeId, execution.executionId);
       const plan = execution.plan;
       if (!plan) {
         // Acceptance returns immediately. The host scheduler awaits this
         // observation separately; query reconciliation owns result selection.
-        const completion = observeServerExecution(queryClient, graph.id, nodeId, execution.executionId, controller.signal)
-          .then(async (completed) => {
-            controller.signal.throwIfAborted();
-            const assets = await Promise.all(completed.outputAssetIds.map(assetId => queryClient.fetchQuery({
-              queryKey: mediaAssetKeys.detail(assetId),
-              queryFn: ({ signal }) => getMediaAsset(assetId, AbortSignal.any([signal, controller.signal])),
-              retry: 3,
-            })));
-            controller.signal.throwIfAborted();
-            setAssetOverrides(previous => ({ ...previous, ...Object.fromEntries(assets.map(asset => [asset.id, asset])) }));
-            void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
-            await autosaveSaveNowRef.current();
-          })
-          .finally(() => {
+        const completion = (async () => {
+          let currentExecution = execution;
+          let completedCount = 0, failed = 0;
+          let firstError: unknown;
+          const publishProgress = (running: boolean) => {
+            if (observingRef.current && repeatCount > 1) setRepeatProgress(previous => ({ ...previous,
+              [nodeId]: { completed: completedCount, failed, total: repeatCount, running } }));
+          };
+          publishProgress(true);
+          try {
+            for (let index = 0; index < repeatCount; index++) {
+              assertCurrent();
+              if (index > 0) {
+                const appended = appendResultNodes(draftRef.current, nodeId);
+                resultIds = appended.ids;
+                if (resultIds.length) updateDraft(appended.draft);
+                const version = await prepareExecution();
+                assertCurrent();
+                selectionTracker.current.beginSubmission(nodeId, selectionRevision);
+                currentExecution = await startExecution.mutateAsync({ graphId: graph.id, nodeId,
+                  expectedGraphVersion: version, repeat: { repeatOfExecutionId: execution.executionId, repeatIndex: index } });
+                if (resultIds.length) { updateDraft(bindResultNodes(draftRef.current, resultIds, currentExecution.executionId)); await autosaveSaveNowRef.current(); }
+                selectionTracker.current.submitted(nodeId, currentExecution.executionId);
+              }
+              try {
+                const completed = await observeServerExecution(queryClient, graph.id, nodeId, currentExecution.executionId, controller.signal);
+                assertCurrent();
+                updateDraft(reconcileResultNodes(draftRef.current, nodeId, completed));
+                const assets = await Promise.all(completed.outputAssetIds.map(assetId => queryClient.fetchQuery({
+                  queryKey: mediaAssetKeys.detail(assetId),
+                  queryFn: ({ signal }) => getMediaAsset(assetId, AbortSignal.any([signal, controller.signal])), retry: 3,
+                })));
+                assertCurrent();
+                setAssetOverrides(previous => ({ ...previous, ...Object.fromEntries(assets.map(asset => [asset.id, asset])) }));
+                void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
+                await autosaveSaveNowRef.current();
+              } catch (error) {
+                assertCurrent();
+                const terminal = queryClient.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, nodeId))?.find(item => item.executionId === currentExecution.executionId);
+                // Unknown outcomes cannot be treated as a failed iteration.
+                if (terminal?.status !== "failed") throw error;
+                updateDraft(reconcileResultNodes(draftRef.current, nodeId, terminal));
+                failed++; firstError ??= error;
+              }
+              completedCount++;
+              publishProgress(true);
+            }
+            if (failed === repeatCount) throw firstError;
+          } catch (error) {
+            const source = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
+            if (source && !source.executionId) updateDraft(bindResultNodes(draftRef.current, resultIds, null, controller.signal.aborted ? "cancelled" : "failed"));
+            throw error;
+          } finally {
+            publishProgress(false);
+            repeatInputs.current.delete(nodeId);
+            selectionTracker.current.endSubmission(nodeId);
             if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
-          });
+          }
+        })();
         // Observation can outlive a detached UI callback. Always consume errors.
         void completion.catch(error => {
           if (!controller.signal.aborted) setHostError(error instanceof Error ? error.message : "GENERATION_FAILED");
@@ -1050,6 +1193,9 @@ function NodeStudioWorkspaceContent({
       });
       await queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
+      const completed = queryClient.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, nodeId))?.find(item => item.executionId === execution.executionId);
+      updateDraft(reconcileResultNodes(draftRef.current, nodeId, completed ?? { executionId: execution.executionId, status: "completed", outputAssetIds: assets.map(asset => asset.id) }));
+      await autosaveSaveNowRef.current();
       const selectedOutputAssetId = assets[0]?.id;
       return selectedOutputAssetId ? { selectedOutputAssetId,
         ...(plan.kind === "edit.image.splitGrid" ? {
@@ -1057,15 +1203,24 @@ function NodeStudioWorkspaceContent({
           outputGrid: { rows: Number(plan.parameters.rows), cols: Number(plan.parameters.cols) },
         } : {}),
       } : undefined;
+    } catch (error) {
+      if (resultIds.length) {
+        const current = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
+        // A receipt remains recoverable even when saving its graph binding fails.
+        updateDraft(bindResultNodes(draftRef.current, resultIds, current?.executionId ?? null,
+          current?.executionId ? "pending" : controller.signal.aborted ? "cancelled" : "failed"));
+      }
+      throw error;
     } finally {
       selectionTracker.current.endSubmission(nodeId);
       if (!serverAccepted) {
+        repeatInputs.current.delete(nodeId);
         controller.abort();
         if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
       }
       void queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     }
-  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution]);
+  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution, updateDraft]);
 
   const handleOpenAnnotation = useCallback((nodeId: string) => {
     if (graph.writable === false) return;
@@ -1209,7 +1364,7 @@ function NodeStudioWorkspaceContent({
           persistedNodeIds={persistedNodeIds}
           onDraftChange={handleCanvasDraft}
           prepareImageNodeExecution={prepareExecution}
-          catalog={{ ...nodeCatalog, assistantResults }}
+          catalog={{ ...nodeCatalog, assistantResults, mediaOutputs }}
           canvasSettings={canvasSettings}
           onRegenerateNode={handleRegenerateNode}
           onCancelNode={handleCancelNode}

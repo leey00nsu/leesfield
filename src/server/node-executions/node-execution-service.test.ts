@@ -1,4 +1,5 @@
 import { createNodeExecutionService } from "./node-execution-service";
+import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 import {
   NodeExecutionConfigError,
   NodeExecutionInputError,
@@ -33,6 +34,7 @@ function setup() {
   const repository = {
     getOwnedNode: vi.fn().mockResolvedValue(storedNode()),
     getAssets: vi.fn().mockResolvedValue([]),
+    getRepeatSnapshot: vi.fn(),
     listExecutions: vi.fn().mockResolvedValue([]),
     findExecution: vi.fn(),
     cancelExecution: vi.fn(),
@@ -111,6 +113,112 @@ function setup() {
 }
 
 describe("nodeExecutionService", () => {
+  it("reuses an owner-scoped frozen snapshot with distinct iteration admissions", async () => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode(), config: { ...generationConfig, repeatCount: 4 } });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, "first-key");
+    const snapshot = state.submitImage.mock.calls[0][0].requestSnapshot;
+    vi.mocked(state.repository.getRepeatSnapshot).mockResolvedValue({ status: "completed", requestParams: snapshot });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 1 }, "second-key");
+    expect(state.repository.getRepeatSnapshot).toHaveBeenCalledWith("owner@example.com", "graph-1", "node-1", "image-request");
+    expect(state.submitImage.mock.calls[1][0].payload).toEqual(state.submitImage.mock.calls[0][0].payload);
+    expect(state.submitImage.mock.calls[1][0].requestId).not.toBe(state.submitImage.mock.calls[0][0].requestId);
+    expect(state.submitImage.mock.calls[1][0].payload).not.toHaveProperty("repeatCount");
+    expect(state.submitImage.mock.calls[1][0].payload.imageCount).toBe(1);
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 4 })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    state.validateImage.mockImplementation(async payload => ({ success: true, data: { ...payload, steps: 999 } }));
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 2 })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    state.validateImage.mockImplementation(async payload => ({ success: true, data: payload }));
+    for (const status of ["pending", "processing", "cancelled"] as const) {
+      vi.mocked(state.repository.getRepeatSnapshot).mockResolvedValue({ status, requestParams: snapshot });
+      await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 2 })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    }
+    vi.mocked(state.repository.getRepeatSnapshot).mockResolvedValue({ status: "failed", requestParams: snapshot });
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode(), config: { ...generationConfig, prompt: "changed", repeatCount: 4 } });
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 2 })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    expect(state.submitImage).toHaveBeenCalledTimes(2);
+  });
+  it.each([0, 101, 1.5])("rejects invalid repeat count %s without admission", async repeatCount => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode(), config: { ...generationConfig, repeatCount } });
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    expect(state.submitImage).not.toHaveBeenCalled();
+  });
+
+  it.each(["generate.image", "generate.video"])("rejects existing image connections for a text-only %s preset before submitting", async kind => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
+      ...storedNode(kind), config: { ...generationConfig, promptPreset: {
+        key: "personal", revision: 1, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {},
+      } },
+      incomingEdges: [{ id: "reference", sourcePortId: "image", targetPortId: kind === "generate.image" ? "primary" : "initImage", sortOrder: 0, createdAt: new Date(), sourceNodeId: "image",
+        sourceNode: { id: "image", kind: "input.image", configVersion: 1, config: { assetId: "reference-asset" }, selectedOutputAssetId: null } }],
+    });
+    vi.mocked(state.repository.getAssets).mockResolvedValue([{ id: "reference-asset", ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" }]);
+    state.resolveAsset.mockResolvedValue({ url: "https://signed.example/reference", type: "image", mimeType: "image/png" });
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 })).rejects.toMatchObject({ code: "NODE_INPUT_UNSUPPORTED" });
+    expect(state.submitImage).not.toHaveBeenCalled();
+    expect(state.submitVideo).not.toHaveBeenCalled();
+  });
+  it("admits frame extraction as a two-image server operation without a browser plan", async () => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("edit.video.extractFrames"), config: { parameters: {} }, incomingEdges: [{
+      id: "video-reference", sourcePortId: "video", targetPortId: "video", sortOrder: 0, createdAt: new Date(), sourceNodeId: "input", sourceNode: {
+        id: "input", kind: "input.video", configVersion: 1, config: { assetId: "video-reference" }, selectedOutputAssetId: null,
+      },
+    }] });
+    vi.mocked(state.repository.getAssets).mockResolvedValue([{ id: "video-reference", ownerEmail: "owner@example.com", type: "video", status: "completed", mimeType: "video/mp4" }]);
+    state.resolveAsset.mockResolvedValue({ type: "video", url: "https://signed.example/reference", mimeType: "video/mp4" });
+    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
+    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
+      type: "edit.video.extractFrames", expectedOutputCount: 2, parameters: {}, inputs: [{ assetId: "video-reference", portId: "video", sortOrder: 0 }],
+    }));
+    expect(result.plan).toBeUndefined();
+    expect(state.startOperationWorker).toHaveBeenCalledOnce();
+    state.hasVideoProcessor.mockResolvedValue(false);
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 })).rejects.toThrow("PROCESSOR_UNAVAILABLE");
+    expect(state.createOperation).toHaveBeenCalledOnce();
+  });
+  it.each(["startFrame", "endFrame"])("freezes the exact %s reference from a multi-port node", async sourcePortId => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
+      ...storedNode(), incomingEdges: [{
+        id: "reference", sourcePortId, targetPortId: "primary", sortOrder: 0, createdAt: new Date(),
+        sourceNodeId: "frames", sourceNode: { id: "frames", kind: "edit.video.extractFrames", configVersion: 1,
+          config: { parameters: {} }, selectedOutputAssetId: "startFrame", outputs: [
+            { portId: "startFrame", sortOrder: 0, assetId: "startFrame" },
+            { portId: "endFrame", sortOrder: 0, assetId: "endFrame" },
+          ] },
+      }],
+    });
+    vi.mocked(state.repository.getAssets).mockResolvedValue([{ id: sourcePortId, ownerEmail: "owner@example.com",
+      type: "image", status: "completed", mimeType: "image/png" }]);
+    state.resolveAsset.mockResolvedValue({ url: `https://signed.example/${sourcePortId}`, type: "image", mimeType: "image/png" });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
+    expect(state.submitImage.mock.calls[0][0].requestSnapshot.inputAssets).toEqual([
+      { assetId: sourcePortId, portId: "primary", sortOrder: 0 },
+    ]);
+    expect(state.submitImage.mock.calls[0][0].payload.initImages).toEqual([`https://signed.example/${sourcePortId}`]);
+  });
+  it.each(builtinPromptPresets)("submits $key once with edited final prompt and frozen provenance outside provider settings", async preset => {
+    const state = setup();
+    const promptPreset = { key: preset.key, revision: 7, builtinRevision: 1, requiredInputs: preset.requiredInputs, recommendedParameters: preset.recommendedParameters };
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
+      ...storedNode(), config: { ...generationConfig, prompt: "편집한 최종 프롬프트", promptPreset,
+        promptPresetState: { name: preset.name, appliedPrompt: preset.prompt } },
+      incomingEdges: [{ id: "reference", sourcePortId: "image", targetPortId: "primary", sortOrder: 0, createdAt: new Date(), sourceNodeId: "image",
+        sourceNode: { id: "image", kind: "input.image", configVersion: 1, config: { assetId: "reference-asset" }, selectedOutputAssetId: null } }],
+    });
+    vi.mocked(state.repository.getAssets).mockResolvedValue([{ id: "reference-asset", ownerEmail: "owner@example.com", type: "image", status: "completed", mimeType: "image/png" }]);
+    state.resolveAsset.mockResolvedValue({ url: "https://signed.example/reference", type: "image", mimeType: "image/png" });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
+    expect(state.submitImage).toHaveBeenCalledOnce();
+    const submitted = state.submitImage.mock.calls[0][0];
+    expect(submitted.payload).toMatchObject({ prompt: "편집한 최종 프롬프트", imageCount: 1, initImages: ["https://signed.example/reference"], promptPreset });
+    expect(submitted.requestSnapshot).toMatchObject({ prompt: "편집한 최종 프롬프트", promptPreset, inputAssets: [{ assetId: "reference-asset", portId: "primary", sortOrder: 0 }] });
+    expect(submitted.payload).not.toHaveProperty("promptPresetState");
+    expect(submitted.payload.dynamicParams ?? {}).not.toHaveProperty("promptPreset");
+  });
   it.each([
     "edit.image.annotation", "edit.image.removeBackground", "edit.image.splitGrid",
     "edit.image.gif", "edit.video.frameGrab", "edit.video.easeCurve",
@@ -323,6 +431,17 @@ describe("nodeExecutionService", () => {
     expect(state.resolveAsset).toHaveBeenCalledWith("owner@example.com", sourceKind === "input.image" ? "root-image-asset" : "local-image");
   });
 
+  it("snapshots an execution's fixed result instead of traversing its producer", async () => {
+    const state = setup();
+    const target = {...storedNode(),incomingEdges:[{id:"fixed-edge",sourcePortId:"image",targetPortId:"primary",sortOrder:0,createdAt:new Date(),sourceNodeId:"result",
+      sourceNode:{id:"result",kind:"input.image",configVersion:1,config:{assetId:"fixed",resultSource:{nodeId:"producer",executionId:"old"}},selectedOutputAssetId:null}}]};
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue(target);
+    vi.mocked(state.repository.getAssets).mockResolvedValue([{id:"fixed",ownerEmail:"owner@example.com",type:"image",status:"completed",mimeType:"image/png"}]);
+    state.resolveAsset.mockResolvedValue({url:"https://signed.example/fixed.png"});
+    await state.service.execute("owner@example.com","graph-1","node-1",{expectedGraphVersion:4});
+    expect(state.repository.getOwnedNode).toHaveBeenCalledTimes(1);
+    expect(state.validateImage).toHaveBeenCalledWith(expect.objectContaining({initImages:["https://signed.example/fixed.png"]}));
+  });
   it("snapshots the cell slice for media operations despite its visual Split reference", async () => {
     const state = setup();
     const cell = {

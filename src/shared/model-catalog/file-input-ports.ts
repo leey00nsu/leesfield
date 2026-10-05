@@ -1,4 +1,4 @@
-import { getGradioContract } from "./gradio-contract";
+import { getGradioContract, fileFieldMaxItems } from "./gradio-contract";
 
 export const fileInputPort = (media:string,name:string) => `${media}-field-${name}`;
 export function parseFileInputPort(port:string) {
@@ -9,7 +9,7 @@ export function contractInputPorts(model:Parameters<typeof getGradioContract>[0]
   const contract=getGradioContract(model);
   return contract?.inputs.filter(f=>["file","files","gallery"].includes(f.kind)&&f.media).map(f=>({
     name:fileInputPort(f.media!,f.name),type:f.media!,label:f.label??f.name,required:f.required,
-    multiple:f.kind!=="file",maxItems:typeof f.schema.maxItems==="number"?f.schema.maxItems:undefined,
+    multiple:f.kind!=="file",maxItems:fileFieldMaxItems(f) as number | undefined,
   }));
 }
 export function fileInputsFromAssets(assets:ReadonlyArray<{portId:string;url:string}>) {

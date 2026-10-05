@@ -1,3 +1,5 @@
+import type { AssistantItem, AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
+
 export type NodeExecutionStatus =
   | "pending"
   | "processing"
@@ -18,7 +20,12 @@ export type NodeExecutionDto = {
   errorCode: string | null;
   modelKey: string | null;
   outputAssetIds: string[];
+  outputBindings?: Array<{ portId: string; sortOrder: number; assetId: string | null }>;
   outputText?: string | null;
+  outputMode?: AssistantOutputMode;
+  outputItems?: AssistantItem[] | null;
+  selectedItemId?: string | null;
+  selectionVersion?: number;
   createdAt: string;
   /** Current durable node selection, read after execution history. */
   selectedOutputAssetId?: string | null;

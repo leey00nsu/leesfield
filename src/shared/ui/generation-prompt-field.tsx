@@ -24,6 +24,7 @@ interface GenerationPromptFieldProps {
 }
 
 interface GenerationPromptSurfaceProps {
+  className?: string;
   textarea: ReactNode;
   attachments?: ReactNode;
   header?: ReactNode;
@@ -34,6 +35,7 @@ interface GenerationPromptSurfaceProps {
 }
 
 export function GenerationPromptSurface({
+  className,
   textarea,
   attachments,
   header,
@@ -44,6 +46,7 @@ export function GenerationPromptSurface({
 }: GenerationPromptSurfaceProps) {
   return (
     <AppPromptSurface
+      className={className}
       textarea={textarea}
       attachments={attachments}
       header={header}

@@ -1,5 +1,6 @@
 "use client";
 import { AppTextarea } from "@/shared/ui/app-form-control";
+import { NodeTextEditor } from "@/shared/ui/node-text-editor";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
@@ -23,6 +24,7 @@ import { ImageOperationNodeControls } from "./image-operation-node-controls";
 import { NodeBananaFloatingNodeHeader } from "./node-banana-floating-node-header";
 import { NodeBananaPromptEditor } from "./node-banana-prompt-editor";
 import { AssistantNodeControls } from "./assistant-node-controls";
+import { VideoFramesNodeControls } from "./video-frames-node-controls";
 import {
   VideoOperationNodeControls,
   type VideoOperationKind,
@@ -77,12 +79,14 @@ function PortHandle({
 }) {
   const authoring = useNodeAuthoring();
   const edges = useEdges();
+  const tc = useCanvasTranslation();
   const origin = useRef<{ x: number; y: number } | null>(null);
-  const iconPort = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim";
+  const iconPort = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames";
   const Icon = { image: ImageIcon, media: ImageIcon, video: Video, audio: AudioLines, text: Type, settings: Settings2 }[port.valueType];
   const top = topOverride ?? portTop(kind, port, index, count);
   const input = port.direction === "input";
-  const label = labelOverride ?? getNodeBananaPortLabel(kind, port);
+  const rawLabel = labelOverride ?? getNodeBananaPortLabel(kind, port);
+  const label = kind === "edit.video.extractFrames" || (kind === "generate.assistant" && port.id === "item") ? tc(rawLabel) : rawLabel;
   const accessibleLabel = port.required ? `${label}, required` : label;
   const connected = edges.some(edge => input
     ? edge.target === nodeId && edge.targetHandle === (handleId ?? port.id)
@@ -148,12 +152,14 @@ function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNod
     ? incoming.text ?? ""
     : typeof config.text === "string" ? config.text : "";
   return (
-    <AppTextarea
+    <NodeTextEditor label={tc("Describe what to generate...")} disabled={!writable || incoming.connected} className="m-3 flex min-h-[100px] flex-1 flex-col">
+    {editing => <AppTextarea
       data-node-banana-component="PromptNode"
       value={value}
       rows={6}
       maxLength={20_000}
       disabled={!writable || incoming.connected}
+      readOnly={!editing} tabIndex={editing ? 0 : -1}
       aria-label={incoming.connected ? tc("Text from connected Prompt node") : undefined}
       placeholder={incoming.connected ? tc("Text from connected node...") : tc("Describe what to generate...")}
       className="nodrag nopan nowheel h-full min-h-[100px] w-full resize-none rounded-lg border-0 bg-neutral-800 p-3 pb-7 text-xs leading-relaxed text-neutral-100 outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:bg-neutral-900/70 disabled:text-neutral-400"
@@ -161,7 +167,8 @@ function PromptInputNodeControls({ id, data }: { id: string; data: NodeBananaNod
       onChange={(event) => {
         if (!incoming.connected) authoring.updateCanonicalNodeConfig?.(id, { ...config, text: event.target.value });
       }}
-    />
+    />}
+    </NodeTextEditor>
   );
 }
 
@@ -183,17 +190,20 @@ function MemoNodeControls({ id, data }: { id: string; data: NodeBananaNodeData }
         : node));
   }, [id, savedSize.width, savedSize.height, setNodes]);
   return (
-    <AppTextarea
+    <NodeTextEditor label={tc("Memo")} disabled={authoring.writable === false || !authoring.updateCanonicalNodeConfig} className="flex min-h-0 flex-1 flex-col">
+    {editing => <AppTextarea
       data-node-banana-component="MemoNode"
       aria-label={tc("Memo")}
       value={typeof config.text === "string" ? config.text : ""}
       maxLength={20_000}
       disabled={authoring.writable === false || !authoring.updateCanonicalNodeConfig}
+      readOnly={!editing} tabIndex={editing ? 0 : -1}
       placeholder={tc("Write a note...")}
-      className="nodrag nopan nowheel min-h-0 w-full flex-1 resize-none rounded border border-neutral-700 bg-neutral-900/60 p-3 text-sm leading-relaxed text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-blue-500/60"
+      className="nodrag nopan nowheel min-h-0 w-full flex-1 resize-none rounded-lg border-0 bg-transparent p-3 text-sm leading-relaxed text-neutral-100 shadow-none outline-none !ring-0 placeholder:text-neutral-500"
       onPointerDown={(event) => event.stopPropagation()}
       onChange={(event) => authoring.updateCanonicalNodeConfig?.(id, { ...config, text: event.target.value })}
-    />
+    />}
+    </NodeTextEditor>
   );
 }
 
@@ -205,7 +215,7 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
   const kind = data.canonicalKind as keyof typeof nodeBananaNodeInventory;
   const geometry = nodeBananaNodeGeometry[kind] ?? { width: 320, height: 180, minWidth: 200, minHeight: 100 };
   const rawTitle = nodeBananaNodeInventory[kind]?.title ?? data.canonicalKind;
-  const title = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim" ? tc(rawTitle) : rawTitle;
+  const title = kind === "generate.assistant" || kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames" ? tc(rawTitle) : rawTitle;
   const edges = useEdges();
   const inputs = data.ports.filter((port) => port.direction === "input");
   const outputs = data.ports.filter((port) => port.direction === "output");
@@ -227,7 +237,7 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
   const isPrompt = data.canonicalKind === "input.prompt";
   const isMemo = data.canonicalKind === "note.memo";
   const isAssistant = data.canonicalKind === "generate.assistant";
-  const isCustom = isAssistant || kind === "edit.video.stitch" || kind === "edit.video.trim";
+  const isCustom = isAssistant || kind === "edit.video.stitch" || kind === "edit.video.trim" || kind === "edit.video.extractFrames";
   const isAnnotation = data.canonicalKind === "edit.image.annotation";
   const isMediaInput = data.canonicalKind === "input.image" || data.canonicalKind === "input.audio" || data.canonicalKind === "input.video";
   const fullBleed = isPrompt || isMediaInput;
@@ -338,7 +348,8 @@ export const CanonicalNode = memo(function CanonicalNode({ id, data, selected }:
           onEditorOpenChange={isAnnotation ? setEditorOpen : undefined}
         />
       ) : null}
-      {data.supported && data.canonicalKind.startsWith("edit.video.") ? (
+      {data.supported && kind === "edit.video.extractFrames" ? <VideoFramesNodeControls id={id} data={data} selected={selected && singleSelection} title={title} /> : null}
+      {data.supported && kind !== "edit.video.extractFrames" && data.canonicalKind.startsWith("edit.video.") ? (
         <VideoOperationNodeControls
           id={id}
           data={data}

@@ -23,7 +23,7 @@ import {
 } from "./generation-graph-errors";
 
 const graphInclude = {
-  nodes: { orderBy: { createdAt: "asc" as const } },
+  nodes: { orderBy: { createdAt: "asc" as const }, include: { outputs: true } },
   edges: { orderBy: { createdAt: "asc" as const } },
 } satisfies Prisma.GenerationGraphInclude;
 
@@ -40,6 +40,7 @@ export type GenerationGraphSummary = {
 };
 
 export type GenerationGraphSnapshot = GenerationGraphSummary & {
+  outputBindings?: Array<{ graphNodeId: string; portId: string; sortOrder: number; assetId: string }>;
   groups: CanonicalGroup[];
   nodes: Array<{
     id: string;
@@ -95,6 +96,8 @@ function mapGraph(record: GraphRecord): GenerationGraphSnapshot {
     minimumWriterVersion: 3,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    outputBindings: record.nodes.flatMap(node => (node.outputs ?? []).map(({ graphNodeId, portId, sortOrder, assetId }) =>
+      ({ graphNodeId, portId, sortOrder, assetId }))),
     nodes: document.nodes,
     edges: document.edges,
     groups: document.groups,
@@ -383,6 +386,7 @@ async function assertCanonicalAssets(
       audioGenerationAudio: {
         select: { generation: { select: { graphNodeId: true } } },
       },
+      sourceOperation: { select: { graphNodeId: true, status: true } },
     },
   });
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
@@ -406,6 +410,7 @@ async function assertCanonicalAssets(
           asset.imageGenerationImage?.generation.graphNodeId ?? null,
           asset.videoGenerationVideo?.generation.graphNodeId ?? null,
           asset.audioGenerationAudio?.generation.graphNodeId ?? null,
+          asset.sourceOperation?.status === "completed" ? asset.sourceOperation.graphNodeId : null,
         ]
       : [];
     return (
@@ -567,6 +572,23 @@ async function update(
           && previous.selectedOutputAssetId !== node.selectedOutputAssetId;
       });
     await updateNodeSelectionsInBatch(tx, graphId, selectionChanges);
+    for (const node of selectionChanges) {
+      const ports = findNodeDefinition(node.kind)?.ports.filter(port => port.direction === "output" &&
+        ["image", "video", "audio"].includes(port.valueType)) ?? [];
+      if (ports.length < 2) continue;
+      const operation = node.selectedOutputAssetId ? await tx.mediaOperation.findFirst({
+        where: { ownerEmail, graphId, graphNodeId: node.id, type: node.kind, status: "completed",
+          outputBindings: { some: { assetId: node.selectedOutputAssetId } } },
+        select: { outputBindings: { include: { asset: { select: { status: true, ownerEmail: true } } } } },
+      }) : null;
+      if (node.selectedOutputAssetId && !operation) throw new GenerationGraphReferenceError("GRAPH_OUTPUT_INVALID");
+      await tx.generationGraphNodeOutput.deleteMany({ where: { graphNodeId: node.id } });
+      const bindings = operation?.outputBindings.flatMap(binding =>
+        binding.assetId && binding.asset?.status === "completed" && binding.asset.ownerEmail === ownerEmail
+          ? [{ graphNodeId: node.id, portId: binding.portId, sortOrder: binding.sortOrder, assetId: binding.assetId }] : [],
+      ) ?? [];
+      if (bindings.length) await tx.generationGraphNodeOutput.createMany({ data: bindings });
+    }
 
     const changedEdges = input.edges.filter((edge) => {
       const previous = existingEdgesById.get(edge.id);

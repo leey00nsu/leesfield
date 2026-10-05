@@ -32,6 +32,7 @@ export async function createVideoGenerationRecord(
     dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
     model: payload.model,
     prompt: payload.prompt,
+    ...(payload.promptPreset ? { promptPreset: JSON.parse(JSON.stringify(payload.promptPreset)) } : {}),
     initImage: payload.initImage || null,
     aspectRatio: payload.aspectRatio,
     resolution: payload.resolution,

@@ -85,6 +85,7 @@ function operation(overrides: Partial<MediaOperationRecord> = {}): MediaOperatio
     graphNode: { id: "node_1", graphId: "graph_1", kind: "edit.video.trim", configVersion: 1 },
     inputs: [],
     outputs: [],
+    outputBindings: [],
     ...overrides,
   };
 }

@@ -1,4 +1,5 @@
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
+import { assistantTextForPort, type AssistantResults } from "@/shared/generation-graph/assistant-output";
 import type {
   CanonicalEdge,
   CanonicalNode,
@@ -99,7 +100,7 @@ export type NodeBananaModelResolver = (
 ) => NodeBananaModelCatalogEntry | null | undefined;
 
 export type NodeBananaHostAdapterOptions = {
-  assistantResults?: Readonly<Record<string, string>>;
+  assistantResults?: AssistantResults;
   /** Resolve both input asset IDs and selected output asset IDs. */
   resolveAsset?: NodeBananaAssetResolver;
   /** Alias useful to callers that already use an asset-resolver name. */
@@ -187,6 +188,7 @@ export const nodeBananaLegacyTypeByCanonicalKind: Readonly<
   "edit.image.gif": "gifEncoder",
   "edit.video.stitch": "videoStitch",
   "edit.video.trim": "videoTrim",
+  "edit.video.extractFrames": "videoFrames",
   "edit.video.frameGrab": "videoFrameGrab",
   "edit.video.easeCurve": "easeCurve",
   "output.single": "output",
@@ -718,21 +720,31 @@ function sourceValuesFor(
   const nextVisited = new Set(visited).add(node.id);
   const data = node.data;
   const kind = stringValue(data.canonicalKind) ?? "";
-  if (kind === "generate.assistant" && sourcePortId === "text") {
-    const text = stringValue(data.outputText);
+  if (kind === "generate.assistant" && ["text", "item"].includes(sourcePortId)) {
+    const text = stringValue(sourcePortId === "item" ? data.outputItemText : data.outputText);
     return text ? [{ type: "text", value: text, sourceNodeId: node.id }] : [];
   }
   if ((kind === "input.prompt" || kind === "process.promptConstructor") && sourcePortId === "text") {
     try {
       const assistantResults = Object.fromEntries([...nodesById.values()]
         .filter((source) => source.data.canonicalKind === "generate.assistant" && typeof source.data.outputText === "string")
-        .map((source) => [source.id, source.data.outputText as string]));
+        .map((source) => [source.id, { text: source.data.outputText as string, item: stringValue(source.data.outputItemText) ?? null }]));
       const text = resolveGraphText({ nodes: [...nodesById.values()].map((source) => ({ id: source.id, kind: String(source.data.canonicalKind), config: source.data.config })),
-        edges: edges.map((edge) => ({ sourceNodeId: edge.source, targetNodeId: edge.target, targetPortId: edge.data.targetPortId, sortOrder: edge.data.sortOrder, hasPause: edge.data.hasPause })) }, node.id, new Set(), assistantResults);
+        edges: edges.map((edge) => ({ sourceNodeId: edge.source, sourcePortId: edge.data.sourcePortId, targetNodeId: edge.target, targetPortId: edge.data.targetPortId, sortOrder: edge.data.sortOrder, hasPause: edge.data.hasPause })) }, node.id, new Set(), assistantResults);
       return text ? [{ type: "text", value: text, sourceNodeId: node.id }] : [];
     } catch { return []; }
   }
   const values: ConnectedValue[] = [];
+  const portAssets = objectValue(data.outputAssetsByPort)[sourcePortId ?? ""];
+  if (kind === "edit.video.extractFrames" && Array.isArray(portAssets)) {
+    return portAssets.flatMap(value => {
+      const asset = objectValue(value);
+      const type = stringValue(asset.type);
+      const url = stringValue(asset.url);
+      return url && (type === "image" || type === "video" || type === "audio")
+        ? [{ type, value: url, sourceNodeId: node.id, assetId: stringValue(asset.id) ?? undefined }] : [];
+    });
+  }
   const add = (value: ConnectedValue | null) => {
     if (value?.value) values.push({ ...value, sourceNodeId: node.id });
   };
@@ -746,7 +758,7 @@ function sourceValuesFor(
         : kind === "input.prompt" && sourcePortId === "text"
           ? "text"
           : null;
-  if (passThroughTargetPort) {
+  if (passThroughTargetPort && !objectValue(data.config).resultSource) {
     const incomingEdges = edges
       .filter((edge) => edge.target === node.id
         && !edge.data.isLoop
@@ -1055,7 +1067,8 @@ function projectNodeData(
     .map((edge) => edge.id);
 
   if (kind === "generate.assistant") {
-    data.outputText = options.assistantResults?.[normalized.id] ?? null;
+    data.outputText = assistantTextForPort(options.assistantResults?.[normalized.id]);
+    data.outputItemText = assistantTextForPort(options.assistantResults?.[normalized.id], "item");
   } else if (kind === "note.memo") {
     data.text = typeof config.text === "string" ? config.text : "";
   } else if (kind === "input.image") {

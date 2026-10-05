@@ -1,5 +1,6 @@
 import { formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
+import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 
 type TranslationFn = (
   key: string,
@@ -9,6 +10,7 @@ type TranslationFn = (
 const audioGenerationBaseSchema = z.object({
   prompt: z.string().trim().min(1, "프롬프트를 입력해주세요."),
   model: z.string().min(1),
+  promptPreset: promptPresetRefSchema.optional(),
   voice: z.string().optional().or(z.literal("")),
   speed: z.number().optional(),
   seed: z.string().optional().or(z.literal("")),

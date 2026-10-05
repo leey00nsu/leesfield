@@ -64,6 +64,7 @@ const parameterSchema = z
     required: z.boolean().optional(),
     min: z.number().optional(),
     max: z.number().optional(),
+    maxItems: z.number().int().min(1).max(8).optional(),
     step: z.number().optional(),
     default: jsonValueSchema.optional(),
     options: z.array(parameterOptionInputSchema).optional(),

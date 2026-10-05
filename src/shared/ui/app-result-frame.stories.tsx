@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import { AppResultFrame } from "@/shared/ui/app-result-frame";
 
 type AppResultFramePreviewProps = {
@@ -16,7 +17,8 @@ function AppResultFramePreview({ state, minHeight }: AppResultFramePreviewProps)
       {state === "loading" ? (
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       ) : state === "result" ? (
-        <div className="h-full w-full rounded-[1.35rem] bg-[url('/assets/creative-studio/mirror-portrait.jpg')] bg-cover bg-center" />
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={storybookImage.url} alt={storybookImage.alt} className="max-h-[32rem] w-full rounded-[1.35rem] object-contain" />
       ) : (
         <div className="text-center">
           <p className="font-semibold text-white">Generated result</p>
@@ -60,3 +62,6 @@ const minHeightClassNames = {
 export const EmptyFrame: Story = {
   render: (args) => <AppResultFramePreview {...args} />,
 };
+
+export const WithResult: Story = { args: { state: "result" } };
+export const Loading: Story = { args: { state: "loading" } };

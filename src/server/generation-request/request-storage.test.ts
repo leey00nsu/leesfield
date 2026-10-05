@@ -36,4 +36,16 @@ describe('repository snapshot persistence',()=>{
   expect(mocks.transaction).toHaveBeenCalledTimes(1);
   expect(mocks.link).toHaveBeenCalledWith({data:[{requestId:'r',generationType:'image',ownerEmail:'owner',field:'initImages',sortOrder:0,multiple:true,assetId:'asset-1'}],skipDuplicates:true});
  });
+
+ it.each(["image","video","audio"])("freezes %s final prompt and preset revision independently of later catalog changes",async(type)=>{
+ const promptPreset={key:"personal-demo",revision:7,requiredInputs:{referenceImageCount:0},recommendedParameters:{}};
+ const payload={model:type,prompt:"edited final prompt",promptPreset,width:512,height:512,steps:1,imageCount:1};
+ if(type==="image")await createImageGenerationRecord("r",payload,"owner");
+ else if(type==="video")await createVideoGenerationRecord("r",{...payload,aspectRatio:"16:9",resolution:720,durationSec:4,fps:24,guidanceScale:1},"owner");
+ else await createAudioGenerationRecord("r",payload,"owner");
+ const saved=mocks.create.mock.calls[0][0].data.requestParams;
+ expect(saved.prompt).toBe("edited final prompt");expect(saved.promptPreset).toEqual(promptPreset);
+ expect(restoreRequest(saved)).toMatchObject({prompt:"edited final prompt",promptPreset});
+ expect(saved.requestSettings).not.toHaveProperty("promptPreset");expect(saved.dynamicParams??{}).not.toHaveProperty("promptPreset");
+ });
 });

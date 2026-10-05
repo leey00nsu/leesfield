@@ -23,8 +23,9 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
 
 export async function requestImageGeneration(
   payload: ImageGenerationFormValues,
+  options?: { idempotencyKey: string; signal: AbortSignal },
 ): Promise<ImageGenerationResponse> {
-  const key = imageSubmissionIntent.take(JSON.stringify(payload));
+  const key = options?.idempotencyKey ?? imageSubmissionIntent.take(JSON.stringify(payload));
   try {
     const result = await requestJson("/api/image-generation", {
       method: "POST",
@@ -33,11 +34,12 @@ export async function requestImageGeneration(
         "Idempotency-Key": key,
       },
       body: JSON.stringify(payload),
+      signal: options?.signal,
     });
-    imageSubmissionIntent.settle(key);
+    if (!options) imageSubmissionIntent.settle(key);
     return result;
   } catch (error) {
-    imageSubmissionIntent.settle(key, error);
+    if (!options) imageSubmissionIntent.settle(key, error);
     throw error;
   }
 }
@@ -46,9 +48,11 @@ const imageSubmissionIntent = createSubmissionIntent();
 
 export async function fetchImageGenerationStatus(
   requestId: string,
+  signal?: AbortSignal,
 ): Promise<ImageGenerationResponse> {
   return requestJson(`/api/image-generation/${requestId}`, {
     method: "GET",
     cache: "no-store",
+    signal,
   });
 }

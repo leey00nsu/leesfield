@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { GradioContractFields } from "./gradio-contract-fields";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
@@ -35,6 +35,83 @@ const contract: GradioContract = {
   reviewed: true,
 };
 describe("Gradio contract fields", () => {
+  it("파일 이름 선택지가 있는 계약도 첨부 위치에서 원래 선택 제한을 유지한다", async () => {
+    const onChange=vi.fn(), user=userEvent.setup();
+    const fileChoices={...contract,inputs:[{...contract.inputs[1],choices:["first.png","second.png"]}]};
+    render(<GradioContractFields scope="attachments" contract={fileChoices} values={{}} prompt="demo" onChange={onChange}/>);
+    await user.click(screen.getByRole("combobox",{name:"First Frame"}));
+    await user.click(await screen.findByRole("option",{name:"second.png"}));
+    expect(onChange).toHaveBeenCalledWith({frame:"second.png"});
+  });
+
+  it("파일 읽기 중 다른 옵션 변경을 보존하며 모델 교체 뒤 이전 파일 결과는 버린다", async () => {
+    let finish: (() => void) | undefined;
+    class Reader {
+      result="data:image/png;base64,YQ==";
+      onload: (()=>void) | null=null;
+      readAsDataURL(){finish=()=>this.onload?.();}
+    }
+    const OriginalReader=globalThis.FileReader;
+    globalThis.FileReader=Reader as unknown as typeof FileReader;
+    try {
+      const onChange=vi.fn();
+      const {rerender}=render(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:5}} prompt="demo" onChange={onChange}/>);
+      fireEvent.change(screen.getByLabelText("First Frame"),{target:{files:[new File(["a"],"a.png",{type:"image/png"})]}});
+      rerender(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:7}} prompt="demo" onChange={onChange}/>);
+      await act(async()=>finish?.());
+      expect(onChange).toHaveBeenLastCalledWith({duration:7,frame:"data:image/png;base64,YQ=="});
+      onChange.mockClear();
+      fireEvent.change(screen.getByLabelText("First Frame"),{target:{files:[new File(["b"],"b.png",{type:"image/png"})]}});
+      rerender(<GradioContractFields key="next-model" scope="attachments" contract={contract} values={{}} prompt="demo" onChange={onChange}/>);
+      await act(async()=>finish?.());
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {globalThis.FileReader=OriginalReader;}
+  });
+
+  it("첨부와 옵션을 분리해 범위 밖 값을 오류로 처리하지 않는다", () => {
+    const {container} = render(<>
+      <GradioContractFields scope="attachments" contract={contract} values={{duration:7}} prompt="demo" onChange={vi.fn()}/>
+      <GradioContractFields scope="options" contract={contract} values={{duration:7}} prompt="demo" onChange={vi.fn()}/>
+    </>);
+    const attachments=within(container.querySelector('[data-contract-fields="attachments"]') as HTMLElement);
+    const options=within(container.querySelector('[data-contract-fields="options"]') as HTMLElement);
+    expect(attachments.getByRole("alert")).toHaveTextContent("First Frame");
+    expect(attachments.queryByLabelText("Duration")).toBeNull();
+    expect(options.queryByLabelText("First Frame")).toBeNull();
+    expect(options.queryByRole("alert")).toBeNull();
+    expect(options.getByLabelText("Duration")).toHaveValue(7);
+  });
+
+  it.each(["image","video","audio"] as const)("복수 %s 첨부는 원본 필드 배열로 보내고 선택/nullable/hidden 계약을 보존한다", async media => {
+    const onChange=vi.fn(), user=userEvent.setup();
+    const files={...contract,inputs:[
+      {...contract.inputs[1],name:"refs",label:"References",kind:"files" as const,media,required:false},
+      {...contract.inputs[1],name:"hidden",hidden:true},
+    ]};
+    const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{duration:7}} prompt="demo" onChange={onChange}/>);
+    const input=screen.getByLabelText("References");
+    expect(input).toHaveAttribute("accept",media+"/*");
+    expect(input).toHaveAttribute("multiple");
+    expect(screen.queryByLabelText("First Frame")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    await user.upload(input,[new File(["a"],"a."+media,{type:media+"/test"}),new File(["b"],"b."+media,{type:media+"/test"})]);
+    await waitFor(()=>expect(onChange).toHaveBeenCalledWith({duration:7,refs:[expect.stringMatching("data:"+media+"/"),expect.stringMatching("data:"+media+"/")]}));
+    rerender(<GradioContractFields scope="attachments" contract={files} values={{duration:7,refs:["data:"+media+"/test;base64,YQ=="]}} prompt="demo" onChange={onChange}/>);
+    await user.click(screen.getByRole("button",{name:"제거"}));
+    expect(onChange).toHaveBeenLastCalledWith({duration:7,refs:null});
+  });
+
+  it("비활성 첨부는 파일 선택/삭제를 차단하고 파일 없는 계약은 첨부 영역이 없다", async () => {
+    const onChange=vi.fn(), user=userEvent.setup();
+    const {rerender,container}=render(<GradioContractFields disabled scope="attachments" contract={contract} values={{frame:"data:image/png;base64,YQ=="}} prompt="demo" onChange={onChange}/>);
+    expect(screen.getByLabelText("First Frame")).toBeDisabled();
+    expect(screen.getByRole("button",{name:"제거"})).toBeDisabled();
+    await user.click(screen.getByRole("button",{name:"제거"}));
+    expect(onChange).not.toHaveBeenCalled();
+    rerender(<GradioContractFields scope="attachments" contract={{...contract,inputs:[contract.inputs[0]]}} values={{}} prompt="demo" onChange={onChange}/>);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("모델 고유 필드를 표시하고 원본 이름으로 값을 변경한다", () => {
     const onChange = vi.fn();
     render(
@@ -126,4 +203,24 @@ it("파일 첨부 후에만 삭제를 제공하며 nullable 파일 삭제는 nul
  expect(screen.getByRole("img",{name:"First Frame"})).toBeVisible();
  await user.click(screen.getByRole("button",{name:"제거"}));
  expect(onChange).toHaveBeenLastCalledWith({frame:null});
+});
+
+it("복수 첨부는 순서대로 추가·개별 제거하고 초과 배치는 기존 파일을 유지한다", async () => {
+  const user=userEvent.setup(), onChange=vi.fn();
+  const files={...contract,inputs:[{...contract.inputs[1],name:"refs",label:"References",kind:"files" as const,media:"image" as const,schema:{type:"array",items:{type:"string"},maxItems:2}}]};
+  const first="data:image/png;base64,YQ==";
+  const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
+  expect(screen.getByText("첨부")).toBeVisible();
+  await user.upload(screen.getByLabelText("References"),new File(["b"],"b.png",{type:"image/png"}));
+  await waitFor(()=>expect(onChange).toHaveBeenCalledWith({refs:[first,"data:image/png;base64,Yg=="]}));
+  rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first,"data:image/png;base64,Yg=="]}} prompt="edit" onChange={onChange}/>);
+  expect(screen.getByRole("button",{name:"References: 파일 추가"})).toBeDisabled();
+  await user.click(screen.getAllByRole("button",{name:"제거"})[0]);
+  expect(onChange).toHaveBeenLastCalledWith({refs:["data:image/png;base64,Yg=="]});
+  onChange.mockClear();
+  rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
+  await user.upload(screen.getByLabelText("References"),[new File(["b"],"b.png",{type:"image/png"}),new File(["c"],"c.png",{type:"image/png"})]);
+  expect(onChange).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toHaveTextContent("최대 2개까지 첨부할 수 있습니다.");
+  expect(screen.getAllByRole("img")).toHaveLength(1);
 });

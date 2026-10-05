@@ -782,7 +782,7 @@ function HistoryDetailOverlay({
           <AppConfirmDialogHeader><AppConfirmDialogTitle>{tHistory("deleteDialog.title")}</AppConfirmDialogTitle><AppConfirmDialogDescription>{tHistory("deleteDialog.preserveAssetsDescription")}</AppConfirmDialogDescription></AppConfirmDialogHeader>
           <AppConfirmDialogFooter>
             <AppConfirmDialogCancel disabled={deleting}>{tCommonActions("cancel")}</AppConfirmDialogCancel>
-            <AppConfirmDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={deleting} onClick={(event) => {event.preventDefault(); void handleDelete();}}>{deleting && <Loader2 className="h-4 w-4 animate-spin" />}{tHistory("deleteDialog.confirm")}</AppConfirmDialogAction>
+            <AppConfirmDialogAction variant="danger" disabled={deleting} onClick={(event) => {event.preventDefault(); void handleDelete();}}>{deleting && <Loader2 className="h-4 w-4 animate-spin" />}{tHistory("deleteDialog.confirm")}</AppConfirmDialogAction>
           </AppConfirmDialogFooter>
         </AppConfirmDialogContent>
       </AppConfirmDialog>

@@ -1,5 +1,5 @@
 
-import { assertGradioExecutable, gradioInputValues, type GradioContract } from "./gradio-contract";
+import { assertGradioExecutable, gradioInputValues, fileFieldMaxItems, type GradioContract } from "./gradio-contract";
 
 export function gradioFieldLabel(field: GradioContract["inputs"][number]): string {
   const label = field.label || field.name;
@@ -35,6 +35,10 @@ export function gradioFormMessage(error: string, contract: GradioContract, local
   const label = (field ? gradioFieldLabel(field) : "") || (ko ? "입력 항목" : "This input");
   if (error.startsWith("HF_CONTRACT_REQUIRED:"))
     return ko ? label + ": 필수 입력입니다." : label + ": This field is required.";
+  if (error.startsWith("HF_CONTRACT_FILE_COUNT_LIMIT:")) {
+    const limit = field ? fileFieldMaxItems(field) : 8;
+    return ko ? `${label}: 최대 ${limit}개까지 첨부할 수 있습니다.` : `${label}: Attach up to ${limit} files.`;
+  }
   if (error.startsWith("HF_CONTRACT_RANGE:") || error.startsWith("HF_CONTRACT_INTEGER:"))
     return ko ? label + ": 허용 범위와 입력 단위를 확인해 주세요." : label + ": Check the allowed range and step.";
   if (error.startsWith("HF_CONTRACT_CHOICE:"))

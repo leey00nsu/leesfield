@@ -79,3 +79,100 @@ describe("source-only model defaults", () => {
     for (const field of contract.inputs) expect(Object.hasOwn(draft.parameters[field.name], "default")).toBe(Object.hasOwn(field, "default"));
   });
 });
+
+describe("model attachment limits", () => {
+  const image = (count: number) => Array.from({length:count}, (_, i) => `https://assets.example.com/${i}.png`);
+  it.each(["image", "video"] as const)("%s: saves array limits and shares runtime/server/Space/provider validation", async media => {
+    const { contractInputPorts } = await import("@/shared/model-catalog/file-input-ports");
+    const base = fixture(media);
+    const model = modelCatalogInputSchema.parse({...base, parameters:{...base.parameters,
+      references:{ui:"upload",maxItems:2,binding:{source:"hf_space",parameterName:"references",valueType:"string",kind:"files",media:"image",order:5,schema:{type:"array",items:{type:"string"},minItems:1,maxItems:4}}}
+    }});
+    expect(model.parameters.references.maxItems).toBe(2);
+    expect(model.parameters.references.binding?.schema?.maxItems).toBe(4);
+    const contract=getGradioContract(model)!;
+    expect(contract.inputs.find(f=>f.name==="references")?.schema.maxItems).toBe(2);
+    expect(contractInputPorts(model)).toEqual([expect.objectContaining({name:"image-field-references",multiple:true,maxItems:2})]);
+    vi.mocked(getModelCatalog).mockResolvedValue([model] as never);
+    const payload={model:media,prompt:"edit",dynamicParams:{references:image(2)}};
+    const runtime=media==="image"?createRuntimeImageSchema([model as RuntimeImageModel]):createRuntimeVideoSchema([model as RuntimeVideoModel]);
+    expect(runtime.safeParse(payload).success).toBe(true);
+    expect((await validators[media](payload)).success).toBe(true);
+    expect(gradioInputValues(contract,payload).references).toEqual(image(2));
+    const overflow={...payload,dynamicParams:{references:image(3)}};
+    expect(runtime.safeParse(overflow).success).toBe(false);
+    expect((await validators[media](overflow)).success).toBe(false);
+    expect(()=>gradioInputValues(contract,overflow)).toThrow("HF_CONTRACT_FILE_COUNT_LIMIT:references");
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,references:{...model.parameters.references,maxItems:5}}}).success).toBe(false);
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,references:{...model.parameters.references,maxItems:0}}}).success).toBe(false);
+  });
+
+  it("Modal limits preserve source schema and scalar ports", async () => {
+    const { contractInputPorts } = await import("@/shared/model-catalog/file-input-ports");
+    const raw=structuredClone(workflows.find(w=>w.category==="image")!);
+    raw.id="multi-reference-limit";
+    Object.assign(raw.input_schema.properties,{refs:{type:"array",items:{type:"string",format:"comfy-input-name","x-media":"image"},minItems:1,maxItems:4},first:{type:"string",format:"comfy-input-name","x-media":"image"}});
+    const draft=buildModalModelDraft(raw);
+    const model=modelCatalogInputSchema.parse({...draft,parameters:{...draft.parameters,refs:{...draft.parameters.refs,maxItems:2}}});
+    expect(getGradioContract(model)!.inputs.find(f=>f.name==="refs")?.schema.maxItems).toBe(2);
+    expect(contractInputPorts(model)).toEqual(expect.arrayContaining([expect.objectContaining({name:"image-field-first",multiple:false,maxItems:1})]));
+    expect(gradioInputValues(getGradioContract(model)!,{prompt:"edit",dynamicParams:{refs:image(2),first:image(1)[0]}})).toMatchObject({refs:image(2),first:image(1)[0]});
+    expect(()=>gradioInputValues(getGradioContract(model)!,{prompt:"edit",dynamicParams:{refs:image(3),first:image(1)[0]}})).toThrow("HF_CONTRACT_FILE_COUNT_LIMIT:refs");
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,first:{...draft.parameters.first,maxItems:2}}}).success).toBe(false);
+    expect((model.providerConfig as {workflow:{input_schema:{properties:Record<string,{maxItems?:number}>}}}).workflow.input_schema.properties.refs.maxItems).toBe(4);
+  });
+});
+
+
+describe("native output count and modality contracts", () => {
+  it("Krea count values keep their provider key through runtime, server and immutable snapshots", async () => {
+    const {resolveImageOutputCount} = await import("@/shared/model-catalog/image-output-count");
+    const {identityEditModel} = await import("@/test-utils/fixtures/media-attachment-models");
+    const {resolveGenerationModalities} = await import("@/shared/model-catalog/modality");
+    expect(resolveGenerationModalities(identityEditModel)).toEqual(["I2I"]);
+    const count = resolveImageOutputCount(identityEditModel);
+    expect(count).toMatchObject({fieldName:"advanced__batch_size",min:1,max:4,defaultValue:1,fixed:false});
+    vi.mocked(getModelCatalog).mockResolvedValue([identityEditModel] as never);
+    for (const value of [1,2,3,4]) {
+      expect(count.accepts(value)).toBe(true);
+      const payload={model:identityEditModel.key,prompt:"edit",dynamicParams:{image:"https://assets.example.com/reference.png",advanced__batch_size:value}};
+      expect(createRuntimeImageSchema([identityEditModel]).safeParse(payload).success).toBe(true);
+      const parsed=await validateImageGenerationPayload(payload);
+      expect(parsed.success).toBe(true);
+      if(!parsed.success)throw parsed.error;
+      expect(parsed.data).toEqual(payload);
+      expect(gradioInputValues(getGradioContract(identityEditModel)!,restoreRequest(await snapshotRequest("image",parsed.data))).advanced__batch_size).toBe(value);
+    }
+    for (const value of [0,5,1.5,NaN,Infinity]) {
+      expect(count.accepts(value)).toBe(false);
+      expect((await validateImageGenerationPayload({model:identityEditModel.key,prompt:"edit",dynamicParams:{image:"https://assets.example.com/reference.png",advanced__batch_size:value}})).success).toBe(false);
+    }
+  });
+  it("count discovery honors bindings, step, choices, fixed values and absent/ambiguous fields", async () => {
+    const {resolveImageOutputCount} = await import("@/shared/model-catalog/image-output-count");
+    const base=fixture("image");
+    const definition={ui:"input",default:4,min:2,max:6,step:2,options:[2,4,6],binding:{source:"hf_space",parameterName:"samples",canonicalKey:"imageCount",kind:"number",valueType:"number",schema:{type:"integer",minimum:2,maximum:6,multipleOf:2},order:5}};
+    const model=modelCatalogInputSchema.parse({...base,parameters:{...base.parameters,count:definition}}) as RuntimeImageModel;
+    const count=resolveImageOutputCount(model);
+    expect(count).toMatchObject({fieldName:"samples",defaultValue:4,choices:[2,4,6]});
+    expect([1,2,3,4,5,6,7].map(count.accepts)).toEqual([false,true,false,true,false,true,false]);
+    const hidden=resolveImageOutputCount({...model,parameters:{...model.parameters,count:{...definition,ui:"hidden"}}});
+    expect(hidden.fixed).toBe(true);expect(hidden.accepts(4)).toBe(true);expect(hidden.accepts(2)).toBe(false);
+    const absent=resolveImageOutputCount(base as RuntimeImageModel);
+    expect(absent).toMatchObject({defaultValue:1,fixed:true});expect(absent.accepts(2)).toBe(false);
+    const ambiguous=resolveImageOutputCount({...model,parameters:{...model.parameters,other:{...definition,binding:{...definition.binding,parameterName:"num_images",order:6}}}});
+    expect(ambiguous.fieldName).toBeUndefined();
+    const legacy={...model,providerConfig:{},parameters:{imageCount:{ui:"input",min:1,max:4,step:1,default:4}}};
+    const legacyCount=resolveImageOutputCount(legacy);
+    expect(legacyCount.defaultValue).toBe(1);expect(legacyCount.accepts(4)).toBe(true);expect(legacyCount.accepts(5)).toBe(false);
+  });
+  it("actual required media determines tags instead of inferred legacy metadata", async () => {
+    const {resolveGenerationModalities}=await import("@/shared/model-catalog/modality");
+    const {videoAttachmentModel,imageToVideoAttachmentModel,audioAttachmentModel,multiImageAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    expect(resolveGenerationModalities(videoAttachmentModel)).toEqual(["V2V"]);
+    expect(resolveGenerationModalities(imageToVideoAttachmentModel)).toEqual(["I2V"]);
+    expect(resolveGenerationModalities(audioAttachmentModel)).toEqual(["A2A"]);
+    expect(resolveGenerationModalities(multiImageAttachmentModel)).toEqual(["I2I"]);
+    expect(resolveGenerationModalities(fixture("video") as RuntimeVideoModel)).toEqual(["T2V"]);
+  });
+});

@@ -28,7 +28,7 @@ export function Header({ isAuthenticated = false, userEmail }: HeaderProps) {
   const pathname = usePathname();
   const BrandLogo = AppBrandLogo;
   const items = dashboardNavigation.filter(
-    (item) => item.href !== "/spaces" || isAuthenticated,
+    (item) => !["/spaces", "/prompt-presets"].includes(item.href) || isAuthenticated,
   );
   return (
     <header className="relative z-30 mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-5 sm:px-8">

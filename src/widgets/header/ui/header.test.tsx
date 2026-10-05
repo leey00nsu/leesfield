@@ -60,6 +60,10 @@ describe("Header", () => {
       "href",
       "/spaces",
     );
+    expect(screen.getByRole("link", { name: "프롬프트 프리셋" })).toHaveAttribute("href", "/prompt-presets");
+    await user.click(screen.getByRole("button", { name: "메뉴" }));
+    expect(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "프롬프트 프리셋" })).toHaveAttribute("href", "/prompt-presets");
+    await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "admin@example.com" }));
     const menu = await screen.findByRole("menu");
     expect(

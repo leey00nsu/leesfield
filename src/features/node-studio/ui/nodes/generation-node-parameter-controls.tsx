@@ -1,5 +1,6 @@
 "use client";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
 import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
 import { Switch } from "@/shared/ui/brand/switch/switch";
 import { AppTextarea } from "@/shared/ui/app-form-control";
@@ -87,9 +88,10 @@ export function GenerationNodeParameterControls({
   const dynamicValues = values.dynamicParams && typeof values.dynamicParams === "object" && !Array.isArray(values.dynamicParams)
     ? values.dynamicParams as Record<string, unknown>
     : {};
-  if (model.provider === "modal_comfyui") {
-    const contract=getGradioContract(model)!;
-    return <fieldset disabled={disabled}><GradioContractFields contract={{...contract,inputGroups:undefined,inputs:contract.inputs.filter(f=>!["file","files","gallery"].includes(f.kind)&&!f.canonical)}} values={dynamicValues} prompt="" onChange={dynamicParams=>onChange({...values,dynamicParams})}/></fieldset>;
+  const contract = getGradioContract(model);
+  if (contract) {
+    const mapped = generationPayload(model, values) as Record<string, unknown>;
+    return <fieldset disabled={disabled}><GradioContractFields contract={{...contract,inputGroups:undefined,inputs:contract.inputs.filter(f=>!["file","files","gallery"].includes(f.kind)&&!f.canonical)}} values={(mapped.dynamicParams ?? {}) as Record<string, unknown>} prompt="" onChange={dynamicParams=>onChange({...values,dynamicParams})}/></fieldset>;
   }
   const fields = Object.entries(model.parameters)
     .flatMap(([key, value]) => {

@@ -1,3 +1,4 @@
+import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
@@ -10,8 +11,8 @@ const historyItems: GenerationHistoryItem[] = [
     prompt: "A cinematic portrait in dark water with controlled rim lighting.",
     model: "GPT Image 2",
     createdAt: "2026-04-29T12:20:00.000Z",
-    resultUrl: "/assets/creative-studio/mirror-portrait.jpg",
-    thumbnailUrl: "/assets/creative-studio/mirror-portrait.jpg",
+    resultUrl: storybookImage.url,
+    thumbnailUrl: storybookImage.url,
     errorMessage: null,
   },
   {
@@ -43,8 +44,8 @@ const historyItems: GenerationHistoryItem[] = [
     prompt: "An abstract mosaic texture study with editorial contrast.",
     model: "GPT Image 2",
     createdAt: "2026-04-29T12:34:00.000Z",
-    resultUrl: "/assets/creative-studio/blue-mosaic.jpg",
-    thumbnailUrl: "/assets/creative-studio/blue-mosaic.jpg",
+    resultUrl: storybookImage.url,
+    thumbnailUrl: storybookImage.url,
     progress: 64,
     errorMessage: null,
   },
@@ -66,8 +67,8 @@ const historyItems: GenerationHistoryItem[] = [
     prompt: "A vocalist in a controlled studio setup with neutral background.",
     model: "GPT Image 2",
     createdAt: "2026-04-29T12:42:00.000Z",
-    resultUrl: "/assets/creative-studio/studio-vocalist.jpg",
-    thumbnailUrl: "/assets/creative-studio/studio-vocalist.jpg",
+    resultUrl: storybookImage.url,
+    thumbnailUrl: storybookImage.url,
     errorMessage: null,
   },
 ];

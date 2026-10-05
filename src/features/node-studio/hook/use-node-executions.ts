@@ -8,6 +8,7 @@ import {
   listNodeExecutions,
   NodeExecutionApiError,
   startNodeExecution,
+  updateNodeExecution,
 } from "../api/node-execution-api";
 import type { NodeExecutionDto } from "../model/node-execution-types";
 import {
@@ -58,15 +59,16 @@ export function useStartNodeExecution() {
   const queryClient = useQueryClient();
   const inFlight = useRef(false);
   return useMutation({
-    mutationFn: async ({ graphId, nodeId, expectedGraphVersion }: {
+    mutationFn: async ({ graphId, nodeId, expectedGraphVersion, repeat }: {
       graphId: string;
       nodeId: string;
       expectedGraphVersion: number;
+      repeat?: { repeatOfExecutionId: string; repeatIndex: number };
     }) => {
       if (inFlight.current) throw new NodeExecutionApiError(409, "NODE_GENERATION_ACTIVE");
       inFlight.current = true;
       try {
-        return await startNodeExecution(graphId, nodeId, expectedGraphVersion);
+        return await startNodeExecution(graphId, nodeId, expectedGraphVersion, repeat);
       } finally {
         inFlight.current = false;
       }
@@ -94,6 +96,32 @@ export function useCancelNodeExecution() {
     }) => cancelNodeExecution(graphId, nodeId, executionId),
     onSuccess: async (_result, variables) => {
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(variables.graphId, variables.nodeId) });
+    },
+  });
+}
+
+export function useSelectAssistantItem() {
+  const queryClient = useQueryClient();
+  const inFlight = useRef(false);
+  return useMutation({
+    mutationFn: async ({ graphId, nodeId, executionId, itemId, expectedSelectionVersion }: {
+      graphId: string; nodeId: string; executionId: string; itemId: string; expectedSelectionVersion: number;
+    }) => {
+      if (inFlight.current) throw new NodeExecutionApiError(409, "ASSISTANT_SELECTION_CONFLICT");
+      inFlight.current = true;
+      try { return await updateNodeExecution(graphId, nodeId, executionId, { action: "select-item", itemId, expectedSelectionVersion }); }
+      finally { inFlight.current = false; }
+    },
+    onSuccess: async (result, variables) => {
+      const key = nodeExecutionKeys.list(variables.graphId, variables.nodeId);
+      // Cancel history reads begun before selection. Their older version must
+      // not replace a server-confirmed choice in either canvas consumer.
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<NodeExecutionDto[]>(key, previous => previous?.map(row => row.executionId === result.executionId
+        && (row.selectionVersion ?? 0) <= (result.selectionVersion ?? 0) ? result : row));
+    },
+    onSettled: (_result, _error, variables) => {
+      void queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(variables.graphId, variables.nodeId) });
     },
   });
 }

@@ -15,6 +15,12 @@ import {
 
 type AppFilterToolbarProps = ComponentProps<"div">;
 
+export const appFilterSearchLayoutClassName = "sm:min-w-[18rem] sm:flex-[1_1_18rem]";
+
+export function AppFilterActions({ className, ...props }: ComponentProps<"div">) {
+  return <div data-app-filter-actions="" className={cn("flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:max-w-none lg:flex-[1_1_34rem]", className)} {...props} />;
+}
+
 export function AppFilterToolbar({
   className,
   children,
@@ -24,7 +30,7 @@ export function AppFilterToolbar({
     <div
       data-app-filter-toolbar=""
       className={cn(
-        "flex w-full flex-col gap-3 rounded-xl border bg-card p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between",
+        "flex w-full flex-col gap-3 rounded-xl border bg-card p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between [&_[data-slot=input]]:h-10! [&_[data-slot=select-trigger]]:h-10! [&_[data-slot=button]]:h-10!",
         className,
       )}
       {...props}
@@ -143,7 +149,7 @@ export function AppSortSelect({
       <AppSelectTrigger
         data-app-sort-select=""
         aria-label={ariaLabel}
-        className={cn("w-[12rem] flex-none", className)}
+        className={cn("data-[size=default]:h-10 w-[12rem] flex-none", className)}
       >
         <span
           aria-hidden="true"

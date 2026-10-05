@@ -1,4 +1,5 @@
 import { DELETE, GET, PATCH } from "./route";
+import { NodeExecutionSelectionConflictError } from "@/server/node-executions/node-execution-errors";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -17,6 +18,13 @@ const context = {
 };
 
 describe("node execution detail route", () => {
+  it("reports a stale Assistant selection as 409 with the original code", async () => {
+    mocks.update.mockRejectedValueOnce(new NodeExecutionSelectionConflictError());
+    const response = await PATCH(new Request("http://localhost", { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "select-item", itemId: "run:2", expectedSelectionVersion: 0 }) }), context);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ message: "ASSISTANT_SELECTION_CONFLICT" });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getSession.mockResolvedValue({ isLoggedIn: true, adminEmail: "owner@example.com" });

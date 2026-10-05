@@ -1,6 +1,8 @@
 import { formParameterIssues } from "@/shared/model-catalog/parameter-contract";
 import { getGradioContract, gradioInputValues, formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
+import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
+import { promptPresetInputIssue, promptPresetInputMessages } from "@/shared/prompt-presets/prompt-preset-application";
 import { generationPayload } from "./generation-payload";
 import { mappedGenerationBodySchema } from "@/shared/api/generation-input";
 import type {
@@ -45,6 +47,12 @@ function withMappedContract<T extends z.ZodType>(models: readonly (RuntimeImageM
         ctx.addIssue({ code: "custom", path: ["dynamicParams"], message: error instanceof Error ? error.message : "HF_CONTRACT_INVALID" });
         return z.NEVER;
       }
+    }
+    if (model) {
+      const data = parsed.data as Record<string, unknown>;
+      const ref = promptPresetRefSchema.safeParse(data.promptPreset);
+      const issue = ref.success ? promptPresetInputIssue(model, data, ref.data) : null;
+      if (issue) { ctx.addIssue({ code: "custom", path: ["promptPreset"], message: promptPresetInputMessages[issue] }); return z.NEVER; }
     }
     return parsed.data;
   });
@@ -110,6 +118,7 @@ export function createRuntimeImageSchema(
   const unsupportedMode = t ? t("unsupportedMode") : "지원하지 않는 모드입니다.";
 
   const schema = z.object({
+    promptPreset: promptPresetRefSchema.optional(),
     prompt: z.string().min(1, promptRequired),
     width: z.number().int(),
     height: z.number().int(),
@@ -265,6 +274,7 @@ export function createRuntimeVideoSchema(
     : "지원하지 않는 해상도입니다.";
 
   const schema = z.object({
+    promptPreset: promptPresetRefSchema.optional(),
     prompt: z.string().min(1, promptRequired),
     initImage: initImageSchema.optional().or(z.literal("")),
     model: z.string().min(1),
@@ -430,6 +440,7 @@ export function createRuntimeAudioSchema(
   const unsupportedSelection = "지원하지 않는 선택값입니다.";
 
   const schema = z.object({
+    promptPreset: promptPresetRefSchema.optional(),
     prompt: z.string().min(1, promptRequired),
     model: z.string().min(1),
     dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),

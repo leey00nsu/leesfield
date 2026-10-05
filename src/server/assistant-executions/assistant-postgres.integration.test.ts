@@ -7,7 +7,7 @@ import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-serv
 import { encryptModelApiKey } from "@/server/model-catalog/model-credential";
 import { nodeExecutionService } from "@/server/node-executions/node-execution-service";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
-import { createAssistantExecution, claimAssistantExecution, latestAssistantText, settleAssistantExecution } from "./assistant-execution-repository";
+import { createAssistantExecution, claimAssistantExecution, latestAssistantText, settleAssistantExecution, selectAssistantItem } from "./assistant-execution-repository";
 import { processAssistantJobs, stopAssistantWorker } from "./assistant-worker";
 
 const remote = vi.hoisted(() => ({ requestRemote: vi.fn() }));
@@ -56,10 +56,13 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     } });
     remote.requestRemote.mockImplementation(async (_url: string, options: { body: string; headers: Record<string, string> }) => {
       expect(options.headers.authorization).toBe("Bearer sk-test-secret");
-      const body = JSON.parse(options.body) as { messages: Array<{ content: string }> };
-      calls.push(body.messages[0].content);
-      return { status: body.messages[0].content.includes("fail") ? 500 : 200,
-        body: Buffer.from(JSON.stringify({ choices: [{ message: { content: `answer ${calls.length}` } }] })) };
+      const body = JSON.parse(options.body) as { messages: Array<{ role: string; content: string }> };
+      const content = body.messages.find(message => message.role === "user")!.content;
+      calls.push(content);
+      const answer = content.includes("list-invalid") ? "Here are your ideas: coat, scarf"
+        : content.includes("make-list") ? '{"items":["coat","coat","scarf"]}' : `answer ${calls.length}`;
+      return { status: content.includes("fail") ? 500 : 200,
+        body: Buffer.from(JSON.stringify({ choices: [{ message: { content: answer } }] })) };
     });
   });
 
@@ -96,6 +99,45 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     expect((await run(firstId)).errorCode).toBe("ASSISTANT_PROVIDER_REJECTED");
     expect(await latestAssistantText(ownerEmail, graphId, firstId)).toBe("answer 1");
     expect((await nodeExecutionService.list(ownerEmail, graphId, firstId)).map((item) => item.status)).toEqual(["failed", "completed"]);
+  });
+
+  it("persists list selection, guards ownership/version/latest, and freezes downstream input despite later selections", async () => {
+    await prisma.generationGraphNode.update({ where: { id: firstId }, data: { config: { prompt: "make-list", modelKey, outputMode: "list" } } });
+    const list = await run(firstId);
+    expect(list).toMatchObject({ status: "completed", outputMode: "list", outputText: "1. coat\n\n2. coat\n\n3. scarf", selectionVersion: 0 });
+    expect(list.outputItems?.map(item => item.id)).toEqual([`${list.executionId}:1`, `${list.executionId}:2`, `${list.executionId}:3`]);
+    const scarf = list.outputItems![2].id;
+    expect(list.selectedItemId).toBe(list.outputItems![0].id);
+    const update = { action: "select-item", itemId: scarf, expectedSelectionVersion: 0 };
+    expect(await nodeExecutionService.update(ownerEmail, graphId, firstId, list.executionId, update)).toMatchObject({ selectedItemId: scarf, selectionVersion: 1 });
+    await expect(selectAssistantItem("other@example.com", graphId, firstId, list.executionId, update)).rejects.toThrow("NODE_EXECUTION_NOT_FOUND");
+    await expect(selectAssistantItem(ownerEmail, graphId, secondId, list.executionId, update)).rejects.toThrow("NODE_EXECUTION_NOT_FOUND");
+    await expect(selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, update)).rejects.toThrow("ASSISTANT_SELECTION_CONFLICT");
+    await expect(selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, { ...update, expectedSelectionVersion: 1, itemId: "absent" })).rejects.toThrow("NODE_EXECUTION_INPUT_INVALID");
+    expect(await latestAssistantText(ownerEmail, graphId, firstId, "item")).toBe("scarf");
+    expect(await latestAssistantText(ownerEmail, graphId, firstId, "text")).toBe("1. coat\n\n2. coat\n\n3. scarf");
+    await prisma.generationGraphNode.update({ where: { id: firstId }, data: { x: 30, config: { prompt: "updated draft", modelKey, outputMode: "text" } } });
+    expect((await nodeExecutionService.list(ownerEmail, graphId, firstId)).find(row => row.executionId === list.executionId)).toMatchObject({ selectedItemId: scarf, selectionVersion: 1, outputMode: "list" });
+    await prisma.generationGraphEdge.update({ where: { id: `edge-a-${suffix}` }, data: { sourcePortId: "item" } });
+    const next = await nodeExecutionService.execute(ownerEmail, graphId, secondId, { expectedGraphVersion: 1 });
+    await selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, { ...update, itemId: list.outputItems![0].id, expectedSelectionVersion: 1 });
+    expect((await prisma.assistantExecution.findUniqueOrThrow({ where: { id: next.record.id } })).inputSnapshot).toMatchObject({ text: "scarf" });
+    await processAssistantJobs();
+    expect(calls.some(content => content === "refine\n\nscarf")).toBe(true);
+    await prisma.generationGraphEdge.update({ where: { id: `edge-b-${suffix}` }, data: { sourceNodeId: firstId, sourcePortId: "item" } });
+    expect((await run(thirdId)).status).toBe("completed");
+    expect(calls.some(content => content === "third\n\ncoat")).toBe(true);
+    await prisma.generationGraphNode.update({ where: { id: firstId }, data: { config: { prompt: "list-invalid", modelKey, outputMode: "list" } } });
+    const before = calls.length;
+    expect(await run(firstId)).toMatchObject({ status: "failed", errorCode: "ASSISTANT_LIST_INVALID" });
+    expect(calls).toHaveLength(before + 1);
+    expect(await latestAssistantText(ownerEmail, graphId, firstId, "item")).toBe("coat");
+    expect((await nodeExecutionService.get(ownerEmail, graphId, firstId, list.executionId)).selectionVersion).toBe(2);
+    await prisma.generationGraphNode.update({ where: { id: firstId }, data: { config: { prompt: "ordinary", modelKey } } });
+    expect((await run(firstId)).status).toBe("completed");
+    expect(await latestAssistantText(ownerEmail, graphId, firstId, "item")).toBeNull();
+    await expect(selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, { ...update, expectedSelectionVersion: 2 })).rejects.toThrow("ASSISTANT_SELECTION_CONFLICT");
+    await expect(nodeExecutionService.execute(ownerEmail, graphId, secondId, { expectedGraphVersion: 1 })).rejects.toThrow("NODE_INPUT_INVALID");
   });
 
   it("cancels pending runs and fences stale completions", async () => {

@@ -1,4 +1,5 @@
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
+import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import {
   NodeExecutionConfigError,
   NodeExecutionInputResolutionError,
@@ -65,6 +66,10 @@ async function resolveSourceAssetIds(
   visited: Set<string> = new Set(),
 ): Promise<string[]> {
   const passThroughPort = inputPassThroughPort(sourceKind);
+  if (passThroughPort && (edge.sourceNode.config as { resultSource?: unknown } | null)?.resultSource) {
+    const assetId = configuredInputAssetId(edge.sourceNode);
+    return assetId ? [assetId] : [];
+  }
   if (passThroughPort) {
     if (visited.has(edge.sourceNode.id)) {
       throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", {
@@ -101,15 +106,11 @@ async function resolveSourceAssetIds(
   }
   const inputAssetId = configuredInputAssetId(edge.sourceNode);
   if (inputAssetId) return [inputAssetId];
-  const selectedAssetId = edge.sourceNode.selectedOutputAssetId;
-  if (!selectedAssetId) return [];
-  const outputs = edge.sourceNode.outputs.filter((output) => output.portId === sourcePortId);
-  const sourcePort = findPortDefinition(sourceKind, sourcePortId, "output");
-  if (sourcePort?.valueShape === "ordered-list" && targetValueShape === "ordered-list" &&
-    outputs.some((output) => output.assetId === selectedAssetId)) {
-    return outputs.map((output) => output.assetId);
-  }
-  return [selectedAssetId];
+  const assetIds = mediaAssetIdsForPort(sourceKind, sourcePortId,
+    edge.sourceNode.selectedOutputAssetId, edge.sourceNode.outputs);
+  if (targetValueShape === "single" && mediaOutputPorts(sourceKind).length === 1)
+    return edge.sourceNode.selectedOutputAssetId ? [edge.sourceNode.selectedOutputAssetId] : [];
+  return targetValueShape === "ordered-list" ? assetIds : assetIds.slice(0, 1);
 }
 
 export function createNodeOutputService(overrides: Partial<Dependencies> = {}) {

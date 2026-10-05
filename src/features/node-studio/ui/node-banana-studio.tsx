@@ -1,10 +1,15 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
+import { AppMediaOpenButton } from "@/shared/ui/app-media-open-button";
+import { NodeTextEditorScope } from "@/shared/ui/node-text-editor";
+import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
+import { SpaceInputMediaChooser } from "./nodes/space-input-media-chooser";
 import { useQueryClient } from "@tanstack/react-query";
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import type { NodeProps, NodeTypes } from "@xyflow/react";
+import { promptPresetDisplayName } from "@/shared/prompt-presets/prompt-preset-display-name";
 import { useTranslations } from "next-intl";
 
 import {
@@ -12,7 +17,6 @@ import {
   NodeBananaCanvasRuntime,
   NodeBananaUpstreamHeader,
   NodeBananaUpstreamNode,
-  NodeBananaUpstreamControlPanel,
   NodeBananaUpstreamHostProvider,
   GroupBackgroundsPortal,
   GroupControlsOverlay,
@@ -72,6 +76,11 @@ import { useSpacePreferences } from "../hook/use-space-preferences";
 import { useSpaceComments } from "../hook/use-space-comments";
 import { validSpaceDefaultParameters } from "@/shared/generation-graph/space-preferences";
 import { nodeBananaCatalogModels } from "../runtime/node-banana/node-banana-model-catalog";
+import { usePromptPresetCatalog } from "@/entities/prompt-preset/model/use-prompt-preset-catalog";
+import { applyNodePromptPreset, presetCanonicalKind, projectNodePromptPresetInputs } from "../model/node-prompt-presets";
+import { SpaceGenerationControlPanel } from "./nodes/space-generation-control-panel";
+import { SpaceGenerationPrompt } from "./nodes/space-generation-prompt";
+import { generationAttachmentSlots, replaceGenerationAttachments, type GenerationAttachmentSlot } from "../model/generation-prompt-attachments";
 
 const NodeBananaHostedRuntimeContext = createContext<object | null>(null);
 
@@ -247,8 +256,11 @@ export function NodeBananaStudio({
   const preferences = useSpacePreferences();
   const trackModel = preferences?.trackModel;
   const savedNodeDefaults = preferences?.data?.defaults;
+  const presets = usePromptPresetCatalog("image", false, writable);
+  const availablePresets = presets.data;
   const comments = useSpaceComments();
   const t = useTranslations("nodeStudio");
+  const tPresets = useTranslations("promptPresets");
   const initialCanonical = useMemo(() => graphSnapshotToCanonicalDocument(graph), [graph]);
   const initialProjection = useMemo(
     () => nodeBananaRuntimeAdapter.project(initialCanonical),
@@ -349,9 +361,29 @@ export function NodeBananaStudio({
     }
     const draft = canonicalDocumentToV3Draft(canonical);
     const signature = graphDraftSignature(draft);
-    if (signature === publishedSignatureRef.current) return;
-
     const nextGraph = canonicalDocumentToRuntimeGraph(canonical);
+    // Generation geometry belongs to the mounted canvas. Reprojection of an
+    // authored prompt must not reset a resize to the registry's default size.
+    const incomingById = new Map(nextRuntime.nodes.map(node => [node.id, node]));
+    nextGraph.nodes = nextGraph.nodes.map(node => {
+      const incoming = incomingById.get(node.id);
+      if (!String(node.data.canonicalKind).startsWith("generate.") || !incoming) return node;
+      const width = incoming.width, height = incoming.height;
+      return typeof width === "number" && Number.isFinite(width) && width > 0 &&
+        typeof height === "number" && Number.isFinite(height) && height > 0
+        ? { ...node, width, height, style: { ...node.style, width, height } } : node;
+    });
+    if (signature === publishedSignatureRef.current) {
+      const geometryChanged = nextGraph.nodes.some(node => {
+        const previous = runtimeGraphRef.current.nodes.find(candidate => candidate.id === node.id);
+        return previous?.width !== node.width || previous?.height !== node.height;
+      });
+      if (geometryChanged) {
+        runtimeGraphRef.current = nextGraph;
+        setRuntimeGraph(nextGraph);
+      }
+      return;
+    }
     canonicalRef.current = canonical;
     runtimeGraphRef.current = nextGraph;
     publishedSignatureRef.current = signature;
@@ -359,15 +391,28 @@ export function NodeBananaStudio({
     onDraftChangeRef.current(draft);
   }, [onHostError]);
 
-  const incomingSelectionsRef = useRef(new Map(graph.nodes.map(node => [node.id, node.selectedOutputAssetId])));
+  const incomingGraphSignatureRef = useRef(graphDraftSignature(canonicalDocumentToV3Draft(initialCanonical)));
   useEffect(() => {
-    const incoming = new Map(graph.nodes.map(node => [node.id, node.selectedOutputAssetId]));
-    const changed = new Set([...incoming].filter(([id, value]) => incomingSelectionsRef.current.get(id) !== value).map(([id]) => id));
-    incomingSelectionsRef.current = incoming;
-    if (!changed.size) return;
-    publishRuntimeGraph({ ...runtimeGraphRef.current, nodes: runtimeGraphRef.current.nodes.map(node => changed.has(node.id)
-      ? { ...node, data: { ...node.data, selectedOutputAssetId: incoming.get(node.id) ?? null } } : node) });
-  }, [graph.nodes, publishRuntimeGraph]);
+    const signature = graphDraftSignature(canonicalDocumentToV3Draft(initialCanonical));
+    if (signature === incomingGraphSignatureRef.current) return;
+    incomingGraphSignatureRef.current = signature;
+    // The workspace also writes automatic result nodes and fixed assets.
+    // Accept those snapshots without echoing them through the Canvas writer.
+    if (signature === publishedSignatureRef.current) return;
+    const next = canonicalDocumentToRuntimeGraph(initialCanonical);
+    const previousById = new Map(runtimeGraphRef.current.nodes.map(node => [node.id, node]));
+    next.nodes = next.nodes.map(node => {
+      const previous = previousById.get(node.id);
+      if (!previous || previous.data.canonicalKind !== node.data.canonicalKind) return node;
+      const geometry = String(node.data.canonicalKind).startsWith("generate.")
+        ? { width: previous.width, height: previous.height, style: previous.style } : {};
+      return { ...node, ...geometry, selected: previous.selected, data: { ...previous.data, ...node.data } };
+    });
+    canonicalRef.current = initialCanonical;
+    runtimeGraphRef.current = next;
+    publishedSignatureRef.current = signature;
+    setRuntimeGraph(next);
+  }, [initialCanonical]);
 
   const prepareExecution = useCallback(
     () => prepareImageNodeExecutionRef.current(),
@@ -380,6 +425,10 @@ export function NodeBananaStudio({
   ): Record<string, unknown> => {
     const transient = upstreamTransientData[nodeId] ?? {};
     const resolved = resolveUpstreamNodeData?.(nodeId, runtimeData) ?? {};
+    const config = outputGalleryConfig(runtimeData.config);
+    const kind = String(runtimeData.canonicalKind ?? "");
+    const models = kind === "generate.image" ? catalog.imageModels : kind === "generate.video" ? catalog.videoModels ?? [] : catalog.audioModels ?? [];
+    const presetInputs = projectNodePromptPresetInputs(config, kind, models.find(model => model.key === config.modelKey));
     const optimisticAnnotation = typeof transient.optimisticAnnotationOutput === "string"
       && transient.optimisticAnnotationOutput.startsWith("data:image/")
       && !(typeof resolved.outputImage === "string" && resolved.outputImage.length > 0)
@@ -388,6 +437,7 @@ export function NodeBananaStudio({
     return {
       ...transient,
       ...resolved,
+      ...presetInputs,
       ...optimisticAnnotation,
       // Default cells/groups are persisted by the host. Custom template
       // authoring and router orchestration remain outside this execution scope.
@@ -399,7 +449,7 @@ export function NodeBananaStudio({
             })) ?? [] }
         : {}),
     };
-  }, [resolveUpstreamNodeData, upstreamTransientData]);
+  }, [catalog.imageModels, catalog.videoModels, catalog.audioModels, resolveUpstreamNodeData, upstreamTransientData]);
 
   const upstreamHostGraph = useMemo(() => {
     const graphWithResolvedData = {
@@ -541,17 +591,43 @@ export function NodeBananaStudio({
     });
   }, [effectiveWritable, publishRuntimeGraph]);
 
+  const clearInputMedia = useCallback((nodeId: string) => {
+    if (!effectiveWritable) return;
+    const current = runtimeGraphRef.current;
+    const node = current.nodes.find(node => node.id === nodeId);
+    if (!node || !["input.image", "input.video", "input.audio"].includes(String(node.data.canonicalKind))) return;
+    const resolved = resolveHostedNodeData(nodeId, node.data as Record<string, unknown>);
+    if (isActiveExecutionStatus(resolved.resultStatus)) return;
+    const config = { ...outputGalleryConfig(node.data.config), assetId: null };
+    delete (config as Record<string, unknown>).resultSource;
+    publishRuntimeGraph({
+      ...current,
+      nodes: current.nodes.map(candidate => candidate.id === nodeId ? { ...candidate,
+        data: { ...candidate.data, config: config as CanonicalJsonValue, selectedOutputAssetId: null } } : candidate),
+      edges: current.edges.filter(edge => edge.target !== nodeId),
+    });
+  }, [effectiveWritable, publishRuntimeGraph, resolveHostedNodeData]);
+
   const hasMissingInput = useCallback((nodeId: string) => {
     const graph = runtimeGraphRef.current;
     const seen = new Set<string>();
-    const visit = (id: string): boolean => {
-      if (seen.has(id)) return false;
-      seen.add(id);
+    const visit = (id: string, sourcePortId?: string): boolean => {
+      const key = `${id}:${sourcePortId ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       const node = graph.nodes.find(node => node.id === id);
-      if (node && resolveHostedNodeData(id, node.data as Record<string, unknown>)?.missingMedia) return true;
-      return graph.edges.filter(edge => edge.target === id).some(edge => visit(edge.source));
+      const resolved = node && resolveHostedNodeData(id, node.data as Record<string, unknown>);
+      if (node?.data.canonicalKind === "edit.video.extractFrames" && sourcePortId) {
+        const assets = (resolved?.outputAssetsByPort as Record<string, unknown> | undefined)?.[sourcePortId];
+        return !Array.isArray(assets) || assets.length === 0;
+      }
+      if (resolved?.missingMedia) return true;
+      if (outputGalleryConfig(node?.data.config).resultSource) return false;
+      return graph.edges.filter(edge => edge.target === id && !edge.data?.hasPause)
+        .some(edge => visit(edge.source, String(edge.data?.sourcePortId ?? edge.sourceHandle)));
     };
-    return graph.edges.filter(edge => edge.target === nodeId).some(edge => visit(edge.source));
+    return graph.edges.filter(edge => edge.target === nodeId && !edge.data?.hasPause)
+      .some(edge => visit(edge.source, String(edge.data?.sourcePortId ?? edge.sourceHandle)));
   }, [resolveHostedNodeData]);
 
   const runUpstreamNode = useCallback(async (nodeId: string) => {
@@ -728,7 +804,7 @@ export function NodeBananaStudio({
     mediaType: "image" | "audio" | "video",
     selectedAssetId: string | null,
     options?: { open: boolean; onOpenChange: (open: boolean) => void },
-  ) => (
+  ) => mediaType === "audio" && !options ? null : (
     <NodeBananaInputHistoryControl
       key={`${graph.id}:${nodeId}`}
       nodeId={nodeId}
@@ -842,6 +918,14 @@ export function NodeBananaStudio({
     else catalog.retry();
   }, [catalog]);
 
+  const renderGenerationPrompt = useCallback((input: { nodeId: string; connected?: boolean; connectedValue?: string | null }) => {
+    // The compiled host may reuse the rendered slot when the prompt text is
+    // unchanged. Config-only edits (e.g. repeatCount) must invalidate that slot.
+    const node = runtimeGraph.nodes.find(node => node.id === input.nodeId);
+    const modality = node?.data.canonicalKind === "generate.image" ? "image"
+      : node?.data.canonicalKind === "generate.video" ? "video" : "audio";
+    return <SpaceGenerationPrompt {...input} modality={modality} config={outputGalleryConfig(node?.data.config)} progress={resolveUpstreamNodeData?.(input.nodeId, {})?.repeatProgress as { completed: number; failed: number; total: number; running: boolean } | undefined} />;
+  }, [runtimeGraph.nodes, resolveUpstreamNodeData]);
   const hostedRuntime = useMemo(() => ({
     comments,
     recentModels,
@@ -859,6 +943,7 @@ export function NodeBananaStudio({
     onCancelNode: effectiveWritable ? onCancelNode : undefined,
     onHostError,
     renderInputHistory,
+    renderGenerationPrompt,
     getHostedNodeRunReadiness,
     updateUpstreamNodeData,
     runUpstreamNode,
@@ -869,6 +954,7 @@ export function NodeBananaStudio({
     onOutputGalleryRemove: removeOutputGalleryMedia,
     onOutputGalleryExtract: extractOutputGalleryMedia,
     removeEdge: removeUpstreamEdge,
+    clearInputMedia,
     commitNodePositions: commitHostedNodePositions,
   }), [
     comments, recentModels, trackModelUsage, preferences?.inlineParametersEnabled, catalog.isLoading, catalog.error, refreshHostedModels, applyHostedSplitTemplate,
@@ -885,7 +971,9 @@ export function NodeBananaStudio({
     onOpenAnnotation,
     removeOutputGalleryMedia,
     removeUpstreamEdge,
+    clearInputMedia,
     renderInputHistory,
+    renderGenerationPrompt,
     resolveHostedNodeData,
     runUpstreamNode,
     updateUpstreamNodeData,
@@ -901,10 +989,108 @@ export function NodeBananaStudio({
     hostedModelsError: catalog.error, refreshHostedModels, onHostError,
   }), [comments, recentModels, trackModelUsage, preferences?.inlineParametersEnabled, upstreamHostedModels, catalog.isLoading, catalog.error, refreshHostedModels, onHostError]);
 
+  const HostedUpstreamHeaderComponent = useMemo(() => {
+    function HostedUpstreamHeaderPresenter({
+      node,
+    }: {
+      node: NodeBananaCanvasProps["graph"]["nodes"][number];
+    }) {
+      const translatePreset = useTranslations("promptPresets");
+      const projectHeaderData = useCallback((data: Record<string, unknown>) => {
+        const config = outputGalleryConfig(data.config);
+        const presentation = outputGalleryConfig(config.presentation);
+        const presetKey = outputGalleryConfig(config.promptPreset).key;
+        if (typeof presetKey !== "string" || typeof presentation.customTitle !== "string") return data;
+        const customTitle = promptPresetDisplayName({ key: presetKey, name: presentation.customTitle }, translatePreset);
+        // Upstream rebuilds its title from config. This copy is display-only.
+        return { ...data, config: { ...config, presentation: { ...presentation, customTitle } } };
+      }, [translatePreset]);
+      const contextRuntime = useContext(NodeBananaHostedRuntimeContext) as typeof hostedRuntimeRef.current | null;
+      const current = contextRuntime ?? hostedRuntimeRef.current;
+      const data = node.data as Record<string, unknown>;
+      const resolvedData = current.resolveUpstreamNodeData(node.id, data);
+      const effectiveData = projectHeaderData({ ...data, ...resolvedData });
+      const resolveNodeData = useCallback((nodeId: string) => {
+        const latest = (runtimeGraphRef.current.nodes.find((candidate) => candidate.id === nodeId)?.data ?? {}) as Record<string, unknown>;
+        return projectHeaderData({
+          ...latest,
+          ...current.resolveUpstreamNodeData(nodeId, latest),
+        });
+      }, [current, projectHeaderData]);
+      const updateHeaderData = useCallback((nodeId: string, patch: Record<string, unknown>) => {
+        const latest = (runtimeGraphRef.current.nodes.find(candidate => candidate.id === nodeId)?.data ?? {}) as Record<string, unknown>;
+        const original = outputGalleryConfig(outputGalleryConfig(latest.config).presentation);
+        const displayed = outputGalleryConfig(outputGalleryConfig(projectHeaderData(latest).config).presentation);
+        const patchConfig = outputGalleryConfig(patch.config);
+        const patchPresentation = outputGalleryConfig(patchConfig.presentation);
+        // Comment/optional edits from upstream include the display config. Keep
+        // the stored default identity unless the user actually changes its title.
+        const next = original.customTitle !== displayed.customTitle && patchPresentation.customTitle === displayed.customTitle
+          ? { ...patch, config: { ...patchConfig, presentation: { ...patchPresentation, customTitle: original.customTitle } } }
+          : patch;
+        current.updateUpstreamNodeData(nodeId, next);
+      }, [current, projectHeaderData]);
+      const getNodeRunReadiness = useCallback((nodeId: string) => {
+        const readiness = current.getHostedNodeRunReadiness(nodeId);
+        return {
+          ...readiness,
+          reason: readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
+        };
+      }, [current]);
+      const headerHost = useMemo(() => ({
+        ...current.comments,
+        recentModels: current.recentModels,
+        trackModelUsage: current.trackModelUsage,
+        inlineParametersEnabled: current.inlineParametersEnabled,
+        hostedModelsLoading: current.hostedModelsLoading,
+        hostedModelsError: current.hostedModelsError,
+        refreshHostedModels: current.refreshHostedModels,
+        writable: current.writable,
+        hostedModels: current.hostedModels,
+        nodes: current.upstreamHostGraph.nodes as unknown as Record<string, unknown>[],
+        edges: current.upstreamHostGraph.edges as unknown as Record<string, unknown>[],
+        getConnectedInputs: current.upstreamHostGraph.getConnectedInputs,
+        removeEdge: current.removeEdge,
+        commitNodePositions: current.commitNodePositions,
+        isRunning: isActiveExecutionStatus(effectiveData.executionStatus),
+        resolveNodeData,
+        onInputMediaUpload: current.onInputMediaUpload,
+        onAnnotationOutput: current.onAnnotationOutput,
+        onHostError: current.onHostError,
+        onOutputGalleryRemove: current.onOutputGalleryRemove,
+        onOutputGalleryExtract: current.onOutputGalleryExtract,
+        renderInputHistory: current.renderInputHistory,
+        getNodeRunReadiness,
+      }), [current, effectiveData.executionStatus, getNodeRunReadiness, resolveNodeData]);
+      return (
+        <NodeBananaUpstreamHeader
+          key={`upstream-header-${node.id}`}
+          runtimeData={{ ...effectiveData, id: node.id }}
+          position={{ x: 0, y: 0 }}
+          width={node.measured?.width ?? node.width ?? (node.style?.width as number) ?? 300}
+          selected={node.selected}
+          isExecuting={effectiveData.executionStatus === "processing" || effectiveData.executionStatus === "pending" || effectiveData.executionStatus === "uploading"}
+          host={headerHost}
+          onCancelNode={current.onCancelNode}
+          onUpdateNodeData={updateHeaderData}
+          onRegenerateNode={current.runUpstreamNode}
+          onOpenAnnotation={current.onOpenAnnotation}
+          onExpandNode={current.onExpandNode}
+          onCloseAnnotation={current.onCloseAnnotation}
+        />
+      );
+    }
+    return HostedUpstreamHeaderPresenter;
+  }, []);
+
+
   const HostedUpstreamNode = useMemo(() => {
     function HostedUpstreamNodeComponent(props: NodeProps) {
       const tMedia = useTranslations("nodeStudio.mediaNodes");
+      const tc = useCanvasTranslation();
       const [uploading, setUploading] = useState(false);
+      const [choosingMedia, setChoosingMedia] = useState(false);
+      const nodeRoot = useRef<HTMLDivElement>(null);
       const uploadVersion = useRef(0);
       const contextRuntime = useContext(NodeBananaHostedRuntimeContext) as typeof hostedRuntimeRef.current | null;
       const current = contextRuntime ?? hostedRuntimeRef.current;
@@ -913,12 +1099,30 @@ export function NodeBananaStudio({
         props.id,
         (runtimeNode?.data ?? {}) as Record<string, unknown>,
       );
+      // Use the final host projection, just like the native media presenter;
+      // connected inputs can differ from config.assetId or the newest execution.
+      const inputKind = String(runtimeNode?.data.canonicalKind ?? props.data.canonicalKind);
+      const displayed = current.upstreamHostGraph.nodes.find(node => node.id === props.id)?.data;
+      const mediaUrl = displayed?.[inputKind === "input.image" ? "image"
+        : inputKind === "input.video" ? "video" : inputKind === "input.audio" ? "audioFile" : ""];
+      const showMediaOpen = typeof mediaUrl === "string" && mediaUrl.length > 0
+        && !resolved?.missingMedia && (!resolved?.resultStatus || resolved.resultStatus === "completed")
+        && !uploading && !props.data.mediaUploading;
+      const mediaType = inputKind === "input.image" ? "image" : inputKind === "input.video" ? "video" : inputKind === "input.audio" ? "audio" : null;
+      const hasInputConnection = mediaType !== null && (Boolean(outputGalleryConfig(runtimeNode?.data.config).resultSource)
+        || current.upstreamHostGraph.edges.some(edge => edge.target === props.id));
+      const restoreMediaFocus = useCallback(() => {
+        nodeRoot.current?.querySelector<HTMLElement>('[role="button"]:not(.react-flow__handle)')?.focus();
+      }, []);
+      useEffect(() => { setChoosingMedia(false); }, [mediaUrl, props.data.mediaUploading, current.writable]);
       const isRunning = isActiveExecutionStatus(resolved?.executionStatus ?? runtimeNode?.data.executionStatus);
       const resolveNodeData = useCallback((nodeId: string) => {
         const latest = (runtimeGraphRef.current.nodes.find((node) => node.id === nodeId)?.data ?? {}) as Record<string, unknown>;
         return {
           ...latest,
           ...(current.resolveUpstreamNodeData?.(nodeId, latest) ?? {}),
+          ...(['generate.image', 'generate.video', 'generate.audio'].includes(String(latest.canonicalKind))
+            ? { outputImage: null, outputVideo: null, outputAudio: null, imageHistory: [], videoHistory: [], audioHistory: [] } : {}),
           ...(() => {
             const preview = current.upstreamHostGraph.nodes.find(node => node.id === nodeId)?.data;
             return preview?.canonicalKind === "input.image" ? {
@@ -966,10 +1170,33 @@ export function NodeBananaStudio({
         onOutputGalleryRemove: current.onOutputGalleryRemove,
         onOutputGalleryExtract: current.onOutputGalleryExtract,
         renderInputHistory: current.renderInputHistory,
+        renderGenerationPrompt: current.renderGenerationPrompt,
         getNodeRunReadiness,
       }), [current, uploadInput, getNodeRunReadiness, isRunning, resolveNodeData]);
       return (
         <>
+        <div ref={nodeRoot} className="contents" data-space-media-input={mediaType ?? undefined}
+          data-space-media-empty={mediaType && !mediaUrl ? true : undefined}
+          data-space-connected-media={hasInputConnection ? true : undefined}
+          data-space-input-only={['generate.image', 'generate.video', 'generate.audio'].includes(String(props.data.canonicalKind)) ? true : undefined}
+          onClickCapture={event => {
+            if (!mediaType || !current.writable || !(event.target instanceof Element)) return;
+            const control = event.target.closest<HTMLElement>('button, [role="button"]');
+            if (!control || !nodeRoot.current?.contains(control) || control.classList.contains("react-flow__handle")) return;
+            if (control.getAttribute("aria-label") === tc("Remove " + mediaType)) {
+              event.preventDefault(); event.stopPropagation(); current.clearInputMedia(props.id); return;
+            }
+            if (control.getAttribute("role") === "button" || control.getAttribute("aria-label") === tc("Choose " + mediaType)) {
+              if (hasInputConnection) return;
+              event.preventDefault(); event.stopPropagation(); setChoosingMedia(true);
+            }
+          }}
+          onKeyDownCapture={event => {
+            if (!mediaType || !current.writable || hasInputConnection || !(event.target instanceof Element)
+              || !event.target.matches('[role="button"]:not(.react-flow__handle)') || !["Enter", " "].includes(event.key)) return;
+            event.preventDefault(); event.stopPropagation(); setChoosingMedia(true);
+          }}>
+        <NodeTextEditorScope>
         <NodeBananaUpstreamNode
           {...props}
           host={nodeHost}
@@ -978,95 +1205,34 @@ export function NodeBananaStudio({
           onOpenAnnotation={current.onOpenAnnotation}
           onCloseAnnotation={current.onCloseAnnotation}
         />
+        </NodeTextEditorScope>
+        </div>
+        {runtimeNode && <HostedUpstreamHeaderComponent node={{ ...runtimeNode, selected: props.selected }} />}
+        {showMediaOpen ? <AppMediaOpenButton href={mediaUrl as string} compact isolateCanvasEvents
+          className={`nodrag nopan ${styles.mediaOpen} ${inputKind === "input.audio" ? styles.mediaOpenAudio : ""}`} /> : null}
+        {showMediaOpen && hasInputConnection ? <button type="button" data-space-media-disconnect="" aria-label={tc("Remove " + mediaType)}
+          disabled={!current.writable} title={tc("Remove " + mediaType)}
+          className={`nodrag nopan ${styles.mediaDisconnect} ${inputKind === "input.audio" ? styles.mediaDisconnectAudio : ""}`}
+          onPointerDown={event => event.stopPropagation()} onFocus={event => event.stopPropagation()}
+          onKeyDown={event => event.stopPropagation()}
+          onClick={event => { event.stopPropagation(); current.clearInputMedia(props.id); }}><X aria-hidden="true" /></button> : null}
+        {mediaType && <SpaceInputMediaChooser open={choosingMedia && current.writable && !hasInputConnection} onOpenChange={setChoosingMedia}
+          restoreFocus={restoreMediaFocus} onUpload={() => nodeRoot.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+          renderAssets={options => current.renderInputHistory(props.id, mediaType, outputGalleryConfig(runtimeNode?.data.config).assetId as string | null, options)} />}
+        {resolved?.resultStatus && resolved.resultStatus !== "completed" ? <div data-space-result-status={String(resolved.resultStatus)}
+          role={resolved.resultStatus === "failed" ? "alert" : "status"} aria-live="polite"
+          className={`nodrag nopan ${styles.resultStatus} flex flex-col items-center justify-center gap-2 bg-background px-4 text-center text-sm text-muted-foreground`}
+          onPointerDown={event => event.stopPropagation()}>
+          {isActiveExecutionStatus(resolved.resultStatus) ? <><Loader2 className="h-6 w-6 animate-spin" /><span>{tMedia("generating")}</span>{typeof resolved.resultProgress === "number" && <span>{resolved.resultProgress}%</span>}</>
+            : <span>{tMedia(resolved.resultStatus === "cancelled" ? "resultCancelled" : "resultFailed")}</span>}
+        </div> : null}
         {resolved?.missingMedia ? <div role="status" className="nodrag nopan absolute inset-x-2 top-8 z-40 rounded-lg bg-background/95 px-3 py-2 text-xs text-muted-foreground pointer-events-none">{tMedia("missingFile")}</div> : null}
         {(uploading || props.data.mediaUploading) ? <div role="status" aria-live="polite" aria-label={tMedia("uploading")} className="nodrag nopan absolute inset-0 z-50 flex items-center justify-center gap-2 rounded-2xl bg-black/55 text-sm text-white backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin" />{tMedia("uploading")}</div> : null}
         </>
       );
     }
     return HostedUpstreamNodeComponent;
-  }, []);
-
-  const HostedUpstreamHeaderComponent = useMemo(() => {
-    function HostedUpstreamHeaderPresenter({
-      node,
-    }: {
-      node: NodeBananaCanvasProps["graph"]["nodes"][number];
-    }) {
-      const contextRuntime = useContext(NodeBananaHostedRuntimeContext) as typeof hostedRuntimeRef.current | null;
-      const current = contextRuntime ?? hostedRuntimeRef.current;
-      const data = node.data as Record<string, unknown>;
-      const resolvedData = current.resolveUpstreamNodeData(node.id, data);
-      const effectiveData = { ...data, ...resolvedData };
-      const resolveNodeData = useCallback((nodeId: string) => {
-        const latest = (runtimeGraphRef.current.nodes.find((candidate) => candidate.id === nodeId)?.data ?? {}) as Record<string, unknown>;
-        return {
-          ...latest,
-          ...current.resolveUpstreamNodeData(nodeId, latest),
-        };
-      }, [current]);
-      const getNodeRunReadiness = useCallback((nodeId: string) => {
-        const readiness = current.getHostedNodeRunReadiness(nodeId);
-        return {
-          ...readiness,
-          reason: readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
-        };
-      }, [current]);
-      const headerHost = useMemo(() => ({
-        ...current.comments,
-        recentModels: current.recentModels,
-        trackModelUsage: current.trackModelUsage,
-        inlineParametersEnabled: current.inlineParametersEnabled,
-        hostedModelsLoading: current.hostedModelsLoading,
-        hostedModelsError: current.hostedModelsError,
-        refreshHostedModels: current.refreshHostedModels,
-        writable: current.writable,
-        hostedModels: current.hostedModels,
-        nodes: current.upstreamHostGraph.nodes as unknown as Record<string, unknown>[],
-        edges: current.upstreamHostGraph.edges as unknown as Record<string, unknown>[],
-        getConnectedInputs: current.upstreamHostGraph.getConnectedInputs,
-        removeEdge: current.removeEdge,
-        commitNodePositions: current.commitNodePositions,
-        isRunning: isActiveExecutionStatus(effectiveData.executionStatus),
-        resolveNodeData,
-        onInputMediaUpload: current.onInputMediaUpload,
-        onAnnotationOutput: current.onAnnotationOutput,
-        onHostError: current.onHostError,
-        onOutputGalleryRemove: current.onOutputGalleryRemove,
-        onOutputGalleryExtract: current.onOutputGalleryExtract,
-        renderInputHistory: current.renderInputHistory,
-        getNodeRunReadiness,
-      }), [current, effectiveData.executionStatus, getNodeRunReadiness, resolveNodeData]);
-      return (
-        <NodeBananaUpstreamHeader
-          key={`upstream-header-${node.id}`}
-          runtimeData={{ ...effectiveData, id: node.id }}
-          position={node.position}
-          width={node.measured?.width ?? node.width ?? (node.style?.width as number) ?? 300}
-          selected={node.selected}
-          isExecuting={effectiveData.executionStatus === "processing" || effectiveData.executionStatus === "pending" || effectiveData.executionStatus === "uploading"}
-          host={headerHost}
-          onCancelNode={current.onCancelNode}
-          onUpdateNodeData={current.updateUpstreamNodeData}
-          onRegenerateNode={current.runUpstreamNode}
-          onOpenAnnotation={current.onOpenAnnotation}
-          onExpandNode={current.onExpandNode}
-          onCloseAnnotation={current.onCloseAnnotation}
-        />
-      );
-    }
-    return HostedUpstreamHeaderPresenter;
-  }, []);
-
-  const HostedUpstreamHeader = useCallback(
-    (node: NodeBananaCanvasProps["graph"]["nodes"][number]) => (
-      node.data.canonicalKind === "note.memo" || node.data.canonicalKind === "edit.video.stitch"
-        || node.data.canonicalKind === "generate.assistant"
-        || node.data.canonicalKind === "edit.video.trim"
-        || isUnavailableEditNodeKind(String(node.data.canonicalKind ?? ""))
-        ? null : <HostedUpstreamHeaderComponent node={node} />
-    ),
-    [HostedUpstreamHeaderComponent],
-  );
+  }, [HostedUpstreamHeaderComponent]);
 
   const hostedNodeTypes = useMemo<NodeTypes>(
     () => ({
@@ -1087,7 +1253,7 @@ export function NodeBananaStudio({
     () =>
       nodeBananaPaletteKinds
         .filter((kind) => !isUnavailableEditNodeKind(kind))
-        .map((kind) => {
+        .map<NodeBananaRuntimePaletteItem>((kind) => {
           const inventory = nodeBananaNodeInventory[kind];
           return {
             kind,
@@ -1095,8 +1261,10 @@ export function NodeBananaStudio({
             category: inventory.category,
             mediaType: inventory.mediaType,
           };
-        }),
-    [],
+        }).concat((availablePresets ?? []).filter(preset => preset.builtinKey !== null).map(preset => ({
+          kind: "preset." + preset.key, label: promptPresetDisplayName(preset, tPresets), category: "Generate", mediaType: "image",
+        }))),
+    [availablePresets, tPresets],
   );
 
   const modelItems = useMemo<NodeBananaRuntimeModelItem[]>(
@@ -1194,12 +1362,40 @@ export function NodeBananaStudio({
     replaceNodeData(nodeId, { config: { ...config, size } });
   }, [effectiveWritable, replaceNodeData]);
 
+  const replaceNodeInputAssets = useCallback((nodeId: string, requestedSlot: GenerationAttachmentSlot, assetIds: readonly string[],
+    expected: { modelKey: unknown; assetIds: readonly string[] }) => {
+    if (!effectiveWritable) return false;
+    const current = runtimeGraphRef.current, target = current.nodes.find(node => node.id === nodeId);
+    const config = outputGalleryConfig(target?.data.config);
+    if (!target || config.modelKey !== expected.modelKey) return false;
+    const models = target.data.canonicalKind === "generate.image" ? catalog.imageModels
+      : target.data.canonicalKind === "generate.video" ? catalog.videoModels ?? []
+      : target.data.canonicalKind === "generate.audio" ? catalog.audioModels ?? [] : [];
+    const model = models.find(model => model.key === config.modelKey);
+    const slot = model && generationAttachmentSlots(model).find(slot => slot.field.name === requestedSlot.field.name);
+    const removing = assetIds.length < expected.assetIds.length && assetIds.every(id => expected.assetIds.includes(id));
+    if (!slot || slot.field.media !== requestedSlot.field.media || JSON.stringify(slot.ports) !== JSON.stringify(requestedSlot.ports) ||
+        (assetIds.length > slot.limit && !removing) || JSON.stringify(slot.ports.flatMap(port => resolveNodeInputAssetIds(current, nodeId, port))) !== JSON.stringify(expected.assetIds)) return false;
+    const next = replaceGenerationAttachments(current, nodeId, slot, assetIds, () => crypto.randomUUID());
+    for (const edge of next.edges.filter(edge => !current.edges.some(previous => previous.id === edge.id))) {
+      if (!isRuntimeConnectionValid(canonicalRef.current, { ...next, edges: next.edges.filter(candidate => candidate.id !== edge.id) }, edge, {
+        imageInputLimit: key => resolveRuntimeImageMaxInputImages(catalog.imageModels.find(model => model.key === key)),
+        videoSupportsInitImage: key => resolveRuntimeVideoSupportsInitImage((catalog.videoModels ?? []).find(model => model.key === key)),
+      })) throw new Error("ATTACHMENT_CONNECTION");
+    }
+    undoRecorderRef.current?.(current);
+    publishRuntimeGraph(next);
+    return true;
+  }, [catalog.imageModels, catalog.videoModels, catalog.audioModels, effectiveWritable, publishRuntimeGraph]);
+
   const authoringContext = useMemo(
     () => ({
       ...catalog,
       graphId: graph.id,
       prepareImageNodeExecution: prepareExecution,
       prepareNodeExecution: prepareExecution,
+      runNode: onRegenerateNode ? runUpstreamNode : undefined,
+      cancelNode: onCancelNode,
       writable: effectiveWritable,
       updateCanonicalNodeConfig: (nodeId: string, config: CanonicalJsonValue) =>
         replaceNodeData(nodeId, { config }),
@@ -1210,6 +1406,7 @@ export function NodeBananaStudio({
       getNodePromptInput,
       getNodeInputAssetId,
       getNodeInputAssetIds,
+      replaceNodeInputAssets,
       isNodePortConnected,
       isNodePersisted: (nodeId: string) => persistedNodeIds?.has(nodeId) ?? graph.nodes.some((node) => node.id === nodeId),
       selectNodeOutputAsset: (nodeId: string, selectedOutputAssetId: string | null) =>
@@ -1260,6 +1457,7 @@ export function NodeBananaStudio({
     }),
     [
       catalog,
+      onRegenerateNode, onCancelNode, runUpstreamNode,
       effectiveWritable,
       graph.id,
       graph.nodes,
@@ -1267,6 +1465,7 @@ export function NodeBananaStudio({
       getNodeRunReadiness,
       getNodeInputAssetId,
       getNodeInputAssetIds,
+      replaceNodeInputAssets,
       getNodePromptInput,
       isNodePortConnected,
       inputReadinessByNodeId,
@@ -1326,14 +1525,15 @@ export function NodeBananaStudio({
   const filterPaletteItems = useCallback<NonNullable<NodeBananaCanvasProps["filterPaletteItems"]>>(
     (items, pending) => {
       const current = runtimeGraphRef.current;
-      return filterPaletteForConnection(current, items, pending).filter((item) => {
+      return items.filter(item => filterPaletteForConnection(current, [{ ...item, kind: presetCanonicalKind(item.kind) }], pending).length > 0).filter((item) => {
         if (isUnavailableEditNodeKind(item.kind)) return false;
         if (!pending) return true;
-        const media = item.kind === "generate.image" ? "image" : item.kind === "generate.video" ? "video" : item.kind === "generate.audio" ? "audio" : null;
+        const kind = presetCanonicalKind(item.kind);
+        const media = kind === "generate.image" ? "image" : kind === "generate.video" ? "video" : kind === "generate.audio" ? "audio" : null;
         const models = media === "image" ? catalog.imageModels : media === "video" ? catalog.videoModels ?? [] : catalog.audioModels ?? [];
         const savedDefault = media ? savedNodeDefaults?.[media] : undefined;
         const validDefault = savedDefault && models.some((model) => model.key === savedDefault.modelKey && model.isActive && validSpaceDefaultParameters(model.parameters, savedDefault.parameters)) ? savedDefault : undefined;
-        const node = createCanonicalRuntimeNode(item.kind as CanonicalNodeKind, "candidate-port-node", { x: 0, y: 0 }, item.initialModelKey ?? validDefault?.modelKey);
+        const node = createCanonicalRuntimeNode(kind as CanonicalNodeKind, "candidate-port-node", { x: 0, y: 0 }, item.initialModelKey ?? validDefault?.modelKey);
         const edge = connectCreatedRuntimeNode(current, node, pending, "candidate-port-edge");
         return edge !== null && isRuntimeConnectionValid(canonicalRef.current, { ...current, nodes: [...current.nodes, node] }, edge, connectionCapabilities);
       });
@@ -1353,18 +1553,21 @@ export function NodeBananaStudio({
     (item, position, pending) => {
       if (isUnavailableEditNodeKind(item.kind)) throw new Error("NODE_TYPE_UNAVAILABLE");
       const currentGraph = runtimeGraphRef.current;
-      const media = item.kind === "generate.image" ? "image" : item.kind === "generate.video" ? "video" : item.kind === "generate.audio" ? "audio" : null;
+      const kind = presetCanonicalKind(item.kind);
+      const preset = item.kind.startsWith("preset.") ? availablePresets?.find(preset => preset.key === item.kind.slice(7)) : undefined;
+      if (item.kind.startsWith("preset.") && !preset) throw new Error("PRESET_UNAVAILABLE");
+      const media = kind === "generate.image" ? "image" : kind === "generate.video" ? "video" : kind === "generate.audio" ? "audio" : null;
       const models = media === "image" ? catalog.imageModels : media === "video" ? catalog.videoModels ?? [] : catalog.audioModels ?? [];
       const savedDefault = media ? savedNodeDefaults?.[media] : undefined;
       const validDefault = savedDefault && models.some((model) => model.key === savedDefault.modelKey && model.isActive && validSpaceDefaultParameters(model.parameters, savedDefault.parameters)) ? savedDefault : undefined;
       const initialModelKey = item.initialModelKey ?? validDefault?.modelKey;
       const createdNode = createCanonicalRuntimeNode(
-        item.kind as CanonicalNodeKind,
+        kind as CanonicalNodeKind,
         crypto.randomUUID(),
         position,
         initialModelKey,
       );
-      const node = item.kind.startsWith("generate.") && initialModelKey
+      const baseNode = kind.startsWith("generate.") && initialModelKey
         ? {
             ...createdNode,
             data: {
@@ -1379,6 +1582,11 @@ export function NodeBananaStudio({
             },
           }
         : createdNode;
+      const node = preset ? { ...baseNode, data: { ...baseNode.data,
+        config: { ...applyNodePromptPreset(outputGalleryConfig(baseNode.data.config), preset,
+          catalog.imageModels.find(model => model.key === initialModelKey)).config,
+          presentation: { ...outputGalleryConfig(outputGalleryConfig(baseNode.data.config).presentation), customTitle: preset.name },
+        } as CanonicalJsonValue } } : baseNode;
       if (initialModelKey) trackModel?.(initialModelKey);
       const edge = connectCreatedRuntimeNode(
           currentGraph,
@@ -1395,7 +1603,7 @@ export function NodeBananaStudio({
       }
       return { node, edge };
     },
-    [catalog.imageModels, catalog.videoModels, catalog.audioModels, savedNodeDefaults, trackModel, connectionCapabilities],
+    [catalog.imageModels, catalog.videoModels, catalog.audioModels, savedNodeDefaults, trackModel, connectionCapabilities, availablePresets],
   );
   return (
     <NodeBananaCanvasErrorBoundary
@@ -1469,10 +1677,9 @@ export function NodeBananaStudio({
             onCreateGroup={createGroup}
             onUngroup={ungroupNodes}
             downloadingImages={downloadingImages}
-            renderNodeHeader={HostedUpstreamHeader}
             canvasOverlay={<NodeBananaUpstreamHostProvider value={groupHost}>
               <GroupBackgroundsPortal /><GroupControlsOverlay />
-              <NodeBananaUpstreamControlPanel host={{
+              <SpaceGenerationControlPanel host={{
                 ...canvasHost,
                 writable: effectiveWritable,
                 onUpdateNodeData: updateUpstreamNodeData,

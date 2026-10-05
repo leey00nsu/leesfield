@@ -274,6 +274,12 @@ type HostWorkflowState = {
   setNodeGroupId: (...args: any[]) => void;
   hoveredNodeId: string | null;
   setHoveredNodeId: (nodeId: string | null) => void;
+  renderGenerationPrompt?: (input: {
+    nodeId: string;
+    value?: string | null;
+    connectedValue?: string | null;
+    connected?: boolean;
+  }) => ReactNode;
   renderInputHistory: (
     nodeId: string,
     mediaType: "image" | "audio" | "video",
@@ -452,11 +458,13 @@ export function HostedGenerationPrompt({
   const tc = useCanvasTranslation();
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const writable = useWorkflowStore((state) => state.writable);
+  const renderPrompt = useWorkflowStore((state) => state.renderGenerationPrompt);
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => {
     if (!connected) setDraft(value ?? "");
   }, [connected, value]);
   const displayed = connected ? connectedValue ?? "" : draft;
+  if (renderPrompt) return renderPrompt({ nodeId, value, connectedValue, connected });
   return (
     <label className="nodrag nopan block shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
       <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-neutral-500">{tc("Prompt")}</span>

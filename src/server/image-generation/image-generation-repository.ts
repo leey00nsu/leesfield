@@ -33,6 +33,7 @@ export async function createImageGenerationRecord(
     dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
     model: payload.model,
     prompt: payload.prompt,
+    ...(payload.promptPreset ? { promptPreset: JSON.parse(JSON.stringify(payload.promptPreset)) } : {}),
     width: payload.width,
     height: payload.height,
     steps: payload.steps,

@@ -30,6 +30,15 @@ describe("image authoring", () => {
     expect(restored.values).toMatchObject(values);
     expect(restored.unavailableModelKey).toBeNull();
   });
+  it("keeps preset binding while converting editable values and switching model defaults", () => {
+    const promptPreset = { key: "multi-camera-nine-grid", revision: 5, builtinRevision: 1,
+      requiredInputs: { referenceImageCount: 1 }, recommendedParameters: { imageCount: 1 } };
+    const promptPresetState = { name: "멀티 카메라 9 그리드", appliedPrompt: "저장본" };
+    const values = migrateImageAuthoringValues({ prompt: "편집한 문구" }, secondModel);
+    const config = authoringValuesToImageConfig(values, secondModel, { promptPreset, promptPresetState });
+    expect(config).toMatchObject({ prompt: "편집한 문구", modelKey: secondModel.key, promptPreset, promptPresetState });
+    expect(imageConfigToAuthoringValues(config, [secondModel]).preservedConfig).toEqual(config);
+  });
 
   it("preserves a null or unavailable model config without guessing", () => {
     const nullModel = imageConfigToAuthoringValues(

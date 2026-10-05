@@ -93,7 +93,7 @@ describe("requestAudioGeneration", () => {
     expect(body.get("repetitionPenalty")).toBe("1.1");
   });
 
-  it("dynamicParams를 JSON field로 직렬화한다", async () => {
+  it("provider 입력과 프리셋 출처를 서로 다른 JSON field로 직렬화한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ requestId: "req-dynamic", status: "pending", progress: 0 }),
@@ -103,6 +103,7 @@ describe("requestAudioGeneration", () => {
     await requestAudioGeneration({
       prompt: "hello",
       model: "qwen-dynamic",
+      promptPreset: { key: "audio-demo", revision: 7, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} },
       dynamicParams: {
         "hf:model_size": "1.7B",
         "hf:use_xvector_only": false,
@@ -111,6 +112,7 @@ describe("requestAudioGeneration", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = init.body as FormData;
+    expect(JSON.parse(String(body.get("promptPreset")))).toEqual({ key: "audio-demo", revision: 7, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} });
     expect(body.get("dynamicParams")).toBe(
       JSON.stringify({
         "hf:model_size": "1.7B",

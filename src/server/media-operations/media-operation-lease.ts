@@ -14,6 +14,7 @@ export const MEDIA_OPERATION_WORKER_TYPES = [
   "edit.image.removeBackground",
   "edit.video.stitch",
   "edit.video.trim",
+  "edit.video.extractFrames",
 ] as const;
 
 const MEDIA_OPERATION_ADVISORY_LOCK_KEY = 2_147_483_639;

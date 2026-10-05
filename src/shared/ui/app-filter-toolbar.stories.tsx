@@ -3,6 +3,7 @@ import { AudioLines, Grid2X2, Image as ImageIcon, Video } from "lucide-react";
 import {
   AppFilterGroup,
   AppFilterToolbar,
+  AppFilterActions,
   AppFilterToggle,
   AppSearchField,
   AppSortSelect,
@@ -39,7 +40,7 @@ function AppFilterToolbarPreview({
           </AppFilterToggle>
         </AppFilterGroup>
         {search || sort ? (
-          <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:ml-auto lg:w-[43rem] lg:flex-none">
+          <AppFilterActions>
             {search ? (
               <AppSearchField
                 containerClassName="sm:flex-1"
@@ -49,7 +50,7 @@ function AppFilterToolbarPreview({
             ) : null}
             {sort ? (
               <AppSortSelect
-                className="h-14 sm:w-[12rem] sm:flex-none"
+                className="w-full sm:w-[12rem]"
                 value="date_desc"
                 onValueChange={() => {}}
                 ariaLabel="Sort history"
@@ -59,7 +60,7 @@ function AppFilterToolbarPreview({
                 ]}
               />
             ) : null}
-          </div>
+          </AppFilterActions>
         ) : null}
       </AppFilterToolbar>
     </div>

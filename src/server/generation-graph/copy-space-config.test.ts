@@ -6,6 +6,20 @@ const node = (kind: string, config: CanonicalNode["config"]): CanonicalNode => (
   id: "source", kind, config, configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: null,
 });
 describe("Space copy ownership", () => {
+  it.each(["image", "audio", "video"])("copies a fixed %s result without referencing old execution history", type => {
+    const source = node(`input.${type}`, {assetId:"asset",resultSource:{nodeId:"producer",executionId:"old-run",portId:type,index:0,state:"completed"}});
+    expect(copySpaceConfig(source,new Map([["producer","new-producer"]]),()=>"id")).toMatchObject({assetId:"asset",resultSource:{nodeId:"new-producer",executionId:null,state:"completed"}});
+    expect(source.config).toMatchObject({resultSource:{executionId:"old-run"}});
+  });
+  it("copies preset work metadata and final prompt independently of later source edits", () => {
+    const config = { prompt: "편집한 문구", modelKey: "image-model", parameters: { imageCount: 1 },
+      promptPreset: { key: "multi-camera-nine-grid", revision: 3, requiredInputs: { referenceImageCount: 1 }, recommendedParameters: { imageCount: 1 } },
+      promptPresetState: { name: "멀티 카메라 9 그리드", appliedPrompt: "적용했던 저장본" }, presentation: { customTitle: "시트" } };
+    const copy = copySpaceConfig(node("generate.image", config), new Map(), () => "new-id");
+    expect(copy).toEqual(config);
+    config.prompt = "나중 변경"; config.promptPreset.revision = 4;
+    expect(copy).toMatchObject({ prompt: "편집한 문구", promptPreset: { revision: 3 } });
+  });
   it.each(["edit.image.gif", "edit.video.stitch"])("preserves reordered %s inputs with copied edge IDs", (kind) => {
     const source = node(kind, { parameters: { clipOrder: ["edge-b", "edge-a"], repeat: 2 } });
     const before = structuredClone(source);

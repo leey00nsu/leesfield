@@ -143,6 +143,7 @@ function assertUploadOperationTarget(
   );
   if (
     !definition ||
+    definition.executionMode !== "browser-operation" ||
     !operation.graphNode ||
     operation.graphNode.kind !== operation.type ||
     operation.graphNode.configVersion !== operation.configVersion ||
@@ -210,6 +211,7 @@ function toOperationDto(operation: MediaOperationRecord): MediaOperationDto {
     expectedOutputCount: operation.expectedOutputCount,
     errorCode: operation.errorCode,
     outputAssetIds: operation.outputs?.map((output) => output.id) ?? [],
+    outputBindings: operation.outputBindings ?? [],
     inputs: operation.inputs.map((input) => ({
       assetId: input.assetId,
       portId: input.portId,

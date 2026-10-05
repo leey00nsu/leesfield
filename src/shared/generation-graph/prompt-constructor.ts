@@ -1,3 +1,5 @@
+import { assistantTextForPort, type AssistantResults } from "./assistant-output";
+
 export type PromptVariable = { name: string; value: string; nodeId: string };
 export type PromptSource = { id: string; kind: string; text: string; variableName?: string };
 
@@ -32,28 +34,28 @@ export function constructPrompt(template: string, sources: readonly PromptSource
 
 type TextGraph = {
   nodes: readonly { id: string; kind: string; config: unknown }[];
-  edges: readonly { sourceNodeId: string; targetNodeId: string; targetPortId: string; sortOrder?: number; hasPause?: boolean }[];
+  edges: readonly { sourceNodeId: string; sourcePortId?: string; targetNodeId: string; targetPortId: string; sortOrder?: number; hasPause?: boolean }[];
 };
 function configOf(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
-export function resolveGraphText(graph: TextGraph, nodeId: string, visited = new Set<string>(), assistantResults: Readonly<Record<string, string>> = {}): string {
+export function resolveGraphText(graph: TextGraph, nodeId: string, visited = new Set<string>(), assistantResults: AssistantResults = {}, sourcePortId = "text"): string {
   if (visited.has(nodeId)) throw new Error("PROMPT_INPUT_CYCLE");
   const node = graph.nodes.find((candidate) => candidate.id === nodeId);
   if (!node) return "";
   const config = configOf(node.config);
-  if (node.kind === "generate.assistant") return assistantResults[nodeId] ?? "";
+  if (node.kind === "generate.assistant") return assistantTextForPort(assistantResults[nodeId], sourcePortId) ?? "";
   const next = new Set(visited).add(nodeId);
   const incoming = graph.edges.filter((edge) => edge.targetNodeId === nodeId && edge.targetPortId === "text" && (node.kind === "input.prompt" || !edge.hasPause))
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   if (node.kind === "input.prompt") return incoming.length
-    ? resolveGraphText(graph, incoming[0].sourceNodeId, next, assistantResults) : typeof config.text === "string" ? config.text : "";
+    ? resolveGraphText(graph, incoming[0].sourceNodeId, next, assistantResults, incoming[0].sourcePortId) : typeof config.text === "string" ? config.text : "";
   if (node.kind !== "process.promptConstructor") return "";
   return constructPrompt(typeof config.template === "string" ? config.template : "", incoming.flatMap((edge) => {
     const source = graph.nodes.find((candidate) => candidate.id === edge.sourceNodeId);
     if (!source) return [];
     const variableName = configOf(source.config).variableName;
-    return [{ id: source.id, kind: source.kind, text: resolveGraphText(graph, source.id, next, assistantResults),
+    return [{ id: source.id, kind: source.kind, text: resolveGraphText(graph, source.id, next, assistantResults, edge.sourcePortId),
       ...(typeof variableName === "string" ? { variableName } : {}) }];
   }));
 }

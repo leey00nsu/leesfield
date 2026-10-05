@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { splitTemplateSchema } from "./split-grid-template";
 
 export const canonicalNodeKinds = [
@@ -20,6 +21,7 @@ export const canonicalNodeKinds = [
   "edit.video.stitch",
   "edit.video.trim",
   "edit.video.frameGrab",
+  "edit.video.extractFrames",
   "edit.video.easeCurve",
   "output.single",
   "output.gallery",
@@ -71,6 +73,14 @@ const presentationField = { presentation: nodePresentationSchema.optional(),
 const emptyConfigSchema = z.object(presentationField).strict();
 const assetInputConfigSchema = z.object({
   assetId: idSchema.nullable(),
+  resultSource: z.object({
+    nodeId: idSchema,
+    executionId: idSchema.nullable(),
+    portId: idSchema,
+    index: z.number().int().min(0).max(499),
+    outputCount: z.number().int().min(0).max(500).optional(),
+    state: z.enum(["pending", "completed", "failed", "cancelled"]),
+  }).strict().optional(),
   filename: z.string().trim().min(1).max(255).optional(),
   splitSource: z.object({ nodeId: idSchema, index: z.number().int().min(0).max(399) }).strict().optional(),
   ...presentationField,
@@ -85,12 +95,16 @@ const generationConfigSchema = z
     prompt: z.string().max(20_000),
     modelKey: z.string().trim().min(1).max(200).nullable(),
     parameters: parametersSchema,
+    promptPreset: promptPresetRefSchema.optional(),
+    promptPresetState: promptPresetWorkStateSchema.optional(),
+    repeatCount: z.number().int().min(1).max(100).optional(),
     ...presentationField,
   })
   .strict();
 const assistantConfigSchema = z.object({
   prompt: z.string().max(20_000),
   modelKey: z.string().trim().min(1).max(200).nullable(),
+  outputMode: z.enum(["text", "list"]).optional(),
   ...presentationField,
 }).strict();
 const annotationShapeBaseSchema = {
@@ -369,6 +383,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
       input("images", "image", { edgeCardinality: "many", valueShape: "ordered-list", ordered: true, maxConnections: 4, acceptedMimeTypes: imageMime }),
       input("videos", "video", { edgeCardinality: "many", valueShape: "ordered-list", ordered: true, maxConnections: 2, acceptedMimeTypes: videoMime }),
       output("text", "text"),
+      output("item", "text"),
     ],
     "server-generation",
   ),
@@ -475,6 +490,16 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
       output("image", "image", { acceptedMimeTypes: ["image/png"] }),
     ],
     "browser-operation",
+  ),
+  "edit.video.extractFrames": definition(
+    "edit.video.extractFrames",
+    z.object({ parameters: z.object({}).strict(), ...presentationField }).strict(),
+    [
+      input("video", "video", { required: true, minConnections: 1, acceptedMimeTypes: videoMime }),
+      output("startFrame", "image", { acceptedMimeTypes: ["image/png", "image/webp"] }),
+      output("endFrame", "image", { acceptedMimeTypes: ["image/png", "image/webp"] }),
+    ],
+    "server-operation",
   ),
   "edit.video.easeCurve": definition(
     "edit.video.easeCurve",

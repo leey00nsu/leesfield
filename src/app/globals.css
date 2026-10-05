@@ -2,6 +2,17 @@
 @import "tw-animate-css";
 @import "@xyflow/react/dist/style.css";
 
+/* The positioner, rather than the popup, owns the portal stacking context.
+   Canvas menus sit above the full-screen editor (100) and below dialogs (10000). */
+.isolate:has(> [data-app-overlay-scope="canvas"]) {
+  z-index: 2000;
+}
+
+/* Leesfield owns generation input layout; results live in connected inputs. */
+[data-space-input-only] [data-space-generation-prompt] ~ * {
+  display: none;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -338,14 +349,29 @@
 
 /* Neutral item feedback is shared by lists and portaled Base UI menus.
    Keep the pinned Copy Singer component sources unchanged. */
-:root { --interaction-hover: rgb(255 255 255 / 8%); }
+:root {
+  --interaction-hover: rgb(255 255 255 / 8%);
+  --picker-item-hover: rgb(255 255 255 / 12%);
+}
 @theme inline { --color-interaction-hover: var(--interaction-hover); }
 
-[class~="group/resource-row"]:is(:hover, :focus-within),
+[class~="group/resource-row"]:is(:hover, :focus-within) {
+  background-color: var(--interaction-hover);
+}
 :is([data-slot="select-item"], [data-slot="dropdown-menu-item"],
     [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"],
-    [data-slot="dropdown-menu-sub-trigger"]):not([data-disabled]):not([aria-disabled="true"]):not([data-variant="destructive"]):is(:focus, [data-highlighted], [data-popup-open], [data-open]) {
-  background-color: var(--interaction-hover);
+    [data-slot="dropdown-menu-sub-trigger"], [data-app-picker-item]):where(:not(:disabled):not([data-disabled]):not([aria-disabled="true"]):not([data-variant="destructive"])):is(:hover, :focus-visible, [data-highlighted], [data-popup-open], [data-open]) {
+  background-color: var(--picker-item-hover);
+  color: var(--popover-foreground);
+}
+[data-app-picker-item][data-selected] {
+  background-color: color-mix(in srgb, var(--data-accent) 15%, transparent);
+}
+[data-app-picker-item][data-selected]:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) {
+  background-color: color-mix(in srgb, var(--data-accent) 25%, transparent);
+}
+[data-app-picker-item]:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) [data-picker-secondary] {
+  color: var(--popover-foreground);
 }
 :is([data-slot="select-item"][data-selected],
     [data-slot="dropdown-menu-radio-item"][data-checked],
@@ -357,15 +383,13 @@
     [data-slot="dropdown-menu-checkbox-item"][data-checked]) :is(span, svg) {
   color: inherit;
 }
-[data-slot="dropdown-menu-item"][data-variant="destructive"]:not([data-disabled]):is(:focus, [data-highlighted]) {
+[data-slot="dropdown-menu-item"][data-variant="destructive"]:not([data-disabled]):is(:hover, :focus, [data-highlighted]) {
   background-color: color-mix(in srgb, var(--destructive) 20%, transparent);
-  color: var(--destructive);
+  color: color-mix(in srgb, var(--destructive) 70%, var(--foreground));
+}
+[data-slot="dropdown-menu-item"][data-variant="destructive"]:not([data-disabled]):is(:hover, :focus, [data-highlighted]) svg {
+  color: inherit;
 }
 
-/* Static initial state; Motion owns the glass entrance timeline. */
-.landing-composer .generation-media-shell,
-.landing-composer [data-app-prompt-field][data-surface="hero"] { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
- .landing-composer .generation-media-shell,
- .landing-composer [data-app-prompt-field][data-surface="hero"] { opacity: 1; }
-}
+/* LandingHeroMotionLayer owns entrance motion. Keep the child surfaces visible
+   after the parent animation and when reduced motion is enabled. */

@@ -50,8 +50,10 @@ export class ExecutionSelectionTracker {
     return { sequence, revision };
   }
 
-  beginSubmission(nodeId: string) {
-    this.submissions.set(nodeId, this.revisions.get(nodeId) ?? 0);
+  selectionRevision(nodeId: string) { return this.revisions.get(nodeId) ?? 0; }
+
+  beginSubmission(nodeId: string, revision = this.selectionRevision(nodeId)) {
+    this.submissions.set(nodeId, revision);
   }
 
   submitted(nodeId: string, executionId: string) {
@@ -89,4 +91,26 @@ export class ExecutionSelectionTracker {
     }
     return { selection: latest.selectedOutputAssetId };
   }
+}
+
+/** Input identity excludes canvas geometry and this node's changing output. */
+export function generationInputIdentity(graph: { nodes: Array<{ id: string; kind: string; config: unknown; selectedOutputAssetId: string | null }>; edges: Array<{ sourceNodeId: string; targetNodeId: string; sourcePortId: string; targetPortId: string; sortOrder: number; hasPause?: boolean }> }, nodeId: string) {
+  const visited = new Set<string>();
+  const nodes: unknown[] = [], edges: unknown[] = [];
+  const visit = (id: string) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const node = graph.nodes.find(item => item.id === id);
+    if (!node) { nodes.push({ id, missing: true }); return; }
+    const config = node.config && typeof node.config === "object" && !Array.isArray(node.config) ? { ...node.config } : {};
+    delete (config as Record<string, unknown>).presentation;
+    nodes.push({ id, kind: node.kind, config, ...(id !== nodeId ? { output: node.selectedOutputAssetId } : {}) });
+    if (["input.image", "input.video", "input.audio"].includes(node.kind) && (config as Record<string, unknown>).resultSource) return;
+    for (const edge of graph.edges.filter(item => item.targetNodeId === id).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))) {
+      edges.push({ source: edge.sourceNodeId, target: edge.targetNodeId, sourcePort: edge.sourcePortId, targetPort: edge.targetPortId, order: edge.sortOrder, paused: edge.hasPause ?? false });
+      visit(edge.sourceNodeId);
+    }
+  };
+  visit(nodeId);
+  return JSON.stringify({ nodes, edges });
 }

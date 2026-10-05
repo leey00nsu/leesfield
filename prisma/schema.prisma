@@ -234,6 +234,9 @@ model AssistantExecution {
   inputSnapshot         Json
   status                AssistantExecutionStatus @default(pending)
   outputText            String?
+  outputListJson        Json?
+  selectedItemId        String?
+  selectionVersion      Int                      @default(0)
   errorCode             String?
   executionLeaseToken   String?
   executionLeaseUntil   DateTime?
@@ -391,6 +394,7 @@ model MediaAsset {
   sourceOperation      MediaOperation?             @relation("MediaOperationOutputs", fields: [sourceOperationId], references: [id], onDelete: SetNull)
   selectedByGraphNodes GenerationGraphNode[]       @relation("GraphNodeSelectedAsset")
   graphNodeOutputs     GenerationGraphNodeOutput[]
+  operationOutputBindings MediaOperationOutput[]
   operationInputs      MediaOperationInput[]
   uploadSessions       MediaUploadSession[]
   generationInputAssets GenerationInputAsset[]
@@ -520,12 +524,47 @@ model MediaOperation {
   graphNode           GenerationGraphNode?  @relation(fields: [graphNodeId], references: [id], onDelete: SetNull)
   inputs              MediaOperationInput[]
   outputs             MediaAsset[]          @relation("MediaOperationOutputs")
+  outputBindings      MediaOperationOutput[]
   uploadSessions      MediaUploadSession[]
 
   @@index([ownerEmail, status, createdAt])
   @@index([createdAt, id])
   @@index([graphId, graphNodeId, createdAt])
   @@index([status, executionLeaseUntil])
+}
+
+model PromptPreset {
+  id                    String    @id @default(cuid())
+  ownerEmail            String
+  key                   String
+  builtinKey            String?
+  name                  String
+  description           String    @default("")
+  modality              MediaType
+  prompt                String?
+  requiredInputs        Json      @default("{}")
+  recommendedParameters Json      @default("{}")
+  deletedAt             DateTime?
+  isActive              Boolean   @default(true)
+  revision              Int       @default(1)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([ownerEmail, key])
+  @@index([ownerEmail, modality, isActive])
+}
+
+model MediaOperationOutput {
+  id          String         @id @default(cuid())
+  operationId String
+  portId      String
+  sortOrder   Int            @default(0)
+  assetId     String?
+  operation   MediaOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  asset       MediaAsset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@unique([operationId, portId, sortOrder])
+  @@index([assetId])
 }
 
 model MediaOperationInput {

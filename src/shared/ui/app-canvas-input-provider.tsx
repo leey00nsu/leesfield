@@ -34,9 +34,11 @@ import {
   AppSelectItem,
 } from "./app-select";
 import { AppTextarea } from "./app-form-control";
+import { NodeTextEditor, NodeTextEditorScope, useNodeTextEditorScope } from "./node-text-editor";
 import { AppInput } from "./app-input";
 import { AppRangeSlider } from "./app-range-slider";
 import { Switch } from "./brand/switch/switch";
+import { cn } from "@/shared/lib/utils";
 
 function optionsFrom(
   children: ReactNode,
@@ -208,7 +210,14 @@ function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <AppInput {...props} />;
 }
 function Textarea(props: ComponentProps<"textarea">) {
-  return <AppTextarea {...props} />;
+  const nodeBody = useNodeTextEditorScope();
+  if (!nodeBody || !props.className?.includes("nowheel")) return <AppTextarea {...props} />;
+  const layout = props.className.split(/\s+/).filter(name => !["nodrag", "nopan", "nowheel"].includes(name)).join(" ");
+  return <NodeTextEditor label={props["aria-label"] ?? props.placeholder ?? "Edit text"} disabled={props.disabled || props.readOnly}
+    className={layout}>
+    {editing => <AppTextarea {...props} tabIndex={editing ? props.tabIndex : -1}
+      readOnly={props.readOnly || !editing} className={cn(props.className, "!m-0 !h-full !min-h-0 !w-full !rounded-lg !border-0 !bg-transparent !shadow-none !ring-0")} />}
+  </NodeTextEditor>;
 }
 function Dialog({
   children,
@@ -241,7 +250,7 @@ function Dialog({
         <AppDialogHeading className="px-6 py-4 border-b">
           <AppDialogTitle>{title}</AppDialogTitle>
         </AppDialogHeading>
-        {children}
+        <NodeTextEditorScope enabled={false}>{children}</NodeTextEditorScope>
       </AppDialogContent>
     </AppDialog>
   );
@@ -266,7 +275,7 @@ function TabBar({ value, onValueChange, label, items }: CanvasTabBarProps) {
 function CanvasAction({ primary, className, ...props }: CanvasButtonProps) {
   return (
     <AppButton
-      variant={primary ? "primary" : "surface"}
+      variant={primary ? "brand" : "surface"}
       className={className}
       {...props}
     />

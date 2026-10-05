@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { AppButton } from "./app-button";
 import { cn } from "@/shared/lib/utils";
 import {
   AlertDialog,
@@ -79,7 +80,7 @@ export function AppConfirmDialogFooter({
   return (
     <AlertDialogFooter
       data-app-confirm-dialog-footer=""
-      className={cn("mt-4", className)}
+      className={cn("mt-4 flex-col", className)}
       {...props}
     />
   );
@@ -87,29 +88,37 @@ export function AppConfirmDialogFooter({
 
 export function AppConfirmDialogCancel({
   className,
+  children,
   ...props
 }: ComponentProps<typeof AlertDialogCancel>) {
   return (
     <AlertDialogCancel
       data-app-confirm-dialog-cancel=""
-      className={cn("", className)}
       {...props}
-    />
+      asChild
+    >
+      <AppButton variant="surface" className={cn("min-w-24 px-5 font-semibold", className)}>
+        {children}
+      </AppButton>
+    </AlertDialogCancel>
   );
 }
 
 export function AppConfirmDialogAction({
   className,
+  children,
+  variant = "primary",
   ...props
-}: ComponentProps<typeof AlertDialogAction>) {
+}: ComponentProps<typeof AlertDialogAction> & { variant?: "primary" | "danger" }) {
   return (
     <AlertDialogAction
       data-app-confirm-dialog-action=""
-      className={cn(
-        "bg-destructive/10 text-destructive hover:bg-destructive/20",
-        className,
-      )}
       {...props}
-    />
+      asChild
+    >
+      <AppButton variant={variant === "primary" ? "brand" : variant} className={cn("px-5 font-semibold", className)}>
+        {children}
+      </AppButton>
+    </AlertDialogAction>
   );
 }

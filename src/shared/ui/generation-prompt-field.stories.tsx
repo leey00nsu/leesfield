@@ -5,6 +5,8 @@ import { AppButton } from "@/shared/ui/app-button";
 import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
+import { GenerationPresetPicker } from "@/shared/ui/generation-preset-picker";
+import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 
 type PromptPreviewModality = "image" | "video" | "audio";
 
@@ -132,6 +134,10 @@ function PromptFieldPreview({
                   </p>
                 </div>
               </GenerationSettingsPopover>
+              <GenerationPresetPicker
+                items={modality === "image" ? builtinPromptPresets.map(p => ({ ...p, builtinKey: p.key, builtinRevision: p.revision, defaultPrompt: p.prompt, isActive: true, isModified: false })) : []}
+                selected={null} onSelect={() => {}} onRetry={() => {}} onReapply={() => {}} onRestore={() => {}} onClear={() => {}}
+              />
             </>
           }
           footerRight={

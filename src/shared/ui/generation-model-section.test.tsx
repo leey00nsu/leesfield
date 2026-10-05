@@ -40,12 +40,9 @@ describe("GenerationModelSection", () => {
 
     const picker = screen.getByRole("dialog", { name: "모델 선택" });
     expect(screen.getByPlaceholderText("모델 검색…")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "추천 모델" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "전체 모델" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", {name:"전체 모델"})).not.toBeInTheDocument();
+    expect(screen.getByRole("link", {name:"모델 관리"})).toHaveAttribute("href", "/model");
+    expect(screen.getByRole("link", {name:"모델 관리"})).toHaveAttribute("target", "_blank");
     expect(screen.getByText("기본")).toBeInTheDocument();
     expect(
       screen.queryByText("에디토리얼·레퍼런스 이미지"),
@@ -53,6 +50,8 @@ describe("GenerationModelSection", () => {
     expect(screen.queryByText("정교한 인물/제품 컷")).not.toBeInTheDocument();
     expect(screen.queryByText("기술 정보")).not.toBeInTheDocument();
     expect(screen.queryByText("flux2-klein-9b")).not.toBeInTheDocument();
+    expect(screen.getAllByText("T2I")).toHaveLength(2);
+    expect(screen.getByText("I2I")).toHaveAttribute("data-picker-secondary");
     expect(screen.getByLabelText("선택됨")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("모델 검색…"), "GPT");

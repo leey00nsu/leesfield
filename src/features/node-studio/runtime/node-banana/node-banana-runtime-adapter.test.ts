@@ -55,6 +55,23 @@ const graph: GenerationGraphSnapshotDto = {
 };
 
 describe("nodeBananaRuntimeAdapter", () => {
+  it.each(["generate.image", "generate.video"])("keeps %s preset reference connectable with no supported model and preserves it on model change", kind => {
+    const ref = { key: "personal", revision: 1, requiredInputs: { referenceImageCount: 1 }, recommendedParameters: {} };
+    const canonical = graphSnapshotToCanonicalDocument({ ...graph, edges: [], nodes: [
+      graph.nodes[0], { ...graph.nodes[1], kind, config: { prompt: "draft", modelKey: null, parameters: {}, promptPreset: ref } },
+    ] });
+    const runtime = nodeBananaRuntimeAdapter.project(canonical).state;
+    const connection = { id: "reference", source: "source", sourceHandle: "image", target: "target", targetHandle: "image" };
+    const capabilities = { imageInputLimit: () => 0, videoSupportsInitImage: () => false };
+    expect(isRuntimeConnectionValid(canonical, runtime, connection, capabilities)).toBe(true);
+    const connected = { ...runtime, edges: [connection] };
+    expect(reconcileRuntimeEdgesForModelChange(connected, "target", { prompt: "draft", modelKey: "unsupported", parameters: {}, promptPreset: ref }, capabilities)).toEqual([connection]);
+    const textRuntime = { ...runtime, nodes: runtime.nodes.map(n => n.id === "target" ? { ...n, data: { ...n.data,
+      config: { prompt: "draft", modelKey: null, parameters: {}, promptPreset: { ...ref, requiredInputs: { referenceImageCount: 0 } } },
+    } } : n) };
+    expect(isRuntimeConnectionValid(canonical, textRuntime, connection, capabilities)).toBe(false);
+    expect(runtimeGraphToCanonicalDocument(canonical, connected).edges[0].targetPortId).toBe(kind === "generate.image" ? "primary" : "initImage");
+  });
   it.each(["edit.video.trim", "edit.video.stitch"])("allows %s output to a Video Input and saves typed ports", (kind) => {
     const canonical = graphSnapshotToCanonicalDocument({ ...graph, nodes: [
       { id: "operation", kind, position: { x: 0, y: 0 }, configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: "result" },

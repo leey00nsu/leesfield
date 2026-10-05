@@ -325,3 +325,32 @@ describe("Gradio 계약 입력",()=>{
  expect((await validate({model:"contract",dynamicParams:{first_frame:null,options:{count:"bad"}}})).success).toBe(false);
  });
 });
+
+describe("prompt preset request admission", () => {
+  it("validates the actual mapped image input and keeps final prompt separate from provenance", async () => {
+    const { builtinPromptPresets } = await import("@/shared/prompt-presets/builtin-prompt-presets");
+    const { promptPresetReference } = await import("@/shared/prompt-presets/prompt-preset-contract");
+    const { generationPayload } = await import("@/shared/model-catalog/generation-payload");
+    const { gradioInputValues, getGradioContract } = await import("@/shared/model-catalog/gradio-contract");
+    const { validateImageGenerationPayload } = await import("@/server/model-catalog/generation-validation");
+    const model = { type: "image" as const, key: "preset-mapped", providerConfig: { gradio_contract: {
+      version: 1, mappingConfirmed: true, apiName: "/generate", reviewed: true, diagnostics: [],
+      inputs: [
+        { name: "text", label: "Prompt", kind: "string", canonical: "prompt", confirmed: true, schema: { type: "string" }, required: true, nullable: false },
+        { name: "reference", label: "Reference", kind: "file", media: "image", confirmed: true, schema: {}, required: false, nullable: true },
+      ], output: { media: "image", path: [0], multiple: false },
+    } } };
+    mockGetModelCatalog.mockResolvedValue([model]);
+    const ref = promptPresetReference({ ...builtinPromptPresets[1], builtinKey: "multi-camera-nine-grid", builtinRevision: 1, defaultPrompt: builtinPromptPresets[1].prompt, isActive: true, isModified: false });
+    const finalPrompt = "user edited final direction";
+    const payload = { model: model.key, prompt: finalPrompt, promptPreset: ref, dynamicParams: { reference: "https://assets.example.com/ref.png" } };
+    const parsed = await validateImageGenerationPayload(payload);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw parsed.error;
+    expect(parsed.data.promptPreset).toEqual(ref);
+    expect(gradioInputValues(getGradioContract(model)!, generationPayload(model, parsed.data) as Record<string, unknown>)).toEqual({ text: finalPrompt, reference: "https://assets.example.com/ref.png" });
+    const missing = await validateImageGenerationPayload({ ...payload, promptPreset: { ...ref, requiredInputs: { referenceImageCount: 0 } }, dynamicParams: {} });
+    expect(missing.success).toBe(false);
+    if (!missing.success) expect(missing.error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: ["promptPreset"] })]));
+  });
+});

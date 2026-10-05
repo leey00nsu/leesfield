@@ -11,3 +11,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const AuthenticatedEntry: Story = {args:{isAuthenticated:true}};

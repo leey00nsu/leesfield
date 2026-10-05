@@ -50,6 +50,29 @@ export const gradioContractSchema = z.object({
 export type GradioContract = z.infer<typeof gradioContractSchema>;
 export type GradioField = GradioContract["inputs"][number];
 
+/** Provider arrays have always been limited to eight files per input. */
+export function fileFieldMaxItems(field: GradioField): number {
+  if (field.kind === "file") return 1;
+  return Math.min(8, typeof field.schema.maxItems === "number" ? field.schema.maxItems : 8);
+}
+
+function withFileLimits(contract: GradioContract, parameters: unknown): GradioContract {
+  const definitions = object(parameters);
+  return { ...contract, inputs: contract.inputs.map(field => {
+    if (!["file", "files", "gallery"].includes(field.kind)) return field;
+    const key = Object.keys(definitions).find(key =>
+      key === field.name || object(object(definitions[key]).binding).parameterName === field.name);
+    const configured = object(key ? definitions[key] : undefined).maxItems;
+    const ceiling = fileFieldMaxItems(field);
+    if (configured !== undefined && (typeof configured !== "number" || !Number.isInteger(configured) ||
+      configured < 1 || configured > ceiling ||
+      (typeof field.schema.minItems === "number" && configured < field.schema.minItems)))
+      throw new Error("HF_CONTRACT_FILE_LIMIT_INVALID:" + field.name);
+    if (field.kind === "file") return field;
+    return { ...field, schema: { ...field.schema, maxItems: configured ?? ceiling } };
+  }) };
+}
+
 type MappedModel = { providerConfig?: unknown; parameters?: unknown; meta?: unknown };
 
 function object(value: unknown): Record<string, unknown> {
@@ -126,7 +149,7 @@ export function contractAuthoringParameters(model: MappedModel, values: Record<s
 /** Build transient execution metadata from the same settings the administrator edits. */
 export function getGradioContract(model: MappedModel): GradioContract | null {
   const modal = object(model.providerConfig);
-  if (modal.workflow_id !== undefined) return modalInputContract(modalConfigSchema.parse(modal).workflow, model.parameters);
+  if (modal.workflow_id !== undefined) return withFileLimits(modalInputContract(modalConfigSchema.parse(modal).workflow, model.parameters), model.parameters);
   const normalized = normalizeGradioModel(model);
   const config = object(normalized.providerConfig);
   if (!Object.prototype.hasOwnProperty.call(config, "output")) return null;
@@ -150,7 +173,7 @@ export function getGradioContract(model: MappedModel): GradioContract | null {
         ...(p.step !== undefined ? { step: p.step } : {}),
       };
     });
-  return gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [] });
+  return withFileLimits(gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [] }), normalized.parameters);
 }
 export function gradioInputValues(contract: GradioContract, values: { prompt?: string; dynamicParams?: Record<string, unknown> }) {
   const result: Record<string, unknown> = {};
@@ -174,7 +197,7 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
         : field.kind === "json" ? jsonValueSchema.safeParse(value).success
         : typeof value === "string";
       if (!valid) throw new Error("HF_CONTRACT_TYPE:" + field.name);
-      if ((field.kind === "files" || field.kind === "gallery") && (value as unknown[]).length > 8)
+      if ((field.kind === "files" || field.kind === "gallery") && (value as unknown[]).length > fileFieldMaxItems(field))
         throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT:" + field.name);
       if (field.choices?.length && !field.choices.includes(value as string | number))
         throw new Error("HF_CONTRACT_CHOICE:" + field.name);

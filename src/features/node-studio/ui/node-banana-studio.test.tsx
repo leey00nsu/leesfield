@@ -52,12 +52,26 @@ vi.mock("@node-banana-runtime/runtime-entry", async (importOriginal) => ({
       </button>
     </>
   ),
-  NodeBananaUpstreamHeader: () => null,
+  NodeBananaUpstreamHeader: ({ runtimeData, onUpdateNodeData, selected }: {
+    runtimeData: { id: string; config: Record<string, unknown> };
+    onUpdateNodeData: (id: string, patch: Record<string, unknown>) => void;
+    selected?: boolean;
+  }) => <div data-testid={`mock-header-${runtimeData.id}`} data-selected={selected}>
+    <span>{String((runtimeData.config.presentation as Record<string, unknown>)?.customTitle ?? "")}</span>
+    <button onClick={() => onUpdateNodeData(runtimeData.id, { config: { ...runtimeData.config, presentation: { ...(runtimeData.config.presentation as Record<string, unknown>), comment: "New comment" } } })}>Update comment</button>
+  </div>,
 }));
 
 import { NodeBananaStudio } from "./node-banana-studio";
 import { SpacePreferencesContext } from "../hook/use-space-preferences";
 import { downloadImageZip } from "../lib/image-zip-download";
+import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import { appendResultNodes, reconcileResultNodes } from "../model/generation-result-nodes";
+const presetFixtures = builtinPromptPresets.map(p => ({ ...p, builtinKey: p.key, builtinRevision: p.revision,
+  defaultPrompt: p.prompt, isActive: true, isModified: false }));
+vi.mock("@/entities/prompt-preset/model/use-prompt-preset-catalog", () => ({
+  usePromptPresetCatalog: () => ({ data: presetFixtures, isLoading: false, isError: false }),
+}));
 
 vi.mock("../lib/image-zip-download", async (importOriginal) => ({
   ...await importOriginal<typeof import("../lib/image-zip-download")>(),
@@ -110,6 +124,158 @@ const runnableGraph: GenerationGraphSnapshotDto = {
 };
 
 describe("NodeBananaStudio host adapter", () => {
+  it.each(["image", "video", "audio"])("disconnects a captured %s input without deleting its producer, asset or downstream edge", media => {
+    const field = media === "audio" ? "audioFile" : media;
+    const onDraftChange = vi.fn();
+    const source = { ...graph.nodes[0], id: "producer", kind: "generate." + media,
+      config: { prompt: "Generate", modelKey: null, parameters: {} } };
+    const target = { ...graph.nodes[0], id: "result", kind: "input." + media,
+      config: { assetId: "captured", resultSource: { nodeId: "producer", portId: media, index: 0, executionId: "run", state: "completed" } },
+      selectedOutputAssetId: "captured" };
+    const downstream = { ...graph.nodes[0], id: "downstream", kind: "input." + media, config: { assetId: null } };
+    const inputGraph = { ...graph, nodes: [source, target, downstream], edges: [
+      { id: "capture", sourceNodeId: "producer", sourcePortId: media, targetNodeId: "result", targetPortId: media === "image" ? "reference" : media, sortOrder: 0 },
+      { id: "downstream-edge", sourceNodeId: "result", sourcePortId: media, targetNodeId: "downstream", targetPortId: media === "image" ? "reference" : media, sortOrder: 0 },
+    ] };
+    render(<NodeBananaStudio graph={inputGraph} catalog={catalog} writable readOnlyReason={null}
+      prepareImageNodeExecution={vi.fn()} onDraftChange={onDraftChange}
+      resolveUpstreamNodeData={(_id, data) => (data.config as Record<string, unknown>)?.assetId
+        ? { [field]: "/captured", resultStatus: "completed" } : {}} />, { wrapper: createIntlWrapper() });
+    const RuntimeNode = runtime.props!.nodeTypes.canonicalNode as ComponentType<NodeProps>;
+    const node = runtime.props!.graph.nodes.find(node => node.id === "result")!;
+    render(<RuntimeNode {...({ id: node.id, data: node.data } as unknown as NodeProps)} />, { wrapper: createIntlWrapper() });
+    const remove = document.querySelector<HTMLButtonElement>("[data-space-media-disconnect]")!;
+    expect(remove).not.toBeNull();
+    fireEvent.click(remove);
+    const draft = onDraftChange.mock.calls.at(-1)![0];
+    expect(draft.nodes).toHaveLength(3);
+    expect(draft.nodes.find((node: {id:string}) => node.id === "producer").config).toEqual(source.config);
+    expect(draft.nodes.find((node: {id:string}) => node.id === "result")).toMatchObject({ config: { assetId: null }, selectedOutputAssetId: null });
+    expect(draft.nodes.find((node: {id:string}) => node.id === "result").config).not.toHaveProperty("resultSource");
+    expect(draft.edges.map((edge: {id:string}) => edge.id)).toEqual(["downstream-edge"]);
+    const late = reconcileResultNodes(draft, "producer", { executionId: "run", status: "completed", outputAssetIds: ["late-result"] });
+    expect(late.nodes).toHaveLength(3);
+    expect(late.nodes.find(node => node.id === "result")?.config).toEqual({ assetId: null });
+  });
+  it.each(["image", "video", "audio"])("disables the connected %s X in a read-only Space", media => {
+    const onDraftChange = vi.fn();
+    render(<NodeBananaStudio graph={{ ...graph, nodes: [{ ...graph.nodes[0], kind: "input." + media,
+      config: { assetId: "captured", resultSource: { nodeId: "source", portId: media, index: 0, executionId: "run", state: "completed" } } }] }}
+      catalog={catalog} writable={false} readOnlyReason="READ_ONLY" prepareImageNodeExecution={vi.fn()} onDraftChange={onDraftChange}
+      resolveUpstreamNodeData={() => ({ image: "/captured", video: "/captured", audioFile: "/captured" })} />, { wrapper: createIntlWrapper() });
+    const RuntimeNode = runtime.props!.nodeTypes.canonicalNode as ComponentType<NodeProps>;
+    const node = runtime.props!.graph.nodes[0];
+    render(<RuntimeNode {...({ id: node.id, data: node.data } as unknown as NodeProps)} />, { wrapper: createIntlWrapper() });
+    const remove = document.querySelector<HTMLButtonElement>("[data-space-media-disconnect]")!;
+    expect(remove).toBeDisabled(); fireEvent.click(remove); expect(onDraftChange).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["input.image", "image"], ["input.video", "video"], ["input.audio", "audioFile"],
+  ])("opens the displayed %s original without mutating a read-only graph", (kind, field) => {
+    const onDraftChange = vi.fn();
+    const url = "/api/media-assets/actual-original/content";
+    render(<NodeBananaStudio graph={{ ...graph, nodes: [{ ...graph.nodes[0], kind, config: { assetId: "actual-original" } }] }}
+      resolveUpstreamNodeData={() => ({ [field]: url, resultStatus: "completed" })}
+      onDraftChange={onDraftChange} prepareImageNodeExecution={vi.fn()} catalog={catalog}
+      writable={false} readOnlyReason="READ_ONLY" />, { wrapper: createIntlWrapper() });
+    const canvas = runtime.props!;
+    const RuntimeNode = canvas.nodeTypes.canonicalNode as ComponentType<NodeProps>;
+    const node = canvas.graph.nodes[0];
+    const parentClick = vi.fn();
+    const parentFocus = vi.fn();
+    const parentKeyDown = vi.fn();
+    render(<div onClick={parentClick} onFocus={parentFocus} onKeyDown={parentKeyDown}><RuntimeNode {...({ id: node.id, data: node.data } as unknown as NodeProps)} /></div>, { wrapper: createIntlWrapper() });
+    const link = screen.getByRole("link", { name: "열기" });
+    expect(link).toHaveAttribute("href", url);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    fireEvent.click(link);
+    fireEvent.focus(link);
+    fireEvent.keyDown(link, { key: "Enter" });
+    expect(parentClick).not.toHaveBeenCalled();
+    expect(parentFocus).not.toHaveBeenCalled();
+    expect(parentKeyDown).not.toHaveBeenCalled();
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
+  it.each(["pending", "processing", "uploading", "failed", "cancelled"])("hides original actions for a %s result", status => {
+    render(<NodeBananaStudio graph={{ ...graph, nodes: [{ ...graph.nodes[0], config: { assetId: "old" } }] }}
+      resolveUpstreamNodeData={() => ({ image: "/old.jpg", resultStatus: status })}
+      onDraftChange={vi.fn()} prepareImageNodeExecution={vi.fn()} catalog={catalog}
+      writable readOnlyReason={null} />, { wrapper: createIntlWrapper() });
+    const canvas = runtime.props!;
+    const RuntimeNode = canvas.nodeTypes.canonicalNode as ComponentType<NodeProps>;
+    render(<RuntimeNode {...({ id: canvas.graph.nodes[0].id, data: canvas.graph.nodes[0].data } as unknown as NodeProps)} />, { wrapper: createIntlWrapper() });
+    expect(screen.queryByRole("link", { name: "열기" })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-space-media-disconnect]")).toBeNull();
+  });
+
+  it("uses the updated host media and hides the link when that media disappears", () => {
+    let image: string | null = "/first.jpg";
+    const studioProps = { graph: { ...graph, nodes: [{ ...graph.nodes[0], kind: "input.image", config: { assetId: "current" } }] }, resolveUpstreamNodeData: () => ({ image }),
+      onDraftChange: vi.fn(), prepareImageNodeExecution: vi.fn(), catalog, writable: true, readOnlyReason: null };
+    const studio = render(<NodeBananaStudio {...studioProps} />, { wrapper: createIntlWrapper() });
+    const canvas = runtime.props!;
+    const RuntimeNode = canvas.nodeTypes.canonicalNode as ComponentType<NodeProps>;
+    const nodeProps = { id: canvas.graph.nodes[0].id, data: canvas.graph.nodes[0].data } as unknown as NodeProps;
+    const node = render(<RuntimeNode {...nodeProps} />, { wrapper: createIntlWrapper() });
+    expect(screen.getByRole("link", { name: "열기" })).toHaveAttribute("href", "/first.jpg");
+    image = "/new-original.jpg";
+    studio.rerender(<NodeBananaStudio {...studioProps} resolveUpstreamNodeData={() => ({ image })} />);
+    node.rerender(<RuntimeNode {...nodeProps} />);
+    expect(screen.getByRole("link", { name: "열기" })).toHaveAttribute("href", "/new-original.jpg");
+    image = null;
+    studio.rerender(<NodeBananaStudio {...studioProps} resolveUpstreamNodeData={() => ({ image, missingMedia: true })} />);
+    node.rerender(<RuntimeNode {...nodeProps} />);
+    expect(screen.queryByRole("link", { name: "열기" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a generation resize through prompt edits without inventing persisted graph fields", () => {
+    const onDraftChange = vi.fn();
+    render(<NodeBananaStudio graph={{...graph,nodes:[{...graph.nodes[0],kind:"generate.image",config:{prompt:"idea",modelKey:null,parameters:{}}}]}}
+      onDraftChange={onDraftChange} prepareImageNodeExecution={vi.fn()} catalog={catalog} writable readOnlyReason={null} />, {wrapper:createIntlWrapper()});
+    const resized={...runtime.props!.graph,nodes:runtime.props!.graph.nodes.map(node=>({...node,width:520,height:620,style:{width:520,height:620}}))};
+    act(()=>runtime.props!.onGraphChange(resized,"nodes"));
+    expect(runtime.props!.graph.nodes[0]).toMatchObject({width:520,height:620});
+    expect(onDraftChange).not.toHaveBeenCalled();
+    const edited={...runtime.props!.graph,nodes:runtime.props!.graph.nodes.map(node=>({...node,data:{...node.data,config:{prompt:"edited",modelKey:null,parameters:{}}}}))};
+    act(()=>runtime.props!.onGraphChange(edited,"nodes"));
+    expect(runtime.props!.graph.nodes[0]).toMatchObject({width:520,height:620});
+    expect(onDraftChange.mock.lastCall![0].nodes[0].config).toEqual({prompt:"edited",modelKey:null,parameters:{}});
+  });
+  it.each(builtinPromptPresets)("creates $key as the existing image node and preserves work through save/re-entry", preset => {
+    const model = { ...modelWithImageDefaults(), meta: { max_input_images: 1 } };
+    const onDraftChange = vi.fn();
+    const props = { onDraftChange, prepareImageNodeExecution: vi.fn(), catalog: { ...catalog, imageModels: [model] }, writable: true, readOnlyReason: null };
+    const view = render(<NodeBananaStudio {...props} graph={{ ...graph, nodes: [{ ...graph.nodes[0], config: { assetId: "reference-1" } }] }} />, { wrapper: createIntlWrapper() });
+    const canvas = runtime.props!;
+    const item = canvas.paletteItems.find(item => item.kind === "preset." + preset.key)!;
+    expect(item.label).toBe(preset.key === "character-sheet-creator" ? "캐릭터 시트" : preset.key === "location-sheet" ? "장면 시트" : preset.name);
+    const pending = { nodeId: "node_1", handleId: "image", handleType: "source" as const };
+    expect(canvas.filterPaletteItems!([{ ...item, initialModelKey: model.key }], pending)).toHaveLength(1);
+    const created = canvas.onCreateNode({ ...item, initialModelKey: model.key }, { x: 80, y: 90 }, pending);
+    expect(created.node.type).toBe("generationNode");
+    expect(created.node.data).toMatchObject({ canonicalKind: "generate.image", supported: true, config: {
+      prompt: preset.prompt, promptPreset: { key: preset.key, revision: 1 }, presentation: { customTitle: preset.name },
+    } });
+    const config = created.node.data.config as Record<string, unknown>;
+    expect(config.parameters).toMatchObject({ imageCount: 1 });
+    const edited = { ...created.node, data: { ...created.node.data, config: { ...config, prompt: "사용자 수정 문구" } } };
+    act(() => canvas.onGraphChange({ ...canvas.graph, nodes: [...canvas.graph.nodes, edited], edges: [...canvas.graph.edges, created.edge!] }, "nodes"));
+    const draft = onDraftChange.mock.lastCall![0];
+    view.rerender(<NodeBananaStudio {...props} graph={{ ...graph, version: 2, nodes: draft.nodes, edges: draft.edges }} />);
+    const restored = runtime.props!.graph.nodes.find(node => node.id === created.node.id)!;
+    const RuntimeNode = runtime.props!.nodeTypes.generationNode as ComponentType<NodeProps>;
+    expect(runtime.props!.renderNodeHeader).toBeUndefined();
+    const nodeView = render(<RuntimeNode {...({ id: restored.id, data: restored.data, selected: true } as unknown as NodeProps)} />, { wrapper: createIntlWrapper() });
+    expect(screen.getByTestId(`mock-header-${restored.id}`)).toHaveTextContent(item.label);
+    expect(screen.getByTestId(`mock-header-${restored.id}`)).toHaveAttribute("data-selected", "true");
+    nodeView.rerender(<RuntimeNode {...({ id: restored.id, data: restored.data, selected: false } as unknown as NodeProps)} />);
+    expect(screen.getByTestId(`mock-header-${restored.id}`)).toHaveAttribute("data-selected", "false");
+    fireEvent.click(screen.getByText("Update comment"));
+    expect(onDraftChange.mock.lastCall![0].nodes.find((node: { id: string }) => node.id === restored.id).config.presentation).toMatchObject({ customTitle: preset.name, comment: "New comment" });
+    expect(restored.data.config).toMatchObject({ prompt: "사용자 수정 문구", promptPreset: { key: preset.key }, promptPresetState: { appliedPrompt: preset.prompt } });
+  });
   it("keeps an old edit node visible and deletable but rejects a pasted copy", () => {
     const onDraftChange = vi.fn();
     const legacy = { ...graph.nodes[0], id: "old_annotation", kind: "edit.image.annotation",
@@ -351,7 +517,7 @@ describe("NodeBananaStudio host adapter", () => {
 
     const items = (runtime.props as NodeBananaCanvasProps).paletteItems;
     expect(items.filter((item) => item.category === "Process").map((item) => item.kind)).toEqual([
-      "note.memo", "edit.image.resize", "edit.video.stitch", "edit.video.trim", "inspect.imageCompare",
+      "note.memo", "edit.image.resize", "edit.video.stitch", "edit.video.trim", "edit.video.extractFrames", "inspect.imageCompare",
     ]);
     expect(new Set(items.map((item) => item.category))).toEqual(
       new Set(["Input", "Text", "Generate", "Process", "Output"]),
@@ -366,6 +532,23 @@ describe("NodeBananaStudio host adapter", () => {
     expect(() => runtime.props!.onCreateNode({ kind: "edit.image.annotation", label: "Annotate" }, { x: 0, y: 0 }, null)).toThrow("NODE_TYPE_UNAVAILABLE");
   });
 
+  it("accepts workspace result nodes, assets and deletion without echoing a stale Canvas snapshot", () => {
+    runtime.echoControlledGraph = true;
+    const source = { ...graph, schemaVersion: 3 as const, groups: [], nodes: [{ ...graph.nodes[0], kind: "generate.image", config: { prompt: "test", modelKey: null, parameters: {} } }] };
+    const onDraftChange = vi.fn(), props = { onDraftChange, prepareImageNodeExecution: vi.fn(), catalog, writable: true, readOnlyReason: null };
+    const view = render(<NodeBananaStudio {...props} graph={source} />, { wrapper: createIntlWrapper() });
+    const appended = appendResultNodes({ ...source, schemaVersion: 3, groups: [] }, "node_1", "old");
+    view.rerender(<NodeBananaStudio {...props} graph={{ ...source, ...appended.draft }} />);
+    expect(runtime.props!.graph.nodes).toHaveLength(2);
+    expect(runtime.props!.graph.edges).toHaveLength(1);
+    const completed = reconcileResultNodes(appended.draft, "node_1", { executionId: "old", status: "completed", outputAssetIds: ["fixed"] });
+    view.rerender(<NodeBananaStudio {...props} graph={{ ...source, ...completed }} />);
+    expect(runtime.props!.graph.nodes.find(node => node.id === appended.ids[0])?.data.config).toMatchObject({ assetId: "fixed" });
+    view.rerender(<NodeBananaStudio {...props} graph={source} />);
+    expect(runtime.props!.graph.nodes).toHaveLength(1);
+    expect(runtime.props!.graph.edges).toHaveLength(0);
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
   it("ignores repeated canonical no-op updates and keeps runtime callbacks stable", () => {
     const firstDraftChange = vi.fn();
     const secondDraftChange = vi.fn();

@@ -1,4 +1,20 @@
+import { getGradioContract } from "./gradio-contract";
+import type { RuntimeImageModel, RuntimeVideoModel, RuntimeAudioModel } from "./runtime-utils";
+
 export type ModelModality = "T2I" | "I2I" | "T2V" | "I2V" | "T2A" | "A2A";
+
+/** Mapped providers describe their real media inputs; legacy models use metadata. */
+export function resolveGenerationModalities(model: RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel): string[] {
+  const contract = getGradioContract(model);
+  if (!contract) return model.type === "image" ? resolveImageModalities(model.meta)
+    : model.type === "video" ? resolveVideoModalities(model.meta) : resolveAudioModalities(model.meta);
+  const inputs = contract.inputs.filter(field => ["file", "files", "gallery"].includes(field.kind) && field.media && !field.choices?.length);
+  const output = { image: "I", video: "V", audio: "A" }[model.type];
+  const types = new Set<string>();
+  if (!inputs.some(field => field.required && !(field.nullable && field.default === null))) types.add("T2" + output);
+  for (const field of inputs) types.add({ image: "I", video: "V", audio: "A" }[field.media!] + "2" + output);
+  return [...types];
+}
 
 type ImageModalitySource =
   | { maxInputImages?: number | null }

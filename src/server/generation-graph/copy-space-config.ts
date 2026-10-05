@@ -10,6 +10,11 @@ export function copySpaceConfig(
 ) {
   const config = structuredClone(node.config) as Record<string, unknown>;
   if (!config || typeof config !== "object" || Array.isArray(config)) return node.config;
+  if (config.resultSource) {
+    const source = config.resultSource as { nodeId: string; state: string };
+    config.resultSource = { ...source, nodeId: ids.get(source.nodeId) ?? ids.get(node.id) ?? node.id, executionId: null,
+      state: typeof config.assetId === "string" ? "completed" : "cancelled" };
+  }
   if (config.templateSource) {
     const source = config.templateSource as { nodeId: string };
     if (ids.has(source.nodeId)) config.templateSource = { ...source, nodeId: ids.get(source.nodeId)! };

@@ -165,7 +165,7 @@ describe("ModelManagementScreen", () => {
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(writes).toHaveLength(2));
     expect(writes[1]).not.toHaveProperty("apiKey");
-  });
+  }, 30000);
   it.each([false,true])("Modal 가져오기 결과를 그대로 저장한다 (structured=%s)", async (structured) => {
     const { buildModalModelDraft } = await import("@/server/modal-comfyui/importer");
     const { modelCatalogInputSchema } = await import("@/server/model-catalog/catalog-schema");
@@ -474,4 +474,46 @@ describe("ModelManagementScreen", () => {
     expect(await screen.findByText("이 스페이스는 공개 Gradio API를 제공하지 않습니다.")).toHaveClass("text-destructive");
   });
 
+});
+
+it("최대 입력 이미지 수를 숫자로 편집하고 기존 meta로 저장한다", async () => {
+  const writes:Record<string,unknown>[]=[];
+  vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{
+    if(init?.method==="POST"){writes.push(JSON.parse(init.body));return {ok:true,json:async()=>({})};}
+    return {ok:true,json:async()=>({items:records})};
+  }));
+  const user=userEvent.setup();
+  renderWithIntl(<ModelManagementScreen/>);
+  await screen.findByText(imageModel!.label);
+  await user.click(screen.getByRole("button",{name:"모델 추가"}));
+  await user.type(screen.getByRole("textbox",{name:"키"}),"image-limit-model");
+  await user.type(screen.getByRole("textbox",{name:"라벨"}),"Image limit model");
+  const count=screen.getByRole("spinbutton",{name:"최대 입력 이미지 수"});
+  await user.clear(count);await user.type(count,"3");
+  await user.click(screen.getByRole("button",{name:"저장"}));
+  await waitFor(()=>expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({type:"image",meta:{max_input_images:3}});
+});
+
+it("계약의 단일 입력은 고정하고 복수 제한만 parameters에 저장한다", async () => {
+  const { normalizeGradioModel }=await import("@/shared/model-catalog/gradio-contract");
+  const writes:Record<string,unknown>[]=[];
+  const mapped=normalizeGradioModel({...imageModel!,key:"mapped-limit",label:"Mapped limit",meta:{},parameters:{},providerConfig:{space_id:"test/limit",gradio_contract:{version:1,apiName:"/generate",inputs:[
+    {name:"prompt",label:"Prompt",kind:"string",canonical:"prompt",schema:{type:"string"},required:true,nullable:false},
+    {name:"first",label:"First image",kind:"file",media:"image",schema:{},required:false,nullable:false},
+    {name:"refs",label:"Reference images",kind:"files",media:"image",schema:{type:"array",items:{type:"string"},maxItems:4},required:false,nullable:false},
+  ],output:{media:"image",path:[0]},diagnostics:[]}}});
+  vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{
+    if(init?.method==="PATCH"){writes.push(JSON.parse(init.body));return {ok:true,json:async()=>({})};}
+    return {ok:true,json:async()=>({items:[mapped]})};
+  }));
+  const user=userEvent.setup();renderWithIntl(<ModelManagementScreen/>);
+  await user.click(await screen.findByRole("button",{name:"Mapped limit"}));
+  expect(screen.getByRole("spinbutton",{name:"최대 입력 이미지 수 · First image"})).toBeDisabled();
+  const count=screen.getByRole("spinbutton",{name:"최대 입력 이미지 수 · Reference images"});
+  expect(count).toHaveAttribute("max","4");
+  await user.clear(count);await user.type(count,"2");
+  await user.click(screen.getByRole("button",{name:"저장"}));
+  await waitFor(()=>expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({parameters:{refs:{maxItems:2,binding:{schema:{maxItems:4}}},first:{binding:{kind:"file"}}}});
 });

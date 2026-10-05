@@ -1,9 +1,14 @@
 "use client";
 import { useState } from "react";
+import type { Path } from "react-hook-form";
+import { useGenerationPromptPreset } from "@/entities/prompt-preset/model/use-generation-prompt-preset";
+import { GenerationPromptPresetControls } from "@/entities/prompt-preset/ui/generation-prompt-preset-controls";
+import { GenerationPromptPresetChip } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
+import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { GradioPromptFeedback } from "@/shared/ui/gradio-prompt-feedback";
 import { gradioFormError } from "@/shared/model-catalog/gradio-form-validation";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
-import { GradioContractFields } from "@/shared/ui/gradio-contract-fields";
+import { GradioContractFields, contractOptionFields } from "@/shared/ui/gradio-contract-fields";
 import { useGenerationSearchParams } from "@/shared/lib/generation/query-context";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,10 +43,11 @@ import {
   AppFormControllerField,
   AppFormItem,
   AppFormLabel,
-  AppFormMessage,
 } from "@/shared/ui/app-form";
+import { AppPromptFormMessage } from "@/shared/ui/app-prompt-message";
 import { AppInput } from "@/shared/ui/app-input";
 import { AppTextarea } from "@/shared/ui/app-form-control";
+import { AppPromptEditor } from "@/shared/ui/app-prompt-editor";
 import {
   AppSelectContent,
   AppSelectItem,
@@ -66,7 +72,7 @@ import {
   resolveRuntimeDefaultModelKey,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema";
-import { resolveAudioModalities } from "@/shared/model-catalog/modality";
+import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
 
 type AudioGenerationFormProps = {
   embedded?: boolean;
@@ -75,7 +81,7 @@ type AudioGenerationFormProps = {
 
 type AudioFieldName = Exclude<
   keyof AudioGenerationFormValues,
-  "prompt" | "model" | "dynamicParams"
+  "prompt" | "model" | "dynamicParams" | "promptPreset"
 >;
 
 const audioFieldOrder: Record<AudioFieldName, number> = {
@@ -168,7 +174,7 @@ export function AudioGenerationForm({
         id: model.key,
         name: model.label,
         vendor: model.vendor,
-        modalities: resolveAudioModalities(model.meta),
+        modalities: resolveGenerationModalities(model),
       })),
     [resolvedAudioModels],
   );
@@ -267,6 +273,23 @@ export function AudioGenerationForm({
   const promptFeedbackSubmitted = form.formState.isSubmitted;
   const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
   const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
+  const presetValues = useWatch({ control: form.control });
+  // Subscribe to dirty state before edits, including unregistered provider fields.
+  const presetDirtyFields = form.formState.dirtyFields;
+  const promptPreset = useGenerationPromptPreset({
+    modality: "audio", enabled: isAuthenticated, prompt: mappingPrompt, model: activeRuntimeModel,
+    getValues: () => form.getValues(),
+    isEdited: path => form.getFieldState(path as Path<AudioGenerationFormValues>, { ...form.formState, dirtyFields: presetDirtyFields }).isDirty,
+    onApply: (prompt, updates) => {
+      form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      for (const [path, value] of Object.entries(updates)) {
+        form.setValue(path as Path<AudioGenerationFormValues>, value as never, { shouldValidate: true });
+      }
+    },
+  });
+  const presetInputIssue = activeRuntimeModel
+    ? promptPresetInputIssue(activeRuntimeModel, presetValues as Record<string, unknown>, promptPreset.reference)
+    : null;
   const activeDefaults = useMemo<
     Partial<Record<AudioFieldName, string | number | boolean | undefined>>
   >(
@@ -448,6 +471,7 @@ export function AudioGenerationForm({
       return;
     }
 
+    if (presetInputIssue) { event.preventDefault(); return; }
     if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
     void form.handleSubmit((values) => {
       const resolvedVoiceDefault = String(
@@ -460,7 +484,7 @@ export function AudioGenerationForm({
         typeof values.voice === "string" &&
         values.voice.trim() === resolvedVoiceDefault.trim();
 
-      if (activeRuntimeModel && getGradioContract(activeRuntimeModel)) { startGeneration(values); return; }
+      if (activeRuntimeModel && getGradioContract(activeRuntimeModel)) { startGeneration({ ...values, promptPreset: promptPreset.reference }); return; }
       const resolvedValues: AudioGenerationFormValues = {
         ...values,
         voice: shouldSuppressLegacyVoice
@@ -518,7 +542,7 @@ export function AudioGenerationForm({
             ? Number(getResolvedDefaultValue("repetitionPenalty"))
             : values.repetitionPenalty,
       };
-      startGeneration(resolvedValues);
+      startGeneration({ ...resolvedValues, promptPreset: promptPreset.reference });
     })(event);
   };
 
@@ -630,6 +654,7 @@ export function AudioGenerationForm({
                   ref={fileInputRef}
                   type="file"
                   accept="audio/*"
+                  disabled={isGuest || isGenerating}
                   aria-label={label}
                   onChange={handleInputAudioSelection}
                   className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
@@ -646,6 +671,7 @@ export function AudioGenerationForm({
                     type="button"
                     variant="surface"
                     size="sm"
+                    disabled={isGuest || isGenerating}
                     onClick={handleRemoveInputAudio}
                     className="self-start"
                   >
@@ -653,7 +679,7 @@ export function AudioGenerationForm({
                   </AppButton>
                 </div>
               ) : null}
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -702,7 +728,7 @@ export function AudioGenerationForm({
                         className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
                       />
                     </AppFormControl>
-                    <AppFormMessage className="text-xs text-red-400" />
+                    <AppPromptFormMessage />
                   </>
                 );
               })()}
@@ -750,7 +776,7 @@ export function AudioGenerationForm({
                   ))}
                 </AppSelectContent>
               </AppSelectRoot>
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -814,7 +840,7 @@ export function AudioGenerationForm({
                   className="min-h-[96px]"
                 />
               </AppFormControl>
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -838,7 +864,7 @@ export function AudioGenerationForm({
                 placeholder={getFieldInputPlaceholder()}
               />
             </AppFormControl>
-            <AppFormMessage className="text-xs text-red-400" />
+            <AppPromptFormMessage />
           </AppFormItem>
         )}
       />
@@ -893,7 +919,7 @@ export function AudioGenerationForm({
                     className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surface-lighter"
                   />
                 </AppFormControl>
-                <AppFormMessage className="text-xs text-red-400" />
+                <AppPromptFormMessage />
               </AppFormItem>
             );
           }}
@@ -916,6 +942,7 @@ export function AudioGenerationForm({
                 <input
                   type="file"
                   accept="audio/*"
+                  disabled={isGuest || isGenerating}
                   aria-label={label}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
@@ -932,7 +959,7 @@ export function AudioGenerationForm({
                   className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
                 />
               </AppFormControl>
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -976,7 +1003,7 @@ export function AudioGenerationForm({
                   ))}
                 </AppSelectContent>
               </AppSelectRoot>
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -1034,7 +1061,7 @@ export function AudioGenerationForm({
                   className="min-h-[96px]"
                 />
               </AppFormControl>
-              <AppFormMessage className="text-xs text-red-400" />
+              <AppPromptFormMessage />
             </AppFormItem>
           )}
         />
@@ -1072,7 +1099,7 @@ export function AudioGenerationForm({
                 }
               />
             </AppFormControl>
-            <AppFormMessage className="text-xs text-red-400" />
+            <AppPromptFormMessage />
           </AppFormItem>
         )}
       />
@@ -1141,25 +1168,34 @@ export function AudioGenerationForm({
                       ? "generation-composer"
                       : "fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                   }
+                  attachments={gradioContract ? (<GradioContractFields key={activeModel} scope="attachments" disabled={isGuest || isGenerating}
+                    contract={gradioContract} values={contractValues} prompt={mappingPrompt}
+                    onChange={values => { promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
+                    <div className="grid max-h-[35vh] min-w-0 gap-3 overflow-y-auto px-4 pt-4 sm:grid-cols-2">
+                      {parameterKeys.filter(key => key === "inputAudio").map(key => renderAudioField(key))}
+                      {dynamicParameters.filter(({config}) => config.ui === "upload").map(({key,config}) => renderDynamicAudioField(key,config))}
+                    </div>
+                  )}
                   textarea={
                     <AppFormControl>
-                      <AppTextarea
-                        surface="transparent"
-                        className="min-h-[160px]"
+                      <AppPromptEditor
                         placeholder={tAudio("promptPlaceholder")}
                         {...field}
- onChange={event=>{setPromptWasEdited(true);field.onChange(event);}}
+                        value={promptPreset.text}
+                        disabled={isGuest || isGenerating}
+                        token={promptPreset.preset ? { id: promptPreset.preset.key, offset: promptPreset.tokenOffset, label: promptPreset.preset.name, content: <GenerationPromptPresetChip controller={promptPreset} disabled={isGuest || isGenerating} /> } : undefined}
+                        onChange={(text, present, offset) => { setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
                       />
                     </AppFormControl>
                   }
                   feedback={
                     gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
-                      <AppFormMessage className="text-xs text-red-400" />
+                      <AppPromptFormMessage />
                     ) : undefined
                   }
-                  footerLeft={gradioContract ? <>
+                  footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="audio" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={!gradioContract.inputs.some(f => !f.canonical && !f.hidden)} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>form.setValue("dynamicParams",values,{shouldValidate:true})}/></GenerationSettingsPopover>
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
 </> : (
                     <>
                       {!isGuest && hasModels ? (
@@ -1178,10 +1214,10 @@ export function AudioGenerationForm({
                         icon={<SlidersHorizontal className="h-4 w-4" />}
                       >
                         <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto p-1">
-                          {primaryParameterKeys.map((key) =>
+                          {primaryParameterKeys.filter(key => key !== "inputAudio").map((key) =>
                             renderAudioField(key),
                           )}
-                          {dynamicParameters.map(({ key, config }) =>
+                          {dynamicParameters.filter(({ config }) => config.ui !== "upload").map(({ key, config }) =>
                             renderDynamicAudioField(key, config),
                           )}
                           {advancedParameterKeys.length > 0 ? (
@@ -1198,7 +1234,7 @@ export function AudioGenerationForm({
                         </div>
                       </GenerationSettingsPopover>
                     </>
-                  )}
+                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating} inputIssue={presetInputIssue} /></>}
 footerRight={
                     <>
                       <AppButton
@@ -1211,7 +1247,7 @@ footerRight={
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
-                            (isModelLoading || !hasModels || mappingInvalid || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
+                            (isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
                         className="min-w-24"
                         onClick={
