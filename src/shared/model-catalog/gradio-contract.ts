@@ -1,5 +1,8 @@
 import { modalConfigSchema, modalInputContract } from "./modal-comfyui-contract";
 import { gradioSchemaValidator, gradioSchemaContainsFileData } from "./gradio-json-schema";
+import { gradioChoiceSchema } from "./gradio-choice-schema";
+import { assertGradioInputRules } from "./gradio-input-rules";
+import { gradioFileAuthoringSchema } from "./gradio-file-schema";
 
 import { z } from "zod";
 
@@ -25,9 +28,14 @@ export const gradioFieldSchema = z.object({
   canonical: z.enum(["prompt"]).optional(),
   media: z.enum(["image", "video", "audio"]).optional(),
   choices: z.array(z.union([z.string(), z.number()])).optional(),
+  choiceMode: z.enum(["single", "multiple"]).optional(),
+  allowCustomValue: z.boolean().optional(),
+  maxChoices: z.number().int().nonnegative().optional(),
+  allowEmpty: z.boolean().optional(),
   min: z.number().optional(), max: z.number().optional(), step: z.number().positive().optional(),
 }).strict();
 export const gradioContractSchema = z.object({
+  inputRules: z.record(z.string(), z.unknown()).optional(),
   inputGroups: z.array(z.object({prefix:z.string(),schema:z.record(z.string(),z.unknown())})).optional(),
   requiresSession: z.boolean().optional(),
   mappingConfirmed: z.boolean().optional(),
@@ -112,6 +120,10 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
         source: "hf_space", parameterName: field.name, order,
         valueType: ["string", "number", "boolean", "file"].includes(field.kind) ? field.kind : "string",
         kind: field.kind, schema: field.schema, nullable: field.nullable,
+        ...(field.maxChoices !== undefined ? { maxChoices: field.maxChoices } : {}),
+        ...(field.allowEmpty !== undefined ? { allowEmpty: field.allowEmpty } : {}),
+        ...(field.choiceMode ? { choiceMode: field.choiceMode } : {}),
+        ...(field.allowCustomValue !== undefined ? { allowCustomValue: field.allowCustomValue } : {}),
         ...(field.component ? { component: field.component } : {}),
         ...(field.canonical ? { canonicalKey: field.canonical } : object(parameter.binding).canonicalKey ? { canonicalKey: object(parameter.binding).canonicalKey } : {}),
         ...(field.media ? { media: field.media } : {}),
@@ -122,7 +134,7 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
     for (const attr of ["min", "max", "step"] as const) if (field[attr] !== undefined) parameter[attr] = field[attr];
     parameters[key] = parameter;
   }
-  const providerConfig: Record<string, unknown> = { ...config, api_name: contract.apiName, output: contract.output };
+  const providerConfig: Record<string, unknown> = { ...config, api_name: contract.apiName, output: contract.output, ...(contract.inputRules ? { input_rules: contract.inputRules } : {}) };
   delete providerConfig.gradio_contract;
   return declaredParameters({ ...model, providerConfig, parameters });
 }
@@ -162,6 +174,10 @@ export function getGradioContract(model: MappedModel): GradioContract | null {
         name: b.parameterName, label: p.label ?? b.parameterName,
         schema: b.schema ?? {}, kind: b.kind ?? b.valueType, ui: p.ui,
         nullable: b.nullable ?? false, required: p.required ?? false,
+        ...(b.maxChoices !== undefined ? { maxChoices: b.maxChoices } : {}),
+        ...(b.allowEmpty !== undefined ? { allowEmpty: b.allowEmpty } : {}),
+        ...(b.choiceMode ? { choiceMode: b.choiceMode } : {}),
+        ...(b.allowCustomValue !== undefined ? { allowCustomValue: b.allowCustomValue } : {}),
         hidden: p.ui === "hidden",
         ...(b.component ? { component: b.component } : {}),
         ...(b.canonicalKey === "prompt" ? { canonical: "prompt" } : {}),
@@ -173,7 +189,9 @@ export function getGradioContract(model: MappedModel): GradioContract | null {
         ...(p.step !== undefined ? { step: p.step } : {}),
       };
     });
-  return withFileLimits(gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [] }), normalized.parameters);
+  const contract = withFileLimits(gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [], ...(config.input_rules !== undefined ? { inputRules: config.input_rules } : {}) }), normalized.parameters);
+  if (contract.inputRules) assertGradioInputRules(contract.inputRules, contract.inputs.map(field => field.name), Object.fromEntries(contract.inputs.filter(field => field.default !== undefined).map(field => [field.name, field.default])));
+  return contract;
 }
 export function gradioInputValues(contract: GradioContract, values: { prompt?: string; dynamicParams?: Record<string, unknown> }) {
   const result: Record<string, unknown> = {};
@@ -199,14 +217,18 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
       if (!valid) throw new Error("HF_CONTRACT_TYPE:" + field.name);
       if ((field.kind === "files" || field.kind === "gallery") && (value as unknown[]).length > fileFieldMaxItems(field))
         throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT:" + field.name);
-      if (field.choices?.length && !field.choices.includes(value as string | number))
+      if (field.choiceMode === "multiple" && !Array.isArray(value)) throw new Error("HF_CONTRACT_TYPE:" + field.name);
+      const selections = field.choiceMode === "multiple" ? value as unknown[] : [value];
+      if (!field.allowCustomValue && field.choices?.length && selections.some(v => !field.choices!.includes(v as string | number)))
         throw new Error("HF_CONTRACT_CHOICE:" + field.name);
       if (typeof value === "number" && ((field.min !== undefined && value < field.min) ||
         (field.max !== undefined && value > field.max) ||
         (field.step && Math.abs((value - (field.min ?? 0)) / field.step - Math.round((value - (field.min ?? 0)) / field.step)) > 1e-6)))
         throw new Error("HF_CONTRACT_RANGE:" + field.name);
-      if (field.kind === "json" || field.kind === "files" || field.kind === "gallery") validateJsonSchema(value, field.schema, field.name);
-      else if (["string","number","boolean"].includes(field.kind)) validateJsonSchema(value, field.schema, field.name);
+      if (["file", "files", "gallery"].includes(field.kind)) {
+        try { validateJsonSchema(value, gradioFileAuthoringSchema(field), field.name); }
+        catch (error) { if (error instanceof Error && error.message.startsWith("HF_CONTRACT_")) throw error; throw new Error("HF_CONTRACT_MAPPING_LIMITED:" + field.name); }
+      } else validateJsonSchema(value, gradioChoiceSchema(field), field.name);
       if (field.schema.type === "integer" && !Number.isInteger(value))
         throw new Error("HF_CONTRACT_INTEGER:" + field.name);
     }
@@ -216,13 +238,18 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
     const values=Object.fromEntries(Object.entries(result).filter(([name])=>group.prefix?name.startsWith(group.prefix):!name.startsWith("advanced__")).map(([name,value])=>[name.slice(group.prefix.length),value]));
     validateJsonSchema(values,group.schema,"inputs");
   }
+  if (contract.inputRules) validateJsonSchema(result, contract.inputRules, "inputs");
   return result;
 }
 
 function validateJsonSchema(value: unknown, schema: Record<string, unknown>, name: string) {
  let validate;
  try { validate=gradioSchemaValidator(schema); } catch { throw new Error("HF_CONTRACT_MAPPING_LIMITED:" + name); }
- if(!validate(value)) throw new Error("HF_CONTRACT_SCHEMA:" + name + ":" + (validate.errors?.[0]?.keyword??"invalid"));
+ if(!validate(value)) {
+  const error=validate.errors?.[0];
+  const field=name === "inputs" ? (error?.instancePath.split("/")[1] || error?.params.missingProperty || name) : name;
+  throw new Error("HF_CONTRACT_SCHEMA:" + field + ":" + (error?.keyword??"invalid"));
+ }
 }
 export function selectGradioOutput(data: unknown, contract: GradioContract) {
   if (!contract.output) throw new Error("HF_CONTRACT_OUTPUT_UNRESOLVED");
@@ -252,14 +279,17 @@ export function assessGradioSupport(contract: GradioContract): GradioSupport {
  if(!contract.output) corrections.push("OUTPUT_MEDIA_UNRESOLVED");
  for(const f of contract.inputs) {
   if(f.kind==="json"&&gradioSchemaContainsFileData(f.schema)) limitations.push("NESTED_FILE_CONVERSION:"+f.name);
-  if(!["file","files","gallery"].includes(f.kind)) {
+  if(["file","files","gallery"].includes(f.kind)) {
+   try {gradioSchemaValidator(gradioFileAuthoringSchema(f));} catch {limitations.push("SCHEMA_MAPPING_LIMIT:"+f.name);}
+   if (["gallery", "file"].includes(f.component ?? "") && !f.media) corrections.push("FILE_MEDIA_UNRESOLVED:"+f.name);
+  } else {
    if(!Object.keys(f.schema).length) limitations.push("INPUT_SCHEMA_MISSING:"+f.name);
    else {
-    try {gradioSchemaValidator(f.schema);} catch {limitations.push("SCHEMA_MAPPING_LIMIT:"+f.name);}
+    try {gradioSchemaValidator(gradioChoiceSchema(f));} catch {limitations.push("SCHEMA_MAPPING_LIMIT:"+f.name);}
    }
   }
   if(Object.prototype.hasOwnProperty.call(f,"default")) {
-   try {gradioInputValues({...contract,inputGroups:undefined,inputs:[{...f,canonical:undefined}]},{});}
+   try {gradioInputValues({...contract,inputRules:undefined,inputGroups:undefined,inputs:[{...f,canonical:undefined}]},{});}
    catch {limitations.push("DEFAULT_SCHEMA_CONFLICT:"+f.name);}
   }
  }

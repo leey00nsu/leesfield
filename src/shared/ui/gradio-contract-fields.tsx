@@ -20,6 +20,8 @@ import { AppButton } from "@/shared/ui/app-button";
 import { AppPromptMessage } from "./app-prompt-message";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
 import { type JsonValue } from "@/shared/model-catalog/gradio-contract";
+import { numericParameterValue } from "@/shared/model-catalog/parameter-contract";
+import { useState } from "react";
 
 export function isContractFileField(field: GradioContract["inputs"][number]) {
   return ["file", "files", "gallery"].includes(field.kind);
@@ -47,6 +49,7 @@ export function GradioContractFields({
   excludeNames?: readonly string[];
 }) {
   const ko = useLocale() === "ko";
+  const [customChoices, setCustomChoices] = useState<Record<string, string>>({});
 
   const update = (name: string, value: JsonValue | undefined) => {
     if (disabled) return;
@@ -61,7 +64,7 @@ export function GradioContractFields({
   );
   if (!fields.length) return null;
   const keys = new Set(fields.map(field => field.name));
-  const visibleContract = { ...contract, inputGroups: undefined, inputs: fields };
+  const visibleContract = { ...contract, inputRules: undefined, inputGroups: undefined, inputs: fields };
   const error = gradioFormError(visibleContract, {
     prompt, dynamicParams: Object.fromEntries(Object.entries(values).filter(([key]) => keys.has(key))),
   }, "options");
@@ -85,14 +88,44 @@ export function GradioContractFields({
                   </span>
                 ) : null}
               </span>}
-              {field.choices?.length ? (
+              {field.choiceMode === "multiple" ? (
+                <fieldset aria-label={label} disabled={disabled} className="flex flex-col gap-2">
+                  {(field.choices ?? []).map(option => {
+                    const selected = Array.isArray(value) ? value : [];
+                    const checked = selected.includes(option);
+                    return <label key={JSON.stringify(option)} className="flex items-center gap-2">
+                      <input type="checkbox" checked={checked}
+                        disabled={!checked && field.maxChoices !== undefined && selected.length >= field.maxChoices}
+                        onChange={e => update(field.name, e.target.checked ? [...selected, option] as JsonValue[] : selected.filter(v => v !== option) as JsonValue[])}/>
+                      {String(option)}
+                    </label>;
+                  })}
+                  {field.allowCustomValue && <>
+                    <AppInput aria-label={label + (ko ? " 직접 입력" : " custom value")}
+                      value={customChoices[field.name] ?? ""} onChange={e => setCustomChoices({...customChoices, [field.name]: e.target.value})}/>
+                    <AppButton type="button" variant="ghost" size="sm" disabled={disabled || !customChoices[field.name]}
+                      onClick={() => {
+                        const selected=Array.isArray(value) ? value as JsonValue[] : [];
+                        const custom=customChoices[field.name];
+                        if (custom && !selected.includes(custom) && (field.maxChoices === undefined || selected.length < field.maxChoices)) {
+                          update(field.name, [...selected, custom]);
+                          setCustomChoices({...customChoices,[field.name]:""});
+                        }
+                      }}>{ko ? "추가" : "Add"}</AppButton>
+                    {(Array.isArray(value) ? value : []).filter(v => !field.choices?.includes(v as string | number)).map(v => <AppButton
+                      key={JSON.stringify(v)} type="button" variant="ghost" size="sm"
+                      onClick={() => update(field.name, (value as JsonValue[]).filter(item => item !== v))}>{String(v)} · {ko ? "제거" : "Remove"}</AppButton>)}
+                  </>}
+                </fieldset>
+              ) : field.choices?.length ? (
+                <>
                 <AppSelectRoot
                   disabled={disabled}
                   value={value == null ? "" : JSON.stringify(value)}
                   onValueChange={(selected) =>
                     update(
                       field.name,
-                      selected === "" ? undefined : JSON.parse(selected),
+                      selected === "" ? field.nullable ? null : undefined : JSON.parse(selected),
                     )
                   }
                 >
@@ -104,7 +137,7 @@ export function GradioContractFields({
                     <AppSelectValue placeholder={ko ? "선택" : "Select"} />
                   </AppSelectTrigger>
                   <AppSelectContent position="popper">
-                    {!field.required && (
+                    {(!field.required || field.nullable) && (
                       <AppSelectItem value="">
                         {ko ? "선택 안 함" : "Not selected"}
                       </AppSelectItem>
@@ -119,6 +152,9 @@ export function GradioContractFields({
                     ))}
                   </AppSelectContent>
                 </AppSelectRoot>
+                {field.allowCustomValue && <AppInput disabled={disabled} aria-label={label + (ko ? " 직접 입력" : " custom value")}
+                  value={value == null ? "" : String(value)} onChange={e => update(field.name, e.target.value)}/>}
+                </>
               ) : field.kind === "boolean" ? (
                 <Switch
                   disabled={disabled}
@@ -170,7 +206,7 @@ export function GradioContractFields({
                       field.kind === "number"
                         ? e.target.value === ""
                           ? undefined
-                          : Number(e.target.value)
+                          : numericParameterValue(e.target.value) as JsonValue
                         : e.target.value,
                     )
                   }

@@ -60,7 +60,7 @@ substring history 검색은 `pg_trgm`과 image/video/audio의 prompt/modelKey GI
 
 ## 보안 감사와 로컬 검증
 
-`.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다.
+`.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다. 프로젝트 lockfile은 source-map-js를1.2.2로 고정해 indexed source-map offset의 event-loop DoS(GHSA-68fv-2mgg-jv7q) 패치를 포함한다. 의존성 override를 갱신하거나 제거할 때는 실제 설치 버전과 production audit 및 build를 함께 확인한다.
 
 Feature 완료 전에는 lee-spec-kit의 로컬 검사로 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm security:production`, `pnpm test:production-integration`을 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
 
@@ -92,6 +92,16 @@ ModelCatalog cache는 프로세스별로 active/all 두 범위를 각각 60초 �
 다른 프로세스의 cache 무효화 전파를 운영 구성에 의존하지 않는다. Classic·Node·외부 generation admission은 제출 transaction 안에서 ModelCatalog의 현재 `isActive`와 media type을 다시 확인하므로 오래된 catalog로 신규 실행을 예약할 수 없다. 이미 예약된 작업은 worker claim 시 DB의 현재 `meta.concurrent_limit`를 읽어 오래된 runtime 설정으로 모델별 한도를 초과하지 않는다.
 
 외부 API key 인증은 매 요청마다 DB의 key hash와 `status`를 확인한다. `lastUsedAt`은 감사 로그가 아니라 근사 사용 시각이며 5분보다 오래된 경우에만 `status=active` 조건부 UPDATE를 시도한다. 여러 프로세스가 동시에 touch해도 row 조건이 다시 평가되며, 이 부가 기록의 실패는 인증된 요청을 실패시키지 않는다. 폐기 검사는 이 경로와 분리된 정본 조회이므로 즉시 거부한다.
+
+## 제공업체 모델 계약 재검토
+
+HF 재가져오기는 원본 API/config와 관리자가 저장한 override를 비교한 초안으로 검토한다. 기존 카탈로그를 일괄 변경하거나 활성화하지 않는다. numeric/mixed choices, 복수·custom 선택, nullable·allowEmpty·default는 의미가 다르므로 기존 설정 JSON과 왕복 결과를 확인한다. metadata에 없는 모드별 요구사항은 providerConfig.input_rules로 명시한다. Gallery/File의 매체가 불분명하면 binding.media를 지정하고 per-field8·source/app 상한을 확인한다. 설명용 annotation 때문에 실패한 모델은 새 검증으로 다시 확인할 수 있지만 unknown keyword·State/session·지원 불가 구조는 계속 거부한다.
+
+Modal은 registry의 관리형 workflow ID/version과 raw input_schema/advanced_schema를 확인하고 비활성 초안으로 저장 후 검토한다. prompt 없는 workflow에 필수 prompt를 합성하지 않는다. comfy-input-name의 pattern/enum은 사용자 URL이 아니라 upload가 반환한 filename의 제약이다. 업로드 뒤 raw schema 검증 실패는 GPU 제출을 중단한다. job ID·durable key·frozen origin/version/defaults를 변경해 재제출하지 않는다.
+
+등록·저장·로컬 schema/payload 검증은 원격 생성 성공의 증거가 아니다. Space의 Gradio 버전·revision과 Modal 운영 proxy 버전을 확인한 뒤 필요한 경우 별도 승인된 GPU smoke로 검증한다. timeout과 cancel 실패는 원격 실행 취소를 보장하지 않는다. 결과 stream 미완료·불량 MIME/bytes·빈/부분 저장 실패를 성공으로 해석하지 않는다.
+
+새 choice/input_rules metadata에는 DB migration이 필요 없지만 이전 binary가 같은 의미로 실행한다는 보장은 없다. rollback 전 신규 admission을 모델 비활성화로 막고 이미 예약된 작업은 snapshot 의미를 이해하는 binary에서 drain/reconcile한다. 이전 유효 설정을 백업에서 복원하고 실행 binary와 조건·파일·기본값 호환을 확인한 뒤 다시 활성화한다. unknown remote job을 임의 재생성하지 않는다. Node Banana 공급은 SOURCE의 commit/tree/checksum과 생성물 재현 검사를 함께 유지하며 local-candidate를 원격 게시된 provenance로 기록하지 않는다.
 
 ## SSE 연결과 느린 소비자
 

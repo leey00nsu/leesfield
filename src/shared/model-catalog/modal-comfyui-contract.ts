@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { GradioContract, GradioField } from "./gradio-contract";
 import { gradioSchemaValidator, resolveGradioSchema } from "./gradio-json-schema";
+import { normalizeGradioSchema } from "./gradio-schema-normalization";
+import { gradioObjectAuthoringSchema } from "./gradio-object-schema";
 
 export const modalWorkflowIdSchema = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/);
 const fieldKey = z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]*$/).refine(v => !["constructor", "prototype", "__proto__"].includes(v) && !v.startsWith("advanced__"));
@@ -37,15 +39,6 @@ export const modalConfigSchema=z.object({
 export type ModalConfig=z.infer<typeof modalConfigSchema>;
 export function modalExecutionLimits(config:ModalConfig){return modalExecutionLimitsSchema.parse({...config.workflow.limits,...config.limits});}
 const record=(v:unknown):Record<string,unknown>=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:{};
-/** Extensions describe UI/file semantics; validation keeps the source JSON Schema. */
-function validationSchema(value:unknown):unknown {
- if(Array.isArray(value))return value.map(validationSchema);
- if(!value||typeof value!=="object")return value;
- return Object.fromEntries(Object.entries(value).filter(([key])=>!key.startsWith("x-")).map(([key,v])=>[key,
-  ["properties","patternProperties","$defs","definitions"].includes(key)
-   ? Object.fromEntries(Object.entries(record(v)).map(([name,schema])=>[name,validationSchema(schema)]))
-   : validationSchema(v)]));
-}
 export function modalInputContract(raw:unknown, parameters?:unknown):GradioContract {
  const workflow=modalWorkflowSchema.parse(raw),inputs:GradioField[]=[];
  const definitions=record(parameters);
@@ -53,7 +46,7 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
  for(const section of ["input_schema","advanced_schema"] as const){
   const group=workflow[section],advanced=section==="advanced_schema",prefix=advanced?"advanced__":"";
   if(group.required.some(name=>!Object.hasOwn(group.properties,name)))throw new Error("MODAL_REQUIRED_INPUT_UNDECLARED");
-  const root=validationSchema(group) as Record<string,unknown>;
+  const root=normalizeGradioSchema(group) as Record<string,unknown>;
   gradioSchemaValidator(root);
   groups.push({prefix,schema:root});
   for(const [name,source] of Object.entries(group.properties)){
@@ -66,7 +59,7 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
    const file=p.format==="comfy-input-name"||(array&&item.format==="comfy-input-name");
    const media=p["x-media"]??item["x-media"]??(file?"image":undefined);
    if(file&&(!["image","video","audio"].includes(String(media))||!(types.includes("string")||array)))throw new Error("MODAL_FILE_TYPE");
-   const schema=validationSchema(p) as Record<string,unknown>;
+   const schema=normalizeGradioSchema(p) as Record<string,unknown>;
    if(root.$schema)schema.$schema=root.$schema;
    if(root.$defs)schema.$defs=root.$defs;
    if(root.definitions)schema.definitions=root.definitions;
@@ -77,7 +70,7 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
    const key=prefix+name,override=record(definitions[key]);
    const defaultValue=Object.hasOwn(override,"default")?override.default:p.default;
    if(defaultValue!==undefined&&!gradioSchemaValidator(schema)(defaultValue))throw new Error("MODAL_DEFAULT_INVALID:"+name);
-   const choices=Array.isArray(p.enum)&&p.enum.every(v=>typeof v==="string"||typeof v==="number")?p.enum as (string|number)[]:undefined;
+   const choices=!file&&Array.isArray(p.enum)&&p.enum.every(v=>typeof v==="string"||typeof v==="number")?p.enum as (string|number)[]:undefined;
    const kind:GradioField["kind"]=file?(array?"files":"file"):types.filter(t=>t!=="null").length!==1?"json":types.includes("integer")||types.includes("number")?"number":types.includes("boolean")?"boolean":types.includes("string")?"string":"json";
    if(p["x-role"]==="prompt"&&(advanced||kind!=="string"))throw new Error("MODAL_PROMPT_BINDING_TYPE");
    if(kind==="json"&&JSON.stringify(p).includes('"comfy-input-name"'))throw new Error("MODAL_NESTED_FILE_BINDING_REQUIRED:"+name);
@@ -92,5 +85,10 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
   }
  }
  if(inputs.filter(f=>f.canonical==="prompt").length>1)throw new Error("MODAL_PROMPT_BINDING_AMBIGUOUS");
+ for (const group of groups) {
+  const fields=inputs.filter(field=>group.prefix?field.name.startsWith(group.prefix):!field.name.startsWith("advanced__"));
+  const defaults=Object.fromEntries(fields.filter(field=>field.default!==undefined).map(field=>[field.name.slice(group.prefix.length),field.default]));
+  gradioSchemaValidator(gradioObjectAuthoringSchema(group.schema,defaults));
+ }
  return {version:1,apiName:"/workflows/"+workflow.id,inputs,inputGroups:groups,output:{media:workflow.category,path:[],multiple:true},diagnostics:[],reviewed:true};
 }

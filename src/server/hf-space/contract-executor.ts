@@ -1,5 +1,6 @@
 
 import { handle_file } from "@gradio/client";
+import { fileTypeFromBuffer } from "file-type";
 import { assertGradioExecutable, getGradioContract, gradioInputValues, selectGradioOutput, type GradioContract } from "@/shared/model-catalog/gradio-contract";
 import { selectPreferredHfSpaceFileReference } from "@/server/hf-space/file-reference-resolver";
 import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
@@ -59,7 +60,6 @@ async function collectGradioSubmission(submission: GradioSubmission) {
     }
   }
 
-  if (latestData) return latestData;
   throw new Error("HF_SPACE_RESPONSE_INVALID");
 }
 
@@ -110,7 +110,7 @@ async function predictWithDeadlineInternal(
     if (timedOut) {
       // Do not extend the caller's deadline waiting for a best-effort remote
       // cancellation request. The provider may still finish remotely.
-      void submission?.cancel?.().catch(() => undefined);
+      void Promise.resolve().then(() => submission?.cancel?.()).catch(() => undefined);
       throw new Error("HF_SPACE_REQUEST_TIMEOUT");
     }
     throw error;
@@ -137,6 +137,8 @@ export async function buildGradioRequest(contract: GradioContract, payload: { pr
         if (field.media && !contentType.startsWith(field.media + "/")) {
           throw new Error("HF_CONTRACT_FILE_MEDIA");
         }
+        const detected = await fileTypeFromBuffer(buffer);
+        if (!detected || detected.mime !== contentType) throw new Error("HF_CONTRACT_FILE_MEDIA");
         return handle_file(new Blob([new Uint8Array(buffer)], { type: contentType }));
       }
       const url = new URL(source);
@@ -154,13 +156,15 @@ export async function buildGradioRequest(contract: GradioContract, payload: { pr
       if (field.media && !resolved.mime.startsWith(field.media + "/")) {
         throw new Error("HF_CONTRACT_FILE_MEDIA");
       }
+      const detected = await fileTypeFromBuffer(resolved.buffer);
+      if (!detected || detected.mime !== resolved.mime) throw new Error("HF_CONTRACT_FILE_MEDIA");
       return handle_file(new Blob([new Uint8Array(resolved.buffer)], { type: resolved.mime }));
     };
     if (field.kind === "file") values[field.name] = await convert(value as string);
     else {
       if ((value as string[]).length > 8) throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT");
       const files = await mapWithConcurrency(value as string[], OUTBOUND_CONCURRENCY, convert);
-      values[field.name] = field.kind === "gallery" ? files.map(image => ({image, caption:null})) : files;
+      values[field.name] = field.kind === "gallery" ? files.map(file => ({[field.media === "video" ? "video" : "image"]:file, caption:null})) : files;
     }
   }
   return values;

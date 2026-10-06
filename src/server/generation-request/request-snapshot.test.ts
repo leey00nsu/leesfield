@@ -6,6 +6,17 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({getModelCatalog: mockC
 const mapped = {type:'image',providerConfig:{api_name:'/generate',output:{media:'image',path:[0]}},parameters:{'hf:width':{label:'Width',default:512,binding:{source:'hf_space',parameterName:'width',valueType:'number',schema:{type:'number'},order:0}}}};
 describe('simple request settings',()=>{
  beforeEach(() => { mockCatalog.mockReset(); });
+ it('retains typed selections and resolved defaults after snapshot/restore and catalog changes',async()=>{
+  const model={...mapped,key:"mapped",provider:"hf_space",providerConfig:{...mapped.providerConfig,input_rules:{type:"object",properties:{tags:{type:"array",minItems:1}},required:["tags"]}},parameters:{
+    tags:{default:[1],options:[1,"two"],binding:{source:"hf_space",parameterName:"tags",kind:"json",valueType:"string",choiceMode:"multiple",schema:{type:"array",items:{type:"string",enum:[1,"two"]}},order:0}},
+    custom:{default:"new",options:["listed"],binding:{source:"hf_space",parameterName:"custom",kind:"json",valueType:"string",choiceMode:"single",allowCustomValue:true,schema:{type:"string",enum:["listed"]},order:1}},
+  }};
+  mockCatalog.mockResolvedValue([model]);
+  const saved=await snapshotRequest('image',{model:"mapped",dynamicParams:{custom:7}});
+  model.parameters.tags.default=[];
+  expect(restoreRequest(JSON.parse(JSON.stringify(saved))).dynamicParams).toEqual({tags:[1],custom:7});
+  expect(saved.requestSettings).toEqual({tags:[1],custom:7});
+ });
  it('records model input names and values without synthetic fixed defaults',()=>{
  expect(requestInputs(mapped,{width:1024,steps:1,dynamicParams:{width:768}})).toEqual({width:768});
  });

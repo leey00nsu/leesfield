@@ -1203,6 +1203,17 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
     cleanup();
   });
 
+  it.each([["1.5","1.5"],["9007199254740993","9007199254740993"]])("preserves native integer input %s without truncation or rounding", async (text,value)=>{
+    const modelKey="safe-integer-native";
+    vi.stubGlobal("fetch",vi.fn(async()=>({ok:true,json:async()=>({items:[{key:modelKey,provider:"hf_space",type:"image",inputContract:{inputs:[{name:"seed",kind:"number",default:2,schema:{type:"integer"}}]}}]})})));
+    const update=vi.fn();
+    const view=renderPresenter({kind:"generate.image",data:{config:{prompt:"test",modelKey,parameters:{seed:2}},selectedModel:{provider:"hf_space",modelId:modelKey,displayName:"Model"}},assertBody:()=>undefined},update,vi.fn());
+    const input=await within(view.body).findByDisplayValue("2");
+    fireEvent.focus(input);fireEvent.change(input,{target:{value:text}});fireEvent.blur(input);
+    await waitFor(()=>expect(update).toHaveBeenCalledWith("node-generate.image",{config:{prompt:"test",modelKey,parameters:{seed:value}}}));
+    view.unmount();
+  });
+
   it.each(["generate.image", "generate.audio", "generate.video"] as const)(
     "persists %s output selection and clear through the canonical selection field",
     (canonicalKind) => {

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { gradioFormError, gradioFormMessage } from "./gradio-form-validation";
 import type { GradioContract } from "./gradio-contract";
+import { modalInputContract } from "./modal-comfyui-contract";
 const contract: GradioContract = {
  version: 1, apiName: "/generate", reviewed: false, diagnostics: [],
  output: {media: "video", path: [0], multiple: false},
@@ -13,6 +14,14 @@ const contract: GradioContract = {
  ],
 };
 describe("generation readiness", () => {
+ it("accepts promptless Modal while preserving required values and declared empty semantics", () => {
+  const empty={type:"object",properties:{},required:[],additionalProperties:false};
+  const promptless=modalInputContract({id:"seed-only",name:"Seed only",category:"image",output_media:["image"],input_schema:{...empty,properties:{seed:{type:"integer",default:0}}},advanced_schema:empty});
+  expect(gradioFormError(promptless,{})).toBeNull();
+  const strings={...promptless,inputGroups:undefined,inputs:[{name:"text",label:"Text",kind:"string" as const,schema:{type:"string"},required:true,nullable:false,allowEmpty:true,default:""}]};
+  expect(gradioFormError(strings,{})).toBeNull();
+  expect(gradioFormError({...strings,inputs:[{...strings.inputs[0],schema:{type:"string",minLength:1}}]},{})).not.toBeNull();
+ });
  it("requires a frame and accepts zero and false without a review gate", () => {
   const values={prompt: "hello", dynamicParams: {count: 0, flag: false}};
   const error=gradioFormError(contract,values)!;

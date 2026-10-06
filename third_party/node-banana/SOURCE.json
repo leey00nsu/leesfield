@@ -13,11 +13,11 @@
   "fork": {
     "repository": "https://github.com/leey00nsu/node-banana",
     "branch": "leesfield/v1.9.0",
-    "commit": "d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b",
-    "tree": "90f6cd9913a36e5d83ffeee43423935ee0826f3d",
+    "commit": "bc45013552835e118dcc136ff6e5bf1129252c51",
+    "tree": "6cbc120447114ac8be33bcd1d91beec33c03771b",
     "publicationStatus": "local-candidate"
   },
-  "snapshotSha256": "c6be472668beb30c8bc45fc59b881be9222c9decd6131b7a8cf610c4bbdbdbd4",
+  "snapshotSha256": "5f5133d8c471783f0ca2fade95d974e2ae6d0198b67cd6926abaec66712be845",
   "license": "MIT",
   "licenseSha256": "3989f2def04373048122d4565626a75af61eba5ffee94a40a0460cdff3b7f9f7"
 }

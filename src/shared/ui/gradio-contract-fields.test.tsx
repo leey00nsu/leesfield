@@ -35,6 +35,32 @@ const contract: GradioContract = {
   reviewed: true,
 };
 describe("Gradio contract fields", () => {
+  it("edits typed multiple choices and custom values without converting numbers to strings", async () => {
+    const user=userEvent.setup(),onChange=vi.fn();
+    const choices={...contract,inputs:[{name:"tags",label:"Tags",kind:"json" as const,choiceMode:"multiple" as const,allowCustomValue:true,maxChoices:2,choices:[1,"a"],schema:{type:"array",items:{type:"string",enum:[1,"a"]}},required:false,nullable:false,default:[]}]};
+    const {rerender}=render(<GradioContractFields contract={choices} values={{}} prompt="" onChange={onChange}/>);
+    await user.click(screen.getByRole("checkbox",{name:"1"}));
+    expect(onChange).toHaveBeenLastCalledWith({tags:[1]});
+    rerender(<GradioContractFields contract={choices} values={{tags:[1]}} prompt="" onChange={onChange}/>);
+    await user.type(screen.getByLabelText("Tags 직접 입력"),"custom");
+    await user.click(screen.getByRole("button",{name:"추가"}));
+    expect(onChange).toHaveBeenLastCalledWith({tags:[1,"custom"]});
+    rerender(<GradioContractFields contract={choices} values={{tags:[1,"custom"]}} prompt="" onChange={onChange}/>);
+    expect(screen.getByRole("checkbox",{name:"a"})).toBeDisabled();
+    await user.click(screen.getByRole("button",{name:"custom · 제거"}));
+    expect(onChange).toHaveBeenLastCalledWith({tags:[1]});
+  });
+  it("preserves unsafe numeric text and distinguishes explicit null from missing/default", async()=>{
+    const onChange=vi.fn(),user=userEvent.setup();
+    const {rerender}=render(<GradioContractFields contract={contract} values={{frame:null}} prompt="demo" onChange={onChange}/>);
+    fireEvent.change(screen.getByLabelText("Duration"),{target:{value:"9007199254740993"}});
+    expect(onChange).toHaveBeenLastCalledWith({frame:null,duration:"9007199254740993"});
+    const choice={...contract,inputs:[{name:"choice",label:"Choice",kind:"number" as const,choiceMode:"single" as const,schema:{type:"string",enum:[1,2]},choices:[1,2],required:true,nullable:true,default:1}]};
+    rerender(<GradioContractFields contract={choice} values={{}} prompt="" onChange={onChange}/>);
+    await user.click(screen.getByRole("combobox",{name:"Choice"}));
+    await user.click(await screen.findByRole("option",{name:"선택 안 함"}));
+    expect(onChange).toHaveBeenLastCalledWith({choice:null});
+  });
   it("파일 이름 선택지가 있는 계약도 첨부 위치에서 원래 선택 제한을 유지한다", async () => {
     const onChange=vi.fn(), user=userEvent.setup();
     const fileChoices={...contract,inputs:[{...contract.inputs[1],choices:["first.png","second.png"]}]};

@@ -60,7 +60,7 @@ export function areGenerationNodeParametersValid(
       const dynamicParams = { ...parsed.data.dynamicParams };
       const isMedia = (kind: string) => ["file", "files", "gallery"].includes(kind);
       for (const field of contract.inputs) if (isMedia(field.kind)||field.canonical) delete dynamicParams[field.name];
-      gradioInputValues({ ...contract, inputGroups: undefined, inputs: contract.inputs.filter(field => !isMedia(field.kind)&&!field.canonical) }, { dynamicParams });
+      gradioInputValues({ ...contract, inputRules: undefined, inputGroups: undefined, inputs: contract.inputs.filter(field => !isMedia(field.kind)&&!field.canonical) }, { dynamicParams });
       return true;
     } catch {return false;}
   }

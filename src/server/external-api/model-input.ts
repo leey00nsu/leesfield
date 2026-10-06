@@ -19,6 +19,10 @@ import {
   maxExternalFileBytes,
   externalFilePrefix,
 } from "@/shared/api/external-contract";
+import { gradioObjectAuthoringSchema, gradioGroupAuthoringSchema } from "@/shared/model-catalog/gradio-object-schema";
+import { gradioChoiceSchema } from "@/shared/model-catalog/gradio-choice-schema";
+import { gradioFileAuthoringSchema } from "@/shared/model-catalog/gradio-file-schema";
+import { normalizeGradioSchema } from "@/shared/model-catalog/gradio-schema-normalization";
 import { normalizeRuntimeParameterOptions } from "@/shared/model-catalog/parameter-options";
 
 type FileInput = {
@@ -69,33 +73,14 @@ export function getExternalModelInput(model: ModelCatalogItem) {
           multiple,
           effectiveMaxItems,
         ));
-        schema = multiple
-          ? {
-              type: "array",
-              items: { type: "string" },
-              maxItems: effectiveMaxItems,
-            }
-          : { type: "string" };
-        schema.description =
-          "File URL or data URL; alternatively use the declared multipart file field.";
+        schema = normalizeGradioSchema(gradioFileAuthoringSchema(field)) as SchemaObject;
+        if (multiple) schema.maxItems = effectiveMaxItems;
+        schema.description = "File URL or data URL; alternatively use the declared multipart file field.";
       } else {
-        schema = {
-          ...(field.kind !== "json"
-            ? { type: field.kind as "string" | "number" | "boolean" }
-            : {}),
-          allOf: [
-            {
-              ...field.schema,
-              $id:
-                "urn:leesfield:" +
-                encodeURIComponent(model.id) +
-                ":" +
-                encodeURIComponent(field.name),
-            } as SchemaObject,
-          ],
-        };
+        const effective = normalizeGradioSchema(gradioChoiceSchema(field));
+        schema = { allOf: [{ ...effective, $id: "urn:leesfield:" + encodeURIComponent(model.id) + ":" + encodeURIComponent(field.name) } as SchemaObject] };
+        if (field.choices?.length && !field.choiceMode && !field.allowCustomValue) schema.enum=field.choices;
       }
-      if (field.choices?.length) schema.enum = field.choices;
       if (field.min !== undefined) schema.minimum = field.min;
       if (field.max !== undefined) schema.maximum = field.max;
       if (field.step !== undefined) {
@@ -112,11 +97,19 @@ export function getExternalModelInput(model: ModelCatalogItem) {
       if (field.required && field.default === undefined)
         required.push(field.name);
     }
+    const rules = [
+      ...(contract.inputRules ? [gradioObjectAuthoringSchema(contract.inputRules, defaults)] : []),
+      ...(contract.inputGroups ?? []).map((group, index) => {
+        const groupDefaults = Object.fromEntries(Object.entries(defaults).filter(([name]) => group.prefix ? name.startsWith(group.prefix) : !name.startsWith("advanced__")).map(([name, value]) => [name.slice(group.prefix.length), value]));
+        return { ...gradioGroupAuthoringSchema(group.schema, groupDefaults, group.prefix), $id: "urn:leesfield:" + encodeURIComponent(model.id) + ":group:" + index };
+      }),
+    ];
     inputSchema = {
       type: "object",
       properties,
       required,
       additionalProperties: false,
+      ...(rules.length ? { allOf: rules as SchemaObject[] } : {}),
     };
   } else {
     const registry = new OpenAPIRegistry();

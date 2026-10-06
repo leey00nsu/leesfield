@@ -602,7 +602,7 @@ export function ModelManagementScreen() {
     // Modal's source schema validates nullable and structured defaults below.
     const parameterIssues = draft.provider === "modal_comfyui" || draft.type === "llm" ? [] : parameterConfigurationIssues(parametersResult.parsed);
     if (parameterIssues.length) {
-      setJsonErrors({...nextJsonErrors, parameters: parameterIssues.map(issue => issue.name + ": " + (locale === "ko" ? "타입·기본값·범위·선택값을 확인하세요." : "Check the type, default, range and choices.")).join("\n")});
+      setJsonErrors({...nextJsonErrors, parameters: parameterIssues.map(issue => gradioDiagnosticMessage("PARAMETER_" + issue.reason.toUpperCase() + ":" + issue.name, locale)).join("\n")});
       setSaveError(tAdmin("errors.configuration"));
       return;
     }
@@ -613,7 +613,7 @@ export function ModelManagementScreen() {
         if (mapped.output?.media !== draft.type) throw new Error("HF_CONTRACT_MEDIA");
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : tAdmin("errors.json"));
+      setSaveError(error instanceof Error ? gradioDiagnosticMessage(error.message, locale) : tAdmin("errors.json"));
       return;
     }
     setSaveError(null);

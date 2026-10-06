@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import sources from "@/server/hf-space/fixtures/provider-schema-sources.json";
 
 const mockConnect = vi.hoisted(() => vi.fn());
 
@@ -9,6 +10,53 @@ vi.mock("@gradio/client", () => ({
 }));
 
 describe("importModelDraftFromSpace", () => {
+  it("connects runtime URLs intact and stores the canonical case/underscores from metadata", async () => {
+    mockConnect.mockResolvedValue({view_api:vi.fn().mockResolvedValue({named_endpoints:{"/generate":{parameters:[],returns:[{component:"Image"}]}}}),config:{space_id:"Jackiesixnine/Krea-2-Turbo_v2",components:[],dependencies:[]}});
+    const {importModelDraftFromSpace}=await import("@/server/model-catalog/space-importer");
+    const runtime="https://jackiesixnine-krea-2-turbo-v2.hf.space";
+    const result=await importModelDraftFromSpace({spaceUrl:runtime});
+    expect(mockConnect.mock.calls[0][0]).toBe(runtime);
+    expect(result.draft.providerConfig).toMatchObject({space_id:"Jackiesixnine/Krea-2-Turbo_v2",space_url:runtime});
+    mockConnect.mockResolvedValue({view_api:vi.fn().mockResolvedValue({named_endpoints:{"/generate":{parameters:[],returns:[{component:"Image"}]}}}),config:{components:[],dependencies:[]}});
+    await expect(importModelDraftFromSpace({spaceUrl:runtime})).rejects.toThrow("SPACE_ID_UNRESOLVED");
+  });
+  it.each(["https://huggingface.co.evil.test/spaces/owner/repo","https://evilhuggingface.co/spaces/owner/repo","http://huggingface.co/spaces/owner/repo","https://user:pass@owner-repo.hf.space","https://owner-repo.hf.space:8443","https://owner-repo.hf.space/config","https://huggingface.co/spaces/owner/repo/extra","https://huggingface.co/spaces/owner/a%2Fb"])("rejects invalid Space origin/path %s before connecting",async spaceUrl=>{
+    const {importModelDraftFromSpace}=await import("@/server/model-catalog/space-importer");
+    await expect(importModelDraftFromSpace({spaceUrl})).rejects.toThrow("INVALID_SPACE_URL");
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+  it("imports the captured Turbo8 numeric resolution and preserves source through catalog save/read", async () => {
+    const resolution=sources[0].parameters.find(p=>p.parameter_name==="resolution")!;
+    mockConnect.mockResolvedValue({view_api:vi.fn().mockResolvedValue({named_endpoints:{"/generate":{parameters:[resolution],returns:[{component:"Image"}]}}}),config:{space_id:sources[0].spaceId,components:[],dependencies:[]}});
+    const {importModelDraftFromSpace}=await import("@/server/model-catalog/space-importer");
+    const {modelCatalogInputSchema,modelCatalogSchema}=await import("./catalog-schema");
+    const {getGradioContract,gradioInputValues}=await import("@/shared/model-catalog/gradio-contract");
+    const result=await importModelDraftFromSpace({spaceUrl:"https://huggingface.co/spaces/"+sources[0].spaceId,apiName:"/generate"});
+    expect(result.support.status).toBe("auto_mapped");
+    const saved=modelCatalogInputSchema.parse(result.draft);
+    const read=modelCatalogSchema.parse([{...JSON.parse(JSON.stringify(saved)),id:"saved-model",createdAt:new Date(0),updatedAt:new Date(0)}])[0];
+    const contract=getGradioContract(read)!;
+    expect(contract.inputs[0]).toMatchObject({kind:"number",choiceMode:"single",default:1024,schema:resolution.type});
+    expect(gradioInputValues(contract,{})).toEqual({resolution:1024});
+    expect(()=>gradioInputValues(contract,{dynamicParams:{resolution:"1024"}})).toThrow();
+    expect(()=>gradioInputValues(contract,{dynamicParams:{resolution:999}})).toThrow();
+    expect(gradioInputValues(contract,{dynamicParams:{resolution:null}})).toEqual({resolution:null});
+  });
+  it("preserves Krea Dataframe source and accepts its structured default after catalog roundtrip", async () => {
+    const field = sources[1].parameters[0];
+    mockConnect.mockResolvedValue({
+      view_api: vi.fn().mockResolvedValue({named_endpoints:{"/generate":{parameters:[field],returns:[{component:"Image",type:{type:"object"}}]}}}),
+      config:{space_id:"Jackiesixnine/Krea-2-Turbo_v2",components:[],dependencies:[]},
+    });
+    const { importModelDraftFromSpace } = await import("@/server/model-catalog/space-importer");
+    const { getGradioContract, gradioInputValues } = await import("@/shared/model-catalog/gradio-contract");
+    const result=await importModelDraftFromSpace({spaceUrl:"https://huggingface.co/spaces/Jackiesixnine/Krea-2-Turbo_v2",apiName:"/generate"});
+    const roundtrip=JSON.parse(JSON.stringify(result.draft));
+    const contract=getGradioContract(roundtrip)!;
+    expect(contract.inputs[0].schema).toEqual(field.type);
+    expect(gradioInputValues(contract,{})).toEqual({param_22:field.parameter_default});
+    expect(result.warnings.some(w=>/SCHEMA_MAPPING_LIMIT|DEFAULT_SCHEMA_CONFLICT/.test(w))).toBe(false);
+  });
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();

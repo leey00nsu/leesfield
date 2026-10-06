@@ -60,14 +60,22 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
     const label = gradioLabel(props.label, gradioLabel(p.label, name));
     const component = String(c.type ?? p.component ?? "").toLowerCase();
     const schema = sourceSchema(p, c, "input");
-    const kind = schemaKind(schema, component);
-    const nullable = schemaNullable(schema) || (["file","files","gallery"].includes(kind) && p.parameter_has_default === true && p.parameter_default === null);
+    let kind = schemaKind(schema, component);
+    let nullable = schemaNullable(schema) || (["file","files","gallery"].includes(kind) && p.parameter_has_default === true && p.parameter_default === null);
     const hasDefault = p.parameter_has_default === true || (p.parameter_has_default === undefined && Object.hasOwn(p, "parameter_default"));
     const defaultValue = hasDefault ? p.parameter_default : undefined;
     const parsedDefault = jsonValueSchema.safeParse(defaultValue);
     const choiceValues = Array.isArray(props.choices) ? props.choices.map(v => Array.isArray(v) ? v[1] : v)
       : Array.isArray(schema.enum) ? schema.enum : undefined;
     const choices = choiceValues?.filter((v): v is string | number => typeof v === "string" || typeof v === "number");
+    const isSelection = ["dropdown", "radio", "checkboxgroup"].includes(component);
+    const choiceMode = isSelection ? (component === "checkboxgroup" || props.multiselect === true || schema.type === "array" ? "multiple" as const : "single" as const) : undefined;
+    const allowCustomValue = isSelection && props.allow_custom_value === true;
+    if (isSelection) {
+      const types = new Set(choices?.map(v => typeof v));
+      kind = choiceMode === "multiple" || allowCustomValue || types.size > 1 ? "json" : types.has("number") ? "number" : "string";
+      nullable ||= component === "dropdown" || component === "radio";
+    }
     const canonical = kind === "string" && !choices?.length &&
       /^(prompt|text|target_text|gen_text|input_text)$/i.test(name) ? "prompt" as const : undefined;
     const inferredPrompt = kind === "string" && !choices?.length && /^prompt$/i.test(label) ? "prompt" as const : undefined;
@@ -75,11 +83,27 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
     if (component === "state") diagnostics.push("SESSION_STATE_INPUT:" + name);
 
     if (/optional/i.test(label) && !nullable && !hasDefault) diagnostics.push("OPTIONAL_LABEL_REVIEW:" + name);
-    const media = ["image", "audio", "video"].includes(component) ? component as "image" | "audio" | "video" : undefined;
-    return { component, hidden: p.hidden === true, name, label, schema, kind, required: !hasDefault, nullable,
+    let allowEmpty = false;
+    try { allowEmpty = !canonical && !inferredPrompt && (kind === "string" ? gradioSchemaValidator(schema)("") : choiceMode === "multiple" ? gradioSchemaValidator({ ...schema, items: {} })([]) : false); } catch { /* Unsupported source remains a mapping limit. */ }
+    const inputMedia = ["image", "audio", "video"].includes(component) ? component : undefined;
+    const fileTypes = Array.isArray(props.file_types) ? props.file_types : [];
+    const mediaTypes = new Set(fileTypes.map(type => {
+      if (typeof type !== "string") return undefined;
+      if (/^(image|video|audio)(\/|$)/.test(type)) return type.split("/")[0];
+      if (/^\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(type)) return "image";
+      if (/^\.(mp4|webm|mov|mkv)$/i.test(type)) return "video";
+      if (/^\.(wav|mp3|flac|ogg|m4a)$/i.test(type)) return "audio";
+      return undefined;
+    }));
+    const mime = schema.contentMediaType;
+    const schemaMedia = typeof mime === "string" && /^(image|video|audio)\//.test(mime) ? mime.split("/")[0] : undefined;
+    const media = (inputMedia ?? schemaMedia ?? (mediaTypes.size === 1 && !mediaTypes.has(undefined) ? [...mediaTypes][0] : undefined)) as "image" | "audio" | "video" | undefined;
+    if (["gallery", "file"].includes(component) && !media) diagnostics.push("FILE_MEDIA_REVIEW:" + name);
+    return { ...(allowEmpty ? { allowEmpty: true } : {}), ...(choiceMode ? { choiceMode, allowCustomValue } : {}), component, hidden: p.hidden === true, name, label, schema, kind, required: !hasDefault, nullable,
       ...(parsedDefault.success ? { default: parsedDefault.data as JsonValue } : {}),
       ...((canonical ?? inferredPrompt) ? { canonical: canonical ?? inferredPrompt } : {}),
       ...(media ? { media } : {}), ...(choices?.length ? { choices } : {}),
+      ...(choiceMode === "multiple" && typeof props.max_choices === "number" ? { maxChoices: props.max_choices } : {}),
       ...(typeof props.minimum === "number" ? { min: props.minimum } : {}),
       ...(typeof props.maximum === "number" ? { max: props.maximum } : {}),
       ...(typeof props.step === "number" && props.step > 0 ? { step: props.step } : {}),

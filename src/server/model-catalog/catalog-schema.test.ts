@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { modelCatalogInputSchema, modelCatalogSchema } from "@/server/model-catalog/catalog-schema";
+import { buildImportContract } from "@/server/hf-space/import-contract";
+import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 
 describe("model-catalog option normalization", () => {
+  it("keeps mixed, multiple and custom selection semantics through legacy normalization and JSON roundtrip", () => {
+    const params=[
+      {parameter_name:"mixed",component:"Radio",parameter_has_default:true,parameter_default:1,type:{type:"string",enum:[1,"a"]}},
+      {parameter_name:"tags",component:"Dropdown",parameter_has_default:true,parameter_default:[1],type:{type:"array",items:{type:"string",enum:[1,"a"]}}},
+      {parameter_name:"custom",component:"Dropdown",parameter_has_default:true,parameter_default:"new",type:{type:"string",enum:["a"]}},
+    ];
+    const contract=buildImportContract("/generate",{parameters:params,returns:[{component:"Image"}]},{components:[{id:1,type:"radio",props:{choices:[["One",1],["A","a"]]}},{id:2,type:"dropdown",props:{choices:[1,"a"],multiselect:true,max_choices:1}},{id:3,type:"dropdown",props:{choices:["a"],allow_custom_value:true}}],dependencies:[{api_name:"generate",inputs:[1,2,3]}]});
+    const saved=modelCatalogInputSchema.parse({type:"image",key:"typed",label:"Typed",vendor:"HF",provider:"hf_space",providerConfig:{space_id:"owner/repo",api_name:"/generate",gradio_contract:contract},parameters:{},meta:{}});
+    const read=modelCatalogInputSchema.parse(JSON.parse(JSON.stringify(saved)));
+    const effective=getGradioContract(read)!;
+    expect(gradioInputValues(effective,{})).toEqual({mixed:1,tags:[1],custom:"new"});
+    expect(gradioInputValues(effective,{dynamicParams:{mixed:"a",tags:["a"],custom:7}})).toEqual({mixed:"a",tags:["a"],custom:7});
+    expect(()=>gradioInputValues(effective,{dynamicParams:{tags:[1,"a"]}})).toThrow();
+    expect(()=>gradioInputValues(effective,{dynamicParams:{tags:1}})).toThrow();
+    expect(()=>gradioInputValues(effective,{dynamicParams:{tags:["wrong"]}})).toThrow();
+    expect(()=>gradioInputValues(effective,{dynamicParams:{custom:{value:"a"}}})).toThrow();
+    expect(effective.inputs[1].schema).toEqual(params[1].type);
+  });
   it("OpenAI 호환 LLM 설정에서 내부 주소와 JSON 키를 거부한다", () => {
     const input = {
       type: "llm", key: "assistant-openai", label: "Assistant OpenAI", vendor: "OPENAI",

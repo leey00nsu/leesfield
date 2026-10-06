@@ -11,6 +11,19 @@ import type {RuntimeImageModel} from "@/shared/model-catalog/runtime-utils";
 import {resolveNodeRunReadiness} from "@/features/node-studio/model/node-run-readiness";
 import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
 describe("Modal graph input mapping",()=>{
+ it("keeps multiple and custom values editable in the actual hosted schema",async()=>{
+  const draft=buildModalModelDraft(workflows[0]);
+  const {deduplicatedFetch,clearFetchCache}=await import("@node-banana-runtime/upstream-node-host");
+  clearFetchCache();vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({items:[{...draft,inputContract:{inputs:[
+    {name:"tags",kind:"json",choiceMode:"multiple",choices:[1,"two"],default:[1],schema:{}},
+    {name:"custom",kind:"string",choiceMode:"single",allowCustomValue:true,choices:["listed"],default:"new",schema:{}},
+  ]}}]})));
+  try {
+    const schema=await (await deduplicatedFetch("/api/models/"+draft.key)).json();
+    expect(schema.parameters).toMatchObject([{name:"tags",type:"json",default:[1]},{name:"custom",type:"string",default:"new"}]);
+    expect(schema.parameters.every((p:{enum?:unknown})=>p.enum===undefined)).toBe(true);
+  } finally {vi.unstubAllGlobals();clearFetchCache();}
+ });
  it("allows a source-contract model with no prompt and exposes JSON controls",async()=>{
   const source=structuredClone(workflows[0]);
   source.id="new-promptless-workflow";

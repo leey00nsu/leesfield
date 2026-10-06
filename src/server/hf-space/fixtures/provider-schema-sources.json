@@ -1,0 +1,377 @@
+[
+  {
+    "spaceId": "hugging-apps/turbo8-qwen-image-2-1",
+    "apiName": "/generate",
+    "gradioVersion": "6.28.0",
+    "observedAt": "2026-10-05T07:49:59.434Z",
+    "source": "https://hugging-apps-turbo8-qwen-image-2-1.hf.space/gradio_api/info",
+    "parameters": [
+      {
+        "label": "Input images (editing/extraction, up to 10)",
+        "parameter_name": "input_images",
+        "parameter_has_default": true,
+        "parameter_default": [],
+        "type": {
+          "$defs": {
+            "FileData": {
+              "description": "The FileData class is a subclass of the GradioModel class that represents a file object within a Gradio interface. It is used to store file data and metadata when a file is uploaded.\n\nAttributes:\n    path: The server file path where the file is stored.\n    url: The normalized server URL pointing to the file.\n    size: The size of the file in bytes.\n    orig_name: The original filename before upload.\n    mime_type: The MIME type of the file.\n    is_stream: Indicates whether the file is a stream.\n    meta: Additional metadata used internally (should not be changed).",
+              "properties": {
+                "path": {
+                  "title": "Path",
+                  "type": "string"
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Url"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Size"
+                },
+                "orig_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Orig Name"
+                },
+                "mime_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Mime Type"
+                },
+                "is_stream": {
+                  "default": false,
+                  "title": "Is Stream",
+                  "type": "boolean"
+                },
+                "meta": {
+                  "$ref": "#/$defs/FileDataMeta"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "title": "FileData",
+              "type": "object"
+            },
+            "FileDataMeta": {
+              "properties": {
+                "_type": {
+                  "const": "gradio.FileData",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_type"
+              ],
+              "title": "FileDataMeta",
+              "type": "object"
+            },
+            "GalleryImage": {
+              "properties": {
+                "image": {
+                  "$ref": "#/$defs/ImageData"
+                },
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Caption"
+                }
+              },
+              "required": [
+                "image"
+              ],
+              "title": "GalleryImage",
+              "type": "object"
+            },
+            "GalleryVideo": {
+              "properties": {
+                "video": {
+                  "$ref": "#/$defs/FileData"
+                },
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Caption"
+                }
+              },
+              "required": [
+                "video"
+              ],
+              "title": "GalleryVideo",
+              "type": "object"
+            },
+            "ImageData": {
+              "description": "A local filepath or publicly available URL.",
+              "properties": {
+                "path": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Path to a local file",
+                  "title": "Path"
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Publicly available url or base64 encoded image",
+                  "title": "Url"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Size of image in bytes",
+                  "title": "Size"
+                },
+                "orig_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Original filename",
+                  "title": "Orig Name"
+                },
+                "mime_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "mime type of image",
+                  "title": "Mime Type"
+                },
+                "is_stream": {
+                  "default": false,
+                  "description": "Can always be set to False",
+                  "title": "Is Stream",
+                  "type": "boolean"
+                },
+                "meta": {
+                  "additionalProperties": true,
+                  "default": {
+                    "_type": "gradio.FileData"
+                  },
+                  "title": "Meta",
+                  "type": "object"
+                }
+              },
+              "title": "ImageData",
+              "type": "object"
+            }
+          },
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/GalleryImage"
+              },
+              {
+                "$ref": "#/$defs/GalleryVideo"
+              }
+            ]
+          },
+          "title": "GalleryData",
+          "type": "array",
+          "additional_description": null
+        },
+        "python_type": {
+          "type": "list[dict(image: filepath, caption: str | None) | dict(video: filepath, caption: str | None)]",
+          "description": null
+        },
+        "component": "Gallery",
+        "example_input": [
+          {
+            "image": {
+              "path": "https://raw.githubusercontent.com/gradio-app/gradio/main/test/test_files/bus.png",
+              "meta": {
+                "_type": "gradio.FileData"
+              },
+              "orig_name": "bus.png",
+              "url": "https://raw.githubusercontent.com/gradio-app/gradio/main/test/test_files/bus.png"
+            }
+          }
+        ]
+      },
+      {
+        "label": "Resolution",
+        "parameter_name": "resolution",
+        "parameter_has_default": true,
+        "parameter_default": 1024,
+        "type": {
+          "type": "string",
+          "enum": [
+            1024,
+            1536,
+            2048
+          ]
+        },
+        "python_type": {
+          "type": "Literal['1024', '1536', '2048']",
+          "description": ""
+        },
+        "component": "Dropdown",
+        "example_input": 1024
+      }
+    ]
+  },
+  {
+    "spaceId": "Jackiesixnine/Krea-2-Turbo_v2",
+    "apiName": "/_generate_wrapper",
+    "gradioVersion": "5.44.1",
+    "observedAt": "2026-10-05T07:50:01.507Z",
+    "source": "https://jackiesixnine-krea-2-turbo-v2.hf.space/gradio_api/info",
+    "parameters": [
+      {
+        "label": "custom Hugging Face LoRAs",
+        "parameter_name": "param_22",
+        "parameter_has_default": true,
+        "parameter_default": {
+          "headers": [
+            "repo_id",
+            "filename",
+            "revision",
+            "weight"
+          ],
+          "data": [],
+          "metadata": null
+        },
+        "type": {
+          "properties": {
+            "headers": {
+              "items": {},
+              "title": "Headers",
+              "type": "array"
+            },
+            "data": {
+              "items": {
+                "items": {},
+                "type": "array"
+              },
+              "title": "Data",
+              "type": "array"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "items": {},
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            }
+          },
+          "required": [
+            "headers",
+            "data"
+          ],
+          "title": "DataframeData",
+          "type": "object",
+          "additional_description": null
+        },
+        "python_type": {
+          "type": "dict(headers: list[Any], data: list[list[Any]], metadata: dict(str, list[Any] | None) | None)",
+          "description": null
+        },
+        "component": "Dataframe",
+        "example_input": {
+          "headers": [
+            "a",
+            "b"
+          ],
+          "data": [
+            [
+              "foo",
+              "bar"
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]

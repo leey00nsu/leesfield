@@ -106,22 +106,16 @@ function resolveComponentLabel(componentProps: Record<string, unknown>) {
 function parseSpaceIdFromUrl(spaceUrl: string) {
   try {
     const url = new URL(spaceUrl);
-    if (url.hostname.includes("huggingface.co")) {
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
+    if (["huggingface.co", "www.huggingface.co"].includes(url.hostname)) {
       const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] === "spaces" && parts[1] && parts[2]) {
+      if (parts.length === 3 && parts[0] === "spaces" && validSpaceId(`${parts[1]}/${parts[2]}`)) {
         return `${parts[1]}/${parts[2]}`;
       }
     }
-    if (url.hostname.endsWith(".hf.space")) {
-      const slug = url.hostname.replace(".hf.space", "");
-      const lastDashIndex = slug.lastIndexOf("-");
-      if (lastDashIndex > 0 && lastDashIndex < slug.length - 1) {
-        const owner = slug.slice(0, lastDashIndex);
-        const repo = slug.slice(lastDashIndex + 1);
-        if (owner && repo) {
-          return `${owner}/${repo}`;
-        }
-      }
+    if (/^[a-z0-9][a-z0-9-]*\.hf\.space$/.test(url.hostname) && url.pathname === "/") {
+      // Runtime slugs flatten owner/repo hyphens and cannot be inverted safely.
+      return url.origin;
     }
   } catch {
     return null;
@@ -129,13 +123,14 @@ function parseSpaceIdFromUrl(spaceUrl: string) {
   return null;
 }
 
+function validSpaceId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_][A-Za-z0-9_.-]*\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(value);
+}
+
 function normalizeSpaceReference(spaceUrl: string) {
   const trimmed = spaceUrl.trim();
   if (!trimmed) return null;
-  const directMatch = trimmed.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
-  if (directMatch) {
-    return `${directMatch[1]}/${directMatch[2]}`;
-  }
+  if (validSpaceId(trimmed)) return trimmed;
   return parseSpaceIdFromUrl(trimmed);
 }
 
@@ -448,7 +443,9 @@ export async function importModelDraftFromSpace(
   const contract = buildImportContract(resolvedApiName, endpoint, config);
   warnings.push(...contract.diagnostics);
   const modelType = contract.output?.media ?? detectModelType(outputTypes, hasVideoParam, hasAudioParam);
-  const spaceId = config.space_id || spaceRef;
+  const runtimeReference = spaceRef.startsWith("https://");
+  if (runtimeReference && !validSpaceId(config.space_id)) throw new Error("SPACE_ID_UNRESOLVED");
+  const spaceId = validSpaceId(config.space_id) ? config.space_id : spaceRef;
   const key = normalizeKey(spaceId.replace("/", "-")) || normalizeKey(spaceUrl);
   const label = resolveString(config.title, spaceId);
 
@@ -477,6 +474,7 @@ export async function importModelDraftFromSpace(
 
   const providerConfig: Record<string, unknown> = {
     space_id: spaceId,
+    ...(runtimeReference ? { space_url: spaceRef } : {}),
     gradio_contract: contract,
     api_name: resolvedApiName,
     timeout_ms: DEFAULT_TIMEOUT_MS,

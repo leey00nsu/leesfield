@@ -74,7 +74,9 @@ export function parameterValueIssue(
     }
   }
   const options = normalizeRuntimeParameterOptions(config.options);
-  if (options?.length && !options.some((option) => option.value === value))
+  if (binding.choiceMode === "multiple" && !Array.isArray(value)) return "type";
+  const selections = binding.choiceMode === "multiple" ? value as unknown[] : [value];
+  if (binding.allowCustomValue !== true && options?.length && selections.some(v => !options.some(option => option.value === v)))
     return "option";
 }
 export function parameterConfigurationIssues(parameters: unknown) {

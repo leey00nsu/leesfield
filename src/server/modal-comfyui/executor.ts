@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { modalConfigSchema, modalInputContract, modalExecutionLimits } from "@/shared/model-catalog/modal-comfyui-contract";
 import { gradioInputValues } from "@/shared/model-catalog/gradio-contract";
+import { gradioSchemaValidator } from "@/shared/model-catalog/gradio-json-schema";
 import { GENERATION_OUTPUT_LIMITS, GENERATION_OUTPUT_MAX_TOTAL_BYTES } from "@/server/http/bounded-io";
 import { createModalClient, ModalApiError, type ModalClient } from "./client";
 import type { ModalJobRepository, ModalSubmission } from "./job-repository";
@@ -91,6 +92,8 @@ export async function executeModalWorkflow(
      if(name.startsWith("advanced__")) submission.advanced[name.slice(10)]=value;
      else submission.inputs[name]=value;
     }
+    if (!gradioSchemaValidator(config.workflow.input_schema)(submission.inputs) || !gradioSchemaValidator(config.workflow.advanced_schema)(submission.advanced))
+      throw new ModalApiError("MODAL_WIRE_INPUT_INVALID");
     await repository.save(requestId,record.lease,{submission});
    }
    submitAttempted=true;
@@ -140,7 +143,7 @@ export async function executeModalWorkflow(
   for(;;) {
    try {
      if(bytes>=totalOutputLimit) throw new ModalApiError("MODAL_OUTPUT_TOO_LARGE");
-     result=await retry(()=>client.download(jobId!,asset.asset_id??index,config.workflow.category,Math.min(mediaOutputLimit,totalOutputLimit-bytes)));
+     result=await retry(()=>client.download(jobId!,asset.asset_id??asset.id??index,config.workflow.category,Math.min(mediaOutputLimit,totalOutputLimit-bytes)));
      break;
     } catch(error) {
      if(!(error instanceof ModalApiError)) throw new ModalApiError("MODAL_DOWNLOAD_FAILED");

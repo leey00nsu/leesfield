@@ -445,8 +445,8 @@ function ParameterInputInner({ param, name, value, onChange }: ParameterInputPro
               if (localValue === "") {
                 handleChange(undefined);
               } else {
-                const num = param.type === "integer" ? parseInt(localValue, 10) : parseFloat(localValue);
-                handleChange(isNaN(num) ? undefined : num);
+                const num = Number(localValue);
+                handleChange(Number.isFinite(num) && (!Number.isInteger(num) || Number.isSafeInteger(num)) ? num : localValue);
               }
             }}
             placeholder={param.default !== undefined ? `${param.default}` : undefined}

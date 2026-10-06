@@ -369,7 +369,7 @@ describe("ModelManagementScreen", () => {
       document.querySelector("[data-app-select-native]"),
     ).not.toBeInTheDocument();
     await user.click(typeSelect);
-    await user.click(screen.getByRole("option", { name: "오디오" }));
+    await user.click(await screen.findByRole("option", { name: "오디오" }));
 
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "유형" })).toHaveTextContent(
@@ -516,4 +516,17 @@ it("계약의 단일 입력은 고정하고 복수 제한만 parameters에 저�
   await user.click(screen.getByRole("button",{name:"저장"}));
   await waitFor(()=>expect(writes).toHaveLength(1));
   expect(writes[0]).toMatchObject({parameters:{refs:{maxItems:2,binding:{schema:{maxItems:4}}},first:{binding:{kind:"file"}}}});
+});
+
+it.each(["ko","en"])("관리자 %s 오류에 필드와 실제 타입 위반을 표시한다", async(locale)=>{
+  const message=locale==="ko"?"hf:resolution: 기본값의 타입이 입력 타입과 다릅니다.":"hf:resolution: The default value has the wrong input type.";
+  const record={...records.find(item=>item.type==="image")!,key:"typed-failure",label:"Typed failure",parameters:{"hf:resolution":{default:"1024",options:[1024,2048],binding:{source:"hf_space",parameterName:"resolution",kind:"number",valueType:"number",schema:{type:"string",enum:[1024,2048]},order:0,choiceMode:"single"}}}};
+  const writes:unknown[]=[];
+  vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{if(init?.method==="PATCH")writes.push(init.body);return {ok:true,json:async()=>({items:[record]})};}));
+  const messages=locale==="en"?(await import("@/shared/i18n/messages/en.json")).default:undefined;
+  const user=userEvent.setup();renderWithIntl(<ModelManagementScreen/>,{locale,messages});
+  await user.click(await screen.findByRole("button",{name:"Typed failure"}));
+  await user.click(screen.getByRole("button",{name:locale==="ko"?"저장":"Save"}));
+  expect(await screen.findByText(message)).toBeInTheDocument();
+  expect(writes).toHaveLength(0);
 });

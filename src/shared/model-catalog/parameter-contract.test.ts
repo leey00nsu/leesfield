@@ -4,6 +4,14 @@ import {
   parameterValueIssue,
 } from "./parameter-contract";
 describe("parameter contracts", () => {
+  it("checks typed multiple selections and allows custom values only when declared", () => {
+    const config={options:[1,"a"],binding:{kind:"json",choiceMode:"multiple"}};
+    expect(parameterValueIssue("tags",config,[1,"a"])).toBeUndefined();
+    expect(parameterValueIssue("tags",config,1)).toBe("type");
+    expect(parameterValueIssue("tags",config,["1"])).toBe("option");
+    expect(parameterValueIssue("tags",{...config,binding:{...config.binding,allowCustomValue:true}},["new"])).toBeUndefined();
+    expect(parameterValueIssue("selection",{options:[1],binding:{kind:"json",nullable:true,choiceMode:"single"}},null)).toBeUndefined();
+  });
   it("checks numeric defaults, ranges, choices and preserves explicit falsy values", () => {
     expect(
       parameterConfigurationIssues({

@@ -52,6 +52,10 @@ const hfParameterBindingSchema = z
       .optional(),
     schema: z.record(z.string(), z.unknown()).optional(),
     nullable: z.boolean().optional(),
+    choiceMode: z.enum(["single", "multiple"]).optional(),
+    allowCustomValue: z.boolean().optional(),
+    maxChoices: z.number().int().nonnegative().optional(),
+    allowEmpty: z.boolean().optional(),
     component: z.string().optional(),
     media: z.enum(["image", "video", "audio"]).optional(),
   })
@@ -126,6 +130,7 @@ const audioParametersSchema = z
 const hfSpaceConfigSchema = z
   .object({
     space_id: z.string().min(1),
+    input_rules: z.record(z.string(), z.unknown()).optional(),
     gradio_contract: gradioContractSchema.optional(),
     api_name: z.string().min(1),
     timeout_ms: z.number().int().positive().optional(),

@@ -1,4 +1,5 @@
-import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
 import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
@@ -178,7 +179,7 @@ export function resolveNodeRunReadiness(
     }
     const selectedModel = [...catalog.imageModels,...(catalog.videoModels??[]),...(catalog.audioModels??[])].find(m=>m.key===modelKey && "generate." + m.type === node.kind);
     const contract = selectedModel ? getGradioContract(selectedModel) : null;
-    const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&f.default===undefined);
+    const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&!f.allowEmpty&&f.default===undefined);
     if (requiresPrompt && !promptFromConfig && !promptFromEdge) reasons.push("PROMPT_REQUIRED");
     if(contract) for(const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
       const port=`${field.media}-field-${field.name}`;
@@ -191,6 +192,28 @@ export function resolveNodeRunReadiness(
     }
 
     const parameters = record(config.parameters);
+    if (contract?.inputRules && selectedModel) {
+      const fileInputs: Record<string,string[]> = {};
+      for (const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
+        const legacyCount=field.media === "image" && contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind)&&f.media==="image").length===1
+          ? ["primary","references","initImage"].reduce((sum,port)=>sum+(readyCounts.get(port)??0),0) : 0;
+        const count=(readyCounts.get(`${field.media}-field-${field.name}`) ?? 0) + legacyCount;
+        if (count) fileInputs[field.name]=Array.from({length:count},(_,i)=>`https://connected.invalid/${field.name}/${i}`);
+      }
+      let prompt=typeof config.prompt === "string" ? config.prompt : undefined;
+      const promptEdge=incoming.find(e=>e.targetPortId==="prompt" && sourceReady(graph,e,new Set(),catalog.assistantResults,catalog.mediaOutputs));
+      if (promptEdge) {
+        try {prompt=resolveGraphText(graph,promptEdge.sourceNodeId,new Set(),catalog.assistantResults,promptEdge.sourcePortId);} catch { /* INPUT_NOT_READY is recorded above. */ }
+      }
+      try {
+        const payload=generationPayload(selectedModel,{...parameters,prompt,fileInputs}) as {prompt?:string;dynamicParams?:Record<string,unknown>};
+        gradioInputValues(contract,payload);
+      } catch (error) {
+        const detail=error instanceof Error ? error.message.split(":")[1] : "";
+        const field=contract.inputs.find(f=>f.name===detail);
+        reasons.push(field?.canonical ? "PROMPT_REQUIRED" : field && ["file","files","gallery"].includes(field.kind) ? "INPUT_REQUIRED" : "PARAMETERS_INVALID");
+      }
+    }
     const preset = promptPresetRefSchema.safeParse(config.promptPreset);
     if (preset.success && !promptPresetReferenceImageCount(preset.data)
       && incoming.some(edge => findPortDefinition(node.kind, edge.targetPortId, "input")?.valueType !== "text")) {

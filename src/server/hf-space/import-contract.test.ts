@@ -3,7 +3,7 @@ import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import {describe,it,expect,vi} from "vitest";
 import fixtures from "./fixtures/gradio-import-contract.json";
 import {buildImportContract} from "./import-contract";
-import {gradioInputValues,selectGradioOutput} from "@/shared/model-catalog/gradio-contract";
+import {gradioInputValues,selectGradioOutput,assessGradioSupport} from "@/shared/model-catalog/gradio-contract";
 const connect=vi.hoisted(()=>vi.fn());
 vi.mock("@gradio/client",()=>({Client:{connect}}));
 // Model the SDK transformation instead of returning raw /info from view_api.
@@ -23,6 +23,22 @@ function sdkClient(f: typeof fixtures[number]) {
  return {config,view_api:async()=>({named_endpoints:named})};
 }
 describe("공개 Gradio 계약 회귀",()=>{
+it("keeps exact media output indices and rejects hidden State inputs",()=>{
+ const c=buildImportContract("/generate",{parameters:[{parameter_name:"session",component:"State",hidden:true,type:{type:"object"},parameter_has_default:true,parameter_default:{}}],returns:[{component:"Textbox"},{component:"Video"},{component:"Image"}]},{});
+ expect(c.inputs[0].hidden).toBe(true);
+ expect(assessGradioSupport(c).status).toBe("unsupported");
+ expect(c.output).toEqual({media:"video",path:[1],multiple:false});
+ expect(c.diagnostics).toContain("OUTPUT_SELECTION_REVIEW");
+ expect(selectGradioOutput(["status",{url:"video.mp4"},{url:"image.png"}],c)).toEqual({url:"video.mp4"});
+});
+it("File media는 입력 file_types 근거로만 정하고 불명확 Gallery는 관리자 검토로 남긴다",()=>{
+ const endpoint={parameters:[{parameter_name:"source",component:"File",type:{type:"array",items:{title:"FileData",type:"object",properties:{path:{type:"string"}}}}}],returns:[{component:"Image"}]};
+ const configured=buildImportContract("/generate",endpoint,{components:[{id:1,type:"file",props:{file_types:[".mp4",".webm"]}}],dependencies:[{api_name:"generate",inputs:[1]}]});
+ expect(configured.inputs[0]).toMatchObject({kind:"files",media:"video"});
+ const ambiguous=buildImportContract("/generate",{...endpoint,parameters:[{...endpoint.parameters[0],component:"Gallery"}]},{});
+ expect(ambiguous.inputs[0].media).toBeUndefined();
+ expect(ambiguous.diagnostics).toContain("FILE_MEDIA_REVIEW:source");
+});
 it("false api와 객체형 label의 최소 재현 계약을 가져온다",async()=>{
  const {importModelDraftFromSpace}=await import("@/server/model-catalog/space-importer");
  for(const f of fixtures.slice(0,2)){

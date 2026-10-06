@@ -1,6 +1,7 @@
+// @vitest-environment node
 
 import {describe,it,expect,vi} from "vitest";
-import {buildGradioRequest,executeGradioContract} from "./contract-executor";
+import {buildGradioRequest,executeGradioContract,predictWithDeadline} from "./contract-executor";
 import type {GradioContract} from "@/shared/model-catalog/gradio-contract";
 vi.mock("@gradio/client",()=>({handle_file:vi.fn(async v=>({uploaded:v}))}));
 const contract:GradioContract={version:1,apiName:"/output_video",inputs:[
@@ -20,8 +21,30 @@ await expect(buildGradioRequest(contract,{dynamicParams:{unknown:1}})).rejects.t
 });
 it("파일 필드별로 gallery 구조를 직렬화한다",async()=>{
 const c={...contract,mappingConfirmed:true,inputs:[{name:"images",label:"Images",kind:"gallery" as const,schema:{},confirmed:true,nullable:false,required:true}]};
-const result=await buildGradioRequest(c,{dynamicParams:{images:["data:image/png;base64,YQ=="]}});
+const result=await buildGradioRequest(c,{dynamicParams:{images:["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII="]}});
 expect(result.images).toMatchObject([{caption:null,image:{uploaded:expect.any(Blob)}}]);
+});
+it("허위 MIME bytes와 완료되지 않은 queue 결과를 거부한다",async()=>{
+ const c={...contract,inputs:[{name:"image",label:"Image",kind:"file" as const,media:"image" as const,schema:{},nullable:false,required:true}]};
+ await expect(buildGradioRequest(c,{dynamicParams:{image:"data:image/png;base64,YQ=="}})).rejects.toThrow("HF_CONTRACT_FILE_MEDIA");
+ const submit=()=>({async *[Symbol.asyncIterator](){yield {type:"data",data:["partial.png"]};}});
+ await expect(predictWithDeadline({predict:vi.fn(),submit},"/generate",{},1000)).rejects.toThrow("HF_SPACE_RESPONSE_INVALID");
+});
+it("cancel이 동기 예외를 던져도 deadline 오류와 predict fallback을 유지한다",async()=>{
+ let finish!:()=>void;const pending=new Promise<void>(resolve=>{finish=resolve;});
+ const cancel=vi.fn(()=>{finish();throw new Error("remote cancel failure");});
+ const submit=()=>({async *[Symbol.asyncIterator](){await pending;},cancel});
+ await expect(predictWithDeadline({predict:vi.fn(),submit},"/generate",{},5)).rejects.toThrow("HF_SPACE_REQUEST_TIMEOUT");
+ await Promise.resolve();expect(cancel).toHaveBeenCalledTimes(1);
+ const predict=vi.fn(async()=>({data:["result"]}));
+ expect(await predictWithDeadline({predict},"/generate",{},100)).toEqual({data:["result"]});
+});
+it("미디어 종류와 파일 개수 보호를 유지한다",async()=>{
+const c={...contract,inputs:[{name:"images",label:"Images",kind:"gallery" as const,media:"image" as const,schema:{type:"array",minItems:1,maxItems:2,items:{type:"object",title:"ImageData",properties:{path:{type:"string"}}}},nullable:false,required:true}]};
+await expect(buildGradioRequest(c,{dynamicParams:{images:["data:audio/wav;base64,YQ=="]}})).rejects.toThrow("FILE_MEDIA");
+await expect(buildGradioRequest(c,{dynamicParams:{images:[]}})).rejects.toThrow("SCHEMA");
+await expect(buildGradioRequest(c,{dynamicParams:{images:Array(3).fill("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=")}})).rejects.toThrow("FILE_COUNT_LIMIT");
+await expect(buildGradioRequest(c,{dynamicParams:{images:["https://127.0.0.1/private"]}})).rejects.toThrow("FILE_URL");
 });
 it("submit의 전체 이벤트를 구독하고 data 다음 complete에서 결과를 반환한다",async()=>{
 const submit=vi.fn((_api:string,_values:Record<string,unknown>,_eventData?:unknown,_triggerId?:number|null,allEvents?:boolean)=>({

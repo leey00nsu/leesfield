@@ -1,0 +1,3426 @@
+{
+  "spaceId": "Jackiesixnine/Krea-2-Turbo_v2",
+  "gradioVersion": "5.44.1",
+  "observedAt": "2026-10-05T08:01:52.877Z",
+  "source": "https://jackiesixnine-krea-2-turbo-v2.hf.space/gradio_api/info",
+  "sourceCode": "https://huggingface.co/spaces/Jackiesixnine/Krea-2-Turbo_v2/blob/main/app.py",
+  "endpoint": {
+    "parameters": [
+      {
+        "parameter_name": "param_0",
+        "label": "mode",
+        "component": "Radio",
+        "type": {
+          "enum": [
+            "text2image",
+            "edit"
+          ],
+          "title": "Radio",
+          "type": "string"
+        },
+        "parameter_has_default": true,
+        "parameter_default": "text2image"
+      },
+      {
+        "parameter_name": "param_1",
+        "label": "prompt",
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        },
+        "parameter_has_default": true,
+        "parameter_default": "A cinematic portrait in soft natural light"
+      },
+      {
+        "parameter_name": "param_2",
+        "label": "edit instruction",
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_3",
+        "label": "primary image / scene",
+        "component": "Image",
+        "type": {
+          "properties": {
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Path to a local file",
+              "title": "Path"
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Publicly available url or base64 encoded image",
+              "title": "Url"
+            },
+            "size": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Size of image in bytes",
+              "title": "Size"
+            },
+            "orig_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Original filename",
+              "title": "Orig Name"
+            },
+            "mime_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "mime type of image",
+              "title": "Mime Type"
+            },
+            "is_stream": {
+              "default": false,
+              "description": "Can always be set to False",
+              "title": "Is Stream",
+              "type": "boolean"
+            },
+            "meta": {
+              "additionalProperties": true,
+              "default": {
+                "_type": "gradio.FileData"
+              },
+              "title": "Meta",
+              "type": "object"
+            }
+          },
+          "title": "ImageData",
+          "type": "object",
+          "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_4",
+        "label": "optional second reference",
+        "component": "Image",
+        "type": {
+          "properties": {
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Path to a local file",
+              "title": "Path"
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Publicly available url or base64 encoded image",
+              "title": "Url"
+            },
+            "size": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Size of image in bytes",
+              "title": "Size"
+            },
+            "orig_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Original filename",
+              "title": "Orig Name"
+            },
+            "mime_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "mime type of image",
+              "title": "Mime Type"
+            },
+            "is_stream": {
+              "default": false,
+              "description": "Can always be set to False",
+              "title": "Is Stream",
+              "type": "boolean"
+            },
+            "meta": {
+              "additionalProperties": true,
+              "default": {
+                "_type": "gradio.FileData"
+              },
+              "title": "Meta",
+              "type": "object"
+            }
+          },
+          "title": "ImageData",
+          "type": "object",
+          "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_5",
+        "label": "width",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 512 and 2048"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1024
+      },
+      {
+        "parameter_name": "param_6",
+        "label": "height",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 512 and 2048"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1024
+      },
+      {
+        "parameter_name": "param_7",
+        "label": "target megapixels",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 0.25 and 4.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1.4
+      },
+      {
+        "parameter_name": "param_8",
+        "label": "grounding resolution",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 384 and 1536"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 768
+      },
+      {
+        "parameter_name": "param_9",
+        "label": "primary reference strength",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 0.0 and 12.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1
+      },
+      {
+        "parameter_name": "param_10",
+        "label": "second reference strength",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 0.0 and 12.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1
+      },
+      {
+        "parameter_name": "param_11",
+        "label": "steps",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 4 and 40"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 8
+      },
+      {
+        "parameter_name": "param_12",
+        "label": "CFG",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 1.0 and 5.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 1
+      },
+      {
+        "parameter_name": "param_13",
+        "label": "sampler",
+        "component": "Dropdown",
+        "type": {
+          "type": "string",
+          "enum": [
+            "euler",
+            "euler_ancestral",
+            "euler_a",
+            "dpmpp_2m",
+            "dpmpp_2m_sde",
+            "dpmpp_sde",
+            "heun",
+            "lms"
+          ]
+        },
+        "parameter_has_default": true,
+        "parameter_default": "euler"
+      },
+      {
+        "parameter_name": "param_14",
+        "label": "scheduler",
+        "component": "Dropdown",
+        "type": {
+          "type": "string",
+          "enum": [
+            "beta",
+            "normal",
+            "karras",
+            "exponential",
+            "sgm_uniform",
+            "simple"
+          ]
+        },
+        "parameter_has_default": true,
+        "parameter_default": "beta"
+      },
+      {
+        "parameter_name": "param_15",
+        "label": "seed",
+        "component": "Number",
+        "type": {
+          "type": "integer"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 2
+      },
+      {
+        "parameter_name": "param_16",
+        "label": "randomize seed",
+        "component": "Checkbox",
+        "type": {
+          "type": "boolean"
+        },
+        "parameter_has_default": true,
+        "parameter_default": false
+      },
+      {
+        "parameter_name": "param_17",
+        "label": "GPU budget (0 = automatic)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between 0 and 300"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_18",
+        "label": "base Krea checkpoint",
+        "component": "Dropdown",
+        "type": {
+          "type": "string",
+          "enum": [
+            "gonzalomoKrea2_v40.safetensors",
+            "museByStableYogi_v25EXTENDEDTURBO.safetensors",
+            "pornmasterKrea2_v2TurboInt8.safetensors",
+            "__custom_huggingface_base_model__"
+          ]
+        },
+        "parameter_has_default": true,
+        "parameter_default": "pornmasterKrea2_v2TurboInt8.safetensors"
+      },
+      {
+        "parameter_name": "param_19",
+        "label": "custom base-model Hugging Face repository",
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_20",
+        "label": "custom base-model filename",
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_21",
+        "label": "custom base-model revision (optional)",
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        },
+        "parameter_has_default": false,
+        "parameter_default": null
+      },
+      {
+        "parameter_name": "param_22",
+        "label": "custom Hugging Face LoRAs",
+        "component": "Dataframe",
+        "type": {
+          "properties": {
+            "headers": {
+              "items": {},
+              "title": "Headers",
+              "type": "array"
+            },
+            "data": {
+              "items": {
+                "items": {},
+                "type": "array"
+              },
+              "title": "Data",
+              "type": "array"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "items": {},
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            }
+          },
+          "required": [
+            "headers",
+            "data"
+          ],
+          "title": "DataframeData",
+          "type": "object",
+          "additional_description": null
+        },
+        "parameter_has_default": true,
+        "parameter_default": {
+          "headers": [
+            "repo_id",
+            "filename",
+            "revision",
+            "weight"
+          ],
+          "data": [],
+          "metadata": null
+        }
+      },
+      {
+        "parameter_name": "param_23",
+        "label": "[anatomy] Innie Vagina (Puffy Labia Majora)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_24",
+        "label": "[enhancer] Krea2 TextFusion Refusal-Reduction LoRA",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_25",
+        "label": "[slider] PornMaster Krea2 Age Slider",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_26",
+        "label": "[slider] Skin Tone Slider - (Krea2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_27",
+        "label": "[slider] Areola Size Slider - (Krea2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_28",
+        "label": "[slider] Breast Size Slider - (Krea-2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_29",
+        "label": "[slider] Real / Fake Breast Slider - (Krea2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_30",
+        "label": "[slider] Protruding Nipples Slider - (Krea2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_31",
+        "label": "[slider] PornMaster Krea2 Breasts Slider — Large breasts, Small breasts",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_32",
+        "label": "[anatomy] PornMaster Krea2 Flat chest & Innie pussy — her genitals were just a slit, she has small areolas, nipples visible.",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_33",
+        "label": "[pose] spread_pussy v2 — zitpussy, spread pussy, pussy",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_34",
+        "label": "[slider] Pubic Hair Slider & Body Hair Slider - (Krea2 + ZIT)",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_35",
+        "label": "[anatomy] Krea2 - Uncut / Uncircumcised Penis — unc0ck",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_36",
+        "label": "[anatomy] Hairy Pussy — she has a hairy pussy",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_37",
+        "label": "[anatomy] Natural Body Hair: Krea2 Hairy",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_38",
+        "label": "[anatomy] Damp Armpit Hair / Hairy Sweaty Male Armpits / Long Curly Thick Wet Bushy Pits - Krea 2 — damp armpit",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_39",
+        "label": "[anatomy] Flaccid Uncut Hairy Penis aka P00TSARA — uncut flaccid penis, POOTSARA",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      },
+      {
+        "parameter_name": "param_40",
+        "label": "[style] [Krea2 / ZIT] Japanese Woman Face 01 — jpwmn01",
+        "component": "Slider",
+        "type": {
+          "type": "number",
+          "description": "numeric value between -3.0 and 3.0"
+        },
+        "parameter_has_default": true,
+        "parameter_default": 0
+      }
+    ],
+    "returns": [
+      {
+        "component": "Gallery",
+        "type": {
+          "$defs": {
+            "FileData": {
+              "description": "The FileData class is a subclass of the GradioModel class that represents a file object within a Gradio interface. It is used to store file data and metadata when a file is uploaded.\n\nAttributes:\n    path: The server file path where the file is stored.\n    url: The normalized server URL pointing to the file.\n    size: The size of the file in bytes.\n    orig_name: The original filename before upload.\n    mime_type: The MIME type of the file.\n    is_stream: Indicates whether the file is a stream.\n    meta: Additional metadata used internally (should not be changed).",
+              "properties": {
+                "path": {
+                  "title": "Path",
+                  "type": "string"
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Url"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Size"
+                },
+                "orig_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Orig Name"
+                },
+                "mime_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Mime Type"
+                },
+                "is_stream": {
+                  "default": false,
+                  "title": "Is Stream",
+                  "type": "boolean"
+                },
+                "meta": {
+                  "$ref": "#/$defs/FileDataMeta"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "title": "FileData",
+              "type": "object"
+            },
+            "FileDataMeta": {
+              "properties": {
+                "_type": {
+                  "const": "gradio.FileData",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_type"
+              ],
+              "title": "FileDataMeta",
+              "type": "object"
+            },
+            "GalleryImage": {
+              "properties": {
+                "image": {
+                  "$ref": "#/$defs/ImageData"
+                },
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Caption"
+                }
+              },
+              "required": [
+                "image"
+              ],
+              "title": "GalleryImage",
+              "type": "object"
+            },
+            "GalleryVideo": {
+              "properties": {
+                "video": {
+                  "$ref": "#/$defs/FileData"
+                },
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Caption"
+                }
+              },
+              "required": [
+                "video"
+              ],
+              "title": "GalleryVideo",
+              "type": "object"
+            },
+            "ImageData": {
+              "description": "For input, either path or url must be provided. For output, path is always provided.",
+              "properties": {
+                "path": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Path to a local file",
+                  "title": "Path"
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Publicly available url or base64 encoded image",
+                  "title": "Url"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Size of image in bytes",
+                  "title": "Size"
+                },
+                "orig_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Original filename",
+                  "title": "Orig Name"
+                },
+                "mime_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "mime type of image",
+                  "title": "Mime Type"
+                },
+                "is_stream": {
+                  "default": false,
+                  "description": "Can always be set to False",
+                  "title": "Is Stream",
+                  "type": "boolean"
+                },
+                "meta": {
+                  "additionalProperties": true,
+                  "default": {
+                    "_type": "gradio.FileData"
+                  },
+                  "title": "Meta",
+                  "type": "object"
+                }
+              },
+              "title": "ImageData",
+              "type": "object"
+            }
+          },
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/GalleryImage"
+              },
+              {
+                "$ref": "#/$defs/GalleryVideo"
+              }
+            ]
+          },
+          "title": "GalleryData",
+          "type": "array",
+          "additional_description": null
+        }
+      },
+      {
+        "component": "Textbox",
+        "type": {
+          "type": "string"
+        }
+      },
+      {
+        "component": "Number",
+        "type": {
+          "type": "number"
+        }
+      }
+    ],
+    "show_api": true,
+    "description": ""
+  },
+  "components": [
+    {
+      "id": 5,
+      "type": "radio",
+      "api_info": {
+        "enum": [
+          "text2image",
+          "edit"
+        ],
+        "title": "Radio",
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "enum": [
+          "text2image",
+          "edit"
+        ],
+        "title": "Radio",
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "enum": [
+          "text2image",
+          "edit"
+        ],
+        "title": "Radio",
+        "type": "string"
+      },
+      "props": {
+        "choices": [
+          [
+            "text2image",
+            "text2image"
+          ],
+          [
+            "edit",
+            "edit"
+          ]
+        ],
+        "type": "value",
+        "label": "mode"
+      }
+    },
+    {
+      "id": 6,
+      "type": "dropdown",
+      "api_info": {
+        "type": "string",
+        "enum": [
+          "gonzalomoKrea2_v40.safetensors",
+          "museByStableYogi_v25EXTENDEDTURBO.safetensors",
+          "pornmasterKrea2_v2TurboInt8.safetensors",
+          "__custom_huggingface_base_model__"
+        ]
+      },
+      "api_info_as_input": {
+        "type": "string",
+        "enum": [
+          "gonzalomoKrea2_v40.safetensors",
+          "museByStableYogi_v25EXTENDEDTURBO.safetensors",
+          "pornmasterKrea2_v2TurboInt8.safetensors",
+          "__custom_huggingface_base_model__"
+        ]
+      },
+      "api_info_as_output": {
+        "type": "string",
+        "enum": [
+          "gonzalomoKrea2_v40.safetensors",
+          "museByStableYogi_v25EXTENDEDTURBO.safetensors",
+          "pornmasterKrea2_v2TurboInt8.safetensors",
+          "__custom_huggingface_base_model__"
+        ]
+      },
+      "props": {
+        "choices": [
+          [
+            "GonzaLomo Krea 2 v4",
+            "gonzalomoKrea2_v40.safetensors"
+          ],
+          [
+            "Muse By Stable Yogi Krea2",
+            "museByStableYogi_v25EXTENDEDTURBO.safetensors"
+          ],
+          [
+            "PornMaster 色情大師-Krea2",
+            "pornmasterKrea2_v2TurboInt8.safetensors"
+          ],
+          [
+            "Custom Hugging Face base model",
+            "__custom_huggingface_base_model__"
+          ]
+        ],
+        "type": "value",
+        "allow_custom_value": false,
+        "label": "base Krea checkpoint"
+      }
+    },
+    {
+      "id": 8,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "custom base-model Hugging Face repository"
+      }
+    },
+    {
+      "id": 9,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "custom base-model filename"
+      }
+    },
+    {
+      "id": 10,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "custom base-model revision (optional)"
+      }
+    },
+    {
+      "id": 14,
+      "type": "image",
+      "api_info": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "api_info_as_input": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "api_info_as_output": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "props": {
+        "type": "filepath",
+        "label": "primary image / scene"
+      }
+    },
+    {
+      "id": 15,
+      "type": "image",
+      "api_info": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "api_info_as_input": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "api_info_as_output": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Path to a local file",
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Publicly available url or base64 encoded image",
+            "title": "Url"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Size of image in bytes",
+            "title": "Size"
+          },
+          "orig_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original filename",
+            "title": "Orig Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "mime type of image",
+            "title": "Mime Type"
+          },
+          "is_stream": {
+            "default": false,
+            "description": "Can always be set to False",
+            "title": "Is Stream",
+            "type": "boolean"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "default": {
+              "_type": "gradio.FileData"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "title": "ImageData",
+        "type": "object",
+        "additional_description": "For input, either path or url must be provided. For output, path is always provided."
+      },
+      "props": {
+        "type": "filepath",
+        "label": "optional second reference"
+      }
+    },
+    {
+      "id": 16,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "prompt"
+      }
+    },
+    {
+      "id": 17,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "edit instruction"
+      }
+    },
+    {
+      "id": 20,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "props": {
+        "minimum": 512,
+        "maximum": 2048,
+        "step": 64,
+        "label": "width"
+      }
+    },
+    {
+      "id": 21,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 512 and 2048"
+      },
+      "props": {
+        "minimum": 512,
+        "maximum": 2048,
+        "step": 64,
+        "label": "height"
+      }
+    },
+    {
+      "id": 24,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 0.25 and 4.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 0.25 and 4.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 0.25 and 4.0"
+      },
+      "props": {
+        "minimum": 0.25,
+        "maximum": 4,
+        "step": 0.05,
+        "label": "target megapixels"
+      }
+    },
+    {
+      "id": 25,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 384 and 1536"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 384 and 1536"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 384 and 1536"
+      },
+      "props": {
+        "minimum": 384,
+        "maximum": 1536,
+        "step": 32,
+        "label": "grounding resolution"
+      }
+    },
+    {
+      "id": 26,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "props": {
+        "minimum": 0,
+        "maximum": 12,
+        "step": 0.1,
+        "label": "primary reference strength"
+      }
+    },
+    {
+      "id": 27,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 0.0 and 12.0"
+      },
+      "props": {
+        "minimum": 0,
+        "maximum": 12,
+        "step": 0.1,
+        "label": "second reference strength"
+      }
+    },
+    {
+      "id": 35,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Innie Vagina (Puffy Labia Majora)"
+      }
+    },
+    {
+      "id": 36,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[enhancer] Krea2 TextFusion Refusal-Reduction LoRA"
+      }
+    },
+    {
+      "id": 37,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] PornMaster Krea2 Age Slider"
+      }
+    },
+    {
+      "id": 38,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Skin Tone Slider - (Krea2 + ZIT)"
+      }
+    },
+    {
+      "id": 39,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Areola Size Slider - (Krea2 + ZIT)"
+      }
+    },
+    {
+      "id": 40,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Breast Size Slider - (Krea-2 + ZIT)"
+      }
+    },
+    {
+      "id": 41,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Real / Fake Breast Slider - (Krea2 + ZIT)"
+      }
+    },
+    {
+      "id": 42,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Protruding Nipples Slider - (Krea2 + ZIT)"
+      }
+    },
+    {
+      "id": 43,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] PornMaster Krea2 Breasts Slider — Large breasts, Small breasts"
+      }
+    },
+    {
+      "id": 44,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] PornMaster Krea2 Flat chest & Innie pussy — her genitals were just a slit, she has small areolas, nipples visible."
+      }
+    },
+    {
+      "id": 45,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[pose] spread_pussy v2 — zitpussy, spread pussy, pussy"
+      }
+    },
+    {
+      "id": 46,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[slider] Pubic Hair Slider & Body Hair Slider - (Krea2 + ZIT)"
+      }
+    },
+    {
+      "id": 47,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Krea2 - Uncut / Uncircumcised Penis — unc0ck"
+      }
+    },
+    {
+      "id": 48,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Hairy Pussy — she has a hairy pussy"
+      }
+    },
+    {
+      "id": 49,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Natural Body Hair: Krea2 Hairy"
+      }
+    },
+    {
+      "id": 50,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Damp Armpit Hair / Hairy Sweaty Male Armpits / Long Curly Thick Wet Bushy Pits - Krea 2 — damp armpit"
+      }
+    },
+    {
+      "id": 51,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[anatomy] Flaccid Uncut Hairy Penis aka P00TSARA — uncut flaccid penis, POOTSARA"
+      }
+    },
+    {
+      "id": 52,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between -3.0 and 3.0"
+      },
+      "props": {
+        "minimum": -3,
+        "maximum": 3,
+        "step": 0.05,
+        "label": "[style] [Krea2 / ZIT] Japanese Woman Face 01 — jpwmn01"
+      }
+    },
+    {
+      "id": 53,
+      "type": "dataframe",
+      "api_info": {
+        "properties": {
+          "headers": {
+            "items": {},
+            "title": "Headers",
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          }
+        },
+        "required": [
+          "headers",
+          "data"
+        ],
+        "title": "DataframeData",
+        "type": "object",
+        "additional_description": null
+      },
+      "api_info_as_input": {
+        "properties": {
+          "headers": {
+            "items": {},
+            "title": "Headers",
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          }
+        },
+        "required": [
+          "headers",
+          "data"
+        ],
+        "title": "DataframeData",
+        "type": "object",
+        "additional_description": null
+      },
+      "api_info_as_output": {
+        "properties": {
+          "headers": {
+            "items": {},
+            "title": "Headers",
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          }
+        },
+        "required": [
+          "headers",
+          "data"
+        ],
+        "title": "DataframeData",
+        "type": "object",
+        "additional_description": null
+      },
+      "props": {
+        "type": "array",
+        "label": "custom Hugging Face LoRAs"
+      }
+    },
+    {
+      "id": 57,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 4 and 40"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 4 and 40"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 4 and 40"
+      },
+      "props": {
+        "minimum": 4,
+        "maximum": 40,
+        "step": 1,
+        "label": "steps"
+      }
+    },
+    {
+      "id": 58,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 1.0 and 5.0"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 1.0 and 5.0"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 1.0 and 5.0"
+      },
+      "props": {
+        "minimum": 1,
+        "maximum": 5,
+        "step": 0.1,
+        "label": "CFG"
+      }
+    },
+    {
+      "id": 60,
+      "type": "dropdown",
+      "api_info": {
+        "type": "string",
+        "enum": [
+          "euler",
+          "euler_ancestral",
+          "euler_a",
+          "dpmpp_2m",
+          "dpmpp_2m_sde",
+          "dpmpp_sde",
+          "heun",
+          "lms"
+        ]
+      },
+      "api_info_as_input": {
+        "type": "string",
+        "enum": [
+          "euler",
+          "euler_ancestral",
+          "euler_a",
+          "dpmpp_2m",
+          "dpmpp_2m_sde",
+          "dpmpp_sde",
+          "heun",
+          "lms"
+        ]
+      },
+      "api_info_as_output": {
+        "type": "string",
+        "enum": [
+          "euler",
+          "euler_ancestral",
+          "euler_a",
+          "dpmpp_2m",
+          "dpmpp_2m_sde",
+          "dpmpp_sde",
+          "heun",
+          "lms"
+        ]
+      },
+      "props": {
+        "choices": [
+          [
+            "euler",
+            "euler"
+          ],
+          [
+            "euler_ancestral",
+            "euler_ancestral"
+          ],
+          [
+            "euler_a",
+            "euler_a"
+          ],
+          [
+            "dpmpp_2m",
+            "dpmpp_2m"
+          ],
+          [
+            "dpmpp_2m_sde",
+            "dpmpp_2m_sde"
+          ],
+          [
+            "dpmpp_sde",
+            "dpmpp_sde"
+          ],
+          [
+            "heun",
+            "heun"
+          ],
+          [
+            "lms",
+            "lms"
+          ]
+        ],
+        "type": "value",
+        "allow_custom_value": false,
+        "label": "sampler"
+      }
+    },
+    {
+      "id": 61,
+      "type": "dropdown",
+      "api_info": {
+        "type": "string",
+        "enum": [
+          "beta",
+          "normal",
+          "karras",
+          "exponential",
+          "sgm_uniform",
+          "simple"
+        ]
+      },
+      "api_info_as_input": {
+        "type": "string",
+        "enum": [
+          "beta",
+          "normal",
+          "karras",
+          "exponential",
+          "sgm_uniform",
+          "simple"
+        ]
+      },
+      "api_info_as_output": {
+        "type": "string",
+        "enum": [
+          "beta",
+          "normal",
+          "karras",
+          "exponential",
+          "sgm_uniform",
+          "simple"
+        ]
+      },
+      "props": {
+        "choices": [
+          [
+            "beta",
+            "beta"
+          ],
+          [
+            "normal",
+            "normal"
+          ],
+          [
+            "karras",
+            "karras"
+          ],
+          [
+            "exponential",
+            "exponential"
+          ],
+          [
+            "sgm_uniform",
+            "sgm_uniform"
+          ],
+          [
+            "simple",
+            "simple"
+          ]
+        ],
+        "type": "value",
+        "allow_custom_value": false,
+        "label": "scheduler"
+      }
+    },
+    {
+      "id": 65,
+      "type": "number",
+      "api_info": {
+        "type": "integer"
+      },
+      "api_info_as_input": {
+        "type": "integer"
+      },
+      "api_info_as_output": {
+        "type": "integer"
+      },
+      "props": {
+        "label": "seed",
+        "step": 1
+      }
+    },
+    {
+      "id": 66,
+      "type": "checkbox",
+      "api_info": {
+        "type": "boolean"
+      },
+      "api_info_as_input": {
+        "type": "boolean"
+      },
+      "api_info_as_output": {
+        "type": "boolean"
+      },
+      "props": {
+        "label": "randomize seed"
+      }
+    },
+    {
+      "id": 78,
+      "type": "slider",
+      "api_info": {
+        "type": "number",
+        "description": "numeric value between 0 and 300"
+      },
+      "api_info_as_input": {
+        "type": "number",
+        "description": "numeric value between 0 and 300"
+      },
+      "api_info_as_output": {
+        "type": "number",
+        "description": "numeric value between 0 and 300"
+      },
+      "props": {
+        "minimum": 0,
+        "maximum": 300,
+        "step": 10,
+        "label": "GPU budget (0 = automatic)"
+      }
+    },
+    {
+      "id": 84,
+      "type": "gallery",
+      "api_info": {
+        "$defs": {
+          "FileData": {
+            "description": "The FileData class is a subclass of the GradioModel class that represents a file object within a Gradio interface. It is used to store file data and metadata when a file is uploaded.\n\nAttributes:\n    path: The server file path where the file is stored.\n    url: The normalized server URL pointing to the file.\n    size: The size of the file in bytes.\n    orig_name: The original filename before upload.\n    mime_type: The MIME type of the file.\n    is_stream: Indicates whether the file is a stream.\n    meta: Additional metadata used internally (should not be changed).",
+            "properties": {
+              "path": {
+                "title": "Path",
+                "type": "string"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "$ref": "#/$defs/FileDataMeta"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "FileData",
+            "type": "object"
+          },
+          "FileDataMeta": {
+            "properties": {
+              "_type": {
+                "const": "gradio.FileData",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "_type"
+            ],
+            "title": "FileDataMeta",
+            "type": "object"
+          },
+          "GalleryImage": {
+            "properties": {
+              "image": {
+                "$ref": "#/$defs/ImageData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "title": "GalleryImage",
+            "type": "object"
+          },
+          "GalleryVideo": {
+            "properties": {
+              "video": {
+                "$ref": "#/$defs/FileData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "video"
+            ],
+            "title": "GalleryVideo",
+            "type": "object"
+          },
+          "ImageData": {
+            "description": "For input, either path or url must be provided. For output, path is always provided.",
+            "properties": {
+              "path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Path to a local file",
+                "title": "Path"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Publicly available url or base64 encoded image",
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Size of image in bytes",
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Original filename",
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "mime type of image",
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "description": "Can always be set to False",
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "additionalProperties": true,
+                "default": {
+                  "_type": "gradio.FileData"
+                },
+                "title": "Meta",
+                "type": "object"
+              }
+            },
+            "title": "ImageData",
+            "type": "object"
+          }
+        },
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GalleryImage"
+            },
+            {
+              "$ref": "#/$defs/GalleryVideo"
+            }
+          ]
+        },
+        "title": "GalleryData",
+        "type": "array",
+        "additional_description": null
+      },
+      "api_info_as_input": {
+        "$defs": {
+          "FileData": {
+            "description": "The FileData class is a subclass of the GradioModel class that represents a file object within a Gradio interface. It is used to store file data and metadata when a file is uploaded.\n\nAttributes:\n    path: The server file path where the file is stored.\n    url: The normalized server URL pointing to the file.\n    size: The size of the file in bytes.\n    orig_name: The original filename before upload.\n    mime_type: The MIME type of the file.\n    is_stream: Indicates whether the file is a stream.\n    meta: Additional metadata used internally (should not be changed).",
+            "properties": {
+              "path": {
+                "title": "Path",
+                "type": "string"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "$ref": "#/$defs/FileDataMeta"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "FileData",
+            "type": "object"
+          },
+          "FileDataMeta": {
+            "properties": {
+              "_type": {
+                "const": "gradio.FileData",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "_type"
+            ],
+            "title": "FileDataMeta",
+            "type": "object"
+          },
+          "GalleryImage": {
+            "properties": {
+              "image": {
+                "$ref": "#/$defs/ImageData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "title": "GalleryImage",
+            "type": "object"
+          },
+          "GalleryVideo": {
+            "properties": {
+              "video": {
+                "$ref": "#/$defs/FileData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "video"
+            ],
+            "title": "GalleryVideo",
+            "type": "object"
+          },
+          "ImageData": {
+            "description": "For input, either path or url must be provided. For output, path is always provided.",
+            "properties": {
+              "path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Path to a local file",
+                "title": "Path"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Publicly available url or base64 encoded image",
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Size of image in bytes",
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Original filename",
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "mime type of image",
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "description": "Can always be set to False",
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "additionalProperties": true,
+                "default": {
+                  "_type": "gradio.FileData"
+                },
+                "title": "Meta",
+                "type": "object"
+              }
+            },
+            "title": "ImageData",
+            "type": "object"
+          }
+        },
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GalleryImage"
+            },
+            {
+              "$ref": "#/$defs/GalleryVideo"
+            }
+          ]
+        },
+        "title": "GalleryData",
+        "type": "array",
+        "additional_description": null
+      },
+      "api_info_as_output": {
+        "$defs": {
+          "FileData": {
+            "description": "The FileData class is a subclass of the GradioModel class that represents a file object within a Gradio interface. It is used to store file data and metadata when a file is uploaded.\n\nAttributes:\n    path: The server file path where the file is stored.\n    url: The normalized server URL pointing to the file.\n    size: The size of the file in bytes.\n    orig_name: The original filename before upload.\n    mime_type: The MIME type of the file.\n    is_stream: Indicates whether the file is a stream.\n    meta: Additional metadata used internally (should not be changed).",
+            "properties": {
+              "path": {
+                "title": "Path",
+                "type": "string"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "$ref": "#/$defs/FileDataMeta"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "FileData",
+            "type": "object"
+          },
+          "FileDataMeta": {
+            "properties": {
+              "_type": {
+                "const": "gradio.FileData",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "_type"
+            ],
+            "title": "FileDataMeta",
+            "type": "object"
+          },
+          "GalleryImage": {
+            "properties": {
+              "image": {
+                "$ref": "#/$defs/ImageData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "title": "GalleryImage",
+            "type": "object"
+          },
+          "GalleryVideo": {
+            "properties": {
+              "video": {
+                "$ref": "#/$defs/FileData"
+              },
+              "caption": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Caption"
+              }
+            },
+            "required": [
+              "video"
+            ],
+            "title": "GalleryVideo",
+            "type": "object"
+          },
+          "ImageData": {
+            "description": "For input, either path or url must be provided. For output, path is always provided.",
+            "properties": {
+              "path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Path to a local file",
+                "title": "Path"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Publicly available url or base64 encoded image",
+                "title": "Url"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Size of image in bytes",
+                "title": "Size"
+              },
+              "orig_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Original filename",
+                "title": "Orig Name"
+              },
+              "mime_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "mime type of image",
+                "title": "Mime Type"
+              },
+              "is_stream": {
+                "default": false,
+                "description": "Can always be set to False",
+                "title": "Is Stream",
+                "type": "boolean"
+              },
+              "meta": {
+                "additionalProperties": true,
+                "default": {
+                  "_type": "gradio.FileData"
+                },
+                "title": "Meta",
+                "type": "object"
+              }
+            },
+            "title": "ImageData",
+            "type": "object"
+          }
+        },
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GalleryImage"
+            },
+            {
+              "$ref": "#/$defs/GalleryVideo"
+            }
+          ]
+        },
+        "title": "GalleryData",
+        "type": "array",
+        "additional_description": null
+      },
+      "props": {
+        "label": "output",
+        "type": "filepath"
+      }
+    },
+    {
+      "id": 85,
+      "type": "textbox",
+      "api_info": {
+        "type": "string"
+      },
+      "api_info_as_input": {
+        "type": "string"
+      },
+      "api_info_as_output": {
+        "type": "string"
+      },
+      "props": {
+        "type": "text",
+        "label": "status"
+      }
+    },
+    {
+      "id": 86,
+      "type": "number",
+      "api_info": {
+        "type": "number"
+      },
+      "api_info_as_input": {
+        "type": "number"
+      },
+      "api_info_as_output": {
+        "type": "number"
+      },
+      "props": {
+        "label": "used seed",
+        "step": 1
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "id": 4,
+      "targets": [
+        [
+          79,
+          "click"
+        ]
+      ],
+      "inputs": [
+        5,
+        16,
+        17,
+        14,
+        15,
+        20,
+        21,
+        24,
+        25,
+        26,
+        27,
+        57,
+        58,
+        60,
+        61,
+        65,
+        66,
+        78,
+        6,
+        8,
+        9,
+        10,
+        53,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52
+      ],
+      "outputs": [
+        84,
+        85,
+        86
+      ],
+      "backend_fn": true,
+      "js": null,
+      "queue": true,
+      "api_name": "_generate_wrapper",
+      "api_description": null,
+      "scroll_to_output": false,
+      "show_progress": "full",
+      "show_progress_on": null,
+      "batch": false,
+      "max_batch_size": 4,
+      "cancels": [],
+      "types": {
+        "generator": false,
+        "cancel": false
+      },
+      "collects_event_data": false,
+      "trigger_after": null,
+      "trigger_only_on_success": false,
+      "trigger_only_on_failure": false,
+      "trigger_mode": "once",
+      "show_api": true,
+      "rendered_in": null,
+      "render_id": null,
+      "connection": "sse",
+      "time_limit": null,
+      "stream_every": 0.5,
+      "like_user_message": false,
+      "event_specific_args": null,
+      "js_implementation": null
+    }
+  ]
+}

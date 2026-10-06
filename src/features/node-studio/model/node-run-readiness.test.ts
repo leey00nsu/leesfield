@@ -67,6 +67,22 @@ const llmModel: RuntimeLlmModel = {
 };
 
 describe("resolveNodeRunReadiness", () => {
+  it("checks conditional prompt/file requirements using complete graph values",()=>{
+    const mapped:RuntimeImageModel={...imageModel,providerConfig:{space_id:"owner/repo",api_name:"/generate",output:{media:"image",path:[0],multiple:false},input_rules:{type:"object",if:{properties:{mode:{const:"edit"}},required:["mode"]},then:{properties:{source:{type:"string",minLength:1}},required:["source"]},else:{properties:{text:{type:"string",minLength:1}},required:["text"]}}},parameters:{
+      prompt:{ui:"textarea",default:"",binding:{source:"hf_space",parameterName:"text",kind:"string",valueType:"string",order:0,schema:{type:"string"},canonicalKey:"prompt",allowEmpty:true}},
+      mode:{ui:"select",default:"plain",options:["plain","edit"],binding:{source:"hf_space",parameterName:"mode",kind:"string",valueType:"string",order:1,schema:{type:"string",enum:["plain","edit"]},choiceMode:"single"}},
+      source:{ui:"upload",default:null,binding:{source:"hf_space",parameterName:"source",kind:"file",valueType:"file",order:2,schema:{},nullable:true,media:"image"}},
+    }};
+    const generate=node("generate","generate.image",{modelKey:mapped.key,prompt:"",parameters:{mode:"edit"}});
+    const graph={nodes:[generate,node("image","input.image",{assetId:"asset"})],edges:[] as GraphDocumentV2["edges"]};
+    expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[mapped]}).reasons).toContain("INPUT_REQUIRED");
+    graph.edges=[edge("source","image","image","generate","image-field-source")];
+    expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[mapped]})).toEqual({ready:true,reasons:[]});
+    graph.edges=[edge("legacy-source","image","image","generate","primary")];
+    expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[{...mapped,meta:{max_input_images:1}}]})).toEqual({ready:true,reasons:[]});
+    graph.nodes[0]=node("generate","generate.image",{modelKey:mapped.key,prompt:"",parameters:{mode:"plain"}});
+    expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[mapped]}).reasons).toContain("PROMPT_REQUIRED");
+  });
   it.each(["generate.image", "generate.video"])("blocks retained media connections after switching %s to a text preset", kind => {
     const graph = { nodes: [
       node("generate", kind, { prompt: "draft", modelKey: kind === "generate.image" ? imageModel.key : videoModel.key,

@@ -124,6 +124,7 @@
       "deepmerge-ts": "^8.0.2",
       "defu": "^6.1.7",
       "effect": "^3.22.2",
+      "source-map-js": "1.2.2",
       "yaml": "^2.9.1"
     }
   }

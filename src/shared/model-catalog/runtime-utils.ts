@@ -28,6 +28,15 @@ export type RuntimeHfParameterBinding = {
   valueType: "string" | "number" | "boolean" | "file";
   canonicalKey?: string;
   order: number;
+  kind?: "string" | "number" | "boolean" | "file" | "files" | "gallery" | "json";
+  schema?: Record<string, unknown>;
+  nullable?: boolean;
+  component?: string;
+  media?: "image" | "video" | "audio";
+  choiceMode?: "single" | "multiple";
+  allowCustomValue?: boolean;
+  maxChoices?: number;
+  allowEmpty?: boolean;
 };
 
 export type RuntimeParameterConfig = {

@@ -5,6 +5,32 @@ import { mappedModel } from "./test-fixtures";
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
 describe("authenticated model input contract", () => {
+  it("publishes the same typed choices, file limits and default-aware conditions as its parser",()=>{
+    const model=mappedModel();
+    const parameters=model.parameters as Record<string,unknown>;
+    for(const [name,kind,schema,extra,defaultValue] of [
+      ["resolution","number",{type:"string",enum:[1024,2048]},{choiceMode:"single"},1024],
+      ["tags","json",{type:"array",items:{type:"string",enum:[1,"a"]}},{choiceMode:"multiple",maxChoices:1},[1]],
+      ["custom","json",{type:"string",enum:["a"]},{choiceMode:"single",allowCustomValue:true},"new"],
+      ["mode","string",{type:"string",enum:["plain","edit"]},{choiceMode:"single"},"plain"],
+    ] as const) parameters[name]={ui:"select",default:defaultValue,options:name==="resolution"?[1024,2048]:name==="tags"?[1,"a"]:name==="custom"?["a"]:["plain","edit"],binding:{source:"hf_space",parameterName:name,kind,valueType:kind==="json"?"string":kind,order:10,schema,...extra}};
+    const rules={type:"object",if:{properties:{mode:{const:"edit"}},required:["mode"]},then:{properties:{frame:{type:"string",minLength:1}},required:["frame"]}};
+    model.providerConfig={...model.providerConfig,input_rules:rules};
+    const external=getExternalModelInput(model),validate=new Ajv2020({strict:false}).compile(external.inputSchema);
+    for(const [input,valid] of [
+      [{text:"test"},true],
+      [{text:"test",resolution:2048,tags:["a"],custom:7},true],
+      [{text:"test",resolution:"1024"},false],
+      [{text:"test",tags:[1,"a"]},false],
+      [{text:"test",mode:"edit"},false],
+      [{text:"test",mode:"edit",frame:"https://files/source.png"},true],
+    ] as const) {
+      expect(validate(input),JSON.stringify(input)).toBe(valid);
+      if(valid) expect(()=>external.parse(input)).not.toThrow(); else expect(()=>external.parse(input)).toThrow();
+    }
+    expect(JSON.stringify(external.inputSchema)).not.toContain("do-not-expose");
+    expect(JSON.stringify(external.inputSchema)).not.toContain("private/secret-space");
+  });
   it.each(["image", "video", "audio"] as const)(
     "validates %s using provider names including prompt",
     (type) => {

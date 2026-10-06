@@ -2,6 +2,7 @@
 import Ajv from "ajv";
 import Ajv2020 from "ajv/dist/2020";
 import type {ValidateFunction} from "ajv";
+import { normalizeGradioSchema } from "./gradio-schema-normalization";
 
 const options = {strictSchema:true, strictTypes:false, strictTuples:false, strictRequired:false, allowUnionTypes:true, validateFormats:false, addUsedSchema:false, ownProperties:true};
 const draft7 = new Ajv(options);
@@ -15,8 +16,9 @@ export function gradioSchemaValidator(schema: Record<string,unknown>): ValidateF
  const existing=cache.get(key); if(existing) return existing;
  if(schema.$async) throw new Error("ASYNC_SCHEMA");
  const instance = String(schema.$schema??"").includes("2020-12") || "prefixItems" in schema ? draft2020 : draft7;
- const validate=instance.compile(schema);
- instance.removeSchema(schema);
+ const effectiveSchema=normalizeGradioSchema(schema);
+ const validate=instance.compile(effectiveSchema);
+ instance.removeSchema(effectiveSchema);
  if(cache.size>=128) cache.delete(cache.keys().next().value!);
  cache.set(key,validate);return validate;
 }

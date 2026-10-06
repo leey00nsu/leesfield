@@ -874,9 +874,9 @@ function modelInputs(item: HostNodeData): ModelInputDef[] {
 function modelParameters(item: HostNodeData): ModelParameter[] {
   if(item.inputContract) return item.inputContract.inputs.filter((f:HostNodeData)=>!f.canonical && !["file","files","gallery"].includes(f.kind)).map((field:HostNodeData)=>({
     name:field.name,label:field.label,description:field.schema.description,
-    type:field.nullable||field.kind==="json"?"json":field.kind==="number"?(field.schema.type==="integer"?"integer":"number"):field.kind,
+    type:field.nullable||field.kind==="json"||field.choiceMode==="multiple"?"json":field.kind==="number"?(field.schema.type==="integer"?"integer":"number"):field.kind,
     default:field.default,nullable:field.nullable,minimum:field.min,maximum:field.max,multipleOf:field.schema.multipleOf,
-    enum:field.nullable?undefined:field.choices,required:field.required,
+    enum:field.nullable||field.kind==="json"||field.choiceMode==="multiple"||field.allowCustomValue?undefined:field.choices,required:field.required,
   }));
 
   const parameters = item.parameters && typeof item.parameters === "object" ? item.parameters as HostNodeData : {};
