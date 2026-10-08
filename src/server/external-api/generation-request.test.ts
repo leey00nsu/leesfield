@@ -21,6 +21,15 @@ function request(body: FormData) {
   });
 }
 describe("multipart dynamic input", () => {
+  it("parses preset metadata separately from dynamicParams and rejects malformed JSON", async () => {
+    const value = form();
+    value.set("promptPreset", JSON.stringify({ key: "custom", revision: 2 }));
+    const parsed = await readExternalGenerationRequest(request(value));
+    expect(parsed.body.promptPreset).toEqual({ key: "custom", revision: 2 });
+    expect(parsed.body.dynamicParams).toEqual({ text: "test" });
+    value.set("promptPreset", "{");
+    await expect(readExternalGenerationRequest(request(value))).rejects.toThrow("INVALID_JSON");
+  });
   it("maps single and repeated file parts into the model's declared inputs", async () => {
     const value = form();
     value.set("file:frame", new File(["a"], "a.png", { type: "image/png" }));

@@ -38,6 +38,7 @@ async function getMonitoringStatsUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringStatsRow[]> {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,
@@ -68,7 +69,7 @@ async function getMonitoringStatsUnobserved(
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
         THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
         ELSE NULL
-      END) as avg_ms,
+      END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})

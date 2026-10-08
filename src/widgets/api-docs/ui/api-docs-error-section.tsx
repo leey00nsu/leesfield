@@ -1,9 +1,7 @@
-import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { AppBadge } from "@/shared/ui/app-badge";
-import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
+import { ApiDocsSection } from "@/widgets/api-docs/ui/api-docs-section";
 
-const errorCards = [
+const errorStatuses = [
   {
     status: "400",
     key: "badRequest",
@@ -16,64 +14,56 @@ const errorCards = [
     status: "403",
     key: "forbidden",
   },
-  {
-    status: "500",
-    key: "serverError",
-  },
+  { status: "404", key: "notFound" },
+  { status: "408", key: "timeout" },
+  { status: "409", key: "conflict" },
+  { status: "413", key: "tooLarge" },
+  { status: "415", key: "mediaType" },
+  { status: "429", key: "rateLimit" },
+  { status: "499", key: "aborted" },
+  { status: "500", key: "serverError" },
+  { status: "503", key: "unavailable" },
 ];
 
 export function ApiDocsErrorSection() {
   const t = useTranslations("apiDocs.errors");
   const errorResponseSnippet = `{
   "message": "${t("exampleMessage")}",
-  "errors": [
-    {
-      "field": "prompt",
-      "messages": ["${t("exampleFieldMessage")}"]
+  "errors": {
+    "formErrors": [],
+    "fieldErrors": {
+      "dynamicParams": ["${t("exampleFieldMessage")}"]
     }
-  ]
+  }
 }`;
 
   return (
-    <section id="errors" className="scroll-mt-32">
-      <AppDocsSectionCard
-        title={
-          <span className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-data-accent-foreground" />
-            {t("title")}
-          </span>
-        }
+    <section id="errors" className="scroll-mt-24">
+      <ApiDocsSection
+        title={t("title")}
         description={t("description")}
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {errorCards.map((card) => (
-            <div
-              key={card.status}
-              className="rounded-2xl border border-border bg-muted/30 p-5"
-            >
-              <div className="flex items-center gap-3">
-                <AppBadge variant="muted" size="md">
-                  {card.status}
-                </AppBadge>
-                <h3 className="text-sm font-bold text-foreground">
-                  {t(`cards.${card.key}.title`)}
-                </h3>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-foreground/58">
-                {t(`cards.${card.key}.description`)}
-              </p>
+        <dl className="divide-y divide-border border-y border-border">
+          {errorStatuses.map((error) => (
+            <div key={error.status} className="grid gap-2 py-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:gap-6">
+              <dt className="flex items-baseline gap-3 text-sm font-medium">
+                <code className="text-muted-foreground">{error.status}</code>
+                {t(`cards.${error.key}.title`)}
+              </dt>
+              <dd className="text-sm leading-6 text-muted-foreground">{t(`cards.${error.key}.description`)}</dd>
             </div>
           ))}
-        </div>
-        <div className="mt-4 rounded-2xl border border-border bg-background p-5">
-          <p className="text-[10px] font-medium text-foreground/38">
+        </dl>
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("retry")}</p>
+        <div className="mt-6 rounded-md border border-border bg-muted/30 p-5">
+          <p className="text-xs font-medium text-muted-foreground">
             {t("exampleTitle")}
           </p>
           <pre className="mt-3 overflow-x-auto text-sm text-foreground/76">
             {errorResponseSnippet}
           </pre>
         </div>
-      </AppDocsSectionCard>
+      </ApiDocsSection>
     </section>
   );
 }

@@ -6,8 +6,10 @@ const mocks = vi.hoisted(() => ({
   video: vi.fn(),
   audio: vi.fn(),
   start: vi.fn(),
+  preset: vi.fn(),
 }));
 vi.mock("@/server/auth/api-key-guard", () => ({ requireApiKey: mocks.auth }));
+vi.mock("@/server/prompt-presets/prompt-preset-service", () => ({ promptPresetService: { get: mocks.preset } }));
 vi.mock("@/server/model-catalog/catalog-service", () => ({
   getModelCatalog: mocks.catalog,
 }));
@@ -30,6 +32,7 @@ vi.mock("@/server/generation-worker/generation-worker", () => ({
 }));
 import { mappedModel } from "@/server/external-api/test-fixtures";
 import { POST } from "./route";
+import { PromptPresetError } from "@/server/prompt-presets/prompt-preset-errors";
 function request(body: unknown) {
   return new Request("http://localhost/api/external/generations", {
     method: "POST",
@@ -62,6 +65,49 @@ beforeEach(() => {
     });
 });
 describe("unified generation POST", () => {
+  const preset = { key: "custom", revision: 2, name: "Custom", modality: "image", prompt: "template",
+    builtinRevision: null, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {}, isActive: true };
+  const presetBody = { type: "image", model: "image-private-id", dynamicParams: { text: "expanded client prompt", seed: 0 }, promptPreset: { key: "custom", revision: 2 } };
+  it("requires platform read permission before resolving a preset", async () => {
+    expect((await POST(request(presetBody))).status).toBe(403);
+    expect(mocks.preset).not.toHaveBeenCalled();
+    expect(mocks.catalog).not.toHaveBeenCalled();
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
+  it("stores a server resolved preset and keeps client prompt/params and idempotent retries", async () => {
+    mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "key", permissions: ["platform:read"] });
+    mocks.preset.mockResolvedValue(preset);
+    const first = await POST(requestWithKey(presetBody, "preset-retry"));
+    expect(first.status).toBe(200);
+    expect(mocks.preset).toHaveBeenCalledWith("owner", "custom");
+    expect(mocks.image.mock.calls[0][0].payload).toMatchObject({
+      promptPreset: { key: "custom", revision: 2, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} },
+      dynamicParams: { text: "expanded client prompt", seed: 0 },
+    });
+    expect((await POST(requestWithKey(presetBody, "preset-retry"))).status).toBe(200);
+    expect(mocks.image).toHaveBeenCalledOnce();
+    mocks.preset.mockResolvedValue({ ...preset, revision: 3 });
+    expect((await POST(requestWithKey({ ...presetBody, promptPreset: { key: "custom", revision: 3 } }, "preset-retry"))).status).toBe(409);
+    expect(mocks.image).toHaveBeenCalledOnce();
+  });
+  it.each([
+    { value: { ...preset, revision: 3 }, status: 409 },
+    { value: { ...preset, isActive: false }, status: 400 },
+    { value: { ...preset, modality: "audio" }, status: 400 },
+    { value: { ...preset, requiredInputs: { referenceImageCount: 1 } }, status: 400 },
+  ])("rejects stale/inactive/wrong modality before enqueueing: $status", async ({ value, status }) => {
+    mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "key", permissions: ["platform:read"] });
+    mocks.preset.mockResolvedValue(value);
+    expect((await POST(request(presetBody))).status).toBe(status);
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
+  it("does not resolve a missing/other owner preset and does not allow forged reference metadata", async () => {
+    mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "key", permissions: ["platform:read"] });
+    mocks.preset.mockRejectedValueOnce(new PromptPresetError("PRESET_NOT_FOUND", 404));
+    expect((await POST(request(presetBody))).status).toBe(404);
+    expect((await POST(request({ ...presetBody, promptPreset: { ...presetBody.promptPreset, requiredInputs: { referenceImageCount: 0 } } }))).status).toBe(400);
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
   it("converges a retried submission onto the original request", async () => {
     const body = {
       type: "image" as const,
@@ -111,6 +157,7 @@ describe("unified generation POST", () => {
       const payload =
         type === "image" ? fn.mock.calls[0][0].payload : fn.mock.calls[0][0];
       expect(payload.model).toBe(type + "-private-key");
+      expect(payload).not.toHaveProperty("promptPreset");
       expect(payload.dynamicParams).toMatchObject({
         text: "test",
         seed: 0,

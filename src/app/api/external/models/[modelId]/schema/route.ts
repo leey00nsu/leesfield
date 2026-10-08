@@ -12,7 +12,7 @@ export async function GET(
   return withExternalApi(request, async () => {
     const { modelId } = await params;
     const model = (await getModelCatalog()).find(
-      (model) => model.id === modelId && model.isActive,
+      (model) => model.id === modelId && model.isActive && model.type !== "llm",
     );
     if (!model) return buildErrorResponse("MODEL_NOT_FOUND", 404);
     const contract = getExternalModelInput(model);

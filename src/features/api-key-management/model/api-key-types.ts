@@ -1,3 +1,4 @@
+import type { PlatformPermission } from "@/shared/api/platform-permissions";
 export type ApiKeyStatus = "active" | "revoked";
 
 export type ApiKeyItem = {
@@ -8,6 +9,7 @@ export type ApiKeyItem = {
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  permissions?: PlatformPermission[];
 };
 
 export type ApiKeyListResponse = {

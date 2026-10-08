@@ -273,7 +273,7 @@ describe("app-* design wrapper boundaries", () => {
     expect(appFormControl).not.toContain('"profile"');
     expect(appSelect).toContain("AppSelectTriggerSurface");
 
-    expect(apiKeyToolbar).toContain('surface="toolbar"');
+    expect(apiKeyToolbar).toContain("AppSearchField");
     expect(apiKeyToolbar).toContain('size="toolbar"');
     expect(apiKeyToolbar).not.toContain(
       "rounded-[1.5rem] border-white/10 bg-black/45",

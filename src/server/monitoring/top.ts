@@ -56,6 +56,7 @@ function resolveOrder(metric: MonitoringMetric) {
 
 async function queryTopByModel(query: MonitoringQuery, limit: number) {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,
@@ -88,7 +89,7 @@ async function queryTopByModel(query: MonitoringQuery, limit: number) {
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
         THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
         ELSE NULL
-      END) as avg_ms,
+      END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
@@ -107,6 +108,7 @@ async function queryTopByModel(query: MonitoringQuery, limit: number) {
 
 async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,
@@ -139,7 +141,7 @@ async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
         THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
         ELSE NULL
-      END) as avg_ms,
+      END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
@@ -171,7 +173,7 @@ async function getMonitoringTopUnobserved(
 
   const apiKeyRecords = apiKeyIds.length
     ? await prisma.apiKey.findMany({
-        where: { id: { in: apiKeyIds } },
+        where: { id: { in: apiKeyIds }, ...(query.ownerEmail !== undefined ? { ownerEmail: query.ownerEmail } : {}) },
         select: { id: true, maskedKey: true },
       })
     : [];

@@ -24,6 +24,7 @@ import { gradioChoiceSchema } from "@/shared/model-catalog/gradio-choice-schema"
 import { gradioFileAuthoringSchema } from "@/shared/model-catalog/gradio-file-schema";
 import { normalizeGradioSchema } from "@/shared/model-catalog/gradio-schema-normalization";
 import { normalizeRuntimeParameterOptions } from "@/shared/model-catalog/parameter-options";
+import type { PromptPresetRef } from "@/shared/prompt-presets/prompt-preset-contract";
 
 type FileInput = {
   name: string;
@@ -209,7 +210,7 @@ export function getExternalModelInput(model: ModelCatalogItem) {
     };
   }
   const allowed = new Set(Object.keys(inputSchema.properties ?? {}));
-  function parse(values: Record<string, unknown>) {
+  function parse(values: Record<string, unknown>, promptPreset?: PromptPresetRef) {
     const unknown = Object.keys(values).filter((key) => !allowed.has(key));
     if (unknown.length)
       throw new z.ZodError(
@@ -231,6 +232,7 @@ export function getExternalModelInput(model: ModelCatalogItem) {
         model: model.key,
         prompt: typeof prompt === "string" ? prompt : "",
         dynamicParams: resolved,
+        ...(promptPreset ? { promptPreset } : {}),
       });
     }
     for (const [name, value] of Object.entries(params)) {
@@ -265,6 +267,7 @@ export function getExternalModelInput(model: ModelCatalogItem) {
       ...canonical,
       model: model.key,
       ...(Object.keys(dynamic).length ? { dynamicParams: dynamic } : {}),
+      ...(promptPreset ? { promptPreset } : {}),
     });
   }
   return { inputSchema, files, parse };

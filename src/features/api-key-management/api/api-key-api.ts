@@ -5,6 +5,8 @@ import type {
   UpdateApiKeyResponse,
 } from "@/features/api-key-management/model/api-key-types";
 
+import type { PlatformPermission } from "@/shared/api/platform-permissions";
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const message = await response.text().catch(() => "");
@@ -24,13 +26,13 @@ export async function fetchApiKeys(): Promise<ApiKeyListResponse> {
   return handleResponse<ApiKeyListResponse>(response);
 }
 
-export async function issueApiKey(label: string): Promise<IssueApiKeyResponse> {
+export async function issueApiKey(label: string, permissions?: PlatformPermission[]): Promise<IssueApiKeyResponse> {
   const response = await fetch("/api/api-keys", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ label }),
+    body: JSON.stringify({ label, permissions }),
   });
   return handleResponse<IssueApiKeyResponse>(response);
 }
@@ -50,13 +52,14 @@ export async function revokeApiKey(
 export async function updateApiKeyLabel(
   apiKeyId: string,
   label: string,
+  permissions?: PlatformPermission[],
 ): Promise<UpdateApiKeyResponse> {
   const response = await fetch(`/api/api-keys/${apiKeyId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ label }),
+    body: JSON.stringify({ label, permissions }),
   });
   return handleResponse<UpdateApiKeyResponse>(response);
 }

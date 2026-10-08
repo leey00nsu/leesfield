@@ -1021,6 +1021,25 @@
     }
   },
   "apiKey": {
+    "permissions": {
+      "label": "Permissions",
+      "account": "Account access",
+      "administration": "Administrative access",
+      "actions": {
+        "models_read": "Read models",
+        "generations_create": "Generate media",
+        "generations_read": "Read generation results",
+        "history_read": "Read history",
+        "history_delete": "Delete history",
+        "presets_read": "Read presets",
+        "presets_create": "Create presets",
+        "presets_update": "Update and restore presets",
+        "presets_delete": "Delete presets",
+        "monitoring_read": "Read account metrics",
+        "models_manage": "Manage models",
+        "monitoring_read-all": "Read global metrics"
+      }
+    },
     "title": {
       "leading": "API Key",
       "accent": "Management"
@@ -1075,8 +1094,20 @@
     },
     "errors": {
       "labelRequired": "Please enter a label.",
+      "issueFailed": "Could not create an API key. Please try again shortly.",
       "labelUpdateFailed": "Failed to update label.",
-      "revokeFailed": "Failed to revoke key."
+      "revokeFailed": "Failed to revoke key.",
+      "copyFailed": "Could not copy the key. Select it and copy it manually."
+    },
+    "issue": {
+      "title": "Create API key",
+      "description": "Name your key and choose the features it can access.",
+      "placeholder": "e.g. Production",
+      "create": "Create",
+      "creating": "Creating…",
+      "createdTitle": "API key created",
+      "key": "API key",
+      "done": "Done"
     }
   },
   "apiDocs": {
@@ -1087,7 +1118,7 @@
     "subtitle": "REST API Reference",
     "intro": {
       "titleFallback": "leesfield API",
-      "descriptionFallback": "The public leesfield API protocol. Use an API key to fetch available models and their input schemas before requesting image, video or audio generation. Instance model data is only available through authenticated APIs.",
+      "descriptionFallback": "Generate images, video and audio. Manage your jobs and prompt presets.",
       "highlights": {
         "latency": {
           "title": "Discover models",
@@ -1101,7 +1132,8 @@
           "title": "Fetch results",
           "description": "Use the returned job ID to retrieve progress and results."
         }
-      }
+      },
+      "quickstart": "Quick start"
     },
     "sidebar": {
       "reference": "API Reference",
@@ -1112,25 +1144,41 @@
       "endpoints": "Endpoints",
       "nav": {
         "introduction": "Introduction",
+        "openapi": "OpenAPI specification",
         "authentication": "Authentication",
         "errors": "Errors",
         "models": "Models",
-        "generations": "AI generation"
+        "generations": "AI generation",
+        "history": "History",
+        "promptPresets": "Prompt presets",
+        "monitoring": "Monitoring",
+        "modelAdministration": "Model administration",
+        "access": "Access permissions",
+        "request-options": "Requests and retries"
       },
       "baseUrl": "Base URL",
       "version": "Version"
     },
+    "specification": {
+      "title": "OpenAPI specification",
+      "description": "Read the full API specification as JSON. Share the link with an agent or download the file.",
+      "access": "The specification is available without authentication.",
+      "view": "View JSON",
+      "download": "Download openapi.json"
+    },
     "auth": {
       "title": "Authentication",
-      "description": "All requests require an API key. You can find it on the <link>API keys</link> screen.",
+      "description": "Create a key on <link>API keys</link> and include it in your request headers.",
       "headerAuth": "Header Authentication",
       "viewKey": "View API Key",
-      "includeHeader": "Include the <header>X-API-Key</header> header in all requests.",
-      "warning": "Keep your API key secure and never expose it publicly."
+      "includeHeader": "Send your API key in the X-API-Key header.",
+      "warning": "Keep your API key out of public code and logs.",
+      "bearer": "You can also use Authorization: Bearer.",
+      "precedence": "If you send both headers, X-API-Key takes precedence. An empty or invalid value does not fall back to Bearer."
     },
     "errors": {
       "title": "Errors",
-      "description": "All error responses share the same structure.",
+      "description": "Read message for the failure reason. Invalid inputs may be listed in errors; the X-Request-ID header may contain a request identifier. Some responses also include reason and requestId.",
       "cards": {
         "badRequest": {
           "title": "Bad Request",
@@ -1138,42 +1186,194 @@
         },
         "unauthorized": {
           "title": "Unauthorized",
-          "description": "The API key is missing or invalid."
+          "description": "The API key is missing or the authentication header is malformed."
         },
         "forbidden": {
           "title": "Forbidden",
-          "description": "The key is revoked or lacks permission."
+          "description": "The API key is invalid or missing a required permission."
         },
         "serverError": {
           "title": "Server Error",
           "description": "An unexpected server error occurred."
+        },
+        "notFound": {
+          "title": "Not Found",
+          "description": "The model or job was not found, or the key cannot access it."
+        },
+        "timeout": {
+          "title": "Request Timeout",
+          "description": "Body reading exceeded 30 seconds."
+        },
+        "conflict": {
+          "title": "Conflict",
+          "description": "Retry inputs differ, the preset version changed, or the record is still active."
+        },
+        "tooLarge": {
+          "title": "Payload Too Large",
+          "description": "Body size, file size or file count exceeds a limit."
+        },
+        "mediaType": {
+          "title": "Unsupported Media Type",
+          "description": "Use application/json or multipart/form-data."
+        },
+        "rateLimit": {
+          "title": "Too Many Requests",
+          "description": "The key exceeded a request or queue limit."
+        },
+        "aborted": {
+          "title": "Upload Aborted",
+          "description": "The caller aborted body upload. A disconnected caller may not receive this response."
+        },
+        "unavailable": {
+          "title": "Service Unavailable",
+          "description": "The service is temporarily unavailable."
         }
       },
       "exampleTitle": "Error Response Example",
       "exampleMessage": "INVALID_REQUEST",
-      "exampleFieldMessage": "Required field."
+      "exampleFieldMessage": "Required field.",
+      "retry": "If Retry-After is present, wait that many seconds before retrying."
     },
     "openapi": {
-      "infoDescription": "The public leesfield API protocol. Use an API key to fetch available models and their input schemas before requesting image, video or audio generation. Instance model data is only available through authenticated APIs.",
+      "infoDescription": "Generate images, video and audio, and manage history, prompt presets, monitoring and models.",
       "tags": {
         "generations": "AI generation",
-        "models": "Model discovery"
+        "models": "Model discovery",
+        "history": "Generation history",
+        "promptPresets": "Prompt presets",
+        "monitoring": "Request metrics",
+        "modelAdministration": "Model administration"
       },
       "paths": {
-        "generation": "Choose type and model ID. Send every model input, including prompt, in dynamicParams. Supports JSON and multipart.",
-        "status": "Fetch job status and results belonging to the current API key owner.",
-        "models": "List active model IDs, labels and media types.",
-        "modelSchema": "Fetch the selected model's dynamicParams JSON Schema and file input definitions. Use URL/data URL values or file:<parameterName> multipart parts for files."
+        "generation": "Start an image, video or audio generation job.",
+        "status": "Get a generation job's status and results.",
+        "models": "List available image, video and audio models.",
+        "modelSchema": "Check a model's required inputs and file limits."
+      },
+      "platform": {
+        "GET /api/external/history": "List generation history.",
+        "GET /api/external/history/status": "Count active generation jobs.",
+        "GET /api/external/history/{historyId}": "Get a job's inputs and results.",
+        "DELETE /api/external/history/{historyId}": "Delete a history record and its files.",
+        "GET /api/external/prompt-presets": "List prompt presets.",
+        "GET /api/external/prompt-presets/{key}": "Get a preset's prompt and suggested settings.",
+        "POST /api/external/prompt-presets": "Create a prompt preset.",
+        "PATCH /api/external/prompt-presets/{key}": "Update a preset or enable or disable it.",
+        "DELETE /api/external/prompt-presets/{key}": "Delete a prompt preset.",
+        "POST /api/external/prompt-presets/{key}/restore": "Restore a built-in preset's name and prompt.",
+        "GET /api/external/monitoring/overview": "Get request counts, success rates and processing times.",
+        "GET /api/external/monitoring/stats": "Get request and error statistics over time.",
+        "GET /api/external/monitoring/requests": "List API requests.",
+        "GET /api/external/monitoring/requests/detail": "Get a request's inputs and results.",
+        "GET /api/external/monitoring/top": "Compare usage, errors and processing times by model or API key.",
+        "GET /api/external/monitoring/api-keys": "List API keys for filtering request metrics.",
+        "GET /api/external/admin/models": "List registered models.",
+        "POST /api/external/admin/models": "Register a model.",
+        "PATCH /api/external/admin/models/{modelKey}": "Update model settings or enable or disable a model.",
+        "DELETE /api/external/admin/models/{modelKey}": "Delete a registered model.",
+        "POST /api/external/admin/models/import": "Import a model draft from Hugging Face.",
+        "GET /api/external/admin/models/modal-comfyui": "List image and video workflows from the connected Modal service.",
+        "POST /api/external/admin/models/modal-comfyui": "Import a Modal workflow as a model draft."
+      },
+      "parameters": {
+        "Idempotency-Key": "Retry key scoped to the API key. Use visible ASCII after trimming whitespace; invalid values are ignored",
+        "X-Idempotency-Key": "Alternative header used when Idempotency-Key is absent",
+        "type": "Media type",
+        "model": "Model ID or model filter",
+        "query": "Search term",
+        "q": "Search term",
+        "prompt": "Prompt",
+        "sort": "Sort order",
+        "limit": "Items per page",
+        "offset": "Items to skip",
+        "includeTotal": "Include the total count",
+        "cursor": "Response nextCursor. Keep the same filters",
+        "origin": "Generation or edit record",
+        "scope": "Query scope",
+        "status": "Comma-separated job states; active means running",
+        "apiKeyId": "API key filter; ui selects web requests",
+        "requestId": "Job ID",
+        "historyId": "History record ID",
+        "modelId": "Model ID",
+        "modelKey": "Registered model key",
+        "key": "Preset or model identifier",
+        "from": "Range start",
+        "to": "Range end",
+        "tz": "Time zone",
+        "metric": "Comparison metric",
+        "includeInactive": "Include inactive entries",
+        "dynamicParams": "Values matching the model input schema",
+        "promptPreset": "Preset reference {key, revision}. Apply inputs yourself",
+        "expectedRevision": "Current revision. Conflicts return 409",
+        "spaceUrl": "Hugging Face Space ID or allowed HTTPS URL",
+        "apiName": "Space API to import",
+        "workflowId": "Modal workflow ID",
+        "limits": "Workflow execution limits",
+        "timeoutMs": "Job timeout in milliseconds",
+        "apiKey": "LLM-only credential; required when registering an active LLM",
+        "providerConfig": "Provider connection settings",
+        "parameters": "Model input settings",
+        "meta": "Model execution settings",
+        "isActive": "Enable the model",
+        "isDefault": "Use as the default model",
+        "label": "Display name",
+        "vendor": "Model vendor",
+        "provider": "Execution provider"
+      },
+      "notes": {
+        "GET /api/external/generations/{requestId}": "Use the same account and API key that created the job.",
+        "GET /api/external/history": "Includes web jobs, jobs submitted with other keys and completed edits.",
+        "DELETE /api/external/history/{historyId}": "Active records cannot be deleted. A file cleanup failure preserves the record.",
+        "POST /api/external/generations": "Build dynamicParams from the model input schema.",
+        "GET /api/external/models": "Returns active media models only.",
+        "GET /api/external/models/{modelId}/schema": "Send files as URLs, data URLs or multipart parts named file:parameterName.",
+        "GET /api/external/admin/models": "Includes inactive models and LLMs.",
+        "PATCH /api/external/admin/models/{modelKey}": "The type and key cannot be changed.",
+        "POST /api/external/admin/models/import": "Returns a draft. Save it through the model registration API.",
+        "POST /api/external/admin/models/modal-comfyui": "Returns an inactive draft. Save it through the model registration API."
       }
     },
     "endpoints": {
+      "modelConfig": "Required settings by provider",
+      "modelType": "Model type",
+      "provider": "Provider",
+      "connectionFields": "Required connection settings",
+      "modelFields": "Required model settings",
+      "queryParams": "Query parameters",
       "requestParams": "Request body parameters",
       "required": "Required",
       "optional": "Optional",
       "requestExample": "Request example",
       "responseExample": "Response example",
       "responseFallback": "No response example",
-      "response": "Response"
+      "response": "Response",
+      "parameter": "Parameter",
+      "requiredLabel": "Required",
+      "default": "Default",
+      "description": "Description",
+      "constraints": "Constraints",
+      "permission": "Permission",
+      "permissionKind": "Requirement",
+      "conditional": "Conditional",
+      "whenRequired": "When needed",
+      "allRequests": "All requests",
+      "whenProvided": "When <condition>{field}</condition> is included",
+      "whenEquals": "When requesting <condition>{field}={value}</condition>",
+      "maxCharacters": "Up to {count} characters",
+      "minCharacters": "At least {count} characters",
+      "writeOnly": "Write-only",
+      "clamped": "Clamped",
+      "truncated": "Truncated",
+      "optionalHeaders": "Optional headers · safe retries",
+      "headers": "Request headers",
+      "dateRange": "Date range: {defaultDays} days by default · up to {rangeDays} days",
+      "limits": {
+        "bodyBytes": "Body",
+        "bodyTimeoutMs": "Upload time",
+        "files": "Files",
+        "fileBytes": "Each file",
+        "totalFileBytes": "All files"
+      }
     },
     "examples": {
       "sample": "sample",
@@ -1183,6 +1383,8 @@
       "sampleMessage": "OK"
     },
     "snippets": {
+      "multipartTitle": "File upload example (multipart)",
+      "multipartDescription": "Use MODEL_ID and INPUT_NAME from the model schema and replace the file paths. Repeat the same file part for array inputs. Send dynamicParams as a JSON string.",
       "title": "Code snippet",
       "description": "Copy an API example and use it right away.",
       "languageLabel": "Language",
@@ -1198,6 +1400,34 @@
       "loadingSchema": "Loading OpenAPI schema...",
       "schemaError": "Failed to load OpenAPI schema.",
       "missingEndpoints": "Unable to load OpenAPI schema, cannot display endpoint details."
+    },
+    "access": {
+      "title": "Access permissions",
+      "description": "Choose allowed features using the checkboxes when creating or editing an API key.",
+      "administration": "Model management and global metrics require explicit administrative access.",
+      "settings": "Configure API key permissions",
+      "identifiers": "Permission identifiers"
+    },
+    "requestGuide": {
+      "title": "Requests and retries",
+      "description": "Requirements for safe retries, file uploads and prompt presets.",
+      "retryTitle": "Safe retries (optional)",
+      "retry": "Retry with the same API key, Idempotency-Key and input to reuse the existing job. Different input returns 409. Use a new Idempotency-Key for a new generation.",
+      "presetTitle": "Use a preset",
+      "preset": "Apply the preset's prompt and suggested settings to the generation inputs.",
+      "presetRef": "Send key and revision in promptPreset to save the reference. Requires preset read access. Use expectedRevision for updates, deletion and restoration.",
+      "limitsTitle": "Request limits",
+      "body": "Complete generation body",
+      "files": "Uploaded files",
+      "file": "Each file",
+      "timeout": "Body upload time",
+      "presets": "Preset changes",
+      "models": "Model writes and Modal imports",
+      "hf": "Hugging Face imports",
+      "fileCount": "Up to {count} files",
+      "seconds": "{count} seconds",
+      "fileRules": "Check files.maxItems in the model schema. Send files as URLs, data URLs or multipart parts named file:parameterName. Do not provide the same input in both a file part and dynamicParams.",
+      "totalFiles": "All uploaded files"
     }
   },
   "nodeStudio": {

@@ -1,18 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, Menu, X } from "lucide-react";
 import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { useApiDocsNavigation } from "@/widgets/api-docs/hook/use-api-docs-navigation";
-import {
-  fallbackEndpointItems,
-  generalNavItems,
-  getEndpointIcon,
-  tagIdMap,
-  type ApiDocsNavItem,
-} from "@/widgets/api-docs/lib/api-docs-metadata";
-import { AppCard } from "@/shared/ui/app-card";
+import { generalNavItems, getEndpointIcon, tagIdMap } from "@/widgets/api-docs/lib/api-docs-metadata";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppSearchField } from "@/shared/ui/app-filter-toolbar";
 import { cn } from "@/shared/lib/utils";
@@ -22,377 +15,142 @@ interface ApiDocsSidebarProps {
   apiSections: ApiSection[];
 }
 
-type EndpointNavSection = ApiDocsNavItem & {
-  operations: Array<{
-    id: string;
-    method: string;
-    path: string;
-  }>;
-};
-
-export function ApiDocsSidebar({
-  apiVersion,
-  apiSections,
-}: ApiDocsSidebarProps) {
+export function ApiDocsSidebar({ apiVersion, apiSections }: ApiDocsSidebarProps) {
   const t = useTranslations("apiDocs.sidebar");
   const tNav = useTranslations("apiDocs.sidebar.nav");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const generalItems: ApiDocsNavItem[] = useMemo(
-    () =>
-      generalNavItems.map((item) => ({
-        ...item,
-        label: tNav(item.id),
-      })),
-    [tNav],
-  );
-  const endpointItems: EndpointNavSection[] = useMemo(() => {
-    if (!apiSections.length) {
-      return fallbackEndpointItems.map((item) => ({
-        ...item,
-        label: tNav(item.id),
-        operations: [],
-      }));
-    }
-    return apiSections.map((section) => ({
-      id: section.id,
-      label: tagIdMap[section.title]
-        ? tNav(tagIdMap[section.title])
-        : section.title,
-      icon: getEndpointIcon(section),
-      operations: section.operations.map((operation) => ({
-        id: operation.id,
-        method: operation.method,
-        path: operation.path,
-      })),
-    }));
-  }, [apiSections, tNav]);
-  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredGeneralItems = useMemo(() => {
-    if (!normalizedQuery) return generalItems;
-    return generalItems.filter(
-      (item) =>
-        item.label.toLowerCase().includes(normalizedQuery) ||
-        item.id.toLowerCase().includes(normalizedQuery),
-    );
-  }, [generalItems, normalizedQuery]);
-  const filteredEndpointItems = useMemo(() => {
-    if (!normalizedQuery) return endpointItems;
-    return endpointItems
-      .map((item) => {
-        const sectionMatches =
-          item.label.toLowerCase().includes(normalizedQuery) ||
-          item.id.toLowerCase().includes(normalizedQuery);
-        const operations = item.operations.filter(
-          (operation) =>
-            operation.path.toLowerCase().includes(normalizedQuery) ||
-            operation.method.toLowerCase().includes(normalizedQuery),
-        );
-        return sectionMatches ? item : { ...item, operations };
-      })
-      .filter(
-        (item) =>
-          item.label.toLowerCase().includes(normalizedQuery) ||
-          item.id.toLowerCase().includes(normalizedQuery) ||
-          item.operations.length > 0,
-      );
-  }, [endpointItems, normalizedQuery]);
-  const sectionIds = useMemo(
-    () => [
-      ...filteredGeneralItems.map((item) => item.id),
-      ...filteredEndpointItems.flatMap((item) => [
-        item.id,
-        ...item.operations.map((operation) => operation.id),
-      ]),
-    ],
-    [filteredEndpointItems, filteredGeneralItems],
-  );
-  const { activeSectionId } = useApiDocsNavigation({ sectionIds });
-  const activeEndpointSectionId = useMemo(
-    () =>
-      filteredEndpointItems.find(
-        (item) =>
-          item.id === activeSectionId ||
-          item.operations.some((operation) => operation.id === activeSectionId),
-      )?.id ?? null,
-    [activeSectionId, filteredEndpointItems],
-  );
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(() => new Set());
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const generalItems = generalNavItems.map((item) => ({ ...item, label: tNav(item.id) }));
+  const endpointItems = apiSections.map((section) => ({
+    ...section,
+    label: tagIdMap[section.title] ? tNav(tagIdMap[section.title]) : section.title,
+    icon: getEndpointIcon(section),
+  }));
+  // Search filters navigation without changing the current document position.
+  const sectionIds = useMemo(() => [
+    ...generalNavItems.map((item) => item.id),
+    ...apiSections.flatMap((section) => [section.id, ...section.operations.map((operation) => operation.id)]),
+  ], [apiSections]);
+  const { activeSectionId } = useApiDocsNavigation({ sectionIds, offset: 96 });
+  const query = searchQuery.trim().toLowerCase();
+  const filteredGeneral = generalItems.filter((item) => !query || item.label.toLowerCase().includes(query) || item.id.includes(query));
+  const filteredEndpoints = endpointItems.map((item) => ({
+    ...item,
+    operations: !query || item.label.toLowerCase().includes(query) || item.id.includes(query)
+      ? item.operations
+      : item.operations.filter((operation) => `${operation.method} ${operation.path}`.toLowerCase().includes(query)),
+  })).filter((item) => item.operations.length);
 
-  const toggleSection = (sectionId: string) => {
+  const closeMenu = () => {
+    setMobileNavOpen(false);
+    menuButton.current?.focus({ preventScroll: true });
+  };
+  const toggleSection = (id: string) => {
     setCollapsedSectionIds((current) => {
       const next = new Set(current);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
-      } else {
-        next.add(sectionId);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
-
-  return (
-    <>
-      <AppCard
-        variant="plain"
-        className="flex rounded-[1.25rem] border-border bg-card p-4 lg:hidden"
-      >
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-foreground">
-                {t("reference")}
-              </div>
-              <div className="mt-1 text-[11px] text-foreground/38">
-                {apiVersion}
-              </div>
-            </div>
-            <AppButton
-              type="button"
-              variant="surface"
-              size="icon-sm"
-              aria-label={t("reference")}
-              aria-expanded={mobileNavOpen}
-              aria-controls="api-docs-mobile-navigation"
-              onClick={() => setMobileNavOpen((open) => !open)}
-            >
-              {mobileNavOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Menu className="h-4 w-4" />
-              )}
-            </AppButton>
+  const linkClass = (active: boolean) => cn(
+    "flex min-h-9 items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+    active ? "bg-data-accent/10 text-data-accent-foreground" : "text-muted-foreground hover:bg-interaction-hover hover:text-foreground",
+  );
+  const navigation = (mobile: boolean) => (
+    <nav aria-label={t("reference")} className="app-scrollbar min-h-0 overflow-y-auto overscroll-contain">
+      <div className="space-y-6 pb-6">
+        {filteredGeneral.length ? (
+          <div>
+            <p className="mb-2 px-2.5 text-xs font-semibold text-muted-foreground">{t("general")}</p>
+            {filteredGeneral.map((item) => (
+              <a key={item.id} href={`#${item.id}`} aria-current={activeSectionId === item.id ? "location" : undefined}
+                className={linkClass(activeSectionId === item.id)} onClick={mobile ? closeMenu : undefined}>
+                {item.label}
+              </a>
+            ))}
           </div>
-          {mobileNavOpen ? (
-            <div id="api-docs-mobile-navigation" className="grid gap-3">
-              <AppSearchField
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("searchPlaceholder")}
-              />
-              <nav
-                aria-label={t("reference")}
-                className="app-scrollbar flex max-h-[22rem] flex-col gap-2 overflow-y-auto pr-1"
-              >
-                {filteredGeneralItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeSectionId === item.id;
-                  return (
-                    <a
-                      key={item.id}
-                      href={`#${item.id}`}
-                      className={cn(
-                        "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
-                        isActive
-                          ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
-                          : "border-border bg-black/16 text-foreground/58 hover:bg-interaction-hover hover:text-foreground",
-                      )}
-                      onClick={() => setMobileNavOpen(false)}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
+        ) : null}
+        {filteredEndpoints.length ? (
+          <div className="space-y-3">
+            <p className="px-2.5 text-xs font-semibold text-muted-foreground">{t("endpoints")}</p>
+            {filteredEndpoints.map((item) => {
+              const expanded = Boolean(query) || !collapsedSectionIds.has(item.id);
+              const groupId = `api-docs-${mobile ? "mobile" : "desktop"}-${item.id}`;
+              const Icon = item.icon;
+              return (
+                <div key={item.id}>
+                  <div className="flex items-center gap-1">
+                    <a href={`#${item.id}`} onClick={mobile ? closeMenu : undefined}
+                      aria-current={activeSectionId === item.id ? "location" : undefined}
+                      className={cn(linkClass(activeSectionId === item.id), "min-w-0 flex-1 font-medium text-foreground")}>
+                      <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{item.label}</span>
                     </a>
-                  );
-                })}
-                {filteredEndpointItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    activeSectionId === item.id ||
-                    item.operations.some(
-                      (operation) => operation.id === activeSectionId,
-                    );
-                  return (
-                    <div key={item.id} className="grid gap-1">
-                      <a
-                        href={`#${item.id}`}
-                        className={cn(
-                          "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
-                          isActive
-                            ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
-                            : "border-border bg-black/16 text-foreground/58 hover:bg-interaction-hover hover:text-foreground",
-                        )}
-                        onClick={() => setMobileNavOpen(false)}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {item.label}
-                      </a>
+                    <AppButton type="button" variant="ghost" size="icon-sm"
+                      aria-label={item.label} aria-expanded={expanded} aria-controls={groupId}
+                      onClick={() => toggleSection(item.id)}>
+                      <ChevronDown aria-hidden className={cn("size-3.5 transition-transform", !expanded && "-rotate-90")} />
+                    </AppButton>
+                  </div>
+                  {expanded ? (
+                    <div id={groupId} className="ml-4 space-y-0.5 border-l border-border pl-2">
                       {item.operations.map((operation) => (
-                        <a
-                          key={operation.id}
-                          href={`#${operation.id}`}
-                          className={cn(
-                            "ml-4 inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 font-mono text-xs transition-colors",
-                            activeSectionId === operation.id
-                              ? "border-data-accent/35 bg-data-accent/10 text-data-accent-foreground"
-                              : "border-border bg-black/16 text-foreground/50 hover:bg-interaction-hover hover:text-foreground",
-                          )}
-                          onClick={() => setMobileNavOpen(false)}
-                        >
-                          <span className="font-bold uppercase">
-                            {operation.method}
-                          </span>
-                          <span className="min-w-0 truncate">
-                            {operation.path}
-                          </span>
+                        <a key={operation.id} href={`#${operation.id}`} title={`${operation.method} ${operation.path}`}
+                          aria-label={`${operation.method} ${operation.path}`}
+                          aria-current={activeSectionId === operation.id ? "location" : undefined}
+                          onClick={mobile ? closeMenu : undefined}
+                          className={cn(linkClass(activeSectionId === operation.id), "grid grid-cols-[2.75rem_minmax(0,1fr)] text-xs")}>
+                          <span className="text-[10px] font-semibold">{operation.method}</span>
+                          <span className="truncate font-mono">{operation.path.replace("/api/external", "") || "/"}</span>
                         </a>
                       ))}
                     </div>
-                  );
-                })}
-                {!filteredGeneralItems.length &&
-                !filteredEndpointItems.length ? (
-                  <span className="inline-flex min-h-10 items-center rounded-xl border border-border px-3 text-sm text-foreground/36">
-                    {t("noResults")}
-                  </span>
-                ) : null}
-              </nav>
-            </div>
-          ) : null}
-        </div>
-      </AppCard>
-
-      <aside className="hidden w-72 shrink-0 lg:flex">
-        <AppCard
-          variant="plain"
-          className="sticky top-[calc(var(--dashboard-header-height,0px)+24px)] flex max-h-[calc(100vh-var(--dashboard-header-height,0px)-48px)] flex-col rounded-[1.25rem] border-border bg-card p-4"
-        >
-          <div className="mb-4 flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-foreground">
-                  {t("reference")}
+                  ) : null}
                 </div>
-                <div className="mt-1 text-[11px] text-foreground/38">
-                  {apiVersion}
-                </div>
-              </div>
-            </div>
-            <AppSearchField
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("searchPlaceholder")}
-            />
+              );
+            })}
           </div>
-          <nav className="app-scrollbar flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
-            <div className="flex flex-col gap-2">
-              <h3 className="px-1 text-[10px] font-medium text-foreground/36">
-                {t("general")}
-              </h3>
-              <div className="flex flex-col gap-1">
-                {filteredGeneralItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeSectionId === item.id;
-                  return (
-                    <a
-                      key={item.id}
-                      href={`#${item.id}`}
-                      className={cn(
-                        "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
-                        isActive
-                          ? "border-data-accent/25 bg-data-accent/10 text-data-accent-foreground"
-                          : "border-transparent text-foreground/48 hover:border-border hover:bg-interaction-hover hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="min-w-0 truncate">{item.label}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
+        ) : null}
+        {!filteredGeneral.length && !filteredEndpoints.length ? (
+          <p role="status" className="px-2.5 py-3 text-sm text-muted-foreground">{t("noResults")}</p>
+        ) : null}
+      </div>
+    </nav>
+  );
+  const search = (id: string) => (
+    <AppSearchField id={id} aria-label={t("searchPlaceholder")} value={searchQuery}
+      onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
+  );
 
-            <div className="flex flex-col gap-2">
-              <h3 className="px-1 text-[10px] font-medium text-foreground/36">
-                {t("endpoints")}
-              </h3>
-              <div className="flex flex-col gap-1">
-                {filteredEndpointItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    activeSectionId === item.id ||
-                    item.operations.some(
-                      (operation) => operation.id === activeSectionId,
-                    );
-                  const isExpanded =
-                    normalizedQuery.length > 0 ||
-                    activeEndpointSectionId === item.id ||
-                    !collapsedSectionIds.has(item.id);
-                  return (
-                    <div key={item.id} className="flex flex-col gap-1">
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "border-data-accent/25 bg-data-accent/10 text-data-accent-foreground"
-                            : "border-transparent text-foreground/60 hover:border-border hover:bg-interaction-hover hover:text-foreground",
-                        )}
-                      >
-                        <a
-                          href={`#${item.id}`}
-                          className="flex min-w-0 flex-1 items-center gap-3"
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 truncate">{item.label}</span>
-                        </a>
-                        {item.operations.length ? (
-                          <button
-                            type="button"
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-current/70 transition-colors hover:bg-white/10 hover:text-foreground"
-                            aria-label={item.label}
-                            aria-expanded={isExpanded}
-                            onClick={() => toggleSection(item.id)}
-                          >
-                            <ChevronDown
-                              className={cn(
-                                "h-3.5 w-3.5 transition-transform",
-                                isExpanded && "rotate-180",
-                              )}
-                            />
-                          </button>
-                        ) : null}
-                      </div>
-                      {isExpanded && item.operations.length ? (
-                        <div className="ml-6 flex flex-col gap-0.5 border-l border-border pl-3">
-                          {item.operations.map((operation) => {
-                            const isOperationActive =
-                              activeSectionId === operation.id;
-                            return (
-                              <a
-                                key={operation.id}
-                                href={`#${operation.id}`}
-                                className={cn(
-                                  "grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors",
-                                  isOperationActive
-                                    ? "bg-white/[0.07] text-data-accent-foreground"
-                                    : "text-foreground/42 hover:bg-interaction-hover hover:text-foreground/78",
-                                )}
-                              >
-                                <span className="font-sans text-[10px] font-bold uppercase">
-                                  {operation.method}
-                                </span>
-                                <span className="min-w-0 truncate font-mono">
-                                  {operation.path}
-                                </span>
-                              </a>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-                {!filteredGeneralItems.length &&
-                !filteredEndpointItems.length ? (
-                  <div className="px-2 py-3 text-xs text-foreground/36">
-                    {t("noResults")}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </nav>
-        </AppCard>
+  return (
+    <>
+      <div className="sticky top-0 z-20 border-b border-border bg-background lg:hidden"
+        onKeyDown={(event) => { if (event.key === "Escape") closeMenu(); }}>
+        <div className="flex items-center justify-between gap-4 px-5 py-3 sm:px-10">
+          <span className="text-sm font-medium">{t("reference")} <span className="ml-2 text-xs text-muted-foreground">{apiVersion}</span></span>
+          <AppButton ref={menuButton} type="button" variant="surface" size="icon-sm"
+            aria-label={t("reference")} aria-expanded={mobileNavOpen} aria-controls="api-docs-mobile-navigation"
+            onClick={() => setMobileNavOpen((open) => !open)}>
+            {mobileNavOpen ? <X aria-hidden className="size-4" /> : <Menu aria-hidden className="size-4" />}
+          </AppButton>
+        </div>
+        {mobileNavOpen ? (
+          <div id="api-docs-mobile-navigation" className="grid max-h-[calc(100dvh-4rem)] grid-rows-[auto_minmax(0,1fr)] gap-4 px-5 pt-2 sm:px-10">
+            {search("api-docs-mobile-search")}
+            {navigation(true)}
+          </div>
+        ) : null}
+      </div>
+      <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col gap-6 self-start border-r border-border px-5 py-8 lg:flex">
+        <div className="flex items-center justify-between gap-3 px-2.5">
+          <span className="text-sm font-semibold">{t("reference")}</span>
+          <span className="text-xs text-muted-foreground">{apiVersion}</span>
+        </div>
+        {search("api-docs-desktop-search")}
+        {navigation(false)}
       </aside>
     </>
   );

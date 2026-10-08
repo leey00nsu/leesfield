@@ -39,7 +39,9 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
+  const originError = assertSessionMutationOrigin(request);
+  if (originError) return originError;
   const owner = await ownerEmail();
   if (!owner) return buildErrorResponse("UNAUTHORIZED", 401);
   try {

@@ -6,7 +6,7 @@ import {
   type AdmissionRejectionReason,
 } from "@/server/generation-admission/submission-ledger";
 
-const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+import { maxIdempotencyKeyLength } from "@/shared/api/request-limits";
 
 /** Reads the retry identifier a caller may attach to a resubmission. */
 export function readIdempotencyKey(request: Request): string | null {
@@ -15,7 +15,7 @@ export function readIdempotencyKey(request: Request): string | null {
     request.headers.get("x-idempotency-key");
   const value = raw?.trim() ?? "";
   if (!value) return null;
-  if (value.length > MAX_IDEMPOTENCY_KEY_LENGTH) return null;
+  if (value.length > maxIdempotencyKeyLength) return null;
   return /^[\x21-\x7e]+$/.test(value) ? value : null;
 }
 

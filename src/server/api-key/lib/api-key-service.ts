@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/server/db/prisma";
+import { parseApiKeyPermissions, standardApiKeyPermissions, type PlatformPermission } from "@/shared/api/platform-permissions";
 
 export const API_KEY_PREFIX = "lf_live_";
 
@@ -14,6 +15,7 @@ export type ApiKeyRecord = {
   lastUsedAt: Date | null;
   createdAt: Date;
   revokedAt: Date | null;
+  permissions: PlatformPermission[];
 };
 
 export type IssueApiKeyResult = {
@@ -58,6 +60,7 @@ function mapRecord(record: {
   lastUsedAt: Date | null;
   createdAt: Date;
   revokedAt: Date | null;
+  permissions?: unknown;
 }): ApiKeyRecord {
   return {
     id: record.id,
@@ -68,12 +71,14 @@ function mapRecord(record: {
     lastUsedAt: record.lastUsedAt,
     createdAt: record.createdAt,
     revokedAt: record.revokedAt,
+    permissions: parseApiKeyPermissions(record.permissions),
   };
 }
 
 export async function issueApiKey(params: {
   label: string;
   ownerEmail: string;
+  permissions?: PlatformPermission[];
 }): Promise<IssueApiKeyResult> {
   const { apiKey, maskedKey, keyHash } = generateApiKey();
 
@@ -84,6 +89,7 @@ export async function issueApiKey(params: {
       keyHash,
       maskedKey,
       status: "active",
+      permissions: params.permissions ?? standardApiKeyPermissions,
     },
   });
 
@@ -135,6 +141,7 @@ export async function updateApiKeyLabel(params: {
   id: string;
   ownerEmail: string;
   label: string;
+  permissions?: PlatformPermission[];
 }): Promise<ApiKeyRecord> {
   const existing = await prisma.apiKey.findFirst({
     where: {
@@ -149,7 +156,7 @@ export async function updateApiKeyLabel(params: {
 
   const updated = await prisma.apiKey.update({
     where: { id: existing.id },
-    data: { label: params.label },
+    data: { label: params.label, ...(params.permissions !== undefined ? { permissions: params.permissions } : {}) },
   });
 
   return mapRecord(updated);

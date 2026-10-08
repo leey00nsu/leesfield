@@ -27,7 +27,7 @@ it("requires login and filters active jobs from deletion",async()=>{
 it("deletes an edit record after deleting its stored files",async()=>{
  mocks.find.mockResolvedValue({id:"operation-1",outputs:[{storageUrl:"https://storage.example/source.webp"}]});mocks.remove.mockResolvedValue({count:1});
  expect((await DELETE(new Request("http://localhost/api/history/operation-1?type=image&origin=edit"),context)).status).toBe(204);
- expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{id:"request-1",ownerEmail:"owner@example.com"}}));
+ expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{id:"request-1",ownerEmail:"owner@example.com",outputs:{some:{type:"image"}}}}));
 });
 
 it("keeps history when file deletion fails",async()=>{mocks.find.mockResolvedValue({id:"r",status:"completed",images:[{id:"i",url:"https://storage.example/a"}]});mocks.files.mockRejectedValueOnce(new Error("storage down"));expect((await DELETE(new Request("http://localhost/api/history/request-1?type=image"),context)).status).toBe(502);expect(mocks.remove).not.toHaveBeenCalled();});

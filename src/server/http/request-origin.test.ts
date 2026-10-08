@@ -61,8 +61,13 @@ describe("assertSessionMutationOrigin", () => {
     expect(response).toBeNull();
   });
 
+  it.each<Record<string, string>>([{ "x-api-key": "arbitrary-key" }, { authorization: "Bearer arbitrary-key" }])(
+    "does not bypass a session mutation origin check with credential headers: %j", (extra) => {
+      expect(assertSessionMutationOrigin(mutation("https://evil.example.com", SESSION_COOKIE, extra))?.status).toBe(403);
+    },
+  );
+
   it("rejects credentials embedded in the origin", () => {
     expect(isAllowedRequestOrigin(mutation("https://user:pass@studio.example.com"), null)).toBe(false);
   });
 });
-

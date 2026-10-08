@@ -73,7 +73,7 @@
     "lucide-react": "^0.562.0",
     "mediabunny": "1.31.0",
     "motion": "^12.38.0",
-    "next": "16.3.6",
+    "next": "16.3.8",
     "next-intl": "4.14.5",
     "openapi3-ts": "^4.1.2",
     "pg": "^8.16.3",
@@ -105,7 +105,7 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.3.8",
     "husky": "^9.1.7",
     "jsdom": "^27.4.0",
     "prisma": "^6.0.0",
@@ -117,6 +117,7 @@
   },
   "pnpm": {
     "overrides": {
+      "sharp": "0.35.5",
       "@babel/core": "^7.29.6",
       "@parcel/watcher>picomatch": "^4.0.7",
       "baseline-browser-mapping": "^2.11.23",

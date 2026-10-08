@@ -43,6 +43,11 @@ const apiSections: ApiSection[] = [
             schema: null,
             example: { message: "INVALID_REQUEST" },
           },
+          {
+            status: "204",
+            description: "No content",
+            schema: null,
+          },
         ],
       },
     ],
@@ -74,7 +79,6 @@ describe("ApiDocsEndpointsSection", () => {
     renderWithIntl(
       <ApiDocsEndpointsSection
         apiSections={apiSections}
-        apiVersion="v1"
         openApiDocument={null}
       />,
     );
@@ -99,20 +103,23 @@ describe("ApiDocsEndpointsSection", () => {
     expect(appToastCopiedMock).toHaveBeenCalledWith("복사됨");
   });
 
-  it("200 응답과 오류 응답을 같은 카드 UI로 표시한다", () => {
+  it("성공 예제를 기본으로 열고 오류 예제를 펼쳐 볼 수 있다", async () => {
+    const user = userEvent.setup();
     renderWithIntl(
       <ApiDocsEndpointsSection
         apiSections={apiSections}
-        apiVersion="v1"
         openApiDocument={null}
       />,
     );
 
-    const responseCards = screen.getAllByTestId("api-response-card");
-
-    expect(responseCards).toHaveLength(2);
-    expect(screen.getByText("200")).toBeTruthy();
-    expect(screen.getByText("400")).toBeTruthy();
-    expect(responseCards[0].className).toBe(responseCards[1].className);
+    const success = screen.getByText("200").closest("details")!;
+    const failure = screen.getByText("400").closest("details")!;
+    expect(success).toHaveAttribute("open");
+    expect(success.textContent).toContain('"ok": true');
+    expect(failure).not.toHaveAttribute("open");
+    await user.click(failure.querySelector("summary")!);
+    expect(failure).toHaveAttribute("open");
+    expect(failure.textContent).toContain("INVALID_REQUEST");
+    expect(screen.getByText("204").closest("details")!.querySelector("pre")).toBeNull();
   });
 });

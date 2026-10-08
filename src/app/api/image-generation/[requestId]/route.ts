@@ -85,7 +85,7 @@ export async function DELETE(
     );
   }
 
-  if (record.status === "pending" || record.status === "processing") {
+  if (["pending", "processing", "uploading"].includes(record.status)) {
     return NextResponse.json(
       { message: "IN_PROGRESS" },
       { status: 400 },

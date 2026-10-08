@@ -64,14 +64,14 @@ describe("DELETE /api/audio-generation/[requestId]", () => {
     expect(payload.message).toBe("NOT_FOUND");
   });
 
-  it("진행 중인 요청이면 400을 반환한다", async () => {
+  it.each(["pending", "processing", "uploading"])("진행 중인 %s 요청이면 400을 반환한다", async (status) => {
     mockGetSession.mockResolvedValue({
       isLoggedIn: true,
       adminEmail: "admin@example.com",
     });
     mockFindFirst.mockResolvedValue({
       id: "db-id",
-      status: "processing",
+      status,
       requestId: "request-id",
     });
 
@@ -82,6 +82,8 @@ describe("DELETE /api/audio-generation/[requestId]", () => {
 
     expect(response.status).toBe(400);
     expect(payload.message).toBe("IN_PROGRESS");
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockDeleteLeemageFilesByPrefix).not.toHaveBeenCalled();
   });
 
   it("대기 중인 요청이면 400을 반환한다", async () => {

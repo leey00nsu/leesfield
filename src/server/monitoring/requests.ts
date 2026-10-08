@@ -86,6 +86,7 @@ async function getMonitoringRequestsUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringRequestResponse> {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,

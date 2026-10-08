@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
+import { standardApiKeyPermissions } from "@/shared/api/platform-permissions";
 import {
   API_KEY_PREFIX,
   generateApiKey,
   issueApiKey,
   listApiKeys,
   revokeApiKey,
+  updateApiKeyLabel,
 } from "@/server/api-key/lib/api-key-service";
 
 vi.mock("@/server/db/prisma", () => ({
@@ -54,6 +56,10 @@ describe("api-key-service", () => {
     expect(result.apiKey.startsWith(API_KEY_PREFIX)).toBe(true);
     expect(result.record.label).toBe("Production");
     expect(prisma.apiKey.create).toHaveBeenCalled();
+    expect(prisma.apiKey.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ permissions: standardApiKeyPermissions }),
+    }));
+    expect(result.record.permissions).toEqual([]);
   });
 
   it("API 키 목록을 조회한다", async () => {
@@ -76,6 +82,26 @@ describe("api-key-service", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.label).toBe("Production");
+    expect(result[0]).not.toHaveProperty("keyHash");
+    expect(result[0]).not.toHaveProperty("apiKey");
+  });
+
+  it("edits explicit permissions and leaves omitted permissions unchanged", async () => {
+    const record = { id: "key-id", ownerEmail: "admin@example.com", label: "Read",
+      maskedKey: "lf_live_masked", status: "active", lastUsedAt: null,
+      createdAt: new Date(), revokedAt: null, permissions: ["platform:read"], keyHash: "secret" };
+    vi.mocked(prisma.apiKey.findFirst).mockResolvedValue(record as never);
+    vi.mocked(prisma.apiKey.update).mockResolvedValue(record as never);
+    await updateApiKeyLabel({ id: record.id, ownerEmail: record.ownerEmail, label: "Rename" });
+    expect(prisma.apiKey.update).toHaveBeenLastCalledWith({
+      where: { id: record.id }, data: { label: "Rename" },
+    });
+    const result = await updateApiKeyLabel({ id: record.id, ownerEmail: record.ownerEmail, label: "Read", permissions: [] });
+    expect(prisma.apiKey.update).toHaveBeenLastCalledWith({
+      where: { id: record.id }, data: { label: "Read", permissions: [] },
+    });
+    expect(result).not.toHaveProperty("keyHash");
+    expect(prisma.apiKey.findFirst).toHaveBeenLastCalledWith({ where: { id: record.id, ownerEmail: record.ownerEmail } });
   });
 
   it("API 키를 폐기한다", async () => {

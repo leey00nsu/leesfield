@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { ApiKeyFilter, MonitoringStatus } from "@/server/monitoring/monitoring-query";
 
 export type MonitoringWhereFilters = {
+  ownerEmail?: string;
   statuses: MonitoringStatus[] | null;
   model: string | null;
   apiKey: ApiKeyFilter;
@@ -26,6 +27,9 @@ function applyCommonFilters<
   filters: MonitoringWhereFilters,
   options?: WhereOptions,
 ) {
+  if (filters.ownerEmail !== undefined) {
+    (where as Prisma.ImageGenerationWhereInput).ownerEmail = filters.ownerEmail;
+  }
   if (filters.model) {
     (where as Prisma.ImageGenerationWhereInput).modelKey = filters.model;
   }

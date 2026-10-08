@@ -617,6 +617,7 @@ model ApiKey {
   label            String
   keyHash          String            @unique
   maskedKey        String
+  permissions      Json              @default("[]")
   status           ApiKeyStatus      @default(active)
   lastUsedAt       DateTime?
   revokedAt        DateTime?

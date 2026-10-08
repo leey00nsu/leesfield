@@ -1,6 +1,4 @@
 import { useTranslations } from "next-intl";
-import { AppBadge } from "@/shared/ui/app-badge";
-import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
 
 interface ApiDocsIntroSectionProps {
   introTitle: string;
@@ -14,47 +12,37 @@ export function ApiDocsIntroSection({
   apiVersion,
 }: ApiDocsIntroSectionProps) {
   const tSidebar = useTranslations("apiDocs.sidebar");
+  const t = useTranslations("apiDocs.intro");
   const apiBaseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+    process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ||
     "<API_BASE_URL>";
 
   return (
-    <section id="introduction" className="scroll-mt-32">
-      <AppDocsSectionCard
-        eyebrow={<AppBadge variant="primary">API</AppBadge>}
-        title={<h1>{introTitle}</h1>}
-        description={introDescription}
-        action={
-          <AppBadge variant="muted" size="md">
-            {apiVersion}
-          </AppBadge>
-        }
-      >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <p className="text-[10px] font-medium text-foreground/36">
-              {tSidebar("baseUrl")}
-            </p>
-            <p className="mt-2 break-all font-mono text-sm text-foreground/78">
-              {apiBaseUrl}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <p className="text-[10px] font-medium text-foreground/36">
-              {tSidebar("general")}
-            </p>
-            <p className="mt-2 text-sm text-foreground/70">
-              {tSidebar("nav.authentication")}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <p className="text-[10px] font-medium text-foreground/36">
-              {tSidebar("version")}
-            </p>
-            <p className="mt-2 text-sm text-foreground/70">{apiVersion}</p>
-          </div>
-        </div>
-      </AppDocsSectionCard>
+    <section id="introduction" className="scroll-mt-24 space-y-6">
+      <p className="text-xs font-medium text-data-accent-foreground">
+        {tSidebar("reference")} <span className="ml-2 text-muted-foreground">{apiVersion}</span>
+      </p>
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{introTitle}</h1>
+      <p className="max-w-3xl text-base leading-8 text-muted-foreground">{introDescription}</p>
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">{t("quickstart")}</h2>
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-6">
+          {[
+            { key: "latency", href: "#models" },
+            { key: "security", href: "#post-/api/external/generations" },
+            { key: "restful", href: "#get-/api/external/generations/{requestId}" },
+          ].map(({ key, href }) => (
+            <li key={key} className="pl-1">
+              <a href={href} className="font-medium text-data-accent-foreground hover:underline">{t(`highlights.${key}.title`)}</a>
+              <p className="text-muted-foreground">{t(`highlights.${key}.description`)}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="space-y-2 border-y border-border py-5">
+        <p className="text-xs font-medium text-muted-foreground">{tSidebar("baseUrl")}</p>
+        <code className="block break-all text-sm">{apiBaseUrl}</code>
+      </div>
     </section>
   );
 }

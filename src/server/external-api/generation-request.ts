@@ -1,6 +1,9 @@
 import {
   externalGenerationRequestSchema,
   externalFilePrefix,
+  maxExternalFileBytes,
+  maxExternalFiles,
+  maxExternalTotalFileBytes,
 } from "@/shared/api/external-contract";
 import { fileToDataUrl } from "@/server/http/form-data-utils";
 import {
@@ -37,9 +40,9 @@ export async function readExternalGenerationRequest(request: Request) {
     try {
       form = await readBoundedFormDataBody(request, {
         maxBytes: GENERATION_BODY_LIMIT_BYTES,
-        maxFiles: 8,
-        maxFileBytes: 10 * 1024 * 1024,
-        maxTotalFileBytes: 64 * 1024 * 1024,
+        maxFiles: maxExternalFiles,
+        maxFileBytes: maxExternalFileBytes,
+        maxTotalFileBytes: maxExternalTotalFileBytes,
       });
     } catch (error) {
       if (error instanceof BodyLimitError) {
@@ -61,7 +64,7 @@ export async function readExternalGenerationRequest(request: Request) {
           typeof value !== "string"
         )
           throw new ExternalRequestError("INVALID_FORM_DATA");
-        if (key === "dynamicParams") {
+        if (key === "dynamicParams" || key === "promptPreset") {
           try {
             values[key] = JSON.parse(value);
           } catch {
@@ -90,7 +93,7 @@ export async function resolveExternalFiles(
       throw new ExternalRequestError("INVALID_FILE_INPUT");
     if (files.some((file) => file.size > field.maxBytes))
       throw new ExternalRequestError("FILE_TOO_LARGE", 413);
-    if (files.length > (field.maxItems ?? (field.multiple ? 8 : 1))) {
+    if (files.length > (field.maxItems ?? (field.multiple ? maxExternalFiles : 1))) {
       throw new ExternalRequestError("TOO_MANY_FILES", 413);
     }
     // Buffer files with bounded parallelism so a multi-file request cannot

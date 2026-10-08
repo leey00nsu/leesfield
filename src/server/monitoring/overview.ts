@@ -52,6 +52,7 @@ function calcErrorRate(total: number, failed: number) {
 
 async function getActiveCount(query: MonitoringQuery) {
   const baseFilters = {
+    ownerEmail: query.ownerEmail,
     statuses: ACTIVE_STATUSES,
     model: query.model,
     apiKey: query.apiKey,
@@ -92,6 +93,7 @@ async function getActiveCount(query: MonitoringQuery) {
 
 async function getMetrics(query: MonitoringQuery) {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,
@@ -123,7 +125,7 @@ async function getMetrics(query: MonitoringQuery) {
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
         THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
         ELSE NULL
-      END) as avg_ms,
+      END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
@@ -154,6 +156,7 @@ function buildUsageSelect(
 
 async function getUsageByType(query: MonitoringQuery) {
   const filters = {
+    ownerEmail: query.ownerEmail,
     statuses: query.statuses,
     model: query.model,
     apiKey: query.apiKey,

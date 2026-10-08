@@ -4,7 +4,10 @@ import {
   Sparkles,
   Boxes,
   Info,
+  FileJson,
   Lock,
+  ShieldCheck,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
@@ -22,7 +25,10 @@ export interface ApiDocsNavDefinition {
 
 export const generalNavItems: ApiDocsNavDefinition[] = [
   { id: "introduction", icon: Info },
+  { id: "openapi", icon: FileJson },
   { id: "authentication", icon: Lock },
+  { id: "access", icon: ShieldCheck },
+  { id: "request-options", icon: SlidersHorizontal },
   { id: "errors", icon: AlertTriangle },
 ];
 
@@ -33,7 +39,15 @@ export const fallbackEndpointItems: ApiDocsNavDefinition[] = [
 export const tagIdMap: Record<string, string> = {
   Generations: "generations",
   Models: "models",
+  History: "history",
+  "Prompt presets": "promptPresets",
+  Monitoring: "monitoring",
+  "Model administration": "modelAdministration",
 };
+export function getApiPermissionAnchor(permission: string) {
+  return "permission-" + permission.replace(":", "-");
+}
+
 export function getEndpointIcon(section: ApiSection): LucideIcon {
   return section.id === "generations"
     ? Sparkles

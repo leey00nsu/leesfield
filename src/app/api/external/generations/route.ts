@@ -15,6 +15,9 @@ import {
   jsonWithNoStore,
 } from "@/server/http/response";
 import { externalGenerationResponseSchema } from "@/shared/api/external-contract";
+import { hasPlatformPermission } from "@/shared/api/platform-permissions";
+import { resolveExternalPromptPreset } from "@/server/external-api/prompt-preset-reference";
+import { PromptPresetError } from "@/server/prompt-presets/prompt-preset-errors";
 import { submitImageGeneration } from "@/server/image-generation/image-generation-submission";
 import { createMockVideoGenerationWithLimit } from "@/server/video-generation/video-generation-store";
 import { createMockAudioGenerationWithLimit } from "@/server/audio-generation/audio-generation-store";
@@ -67,6 +70,9 @@ async function postHandler(request: Request) {
       return buildErrorResponse("INVALID_REQUEST", 400);
     }
     const { body, uploads } = input;
+    if (body.promptPreset && !hasPlatformPermission(auth.permissions, "presets:read")) {
+      return buildErrorResponse("PLATFORM_PERMISSION_REQUIRED", 403);
+    }
     const catalog = await getModelCatalog();
     const model = catalog.find(
       (model) => model.id === body.model && model.isActive,
@@ -77,10 +83,13 @@ async function postHandler(request: Request) {
     let payload;
     try {
       const contract = getExternalModelInput(model);
+      const preset = body.promptPreset ? await resolveExternalPromptPreset(auth.ownerEmail, body.type, body.promptPreset) : undefined;
       payload = contract.parse(
         await resolveExternalFiles(body.dynamicParams, uploads, contract.files),
+        preset,
       );
     } catch (error) {
+      if (error instanceof PromptPresetError) return buildErrorResponse(error.code, error.status);
       if (error instanceof ExternalRequestError)
         return buildErrorResponse(error.message, error.status);
       if (error instanceof z.ZodError)

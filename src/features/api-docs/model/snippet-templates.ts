@@ -37,8 +37,11 @@ function formatBodyLiteral(body: unknown) {
 }
 
 function getHeaders(headers?: Record<string, string>, contentType?: string) {
+  const hasCredentials = Object.keys(headers ?? {}).some((key) =>
+    ["authorization", "x-api-key"].includes(key.toLowerCase()),
+  );
   const merged = {
-    ...defaultHeaders,
+    ...(hasCredentials ? {} : defaultHeaders),
     ...headers,
   };
   if (isMultipartContentType(contentType)) {
@@ -65,6 +68,19 @@ type FormEntry = {
   value: string;
   isFile: boolean;
 };
+
+function shellQuote(value: string) {
+  return "'" + value.replaceAll("'", "'\"'\"'") + "'";
+}
+
+export function buildGenerationMultipartSnippet(baseUrl: string, prompt: string) {
+  return buildCurlSnippet({
+    baseUrl, path: "/api/external/generations", method: "POST",
+    contentType: "multipart/form-data", fileFields: ["file:<INPUT_NAME>"],
+    body: { type: "image", model: "<MODEL_ID>", dynamicParams: { prompt },
+      "file:<INPUT_NAME>": ["reference-1.png", "reference-2.png"] },
+  });
+}
 
 function buildFormEntries(
   body: unknown,
@@ -104,8 +120,8 @@ export function buildCurlSnippet(context: SnippetContext) {
     const formLines = formEntries
       .map((entry) =>
         entry.isFile
-          ? `-F "${entry.key}=@${entry.value}"`
-          : `-F "${entry.key}=${entry.value}"`,
+          ? `-F ${shellQuote(entry.key + "=@" + entry.value)}`
+          : `--form-string ${shellQuote(entry.key + "=" + entry.value)}`,
       )
       .join(" \\\n  ");
     const payload = formLines ? ` \\\n  ${formLines}` : "";
@@ -166,7 +182,7 @@ export function buildJavascriptSnippet(context: SnippetContext) {
         `  headers: ${headerLines},\n` +
         `  body: formData,\n` +
         `});\n` +
-        `const data = await response.json();`,
+        `const data = response.status === 204 ? null : await response.json();`,
     ]
       .join("")
       .trim();
@@ -182,7 +198,7 @@ export function buildJavascriptSnippet(context: SnippetContext) {
       `  headers: ${JSON.stringify(combinedHeaders, null, 2)},\n` +
       bodyLine +
       `});\n` +
-      `const data = await response.json();`,
+      `const data = response.status === 204 ? null : await response.json();`,
   ]
     .join("")
     .trim();
@@ -214,7 +230,7 @@ export function buildPythonSnippet(context: SnippetContext) {
         `response = requests.${methodName}(\"${baseUrl}${path}\", ` +
         `headers=${JSON.stringify(combinedHeaders, null, 2)}, ` +
         `data=data, files=files)\n` +
-        "data = response.json()",
+        "data = None if response.status_code == 204 else response.json()",
     ]
       .join("")
       .trim();
@@ -228,7 +244,7 @@ export function buildPythonSnippet(context: SnippetContext) {
     `import requests\n\n${payloadBlock}` +
       `response = requests.${methodName}(\"${baseUrl}${path}\", ${bodyLine}` +
       `headers=${JSON.stringify(combinedHeaders, null, 2)})\n` +
-      "data = response.json()",
+      "data = None if response.status_code == 204 else response.json()",
   ]
     .join("")
     .trim();

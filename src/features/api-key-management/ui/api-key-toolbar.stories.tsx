@@ -8,7 +8,6 @@ type ApiKeyStatusFilter = "all" | "active" | "revoked";
 function ApiKeyToolbarPreview() {
   const [filter, setFilter] = useState<ApiKeyStatusFilter>("all");
   const [search, setSearch] = useState("");
-  const [label, setLabel] = useState("Production key");
 
   return (
     <AppFilterToolbar>
@@ -18,10 +17,7 @@ function ApiKeyToolbarPreview() {
         searchInput={search}
         onSearchInputChange={setSearch}
         searchPlaceholder="Search keys..."
-        newKeyLabel={label}
-        onNewKeyLabelChange={setLabel}
         onGenerate={() => {}}
-        isIssuing={false}
       />
     </AppFilterToolbar>
   );

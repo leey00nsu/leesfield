@@ -74,7 +74,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 
-  if (record.status === "pending" || record.status === "processing") {
+  if (["pending", "processing", "uploading"].includes(record.status)) {
     return NextResponse.json({ message: "IN_PROGRESS" }, { status: 400 });
   }
 

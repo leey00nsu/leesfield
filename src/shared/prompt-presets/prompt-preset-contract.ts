@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+extendZodWithOpenApi(z);
 
 export const promptPresetKeySchema = z.string().regex(/^[a-z][a-z0-9-]{0,119}$/);
 export const promptPresetModalitySchema = z.enum(["image", "video", "audio"]);

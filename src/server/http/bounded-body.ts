@@ -7,6 +7,8 @@
  * known memory budget.
  */
 
+import { generationBodyLimitBytes, bodyReadTimeoutMs } from "@/shared/api/request-limits";
+
 export type BodyLimitCode =
   | "BODY_TOO_LARGE"
   | "BODY_INVALID"
@@ -27,9 +29,9 @@ export class BodyLimitError extends Error {
 }
 
 export const JSON_BODY_LIMIT_BYTES = 1024 * 1024;
-export const GENERATION_BODY_LIMIT_BYTES = 64 * 1024 * 1024;
+export const GENERATION_BODY_LIMIT_BYTES = generationBodyLimitBytes;
 export const GRAPH_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
-export const BODY_READ_TIMEOUT_MS = 30_000;
+export const BODY_READ_TIMEOUT_MS = bodyReadTimeoutMs;
 
 /** How many heavy bodies may be buffered at the same time in this process. */
 export const HEAVY_BODY_CONCURRENCY = 2;

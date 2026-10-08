@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/auth/session", () => ({ getSession: mocks.getSession }));
+vi.mock("@/server/runtime/env", () => ({ getServerEnv: () => ({ appOrigin: "http://localhost" }) }));
 vi.mock("@/server/node-executions/node-execution-service", () => ({
   nodeExecutionService: { get: mocks.get, cancel: mocks.cancel, update: mocks.update },
 }));
@@ -18,6 +19,14 @@ const context = {
 };
 
 describe("node execution detail route", () => {
+  it("rejects a cross-origin cookie cancellation before invoking the service", async () => {
+    const response = await DELETE(new Request("http://localhost", {
+      method: "DELETE",
+      headers: { cookie: "leesfield_session=fixture", origin: "https://foreign.example", host: "localhost" },
+    }), context);
+    expect(response.status).toBe(403);
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  });
   it("reports a stale Assistant selection as 409 with the original code", async () => {
     mocks.update.mockRejectedValueOnce(new NodeExecutionSelectionConflictError());
     const response = await PATCH(new Request("http://localhost", { method: "PATCH", headers: { "Content-Type": "application/json" },

@@ -3,6 +3,7 @@ import { buildErrorResponse } from "@/server/http/response";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db/prisma";
 import { hashApiKey } from "@/server/api-key/lib/api-key-service";
+import { parseApiKeyPermissions, type PlatformPermission } from "@/shared/api/platform-permissions";
 
 /** The usage timestamp is an operational signal, not an audit log. */
 export const API_KEY_LAST_USED_WRITE_INTERVAL_MS = 5 * 60 * 1000;
@@ -10,6 +11,7 @@ export const API_KEY_LAST_USED_WRITE_INTERVAL_MS = 5 * 60 * 1000;
 export type ApiKeyAuthContext = {
   apiKeyId: string;
   ownerEmail: string;
+  permissions?: PlatformPermission[];
 };
 
 /**
@@ -42,7 +44,13 @@ export async function requireApiKey(
   request: Request,
 ): Promise<ApiKeyAuthContext | NextResponse> {
   const rawKey = request.headers.get(apiKeyHeader);
-  const apiKey = rawKey?.trim() ?? "";
+  // An explicit header is authoritative, including an empty/invalid value.
+  // Never switch credentials after it fails; Bearer is an alternative only
+  // when X-API-Key is absent.
+  const bearer = /^Bearer\s+(\S+)$/i.exec(
+    request.headers.get("authorization")?.trim() ?? "",
+  )?.[1] ?? "";
+  const apiKey = rawKey !== null ? rawKey.trim() : bearer;
 
   if (!apiKey) {
     return buildErrorResponse("API_KEY_REQUIRED", 401);
@@ -66,5 +74,6 @@ export async function requireApiKey(
   return {
     apiKeyId: record.id,
     ownerEmail: record.ownerEmail,
+    permissions: parseApiKeyPermissions(record.permissions),
   };
 }

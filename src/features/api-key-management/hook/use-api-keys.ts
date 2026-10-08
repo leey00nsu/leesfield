@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import type { ApiKeyItem } from "@/features/api-key-management/model/api-key-types";
+import type { PlatformPermission } from "@/shared/api/platform-permissions";
 import {
   fetchApiKeys,
   issueApiKey,
@@ -66,7 +67,11 @@ export function useApiKeys() {
   });
 
   const issueMutation = useMutation({
-    mutationFn: issueApiKey,
+    mutationFn: async ({ label, permissions, receiveKey }: { label: string; permissions?: PlatformPermission[]; receiveKey: (key: string) => void }) => {
+      const response = await issueApiKey(label, permissions);
+      receiveKey(response.apiKey);
+      return { record: response.record };
+    },
     onSuccess: (response) => {
       const record = toApiKeyView(response.record);
       queryClient.setQueryData<ApiKeyView[]>(
@@ -98,14 +103,14 @@ export function useApiKeys() {
   });
 
   const updateLabelMutation = useMutation({
-    mutationFn: ({ apiKeyId, label }: { apiKeyId: string; label: string }) =>
-      updateApiKeyLabel(apiKeyId, label),
+    mutationFn: ({ apiKeyId, label, permissions }: { apiKeyId: string; label: string; permissions?: PlatformPermission[] }) =>
+      updateApiKeyLabel(apiKeyId, label, permissions),
     onSuccess: (response, variables) => {
       queryClient.setQueryData<ApiKeyView[]>(API_KEYS_QUERY_KEY, (previous) =>
         previous
           ? previous.map((item) =>
               item.id === variables.apiKeyId
-                ? { ...item, label: response.record.label }
+                ? { ...item, label: response.record.label, permissions: response.record.permissions }
                 : item,
             )
           : previous,
@@ -114,9 +119,15 @@ export function useApiKeys() {
   });
 
   const issue = useCallback(
-    async (label: string): Promise<IssueResult> => {
-      const response = await issueMutation.mutateAsync(label);
-      return { apiKey: response.apiKey, record: toApiKeyView(response.record) };
+    async (label: string, permissions?: PlatformPermission[]): Promise<IssueResult> => {
+      let issuedKey = "";
+      try {
+        const response = await issueMutation.mutateAsync({ label, permissions, receiveKey: (key) => { issuedKey = key; } });
+        return { apiKey: issuedKey, record: toApiKeyView(response.record) };
+      } finally {
+        // Mutation data and its retained callback must not keep the one-time secret.
+        issuedKey = "";
+      }
     },
     [issueMutation, toApiKeyView],
   );
@@ -129,10 +140,11 @@ export function useApiKeys() {
   );
 
   const updateLabel = useCallback(
-    async (apiKeyId: string, label: string) => {
+    async (apiKeyId: string, label: string, permissions?: PlatformPermission[]) => {
       const response = await updateLabelMutation.mutateAsync({
         apiKeyId,
         label,
+        permissions,
       });
       return response.record;
     },

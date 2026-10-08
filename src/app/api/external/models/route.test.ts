@@ -14,9 +14,19 @@ beforeEach(() => {
     mappedModel(),
     mappedModel("video"),
     { ...mappedModel("audio"), isActive: false },
+    { ...mappedModel(), id: "assistant-private-id", type: "llm", label: "Private Assistant" },
   ]);
 });
 describe("private model discovery", () => {
+  it("keeps Assistant models out of the media API without failing the whole list", async () => {
+    const response = await GET(new Request("http://localhost/api/external/models"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).items.map((item: { type: string }) => item.type)).toEqual(["image", "video"]);
+    const unsupported = await getSchema(new Request("http://localhost"), {
+      params: Promise.resolve({ modelId: "assistant-private-id" }),
+    });
+    expect(unsupported.status).toBe(404);
+  });
   it("returns only active matching summaries, without provider or operational configuration", async () => {
     const response = await GET(
       new Request("http://localhost/api/external/models?type=image"),
@@ -45,7 +55,7 @@ describe("private model discovery", () => {
       type: "image",
     });
     expect(body.inputSchema.required).toEqual(["text"]);
-    expect(body.files[0]).toMatchObject({ multipartField: "file:frame" });
+    expect(body.files[0]).toMatchObject({ multipartField: "file:frame", maxItems: 1 });
     expect(JSON.stringify(body)).not.toMatch(
       /secret-space|private_internal|do-not-expose|providerConfig/,
     );

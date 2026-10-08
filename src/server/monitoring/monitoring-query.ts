@@ -14,6 +14,7 @@ export type ApiKeyFilter =
   | { mode: "id"; value: string };
 
 export type MonitoringQuery = {
+  ownerEmail?: string;
   type: MonitoringType;
   statuses: MonitoringStatus[] | null;
   model: string | null;

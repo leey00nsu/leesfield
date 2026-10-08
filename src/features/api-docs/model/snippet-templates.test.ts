@@ -1,10 +1,31 @@
 import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
 import {
   buildCurlSnippet,
   buildJavascriptSnippet,
+  buildPythonSnippet,
+  buildGenerationMultipartSnippet,
 } from "@/features/api-docs/model/snippet-templates";
 
 describe("snippet-templates", () => {
+  it.each([buildCurlSnippet, buildJavascriptSnippet, buildPythonSnippet])("keeps retries optional in default generation examples", (build) => {
+    const context = { baseUrl: "https://api.example.com", path: "/api/external/generations", method: "POST", body: { type: "image", model: "selected-id", dynamicParams: {} } };
+    expect(build(context)).not.toContain("Idempotency-Key");
+    expect(build({ ...context, headers: { "Idempotency-Key": "same-intent" } })).toContain("Idempotency-Key");
+  });
+  it("supports revision deletion bodies and empty 204 responses", () => {
+    const context = { baseUrl: "https://api.example.com", path: "/api/external/prompt-presets/example", method: "DELETE", body: { expectedRevision: 2 } };
+    for (const build of [buildCurlSnippet, buildJavascriptSnippet, buildPythonSnippet])
+      expect(build(context)).toContain('"expectedRevision": 2');
+    expect(buildJavascriptSnippet(context)).toContain("response.status === 204 ? null");
+    expect(buildPythonSnippet(context)).toContain("None if response.status_code == 204");
+  });
+  it.each([buildCurlSnippet, buildJavascriptSnippet, buildPythonSnippet])("preserves explicit Bearer credentials without adding a competing key", (build) => {
+    const snippet = build({ baseUrl: "https://api.example.com", path: "/api/external/models", method: "GET", headers: { authorization: "Bearer chosen-key" } });
+    expect(snippet).toContain("Bearer chosen-key");
+    expect(snippet).not.toContain("X-API-Key");
+    expect(snippet).not.toContain("YOUR_API_KEY");
+  });
   it("multipart 요청은 파일 필드를 form-data로 렌더링한다", () => {
     const snippet = buildCurlSnippet({
       baseUrl: "https://api.example.com",
@@ -20,7 +41,7 @@ describe("snippet-templates", () => {
       },
     });
 
-    expect(snippet).toContain('-F "file:initImages=@sample.png"');
+    expect(snippet).toContain("-F 'file:initImages=@sample.png'");
     expect(snippet).toContain('-H "X-API-Key: YOUR_API_KEY"');
     expect(snippet).not.toContain("Content-Type");
   });
@@ -57,7 +78,20 @@ describe("snippet-templates", () => {
       },
     });
 
-    expect(snippet).toContain('-F "file:inputAudio=@sample.wav"');
+    expect(snippet).toContain("-F 'file:inputAudio=@sample.wav'");
     expect(snippet).toContain("reference words");
+  });
+  it("multipart curl preserves JSON and repeated file arguments through the shell", () => {
+    const prompt = "A \"quote\", an 'apostrophe' and $(printf unexpected)";
+    const snippet = buildGenerationMultipartSnippet("https://api.example.com", prompt);
+    const args = execFileSync("/bin/sh", ["-c", "curl() { printf '%s\\0' \"$@\"; };\n" + snippet],
+      { encoding: "utf8" }).split("\0").filter(Boolean);
+    const fields = args.flatMap((arg, index) => ["--form-string", "-F"].includes(arg) ? [args[index + 1]] : []);
+    expect(fields).toEqual(expect.arrayContaining([
+      "type=image", "model=<MODEL_ID>", "file:<INPUT_NAME>=@reference-1.png", "file:<INPUT_NAME>=@reference-2.png",
+    ]));
+    const dynamicParams = fields.find((field) => field.startsWith("dynamicParams="))!;
+    expect(JSON.parse(dynamicParams.slice("dynamicParams=".length))).toEqual({ prompt });
+    expect(args).not.toContain("Content-Type: multipart/form-data");
   });
 });

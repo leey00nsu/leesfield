@@ -14,6 +14,8 @@ import {
 import { AppInput } from "@/shared/ui/app-input";
 import { AppLabel } from "@/shared/ui/app-form-control";
 import { useTranslations } from "next-intl";
+import { ApiKeyPermissionSelect } from "./api-key-permission-select";
+import type { PlatformPermission } from "@/shared/api/platform-permissions";
 
 type ApiKeyEditModalProps = {
   open: boolean;
@@ -26,6 +28,8 @@ type ApiKeyEditModalProps = {
   onClose: () => void;
   onSave: () => void;
   onRevoke: () => void;
+  permissions?: PlatformPermission[];
+  onPermissionsChange?: (permissions: PlatformPermission[]) => void;
 };
 
 export function ApiKeyEditModal({
@@ -39,6 +43,8 @@ export function ApiKeyEditModal({
   onClose,
   onSave,
   onRevoke,
+  permissions = [],
+  onPermissionsChange,
 }: ApiKeyEditModalProps) {
   const t = useTranslations("apiKey.modal");
 
@@ -71,6 +77,7 @@ export function ApiKeyEditModal({
             onChange={(event) => onLabelChange(event.target.value)}
             inputSize="lg"
           />
+          {onPermissionsChange ? <ApiKeyPermissionSelect permissions={permissions} onChange={onPermissionsChange} disabled={isSaving || isRevoking || apiKey.status === "revoked"} /> : null}
           <div className="min-h-8" aria-live="polite">{error ? <p className="text-xs text-red-300">{error}</p> : null}</div>
         </div>
         <AppDialogFooter>

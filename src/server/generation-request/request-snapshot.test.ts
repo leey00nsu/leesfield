@@ -6,6 +6,13 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({getModelCatalog: mockC
 const mapped = {type:'image',providerConfig:{api_name:'/generate',output:{media:'image',path:[0]}},parameters:{'hf:width':{label:'Width',default:512,binding:{source:'hf_space',parameterName:'width',valueType:'number',schema:{type:'number'},order:0}}}};
 describe('simple request settings',()=>{
  beforeEach(() => { mockCatalog.mockReset(); });
+ it.each(["image","video","audio"])("persists the server resolved preset through %s snapshot/restore",async(type)=>{
+  mockCatalog.mockResolvedValue([{type,key:"model",provider:"hf_space",parameters:{prompt:{}}}]);
+  const promptPreset={key:"custom",revision:2,requiredInputs:{referenceImageCount:0},recommendedParameters:{}};
+  const saved=await snapshotRequest(type,{model:"model",prompt:"client applied",promptPreset});
+  expect(saved.promptPreset).toEqual(promptPreset);
+  expect(restoreRequest(JSON.parse(JSON.stringify(saved))).promptPreset).toEqual(promptPreset);
+ });
  it('retains typed selections and resolved defaults after snapshot/restore and catalog changes',async()=>{
   const model={...mapped,key:"mapped",provider:"hf_space",providerConfig:{...mapped.providerConfig,input_rules:{type:"object",properties:{tags:{type:"array",minItems:1}},required:["tags"]}},parameters:{
     tags:{default:[1],options:[1,"two"],binding:{source:"hf_space",parameterName:"tags",kind:"json",valueType:"string",choiceMode:"multiple",schema:{type:"array",items:{type:"string",enum:[1,"two"]}},order:0}},

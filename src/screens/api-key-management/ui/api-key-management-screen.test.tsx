@@ -1,11 +1,15 @@
 import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ApiKeyManagementScreen } from "@/screens/api-key-management/ui/api-key-management-screen";
 import { renderWithIntl } from "@/test-utils/intl";
+import { standardApiKeyPermissions } from "@/shared/api/platform-permissions";
+
+const copyTextMock = vi.fn();
+vi.mock("@/shared/lib/clipboard", () => ({ copyTextToClipboard: (value: string) => copyTextMock(value) }));
 
 const fetchApiKeysMock = vi.fn();
 const issueApiKeyMock = vi.fn();
@@ -13,7 +17,7 @@ const revokeApiKeyMock = vi.fn();
 
 vi.mock("@/features/api-key-management/api/api-key-api", () => ({
   fetchApiKeys: () => fetchApiKeysMock(),
-  issueApiKey: (label: string) => issueApiKeyMock(label),
+  issueApiKey: (...args: unknown[]) => issueApiKeyMock(...args),
   revokeApiKey: (id: string) => revokeApiKeyMock(id),
 }));
 
@@ -23,12 +27,64 @@ const renderWithQueryClient = (ui: ReactElement) => {
       queries: { retry: false },
     },
   });
-  return renderWithIntl(
+  const rendered = renderWithIntl(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
+  return { ...rendered, queryClient };
 };
 
 describe("ApiKeyManagementScreen", () => {
+  beforeEach(() => {
+    fetchApiKeysMock.mockReset();
+    issueApiKeyMock.mockReset();
+    revokeApiKeyMock.mockReset();
+    copyTextMock.mockReset();
+  });
+  it("발급 모달 취소는 요청하지 않고 성공한 키는 복사 후 닫을 때 지운다", async () => {
+    fetchApiKeysMock.mockResolvedValue({ items: [] });
+    issueApiKeyMock.mockResolvedValue({ apiKey: "lf_live_once", record: { id: "once", label: "Once", maskedKey: "lf_live_...once", status: "active", lastUsedAt: null, createdAt: "2026-01-10T00:00:00Z", revokedAt: null, permissions: [...standardApiKeyPermissions] } });
+    copyTextMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithQueryClient(<ApiKeyManagementScreen />);
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    expect(issueApiKeyMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    await user.type(screen.getByPlaceholderText("예: Production"), "Once");
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    expect(await screen.findByDisplayValue("lf_live_once")).toBeInTheDocument();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map(mutation => mutation.state.data))).not.toContain("lf_live_once");
+    await user.click(screen.getByRole("button", { name: "키 복사" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("복사하지 못했습니다.");
+    await user.click(screen.getByRole("button", { name: "키 복사" }));
+    expect(copyTextMock).toHaveBeenLastCalledWith("lf_live_once");
+    expect(await screen.findByRole("status")).toHaveTextContent("복사됨");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "완료" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByDisplayValue("lf_live_once")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    expect(screen.getByPlaceholderText("예: Production")).toHaveValue("");
+    expect(screen.getByRole("checkbox", { name: "생성 요청" })).toBeChecked();
+    expect(screen.queryByDisplayValue("lf_live_once")).not.toBeInTheDocument();
+  });
+
+  it("생성 중에는 중복 제출과 모달 닫기를 막는다", async () => {
+    fetchApiKeysMock.mockResolvedValue({ items: [] });
+    let resolveIssue!: (value: unknown) => void;
+    issueApiKeyMock.mockImplementationOnce(() => new Promise(resolve => { resolveIssue = resolve; }));
+    const user = userEvent.setup();
+    renderWithQueryClient(<ApiKeyManagementScreen />);
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    await user.dblClick(screen.getByRole("button", { name: "생성" }));
+    expect(issueApiKeyMock).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "생성 중…" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    resolveIssue({ apiKey: "lf_live_busy", record: { id: "busy", label: "Busy", maskedKey: "lf_live_...busy", status: "active", lastUsedAt: null, createdAt: "2026-01-10T00:00:00Z", revokedAt: null } });
+    expect(await screen.findByDisplayValue("lf_live_busy")).toBeInTheDocument();
+  });
   it("검색 필터가 동작한다", async () => {
     fetchApiKeysMock.mockResolvedValue({
       items: [
@@ -83,14 +139,15 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
-    const labelInput = await screen.findByPlaceholderText("새 키 라벨…");
-    await user.type(labelInput, "NewKey");
     await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    const labelInput = await screen.findByPlaceholderText("예: Production");
+    await user.type(labelInput, "NewKey");
+    await user.click(screen.getByRole("button", { name: "생성" }));
 
     await waitFor(() => {
-      expect(issueApiKeyMock).toHaveBeenCalledWith("NewKey");
+      expect(issueApiKeyMock).toHaveBeenCalledWith("NewKey", [...standardApiKeyPermissions]);
     });
-    expect(screen.getByText("lf_live_test_key")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("lf_live_test_key")).toBeInTheDocument();
   });
 
   it("revoked 필터가 동작한다", async () => {
@@ -126,6 +183,49 @@ describe("ApiKeyManagementScreen", () => {
       expect(screen.queryByText("Production")).not.toBeInTheDocument();
     });
     expect(screen.getByText("Legacy")).toBeInTheDocument();
+  });
+
+  it("발급 실패를 표시하고 라벨과 권한을 유지한 채 재시도한다", async () => {
+    fetchApiKeysMock.mockResolvedValue({ items: [] });
+    const permissions = [...standardApiKeyPermissions].filter(permission => permission !== "generations:create");
+    issueApiKeyMock.mockRejectedValueOnce(new Error('{"message":"INTERNAL_SERVER_ERROR"}'));
+    issueApiKeyMock.mockResolvedValueOnce({
+      apiKey: "lf_live_retry",
+      record: { id: "retry", label: "RetryKey", maskedKey: "lf_live_...retry", status: "active",
+        lastUsedAt: null, createdAt: "2026-01-10T00:00:00Z", revokedAt: null, permissions },
+    });
+    const user = userEvent.setup();
+    renderWithQueryClient(<ApiKeyManagementScreen />);
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    const label = await screen.findByPlaceholderText("예: Production");
+    await user.type(label, "RetryKey");
+    await user.click(screen.getByRole("checkbox", { name: "생성 요청" }));
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("API 키를 발급하지 못했습니다.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("INTERNAL_SERVER_ERROR");
+    expect(label).toHaveValue("RetryKey");
+    expect(issueApiKeyMock).toHaveBeenLastCalledWith("RetryKey", permissions);
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByDisplayValue("lf_live_retry")).toBeInTheDocument();
+    expect(issueApiKeyMock).toHaveBeenLastCalledWith("RetryKey", permissions);
+    expect(screen.queryByRole("button", { name: "생성" })).not.toBeInTheDocument();
+  });
+
+  it("선택한 기능별 권한을 키 발급 요청에 전달한다", async () => {
+    fetchApiKeysMock.mockResolvedValue({ items: [] });
+    issueApiKeyMock.mockResolvedValue({
+      apiKey: "lf_live_read",
+      record: { id: "read", label: "Read", maskedKey: "lf_live_...read", status: "active",
+        lastUsedAt: null, createdAt: "2026-01-10T00:00:00Z", revokedAt: null, permissions: [...standardApiKeyPermissions].filter(permission => permission !== "generations:create") },
+    });
+    const user = userEvent.setup();
+    renderWithQueryClient(<ApiKeyManagementScreen />);
+    await user.click(screen.getByRole("button", { name: "새 키 발급" }));
+    await user.type(await screen.findByPlaceholderText("예: Production"), "Read");
+    await user.click(screen.getByRole("checkbox", { name: "생성 요청" }));
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    await waitFor(() => expect(issueApiKeyMock).toHaveBeenCalledWith("Read", [...standardApiKeyPermissions].filter(permission => permission !== "generations:create")));
   });
 });
 

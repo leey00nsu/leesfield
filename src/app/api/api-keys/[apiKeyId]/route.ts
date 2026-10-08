@@ -31,7 +31,7 @@ type RouteContext = {
   );
   if (!bounded.ok) {
     return NextResponse.json(
-      { error: bounded.message },
+      { message: bounded.message, error: bounded.message },
       { status: bounded.status },
     );
   }

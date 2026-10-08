@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
 import type { ApiKeyStatusFilter } from "@/features/api-key-management/hook/use-api-key-management";
 import {
@@ -6,7 +7,6 @@ import {
   AppSearchField,
 } from "@/shared/ui/app-filter-toolbar";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppInput } from "@/shared/ui/app-input";
 import { useTranslations } from "next-intl";
 
 type ApiKeyToolbarProps = {
@@ -15,10 +15,8 @@ type ApiKeyToolbarProps = {
   searchInput: string;
   onSearchInputChange: (value: string) => void;
   searchPlaceholder: string;
-  newKeyLabel: string;
-  onNewKeyLabelChange: (value: string) => void;
   onGenerate: () => void;
-  isIssuing: boolean;
+  generateButtonRef?: RefObject<HTMLButtonElement | null>;
 };
 
 export function ApiKeyToolbar({
@@ -27,10 +25,8 @@ export function ApiKeyToolbar({
   searchInput,
   onSearchInputChange,
   searchPlaceholder,
-  newKeyLabel,
-  onNewKeyLabelChange,
   onGenerate,
-  isIssuing,
+  generateButtonRef,
 }: ApiKeyToolbarProps) {
   const t = useTranslations("apiKey.toolbar");
 
@@ -70,24 +66,15 @@ export function ApiKeyToolbar({
           aria-label={searchPlaceholder}
           containerClassName="lg:max-w-md lg:flex-[1_1_20rem]"
         />
-        <AppInput
-          type="text"
-          value={newKeyLabel}
-          onChange={(event) => onNewKeyLabelChange(event.target.value)}
-          placeholder={t("newKeyPlaceholder")}
-          surface="toolbar"
-          inputSize="lg"
-          className="min-w-0 lg:w-64"
-        />
         <AppButton variant="brand"
+          ref={generateButtonRef}
           type="button"
           onClick={onGenerate}
-          disabled={isIssuing}
           size="toolbar"
           className="font-semibold"
         >
           <Plus className="h-5 w-5" />
-          {isIssuing ? t("generating") : t("generate")}
+          {t("generate")}
         </AppButton>
       </div>
     </>

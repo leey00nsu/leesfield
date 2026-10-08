@@ -31,6 +31,7 @@ export type MonitoringRequestDetail = {
   warningMessage: string | null;
   inputImages: string[];
   inputAudios: string[];
+  inputVideos?: string[];
   referenceText: string | null;
   assets: MonitoringRequestAsset[];
 };
@@ -48,10 +49,11 @@ type InputAssetRow = {
 async function listInputAssets(
   generationType: "image" | "video" | "audio",
   requestId: string,
+  ownerEmail?: string,
 ): Promise<InputAssetRow[]> {
   if (!("generationInputAsset" in prisma)) return [];
   return prisma.generationInputAsset.findMany({
-    where: { requestId, generationType },
+    where: { requestId, generationType, ...(ownerEmail !== undefined ? { ownerEmail, asset: { ownerEmail } } : {}) },
     orderBy: [{ field: "asc" }, { sortOrder: "asc" }],
     select: {
       field: true,
@@ -105,10 +107,11 @@ function inputAssetUrls(
 async function getMonitoringRequestDetailUnobserved(
   type: "image" | "video" | "audio",
   requestId: string,
+  ownerEmail?: string,
 ): Promise<MonitoringRequestDetail | null> {
   if (type === "image") {
     const record = await prisma.imageGeneration.findUnique({
-      where: { requestId },
+      where: { requestId, ...(ownerEmail !== undefined ? { ownerEmail } : {}) },
       select: {
         requestId: true,
         status: true,
@@ -132,7 +135,7 @@ async function getMonitoringRequestDetailUnobserved(
 
     if (!record) return null;
 
-    const inputAssets = await listInputAssets("image", record.requestId);
+    const inputAssets = await listInputAssets("image", record.requestId, ownerEmail);
 
     const messages = splitDetailMessage(record.status, record.errorMessage);
 
@@ -154,6 +157,7 @@ async function getMonitoringRequestDetailUnobserved(
         ...extractInputImages(record.requestParams),
       ],
       inputAudios: [],
+      inputVideos: inputAssetUrls(inputAssets, "video"),
       referenceText: null,
       assets: record.images.map((image) => ({
         url: image.url,
@@ -167,7 +171,7 @@ async function getMonitoringRequestDetailUnobserved(
 
   if (type === "audio") {
     const record = await prisma.audioGeneration.findUnique({
-      where: { requestId },
+      where: { requestId, ...(ownerEmail !== undefined ? { ownerEmail } : {}) },
       select: {
         requestId: true,
         status: true,
@@ -189,7 +193,7 @@ async function getMonitoringRequestDetailUnobserved(
 
     if (!record) return null;
 
-    const inputAssets = await listInputAssets("audio", record.requestId);
+    const inputAssets = await listInputAssets("audio", record.requestId, ownerEmail);
 
     const messages = splitDetailMessage(record.status, record.errorMessage);
 
@@ -215,6 +219,7 @@ async function getMonitoringRequestDetailUnobserved(
         ...extractInputAudios(record.requestParams),
       ],
       referenceText: extractReferenceText(record.requestParams),
+      inputVideos: inputAssetUrls(inputAssets, "video"),
       assets: record.audios.map((audio) => ({
         url: audio.url,
         width: null,
@@ -225,7 +230,7 @@ async function getMonitoringRequestDetailUnobserved(
   }
 
   const record = await prisma.videoGeneration.findUnique({
-    where: { requestId },
+    where: { requestId, ...(ownerEmail !== undefined ? { ownerEmail } : {}) },
     select: {
       requestId: true,
       status: true,
@@ -249,7 +254,7 @@ async function getMonitoringRequestDetailUnobserved(
 
   if (!record) return null;
 
-  const inputAssets = await listInputAssets("video", record.requestId);
+  const inputAssets = await listInputAssets("video", record.requestId, ownerEmail);
 
   const messages = splitDetailMessage(record.status, record.errorMessage);
 
@@ -271,6 +276,7 @@ async function getMonitoringRequestDetailUnobserved(
       ...extractInputImages(record.requestParams),
     ],
     inputAudios: [],
+    inputVideos: inputAssetUrls(inputAssets, "video"),
     referenceText: null,
     assets: record.videos.map((video) => ({
       url: video.url,
@@ -284,8 +290,9 @@ async function getMonitoringRequestDetailUnobserved(
 export async function getMonitoringRequestDetail(
   type: "image" | "video" | "audio",
   requestId: string,
+  ownerEmail?: string,
 ) {
   return measureDatabase("monitoring.request-detail", () =>
-    getMonitoringRequestDetailUnobserved(type, requestId),
+    getMonitoringRequestDetailUnobserved(type, requestId, ownerEmail),
   );
 }

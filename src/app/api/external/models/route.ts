@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const catalog = await getModelCatalog();
     const normalizedQuery = query.toLowerCase();
     const items = catalog.filter((item) => {
-      if (!item.isActive || (type && item.type !== type)) {
+      if (!item.isActive || item.type === "llm" || (type && item.type !== type)) {
         return false;
       }
       if (!normalizedQuery) {

@@ -1,4 +1,3 @@
-import { apiKeyHeader } from "@/shared/api/external-contract";
 import { buildErrorResponse } from "@/server/http/response";
 import { getServerEnv } from "@/server/runtime/env";
 
@@ -22,10 +21,6 @@ function hasSessionCookie(request: Request): boolean {
   return cookie
     .split(";")
     .some((part) => part.trim().startsWith(SESSION_COOKIE_NAME + "="));
-}
-
-function usesApiKey(request: Request): boolean {
-  return Boolean(request.headers.get(apiKeyHeader)?.trim());
 }
 
 export function isAllowedRequestOrigin(
@@ -53,11 +48,11 @@ export function isAllowedRequestOrigin(
 
 /**
  * Returns a response when a cookie-authenticated mutation must be rejected.
- * Requests without a session cookie and API-key callers are not affected.
+ * Requests without a session cookie are not affected. A credential header
+ * cannot waive the origin check for a mutation authenticated by the cookie.
  */
 export function assertSessionMutationOrigin(request: Request): Response | null {
   if (!isStateChangingMethod(request.method)) return null;
-  if (usesApiKey(request)) return null;
   if (!hasSessionCookie(request)) return null;
 
   const configuredOrigin = getServerEnv().appOrigin;
@@ -65,4 +60,3 @@ export function assertSessionMutationOrigin(request: Request): Response | null {
 
   return buildErrorResponse("CSRF_ORIGIN_REQUIRED", 403);
 }
-

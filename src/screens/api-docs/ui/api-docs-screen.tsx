@@ -6,5 +6,9 @@ interface ApiDocsScreenProps {
 }
 
 export function ApiDocsScreen({ openApiDocument }: ApiDocsScreenProps) {
-  return <ApiDocsWidget openApiDocument={openApiDocument} />;
+  return (
+    <div className="-mx-4 flex-1 sm:-mx-6 lg:-mx-8">
+      <ApiDocsWidget openApiDocument={openApiDocument} />
+    </div>
+  );
 }

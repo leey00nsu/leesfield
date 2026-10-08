@@ -15,6 +15,7 @@ export type ApiSchemaProperty = {
   typeLabel: string;
   description?: string;
   required: boolean;
+  schema?: OpenApiSchema | null;
 };
 
 export type ApiRequestInfo = {
@@ -35,7 +36,14 @@ export type ApiOperation = {
   method: string;
   path: string;
   description?: string;
+  permissions?: string[];
+  conditionalPermissions?: Array<{ field: string; permission: string; condition: string }>;
+  usageNotes?: string[];
+  requestLimits?: Record<string, number>;
+  queryLimits?: { rangeDays: number; defaultDays: number };
+  headerParameters?: ApiSchemaProperty[];
   request: ApiRequestInfo | null;
+  queryParameters?: Array<ApiSchemaProperty & { example: unknown }>;
   responses: ApiResponseInfo[];
 };
 
@@ -105,7 +113,25 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
         method: method.toUpperCase(),
         path,
         description: operation.description ?? operation.summary,
+        permissions: operation["x-required-permissions"],
+        conditionalPermissions: operation["x-conditional-permissions"],
+        usageNotes: operation["x-usage-notes"],
+        requestLimits: operation["x-request-limits"],
+        queryLimits: operation["x-query-limits"],
+        headerParameters: (operation.parameters ?? []).flatMap((parameter) => {
+          if ("$ref" in parameter || parameter.in !== "header") return [];
+          const schema = resolveSchema(parameter.schema, document);
+          return [{ name: parameter.name, required: Boolean(parameter.required), schema,
+            description: parameter.description, typeLabel: formatSchemaType(schema, document) }];
+        }),
         request: extractRequestInfo(operation.requestBody, document),
+        queryParameters: (operation.parameters ?? []).flatMap((parameter) => {
+          if ("$ref" in parameter || parameter.in !== "query") return [];
+          const schema = resolveSchema(parameter.schema, document);
+          return [{ name: parameter.name, required: Boolean(parameter.required),
+            description: parameter.description, schema, typeLabel: formatSchemaType(schema, document),
+            example: parameter.example ?? buildExampleFromSchema(schema, document, parameter.name) }];
+        }),
         responses: extractResponses(operation.responses, document),
       });
 
@@ -129,6 +155,14 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
   });
 
   return orderedSections;
+}
+
+export function buildOperationExamplePath(operation: ApiOperation) {
+  const query = new URLSearchParams();
+  for (const parameter of operation.queryParameters ?? [])
+    if (parameter.required && parameter.example !== null && parameter.example !== undefined)
+      query.set(parameter.name, String(parameter.example));
+  return operation.path + (query.size ? "?" + query.toString() : "");
 }
 
 export function slugifyTag(tag: string) {
@@ -224,14 +258,17 @@ export function buildExampleFromSchema(
     return merged;
   }
 
-  switch (resolved.type) {
+  switch (getSchemaType(resolved)) {
     case "string":
-      return buildStringExample(hintKey, examples);
+      return resolved.pattern === "^[a-z][a-z0-9-]{0,119}$"
+        ? "example-preset" : buildStringExample(hintKey, examples);
     case "number":
     case "integer":
       return resolved.minimum ?? buildNumberExample(hintKey);
     case "boolean":
       return true;
+    case "null":
+      return null;
     case "array": {
       const itemExample = buildExampleFromSchema(
         resolved.items ?? null,
@@ -423,6 +460,7 @@ function extractSchemaProperties(
       name,
       typeLabel: formatSchemaType(propertySchema, document),
       description: propertySchema?.description,
+      schema: propertySchema,
       required: required.has(name),
     };
   });

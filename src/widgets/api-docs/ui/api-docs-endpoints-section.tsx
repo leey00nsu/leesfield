@@ -18,13 +18,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppDocsSectionCard } from "@/shared/ui/app-docs-section-card";
+import { ApiDocsSection } from "@/widgets/api-docs/ui/api-docs-section";
 import { cn } from "@/shared/lib/utils";
+import { ApiDocsParameters } from "./api-docs-parameters";
+import { ApiDocsPermissions } from "./api-docs-permissions";
+import { ApiDocsModelConfig } from "./api-docs-model-config";
 import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { appToast } from "@/shared/ui/app-toast";
 import { useTranslations } from "next-intl";
 import {
   buildExampleFromSchema,
+  buildOperationExamplePath,
   type ApiOperation,
   type ApiSection,
   type ExampleStrings,
@@ -32,17 +36,17 @@ import {
 import type { OpenApiDocument } from "@/features/api-docs/model/openapi-types";
 import {
   buildSnippet,
+  buildGenerationMultipartSnippet,
   snippetLanguages,
   type SnippetLanguage,
 } from "@/features/api-docs/model/snippet-templates";
 import {
-  getEndpointIcon,
   tagIdMap,
 } from "@/widgets/api-docs/lib/api-docs-metadata";
 
 const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "<API_BASE_URL>";
-const methodsWithBody = new Set(["POST", "PUT", "PATCH"]);
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") || "<API_BASE_URL>";
+const methodsWithBody = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const methodStyles: Record<string, string> = {
   GET: "bg-white/10 text-foreground",
@@ -74,18 +78,15 @@ function getResponsePayload(
 
 interface ApiDocsEndpointsSectionProps {
   apiSections: ApiSection[];
-  apiVersion: string;
   openApiDocument: OpenApiDocument | null;
 }
 
 export function ApiDocsEndpointsSection({
   apiSections,
-  apiVersion,
   openApiDocument,
 }: ApiDocsEndpointsSectionProps) {
   const tNav = useTranslations("apiDocs.sidebar.nav");
   const tEndpoints = useTranslations("apiDocs.endpoints");
-  const tCommonLabels = useTranslations("common.labels");
   const tExamples = useTranslations("apiDocs.examples");
   const tSnippets = useTranslations("apiDocs.snippets");
   const [snippetLanguagesById, setSnippetLanguagesById] = useState<
@@ -123,29 +124,15 @@ export function ApiDocsEndpointsSection({
   return (
     <>
       {apiSections.map((section) => {
-        const Icon = getEndpointIcon(section);
-
         const sectionTitle = tagIdMap[section.title]
           ? tNav(tagIdMap[section.title])
           : section.title;
         return (
-          <section key={section.id} id={section.id} className="scroll-mt-32">
-            <AppDocsSectionCard
-              eyebrow={<AppBadge variant="muted">{section.id}</AppBadge>}
-              title={
-                <span className="flex items-center gap-3">
-                  <Icon className="h-5 w-5 text-data-accent-foreground" />
-                  {sectionTitle}
-                </span>
-              }
-              action={
-                <AppBadge variant="muted">
-                  {tCommonLabels("version", { version: apiVersion })}
-                </AppBadge>
-              }
-            >
-              <div className="flex flex-col gap-10">
+          <section key={section.id} id={section.id} className="scroll-mt-24">
+            <ApiDocsSection title={sectionTitle}>
+              <div className="divide-y divide-border">
                 {section.operations.map((operation) => {
+                  const description = operation.description;
                   const request = operation.request;
                   const requestExample = request?.schema
                     ? buildExampleFromSchema(
@@ -155,6 +142,8 @@ export function ApiDocsEndpointsSection({
                         exampleStrings,
                       )
                     : null;
+                  if (operation.path === "/api/external/generations" && requestExample && typeof requestExample === "object")
+                    delete (requestExample as Record<string, unknown>).promptPreset;
                   const selectedLanguage =
                     snippetLanguagesById[operation.id] ?? "curl";
                   const methodAllowsBody = methodsWithBody.has(
@@ -166,7 +155,7 @@ export function ApiDocsEndpointsSection({
                       .map((param) => param.name) ?? [];
                   const snippet = buildSnippet(selectedLanguage, {
                     baseUrl: apiBaseUrl,
-                    path: operation.path,
+                    path: buildOperationExamplePath(operation),
                     method: operation.method,
                     body: methodAllowsBody
                       ? (requestExample ?? undefined)
@@ -181,10 +170,10 @@ export function ApiDocsEndpointsSection({
                     <div
                       key={operation.id}
                       id={operation.id}
-                      className="scroll-mt-32 flex flex-col gap-6"
+                      className="scroll-mt-24 flex flex-col gap-6 py-10 first:pt-0"
                     >
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
+                        <h3 className="flex flex-wrap items-center gap-3">
                           <AppBadge
                             variant="muted"
                             size="md"
@@ -199,13 +188,26 @@ export function ApiDocsEndpointsSection({
                           <code className="min-w-0 break-all font-mono text-sm text-foreground sm:text-base">
                             {operation.path}
                           </code>
-                        </div>
-                        {operation.description ? (
+                        </h3>
+                        {description ? (
                           <p className="text-muted-foreground leading-relaxed max-w-3xl">
-                            {operation.description}
+                            {description}
                           </p>
                         ) : null}
                       </div>
+
+                      <ApiDocsPermissions permissions={operation.permissions} conditionalPermissions={operation.conditionalPermissions} />
+                      {operation.usageNotes?.map((note, index) => <p key={index} className="max-w-3xl text-sm leading-7 text-muted-foreground">{note}</p>)}
+                      {operation.requestLimits ? (
+                        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+                          {Object.entries(operation.requestLimits).map(([key, value]) => (
+                            <div key={key} className="flex gap-2">
+                              <dt>{tEndpoints("limits." + key)}</dt>
+                              <dd className="font-mono">{key.endsWith("Bytes") ? value >= 1024 * 1024 ? value / (1024 * 1024) + " MiB" : value / 1024 + " KiB" : key.endsWith("Ms") ? value / 1000 + " s" : value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : null}
 
                       <CodeBlock
                         value={selectedLanguage}
@@ -306,57 +308,36 @@ export function ApiDocsEndpointsSection({
                         </Tabs>
                       </CodeBlock>
 
-                      {request?.properties?.length ? (
-                        <div className="rounded-lg border border-border bg-transparent shadow-none">
-                          <div className="border-b border-border px-6 py-4">
-                            <span className="text-xs font-medium text-foreground/80 font-mono">
-                              {tEndpoints("requestParams")}
-                            </span>
-                          </div>
-                          <div className="divide-y divide-border">
-                            {request.properties.map((param) => (
-                              <div
-                                key={param.name}
-                                className="grid grid-cols-1 gap-4 p-6 md:grid-cols-[200px_1fr]"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <code className="font-mono font-medium text-foreground">
-                                      {param.name}
-                                    </code>
-                                    <AppBadge
-                                      variant="muted"
-                                      className="rounded bg-white/10 px-2 py-0.5 font-sans uppercase text-muted-foreground"
-                                    >
-                                      {param.typeLabel}
-                                    </AppBadge>
-                                  </div>
-                                  <AppBadge
-                                    variant="muted"
-                                    className={cn(
-                                      "w-fit self-start rounded-full bg-transparent px-2.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider",
-                                      param.required
-                                        ? "border border-destructive/25 text-destructive"
-                                        : "border border-white/12 text-muted-foreground",
-                                    )}
-                                  >
-                                    {param.required
-                                      ? tEndpoints("required")
-                                      : tEndpoints("optional")}
-                                  </AppBadge>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  {param.description ? (
-                                    <p className="text-sm text-muted-foreground">
-                                      {param.description}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      {operation.path === "/api/external/generations" && operation.method === "POST" ? (
+                        <details className="min-w-0 space-y-4">
+                          <summary className="cursor-pointer text-sm text-muted-foreground">{tSnippets("multipartTitle")}</summary>
+                          <p className="max-w-3xl text-sm leading-7 text-muted-foreground">{tSnippets("multipartDescription")}</p>
+                          <AppButton aria-label={tSnippets("multipartTitle") + " " + tSnippets("copy")} size="pill-sm" variant="surface" onClick={() => handleCopySnippet(
+                            operation.id + "-multipart", buildGenerationMultipartSnippet(apiBaseUrl, exampleStrings.samplePrompt),
+                          )}>
+                            {copiedOperationId === operation.id + "-multipart" ? tSnippets("copied") : tSnippets("copy")}
+                          </AppButton>
+                          <AppCodeSnippet code={buildGenerationMultipartSnippet(apiBaseUrl, exampleStrings.samplePrompt)} language="bash" />
+                        </details>
                       ) : null}
+
+                      {operation.queryParameters?.length ? (
+                        <ApiDocsParameters title={tEndpoints("queryParams")} parameters={operation.queryParameters} />
+                      ) : null}
+                      {operation.queryLimits && operation.path !== "/api/external/monitoring/api-keys" ? (
+                        <p className="text-xs text-muted-foreground">{tEndpoints("dateRange", operation.queryLimits)}</p>
+                      ) : null}
+                      {operation.headerParameters?.length ? (
+                        <details className="space-y-4">
+                          <summary className="cursor-pointer text-sm text-muted-foreground">{tEndpoints("optionalHeaders")}</summary>
+                          <ApiDocsParameters title={tEndpoints("headers")} parameters={operation.headerParameters} />
+                        </details>
+                      ) : null}
+                      {request?.properties?.length ? (
+                        <ApiDocsParameters title={tEndpoints("requestParams")} parameters={request.properties} />
+                      ) : null}
+                      {operation.path === "/api/external/admin/models" && operation.method === "POST"
+                        ? <ApiDocsModelConfig schema={request?.schema ?? null} /> : null}
 
                       {requestExample ? (
                         <div className="overflow-hidden rounded-md border border-border bg-background">
@@ -371,10 +352,8 @@ export function ApiDocsEndpointsSection({
 
                       {operation.responses.length ? (
                         <div className="flex flex-col gap-3">
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {tEndpoints("responseExample")}
-                          </span>
-                          <div className="grid gap-3 md:grid-cols-2">
+                          <h4 className="text-sm font-semibold">{tEndpoints("responseExample")}</h4>
+                          <div className="divide-y divide-border border-y border-border">
                             {operation.responses.map((response) => {
                               const responsePayload = getResponsePayload(
                                 response,
@@ -382,16 +361,16 @@ export function ApiDocsEndpointsSection({
                                 exampleStrings,
                               );
                               return (
-                                <div
+                                <details
                                   key={response.status}
-                                  data-testid="api-response-card"
-                                  className="rounded-xl border border-border bg-surface-dark p-4"
+                                  open={response.status.startsWith("2")}
+                                  className="group py-3"
                                 >
-                                  <div className="flex items-center gap-3">
+                                  <summary className="cursor-pointer text-sm leading-6 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
                                     <AppBadge
                                       variant="muted"
                                       size="md"
-                                      className="px-2.5 py-1 text-foreground/80"
+                                      className="mr-3 px-2.5 py-1 text-foreground/80"
                                     >
                                       {response.status}
                                     </AppBadge>
@@ -399,8 +378,8 @@ export function ApiDocsEndpointsSection({
                                       {response.description ??
                                         tEndpoints("response")}
                                     </span>
-                                  </div>
-                                  <AppCodeSnippet
+                                  </summary>
+                                  {response.status !== "204" ? <AppCodeSnippet
                                     className="app-scrollbar mt-3 max-h-48 overflow-auto [&_pre]:text-xs"
                                     code={formatJson(
                                       responsePayload ?? {
@@ -409,8 +388,8 @@ export function ApiDocsEndpointsSection({
                                           tEndpoints("responseFallback"),
                                       },
                                     )}
-                                  />
-                                </div>
+                                  /> : null}
+                                </details>
                               );
                             })}
                           </div>
@@ -420,7 +399,7 @@ export function ApiDocsEndpointsSection({
                   );
                 })}
               </div>
-            </AppDocsSectionCard>
+            </ApiDocsSection>
           </section>
         );
       })}

@@ -14,6 +14,7 @@ export const FINISHED_STATUSES: MonitoringStatus[] = [
 ];
 
 export type RawFilters = {
+  ownerEmail?: string;
   statuses: MonitoringStatus[] | null;
   model: string | null;
   apiKey: ApiKeyFilter;
@@ -29,6 +30,7 @@ export function buildRawWhere(
   },
 ) {
   const conditions: Prisma.Sql[] = [];
+  if (filters.ownerEmail !== undefined) conditions.push(Prisma.sql`"ownerEmail" = ${filters.ownerEmail}`);
 
   if (options?.includeDate && filters.from && filters.to) {
     conditions.push(
