@@ -1,4 +1,5 @@
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
+import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
@@ -28,6 +29,7 @@ export async function createImageGenerationRecord(
   graphNodeId: string | null = null,
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
   inputAssetRefs?: readonly GenerationInputAssetRef[],
+  cinema?: CinemaSnapshot,
 ) {
   const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
     dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
@@ -47,7 +49,7 @@ export async function createImageGenerationRecord(
   };
 
   const refs = inputAssetRefs ?? inputAssetRefsFromSnapshot("image", requestParams);
-  const persistedRequest = await snapshotRequest("image", requestParams as Record<string, unknown>, {
+  const persistedRequest = await snapshotRequest("image", { ...(requestParams as Record<string, unknown>), ...(cinema ? { cinema } : {}) }, {
     inputAssets: inputAssetRefs,
   });
   const data = {

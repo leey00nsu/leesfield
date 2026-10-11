@@ -1,4 +1,5 @@
 import { getSession } from "@/server/auth/session";
+import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
 import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
 import { RATE_LIMITS } from "@/server/rate-limit/policies";
@@ -64,7 +65,8 @@ async function postHandler(request: Request) {
   );
   if (!bounded.ok) return buildErrorResponse(bounded.code, bounded.status);
   const body = bounded.body;
-  const parsed = await validateVideoGenerationPayload(body);
+  const prepared = await prepareCinemaSubmission("video", body);
+  const parsed = await validateVideoGenerationPayload(prepared.payload);
 
   if (!parsed.success) {
     return buildInvalidRequestResponse(parsed.error.flatten());
@@ -73,7 +75,7 @@ async function postHandler(request: Request) {
   const admitted = await admitSubmission({
     request,
     ownerEmail,
-    payload: { type: "video", payload: parsed.data },
+    payload: { type: "video", payload: parsed.data, ...(prepared.cinema ? { cinema: prepared.cinema } : {}) },
     providerKey: parsed.data.model ?? null,
     modelKey: parsed.data.model ?? null,
     modelType: "video",
@@ -105,6 +107,7 @@ async function postHandler(request: Request) {
       ownerEmail,
       null,
       admitted.requestId,
+      ...(prepared.cinema ? [prepared.cinema] as const : []),
     );
     await finalizeSubmission(admitted.requestId, "submitted");
 
@@ -138,6 +141,8 @@ async function guardedPostHandler(request: Request) {
     if (error instanceof BodyLimitError) {
       return buildErrorResponse(error.code, error.status);
     }
+    const cinemaCode = cinemaSubmissionError(error);
+    if (cinemaCode) return buildErrorResponse(cinemaCode, 400);
     throw error;
   }
 }

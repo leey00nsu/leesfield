@@ -1,4 +1,6 @@
 import { Prisma } from "@prisma/client";
+import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
 import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
 import {
@@ -32,6 +34,14 @@ vi.mock("@/server/shared/input-media-uploader", () => ({
 }));
 
 describe("submitImageGeneration", () => {
+  it("keeps normal owned attachment uploads when adding a Cinema snapshot", async () => {
+    const cinema = composeCinemaPrompt("a scene", { ...defaultCinemaSettings(), lighting: "window" }, "image");
+    const ref = { assetId: "asset-cinema", field: "initImages", sortOrder: 0, multiple: true, generationType: "image" };
+    mockUploadInputAssets.mockResolvedValue([{ ref, url: "https://storage.example.com/owned.png" }]);
+    await submitImageGeneration({ payload: { ...imageGenerationDefaults, prompt: cinema.finalPrompt, initImages: ["data:image/png;base64,AAAA"] }, ownerEmail: "admin@example.com", cinema });
+    expect(mockUploadInputAssets).toHaveBeenCalledWith(expect.any(String), "admin@example.com", expect.any(Array));
+    expect(mockCreateRecord).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ initImages: ["https://storage.example.com/owned.png"], prompt: cinema.finalPrompt }), "admin@example.com", null, null, undefined, [ref], cinema);
+  });
   beforeEach(() => {
     mockStartWorker.mockReset();
     mockCreateRecord.mockReset();

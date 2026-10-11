@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useImageGeneration } from "@/features/image-generation/hook/use-image-generation";
 import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
 import { createIntlWrapper } from "@/test-utils/intl";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
 const mockRequestImageGeneration = vi.hoisted(() => vi.fn());
 const mockFetchImageGenerationStatus = vi.hoisted(() => vi.fn());
@@ -148,13 +149,14 @@ describe("useImageGeneration", () => {
     let resolve!: (value: unknown)=>void;
     mockRequestImageGeneration.mockReturnValueOnce(new Promise(r=>{resolve=r;}))
       .mockResolvedValueOnce({requestId:"second",status:"completed",progress:100,result:{images:[]}});
-    const draft={...payload,dynamicParams:{strength:0.5}};
+    const draft={...payload,dynamicParams:{strength:0.5},cinema:{...defaultCinemaSettings(),camera:"16mm-film"}};
     const {result,unmount}=renderHook(()=>useImageGeneration(),{wrapper:createIntlWrapper()});
     await act(async()=>{await result.current.startGeneration(draft,2);});
     draft.prompt="later prompt";draft.dynamicParams.strength=1;
+    draft.cinema.camera="modular-8k";
     await act(async()=>{resolve({requestId:"first",status:"completed",progress:100,result:{images:[]}});});
     await waitFor(()=>expect(mockRequestImageGeneration).toHaveBeenCalledTimes(2));
-    expect(mockRequestImageGeneration.mock.calls[1][0]).toMatchObject({prompt:"a test prompt",dynamicParams:{strength:0.5}});
+    expect(mockRequestImageGeneration.mock.calls[1][0]).toMatchObject({prompt:"a test prompt",dynamicParams:{strength:0.5},cinema:{camera:"16mm-film"}});
     unmount();
     mockRequestImageGeneration.mockReset();mockRequestImageGeneration.mockReturnValueOnce(new Promise(r=>{resolve=r;}));
     const next=renderHook(()=>useImageGeneration(),{wrapper:createIntlWrapper()});

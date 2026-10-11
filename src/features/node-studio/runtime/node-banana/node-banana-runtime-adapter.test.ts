@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
+import { remapSplitClipboardNodes } from "../../model/split-grid-clipboard";
 
 import type { GenerationGraphSnapshotDto } from "../../model/graph-types";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
@@ -55,6 +57,18 @@ const graph: GenerationGraphSnapshotDto = {
 };
 
 describe("nodeBananaRuntimeAdapter", () => {
+  it.each(["generate.image", "generate.video"])("retains %s Cinema through runtime projection, clipboard remapping and canonical save", kind => {
+    const cinema = { ...defaultCinemaSettings(), lighting: "window" };
+    const config = { prompt: "source", modelKey: null, parameters: {}, cinema };
+    const canonical = graphSnapshotToCanonicalDocument({ ...graph, edges: [], nodes: [{ ...graph.nodes[0], kind, config, selectedOutputAssetId: null }] });
+    const runtime = nodeBananaRuntimeAdapter.project(canonical).state;
+    const pasted = remapSplitClipboardNodes(JSON.parse(JSON.stringify(runtime.nodes)), { source: "copy" });
+    const copy = { ...pasted[0], id: "copy", position: { x: 400, y: 0 } };
+    const saved = canonicalDocumentToV3Draft(runtimeGraphToCanonicalDocument(canonical, { ...runtime, nodes: [...runtime.nodes, copy] }));
+    expect(saved.nodes.map(node => node.config)).toEqual([config, config]);
+    const rehydrated = graphSnapshotToCanonicalDocument({ ...graph, ...saved });
+    expect(nodeBananaRuntimeAdapter.project(rehydrated).state.nodes[1].data.config).toEqual(config);
+  });
   it.each(["generate.image", "generate.video"])("keeps %s preset reference connectable with no supported model and preserves it on model change", kind => {
     const ref = { key: "personal", revision: 1, requiredInputs: { referenceImageCount: 1 }, recommendedParameters: {} };
     const canonical = graphSnapshotToCanonicalDocument({ ...graph, edges: [], nodes: [

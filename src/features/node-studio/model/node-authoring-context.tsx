@@ -43,6 +43,7 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   runNode?: (nodeId: string) => Promise<unknown>;
   cancelNode?: (nodeId: string) => Promise<void>;
   writable?: boolean;
+  isNodeRunning?: (nodeId: string) => boolean;
   updateCanonicalNodeConfig?: (nodeId: string, config: CanonicalJsonValue) => void;
   updateMemoNodeSize?: (nodeId: string, size: { width: number; height: number }) => void;
   getImageNodeInputReadiness: (nodeId: string) => ImageNodeInputReadiness;

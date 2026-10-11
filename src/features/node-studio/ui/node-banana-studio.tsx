@@ -1397,6 +1397,13 @@ export function NodeBananaStudio({
       runNode: onRegenerateNode ? runUpstreamNode : undefined,
       cancelNode: onCancelNode,
       writable: effectiveWritable,
+      isNodeRunning: (nodeId: string) => {
+        const node = runtimeGraphRef.current.nodes.find(candidate => candidate.id === nodeId);
+        if (!node) return false;
+        const resolved = resolveHostedNodeData(nodeId, node.data);
+        return submittingNodeIds.has(nodeId) || isActiveExecutionStatus(resolved.executionStatus ?? node.data.executionStatus)
+          || outputGalleryConfig(resolved.repeatProgress).running === true;
+      },
       updateCanonicalNodeConfig: (nodeId: string, config: CanonicalJsonValue) =>
         replaceNodeData(nodeId, { config }),
       updateMemoNodeSize,
@@ -1418,8 +1425,8 @@ export function NodeBananaStudio({
           : {};
         replaceNodeData(nodeId, {
           config: currentConfig.presentation
-            ? { ...config, presentation: currentConfig.presentation }
-            : config,
+            ? { ...config, ...(currentConfig.cinema !== undefined && !Object.hasOwn(config, "cinema") ? { cinema: currentConfig.cinema } : {}), presentation: currentConfig.presentation }
+            : { ...config, ...(currentConfig.cinema !== undefined && !Object.hasOwn(config, "cinema") ? { cinema: currentConfig.cinema } : {}) },
         });
       },
       duplicateImageNode: (nodeId: string) => {
@@ -1459,6 +1466,8 @@ export function NodeBananaStudio({
       catalog,
       onRegenerateNode, onCancelNode, runUpstreamNode,
       effectiveWritable,
+      submittingNodeIds,
+      resolveHostedNodeData,
       graph.id,
       graph.nodes,
       persistedNodeIds,

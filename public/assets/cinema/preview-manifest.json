@@ -1,0 +1,485 @@
+{
+  "schemaVersion": 3,
+  "selection": "composition-only",
+  "defaultComposition": "full",
+  "reference": {
+    "file": "reference-main.webp",
+    "sha256": "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad",
+    "originalSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+    "origin": "user-provided",
+    "license": "User supplied for this project; no CC0 claim"
+  },
+  "assets": [
+    {
+      "file": "extreme-wide.webp",
+      "composition": "extreme-wide",
+      "label": "초원경",
+      "width": 1376,
+      "height": 768,
+      "sha256": "0db2ad6de6e0c9bad0de27e04c1eaff31d260cfe72f368fb106fccbd62fa0fcb",
+      "bytes": 417620,
+      "source": {
+        "tool": "built-in imagegen",
+        "prompt": "Edit target: Image 2, the 1376x768 gray canvas containing the small original cafe photo in its center. Image 1 is the full original photo for identity/context only. Perform seamless OUTPAINTING over all the gray pixels of Image 2. Keep the central photo patch at exactly its current small scale and position; do not enlarge or zoom into that patch. The woman's existing full body remains about 140 pixels tall in a 768-pixel-high output, less than one fifth of total height. Preserve the small woman and visible cafe pixels. Fill the ENTIRE gray field naturally with the cafe frontage and its surrounding street/neighborhood, pavement, adjacent buildings and sky, consistent with the original warm daylight. This is a very distant establishing photograph of a whole city block, in which this cafe and woman are only a SMALL part of the scene. Keep the woman at her original cafe spot with the same face/clothes/pose. The empty canvas must disappear into one uninterrupted realistic photo. No inset rectangles, collage, borders, plain gray margins, text or extra people. Output landscape 16:9.",
+        "usedPrompt": "Not exposed by tool",
+        "references": [
+          {
+            "path": "reference-main.png",
+            "sha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e"
+          },
+          {
+            "path": "outpaint-round/references/extreme-wide.webp",
+            "sha256": "c6ffab844ae0066c9f189fa660c4f40356d0f9feb2fd45333664527c8baa2793",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e"
+          }
+        ],
+        "parameters": {
+          "transparent_background": false,
+          "seed": "not exposed",
+          "model": "not exposed"
+        },
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "outputs/establishing-imagegen.png",
+        "originalSha256": "c4705ff7a39e4037fd721aef6be16662c726ab4a0e4a4ece410e9011105564da",
+        "originalWidth": 1672,
+        "originalHeight": 941
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "wide.webp",
+      "composition": "wide",
+      "label": "원경",
+      "width": 1376,
+      "height": 768,
+      "sha256": "6c5fe2a4c691bea0e8b6adbb5621d473c5112dd862b8a2de02f94d1c17556711",
+      "bytes": 275866,
+      "source": {
+        "tool": "built-in imagegen",
+        "prompt": "Edit target: Image 2, the 1376x768 gray canvas containing the small original cafe photo in its center. Image 1 is the full original photo for identity/context only. Perform seamless OUTPAINTING over all the gray pixels of Image 2. Keep the central photo patch at exactly its current small scale and position; do not enlarge or zoom into that patch. The woman's existing full body remains about 140 pixels tall in a 768-pixel-high output, less than one fifth of total height. Preserve the small woman and visible cafe pixels. Fill the ENTIRE gray field naturally with the cafe frontage and its surrounding street/neighborhood, pavement, adjacent buildings and sky, consistent with the original warm daylight. This is a very distant establishing photograph of a whole city block, in which this cafe and woman are only a SMALL part of the scene. Keep the woman at her original cafe spot with the same face/clothes/pose. The empty canvas must disappear into one uninterrupted realistic photo. No inset rectangles, collage, borders, plain gray margins, text or extra people. Output landscape 16:9.",
+        "usedPrompt": "Not exposed by tool",
+        "references": [
+          {
+            "path": "reference-main.png",
+            "sha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e"
+          },
+          {
+            "path": "outpaint-round/references/extreme-wide.webp",
+            "sha256": "c6ffab844ae0066c9f189fa660c4f40356d0f9feb2fd45333664527c8baa2793",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e"
+          }
+        ],
+        "parameters": {
+          "transparent_background": false,
+          "seed": "not exposed",
+          "model": "not exposed"
+        },
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "outputs/establishing-imagegen.png",
+        "originalSha256": "c4705ff7a39e4037fd721aef6be16662c726ab4a0e4a4ece410e9011105564da",
+        "originalWidth": 1672,
+        "originalHeight": 941
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": {
+          "left": 310,
+          "top": 210,
+          "width": 1088,
+          "height": 608
+        },
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "full.webp",
+      "composition": "full",
+      "label": "전신 샷",
+      "width": 1376,
+      "height": 768,
+      "sha256": "8a4a9dbda960adcdea25ab213a4c34a4db4fdcd3e396d96fc9ae7d891de2fc1f",
+      "bytes": 330426,
+      "source": {
+        "tool": "built-in imagegen",
+        "prompt": "Use case: identity-preserve. Edit the original reference photograph into a WIDE ENVIRONMENTAL SHOT. Output one photorealistic landscape 16:9 image. Preserve the exact same woman's identity, face, long dark hair, white collared blouse, pale gray knit vest, long dark skirt, white socks and cream shoes, pose, expression, wooden cafe, window divisions, hanging lights, coffee counter, chair on the left and round table and flower vase on the right, soft warm daylight and photographic style. Move the virtual camera back, using seamless outpainting of the original cafe exterior and pavement. Show her entire body head to shoes, at approximately one third (30–35%) of the image height; the surrounding environment occupies most of the picture. Keep her at the exact original spot. Show more context than the original without moving furniture or redesigning visible cafe details. Coherent full-bleed photo, no blank margin, inset, borders, text, watermark, collage, or added people.",
+        "usedPrompt": "Not exposed by tool",
+        "references": [
+          {
+            "path": "reference-main.png",
+            "sha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e"
+          }
+        ],
+        "parameters": {
+          "transparent_background": false,
+          "seed": "not exposed",
+          "model": "not exposed"
+        },
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "outputs/wide-imagegen.png",
+        "originalSha256": "d61dcd11309269225b84a6b2cc1c63effdfe32240a2c0f5ac59e7bc6efafe854",
+        "originalWidth": 1672,
+        "originalHeight": 941
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "medium-wide.webp",
+      "composition": "medium-wide",
+      "label": "중원경",
+      "width": 1376,
+      "height": 768,
+      "sha256": "0fa035e9ef52713f117cb8a3ee17d6a05fdeee385e1d20eba9784019d1f50928",
+      "bytes": 170412,
+      "source": {
+        "tool": "Qwen reference edit",
+        "model": "Viggle/Qwen-Image-2.1-viggle-turbo",
+        "version": "v0.3",
+        "steps": 6,
+        "seed": 314161945,
+        "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "usedPrompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "references": [
+          {
+            "path": "guided-round/references/medium-wide.webp",
+            "sha256": "f7e620aa3feba172c3970f17f601756ee1e002e81659b0667b9f01ed05867cf9",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "conversion": {
+              "crop": {
+                "left": 4,
+                "top": 48,
+                "width": 1016,
+                "height": 571
+              },
+              "resize": {
+                "width": 1376,
+                "height": 768
+              },
+              "format": "lossless WebP"
+            }
+          }
+        ],
+        "parameters": {
+          "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+          "size_label": "16:9 · 1376×768 (1024² area)",
+          "seed": 314161945,
+          "randomize_seed": false,
+          "enhance": "Off",
+          "steps": 6,
+          "custom_width": 1376,
+          "custom_height": 768,
+          "version": "v0.3"
+        },
+        "info": "seed `314161945` · 1376×768 · 6 steps · 2.78s · v0.3 LoRA r256",
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "guided-round/outputs/medium-wide.png",
+        "originalSha256": "9718c7e7ebaeba220504bf2c500e7aeb8ae9ef168f7259f61136aad86fb6fee3",
+        "originalWidth": 1376,
+        "originalHeight": 768
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "medium.webp",
+      "composition": "medium",
+      "label": "중간 샷",
+      "width": 1376,
+      "height": 768,
+      "sha256": "b71111f1aa9e38b347fcbde2ee49fca74b94a9c75b2cef07d20e7fbc57cdfbb2",
+      "bytes": 147940,
+      "source": {
+        "tool": "Qwen reference edit",
+        "model": "Viggle/Qwen-Image-2.1-viggle-turbo",
+        "version": "v0.3",
+        "steps": 6,
+        "seed": 314161945,
+        "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "usedPrompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "references": [
+          {
+            "path": "guided-round/references/medium.webp",
+            "sha256": "2a35eb9992bef092dbe6fd9c816d8e4d3097d9027f6f06c68ddb003a703ebda1",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "conversion": {
+              "crop": {
+                "left": 176,
+                "top": 38,
+                "width": 672,
+                "height": 378
+              },
+              "resize": {
+                "width": 1376,
+                "height": 768
+              },
+              "format": "lossless WebP"
+            }
+          }
+        ],
+        "parameters": {
+          "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+          "size_label": "16:9 · 1376×768 (1024² area)",
+          "seed": 314161945,
+          "randomize_seed": false,
+          "enhance": "Off",
+          "steps": 6,
+          "custom_width": 1376,
+          "custom_height": 768,
+          "version": "v0.3"
+        },
+        "info": "seed `314161945` · 1376×768 · 6 steps · 2.77s · v0.3 LoRA r256",
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "guided-round/outputs/medium.png",
+        "originalSha256": "aacc1419af1d2964fe2a08c24fa9e05be27e163918458d5f689e7e19dc233b36",
+        "originalWidth": 1376,
+        "originalHeight": 768
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "medium-close-up.webp",
+      "composition": "medium-close-up",
+      "label": "미디엄 클로즈업",
+      "width": 1376,
+      "height": 768,
+      "sha256": "000e5bae479a63775aedc38382720a08a23bff116beb3c72f38bb2c5a17a6a61",
+      "bytes": 120966,
+      "source": {
+        "tool": "Qwen reference edit",
+        "model": "Viggle/Qwen-Image-2.1-viggle-turbo",
+        "version": "v0.3",
+        "steps": 6,
+        "seed": 314161945,
+        "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "usedPrompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "references": [
+          {
+            "path": "guided-round/references/medium-close-up.webp",
+            "sha256": "8ab19d62807475049b6e5387992b5ac33e16ebc52ff118d8c99627a86f743fe9",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "conversion": {
+              "crop": {
+                "left": 288,
+                "top": 45,
+                "width": 448,
+                "height": 252
+              },
+              "resize": {
+                "width": 1376,
+                "height": 768
+              },
+              "format": "lossless WebP"
+            }
+          }
+        ],
+        "parameters": {
+          "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+          "size_label": "16:9 · 1376×768 (1024² area)",
+          "seed": 314161945,
+          "randomize_seed": false,
+          "enhance": "Off",
+          "steps": 6,
+          "custom_width": 1376,
+          "custom_height": 768,
+          "version": "v0.3"
+        },
+        "info": "seed `314161945` · 1376×768 · 6 steps · 2.78s · v0.3 LoRA r256",
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "guided-round/outputs/medium-close-up.png",
+        "originalSha256": "c19b3c70d2c207b95495ac23515e1256351beb6292b2bd429acddda36e523d9e",
+        "originalWidth": 1376,
+        "originalHeight": 768
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "close-up.webp",
+      "composition": "close-up",
+      "label": "클로즈업",
+      "width": 1376,
+      "height": 768,
+      "sha256": "54f4b2affe8ff39fa357f6bc62fdce035f4976eb1b68d25bd85535968793a4ea",
+      "bytes": 131054,
+      "source": {
+        "tool": "Qwen reference edit",
+        "model": "Viggle/Qwen-Image-2.1-viggle-turbo",
+        "version": "v0.3",
+        "steps": 6,
+        "seed": 314161945,
+        "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "usedPrompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "references": [
+          {
+            "path": "guided-round/references/close-up.webp",
+            "sha256": "c05b391779420ae9293cce0160d25309bc7c768e0fd23c692de59a743937d105",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "conversion": {
+              "crop": {
+                "left": 352,
+                "top": 53,
+                "width": 320,
+                "height": 180
+              },
+              "resize": {
+                "width": 1376,
+                "height": 768
+              },
+              "format": "lossless WebP"
+            }
+          }
+        ],
+        "parameters": {
+          "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+          "size_label": "16:9 · 1376×768 (1024² area)",
+          "seed": 314161945,
+          "randomize_seed": false,
+          "enhance": "Off",
+          "steps": 6,
+          "custom_width": 1376,
+          "custom_height": 768,
+          "version": "v0.3"
+        },
+        "info": "seed `314161945` · 1376×768 · 6 steps · 2.79s · v0.3 LoRA r256",
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "guided-round/outputs/close-up.png",
+        "originalSha256": "818884c52c488ca7fca6abc6b70e161615ac6fe20b499a6ee5dcfe328d109ca5",
+        "originalWidth": 1376,
+        "originalHeight": 768
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    },
+    {
+      "file": "extreme-close-up.webp",
+      "composition": "extreme-close-up",
+      "label": "익스트림 클로즈업",
+      "width": 1376,
+      "height": 768,
+      "sha256": "3fdc82e2547752afd224b2084ee256579c133b141ac6ef3cd425d1a97a3e980b",
+      "bytes": 231170,
+      "source": {
+        "tool": "Qwen reference edit",
+        "model": "Viggle/Qwen-Image-2.1-viggle-turbo",
+        "version": "v0.3",
+        "steps": 6,
+        "seed": 314161945,
+        "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "usedPrompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+        "references": [
+          {
+            "path": "guided-round/references/extreme-close-up.webp",
+            "sha256": "aabf5e8253ccb3b4b176a3614f69de04adc5554f2f628bcb883a2595a05a6d3b",
+            "derivedFromSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+            "conversion": {
+              "crop": {
+                "left": 466,
+                "top": 110,
+                "width": 96,
+                "height": 54
+              },
+              "resize": {
+                "width": 1376,
+                "height": 768
+              },
+              "format": "lossless WebP"
+            }
+          }
+        ],
+        "parameters": {
+          "prompt": "Reproduce this photograph with clear natural photographic detail. Preserve the exact framing, the same face, hair, clothes, background and daylight. Do not zoom out, change composition or add objects.",
+          "size_label": "16:9 · 1376×768 (1024² area)",
+          "seed": 314161945,
+          "randomize_seed": false,
+          "enhance": "Off",
+          "steps": 6,
+          "custom_width": 1376,
+          "custom_height": 768,
+          "version": "v0.3"
+        },
+        "info": "seed `314161945` · 1376×768 · 6 steps · 2.78s · v0.3 LoRA r256",
+        "originalReferenceSha256": "0ee8b214b8284417ec5c314c79b15ac53c2b5eab284f4243234d491f5fa3bf1e",
+        "originalFile": "guided-round/outputs/extreme-close-up.png",
+        "originalSha256": "a84f0518cc18851823d5c6d876d2e6cc35f3187ec9e3dbc89ca8818212422250",
+        "originalWidth": 1376,
+        "originalHeight": 768
+      },
+      "conversion": {
+        "resize": {
+          "width": 1376,
+          "height": 768,
+          "fit": "fill"
+        },
+        "webpQuality": 90,
+        "postGenerationCrop": false,
+        "blur": false,
+        "colorCorrection": false
+      }
+    }
+  ]
+}

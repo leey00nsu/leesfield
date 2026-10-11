@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
+type CinemaAuthoringValues = ImageGenerationFormValues & { cinema?: unknown };
 import type { ImageGenerationResponse, ImageGenerationStatus } from "@/features/image-generation/model/image-generation-types";
 import { fetchImageGenerationStatus, requestImageGeneration } from "@/features/image-generation/api/image-generation-api";
 import type { GenerationPollingState } from "@/shared/lib/hooks/use-generation-polling";
@@ -35,7 +36,7 @@ export function useImageGeneration(modelTimeoutMs?: number) {
     setState({ status: "idle", progress: 0 });
   }, []);
 
-  const startGeneration = useCallback(async (values: ImageGenerationFormValues, repetitions = 1) => {
+  const startGeneration = useCallback(async (values: CinemaAuthoringValues, repetitions = 1) => {
     if (active.current || !isGenerationRepeatCount(repetitions)) return;
     const snapshot = structuredClone(values);
     const controller = new AbortController();

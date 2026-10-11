@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Anil-matcha/Open-Generative-AI",
+  "revision": "55e02f0b301fd971839588125096cdfbdd93cdbd",
+  "source": "packages/studio/src/components/CinemaStudio.jsx",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 Open Generative AI Contributors",
+  "adapted": ["CAMERA_MAP", "LENS_MAP", "FOCAL_PERSPECTIVE", "APERTURE_EFFECT", "buildNanoBananaPrompt shooting descriptions"],
+  "changes": ["Stable IDs and localized display labels", "Independent Auto axes and shooting disable", "No forced model or quality suffix", "Versioned authoring and execution snapshots", "Original palette, lighting, art, genre, rhythm and movement mappings"],
+  "images": "No upstream image assets copied"
+}

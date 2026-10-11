@@ -1,4 +1,5 @@
 import type { CanonicalGroup } from "@/shared/generation-graph/canonical-graph";
+import type { CinemaSettings } from "@/shared/cinema/cinema-contract";
 import type { PromptPresetRef, PromptPresetWorkState } from "@/shared/prompt-presets/prompt-preset-contract";
 
 export type JsonValue =
@@ -20,6 +21,7 @@ export type GenerationGraphSummaryDto = {
 };
 
 export type ImageGenerationNodeConfigDto = {
+  cinema?: CinemaSettings;
   prompt: string;
   modelKey: string | null;
   parameters: Record<string, JsonValue>;

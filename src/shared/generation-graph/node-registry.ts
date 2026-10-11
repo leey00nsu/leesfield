@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cinemaSettingsSchema } from "@/shared/cinema/cinema-contract";
 import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { splitTemplateSchema } from "./split-grid-template";
 
@@ -90,7 +91,7 @@ const promptInputConfigSchema = z.object({
   variableName: z.string().trim().min(1).max(128).optional(),
   ...presentationField,
 }).strict();
-const generationConfigSchema = z
+const generationBaseConfigSchema = z
   .object({
     prompt: z.string().max(20_000),
     modelKey: z.string().trim().min(1).max(200).nullable(),
@@ -101,6 +102,11 @@ const generationConfigSchema = z
     ...presentationField,
   })
   .strict();
+const generationConfigSchema = generationBaseConfigSchema.extend({ cinema: cinemaSettingsSchema.optional() });
+const imageGenerationConfigSchema = generationConfigSchema.superRefine((config, ctx) => {
+  if (config.cinema && [config.cinema.genre, config.cinema.rhythm, config.cinema.movement].some(id => id !== "auto"))
+    ctx.addIssue({ code: "custom", path: ["cinema"], message: "CINEMA_VIDEO_ONLY" });
+});
 const assistantConfigSchema = z.object({
   prompt: z.string().max(20_000),
   modelKey: z.string().trim().min(1).max(200).nullable(),
@@ -337,7 +343,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
   ]),
   "generate.image": definition(
     "generate.image",
-    generationConfigSchema,
+    imageGenerationConfigSchema,
     [
       input("prompt", "text"),
       input("primary", "image", {
@@ -358,7 +364,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
   ),
   "generate.audio": definition(
     "generate.audio",
-    generationConfigSchema,
+    generationBaseConfigSchema,
     [input("prompt", "text"), output("audio", "audio", { acceptedMimeTypes: audioMime })],
     "server-generation",
   ),

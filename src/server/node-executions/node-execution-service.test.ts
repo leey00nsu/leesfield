@@ -1,4 +1,8 @@
 import { createNodeExecutionService } from "./node-execution-service";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
+const cinemaCatalogMock = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+vi.mock("@/server/model-catalog/catalog-service", () => ({ getModelCatalog: cinemaCatalogMock }));
+beforeEach(() => { cinemaCatalogMock.mockResolvedValue([]); });
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 import {
   NodeExecutionConfigError,
@@ -113,6 +117,43 @@ function setup() {
 }
 
 describe("nodeExecutionService", () => {
+  it("applies Cinema after resolving a connected prompt and reuses the first final payload without recomposition", async () => {
+    cinemaCatalogMock.mockResolvedValue([{ type: "image", key: "model-a", providerConfig: { gradio_contract: {
+      version: 1, apiName: "/generate", diagnostics: [], reviewed: true, output: null,
+      inputs: [{ name: "description", label: "Prompt", kind: "string", canonical: "prompt", schema: { type: "string" }, required: true, nullable: false }],
+    } } }]);
+    const state = setup();
+    const cinema = { ...defaultCinemaSettings(), lighting: "window" };
+    const incomingEdges = [{ id: "text-edge", sourcePortId: "text", targetPortId: "prompt", sortOrder: 0, sourceNode: { id: "text-node", kind: "input.prompt", configVersion: 1, config: { text: "connected source" }, selectedOutputAssetId: null } }] as StoredNodeExecutionEdge[];
+    const node = { ...storedNode(), config: { ...generationConfig, parameters: { ...generationConfig.parameters, dynamicParams: { description: "stale provider draft" } }, cinema, repeatCount: 3 }, incomingEdges };
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue(node);
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, "cinema-first");
+    const first = state.submitImage.mock.calls[0][0];
+    expect(first.payload.prompt).toBe("connected source\n\nCinema direction: Soft natural window light.");
+    expect(first.payload.dynamicParams.description).toBe(first.payload.prompt);
+    expect(first.payload).not.toHaveProperty("cinema");
+    expect(first.requestSnapshot.cinema).toMatchObject({ sourcePrompt: "connected source", finalPrompt: first.payload.prompt, settings: cinema });
+    vi.mocked(state.repository.getRepeatSnapshot).mockResolvedValue({ status: "completed", requestParams: first.requestSnapshot });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 1 }, "cinema-second");
+    expect(state.submitImage.mock.calls[1][0].payload).toEqual(first.payload);
+    expect(state.submitImage.mock.calls[1][0].requestSnapshot.cinema).toEqual(first.requestSnapshot.cinema);
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...node, config: { ...node.config, cinema: { ...cinema, lighting: "candle" } } });
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4, repeatOfExecutionId: "image-request", repeatIndex: 2 }, "cinema-third")).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID", details: { repeat: ["REPEAT_INPUT_CHANGED"] } });
+    expect(state.submitImage).toHaveBeenCalledTimes(2);
+  });
+  it("keeps video Cinema in its admission/snapshot boundary and blocks promptless guidance", async () => {
+    const state = setup();
+    cinemaCatalogMock.mockResolvedValue([{ type: "video", key: "model-a", parameters: {} }]);
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("generate.video"), config: { ...generationConfig, cinema: { ...defaultCinemaSettings(), movement: "orbit" } } });
+    await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, "cinema-video");
+    const submitted = state.submitVideo.mock.calls[0][0];
+    expect(submitted.payload.prompt).toContain("Camera orbits around the subject");
+    expect(submitted.requestSnapshot.cinema).toMatchObject({ sourcePrompt: "stored prompt", settings: { movement: "orbit" } });
+    expect(submitted.payload).not.toHaveProperty("cinema");
+    cinemaCatalogMock.mockResolvedValue([{ type: "video", key: "model-a", providerConfig: { gradio_contract: { version: 1, apiName: "/generate", diagnostics: [], reviewed: true, inputs: [], output: null } } }]);
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, "promptless-video")).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    expect(state.submitVideo).toHaveBeenCalledTimes(1);
+  });
   it("reuses an owner-scoped frozen snapshot with distinct iteration admissions", async () => {
     const state = setup();
     vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode(), config: { ...generationConfig, repeatCount: 4 } });

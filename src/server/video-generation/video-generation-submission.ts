@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationStatus } from "@/features/video-generation/model/video-generation-types";
@@ -15,6 +16,7 @@ import { createVideoGenerationRecord } from "./video-generation-repository";
 
 export type SubmitVideoGenerationInput = {
   payload: VideoGenerationFormValues;
+  cinema?: CinemaSnapshot;
   ownerEmail: string;
   apiKeyId?: string | null;
   graphNodeId?: string | null;
@@ -41,6 +43,7 @@ export async function submitVideoGeneration({
   requestSnapshot,
   requestId = crypto.randomUUID(),
   inputAssetRefs,
+  cinema,
 }: SubmitVideoGenerationInput) {
   startGenerationWorker();
   const trimmedInitImage = payload.initImage?.trim() ?? "";
@@ -73,7 +76,9 @@ export async function submitVideoGeneration({
     ? payload
     : applyUploadedGenerationInputAssets({ ...payload, initImage: trimmedInitImage }, uploaded);
   try {
-    const record = graphNodeId || requestSnapshot
+    const record = cinema
+      ? await createVideoGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs ?? (uploaded.length ? uploaded.map(({ ref }) => ref) : undefined), cinema)
+      : graphNodeId || requestSnapshot
       ? await createVideoGenerationRecord(
           requestId,
           recordPayload,

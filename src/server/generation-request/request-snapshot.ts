@@ -135,7 +135,9 @@ export function frozenExecutionModel(snapshot:unknown,type:string,key:unknown) {
 
 /** Read compatibility for v2 and v3 snapshots; input assets are hydrated by the worker. */
 export function restoreRequest(snapshot: unknown): Record<string, unknown> {
-  const stored = recordObject(snapshot);
+  const original = recordObject(snapshot);
+  const stored = Object.hasOwn(original, "cinema") ? { ...original } : original;
+  if (stored !== original) delete stored.cinema;
   if (stored.requestVersion !== 2) return stored;
   const {parameterDefinitions, dynamicParams, ...result} = stored;
   delete result.requestVersion;

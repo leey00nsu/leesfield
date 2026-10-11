@@ -1,6 +1,7 @@
 import { getOwnedHistoryRecord, deleteOwnedHistoryRecord } from "@/server/history/history-record";
 import { externalHistorySelectorSchema } from "@/shared/api/platform-contract";
 import { getSession } from "@/server/auth/session";
+import { jsonWithNoStore } from "@/server/http/response";
 import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import {
   GENERATION_OUTPUT_LIMITS,
@@ -22,6 +23,12 @@ async function ownedRecord(request: Request, context: Context) {
 export async function GET(request: Request, context: Context) {
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
+  if (new URL(request.url).searchParams.get("view") === "authoring") {
+    if (!result.record || result.origin === "edit" || result.type === "audio" || !("requestParams" in result.record)) return new Response(null, { status: 404 });
+    const raw = result.record.requestParams;
+    const cinema = raw && typeof raw === "object" && !Array.isArray(raw) ? raw.cinema ?? null : null;
+    return jsonWithNoStore({ cinema, prompt: result.record.prompt, model: result.record.modelKey });
+  }
   if (!result.record || !result.url) return new Response(null, {status: 404});
   try {
     const url = new URL(result.url);

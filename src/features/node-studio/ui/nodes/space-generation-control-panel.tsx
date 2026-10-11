@@ -11,6 +11,8 @@ import { record } from "../../model/node-prompt-presets";
 import { GenerationNodeParameterControls } from "./generation-node-parameter-controls";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
 import { projectGenerationModelSelectionDefaults } from "../../model/generation-model-selection-defaults";
+import { CinemaStudioControls } from "@/shared/ui/cinema/cinema-studio-controls";
+import { cinemaPromptField } from "@/shared/cinema/cinema-model-support";
 type NodeBananaUpstreamHostValue = ComponentProps<typeof NodeBananaUpstreamControlPanel>["host"];
 
 /** Generation presenters stay upstream; preset settings are composed in the host. */
@@ -47,6 +49,8 @@ export function GenerationPresetInspector({ id, config, modality }: { id: string
       className="fixed right-3 top-0 z-[90] flex h-screen items-center pointer-events-none sm:right-6" onPointerDown={event => event.stopPropagation()}>
       <div className="nodrag nopan nowheel pointer-events-auto max-h-[80vh] w-80 max-w-[calc(100vw-24px)] space-y-4 overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-800 p-4 text-neutral-200 shadow-lg">
         <h3 className="text-sm font-medium">{title}</h3>
+        {modality !== "audio" && <CinemaStudioControls media={modality} settings={config.cinema} supportsPrompt={cinemaPromptField(model ?? {}).supported} presetKey={typeof record(config.promptPreset).key === "string" ? String(record(config.promptPreset).key) : undefined}
+          disabled={!writable || authoring.isNodeRunning?.(id)} onChange={cinema => { if (writable && !authoring.isNodeRunning?.(id)) publish({ ...config, cinema }); }} />}
         <div className="space-y-2"><label className="block text-xs text-neutral-400">모델</label>
           <button type="button" disabled={!writable} onClick={() => setBrowsing(true)} className="w-full truncate rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-left text-xs hover:border-neutral-500">{model?.label ?? "모델 선택..."}</button>
         </div>

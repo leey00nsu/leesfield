@@ -3,6 +3,11 @@ import { fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
 import { renderWithIntl } from "@/test-utils/intl";
+import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
+const useCinemaHistoryMock = vi.hoisted(() => vi.fn());
+vi.mock("@/shared/cinema/use-cinema-history", () => ({ useCinemaHistory: useCinemaHistoryMock }));
+beforeEach(() => { useCinemaHistoryMock.mockReturnValue({ data: undefined, error: false, loading: false }); });
 
 const useGenerationHistoryListMock = vi.fn();
 const useMonitoringRequestDetailMock = vi.fn();
@@ -486,6 +491,22 @@ it("keeps loaded cards visible on a subsequent page failure", () => {
   expect(screen.getByTestId("history-items-count")).toHaveTextContent("1");
   fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
   expect(retry).toHaveBeenCalledOnce();
+});
+
+it("displays separate Cinema source/settings/final text and recreates through an owned history ID", async () => {
+  const cinema = composeCinemaPrompt("original authoring text", { ...defaultCinemaSettings(), lighting: "window" }, "image");
+  useCinemaHistoryMock.mockReturnValue({ data: { cinema, prompt: cinema.finalPrompt, model: detailFixture.model }, loading: false, error: false });
+  useGenerationHistoryListMock.mockReturnValue({ items: [detailFixture], total: 1, isLoading: false, sentinelRef: { current: null }, removeItem: vi.fn() });
+  useMonitoringRequestDetailMock.mockReturnValue({ data: { ...detailFixture, assets: [], inputAudios: [], referenceText: null } });
+  renderWithIntl(<GenerationHistoryScreen />);
+  await userEvent.click(screen.getByTestId("history-list"));
+  expect(screen.getByText("original authoring text")).toBeInTheDocument();
+  expect(screen.getByText(/Cinema direction: Soft natural window light/)).toHaveTextContent("original authoring text");
+  await userEvent.click(screen.getByRole("button", { name: "다시 생성" }));
+  const url = new URL(routerPushMock.mock.calls.at(-1)![0], "http://localhost");
+  expect(url.pathname).toBe("/image");
+  expect(url.searchParams.get("historyId")).toBe(detailFixture.id);
+  expect(url.searchParams.get("model")).toBe(detailFixture.model);
 });
 
 it("requires confirmation, preserves detail on cancellation/failure, and removes after success", async () => {

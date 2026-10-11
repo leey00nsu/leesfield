@@ -1,4 +1,5 @@
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
+type CinemaAuthoringValues = ImageGenerationFormValues & { cinema?: unknown };
 import type {
   ImageGenerationResponse,
 } from "@/features/image-generation/model/image-generation-types";
@@ -22,7 +23,7 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
 }
 
 export async function requestImageGeneration(
-  payload: ImageGenerationFormValues,
+  payload: CinemaAuthoringValues,
   options?: { idempotencyKey: string; signal: AbortSignal },
 ): Promise<ImageGenerationResponse> {
   const key = options?.idempotencyKey ?? imageSubmissionIntent.take(JSON.stringify(payload));

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
 import type { ImageGenerationStatus } from "@/features/image-generation/model/image-generation-types";
@@ -14,6 +15,7 @@ import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 
 export type SubmitImageGenerationInput = {
   payload: ImageGenerationFormValues;
+  cinema?: CinemaSnapshot;
   ownerEmail: string;
   apiKeyId?: string | null;
   graphNodeId?: string | null;
@@ -53,6 +55,7 @@ export async function submitImageGeneration({
   requestId: reservedRequestId,
   requestSnapshot,
   inputAssetRefs,
+  cinema,
 }: SubmitImageGenerationInput) {
   startGenerationWorker();
 
@@ -90,7 +93,9 @@ export async function submitImageGeneration({
     const recordPayload = requestSnapshot
       ? { ...payload, initImages: [] }
       : applyUploadedGenerationInputAssets({ ...payload, initImages }, uploaded);
-    record = requestSnapshot && inputAssetRefs?.length
+    record = cinema
+      ? await createImageGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs ?? (uploaded.length ? uploaded.map(({ ref }) => ref) : undefined), cinema)
+      : requestSnapshot && inputAssetRefs?.length
       ? await createImageGenerationRecord(
           requestId,
           recordPayload,

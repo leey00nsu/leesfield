@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
+  DialogTrigger,
 } from "@/shared/ui/dialog";
 
 type AppDialogSize = "sm" | "md" | "lg" | "xl" | "full";
@@ -41,6 +42,10 @@ const appDialogPaddingClassNames: Record<AppDialogPadding, string> = {
 
 export function AppDialog(props: ComponentProps<typeof Dialog>) {
   return <Dialog {...props} />;
+}
+
+export function AppDialogTrigger(props: ComponentProps<typeof DialogTrigger>) {
+  return <DialogTrigger {...props} />;
 }
 
 export function AppDialogContent({

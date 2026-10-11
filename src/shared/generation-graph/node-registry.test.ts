@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
 import {
   canonicalNodeKinds,
@@ -8,6 +9,19 @@ import {
 } from "./node-registry";
 
 describe("canonical node registry", () => {
+  it("accepts additive Cinema for image/video while preserving legacy and rejecting unknown/media-specific values", () => {
+    const config = { prompt: "source", modelKey: "model", parameters: {} };
+    const cinema = { ...defaultCinemaSettings(), lighting: "window" };
+    for (const kind of ["generate.image", "generate.video"]) {
+      expect(validateNodeConfig(kind, 1, config)).toMatchObject({ supported: true, config });
+      expect(validateNodeConfig(kind, 1, { ...config, cinema })).toMatchObject({ supported: true, config: { cinema } });
+      expect(validateNodeConfig(kind, 1, { ...config, cinema: { ...cinema, schemaVersion: 99 } }).supported).toBe(false);
+      expect(validateNodeConfig(kind, 1, { ...config, cinema: { ...cinema, lens: "deleted" } }).supported).toBe(false);
+    }
+    expect(validateNodeConfig("generate.image", 1, { ...config, cinema: { ...cinema, movement: "orbit" } }).supported).toBe(false);
+    expect(validateNodeConfig("generate.video", 1, { ...config, cinema: { ...cinema, movement: "orbit" } }).supported).toBe(true);
+    expect(validateNodeConfig("generate.audio", 1, { ...config, cinema }).supported).toBe(false);
+  });
   it("validates stored cell templates and rejects multiplication beyond the Space limit", () => {
     const template = { baseNodeId: "base", nodes: [
       { id: "base", kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 } },

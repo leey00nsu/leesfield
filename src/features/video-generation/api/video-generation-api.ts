@@ -1,4 +1,5 @@
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
+type CinemaAuthoringValues = VideoGenerationFormValues & { cinema?: unknown };
 import type {
   VideoGenerationResponse,
 } from "@/features/video-generation/model/video-generation-types";
@@ -21,7 +22,7 @@ async function requestJson(input: RequestInfo, init?: RequestInit) {
 }
 
 export async function requestVideoGeneration(
-  payload: VideoGenerationFormValues,
+  payload: CinemaAuthoringValues,
 ): Promise<VideoGenerationResponse> {
   const key = videoSubmissionIntent.take(JSON.stringify(payload));
   try {

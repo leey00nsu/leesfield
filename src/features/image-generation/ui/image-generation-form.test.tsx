@@ -44,7 +44,22 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("ImageGenerationForm", () => {
+  it("selects Cinema independently from the source prompt and submits its internal authoring settings", async () => {
+    const startGeneration = vi.fn(), user = userEvent.setup();
+    mockUseImageGeneration.mockReturnValue({ state: { status: "idle", progress: 0 }, startGeneration, reset: vi.fn() });
+    navigationMocks.searchParams = new URLSearchParams({ prompt: "a cinema scene", model: "z-image-turbo" });
+    renderWithIntl(<ImageGenerationForm isAuthenticated />);
+    await waitForModels();
+    await user.click(screen.getByRole("button", { name: /^카메라:/ }));
+    await user.click(screen.getByRole("spinbutton", { name: "카메라" }));
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("textbox")).toHaveTextContent("a cinema scene");
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    await waitFor(() => expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({ prompt: "a cinema scene", cinema: expect.objectContaining({ camera: "modular-8k" }) }), 1));
+  });
   beforeEach(() => {
+    localStorage.clear();
     navigationMocks.push.mockReset();
     navigationMocks.pathname = "/image";
     navigationMocks.searchParams = new URLSearchParams();

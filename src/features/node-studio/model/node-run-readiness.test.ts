@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
 import type { GraphDocumentV2 } from "@/shared/generation-graph/canonical-graph";
 import { resolveRuntimeVideoDefaults } from "@/shared/model-catalog/runtime-utils";
@@ -67,6 +68,18 @@ const llmModel: RuntimeLlmModel = {
 };
 
 describe("resolveNodeRunReadiness", () => {
+  it("blocks conflicting Cinema shooting without changing the connected source or previous selection", () => {
+    const source = node("source", "input.prompt", { text: "quiet lake" });
+    const generate = node("generate", "generate.image", { prompt: "local draft", modelKey: imageModel.key,
+      parameters: {}, cinema: { ...defaultCinemaSettings(), camera: "16mm-film" },
+      promptPreset: { key: "multi-camera-nine-grid", revision: 1, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} } }, "previous-result");
+    const graph = { nodes: [source, generate], edges: [edge("prompt", "source", "text", "generate", "prompt")] };
+    expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).toContain("NODE_CONFIG_INVALID");
+    expect(source.config).toEqual({ text: "quiet lake" });
+    expect(generate.selectedOutputAssetId).toBe("previous-result");
+    generate.config = { ...(generate.config as object), cinema: { ...defaultCinemaSettings(), shootingEnabled: false, camera: "16mm-film" } };
+    expect(resolveNodeRunReadiness(graph, "generate", catalog).reasons).not.toContain("NODE_CONFIG_INVALID");
+  });
   it("checks conditional prompt/file requirements using complete graph values",()=>{
     const mapped:RuntimeImageModel={...imageModel,providerConfig:{space_id:"owner/repo",api_name:"/generate",output:{media:"image",path:[0],multiple:false},input_rules:{type:"object",if:{properties:{mode:{const:"edit"}},required:["mode"]},then:{properties:{source:{type:"string",minLength:1}},required:["source"]},else:{properties:{text:{type:"string",minLength:1}},required:["text"]}}},parameters:{
       prompt:{ui:"textarea",default:"",binding:{source:"hf_space",parameterName:"text",kind:"string",valueType:"string",order:0,schema:{type:"string"},canonicalKey:"prompt",allowEmpty:true}},

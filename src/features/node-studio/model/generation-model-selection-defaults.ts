@@ -36,9 +36,11 @@ function recommendForNewModel(current: Record<string, unknown>, next: Record<str
 
 export function projectGenerationModelSelectionDefaults(
   currentConfig: Record<string, unknown>,
-  nextConfig: Record<string, unknown>,
+  requestedConfig: Record<string, unknown>,
   models: readonly Model[],
 ) {
+  const nextConfig = Object.hasOwn(currentConfig, "cinema") && !Object.hasOwn(requestedConfig, "cinema")
+    ? { ...requestedConfig, cinema: currentConfig.cinema } : requestedConfig;
   if (!nextConfig.modelKey) return nextConfig;
   const model = models.find((candidate) => candidate.key === nextConfig.modelKey);
   if (!model) return nextConfig;

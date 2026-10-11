@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
+type CinemaAuthoringValues = VideoGenerationFormValues & { cinema?: unknown };
 import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
@@ -36,11 +37,11 @@ export function useVideoGeneration(modelTimeoutMs?: number) {
   const [requestTimeoutMs,setRequestTimeoutMs]=useState(pollTimeoutMs);
   const tErrors = useTranslations("generation.errors");
   const request = useCallback(
-    async (values: VideoGenerationFormValues) => {
+    async (values: CinemaAuthoringValues) => {
       setRequestTimeoutMs(modelTimeoutMs ? Math.max(pollTimeoutMs,modelTimeoutMs+120_000) : pollTimeoutMs);
       try {
-        return await requestVideoGeneration(values);
-      } catch (error) {
+        return await requestVideoGeneration(structuredClone(values));
+      } catch {
         throw new Error(tErrors("requestFailed"));
       }
     },
@@ -58,7 +59,7 @@ export function useVideoGeneration(modelTimeoutMs?: number) {
   );
 
   return useGenerationPolling<
-    VideoGenerationFormValues,
+    CinemaAuthoringValues,
     VideoGenerationStatus,
     VideoGenerationResponse["result"]
   >({

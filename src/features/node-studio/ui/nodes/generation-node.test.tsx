@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "@/shared/i18n/messages/en.json";
 import { createIntlWrapper } from "@/test-utils/intl";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import { promptPresetReference } from "@/shared/prompt-presets/prompt-preset-contract";
 import { SpaceGenerationPrompt } from "./space-generation-prompt";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   replaceAssets: vi.fn().mockReturnValue(true),
   ids: [] as string[],
   writable: true,
+  running: false,
   maxInputImages: 2,
   videoSupportsInitImage: true,
   promptInput: { connected: false, text: null } as { connected: boolean; text: string | null },
@@ -47,6 +49,7 @@ vi.mock("../../model/node-authoring-context", () => ({
   useNodeAuthoring: () => ({
     graphId: "graph-1",
     writable: mocks.writable,
+    isNodeRunning: () => mocks.running,
     updateCanonicalNodeConfig: mocks.updateConfig,
     prepareImageNodeExecution: vi.fn().mockResolvedValue(1),
     imageModels: [{
@@ -157,6 +160,24 @@ function renderNodes() {
 }
 
 describe("GenerationNode common presenter", () => {
+  it("stores Cinema beside a connected read-only prompt without replacing the authored source", async () => {
+    mocks.promptInput = { connected: true, text: "connected scene" };
+    const config = { prompt: "saved scene", modelKey: "image-a", parameters: { width: 640 }, cinema: defaultCinemaSettings() };
+    const user = userEvent.setup();
+    render(<SpaceGenerationPrompt nodeId="node" config={config} modality="image" />, { wrapper: promptWrapper });
+    expect(screen.getByRole("textbox", { name: "프롬프트" })).toHaveAttribute("contenteditable", "false");
+    await user.click(screen.getByRole("button", { name: /^카메라:/ }));
+    await user.click(screen.getByRole("spinbutton", { name: "카메라" }));
+    await user.keyboard("{ArrowDown}");
+    expect(mocks.updateConfig).toHaveBeenCalledWith("node", { ...config, cinema: { ...config.cinema, camera: "modular-8k" } });
+  });
+  it("disables Cinema selection while the node execution is running", () => {
+    mocks.running = true;
+    render(<SpaceGenerationPrompt nodeId="node" config={{ prompt: "scene", modelKey: "image-a", parameters: {} }} modality="image" />, { wrapper: promptWrapper });
+    expect(screen.getByRole("button", { name: /^카메라:/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^비주얼 스타일:/ })).toBeDisabled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+  });
   it.each(["video", "audio"] as const)("applies a %s inline preset and preserves user text and canonical state", async modality => {
     const user = userEvent.setup(), config = { prompt: "My idea", modelKey: null, parameters: {} };
     const view = render(<SpaceGenerationPrompt nodeId="node" config={config} modality={modality} />, { wrapper: promptWrapper });
@@ -217,6 +238,7 @@ describe("GenerationNode common presenter", () => {
     vi.clearAllMocks();
     mocks.ids = [];
     mocks.writable = true;
+    mocks.running = false;
     mocks.maxInputImages = 2;
     mocks.videoSupportsInitImage = true;
     mocks.promptInput = { connected: false, text: null };

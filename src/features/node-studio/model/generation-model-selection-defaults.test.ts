@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import type { RuntimeAudioModel, RuntimeVideoModel } from "@/shared/model-catalog/runtime-utils";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
@@ -17,6 +18,14 @@ const video: RuntimeVideoModel = {
 };
 
 describe("generation model selection defaults", () => {
+  it("preserves independent Cinema selections when upstream model patches omit them", () => {
+    const cinema = { ...defaultCinemaSettings(), camera: "16mm-film" };
+    const current = { modelKey: "previous", prompt: "source", parameters: {}, cinema };
+    const next = projectGenerationModelSelectionDefaults(current, { modelKey: video.key, prompt: "source", parameters: {} }, [video]);
+    expect(next.cinema).toEqual(cinema);
+    expect(next.prompt).toBe("source");
+    expect(projectGenerationModelSelectionDefaults(current, { ...next, cinema: defaultCinemaSettings() }, [video]).cinema).toEqual(defaultCinemaSettings());
+  });
   it("keeps model dimensions despite legacy Character Sheet ratio metadata", () => {
     const model = { ...runtimeImageModelsFixture[0], key: "sized", parameters: {
       width: { min: 64, max: 2048, step: 64, default: 1024 }, height: { min: 64, max: 2048, step: 64, default: 1024 },

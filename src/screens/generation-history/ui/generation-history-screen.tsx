@@ -3,6 +3,9 @@ import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-cat
 import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
 
 import { HistoryRequestSettings } from "./history-request-settings";
+import { useCinemaHistory } from "@/shared/cinema/use-cinema-history";
+import { CinemaHistoryDetails } from "@/shared/ui/cinema/cinema-history-details";
+import { AppPromptMessage } from "@/shared/ui/app-prompt-message";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
@@ -67,6 +70,7 @@ function buildHistoryGenerationUrl(
   options: { includeImageReference?: boolean } = {},
 ) {
   const params = new URLSearchParams();
+  if (item.origin !== "edit" && item.type !== "audio" && target === `/${item.type}`) params.set("historyId", item.id);
   const prompt = item.prompt.trim();
   if (prompt) params.set("prompt", prompt);
   const model = item.model?.trim();
@@ -329,6 +333,8 @@ function HistoryDetailOverlay({
   const locale = useLocale();
   const tHistory = useTranslations("history");
   const tActions = useTranslations("history.detailActions");
+  const tCinema = useTranslations("cinema");
+  const cinemaHistory = useCinemaHistory(item.id, item.type === "video" ? "video" : "image", item.origin !== "edit" && item.type !== "audio");
   const tCommonActions = useTranslations("common.actions");
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
@@ -526,6 +532,8 @@ function HistoryDetailOverlay({
 
   const promptTab = (
     <div className="grid gap-5">
+      {cinemaHistory.data?.cinema && <CinemaHistoryDetails snapshot={cinemaHistory.data.cinema} />}
+      {cinemaHistory.error && <AppPromptMessage>{tCinema("restoreFailed")}</AppPromptMessage>}
       <div className="grid gap-3">
         <div className="flex items-center justify-between gap-3 text-sm font-semibold text-white">
           <span>{tHistory("detail.fullPrompt")}</span>

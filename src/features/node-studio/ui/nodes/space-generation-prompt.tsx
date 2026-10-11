@@ -30,6 +30,8 @@ import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-
 import { generationAttachmentSlots, type GenerationAttachmentSlot } from "../../model/generation-prompt-attachments";
 import { projectGenerationModelSelectionDefaults } from "../../model/generation-model-selection-defaults";
 import { NodeBananaInputHistoryControl } from "./node-banana-input-history-control";
+import { CinemaStudioControls } from "@/shared/ui/cinema/cinema-studio-controls";
+import { cinemaPromptField } from "@/shared/cinema/cinema-model-support";
 
 export function SpaceGenerationPrompt({ nodeId, config, modality, connected: hostConnected = false, connectedValue: hostConnectedValue, progress }: {
   nodeId: string; config: Record<string, unknown>; modality: PromptPresetModality;
@@ -90,6 +92,10 @@ export function SpaceGenerationPrompt({ nodeId, config, modality, connected: hos
   return <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-space-generation-prompt={modality}>
     <GenerationPromptSurface
       className="rounded-none border-0 bg-transparent"
+      header={modality !== "audio" ? <div className="px-3 pt-3"><CinemaStudioControls media={modality} settings={config.cinema} supportsPrompt={cinemaPromptField(model ?? {}).supported} presetKey={reference?.key}
+        disabled={disabled || progress?.running || authoring.isNodeRunning?.(nodeId)} onChange={cinema => {
+          if (!disabled && !progress?.running && !authoring.isNodeRunning?.(nodeId)) authoring.updateCanonicalNodeConfig?.(nodeId, { ...current.current.config, cinema } as CanonicalJsonValue);
+        }} /></div> : undefined}
       attachments={slots.length ? <div className="space-y-3 px-4 pt-4">{slots.map(slot =>
         <SpaceGenerationAttachment key={model!.key + ":" + slot.field.name} nodeId={nodeId} modelKey={model!.key} slot={slot} disabled={disabled} />
       )}</div> : undefined}

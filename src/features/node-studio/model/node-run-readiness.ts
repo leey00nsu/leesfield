@@ -1,5 +1,6 @@
 import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 import { generationPayload } from "@/shared/model-catalog/generation-payload";
+import { cinemaAuthoringBlocked } from "@/shared/cinema/cinema-authoring";
 import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
@@ -178,6 +179,7 @@ export function resolveNodeRunReadiness(
       return uniqueReasons(reasons);
     }
     const selectedModel = [...catalog.imageModels,...(catalog.videoModels??[]),...(catalog.audioModels??[])].find(m=>m.key===modelKey && "generate." + m.type === node.kind);
+    if ((node.kind === "generate.image" || node.kind === "generate.video") && cinemaAuthoringBlocked(config.cinema, node.kind === "generate.image" ? "image" : "video", selectedModel, typeof record(config.promptPreset).key === "string" ? String(record(config.promptPreset).key) : undefined)) reasons.push("NODE_CONFIG_INVALID");
     const contract = selectedModel ? getGradioContract(selectedModel) : null;
     const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&!f.allowEmpty&&f.default===undefined);
     if (requiresPrompt && !promptFromConfig && !promptFromEdge) reasons.push("PROMPT_REQUIRED");

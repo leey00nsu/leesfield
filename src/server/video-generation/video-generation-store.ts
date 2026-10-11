@@ -1,4 +1,5 @@
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
+import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import type {
   VideoGenerationResponse,
   VideoGenerationStatus,
@@ -46,6 +47,7 @@ export async function createMockVideoGenerationWithLimit(
   ownerEmail: string,
   apiKeyId: string | null = null,
   requestId?: string,
+  cinema?: CinemaSnapshot,
 ) {
   const selectedRequestId = requestId ?? crypto.randomUUID();
   const { record } = await submitVideoGeneration({
@@ -53,6 +55,7 @@ export async function createMockVideoGenerationWithLimit(
     ownerEmail,
     apiKeyId,
     requestId: selectedRequestId,
+    ...(cinema ? { cinema } : {}),
   });
   return {
     record: record satisfies VideoGenerationRecord,

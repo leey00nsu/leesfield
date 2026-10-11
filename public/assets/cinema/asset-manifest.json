@@ -1,0 +1,1218 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "category": "camera",
+      "id": "modular-8k",
+      "file": "camera-modular-8k.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "RED V-RAPTOR XL 8K S35",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:RED_V-Raptor_XL_8K_S35.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/93/RED_V-Raptor_XL_8K_S35.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "Hidalgo944",
+          "equipment": "RED V-RAPTOR XL 8K S35",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 1,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "camera",
+      "id": "full-frame",
+      "file": "camera-full-frame.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "Sony VENICE 2",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Sony_CineAlta_VENICE_2_with_FUJINON_Premista_28-100mm_T2.9_20250726125542.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/16/Sony_CineAlta_VENICE_2_with_FUJINON_Premista_28-100mm_T2.9_20250726125542.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "TurnOnTheNight",
+          "equipment": "Sony VENICE 2",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 2,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "camera",
+      "id": "70mm-film",
+      "file": "camera-70mm-film.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "IMAX 70mm Film Camera",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Shuttle_IMAX_Cameras_at_the_Smithsonian.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Shuttle_IMAX_Cameras_at_the_Smithsonian.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "Public domain",
+          "licenseUrl": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+          "author": "NASA",
+          "equipment": "IMAX 70mm Film Camera",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 3,
+        "license": "Public domain",
+        "licenseUrl": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "camera",
+      "id": "studio-s35",
+      "file": "camera-studio-s35.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "ARRI ALEXA Plus 4:3",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Arri_Alexa_camera.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/ba/Arri_Alexa_camera.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "author": "Sean P. Anderson from Dallas, TX, USA",
+          "equipment": "ARRI ALEXA Plus 4:3",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 4,
+        "license": "CC BY 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "camera",
+      "id": "16mm-film",
+      "file": "camera-16mm-film.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "ARRIFLEX 16SR 3",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Arriflex_16SR-3.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8b/Arriflex_16SR-3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "Hidalgo944",
+          "equipment": "ARRIFLEX 16SR 3",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 5,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "camera",
+      "id": "large-format",
+      "file": "camera-large-format.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left RED V-RAPTOR XL 8K S35 with compact standard cinema lens; top-middle Sony VENICE 2 with standard cinema lens; top-right IMAX 70mm Film Camera, preserve its distinct long film-camera housing and front optical assembly; bottom-left ARRI ALEXA Plus 4:3 with standard cinema lens; bottom-middle ARRIFLEX 16SR 3 preserving the round film magazine; bottom-right ARRI ALEXA Mini LF with standard cinema lens. Six total camera assemblies, only one in each cell. Simplify removable cage/rig accessories to emphasize each actual body, preserve model identity.",
+        "equipment": "ARRI ALEXA Mini LF",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Alexa_Mini_LF.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a8/Alexa_Mini_LF.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+          "author": "Rémi sim",
+          "equipment": "ARRI ALEXA Mini LF",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 1,
+        "cell": 6,
+        "license": "CC BY 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "creative-tilt",
+      "file": "lens-creative-tilt.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "Lensbaby Composer",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Lensbaby_Composer_02.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Lensbaby_Composer_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+          "author": "etee from Houston, TX, USofA",
+          "equipment": "Lensbaby Composer",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 1,
+        "license": "CC BY-SA 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "compact-anamorphic",
+      "file": "lens-compact-anamorphic.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "Laowa Proteus 2X",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:LAOWA_Proteus_2X_Anamorphic_Cinema_Lenses_20250517142122.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/LAOWA_Proteus_2X_Anamorphic_Cinema_Lenses_20250517142122.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "TurnOnTheNight",
+          "equipment": "Laowa Proteus 2X",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 2,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "extreme-macro",
+      "file": "lens-extreme-macro.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "Laowa 25mm Ultra Macro",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Laowa_25_mm_ultra_macro.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d2/Laowa_25_mm_ultra_macro.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "Bachrockt",
+          "equipment": "Laowa 25mm Ultra Macro",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 3,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "70s-prime",
+      "file": "lens-70s-prime.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "Canon FD 55mm F1.2 S.S.C.",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Canon_FD_55mm_f-1.2_S.S.C._Aspherical_Lens_(radioactive)_(5770714676).jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Canon_FD_55mm_f-1.2_S.S.C._Aspherical_Lens_%28radioactive%29_%285770714676%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "author": "s58y",
+          "equipment": "Canon FD 55mm F1.2 S.S.C.",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 4,
+        "license": "CC BY 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "classic-anamorphic",
+      "file": "lens-classic-anamorphic.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "Laowa Proteus Zoom 2X",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:LAOWA_Proteus_Zoom_2X_Anamorphic_Cinema_Lenses_20250517142149.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1f/LAOWA_Proteus_Zoom_2X_Anamorphic_Cinema_Lenses_20250517142149.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "TurnOnTheNight",
+          "equipment": "Laowa Proteus Zoom 2X",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 5,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "modern-prime",
+      "file": "lens-modern-prime.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Lensbaby Composer; top-middle a SINGLE Laowa Proteus 2X anamorphic lens (use the front lens from the reference lens group); top-right Laowa 25mm Ultra Macro; bottom-left Canon FD 55mm F1.2 S.S.C. Aspherical; bottom-middle a SINGLE Laowa Proteus Zoom 2X lens from its reference group; bottom-right ZEISS Otus 55mm. Six total lenses, never duplicate a reference group into multiple products. No rear or front lens caps covering optics. Preserve the unusual long slender macro lens and the different vintage vs modern proportions.",
+        "equipment": "ZEISS Otus 55mm",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Zeiss_Otus_55.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fb/Zeiss_Otus_55.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "author": "GodeNehler",
+          "equipment": "ZEISS Otus 55mm",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 2,
+        "cell": 6,
+        "license": "CC BY-SA 3.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "warm-prime",
+      "file": "lens-warm-prime.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Cooke Varotal cinema zoom (use reference's Cooke Varotal 20-100mm F2.8/T3.1 identity and long zoom barrel, not a generic short prime); top-middle Helios 44-2 58mm; top-right Asahi Super-Takumar 50mm F1.4; bottom-left Minolta MC Rokkor 58mm F1.2 (lens only, remove attached camera); bottom-middle Sony ZEISS Planar 85mm F1.4; bottom-right MUST BE COMPLETELY EMPTY TRANSPARENT. Five total lenses, exactly one per specified cell. No rear or front lens caps covering optics. Do not move or center the last row as a group.",
+        "equipment": "Cooke Varotal",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Cooke_Varotal_(8648683593).jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0a/Cooke_Varotal_%288648683593%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "author": "William Beutler from Washinton, DC, USA",
+          "equipment": "Cooke Varotal",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 3,
+        "cell": 1,
+        "license": "CC BY 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "swirl-bokeh",
+      "file": "lens-swirl-bokeh.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Cooke Varotal cinema zoom (use reference's Cooke Varotal 20-100mm F2.8/T3.1 identity and long zoom barrel, not a generic short prime); top-middle Helios 44-2 58mm; top-right Asahi Super-Takumar 50mm F1.4; bottom-left Minolta MC Rokkor 58mm F1.2 (lens only, remove attached camera); bottom-middle Sony ZEISS Planar 85mm F1.4; bottom-right MUST BE COMPLETELY EMPTY TRANSPARENT. Five total lenses, exactly one per specified cell. No rear or front lens caps covering optics. Do not move or center the last row as a group.",
+        "equipment": "Helios 44-2 58mm",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Helios-44-2_58_mm_F2_--_2023_--_0038-44.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/76/Helios-44-2_58_mm_F2_--_2023_--_0038-44.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "© Anil Öztas",
+          "equipment": "Helios 44-2 58mm",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 3,
+        "cell": 2,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "vintage-prime",
+      "file": "lens-vintage-prime.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Cooke Varotal cinema zoom (use reference's Cooke Varotal 20-100mm F2.8/T3.1 identity and long zoom barrel, not a generic short prime); top-middle Helios 44-2 58mm; top-right Asahi Super-Takumar 50mm F1.4; bottom-left Minolta MC Rokkor 58mm F1.2 (lens only, remove attached camera); bottom-middle Sony ZEISS Planar 85mm F1.4; bottom-right MUST BE COMPLETELY EMPTY TRANSPARENT. Five total lenses, exactly one per specified cell. No rear or front lens caps covering optics. Do not move or center the last row as a group.",
+        "equipment": "Asahi Super-Takumar 50mm F1.4",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Super-Takumar_50mm_F1.4-4649.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/55/Super-Takumar_50mm_F1.4-4649.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "Raimond Spekking",
+          "equipment": "Asahi Super-Takumar 50mm F1.4",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 3,
+        "cell": 3,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "halation",
+      "file": "lens-halation.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Cooke Varotal cinema zoom (use reference's Cooke Varotal 20-100mm F2.8/T3.1 identity and long zoom barrel, not a generic short prime); top-middle Helios 44-2 58mm; top-right Asahi Super-Takumar 50mm F1.4; bottom-left Minolta MC Rokkor 58mm F1.2 (lens only, remove attached camera); bottom-middle Sony ZEISS Planar 85mm F1.4; bottom-right MUST BE COMPLETELY EMPTY TRANSPARENT. Five total lenses, exactly one per specified cell. No rear or front lens caps covering optics. Do not move or center the last row as a group.",
+        "equipment": "Minolta MC Rokkor 58mm F1.2",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Minolta_MC_Rokkor_58mm_f-1.2_(15104293848).jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Minolta_MC_Rokkor_58mm_f-1.2_%2815104293848%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+          "author": "mhx from London, United Kingdom",
+          "equipment": "Minolta MC Rokkor 58mm F1.2",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 3,
+        "cell": 4,
+        "license": "CC BY-SA 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "lens",
+      "id": "clinical-prime",
+      "file": "lens-clinical-prime.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup, reference-based equipment recreation. Asset type: Cinema Studio equipment picker transparent icon sheet. Re-create the exact named equipment from the input photographs in a single consistent premium studio product-photo style. All products use a slightly elevated front three-quarter view with optical front pointing toward the lower-left, physically credible black metal/rubber and glass, soft neutral key light from upper-left, subtle rim light, restrained contrast, no stylistic tint. Preserve each model's distinctive silhouette, controls, lens rings, proportions and recognizable existing markings. Remove people, booths, tables, stands, unrelated equipment, cables outside the camera body and all photo backgrounds. One complete isolated product per cell. EXACTLY THREE COLUMNS and TWO ROWS on a landscape 3:2 canvas. Each cell occupies exactly one third width and half height; center each product in its cell, fill 72% of the cell's width or height, keep substantial transparent gutters and edges so cells can be cut apart cleanly. All pixels outside products MUST BE genuinely transparent alpha: NO white/gray/color rectangle, NO floor, NO drop shadow, NO checkerboard painted into the picture, NO grid lines, NO captions, NO numbers. Reference image captions only identify models; do not reproduce captions in the output. Final image high resolution 1536x1024 or higher matching 3:2, clean catalog edges. This is an AI recreation from references, not an exact photographic cutout. Grid row-major exact order: top-left Cooke Varotal cinema zoom (use reference's Cooke Varotal 20-100mm F2.8/T3.1 identity and long zoom barrel, not a generic short prime); top-middle Helios 44-2 58mm; top-right Asahi Super-Takumar 50mm F1.4; bottom-left Minolta MC Rokkor 58mm F1.2 (lens only, remove attached camera); bottom-middle Sony ZEISS Planar 85mm F1.4; bottom-right MUST BE COMPLETELY EMPTY TRANSPARENT. Five total lenses, exactly one per specified cell. No rear or front lens caps covering optics. Do not move or center the last row as a group.",
+        "equipment": "Sony ZEISS Planar 85mm F1.4",
+        "hasAlpha": true,
+        "reference": {
+          "kind": "photograph",
+          "date": "2026-10-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Sony_Zeiss_85_mm_F1,4_--_2023_--_0041-51.jpg",
+          "originalImageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Sony_Zeiss_85_mm_F1%2C4_--_2023_--_0041-51.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "author": "Anil Öztas",
+          "equipment": "Sony ZEISS Planar 85mm F1.4",
+          "modifications": "Orientation normalized, resized and padded to 512×512, converted to WebP; photographed equipment preserved."
+        },
+        "grid": 3,
+        "cell": 5,
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+        "modifications": "AI reference-based recreation with transparent alpha; grid-cell extraction, resized with transparent padding, converted to 512x512 WebP."
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "8",
+      "file": "focal-8.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 8mm full-frame lens from a fixed viewpoint. Very wide field of view, much surrounding architecture, small subject, clear wide-angle perspective. No labels.",
+        "originalFilename": "exec-813fe116-7cb4-45d6-9228-c7c2de8013d2.png"
+      },
+      "width": 768,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "14",
+      "file": "focal-14.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 14mm full-frame lens from a fixed viewpoint. Very wide field of view, much surrounding architecture, small subject, clear wide-angle perspective. No labels.",
+        "originalFilename": "exec-098d5a54-fbad-4c6c-94ee-1a86a6876bc1.png"
+      },
+      "width": 768,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "24",
+      "file": "focal-24.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 24mm full-frame lens from a fixed viewpoint. Wide scene showing a full body and broad architecture. No labels.",
+        "originalFilename": "exec-9b625eeb-72fb-48b8-8e80-f8ca932ab905.png"
+      },
+      "width": 768,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "35",
+      "file": "focal-35.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 35mm full-frame lens from a fixed viewpoint. Natural medium-wide full-body composition and context. No labels.",
+        "originalFilename": "exec-cfc5ea30-7692-4302-9aaa-7875712df524.png"
+      },
+      "width": 768,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "50",
+      "file": "focal-50.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 50mm full-frame lens from a fixed viewpoint. Standard portrait field of view, waist-up woman and limited architecture. No labels.",
+        "originalFilename": "exec-a3688c2b-e777-4ce0-952e-dbddeb0bac04.png"
+      },
+      "width": 768,
+      "height": 512
+    },
+    {
+      "category": "focal",
+      "id": "85",
+      "file": "focal-85.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational lens perspective example. Same scene: a woman in a cream coat stands in the center of an old paved European square with surrounding stone architecture, daylight. Depict the field of view of a 85mm full-frame lens from a fixed viewpoint. Narrow portrait close view of head and shoulders with compressed architecture behind. No labels.",
+        "originalFilename": "exec-032b8e8a-291c-499e-9ce0-adb5da3d59b4.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "aperture",
+      "id": "f14",
+      "file": "aperture-f14.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational depth-of-field example at f/1.4. Portrait of a woman in a cream coat in an old paved European square, face sharp, nearby background extremely defocused with large creamy circular bokeh, soft natural daylight.",
+        "originalFilename": "exec-d441e113-7013-413b-b30b-105823e283cf.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "aperture",
+      "id": "f4",
+      "file": "aperture-f4.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational depth-of-field example at f/4. Portrait of a woman in a cream coat in an old paved European square, face sharp, moderate background blur with recognizable stone architecture, soft natural daylight.",
+        "originalFilename": "exec-7c0f8198-076a-43f3-b571-be8412a89dc8.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "aperture",
+      "id": "f11",
+      "file": "aperture-f11.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Educational depth-of-field example at f/11. Portrait of a woman in a cream coat in an old paved European square, face AND near and distant stone architecture in deep sharp focus, soft natural daylight.",
+        "originalFilename": "exec-9cdeddb9-a88a-46ef-9169-3d4369743cd8.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "palette",
+      "id": "cool-blue",
+      "file": "palette-cool-blue.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Cool blue grading, steel-blue shadows, pale blue highlights, restrained icy atmosphere. The specified palette is visually dominant.",
+        "originalFilename": "exec-578cbabc-6e7e-40e4-ba77-26db15dae82e.png"
+      },
+      "width": 768,
+      "height": 384
+    },
+    {
+      "category": "palette",
+      "id": "warm-gold",
+      "file": "palette-warm-gold.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Warm gold color grading, honey-gold sun, amber shadows, nostalgic warmth. The specified palette is visually dominant.",
+        "originalFilename": "exec-f9798c69-af5f-4cad-8470-ff09d8b4937a.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "palette",
+      "id": "teal-amber",
+      "file": "palette-teal-amber.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Teal shadows and warm amber skin and highlights, cinematic complementary palette. The specified palette is visually dominant.",
+        "originalFilename": "exec-32c11d0a-78ad-405b-a53a-be217919b834.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "palette",
+      "id": "monochrome",
+      "file": "palette-monochrome.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Strict black and white monochrome, rich grayscale contrasts, no color. The specified palette is visually dominant.",
+        "originalFilename": "exec-ac547ce2-be2c-43dd-8da8-ed352de58fed.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "palette",
+      "id": "earth",
+      "file": "palette-earth.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Muted earthy browns, mossy olive greens, clay and sand neutrals. The specified palette is visually dominant.",
+        "originalFilename": "exec-3e6d03f2-4809-4360-bcbe-ac679fae361e.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "palette",
+      "id": "pastel",
+      "file": "palette-pastel.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A young woman wearing an ivory coat stands outside an old cafe on a quiet wet stone street at dusk, medium-wide cinematic composition. Soft low-contrast pastel pink, powder blue, lavender and creamy peach. The specified palette is visually dominant.",
+        "originalFilename": "exec-3c0cba0f-74d6-4c4c-ab54-bbaf5159741c.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "rembrandt",
+      "file": "lighting-rembrandt.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Rembrandt side lighting: a visible small bright triangle on the otherwise shadowed cheek, dark background. Show that lighting unmistakably.",
+        "originalFilename": "exec-faad13e1-0e5a-4785-b88d-4140712ae2dc.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "split",
+      "file": "lighting-split.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Split lighting: precise vertical split, one half of the face brightly illuminated, the other half dark. Show that lighting unmistakably.",
+        "originalFilename": "exec-6ad50497-5d7c-4c89-8696-ecb20e845734.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "rim",
+      "file": "lighting-rim.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Rim lighting: thin luminous outline around the shoulders and hair, darker front of face, dark background. Show that lighting unmistakably.",
+        "originalFilename": "exec-f92a656a-dd04-4731-96e4-7fe4b2da535c.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "backlight",
+      "file": "lighting-backlight.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Strong warm backlight behind the head, soft halo and atmospheric rays, softly shaded face. Show that lighting unmistakably.",
+        "originalFilename": "exec-070e40a3-d6f3-4b63-a625-de182d8ac81c.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "window",
+      "file": "lighting-window.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Soft natural daylight from a large nearby window, gently graduated shadows and quiet indoor background. Show that lighting unmistakably.",
+        "originalFilename": "exec-4f8ea63f-e0c0-418e-a734-22f8f82b7bac.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "lighting",
+      "id": "candle",
+      "file": "lighting-candle.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Close cinematic portrait of a woman in a simple cream shirt, facing slightly to the right, realistic skin, calm expression. Warm illumination from one visible nearby candle, amber face, low light, intimate deep shadows. Show that lighting unmistakably.",
+        "originalFilename": "exec-5422c115-cafd-4eda-a91a-cb3f2b321ba9.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "art",
+      "id": "modern-minimal",
+      "file": "art-modern-minimal.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman in an immaculate contemporary white architectural interior, restrained neutral tones, geometric clean forms, modern minimalist editorial cinema. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-ad5c77db-c00a-414e-a4fb-eb5f0931505c.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "art",
+      "id": "vintage",
+      "file": "art-vintage.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman waiting beside an old 1970s street tram, faded warm film colors, authentic subtle grain, retro cinematic composition. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-0d31992e-a185-45e8-a641-d7712edaf097.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "art",
+      "id": "film-noir",
+      "file": "art-film-noir.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A mysterious woman in a long coat under a streetlamp in a wet 1940s city alley, dramatic black and white high-contrast shadows, film noir. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-360aa75b-1799-49e4-85b9-8e9b24987f78.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "art",
+      "id": "cyberpunk",
+      "file": "art-cyberpunk.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman in a raincoat walks through a futuristic night street with cyan and magenta neon lighting, dense rainy reflections, cinematic cyberpunk. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-a903102b-ba14-435a-bfbd-488af9db3b29.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "art",
+      "id": "western",
+      "file": "art-western.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A lone traveler in a worn leather coat stands outside a frontier wooden town at dusty golden sunset, wide dry landscape, cinematic western. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-97412344-c376-4b6f-8c50-40bc04beab3b.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "art",
+      "id": "fantasy",
+      "file": "art-fantasy.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A cloaked traveler approaches an ancient luminous stone gate in a misty enchanted forest, believable cinematic fantasy, rich moss and magical blue light. Square composition suitable for a central art-style card.",
+        "originalFilename": "exec-03363158-9d20-42de-8231-6eaa40b2100f.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "action",
+      "file": "genre-action.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman running along a rooftop toward the camera with dramatic urban depth, dynamic action-film framing, no weapons, intense cinematic daylight. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-ca364e12-a6d6-471f-8627-c8f4e1637ac5.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "thriller",
+      "file": "genre-thriller.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman hesitates in an empty dim hotel corridor with a distant half-open door, suspenseful thriller atmosphere, tense symmetrical framing. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-920cd5bf-316e-4d2f-9613-2b76ad10d6ac.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "sci-fi",
+      "file": "genre-sci-fi.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman looks out from a futuristic orbital station at a large planet, convincing science-fiction cinema and cold metallic interior. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-a5399862-7386-4f51-a2e5-fa84d8b064be.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "romance",
+      "file": "genre-romance.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Two adults meet on a sunlit old-city bridge, gentle warm romantic film atmosphere, candid intimacy. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-ddbe3b4b-083e-435e-82ab-c9c2fc41cf95.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "comedy",
+      "file": "genre-comedy.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. Two adults in a bright cafe laugh as a small harmless flour spill covers the table, lighthearted colorful comedy film. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-57cb71c7-39ea-4e85-87f1-e42cda38079f.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "fantasy",
+      "file": "genre-fantasy.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A cloaked woman follows a luminous path toward a distant ancient castle in an enchanted valley, cinematic fantasy storytelling. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-591f2ce7-4420-40de-b7c9-d60bf4b04d77.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "documentary",
+      "file": "genre-documentary.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. An adult artisan carefully repairs a wooden chair in a real workshop, observational documentary photograph, natural window light, candid realism. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-4f387e76-02ea-43eb-aa20-81d63a126312.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "genre",
+      "id": "apocalypse",
+      "file": "genre-apocalypse.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A lone woman with a backpack walks through a deserted overgrown city avenue at dawn, atmospheric post-apocalyptic film, no gore. Square framing suitable for a genre carousel.",
+        "originalFilename": "exec-295f3e3e-491f-4f03-b4c2-610ad8f0b087.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "rhythm",
+      "id": "calm",
+      "file": "rhythm-calm.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A solitary woman quietly sits beside a still lakeside at dawn, balanced static composition and slow contemplative rhythm. Square image for a video pacing selector.",
+        "originalFilename": "exec-75976cc6-e1b4-40f5-9d91-334ab8ab80b3.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "rhythm",
+      "id": "dynamic",
+      "file": "rhythm-dynamic.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman runner on a bustling urban street, diagonals and controlled motion blur in the environment, energetic dynamic pacing. Square image for a video pacing selector.",
+        "originalFilename": "exec-599330d7-696b-410a-a56d-3501433c9af0.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "rhythm",
+      "id": "single-shot",
+      "file": "rhythm-single-shot.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A continuous view down a long market corridor with a woman walking away, uninterrupted spatial depth and one-take cinematic composition. Square image for a video pacing selector.",
+        "originalFilename": "exec-e7659c47-794e-460d-a417-470a424eb08f.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "rhythm",
+      "id": "montage",
+      "file": "rhythm-montage.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. One still photograph of a musician backstage surrounded by clearly separate mirrors reflecting different preparation moments, rhythmic concise storytelling, no grid or collage borders. Square image for a video pacing selector.",
+        "originalFilename": "exec-40f698ab-5b11-47d4-9645-4d659ff895d1.png"
+      },
+      "width": 768,
+      "height": 768
+    },
+    {
+      "category": "movement",
+      "id": "static",
+      "file": "movement-static.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman stands on a stone city plaza, locked-off stationary viewpoint, level horizon, crisp stable architectural lines. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-30c04593-405a-4d45-be82-24c7b4d696fc.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "tracking",
+      "file": "movement-tracking.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman runs beside the camera along a street, lateral tracking shot, subject sharp while side street environment has directional motion blur. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-5de4edeb-524b-45e0-871f-bf95dacb0236.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "dolly-in",
+      "file": "movement-dolly-in.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. View moving toward a woman at the far end of a long hallway, strong converging perspective and subtle forward motion clues around edges. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-85fc0834-ac1a-4e5a-b2fb-0611fb216267.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "dolly-out",
+      "file": "movement-dolly-out.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. View retreating from a woman in a doorway into a wider room, receding subject and expanding foreground space, cinematic pulling-away composition. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-be78a10a-a7af-4725-b83c-d31ea208b4a4.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "pan-left",
+      "file": "movement-pan-left.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman crosses a plaza toward the left, camera panning left, gentle rightward horizontal streaks in background, gaze and movement leading left. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-353982c2-1019-4fcf-a3de-30caafbc325d.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "pan-right",
+      "file": "movement-pan-right.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman crosses a plaza toward the right, camera panning right, gentle leftward horizontal streaks in background, gaze and movement leading right. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-37d887ab-c518-4972-8c3d-df331bfae313.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "orbit",
+      "file": "movement-orbit.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman stands at the center of a circular plaza, three-quarter view and curved background motion trails suggesting an orbit around the subject. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-8261a58d-d0eb-4959-8448-ecabb7c18cfe.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "movement",
+      "id": "handheld",
+      "file": "movement-handheld.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A candid woman navigating a crowded market, slightly off-level intimate documentary viewpoint and subtle natural handheld motion, realistic photograph. No graphic arrows, this is a photographic hint rather than a trajectory diagram.",
+        "originalFilename": "exec-38e5091c-5a7c-444d-badc-caa184c39d47.png"
+      },
+      "width": 768,
+      "height": 432
+    },
+    {
+      "category": "auto",
+      "id": "auto",
+      "file": "auto.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: product-mockup. Asset type: Cinema Studio selection thumbnail. One photorealistic studio product render, centered complete object occupying 65 percent of a square canvas, three-quarter view, charcoal seamless background (#242427), restrained studio softbox highlights, realistic textured metal and glass. No logos, brand names, added typography, watermarks, frame or UI. A simple complete neutral cinema camera and lens in a clean balanced studio product photograph, generic automatic Cinema option.",
+        "originalFilename": "exec-cd44df01-9687-400c-97aa-f87c7b182430.png"
+      },
+      "width": 512,
+      "height": 512
+    },
+    {
+      "category": "preview",
+      "id": "preview",
+      "file": "preview.webp",
+      "source": {
+        "kind": "generated",
+        "tool": "built-in image_gen",
+        "date": "2026-10-09",
+        "prompt": "Use case: photorealistic-natural. Asset type: Cinema Studio scene selection card. One cinematic photograph, widescreen composition, rich realistic detail, no words, labels, logos, watermark, frame or UI. A woman in an ivory coat stands on a quiet cobbled European plaza with a pale stone archway and cafe behind, overcast natural light, carefully balanced neutral color science, medium-wide full-body composition, atmospheric professional film still, 16:9 composition.",
+        "originalFilename": "exec-e7437c0f-9145-4a1e-a96e-4375ad08483f.png"
+      },
+      "width": 1280,
+      "height": 720
+    }
+  ]
+}

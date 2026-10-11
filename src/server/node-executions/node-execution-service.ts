@@ -1,4 +1,6 @@
 import { Prisma } from "@prisma/client";
+import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
+import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { randomUUID } from "node:crypto";
 import {
@@ -762,6 +764,7 @@ export function createNodeExecutionService(
         prompt: string;
         modelKey: string | null;
         parameters: Record<string, unknown>;
+        cinema?: CinemaSettings;
         promptPreset?: import("@/shared/prompt-presets/prompt-preset-contract").PromptPresetRef;
         outputMode?: AssistantOutputMode;
       };
@@ -873,6 +876,14 @@ export function createNodeExecutionService(
         throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { reason: "PRESET_TEXT_INPUT_ONLY" });
       }
       const assetInputs = inputSnapshot(resolved);
+      const prepareCinema = async (media: "image" | "video", candidate: Record<string, unknown>) => {
+        try { return await prepareCinemaSubmission(media, { ...candidate, ...(config.cinema ? { cinema: config.cinema } : {}) }, { resolvedPrompt: resolved.prompt ?? undefined }); }
+        catch (error) {
+          const code = cinemaSubmissionError(error);
+          if (code) throw new NodeExecutionConfigError({ cinema: [code] });
+          throw error;
+        }
+      };
       dependencies.assertStorage(mediaType);
 
       // Node Studio runs share the generation queue budget, so a burst of
@@ -939,8 +950,9 @@ export function createNodeExecutionService(
           return result;
         };
         const sourceHash = hashSubmissionPayload({ prompt, model: config.modelKey, parameters: config.parameters,
-          promptPreset: config.promptPreset, assets: assetInputs });
+          promptPreset: config.promptPreset, assets: assetInputs, ...(config.cinema ? { cinema: config.cinema, cinemaMappingVersion: CINEMA_MAPPING_VERSION } : {}) });
         let frozen: Record<string, unknown> | null = null;
+        let cinema: CinemaSnapshot | undefined;
         let repeatCount = (parsedConfig.data as { repeatCount?: number }).repeatCount ?? 1;
         if (input.repeatOfExecutionId) {
           const root = await dependencies.repository.getRepeatSnapshot(ownerEmail, graphId, nodeId, input.repeatOfExecutionId);
@@ -953,15 +965,22 @@ export function createNodeExecutionService(
           repeatCount = Number(snapshot.repeatCount);
           frozen = recordObject(snapshot.payload);
           if (!Object.keys(frozen).length) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
+          if (config.cinema) {
+            const parsedCinema = cinemaSnapshotSchema.safeParse(recordObject(root.requestParams).cinema);
+            if (!parsedCinema.success) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
+            cinema = parsedCinema.data;
+          }
         }
-        const validated = await dependencies.validateImage(frozen ? { ...frozen, initImages, fileInputs } : candidate);
+        const prepared = frozen ? { payload: { ...frozen, initImages, fileInputs }, cinema } : await prepareCinema("image", candidate);
+        cinema = prepared.cinema;
+        const validated = await dependencies.validateImage(prepared.payload);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const normalized = withoutFiles(validated.data as unknown as Record<string, unknown>);
         if (frozen && hashSubmissionPayload(normalized) !== hashSubmissionPayload(frozen)) {
           throw new NodeExecutionConfigError({ repeat: ["REPEAT_MODEL_CONTRACT_CHANGED"] });
         }
         const submission = await submitAdmitted(
-          { payload: normalized, assets: assetInputs, repeatOfExecutionId: input.repeatOfExecutionId, repeatIndex: input.repeatIndex },
+          { payload: normalized, assets: assetInputs, repeatOfExecutionId: input.repeatOfExecutionId, repeatIndex: input.repeatIndex, ...(cinema ? { cinema } : {}) },
           (requestId) => dependencies.submitImage({
             payload: validated.data,
             ownerEmail,
@@ -971,6 +990,7 @@ export function createNodeExecutionService(
               ...validated.data,
               initImages: [],
               nodeRepeat: { graphId, sourceHash, repeatCount, payload: normalized },
+              ...(cinema ? { cinema } : {}),
               inputAssets: assetInputs,
               graphId,
               graphNodeId: node.id,
@@ -987,10 +1007,11 @@ export function createNodeExecutionService(
         const initImage = resolved.assets.find((asset) => asset.portId === "initImage")?.url ?? "";
         const candidate = { ...config.parameters, prompt, model: config.modelKey, initImage, fileInputs,
           ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
-        const validated = await dependencies.validateVideo(candidate);
+        const prepared = await prepareCinema("video", candidate);
+        const validated = await dependencies.validateVideo(prepared.payload);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const submission = await submitAdmitted(
-          validated.data,
+          prepared.cinema ? { payload: validated.data, cinema: prepared.cinema } : validated.data,
           (requestId) => dependencies.submitVideo({
             payload: validated.data,
             ownerEmail,
@@ -999,6 +1020,7 @@ export function createNodeExecutionService(
             requestSnapshot: jsonRecord({
               ...validated.data,
               initImage: null,
+              ...(prepared.cinema ? { cinema: prepared.cinema } : {}),
               inputAssets: assetInputs,
               graphId,
               graphNodeId: node.id,

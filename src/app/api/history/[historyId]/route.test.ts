@@ -5,7 +5,22 @@ vi.mock("@/server/db/prisma",()=>({prisma:{imageGeneration:{findFirst:mocks.find
 vi.mock("@/server/history/delete-history-files",()=>({deleteHistoryFiles:mocks.files}));
 vi.mock("@/server/http/safe-remote",()=>({requestRemoteStream:mocks.remote}));
 import {GET, DELETE} from "./route";
+import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 const context={params:Promise.resolve({historyId:"request-1"})};
+it("returns only the owned authoring projection without downloading media or exposing the full snapshot", async () => {
+ const cinema = composeCinemaPrompt("source", { ...defaultCinemaSettings(), lighting: "window" }, "image");
+ mocks.find.mockResolvedValue({id:"record-1",prompt:cinema.finalPrompt,modelKey:"model",requestParams:{cinema,executionModel:{providerConfig:{token:"PRIVATE"}},inputAssets:[{assetId:"input"}]},images:[]});
+ const response = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
+ expect(response.status).toBe(200);
+ expect(await response.json()).toEqual({cinema,prompt:cinema.finalPrompt,model:"model"});
+ expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{requestId:"request-1",ownerEmail:"owner@example.com"}}));
+ expect(mocks.remote).not.toHaveBeenCalled();
+ mocks.find.mockResolvedValue(null);
+ expect((await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context)).status).toBe(404);
+ mocks.session.mockResolvedValue({isLoggedIn:false});
+ expect((await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context)).status).toBe(401);
+});
 beforeEach(()=>{vi.clearAllMocks();mocks.session.mockResolvedValue({isLoggedIn:true,adminEmail:"owner@example.com"});});
 afterEach(()=>vi.unstubAllGlobals());
 it("streams the owned original as an attachment and rejects unknown owners",async()=>{
