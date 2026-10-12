@@ -30,8 +30,11 @@ export const GET = withRequestObservability(
         queue,
         workers: getWorkerSupervisorState(),
       });
-    } catch {
+    } catch (error) {
+      logSafeError("health.metrics.failed", error, {phase:"metrics.read"});
       return buildErrorResponse("HEALTH_METRICS_UNAVAILABLE", 503);
     }
   },
 );
+
+import { logSafeError } from "@/server/observability/request-observability";

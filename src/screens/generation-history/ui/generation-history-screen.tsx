@@ -70,7 +70,7 @@ function buildHistoryGenerationUrl(
   options: { includeImageReference?: boolean } = {},
 ) {
   const params = new URLSearchParams();
-  if (item.origin !== "edit" && item.type !== "audio" && target === `/${item.type}`) params.set("historyId", item.id);
+  if (item.origin !== "edit" && target === `/${item.type}`) params.set("historyId", item.id);
   const prompt = item.prompt.trim();
   if (prompt) params.set("prompt", prompt);
   const model = item.model?.trim();
@@ -740,11 +740,15 @@ function HistoryDetailOverlay({
                 <Video className="h-4 w-4" />
                 {tActions("video")}
               </AppButton>
-              {hydratedItem.resultUrl ? (
+              {hydratedItem.status === "completed" && hydratedItem.resultUrl ? (
                 <AppButton asChild variant="surface" className="h-11 rounded-xl">
                   <a href={historyEndpoint} download aria-label={tActions("download")}><Download className="h-4 w-4" />{tActions("download")}</a>
                 </AppButton>
-              ) : null}
+              ) : (
+                <AppButton type="button" disabled variant="surface" className="h-11 rounded-xl disabled:cursor-not-allowed disabled:opacity-45" aria-label={tActions("download")}>
+                  <Download className="h-4 w-4" />{tActions("download")}
+                </AppButton>
+              )}
               <AppButton
                 type="button"
                 variant="surface"

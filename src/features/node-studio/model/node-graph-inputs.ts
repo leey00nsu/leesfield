@@ -1,3 +1,4 @@
+import { orderedFileSources, parseFileInputPort } from "@/shared/model-catalog/file-input-ports";
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
 import type { AssistantResults } from "@/shared/generation-graph/assistant-output";
@@ -91,4 +92,17 @@ function resolveInputAssetIds(
     const assetId = record(source.data.config).assetId;
     return typeof assetId === "string" ? [assetId] : [];
   });
+}
+
+/** Positional file slots keep empty indices distinct from ordered ordinary references. */
+export function resolveNodeInputAssetSlots(graph:NodeBananaRuntimeGraph,nodeId:string,port:string): (string|null)[] {
+  const entries=graph.edges.filter(edge=>edge.target===nodeId&&(edge.data?.targetPortId===port||edge.targetHandle===port))
+    .flatMap(edge=>resolveNodeInputAssetIds({...graph,edges:[edge,...graph.edges.filter(item=>item.target!==nodeId)]},nodeId,port)
+      .map((url,index)=>({url,sortOrder:Number(edge.data?.sortOrder??0)+index})));
+  const config=graph.nodes.find(node=>node.id===nodeId)?.data.config;
+  const authored=config && typeof config==="object" && !Array.isArray(config) ? config as Record<string,unknown> : {};
+  const parameters=authored.parameters as {dynamicParams?:Record<string,unknown>}|undefined;
+  const name=parseFileInputPort(port)?.name;
+  const marker=name?parameters?.dynamicParams?.[name]:undefined;
+  return orderedFileSources(entries,Array.isArray(marker)?marker.length:0);
 }

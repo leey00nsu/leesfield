@@ -5,6 +5,17 @@ import { GenerationModelSection } from "@/shared/ui/generation-model-section";
 import { renderWithIntl } from "@/test-utils/intl";
 
 describe("GenerationModelSection", () => {
+  it("shows all actual modes and supplemental audio without inventing T2V or A2V",async()=>{
+    const user=userEvent.setup();
+    renderWithIntl(<GenerationModelSection modality="video" items={[{id:"minimax",name:"MiniMax H3",vendor:"Modal",modalities:["I2V","V2V"],audioReference:true}]} activeId="minimax" onSelect={vi.fn()}/>);
+    await user.click(screen.getByRole("button",{name:/MiniMax H3/}));
+    expect(screen.getByText("I2V")).toBeInTheDocument();
+    expect(screen.getByText("V2V")).toBeInTheDocument();
+    expect(screen.getByText("오디오 참조 지원")).toBeInTheDocument();
+    expect(screen.queryByText("T2V")).toBeNull();
+    expect(screen.queryByText("A2V")).toBeNull();
+  });
+
   it("opens a searchable model picker with simplified model rows", async () => {
     const user = userEvent.setup();
 

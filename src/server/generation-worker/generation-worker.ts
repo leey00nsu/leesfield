@@ -1,6 +1,7 @@
+import { withLogContext } from "@/server/observability/logger";
 import { restoreRequest, frozenExecutionModel } from '@/server/generation-request/request-snapshot';
 import { inputAssetRefsFromSnapshot } from '@/server/generation-request/generation-input-assets';
-import {fileInputsFromAssets,parseFileInputPort} from '@/shared/model-catalog/file-input-ports';
+import {orderedFileSources,fileInputsFromAssets,parseFileInputPort} from '@/shared/model-catalog/file-input-ports';
 import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
 import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";
@@ -43,7 +44,7 @@ import {
   type ClaimedGeneration,
 } from "@/server/generation-worker/execution-lease";
 import { recordWorkerFailure } from "@/server/observability/metrics";
-import { logStructured } from "@/server/observability/request-observability";
+import { logSafeError } from "@/server/observability/request-observability";
 
 const WORKER_INTERVAL_MS = 2000;
 export const GENERATION_WORKER_DRAIN_TIMEOUT_MS = 25_000;
@@ -67,12 +68,12 @@ function recordGenerationFailure(
   error: unknown,
 ) {
   recordWorkerFailure(`generation.${mediaType}`);
-  logStructured("job.failure", {
+  logSafeError("job.failure", error, {
     worker: "generation",
     jobId,
     kind: mediaType,
-    errorType: error instanceof Error ? error.name : typeof error,
-  }, "error");
+
+  });
 }
 
 type WorkerGlobal = typeof globalThis & {
@@ -219,7 +220,7 @@ async function hydrateRequestInputAssets(
           ? result.dynamicParams as Record<string, unknown>
           : {}),
       };
-      dynamic[key] = values[0]?.ref.multiple ? urls : urls[0] ?? "";
+      dynamic[key] = values[0]?.ref.multiple ? orderedFileSources(values.map(item=>({url:item.url,sortOrder:item.ref.sortOrder})),Array.isArray(dynamic[key])?(dynamic[key] as unknown[]).length:0) : urls[0] ?? "";
       result.dynamicParams = dynamic;
     }
   }
@@ -499,7 +500,7 @@ function scheduleGenerationJob(
     if (inFlightGenerationJobs.get(key) !== execution) return;
     inFlightGenerationJobs.delete(key);
     if (refill) {
-      void refill().catch(() => undefined);
+      void refill().catch(error => logSafeError("worker.refill.failed",error,{worker:"generation",phase:"worker.refill"}));
     }
   };
   execution.then(settle, settle);
@@ -510,6 +511,7 @@ async function handleImageRecord(
   record: ClaimedGeneration,
   runtime: ImageRuntimeState,
 ) {
+  return withLogContext({requestId:record.requestId, jobId:record.id, modelKey:record.modelKey ?? undefined, kind:"image", worker:"generation"}, async () => {
   const lease = requireGenerationLease(record, "image", record.id);
   const monitor = startGenerationLeaseMonitor("image", record.id, lease);
   try {
@@ -519,6 +521,7 @@ async function handleImageRecord(
       payload = await buildImagePayload(record, runtime);
     } catch (error) {
       if (isGenerationLeaseLost(error)) return;
+      logSafeError("generation.input.failed", error, {requestId: record.requestId, jobId:record.id, kind:"image", phase:"input.resolve"});
       await updateImageGenerationStatus(
         record.id,
         "failed",
@@ -534,6 +537,7 @@ async function handleImageRecord(
       ? await validateImageGenerationPayload(payload, undefined, executionModel)
       : await validateImageGenerationPayload(payload);
     if (!parsed.success) {
+      logSafeError("generation.validation.failed", parsed.error, {phase:"input.validate"});
       await updateImageGenerationStatus(
         record.id,
         "failed",
@@ -591,7 +595,7 @@ async function handleImageRecord(
     if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
     recordGenerationFailure("image", record.id, error);
-    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(error => logSafeError("cleanup.release.failed",error,{phase:"storage.cleanup_release"}));
     if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("image", record.id, lease)) return;
 
     try {
@@ -609,12 +613,14 @@ async function handleImageRecord(
   } finally {
     monitor.stop();
   }
+  });
 }
 
 async function handleVideoRecord(
   record: ClaimedGeneration,
   runtime: VideoRuntimeState,
 ) {
+  return withLogContext({requestId:record.requestId, jobId:record.id, modelKey:record.modelKey ?? undefined, kind:"video", worker:"generation"}, async () => {
   const lease = requireGenerationLease(record, "video", record.id);
   const monitor = startGenerationLeaseMonitor("video", record.id, lease);
   try {
@@ -624,6 +630,7 @@ async function handleVideoRecord(
       payload = await buildVideoPayload(record, runtime);
     } catch (error) {
       if (isGenerationLeaseLost(error)) return;
+      logSafeError("generation.input.failed", error, {requestId: record.requestId, jobId:record.id, kind:"video", phase:"input.resolve"});
       await updateVideoGenerationStatus(
         record.id,
         "failed",
@@ -639,6 +646,7 @@ async function handleVideoRecord(
       ? await validateVideoGenerationPayload(payload, undefined, executionModel)
       : await validateVideoGenerationPayload(payload);
     if (!parsed.success) {
+      logSafeError("generation.validation.failed", parsed.error, {phase:"input.validate"});
       await updateVideoGenerationStatus(
         record.id,
         "failed",
@@ -707,7 +715,7 @@ async function handleVideoRecord(
     if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
     recordGenerationFailure("video", record.id, error);
-    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(error => logSafeError("cleanup.release.failed",error,{phase:"storage.cleanup_release"}));
     if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("video", record.id, lease)) return;
     try {
       await updateVideoGenerationStatus(
@@ -724,12 +732,14 @@ async function handleVideoRecord(
   } finally {
     monitor.stop();
   }
+  });
 }
 
 async function handleAudioRecord(
   record: ClaimedGeneration,
   runtime: AudioRuntimeState,
 ) {
+  return withLogContext({requestId:record.requestId, jobId:record.id, modelKey:record.modelKey ?? undefined, kind:"audio", worker:"generation"}, async () => {
   const lease = requireGenerationLease(record, "audio", record.id);
   const monitor = startGenerationLeaseMonitor("audio", record.id, lease);
   try {
@@ -737,6 +747,7 @@ async function handleAudioRecord(
     const payload = await buildAudioPayload(record, runtime);
     const parsed = await validateAudioGenerationPayload(payload);
     if (!parsed.success) {
+      logSafeError("generation.validation.failed", parsed.error, {phase:"input.validate"});
       await updateAudioGenerationStatus(
         record.id,
         "failed",
@@ -802,7 +813,7 @@ async function handleAudioRecord(
     if (isMissingGenerationRecord(error) || isGenerationLeaseLost(error)) return;
     if (error instanceof NodeExecutionCancelledError) return;
     recordGenerationFailure("audio", record.id, error);
-    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(() => undefined);
+    await releaseStorageCleanupsForRequest(undefined, record.requestId).catch(error => logSafeError("cleanup.release.failed",error,{phase:"storage.cleanup_release"}));
     if (record.graphNodeId && await nodeExecutionRepository.settleCancelledIfRequested("audio", record.id, lease)) return;
     try {
       await updateAudioGenerationStatus(
@@ -819,6 +830,7 @@ async function handleAudioRecord(
   } finally {
     monitor.stop();
   }
+  });
 }
 
 export async function processImageJobs({
@@ -1013,10 +1025,10 @@ export function startGenerationWorker() {
       await pumpGenerationJobs();
     } catch (error) {
       recordWorkerFailure("generation.pass");
-      logStructured("worker.pass.failure", {
+      logSafeError("worker.pass.failure", error, {
         worker: "generation",
-        errorType: error instanceof Error ? error.name : typeof error,
-      }, "error");
+      phase: "worker.pass",
+      });
     } finally {
       globalForWorker.__generationWorkerRunning = false;
     }

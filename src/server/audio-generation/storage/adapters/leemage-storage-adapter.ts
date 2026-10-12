@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
@@ -193,6 +194,7 @@ async function uploadGeneratedAudios(
       })),
     };
   } catch (error) {
+    logSafeError("storage.upload.failed", error, { requestId, kind: "audio", provider: "leemage", phase: "storage.upload" });
     return {
       status: "completed",
       result: buildResultFromDataUrls(payload, dataUrls, meta),

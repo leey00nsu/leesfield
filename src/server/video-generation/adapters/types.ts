@@ -1,7 +1,8 @@
+import type { MediaOutput } from "@/server/media-assets/binary-media-output";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 
 export type VideoGenerationAdapterResult = {
-  videos: string[];
+  videos: MediaOutput[];
   meta?: {
     width?: number;
     height?: number;

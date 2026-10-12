@@ -1,7 +1,11 @@
 "use client";
+
+import { resolveGenerationCapabilities } from "@/shared/model-catalog/modality";
+import type { RuntimeImageModel, RuntimeVideoModel, RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
+import { logger } from "@/shared/logging/logger.mjs";
 import { ModalWorkflowImport } from "@/features/model-management/ui/modal-workflow-import";
 import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
-import { ModelImageInputLimits } from "./model-image-input-limits";
+import { ModelReferenceInputLimits } from "./model-image-input-limits";
 import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { ModelFilterGroup } from "@/features/model-management/ui/model-filter-group";
@@ -307,6 +311,7 @@ function toCatalogItem(record: AdminModelRecord): ModelCatalogItem {
     isDefault: record.isDefault,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    ...(record.type !== "llm" ? resolveGenerationCapabilities(record as unknown as RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel) : {}),
   };
   const meta = record.meta ?? {};
 
@@ -676,7 +681,7 @@ export function ModelManagementScreen() {
       await loadModels();
       setDialogOpen(false);
     } catch (error) {
-      console.error("[model-management] save failed", error);
+      logger.error("model-management.save.failed", error);
       setSaveError(tAdmin("errors.save"));
     } finally {
       setIsSaving(false);
@@ -716,7 +721,7 @@ export function ModelManagementScreen() {
     try {
       await deletePromise;
     } catch (error) {
-      console.error("[model-management] delete failed", error);
+      logger.error("model-management.delete.failed", error);
       setDeleteError(
         error instanceof Error ? error.message : tAdmin("errors.delete"),
       );
@@ -784,7 +789,7 @@ export function ModelManagementScreen() {
       }
       setImportWarnings(Array.isArray(data.warnings) ? data.warnings : []);
     } catch (error) {
-      console.error("[model-management] import failed", error);
+      logger.error("model-management.import.failed", error);
       setImportError(tAdmin("import.errors.failed"));
     } finally {
       setIsImporting(false);
@@ -1126,7 +1131,7 @@ export function ModelManagementScreen() {
                 </p> : null}
               </AppFormField>
             </div> : <>
-            <ModelImageInputLimits type={draft.type} providerConfigText={draft.providerConfigText}
+            <ModelReferenceInputLimits type={draft.type} providerConfigText={draft.providerConfigText}
               parametersText={draft.parametersText} metaText={draft.metaText} onChange={updateDraft}/>
             <AppFormField>
               <AppLabel>{tAdmin("fields.providerConfig")}</AppLabel>

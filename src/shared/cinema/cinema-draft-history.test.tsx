@@ -4,6 +4,10 @@ import { useCinemaDraft } from "./use-cinema-draft";
 import { useCinemaHistoryRestore } from "./use-cinema-history-restore";
 import { defaultCinemaSettings } from "./cinema-contract";
 import { composeCinemaPrompt } from "./cinema-prompt";
+import { historyReferenceUpdates } from "@/shared/generation/history-references";
+import { historyOptionUpdates } from "@/shared/generation/history-options";
+import type { RuntimeImageModel } from "@/shared/model-catalog/runtime-utils";
+import { runtimeImageModelsFixture, runtimeVideoModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 beforeEach(() => { localStorage.clear(); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -59,6 +63,39 @@ it("ignores a late history response after a user edit", async () => {
   expect(restore).not.toHaveBeenCalled();
   expect(hook.result.current.draft.settings).toBeUndefined();
 });
+it("rejects unknown/range/file options and preserves explicit zero/false with current contracts",async()=>{
+ const {multiImageAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+ const model:RuntimeImageModel={...multiImageAttachmentModel,parameters:{...multiImageAttachmentModel.parameters,width:{default:512,min:256,max:1024,step:64,binding:{source:"hf_space",parameterName:"width",kind:"number",valueType:"number",schema:{type:"integer"},order:2}},seed:{binding:{source:"hf_space",parameterName:"seed",kind:"number",valueType:"number",schema:{type:"integer"},order:3}},enabled:{binding:{source:"hf_space",parameterName:"enabled",kind:"boolean",valueType:"boolean",schema:{type:"boolean"},order:4}}}};
+ expect(historyOptionUpdates([{field:"dynamicParams.width",value:768},{field:"dynamicParams.seed",value:0},{field:"dynamicParams.enabled",value:false}],model)).toEqual({"dynamicParams.width":768,"dynamicParams.seed":0,"dynamicParams.enabled":false});
+ expect(()=>historyOptionUpdates([{field:"dynamicParams.width",value:2048}],model)).toThrow();
+ expect(()=>historyOptionUpdates([{field:"dynamicParams.references",value:["image"]}],model)).toThrow();
+ expect(()=>historyOptionUpdates([{field:"dynamicParams.unknown",value:1}],model)).toThrow();
+ const legacy=runtimeImageModelsFixture.find(m=>m.key==="flux2-klein-9b")!;
+ expect(historyOptionUpdates([{field:"seed",value:0},{field:"promptUpsampling",value:false}],legacy)).toEqual({seed:"0",promptUpsampling:false});
+});
+it("restores ordered reference fields once before source text and keeps the draft on incompatible inputs",async()=>{
+ const references=[{field:"initImages",media:"image",multiple:true,urls:["https://example.com/a.png","https://example.com/b.png"]}];
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({cinema:saved,prompt:saved.finalPrompt,model:"model",references}))));
+ const files=vi.fn(); const prompt=vi.fn();
+ const hook=renderHook(()=>{const draft=useCinemaDraft("image");return useCinemaHistoryRestore({historyId:"h",media:"image",ready:draft.ready,revision:draft.revision,change:draft.change,restoreInputs:files,restorePrompt:prompt});});
+ await waitFor(()=>expect(files).toHaveBeenCalledWith({references,options:[]}));
+ expect(prompt).toHaveBeenCalledWith(saved.sourcePrompt);
+ expect(files.mock.invocationCallOrder[0]).toBeLessThan(prompt.mock.invocationCallOrder[0]);
+ expect(files).toHaveBeenCalledTimes(1);hook.unmount();
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({cinema:saved,prompt:saved.finalPrompt,model:"model",references}))));
+ const fail=vi.fn(()=>{throw new Error("incompatible");}); const untouched=vi.fn();
+ const second=renderHook(()=>{const draft=useCinemaDraft("image");return useCinemaHistoryRestore({historyId:"other",media:"image",ready:draft.ready,revision:draft.revision,change:draft.change,restoreInputs:fail,restorePrompt:untouched});});
+ await waitFor(()=>expect(second.result.current.error).toBe(true));expect(untouched).not.toHaveBeenCalled();
+});
+it("validates current file limits and keeps mapped field identity and order",()=>{
+ const model={...runtimeVideoModelsFixture[0],parameters:{},providerConfig:{gradio_contract:{version:1,apiName:"/generate",inputs:[{name:"first_frame",label:"First",kind:"file",media:"image",schema:{},required:false,nullable:true},{name:"reference_images",label:"References",kind:"files",media:"image",schema:{maxItems:2},required:false,nullable:true}],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true}}};
+ const ref={field:"dynamicParams.reference_images",media:"image" as const,multiple:true,urls:["a","b"]};
+ expect(historyReferenceUpdates([ref],model)).toEqual({"dynamicParams.reference_images":["a","b"]});
+ expect(()=>historyReferenceUpdates([{...ref,urls:["a","b","c"]}],model)).toThrow();
+ expect(()=>historyReferenceUpdates([{...ref,field:"initImage"}],model)).toThrow();
+ expect(()=>historyReferenceUpdates([{...ref,field:"dynamicParams.unknown"}],model)).toThrow();
+ expect(historyReferenceUpdates([{...ref,field:"initImages"}],{...runtimeImageModelsFixture[0],meta:{max_input_images:2}})).toEqual({initImages:["a","b"]});
+});
 it.each(["deleted", "owner", "unsupported"])("keeps the existing draft on %s history failure", async kind => {
   localStorage.setItem("leesfield:cinema:image:v1", JSON.stringify({ draftVersion: 1, settings: selected }));
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(kind === "unsupported" ? new Response(JSON.stringify({ cinema: { ...saved, mappingVersion: 99 }, prompt: saved.finalPrompt, model: "model" })) : new Response(null, { status: kind === "owner" ? 401 : 404 })));
@@ -67,4 +104,11 @@ it.each(["deleted", "owner", "unsupported"])("keeps the existing draft on %s his
   await waitFor(() => expect(hook.result.current.history.error).toBe(true));
   expect(restore).not.toHaveBeenCalled();
   expect(hook.result.current.draft.settings).toEqual(selected);
+});
+
+it("restores positional null audio references and rejects null in ordinary image references",()=>{
+ const model={...runtimeVideoModelsFixture[0],parameters:{},providerConfig:{gradio_contract:{version:1,apiName:"/generate",inputs:[{name:"tracks",label:"Tracks",kind:"files",media:"audio",schema:{type:"array",maxItems:3,items:{anyOf:[{type:"string"},{type:"null"}]}},required:false,nullable:false}],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true}}};
+ const ref={field:"dynamicParams.tracks",media:"audio" as const,multiple:true,urls:[null,"https://cdn/second.wav",null]};
+ expect(historyReferenceUpdates([ref],model)).toEqual({"dynamicParams.tracks":ref.urls});
+ expect(()=>historyReferenceUpdates([{field:"initImages",media:"image",multiple:true,urls:[null,"a"]}],{...runtimeImageModelsFixture[0],meta:{max_input_images:2}})).toThrow();
 });

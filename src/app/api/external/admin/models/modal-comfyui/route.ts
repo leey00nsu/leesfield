@@ -10,16 +10,24 @@ function failure(error: unknown) {
   const code = error instanceof ModalApiError && (safeCodes.has(error.code) || /^MODAL_HTTP_[1-5][0-9]{2}$/.test(error.code)) ? error.code : "MODAL_CONTRACT_INVALID";
   return buildErrorResponse(code, 400);
 }
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   return withExternalModelAdmin(request, async () => {
-    try { return externalAdminModalListSchema.parse(await listModalAdminWorkflows()); } catch (error) { return failure(error); }
+    try { return externalAdminModalListSchema.parse(await listModalAdminWorkflows()); } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"}); return failure(error); }
   });
 }
-export async function POST(request: Request) {
+async function postObservedHandler(request: Request) {
   return withExternalModelAdmin(request, async (body) => {
     try {
       const result = await importModalAdminWorkflow(body);
       return externalAdminModalImportResponseSchema.parse({ draft: projectExternalModelDraft(result.draft) });
-    } catch (error) { return failure(error); }
+    } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"}); return failure(error); }
   }, { body: true });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/external/admin/models/modal-comfyui", getObservedHandler);
+export const POST = withRequestObservability("/api/external/admin/models/modal-comfyui", postObservedHandler);
+
+import { logSafeError } from "@/server/observability/request-observability";

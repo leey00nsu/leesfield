@@ -1,6 +1,8 @@
 
 import { describe, expect, it } from "vitest";
-import { gradioFormError, gradioFormMessage } from "./gradio-form-validation";
+import { gradioFormError, gradioFormMessage, gradioFieldLabel } from "./gradio-form-validation";
+import { fileFieldMaxItems } from "./gradio-contract";
+import { declaredFileCount } from "./file-input-limits";
 import type { GradioContract } from "./gradio-contract";
 import { modalInputContract } from "./modal-comfyui-contract";
 const contract: GradioContract = {
@@ -14,6 +16,28 @@ const contract: GradioContract = {
  ],
 };
 describe("generation readiness", () => {
+ it("uses media and role metadata for localized labels while preserving unfamiliar roles",()=>{
+  const image={...contract.inputs[1],media:"image" as const,label:"References (optional, up to 6)",kind:"files" as const};
+  expect(gradioFieldLabel(image,"ko")).toBe("참조 이미지");
+  expect(gradioFieldLabel({...image,name:"another_provider_field"},"en")).toBe("Reference images");
+  expect(gradioFieldLabel({...image,label:"First frame"},"ko")).toBe("시작 프레임");
+  expect(gradioFieldLabel({...image,label:"First frame",schema:{"x-input-role":"end_frame"}},"en")).toBe("End frame");
+  expect(gradioFieldLabel({...image,label:"Character identity (optional)"},"ko")).toBe("참조 이미지 · Character identity");
+  expect(gradioFieldLabel({...image,name:"reference_video_audios",media:"audio",label:"reference_video_audios"},"ko")).toBe("영상별 오디오");
+  expect(image.label).toBe("References (optional, up to 6)");
+ });
+ it("honors structural limits first and reads only explicit bounded file-count declarations",()=>{
+  const field={...contract.inputs[1],kind:"files" as const,label:"References (optional, up to 6)"};
+  expect(fileFieldMaxItems(field)).toBe(6);
+  expect(fileFieldMaxItems({...field,schema:{maxItems:9}})).toBe(9);
+  expect(fileFieldMaxItems({...field,label:"Edited label",fileLimit:6})).toBe(6);
+  expect(fileFieldMaxItems({...field,kind:"file"})).toBe(1);
+  expect(declaredFileCount("Upload (up to 3 videos)")).toBe(3);
+  for(const label of ["720p 6 seconds", "6 MB", "Model 6", "Images (optional, up to 0)", "Images (up to 65)", "Images (up to 9007199254740993)"]){
+   expect(declaredFileCount(label)).toBeUndefined();
+   expect(fileFieldMaxItems({...field,label})).toBe(8);
+  }
+ });
  it("accepts promptless Modal while preserving required values and declared empty semantics", () => {
   const empty={type:"object",properties:{},required:[],additionalProperties:false};
   const promptless=modalInputContract({id:"seed-only",name:"Seed only",category:"image",output_media:["image"],input_schema:{...empty,properties:{seed:{type:"integer",default:0}}},advanced_schema:empty});
@@ -26,8 +50,8 @@ describe("generation readiness", () => {
   const values={prompt: "hello", dynamicParams: {count: 0, flag: false}};
   const error=gradioFormError(contract,values)!;
   expect(error).toBe("HF_CONTRACT_REQUIRED:in_1");
-  expect(gradioFormMessage(error,contract,"ko")).toBe("First Frame: 필수 입력입니다.");
-  expect(gradioFormMessage(error,contract,"en")).toBe("First Frame: This field is required.");
+  expect(gradioFormMessage(error,contract,"ko")).toBe("참조 파일 · First Frame: 필수 입력입니다.");
+  expect(gradioFormMessage(error,contract,"en")).toBe("Reference files · First Frame: This field is required.");
   expect(gradioFormError(contract,{...values,dynamicParams:{...values.dynamicParams,in_1:"https://example.com/frame.png"}})).toBeNull();
  });
  it("rejects blank prompt, wrong values and unsupported mappings", () => {

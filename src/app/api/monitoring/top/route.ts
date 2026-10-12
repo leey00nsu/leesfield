@@ -8,7 +8,7 @@ import {
 } from "@/server/monitoring/monitoring-query";
 import { getMonitoringTop } from "@/server/monitoring/top";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -36,10 +36,10 @@ async function getHandler(request: Request) {
       },
     });
   } catch (error) {
-    logStructured("monitoring.query.failure", {
+    logSafeError("monitoring.query.failure", error, {
       kind: "top",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+
+    });
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },

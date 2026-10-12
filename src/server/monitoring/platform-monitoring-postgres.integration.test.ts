@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { beforeAll, afterAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
+import { withLogContext } from "@/server/observability/logger";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { hashApiKey } from "@/server/api-key/lib/api-key-service";
@@ -62,5 +63,21 @@ describe.skipIf(!postgresIntegrationEnabled)("platform monitoring owner SQL boun
     expect(await (await overview(request("", adminToken))).json()).toMatchObject({ totalCount: 3 });
     expect(await (await overview(request("scope=all", adminToken))).json()).toMatchObject({ totalCount: 6, avgLatencyMs: 4250 });
     expect((await detail(request("scope=all&type=image&requestId=" + otherIds[0], adminToken))).status).toBe(200);
+  });
+  it("records real raw and transaction query failures without SQL, parameters or owner data",async()=>{
+    const sink=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+    try {
+      await expect(withLogContext({requestId:"db-request"},async()=>await prisma.$queryRawUnsafe("SELECT FROM private_query_marker"))).rejects.toMatchObject({code:"P2010"});
+      await expect(withLogContext({requestId:"db-transaction"},()=>prisma.$transaction(async tx=>{
+        return tx.apiKey.create({data:{ownerEmail:owner,label:"private-label",keyHash:hashApiKey(token),maskedKey:"private-key"}});
+      }))).rejects.toMatchObject({code:"P2002"});
+      const lines=sink.mock.calls.map(([line])=>JSON.parse(String(line)));
+      expect(lines).toEqual(expect.arrayContaining([
+        expect.objectContaining({event:"database.query.failed",requestId:"db-request",operation:"raw.$queryRawUnsafe",error:expect.objectContaining({code:"P2010"})}),
+        expect.objectContaining({event:"database.query.failed",requestId:"db-transaction",operation:"ApiKey.create",error:expect.objectContaining({code:"P2002"})}),
+      ]));
+      expect(JSON.stringify(lines)).not.toMatch(/private_query_marker|private-label|private-key/);
+      expect(JSON.stringify(lines)).not.toContain(owner);
+    } finally { sink.mockRestore(); }
   });
 });

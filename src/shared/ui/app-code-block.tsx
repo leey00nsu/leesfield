@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/shared/logging/logger.mjs";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { CheckIcon, CopyIcon, FileCodeIcon } from "lucide-react";
@@ -382,8 +383,7 @@ export const CodeBlockContent = ({
     let cancelled = false;
     highlight(children as string, language, themes)
       .then(value => { if (!cancelled) setHtml(value); })
-      // biome-ignore lint/suspicious/noConsole: "it's fine"
-      .catch(console.error);
+      .catch(error => logger.error("code-block.highlight.failed", error));
     return () => { cancelled = true; };
   }, [children, themes, syntaxHighlighting, language]);
 

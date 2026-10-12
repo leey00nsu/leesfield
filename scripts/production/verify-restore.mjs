@@ -1,8 +1,9 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import {
+  ProductionDbToolError,
   buildPgEnvironment,
   databaseTargetSummary,
   parseDatabaseUrl,
-  ProductionDbToolError,
   runPgTool,
 } from "./db-tools.mjs";
 
@@ -54,9 +55,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  const message = error instanceof ProductionDbToolError
-    ? error.message
-    : "restore verification failed";
-  console.error(`[db-verify-restore] ${message}`);
+  logger.error("db.verify_restore.failed", error);
   process.exitCode = 1;
 });

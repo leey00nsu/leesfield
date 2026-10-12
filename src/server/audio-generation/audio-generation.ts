@@ -1,3 +1,4 @@
+import { withLogContext, loggedOperation } from "@/server/observability/logger";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
 import type { AudioGenerationResponse } from "@/features/audio-generation/model/audio-generation-types";
 import { hfSpaceAudioAdapter } from "@/server/audio-generation/adapters/hf-space-adapter";
@@ -81,50 +82,61 @@ export async function resolveAudioGenerationResult(
   skipDbSave?: boolean;
   artifacts?: GeneratedMediaArtifact[];
 }> {
-  let adapter: AudioGenerationAdapter | null = null;
-  try {
-    adapter = getAdapter(payload.model);
-    const result = isNodeStudioE2EMockGenerationEnabled()
-      ? mockAudioGenerationResult()
-      : await adapter.generate(payload);
-    const { provider, warningMessage } = resolveAudioStorageProvider();
+  return withLogContext({ requestId, modelKey: payload.model, kind: "audio" }, async () => {
+    let adapter: AudioGenerationAdapter | null = null;
+    let provider = "unresolved";
+    let phase = "provider.resolve";
+    try {
+      adapter = getAdapter(payload.model);
+      provider = resolveAudioProvider(payload.model);
+      phase = "provider.generate";
+      const activeAdapter = adapter;
+      const result = await withLogContext({ provider, phase }, async () => isNodeStudioE2EMockGenerationEnabled()
+        ? mockAudioGenerationResult()
+        : await activeAdapter.generate(payload));
+      phase = "storage.resolve";
+      const { provider: storageProvider, warningMessage } = resolveAudioStorageProvider();
+      provider = storageProvider ?? "unresolved";
 
-    if (!provider) {
-      const message =
-        warningMessage ??
-        "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.";
-      logStructured("generation.storage_skipped", {
+      if (!storageProvider) {
+        const message =
+          warningMessage ??
+          "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.";
+        logStructured("generation.storage_skipped", {
+          requestId,
+          kind: "audio",
+          outcome: "storage_unavailable",
+        });
+        return {
+          status: "completed",
+          result: buildInlineResult(payload, result.audios, result.meta),
+          errorMessage: message,
+          skipDbSave: true,
+        };
+      }
+
+      phase = "storage.uploading";
+      await lifecycle.onUploading?.();
+      phase = "storage.upload";
+      const storageAdapter = getStorageAdapter();
+      return loggedOperation({ provider, phase }, () => storageAdapter.uploadAudios(
+        payload,
         requestId,
-        kind: "audio",
-        outcome: "storage_unavailable",
-      });
+        result.audios,
+        result.meta,
+      ));
+    } catch (error) {
+      if (error instanceof NodeExecutionCancelledError) throw error;
+      logGenerationProviderFailure(
+        { requestId, kind: "audio", modelKey: payload.model, provider, phase },
+        error,
+      );
       return {
-        status: "completed",
-        result: buildInlineResult(payload, result.audios, result.meta),
-        errorMessage: message,
-        skipDbSave: true,
+        status: "failed",
+        errorMessage: generationFailureMessage({ kind: "audio", phase }, error, () => mapProviderError(adapter, error)),
       };
     }
-
-    await lifecycle.onUploading?.();
-    const storageAdapter = getStorageAdapter();
-    return storageAdapter.uploadAudios(
-      payload,
-      requestId,
-      result.audios,
-      result.meta,
-    );
-  } catch (error) {
-    if (error instanceof NodeExecutionCancelledError) throw error;
-    logGenerationProviderFailure(
-      { requestId, kind: "audio", modelKey: payload.model },
-      error,
-    );
-    return {
-      status: "failed",
-      errorMessage: mapProviderError(adapter, error),
-    };
-  }
+  });
 }
 import { logStructured } from "@/server/observability/request-observability";
-import { logGenerationProviderFailure } from "@/server/observability/generation-failure";
+import { generationFailureMessage, logGenerationProviderFailure } from "@/server/observability/generation-failure";

@@ -1,3 +1,4 @@
+import { logger } from "../src/shared/logging/logger.mjs";
 import readline from "node:readline";
 import bcrypt from "bcryptjs";
 
@@ -37,7 +38,7 @@ const password = (await askHidden(PROMPT)).trim();
 rl.close();
 
 if (!password) {
-  console.error("비밀번호가 비어있습니다.");
+  logger.error("password-hash.failed", new Error("PASSWORD_EMPTY"));
   process.exit(1);
 }
 

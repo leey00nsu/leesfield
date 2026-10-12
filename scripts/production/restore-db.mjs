@@ -1,11 +1,12 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import {
+  ProductionDbToolError,
   assertRegularFile,
   buildPgEnvironment,
   databaseTargetKey,
   databaseTargetSummary,
   displayPath,
   parseDatabaseUrl,
-  ProductionDbToolError,
   runPgTool,
   safePath,
 } from "./db-tools.mjs";
@@ -120,9 +121,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  const message = error instanceof ProductionDbToolError
-    ? error.message
-    : "restore failed";
-  console.error(`[db-restore] ${message}`);
+  logger.error("db.restore.failed", error);
   process.exitCode = 1;
 });

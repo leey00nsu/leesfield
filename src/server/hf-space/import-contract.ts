@@ -2,6 +2,7 @@ import { gradioSchemaValidator, resolveGradioSchema } from "@/shared/model-catal
 
 import type { GradioContract, GradioField, JsonValue } from "@/shared/model-catalog/gradio-contract";
 import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
+import { declaredFileCount } from "@/shared/model-catalog/file-input-limits";
 
 type RecordValue = Record<string, unknown>;
 const record = (v: unknown): RecordValue => v && typeof v === "object" && !Array.isArray(v) ? v as RecordValue : {};
@@ -103,6 +104,7 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
       ...(parsedDefault.success ? { default: parsedDefault.data as JsonValue } : {}),
       ...((canonical ?? inferredPrompt) ? { canonical: canonical ?? inferredPrompt } : {}),
       ...(media ? { media } : {}), ...(choices?.length ? { choices } : {}),
+      ...(["files", "gallery"].includes(kind) && schema.maxItems === undefined && declaredFileCount(label) !== undefined ? { fileLimit: declaredFileCount(label) } : {}),
       ...(choiceMode === "multiple" && typeof props.max_choices === "number" ? { maxChoices: props.max_choices } : {}),
       ...(typeof props.minimum === "number" ? { min: props.minimum } : {}),
       ...(typeof props.maximum === "number" ? { max: props.maximum } : {}),

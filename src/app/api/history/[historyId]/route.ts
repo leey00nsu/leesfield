@@ -8,6 +8,7 @@ import {
   limitReadableStream,
 } from "@/server/http/bounded-io";
 import { requestRemoteStream } from "@/server/http/safe-remote";
+import { historyAuthoringReferences, historyAuthoringOptions } from "@/server/history/history-authoring-references";
 
 export const dynamic = "force-dynamic";
 type Context = {params: Promise<{historyId: string}>};
@@ -20,14 +21,18 @@ async function ownedRecord(request: Request, context: Context) {
   if (!parsed.success) return { error: new Response(null, { status: 400 }) };
   return getOwnedHistoryRecord(session.adminEmail, historyId, parsed.data);
 }
-export async function GET(request: Request, context: Context) {
+async function getObservedHandler(request: Request, context: Context) {
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
   if (new URL(request.url).searchParams.get("view") === "authoring") {
-    if (!result.record || result.origin === "edit" || result.type === "audio" || !("requestParams" in result.record)) return new Response(null, { status: 404 });
+    if (!result.record || result.origin === "edit" || !("requestParams" in result.record)) return new Response(null, { status: 404 });
     const raw = result.record.requestParams;
     const cinema = raw && typeof raw === "object" && !Array.isArray(raw) ? raw.cinema ?? null : null;
-    return jsonWithNoStore({ cinema, prompt: result.record.prompt, model: result.record.modelKey });
+    try {
+      const references = await historyAuthoringReferences(result.ownerEmail, result.type, result.record.modelKey, raw);
+      const options = await historyAuthoringOptions(result.type, result.record.modelKey, raw);
+      return jsonWithNoStore({ cinema, prompt: result.record.prompt, model: result.record.modelKey, references, options });
+    } catch { return new Response(null, { status: 404 }); }
   }
   if (!result.record || !result.url) return new Response(null, {status: 404});
   try {
@@ -59,10 +64,14 @@ export async function GET(request: Request, context: Context) {
     }), {headers: {"Content-Type": mime, "Content-Disposition": 'attachment; filename="'+filename+'"', "Cache-Control": "private, no-store", "X-Content-Type-Options":"nosniff"}});
   } catch {return new Response(null, {status: 502});}
 }
-export async function DELETE(request: Request, context: Context) {
+async function deleteObservedHandler(request: Request, context: Context) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
   return new Response(null, { status: await deleteOwnedHistoryRecord(result) });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/history/[historyId]", getObservedHandler);
+export const DELETE = withRequestObservability("/api/history/[historyId]", deleteObservedHandler);

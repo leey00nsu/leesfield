@@ -14,7 +14,7 @@ export const revalidate = 0;
 
 type RouteContext = { params: Promise<{ uploadId: string }> };
 
- export async function POST(request: Request, context: RouteContext) {
+ async function postObservedHandler(request: Request, context: RouteContext) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -33,3 +33,6 @@ type RouteContext = { params: Promise<{ uploadId: string }> };
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/media-assets/uploads/[uploadId]/confirm", postObservedHandler);

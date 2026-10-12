@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import {
@@ -160,6 +161,7 @@ async function ensureChatGptOAuth(command: string) {
       throw new Error("CODEX_OAUTH_REQUIRED");
     }
   } catch (error) {
+    logSafeError("codex.cli.failed",error,{provider:"codex_cli",phase:"provider.auth"});
     if (isCliMissingError(error)) {
       throw new Error("CODEX_CLI_NOT_FOUND");
     }
@@ -227,6 +229,7 @@ function buildExecArgs(
 }
 
 function mapCliFailure(error: unknown): never {
+  logSafeError("codex.cli.failed",error,{provider:"codex_cli",phase:"provider.process"});
   if (isCliMissingError(error)) {
     throw new Error("CODEX_CLI_NOT_FOUND");
   }

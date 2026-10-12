@@ -23,7 +23,11 @@ import {
 } from "@/shared/media-assets/media-asset-contract";
 import { resolveAudioExtension, resolveAudioMime } from "@/shared/lib/audio-file";
 import type { GenerationInputAssetRef } from "@/server/generation-request/generation-input-assets";
-import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { fileFieldAllowsNullItems } from "@/shared/model-catalog/gradio-file-schema";
+import { orderedFileSources } from "@/shared/model-catalog/file-input-ports";
+import { getGradioContract, fileFieldMaxItems } from "@/shared/model-catalog/gradio-contract";
+import { DEFAULT_FILE_INPUT_LIMIT, MAX_FILE_INPUT_LIMIT } from "@/shared/model-catalog/file-input-limits";
+import { modalExecutionLimits, modalConfigSchema } from "@/shared/model-catalog/modal-comfyui-contract";
 
 export const INPUT_MEDIA_STORAGE_REQUIRED = "INPUT_MEDIA_STORAGE_REQUIRED";
 export const INPUT_MEDIA_INVALID = "INPUT_MEDIA_INVALID";
@@ -36,15 +40,15 @@ const INPUT_MEDIA_LIMITS: Record<MediaType, number> = {
   video: GENERATION_OUTPUT_LIMITS.video,
 };
 const INPUT_MEDIA_TIMEOUT_MS = 20_000;
-const INPUT_MEDIA_MAX_COUNT = 8;
 const INPUT_MEDIA_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 
 export type InputMediaUpload = {
   field: string;
   mediaType: MediaType;
   generationType: MediaType;
-  sources: readonly string[];
+  sources: readonly (string|null)[];
   multiple?: boolean;
+  maxTotalFiles?: number;
 };
 
 export type UploadedInputMedia = {
@@ -82,16 +86,17 @@ function object(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function inputSources(value: unknown) {
+function inputSources(value: unknown, preserveSlots=false): (string|null)[] {
   if (typeof value === "string") return value.trim() ? [value.trim()] : [];
   if (!Array.isArray(value)) return [];
+  if(preserveSlots)return value.map(item=>item===null?null:typeof item==="string"&&item.trim()?item.trim():(()=>{throw new InputMediaStorageError(INPUT_MEDIA_INVALID);})());
   return value.filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function isPotentialInputMediaSource(value: string) {
-  return /^(data:|blob:|https?:\/\/)/i.test(value);
+function isPotentialInputMediaSource(value: string|null) {
+  return typeof value==="string"&&/^(data:|blob:|https?:\/\/)/i.test(value);
 }
 
 function inputMediaType(value: unknown): MediaType | null {
@@ -106,22 +111,28 @@ export function generationInputMediaForPayload(
 ): InputMediaUpload[] {
   const inputs: InputMediaUpload[] = [];
   const mappedDynamicKeys = new Set<string>();
+  const modalConfig = object(model.providerConfig).workflow_id ? modalConfigSchema.parse(model.providerConfig) : null;
+  const totalLimit = Math.min(MAX_FILE_INPUT_LIMIT, modalConfig ? modalExecutionLimits(modalConfig).max_input_files : MAX_FILE_INPUT_LIMIT);
   const add = (
     field: string,
     mediaType: MediaType,
     value: unknown,
     multiple = false,
+    preserveSlots = false,
+    maxItems = DEFAULT_FILE_INPUT_LIMIT,
   ) => {
-    const sources = inputSources(value);
+    const sources = inputSources(value,preserveSlots);
     if (sources.length === 0) return;
     if (!multiple && sources.length > 1) {
       throw new InputMediaStorageError(INPUT_MEDIA_INVALID, "INPUT_MEDIA_CARDINALITY");
     }
-    if (sources.length > INPUT_MEDIA_MAX_COUNT) {
+    if (sources.length > maxItems) {
       throw new InputMediaStorageError(INPUT_MEDIA_INVALID, "INPUT_MEDIA_COUNT_LIMIT");
     }
     if (inputs.some((input) => input.field === field)) return;
-    inputs.push({ field, mediaType, generationType, sources, multiple });
+    inputs.push({ field, mediaType, generationType, sources, multiple, ...(totalLimit < MAX_FILE_INPUT_LIMIT ? {maxTotalFiles:totalLimit} : {}) });
+    if (inputs.reduce((count,input)=>count+input.sources.filter(source=>source!==null).length,0)>totalLimit)
+      throw new InputMediaStorageError(INPUT_MEDIA_INVALID, "INPUT_MEDIA_COUNT_LIMIT");
   };
 
   const dynamic = object(payload.dynamicParams);
@@ -157,7 +168,7 @@ export function generationInputMediaForPayload(
             ? genericValue
             : undefined;
       if (Object.hasOwn(dynamic, field.name)) mappedDynamicKeys.add(field.name);
-      add(`dynamicParams.${field.name}`, mediaType, value, field.kind !== "file");
+      add(`dynamicParams.${field.name}`, mediaType, value, field.kind !== "file",fileFieldAllowsNullItems(field),fileFieldMaxItems(field));
     }
     const unmappedDynamicKeys = Object.entries(dynamic)
       .filter(([, value]) => inputSources(value).some(isPotentialInputMediaSource))
@@ -467,12 +478,11 @@ export async function uploadGenerationInputAssets(
 ): Promise<UploadedInputMedia[]> {
   const jobs = inputs.flatMap((input) =>
     input.sources
-      .map((source) => source.trim())
-      .filter(Boolean)
-      .map((source, index) => ({ input, source, sortOrder: index })),
+      .flatMap((source,index)=>source?.trim()?[{input,source:source.trim(),sortOrder:index}]:[]),
   );
   if (jobs.length === 0) return [];
-  if (jobs.length > INPUT_MEDIA_MAX_COUNT) {
+  const totalLimit = Math.min(MAX_FILE_INPUT_LIMIT,...inputs.map(input=>input.maxTotalFiles??MAX_FILE_INPUT_LIMIT));
+  if (!Number.isSafeInteger(totalLimit) || totalLimit < 1 || jobs.length > totalLimit) {
     throw new InputMediaStorageError(INPUT_MEDIA_INVALID, "INPUT_MEDIA_COUNT_LIMIT");
   }
   const uploaded: UploadedInputMedia[] = [];
@@ -517,7 +527,7 @@ export function applyUploadedGenerationInputAssets<T extends Record<string, unkn
     else if (field === "inputAudio") result.inputAudio = urls[0] ?? "";
     else if (field.startsWith("dynamicParams.")) {
       const key = field.slice("dynamicParams.".length);
-      if (key) dynamic[key] = values[0]?.ref.multiple ? urls : urls[0] ?? "";
+      if (key) dynamic[key] = values[0]?.ref.multiple ? orderedFileSources(values.map(item=>({url:item.url,sortOrder:item.ref.sortOrder})),Array.isArray(dynamic[key])?(dynamic[key] as unknown[]).length:0) : urls[0] ?? "";
     }
   }
   const uploadedMediaTypes = new Set(uploaded.map((item) => item.mediaType));

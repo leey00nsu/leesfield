@@ -11,6 +11,7 @@ export async function prepareCinemaSubmission(media: CinemaMedia, body: unknown,
   const { cinema: raw, ...payload } = incoming;
   const settings = parseCinemaSettings(raw, media);
   if (raw === undefined) throw new Error("CINEMA_SETTINGS_UNSUPPORTED");
+  if (!hasCinemaGuidance(settings, media)) return { payload };
   if (cinemaPresetConflict(settings, typeof recordObject(payload.promptPreset).key === "string" ? String(recordObject(payload.promptPreset).key) : undefined))
     throw new Error("CINEMA_PRESET_CONFLICT");
   const model = (await getModelCatalog()).find(item => item.type === media && item.key === payload.model);

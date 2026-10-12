@@ -14,7 +14,7 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(
+async function getObservedHandler(
   _request: Request,
   { params }: RouteContext,
 ) {
@@ -63,7 +63,7 @@ export async function GET(
   );
 }
 
-export async function DELETE(
+async function deleteObservedHandler(
   request: Request,
   { params }: RouteContext,
 ) {
@@ -127,3 +127,7 @@ export async function DELETE(
   return NextResponse.json({ message: "DELETED" });
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/video-generation/[requestId]", getObservedHandler);
+export const DELETE = withRequestObservability("/api/video-generation/[requestId]", deleteObservedHandler);

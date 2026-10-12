@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { cinemaCatalog } from "./cinema-catalog";
@@ -13,7 +14,7 @@ describe("Cinema product image coverage and provenance", () => {
     const files = new Map(manifest.assets.map(asset => [asset.file, asset]));
     const credits = readFileSync(path.join(root, "../cinema-equipment-sources.md"), "utf8");
     expect(files.size).toBe(manifest.assets.length);
-    const required = [...Object.values(cinemaCatalog).flat().filter(item => item.image).map(item => item.image.split("/").at(-1)!), "auto.webp", "preview.webp"];
+    const required = [...Object.entries(cinemaCatalog).filter(([category]) => category !== "movement").flatMap(([, items]) => items.map(item => item.image)).filter(Boolean).map(image => image.split("/").at(-1)!), "auto.webp", "preview.webp"];
     for (const filename of required) {
       const asset = files.get(filename);
       expect(asset, filename).toBeDefined();
@@ -50,6 +51,36 @@ describe("Cinema product image coverage and provenance", () => {
       expect(credits).toContain(item.image.split("/").at(-1)!);
       const data = readFileSync(path.join(root, item.image.split("/").at(-1)!));
       expect(data.includes(Buffer.from("ALPH"))).toBe(true);
+    }
+  });
+  it("ships each movement video and poster with verified generation provenance", () => {
+    const root = path.join(process.cwd(), "public");
+    const manifest = JSON.parse(readFileSync(path.join(root, "assets/cinema/movement-manifest.json"), "utf8")) as {
+      status: string; videoModel: string; videoResolution: string; videoDurationSeconds: number;
+      assets: { id: string; video: string; poster: string; prompt: string; flowAssetId: string; date: string;
+        inputImage: { sha256: string }; original: { sha256: string };
+        product: { sha256: string; width: number; height: number; duration: number; audio: boolean }; posterSha256: string }[];
+    };
+    expect(manifest.status).toBe("complete");
+    expect([manifest.videoModel, manifest.videoResolution, manifest.videoDurationSeconds]).toEqual(["Omni 1.1 Flash", "720p", 6]);
+    expect(new Set(manifest.assets.map(asset => asset.id))).toEqual(new Set(cinemaCatalog.movement.map(item => item.id)));
+    expect(new Set(manifest.assets.map(asset => asset.flowAssetId)).size).toBe(manifest.assets.length);
+    for (const item of cinemaCatalog.movement) {
+      const asset = manifest.assets.find(asset => asset.id === item.id)!;
+      expect([asset.video, asset.poster]).toEqual([item.video, item.image]);
+      const video = readFileSync(path.join(root, asset.video));
+      const poster = readFileSync(path.join(root, asset.poster));
+      expect(video.subarray(4, 8).toString(), item.id).toBe("ftyp");
+      expect(poster.subarray(0, 4).toString(), item.id).toBe("RIFF");
+      expect(poster.subarray(8, 12).toString(), item.id).toBe("WEBP");
+      expect(createHash("sha256").update(video).digest("hex"), item.id).toBe(asset.product.sha256);
+      expect(createHash("sha256").update(poster).digest("hex"), item.id).toBe(asset.posterSha256);
+      expect([asset.product.width, asset.product.height, asset.product.duration, asset.product.audio]).toEqual([1280, 720, 6, false]);
+      expect(asset.prompt.length).toBeGreaterThan(40);
+      expect(asset.flowAssetId).toBeTruthy();
+      expect(asset.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(asset.inputImage.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(asset.original.sha256).toMatch(/^[a-f0-9]{64}$/);
     }
   });
 });

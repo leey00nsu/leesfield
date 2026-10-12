@@ -16,7 +16,7 @@ import {
   type ClaimedStorageCleanup,
 } from "./media-cleanup-repository";
 import { recordWorkerFailure } from "@/server/observability/metrics";
-import { logStructured } from "@/server/observability/request-observability";
+import { logSafeError } from "@/server/observability/request-observability";
 
 const WORKER_INTERVAL_MS = 2_000;
 const WORKER_TOKEN = Symbol("media-cleanup-worker-instance");
@@ -190,6 +190,7 @@ async function scheduleCleanup(task: ClaimedStorageCleanup) {
     try {
       await processStorageCleanupTask(task);
     } catch (error) {
+      logSafeError("cleanup.failed", error, { worker: "media-cleanup", jobId: task.id, requestId: task.requestId, provider: task.storageProvider, phase: "storage.cleanup" });
       try {
         await failStorageCleanup(
           { id: task.id, leaseToken: task.leaseToken ?? "", attempts: task.attempts },
@@ -197,11 +198,11 @@ async function scheduleCleanup(task: ClaimedStorageCleanup) {
         );
       } catch (failure) {
         recordWorkerFailure("media-cleanup.state-update");
-        logStructured("cleanup.state-update.failure", {
+        logSafeError("cleanup.state-update.failure", failure, {
           worker: "media-cleanup",
           jobId: task.id,
-          errorType: failure instanceof Error ? failure.name : typeof failure,
-        }, "error");
+
+        });
       }
     }
   });
@@ -240,10 +241,10 @@ async function tick() {
     await processMediaCleanupJobs({ awaitCompletion: false });
   } catch (error) {
     recordWorkerFailure("media-cleanup.pass");
-    logStructured("worker.pass.failure", {
+    logSafeError("worker.pass.failure", error, {
       worker: "media-cleanup",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+      phase: "worker.pass",
+    });
   } finally {
     global.__mediaCleanupWorkerRunning = false;
   }

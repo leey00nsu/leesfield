@@ -11,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+async function getObservedHandler() {
   const session = await getSession();
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
@@ -26,7 +26,7 @@ export async function GET() {
   }
 }
 
- export async function POST(request: Request) {
+ async function postObservedHandler(request: Request) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -48,3 +48,7 @@ export async function GET() {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs", getObservedHandler);
+export const POST = withRequestObservability("/api/generation-graphs", postObservedHandler);

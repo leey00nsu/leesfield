@@ -5,7 +5,7 @@ import { RATE_LIMITS } from "@/server/rate-limit/policies";
 import { parseMonitoringQuery } from "@/server/monitoring/monitoring-query";
 import { getMonitoringRequests } from "@/server/monitoring/requests";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -36,10 +36,10 @@ async function getHandler(request: Request) {
       },
     });
   } catch (error) {
-    logStructured("monitoring.query.failure", {
+    logSafeError("monitoring.query.failure", error, {
       kind: "requests",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+
+    });
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },

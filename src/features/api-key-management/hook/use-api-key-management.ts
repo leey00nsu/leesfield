@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/shared/logging/logger.mjs";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -220,7 +221,7 @@ export function useApiKeyManagement() {
       setNewKeyPermissions([...standardApiKeyPermissions]);
     } catch (error) {
       setIssueError(tErrors("issueFailed"));
-      console.error("[api-keys] issue failed", error);
+      logger.error("api-keys.issue.failed", error);
     } finally {
       issueInFlight.current = false;
     }
@@ -266,7 +267,7 @@ export function useApiKeyManagement() {
       await updateLabel(state.editingKey.id, label, state.editPermissions);
       actions.closeEdit();
     } catch (error) {
-      console.error("[api-keys] update failed", error);
+      logger.error("api-keys.update.failed", error);
       actions.setEditError(tErrors("labelUpdateFailed"));
     }
   };
@@ -278,7 +279,7 @@ export function useApiKeyManagement() {
       await revoke(state.editingKey.id);
       actions.closeEdit();
     } catch (error) {
-      console.error("[api-keys] revoke failed", error);
+      logger.error("api-keys.revoke.failed", error);
       actions.setEditError(tErrors("revokeFailed"));
     }
   };

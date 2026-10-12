@@ -1,5 +1,6 @@
 // Selection IDs originated in Open Generative AI; optical directions use user-provided prose.
 // Pinned provenance and MIT notice: ./upstream/source-manifest.json and ./upstream/LICENSE.
+import { cinemaMovementOptions, legacyOrbit } from "./cinema-movement";
 export type CinemaOption = { id: string; name: string; ko: string; prompt: string; image: string; swatches?: readonly string[] };
 const option = (category: string, id: string, name: string, ko: string, prompt: string, swatches?: readonly string[]): CinemaOption =>
   ({ id, name, ko, prompt, image: category === "focal" || category === "composition" || category === "aperture" ? "" : `/assets/cinema/${category}-${id}.webp`, ...(swatches ? { swatches } : {}) });
@@ -94,16 +95,7 @@ export const cinemaCatalog = {
     option("rhythm", "single-shot", "Single Shot", "원 테이크", "one continuous shot without cuts"),
     option("rhythm", "montage", "Montage", "몽타주", "montage with concise rhythmic cuts"),
   ],
-  movement: [
-    option("movement", "static", "Static", "고정", "locked-off static camera"),
-    option("movement", "tracking", "Tracking", "트래킹", "camera tracks the moving subject"),
-    option("movement", "dolly-in", "Dolly In", "달리 인", "camera slowly dollies toward the subject"),
-    option("movement", "dolly-out", "Dolly Out", "달리 아웃", "camera slowly dollies away from the subject"),
-    option("movement", "pan-left", "Pan Left", "팬 레프트", "camera pans to the left"),
-    option("movement", "pan-right", "Pan Right", "팬 라이트", "camera pans to the right"),
-    option("movement", "orbit", "Orbit", "오빗", "camera orbits around the subject"),
-    option("movement", "handheld", "Handheld", "핸드헬드", "subtle handheld camera movement"),
-  ],
+  movement: cinemaMovementOptions,
 } satisfies Record<string, readonly CinemaOption[]>;
 
 export type CinemaCategory = keyof typeof cinemaCatalog;
@@ -111,7 +103,9 @@ export const cinemaCategories = Object.keys(cinemaCatalog) as CinemaCategory[];
 export function cinemaOptions(category: CinemaCategory): CinemaOption[] {
   return [{ id: "auto", name: "Auto", ko: "자동", prompt: "", image: "/assets/cinema/auto.webp" }, ...cinemaCatalog[category]];
 }
-export function cinemaOption(category: CinemaCategory, id: string) { return cinemaOptions(category).find(item => item.id === id); }
+export function cinemaOption(category: CinemaCategory, id: string) {
+  return category === "movement" && id === legacyOrbit.id ? legacyOrbit : cinemaOptions(category).find(item => item.id === id);
+}
 export function cinemaOptionName(category: CinemaCategory, id: string, locale: string) {
-  const item = cinemaOption(category, id); return item ? locale === "ko" ? item.ko : item.name : id;
+  const item = cinemaOption(category, id); return item ? category !== "movement" && locale === "ko" ? item.ko : item.name : id;
 }

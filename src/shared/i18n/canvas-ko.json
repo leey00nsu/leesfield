@@ -464,6 +464,7 @@
   "Replace": "교체",
   "Close assets": "에셋 목록 닫기",
   "Asset source": "에셋 출처",
+  "Media type": "미디어 종류",
   "Search loaded assets...": "불러온 에셋 검색…",
   "Could not load assets. Please try again.": "파일을 불러오지 못했습니다. 다시 시도해 주세요.",
   "Retrying...": "다시 시도하는 중…",

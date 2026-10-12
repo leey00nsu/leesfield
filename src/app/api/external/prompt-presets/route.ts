@@ -2,7 +2,7 @@ import { promptPresetService } from "@/server/prompt-presets/prompt-preset-servi
 import { withExternalPromptPresetRoute } from "@/server/prompt-presets/external-prompt-preset-http";
 import { PromptPresetError } from "@/server/prompt-presets/prompt-preset-errors";
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   return withExternalPromptPresetRoute(request, async (ownerEmail) => {
     const query = new URL(request.url).searchParams;
     const includeInactive = query.get("includeInactive");
@@ -13,6 +13,10 @@ export async function GET(request: Request) {
     }) };
   });
 }
-export async function POST(request: Request) {
+async function postObservedHandler(request: Request) {
   return withExternalPromptPresetRoute(request, async (ownerEmail, body) => ({ item: await promptPresetService.create(ownerEmail, body) }), { mutation: true, status: 201 });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/external/prompt-presets", getObservedHandler);
+export const POST = withRequestObservability("/api/external/prompt-presets", postObservedHandler);

@@ -1,3 +1,4 @@
+import { logger } from "../src/shared/logging/logger.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
@@ -172,6 +173,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[seed] failed:", error);
+  logger.error("seed.failed", error);
   process.exit(1);
 });

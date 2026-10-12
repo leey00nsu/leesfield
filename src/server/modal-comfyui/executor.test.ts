@@ -27,7 +27,7 @@ function client(status="completed",media="images") {
    return {id:"job",status};
   }),
   upload:vi.fn(async()=>"uploaded.png"),
-  download:vi.fn(async(_id:string,index:number)=>({url:"data:"+index,bytes:10})),
+  download:vi.fn(async(_id:string,index:number)=>({buffer:Buffer.from("data:"+index),contentType:"image/png",bytes:10})),
  } satisfies ModalClient;
 }
 const config=(id="krea2-t2i")=>buildModalModelDraft(workflows.find(w=>w.id===id)).providerConfig;
@@ -42,23 +42,38 @@ describe("Modal managed execution",()=>{
  for(const id of ["krea2-t2i","minimax-h3-pdd-fl2va"]) it("submits and collects ordered "+id,async()=>{
   const c=client("completed",id==="krea2-t2i"?"images":"video"),r=repository();
   const result=await executeModalWorkflow(config(id),{prompt:"mountain"},"request",r,{client:c});
-  expect(result.urls).toEqual(["data:0","data:1"]);
+  expect(result.outputs.map(output=>output.buffer.toString())).toEqual(["data:0","data:1"]);
   expect(c.json.mock.calls[0][1]?.headers).toMatchObject({"Idempotency-Key":"leesfield-request"});
   const submitted=JSON.parse(c.json.mock.calls[0][1]!.body as string);
   expect(submitted.inputs.prompt).toBe("mountain");expect(submitted.advanced).toBeDefined();
   await executeModalWorkflow(config(id),{prompt:"mountain"},"request",r,{client:c});
   expect(c.json.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
  });
- it("collects completed SaveVideo output under images and reuses the existing GPU job",async()=>{
-  const c=client("completed","images"),r=repository();
+ it.each(["images","gifs"])("collects completed video output under %s and reuses the existing GPU job",async media=>{
+  const c=client("completed",media),r=repository();
   c.download.mockRejectedValueOnce(new ModalApiError("MODAL_OUTPUT_MEDIA"));
   await expect(executeModalWorkflow(config("minimax-h3-pdd-fl2va"),{prompt:"video"},"video-request",r,{client:c})).rejects.toThrow("MODAL_OUTPUT_MEDIA");
   c.json.mockClear();
   const result=await executeModalWorkflow(config("minimax-h3-pdd-fl2va"),{prompt:"video"},"video-request",r,{client:c});
-  expect(result.urls).toEqual(["data:0","data:1"]);
+  expect(result.outputs.map(output=>output.buffer.toString())).toEqual(["data:0","data:1"]);
   expect(c.download).toHaveBeenLastCalledWith("job",1,"video",expect.any(Number));
   expect(c.json.mock.calls.every(([,init])=>!init?.method || init.method==="GET")).toBe(true);
   expect(c.upload).not.toHaveBeenCalled();
+ });
+ it("collects gifs by asset identity and skips previews without weakening category checks",async()=>{
+  const c=client(),normal=c.json.getMockImplementation()!;
+  c.json.mockImplementation(async(p,i)=>p.endsWith("/assets")?{
+   job_id:"job",assets:[
+    {output_key:"images",id:"poster",media_type:"image",role:"preview"},
+    {output_key:"gifs",id:"other-id",asset_id:"video-id",media_type:"video",role:"result"},
+   ],pagination:{has_more:false},
+  }:normal(p,i));
+  await executeModalWorkflow(config("minimax-h3-pdd-fl2va"),{prompt:"x"},"r",repository(),{client:c});
+  expect(c.download).toHaveBeenCalledTimes(1);
+  expect(c.download).toHaveBeenCalledWith("job","video-id","video",expect.any(Number));
+  c.download.mockClear();
+  await expect(executeModalWorkflow(config(),{prompt:"x"},"r",repository(),{client:c})).rejects.toThrow("MODAL_OUTPUT_MEDIA");
+  expect(c.download).not.toHaveBeenCalled();
  });
  it("durably retains uploaded filenames and reuses exact uncertain submission",async()=>{
   const c=client(),r=repository();let post=0;
@@ -103,7 +118,7 @@ describe("Modal managed execution",()=>{
    ? {job_id:"job",assets:[],pagination:{has_more:false}} : normal(p,i));
   c.download.mockRejectedValueOnce(new ModalApiError("MODAL_HTTP_404"));
   const result=await executeModalWorkflow(config(),{prompt:"x"},"r",repository(),{client:c,now:()=>time,sleep:async ms=>{time+=ms;}});
-  expect(result.urls).toEqual(["data:0","data:1"]);
+  expect(result.outputs.map(output=>output.buffer.toString())).toEqual(["data:0","data:1"]);
   expect(time).toBe(4000);
   expect(c.json.mock.calls.filter(([,i])=>i?.method==="POST")).toHaveLength(1);
   expect(c.json.mock.calls.some(([,i])=>i?.method==="DELETE")).toBe(false);
@@ -128,5 +143,24 @@ describe("Modal managed execution",()=>{
   await executeModalWorkflow(config(),{prompt:"x"},"r",r,{client:c});
   const posts=c.json.mock.calls.filter(([,i])=>i?.method==="POST");
   expect(posts).toHaveLength(2);expect(posts[0][1]?.body).toBe(posts[1][1]?.body);
+ });
+ it("records failed response validation with request, remote job and issue paths",async()=>{
+  const sink=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+  const c=client(),r=repository();
+  c.json.mockImplementation(async(path:string,init?:RequestInit)=>{
+    if(init?.method==="DELETE")return{id:"job",status:"cancelled"};
+    if(path.endsWith("/assets"))return{job_id:"job",assets:[{output_key:"private-response"}],pagination:{has_more:false}};
+    return{id:"job",status:"completed"};
+  });
+  await expect(executeModalWorkflow(config(),{prompt:"private-prompt"},"request-log",r,{client:c})).rejects.toMatchObject({
+    code:"MODAL_ASSETS_RESPONSE_INVALID",cause:expect.objectContaining({name:"ZodError"}),
+  });
+  const line=String(sink.mock.calls[0]?.[0]);
+  expect(JSON.parse(line)).toMatchObject({
+    event:"modal.execution.failed",requestId:"request-log",jobId:"job",phase:"result.assets",
+    error:{code:"MODAL_ASSETS_RESPONSE_INVALID",cause:{type:"ZodError",issues:expect.arrayContaining([expect.objectContaining({path:["assets",0,"output_key"]})])}},
+  });
+  expect(line).not.toMatch(/private-response|private-prompt/);
+  sink.mockRestore();
  });
 });

@@ -1356,3 +1356,9 @@
 :global(.node-banana-hosted__settings button:focus-visible),
 :global(.node-banana-hosted__dialog button:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
 .runtime :global([data-tutorial$="-node"]) { background-color: var(--card); }
+
+/* Drag previews never enter the graph or intercept the native drop target. */
+.dropPreview { position: fixed; z-index: 2000; pointer-events: none; transform-origin: top left; opacity: .55; border: 1px solid var(--data-accent); border-radius: var(--radius-lg, .5rem); background: var(--card); color: var(--foreground); box-shadow: 0 0 0 2px color-mix(in srgb, var(--data-accent) 25%, transparent); }
+.dropPreviewHeader { display: flex; align-items: center; gap: .5rem; height: 40px; padding: 0 .75rem; border-bottom: 1px solid var(--border); font-size: .75rem; }
+.dropPreviewBody { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; height: calc(100% - 40px); font-size: .875rem; color: var(--muted-foreground); }
+.dropPreviewPort { position: absolute; right: -5px; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--data-accent); }

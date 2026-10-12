@@ -1,3 +1,4 @@
+import { loggedOperation, recordFailureLogContext, serverLogger } from "@/server/observability/logger";
 import {
   LeemageClient,
   type ConfirmRequest,
@@ -42,11 +43,12 @@ export async function uploadLeemageFile(
     throw new Error("LEEMAGE_UPLOAD_SIZE_MISMATCH");
   }
 
-  const presigned = await client.files.presign(projectId, {
+  const context = { requestId: options.cleanup?.requestId, provider: "leemage" };
+  const presigned = await loggedOperation({...context, phase:"storage.presign"}, () => client.files.presign(projectId, {
     fileName: file.name,
     contentType: file.type,
     fileSize: file.size,
-  });
+  }));
   let cleanupRegistered = false;
   const cleanupInput = options.cleanup
     ? {
@@ -64,11 +66,13 @@ export async function uploadLeemageFile(
     await client.files.delete?.(projectId, presigned.fileId);
   };
 
+  let phase = "storage.cleanup_register";
   try {
     if (cleanupInput) {
       await createStorageCleanupIntent(undefined, cleanupInput);
       cleanupRegistered = true;
     }
+    phase = "storage.put";
     const response = await requestRemote(presigned.presignedUrl, {
       method: "PUT",
       headers: {
@@ -92,10 +96,13 @@ export async function uploadLeemageFile(
       fileSize: file.size,
       ...(options.variants ? { variants: options.variants } : {}),
     };
+    phase = "storage.confirm";
     const confirmed = await client.files.confirm(projectId, confirm);
     if (!confirmed.file) throw new Error("LEEMAGE_CONFIRM_INVALID");
     return confirmed.file;
   } catch (error) {
+    recordFailureLogContext(error, { ...context, phase });
+    serverLogger.error("storage.upload.failed", error, { ...context, phase });
     if (cleanupInput && cleanupRegistered) {
       try {
         await queueStorageCleanup(undefined, { ...cleanupInput, retryAt: new Date() });

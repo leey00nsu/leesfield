@@ -249,19 +249,28 @@ export function decodeBase64DataUrl(
     tooLargeCode?: string;
   },
 ): ParsedDataUrl {
-  const match = value.match(/^data:([^;,]+)(?:;[^,]*)?;base64,([A-Za-z0-9+/]*={0,2})$/);
-  if (!match || !match[1] || !match[2] || match[2].length % 4 === 1) {
+  const comma = value.indexOf(",");
+  // Parse only the bounded header; never capture a multi-megabyte body.
+  if (comma <= 0 || comma > 1024) throw new Error(options.invalidCode);
+  const match = /^data:([^;,]+)(?:;[^,]*)?;base64$/.exec(value.slice(0, comma));
+  const encoded = value.slice(comma + 1);
+  if (!match?.[1] || !encoded.length || encoded.length % 4 === 1)
     throw new Error(options.invalidCode);
-  }
-  const padding = match[2].endsWith("==") ? 2 : match[2].endsWith("=") ? 1 : 0;
-  const estimatedBytes = Math.floor((match[2].length * 3) / 4) - padding;
-  if (estimatedBytes > options.maxBytes) {
+  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+  const estimatedBytes = Math.floor((encoded.length * 3) / 4) - padding;
+  if (estimatedBytes > options.maxBytes)
     throw new Error(options.tooLargeCode ?? "IO_RESPONSE_TOO_LARGE");
+  const bodyEnd = encoded.length - padding;
+  for (let index = 0; index < bodyEnd; index++) {
+    const code = encoded.charCodeAt(index);
+    if (!((code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||
+          (code >= 48 && code <= 57) || code === 43 || code === 47))
+      throw new Error(options.invalidCode);
   }
-  const buffer = Buffer.from(match[2], "base64");
-  if (buffer.byteLength > options.maxBytes) {
+  const buffer = Buffer.from(encoded, "base64");
+  if (!buffer.length) throw new Error(options.invalidCode);
+  if (buffer.byteLength > options.maxBytes)
     throw new Error(options.tooLargeCode ?? "IO_RESPONSE_TOO_LARGE");
-  }
   return { contentType: match[1].toLowerCase(), buffer };
 }
 

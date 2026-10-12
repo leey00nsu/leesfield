@@ -4,7 +4,7 @@ import { createModelCatalogHandler } from "@/server/model-catalog/handlers/creat
 import { projectExternalAdminModel } from "@/server/model-catalog/external-model-projection";
 import { externalAdminModelCreateSchema, externalAdminModelQuerySchema } from "@/shared/api/platform-admin-contract";
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   return withExternalModelAdmin(request, async () => {
     const search = new URL(request.url).searchParams;
     const query = externalAdminModelQuerySchema.parse(Object.fromEntries(["type", "q", "includeInactive"].flatMap((key) => search.has(key) ? [[key, search.get(key)]] : [])));
@@ -13,6 +13,10 @@ export async function GET(request: Request) {
     return { items: catalog.filter((item) => (!query.type || item.type === query.type) && (!needle || (item.label + " " + item.key).toLowerCase().includes(needle))).map(projectExternalAdminModel) };
   });
 }
-export async function POST(request: Request) {
+async function postObservedHandler(request: Request) {
   return withExternalModelAdmin(request, async (body) => projectExternalAdminModel(await createModelCatalogHandler(externalAdminModelCreateSchema.parse(body))), { body: true, status: 201 });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/external/admin/models", getObservedHandler);
+export const POST = withRequestObservability("/api/external/admin/models", postObservedHandler);

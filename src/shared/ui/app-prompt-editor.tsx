@@ -1,23 +1,27 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/utils";
 
 const TOKEN = "\uFFFC";
-type Token = { id: string; label: string; offset?: number; content: ReactNode };
+export type AppPromptToken = { id: string; label: string; offset?: number; content: ReactNode };
+export type AppPromptTokenPosition = { id: string; offset: number };
 type Props = Omit<ComponentProps<"div">, "onChange" | "children"> & {
   value: string;
-  token?: Token;
+  token?: AppPromptToken;
+  tokens?: AppPromptToken[];
   disabled?: boolean;
   placeholder?: string;
-  onChange: (text: string, tokenPresent: boolean, tokenOffset: number) => void;
+  onChange: (text: string, tokenPresent: boolean, tokenOffset: number, tokens?: AppPromptTokenPosition[]) => void;
 };
 
 // The browser owns editable DOM; React owns only the noneditable token portal.
-export function AppPromptEditor({ value, token, disabled, placeholder, onChange, ref: formRef, className, ...props }: Props) {
+export function AppPromptEditor({ value, token, tokens, disabled, placeholder, onChange, ref: formRef, className, ...props }: Props) {
   const root = useRef<HTMLDivElement | null>(null);
-  const [host, setHost] = useState<HTMLSpanElement | null>(null);
+  const [hosts, setHosts] = useState<{ token: AppPromptToken; element: HTMLSpanElement }[]>([]);
+  const allTokens = useMemo(() => [...(token ? [token] : []), ...(tokens ?? [])], [token, tokens]);
+  const identity = allTokens.map(item => item.id).sort().join("\u0000");
   const composing = useRef(false);
   const caret = useRef<{ start: number; end: number } | null>(null);
 
@@ -26,30 +30,30 @@ export function AppPromptEditor({ value, token, disabled, placeholder, onChange,
     root.current = element;
     assignRef(formRef, element);
     if (!element) return;
-    const current = { value, token };
-    const nextHost = current.token ? document.createElement("span") : null;
-    if (nextHost) {
-      nextHost.contentEditable = "false";
-      nextHost.dataset.promptToken = current.token!.id;
-      nextHost.className = "mr-2 inline-block max-w-full align-middle";
-    }
-    renderDocument(element, current.value, nextHost, current.token?.offset ?? 0);
-    setHost(nextHost);
+    const nextHosts = allTokens.map(item => {
+      const element = document.createElement("span");
+      element.contentEditable = "false";
+      element.dataset.promptToken = item.id;
+      element.className = "mr-2 inline-block max-w-full align-middle";
+      return { token: item, element };
+    });
+    renderDocument(element, value, nextHosts);
+    setHosts(nextHosts);
     if (caret.current) restoreSelection(element, caret.current);
   // Rebuild only when token identity changes, never during ordinary typing.
   // The current snapshot is used only when token identity changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token?.id]);
+  }, [identity]);
 
   useLayoutEffect(() => {
     const element = root.current;
     if (!element || composing.current) return;
     const current = readDocument(element);
-    if (current.text === value && current.hasToken === Boolean(token)) return;
+    if (current.text === value && current.tokens.map(item => item.id).sort().join("\u0000") === identity) return;
     const selection = selectionOffsets(element);
-    renderDocument(element, value, token ? host : null, token?.offset ?? 0);
+    renderDocument(element, value, hosts.map(host => ({ ...host, token: allTokens.find(item => item.id === host.token.id) ?? host.token })));
     if (selection) restoreSelection(element, selection);
-  }, [value, token, host]);
+  }, [value, allTokens, hosts, identity]);
 
   const publish = () => {
     if (disabled) return;
@@ -57,7 +61,9 @@ export function AppPromptEditor({ value, token, disabled, placeholder, onChange,
     if (!element) return;
     const current = readDocument(element);
     element.dataset.empty = String(!current.units.length);
-    onChange(current.text, current.hasToken, Math.max(0, current.units.indexOf(TOKEN)));
+    const primary = current.tokens.find(item => item.id === token?.id);
+    if (tokens) onChange(current.text, Boolean(primary), primary?.offset ?? 0, current.tokens.map(({ id, offset }) => ({ id, offset })));
+    else onChange(current.text, Boolean(primary), primary?.offset ?? 0);
   };
   const insertText = (text: string) => {
     if (disabled) return;
@@ -86,8 +92,15 @@ export function AppPromptEditor({ value, token, disabled, placeholder, onChange,
       aria-label={props["aria-label"] ?? placeholder} contentEditable={!disabled}
       suppressContentEditableWarning data-app-prompt-editor="" data-placeholder={placeholder}
       className={cn("min-h-[160px] w-full whitespace-pre-wrap break-words px-5 py-5 text-base leading-8 text-foreground outline-none [overflow-wrap:anywhere] data-[empty=true]:before:pointer-events-none data-[empty=true]:before:absolute data-[empty=true]:before:text-muted-foreground data-[empty=true]:before:content-[attr(data-placeholder)]", className)}
-      onInput={() => { if (!composing.current) publish(); }}
-      onCompositionStart={() => { composing.current = true; }}
+      onInput={() => {
+        const element = root.current;
+        if (element) element.dataset.empty = String(!readDocument(element).units.length);
+        if (!composing.current) publish();
+      }}
+      onCompositionStart={() => {
+        composing.current = true;
+        if (!disabled && root.current) root.current.dataset.empty = "false";
+      }}
       onCompositionEnd={() => { composing.current = false; publish(); }}
       onBeforeInput={event => {
         const input = event.nativeEvent as InputEvent;
@@ -102,12 +115,14 @@ export function AppPromptEditor({ value, token, disabled, placeholder, onChange,
         if (event.key === "Enter") { event.preventDefault(); insertText("\n"); return; }
         if (event.key !== "Backspace" && event.key !== "Delete") return;
         const element = root.current;
-        if (!element || !host || !element.contains(host)) return;
+        if (!element || !hosts.length) return;
         const selection = selectionOffsets(element);
         if (!selection || selection.start !== selection.end) return;
-        const tokenAt = readDocument(element).units.indexOf(TOKEN);
-        const adjacent = event.key === "Backspace" ? selection.start === tokenAt + 1 : selection.start === tokenAt;
-        if (!adjacent) return;
+        const current = readDocument(element);
+        const index = event.key === "Backspace" ? selection.start - 1 : selection.start;
+        const position = current.tokens.find(item => item.unitOffset === index);
+        const host = hosts.find(item => item.token.id === position?.id)?.element;
+        if (!host || !element.contains(host)) return;
         event.preventDefault();
         const range = document.createRange(); range.selectNode(host); range.deleteContents();
         const browserSelection = window.getSelection();
@@ -120,12 +135,16 @@ export function AppPromptEditor({ value, token, disabled, placeholder, onChange,
       }}
       onDrop={event => {
         event.preventDefault();
+        if (Array.from(event.dataTransfer.types ?? []).includes("Files")) return;
         // Do not allow HTML, file blobs, or another editor's token markup.
         const text = event.dataTransfer.getData("text/plain");
         if (text) insertText(text.replace(/\r\n?/g, "\n"));
       }}
     />
-    {host && token ? createPortal(token.content, host) : null}
+    {hosts.map(host => {
+      const item = allTokens.find(item => item.id === host.token.id);
+      return item ? createPortal(item.content, host.element, item.id) : null;
+    })}
   </>;
 }
 
@@ -134,10 +153,11 @@ function assignRef(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement |
   else if (ref) ref.current = value;
 }
 function readDocument(root: Node) {
+  const ids: string[] = [];
   const walk = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
     if (!(node instanceof Element)) return Array.from(node.childNodes).map(walk).join("");
-    if (node.hasAttribute("data-prompt-token")) return TOKEN;
+    if (node.hasAttribute("data-prompt-token")) { ids.push(node.getAttribute("data-prompt-token")!); return TOKEN; }
     if (node.hasAttribute("data-editor-end")) return "";
     if (node.tagName === "BR") return "\n";
     let text = "";
@@ -148,13 +168,24 @@ function readDocument(root: Node) {
     return text;
   };
   const units = walk(root);
-  return { units, text: units.replaceAll(TOKEN, ""), hasToken: units.includes(TOKEN) };
+  let tokenIndex = 0;
+  const tokens = Array.from(units.matchAll(/\uFFFC/g), match => ({
+    id: ids[tokenIndex++], unitOffset: match.index!, offset: units.slice(0, match.index).replaceAll(TOKEN, "").length,
+  }));
+  return { units, text: units.replaceAll(TOKEN, ""), tokens };
 }
-function renderDocument(root: HTMLElement, text: string, host: HTMLElement | null, offset: number) {
-  const at = Math.max(0, Math.min(offset, text.length));
+function renderDocument(root: HTMLElement, text: string, hosts: { token: AppPromptToken; element: HTMLElement }[]) {
+  const children: Node[] = [];
+  let cursor = 0;
+  for (const host of [...hosts].sort((a, b) => (a.token.offset ?? 0) - (b.token.offset ?? 0))) {
+    const at = Math.max(cursor, Math.min(host.token.offset ?? 0, text.length));
+    children.push(document.createTextNode(text.slice(cursor, at)), host.element);
+    cursor = at;
+  }
+  children.push(document.createTextNode(text.slice(cursor)));
   const end = document.createElement("br"); end.dataset.editorEnd = "";
-  root.replaceChildren(...(host ? [document.createTextNode(text.slice(0, at)), host, document.createTextNode(text.slice(at))] : [document.createTextNode(text)]), end);
-  root.dataset.empty = String(!host && !text.length);
+  root.replaceChildren(...children, end);
+  root.dataset.empty = String(!hosts.length && !text.length);
 }
 function selectionOffsets(root: HTMLElement) {
   const selection = window.getSelection();

@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import { imageUploadOptions, mapUploadedImage, detectImageAnimation } from "@/server/media-assets/image-upload-policy";
 import { mediaInspectionInternals } from "@/server/media-assets/media-inspection";
 import { readFile } from "fs/promises";
@@ -217,6 +218,7 @@ export async function uploadGeneratedImages(
       }),
     };
   } catch (error) {
+    logSafeError("storage.upload.failed", error, { requestId, kind: "image", provider: "leemage", phase: "storage.upload" });
     return {
       status: "completed",
       result: buildResultFromDataUrls(payload, dataUrls),
@@ -304,6 +306,7 @@ export async function resolveGenerationResult(
       artifacts: uploads.map((file) => mapFileToArtifact(file, width, height)),
     };
   } catch (error) {
+    logSafeError("storage.upload.failed", error, { requestId, kind: "image", provider: "leemage", phase: "storage.upload" });
     return {
       status: "completed",
       result: fallbackResult,

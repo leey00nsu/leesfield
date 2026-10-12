@@ -12,7 +12,7 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(request: Request, context: RouteContext) {
+async function postObservedHandler(request: Request, context: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const session = await getSession();
@@ -41,3 +41,6 @@ export async function POST(request: Request, context: RouteContext) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/api-keys/[apiKeyId]/revoke", postObservedHandler);

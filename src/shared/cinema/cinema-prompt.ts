@@ -11,17 +11,16 @@ const shootingGuidance = [
 /** Compose from authoring text only. Persisted execution snapshots already contain the final prompt. */
 export function composeCinemaPrompt(sourcePrompt: string, raw: unknown, media: CinemaMedia): CurrentCinemaSnapshot {
   const settings = parseCinemaSettings(raw, media);
-  const shot = settings.shootingEnabled ? cinemaOption("composition", settings.composition)?.prompt : undefined;
+  const shot = cinemaOption("composition", settings.composition)?.prompt;
   const categories: CinemaCategory[] = [
-    ...(settings.shootingEnabled ? ["aperture", "camera", "lens"] as CinemaCategory[] : []),
+    "aperture", "camera", "lens",
     "palette", "lighting", "artStyle",
-    ...(media === "video" ? ["genre", "rhythm", ...(settings.shootingEnabled ? ["movement"] : [])] as CinemaCategory[] : []),
+    ...(media === "video" ? ["genre", "rhythm", "movement"] as CinemaCategory[] : []),
   ];
   const guidance = categories.flatMap(category => {
     const prompt = cinemaOption(category, settings[category])?.prompt; return prompt ? [prompt] : [];
   });
-  const hasShootingDirection = settings.shootingEnabled
-    && [settings.camera, settings.lens, settings.composition, settings.aperture].some(id => id !== "auto");
+  const hasShootingDirection = [settings.camera, settings.lens, settings.composition, settings.aperture].some(id => id !== "auto");
   if (hasShootingDirection && !shot) {
     guidance.unshift(...shootingGuidance);
   }

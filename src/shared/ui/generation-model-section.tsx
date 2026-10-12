@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { GenerationModality } from "@/shared/generation/generation-presets";
 import { cn } from "@/shared/lib/utils";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
@@ -20,6 +20,7 @@ interface GenerationModelOption<T extends string> {
   name: string;
   vendor: string;
   modalities?: string[];
+  audioReference?: boolean;
 }
 
 interface GenerationModelSectionProps<T extends string> {
@@ -48,6 +49,7 @@ export function GenerationModelSection<T extends string>({
   disabled = false,
   loading = false,
 }: GenerationModelSectionProps<T>) {
+  const ko = useLocale() === "ko";
   const t = useTranslations("generation");
   const tPicker = useTranslations("generation.modelPicker");
   const [isOpen, setIsOpen] = useState(false);
@@ -108,6 +110,7 @@ export function GenerationModelSection<T extends string>({
             </span>
             {renderDefaultBadge(model)}
           </span>
+          {model.audioReference && <span className="mt-2 block text-xs text-muted-foreground">{ko ? "오디오 참조 지원" : "Audio reference supported"}</span>}
           {!!model.modalities?.length && <span className="mt-2 flex flex-wrap gap-1.5">
             {model.modalities.map(modality => <AppModalityTag key={modality} data-picker-secondary="">{modality}</AppModalityTag>)}
           </span>}

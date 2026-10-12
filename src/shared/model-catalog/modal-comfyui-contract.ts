@@ -3,6 +3,7 @@ import type { GradioContract, GradioField } from "./gradio-contract";
 import { gradioSchemaValidator, resolveGradioSchema } from "./gradio-json-schema";
 import { normalizeGradioSchema } from "./gradio-schema-normalization";
 import { gradioObjectAuthoringSchema } from "./gradio-object-schema";
+import { attachmentRelationship, assertAttachmentRelationships } from "./attachment-relationships";
 
 export const modalWorkflowIdSchema = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/);
 const fieldKey = z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]*$/).refine(v => !["constructor", "prototype", "__proto__"].includes(v) && !v.startsWith("advanced__"));
@@ -55,7 +56,11 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
    const nonNull=branches.map(record).filter(s=>s.type!=="null");
    const p=branches.length===2&&nonNull.length===1&&typeof nonNull[0].type==="string"?{...nonNull[0],...resolved,type:[nonNull[0].type,"null"]}:resolved;
    const types=Array.isArray(p.type)?p.type:[p.type];
-   const array=types.includes("array"),item=record(p.items);
+   const array=types.includes("array"),itemSource=resolveGradioSchema(record(p.items),group);
+   const itemBranches=Array.isArray(itemSource.anyOf)?itemSource.anyOf:Array.isArray(itemSource.oneOf)?itemSource.oneOf:[];
+   const itemNonNull=itemBranches.map(record).filter(s=>s.type!=="null");
+   const item=itemBranches.length===2&&itemNonNull.length===1&&itemNonNull[0].type==="string"?{...itemNonNull[0],...itemSource}:itemSource;
+   const nullableItem=array&&gradioSchemaValidator(normalizeGradioSchema(itemSource))(null);
    const file=p.format==="comfy-input-name"||(array&&item.format==="comfy-input-name");
    const media=p["x-media"]??item["x-media"]??(file?"image":undefined);
    if(file&&(!["image","video","audio"].includes(String(media))||!(types.includes("string")||array)))throw new Error("MODAL_FILE_TYPE");
@@ -74,9 +79,10 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
    const kind:GradioField["kind"]=file?(array?"files":"file"):types.filter(t=>t!=="null").length!==1?"json":types.includes("integer")||types.includes("number")?"number":types.includes("boolean")?"boolean":types.includes("string")?"string":"json";
    if(p["x-role"]==="prompt"&&(advanced||kind!=="string"))throw new Error("MODAL_PROMPT_BINDING_TYPE");
    if(kind==="json"&&JSON.stringify(p).includes('"comfy-input-name"'))throw new Error("MODAL_NESTED_FILE_BINDING_REQUIRED:"+name);
-   if(file) (root.properties as Record<string,unknown>)[name]=array?{type:types,items:{type:"string"},...(p.minItems!==undefined?{minItems:p.minItems}:{}),...(p.maxItems!==undefined?{maxItems:p.maxItems}:{})}:{type:types};
+   if(file) (root.properties as Record<string,unknown>)[name]=array?{type:types,items:{type:nullableItem?["string","null"]:"string"},...(p.minItems!==undefined?{minItems:p.minItems}:{}),...(p.maxItems!==undefined?{maxItems:p.maxItems}:{})}:{type:types};
    inputs.push({name:key,label:typeof override.label==="string"?override.label:typeof p.title==="string"?p.title:(advanced?"Advanced · ":"")+name,
     schema,kind,required:group.required.includes(name),nullable:gradioSchemaValidator(schema)(null),
+    attachment:attachmentRelationship(p,override),
     ...(defaultValue!==undefined?{default:defaultValue as GradioField["default"]}:{}),
     ...(!advanced&&(p["x-role"]==="prompt"||(p["x-role"]===undefined&&name==="prompt"))?{canonical:"prompt" as const}:{}),
     ...(file?{media:media as "image"|"video"|"audio"}:{}),...(choices?{choices}:{}),
@@ -85,6 +91,7 @@ export function modalInputContract(raw:unknown, parameters?:unknown):GradioContr
   }
  }
  if(inputs.filter(f=>f.canonical==="prompt").length>1)throw new Error("MODAL_PROMPT_BINDING_AMBIGUOUS");
+ assertAttachmentRelationships(inputs);
  for (const group of groups) {
   const fields=inputs.filter(field=>group.prefix?field.name.startsWith(group.prefix):!field.name.startsWith("advanced__"));
   const defaults=Object.fromEntries(fields.filter(field=>field.default!==undefined).map(field=>[field.name.slice(group.prefix.length),field.default]));

@@ -1,3 +1,4 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import pg from "pg";
 import { pathToFileURL } from "node:url";
 
@@ -37,10 +38,7 @@ export async function createHistorySearchIndexes(databaseUrl = process.env.DATAB
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createHistorySearchIndexes().catch((error) => {
-    const code = error && typeof error === "object" && "code" in error
-      ? String(error.code)
-      : "HISTORY_INDEX_FAILED";
-    console.error(`[history-index] ${code}`);
+    logger.error("db.history_index.failed", error);
     process.exitCode = 1;
   });
 }

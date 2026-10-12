@@ -16,7 +16,7 @@ export const revalidate = 0;
 
 type RouteContext = { params: Promise<{ assetId: string }> };
 
-export async function GET(request: Request, context: RouteContext) {
+async function getObservedHandler(request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
@@ -73,3 +73,6 @@ export async function GET(request: Request, context: RouteContext) {
       ?? buildErrorResponse("MEDIA_ASSET_CONTENT_FETCH_FAILED", 502);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/media-assets/[assetId]/content", getObservedHandler);

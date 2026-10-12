@@ -1,4 +1,9 @@
 "use client";
+import { useCinemaHistoryRestore } from "@/shared/cinema/use-cinema-history-restore";
+import { GradioFileField } from "@/shared/ui/gradio-file-field";
+import { historyReferenceUpdates } from "@/shared/generation/history-references";
+import { historyOptionUpdates } from "@/shared/generation/history-options";
+import { AppPromptMessage } from "@/shared/ui/app-prompt-message";
 import { useState } from "react";
 import type { Path } from "react-hook-form";
 import { useGenerationPromptPreset } from "@/entities/prompt-preset/model/use-generation-prompt-preset";
@@ -18,7 +23,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -72,7 +76,7 @@ import {
   resolveRuntimeDefaultModelKey,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeAudioSchema } from "@/shared/model-catalog/runtime-schema";
-import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
+import { resolveGenerationCapabilities } from "@/shared/model-catalog/modality";
 
 type AudioGenerationFormProps = {
   embedded?: boolean;
@@ -174,7 +178,7 @@ export function AudioGenerationForm({
         id: model.key,
         name: model.label,
         vendor: model.vendor,
-        modalities: resolveGenerationModalities(model),
+        ...resolveGenerationCapabilities(model),
       })),
     [resolvedAudioModels],
   );
@@ -207,6 +211,9 @@ export function AudioGenerationForm({
     mode: "onChange",
   });
   const promptFromQuery = searchParams?.get("prompt") ?? "";
+  const historyId = searchParams.get("historyId");
+  const historyRevision = useRef(0);
+  const tCinema = useTranslations("cinema");
   const modelFromQuery =
     searchParams?.get("model") ??
     resolvedAudioModels.find(
@@ -221,6 +228,7 @@ export function AudioGenerationForm({
 
   const referenceTextFromQuery = searchParams?.get("referenceText") ?? "";
   useEffect(() => {
+    if (historyId) return;
     const trimmed = promptFromQuery.trim();
     if (!trimmed) return;
     if (form.getValues("prompt") === trimmed) return;
@@ -228,7 +236,7 @@ export function AudioGenerationForm({
       shouldDirty: true,
       shouldValidate: true,
     });
-  }, [promptFromQuery, form]);
+  }, [promptFromQuery, form, historyId]);
 
   useEffect(() => {
     const trimmed = modelFromQuery.trim();
@@ -267,6 +275,29 @@ export function AudioGenerationForm({
       : defaultModelKey
     : "";
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
+  const { subscribe: subscribeForm } = form;
+  useEffect(() => {
+    return subscribeForm({ formState: { values: true }, callback: ({ type }) => {
+      if (type === "change") historyRevision.current++;
+    } });
+  }, [subscribeForm]);
+  const generationHistory = useCinemaHistoryRestore({
+    historyId, media: "audio", ready: !isModelLoading && Boolean(activeRuntimeModel) && (!runtimeModelMap.has(modelFromQuery) || activeModel === modelFromQuery), revision: historyRevision,
+    restoreInputs: ({ references, options }) => {
+      if (!activeRuntimeModel) throw new Error("HISTORY_MODEL_UNAVAILABLE");
+      const updates = { ...historyReferenceUpdates(references, activeRuntimeModel), ...historyOptionUpdates(options, activeRuntimeModel) };
+      for (const [path, value] of Object.entries(updates)) {
+        if (path === "inputAudio") form.setValue("inputAudio", value as string, { shouldValidate: true });
+        else if (path.startsWith("dynamicParams.")) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [path.slice(14)]: value }, { shouldDirty: true, shouldValidate: true });
+        else form.setValue(path as Path<AudioGenerationFormValues>, value as never, { shouldDirty: true, shouldValidate: true });
+      }
+    },
+    restorePrompt: prompt => {
+      form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      const field = activeRuntimeModel && getGradioContract(activeRuntimeModel)?.inputs.find(f => f.canonical === "prompt");
+      if (field) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [field.name]: prompt }, { shouldValidate: true });
+    },
+  });
   const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
   const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
   const [promptWasEdited, setPromptWasEdited] = useState(false);
@@ -281,7 +312,10 @@ export function AudioGenerationForm({
     getValues: () => form.getValues(),
     isEdited: path => form.getFieldState(path as Path<AudioGenerationFormValues>, { ...form.formState, dirtyFields: presetDirtyFields }).isDirty,
     onApply: (prompt, updates) => {
+      historyRevision.current++;
       form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      const field = gradioContract?.inputs.find(item => item.canonical === "prompt");
+      if (field && Object.hasOwn(form.getValues("dynamicParams") ?? {}, field.name)) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [field.name]: prompt }, { shouldDirty: true, shouldValidate: true });
       for (const [path, value] of Object.entries(updates)) {
         form.setValue(path as Path<AudioGenerationFormValues>, value as never, { shouldValidate: true });
       }
@@ -302,7 +336,6 @@ export function AudioGenerationForm({
     [activeRuntimeModel, gradioContract],
   );
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const parameterKeys = useMemo(() => {
     const parameters = activeRuntimeModel?.parameters ?? {};
     return Object.keys(parameters)
@@ -411,9 +444,6 @@ export function AudioGenerationForm({
     if (!supportsInputAudio) {
       form.setValue("inputAudio", "", { shouldValidate: true });
       form.setValue("referenceText", "", { shouldValidate: true });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   }, [activeModel, form, runtimeModelMap]);
 
@@ -427,6 +457,7 @@ export function AudioGenerationForm({
   const primaryAudio = resultAudios[0];
 
   const handleSelectModel = (modelId: string) => {
+    historyRevision.current++;
     if (modelId === activeModel) return;
     if (isGenerating) {
       reset();
@@ -434,39 +465,13 @@ export function AudioGenerationForm({
     form.setValue("dynamicParams", {});
     form.setValue("model", modelId, { shouldValidate: true });
   };
-
-  const handleInputAudioSelection = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        return;
-      }
-      form.setValue("inputAudio", result, { shouldValidate: true });
-      event.target.value = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveInputAudio = () => {
-    form.setValue("inputAudio", "", { shouldValidate: true });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
       event.preventDefault();
       handleLoginRedirect();
       return;
     }
-    if (isModelLoading || !hasModels) {
+    if (isModelLoading || !hasModels || generationHistory.loading) {
       event.preventDefault();
       return;
     }
@@ -649,36 +654,18 @@ export function AudioGenerationForm({
               <AppFormLabel className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-sans">
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
-              <AppFormControl>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  disabled={isGuest || isGenerating}
-                  aria-label={label}
-                  onChange={handleInputAudioSelection}
-                  className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-                />
-              </AppFormControl>
-              {inputAudio ? (
-                <div className="flex flex-col gap-2">
-                  <audio
-                    src={inputAudio}
-                    controls
-                    className="w-full rounded-lg border border-white/10 bg-black/60"
-                  />
-                  <AppButton
-                    type="button"
-                    variant="surface"
-                    size="sm"
-                    disabled={isGuest || isGenerating}
-                    onClick={handleRemoveInputAudio}
-                    className="self-start"
-                  >
-                    {tActions("remove")}
-                  </AppButton>
-                </div>
-              ) : null}
+              <GradioFileField
+                key={activeModel}
+                label={label}
+                value={inputAudio || undefined}
+                field={{ name: "inputAudio", label, kind: "file", media: "audio", schema: {}, required: isRequired, nullable: false }}
+                disabled={isGuest || isGenerating}
+                onChange={value => {
+                  historyRevision.current++;
+                  form.setValue("inputAudio", typeof value === "string" ? value : "", { shouldDirty: true, shouldValidate: true });
+                }}
+              />
+              {inputAudio && <audio src={inputAudio} controls className="w-full rounded-lg border border-white/10 bg-black/60" />}
               <AppPromptFormMessage />
             </AppFormItem>
           )}
@@ -945,6 +932,7 @@ export function AudioGenerationForm({
                   disabled={isGuest || isGenerating}
                   aria-label={label}
                   onChange={(event) => {
+                    historyRevision.current++;
                     const file = event.target.files?.[0];
                     if (!file) return;
                     const reader = new FileReader();
@@ -1161,6 +1149,7 @@ export function AudioGenerationForm({
             render={({ field, fieldState }) => (
               <AppFormItem className="flex-1">
                 <GenerationPromptField
+                  header={generationHistory.error ? <AppPromptMessage>{tCinema("restoreFailed")}</AppPromptMessage> : undefined}
                   ariaLabel={tGeneration("promptDock.label")}
                   surface="hero"
                   className={
@@ -1170,7 +1159,7 @@ export function AudioGenerationForm({
                   }
                   attachments={gradioContract ? (<GradioContractFields key={activeModel} scope="attachments" disabled={isGuest || isGenerating}
                     contract={gradioContract} values={contractValues} prompt={mappingPrompt}
-                    onChange={values => { promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
+                    onChange={values => { historyRevision.current++; promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
                     <div className="grid max-h-[35vh] min-w-0 gap-3 overflow-y-auto px-4 pt-4 sm:grid-cols-2">
                       {parameterKeys.filter(key => key === "inputAudio").map(key => renderAudioField(key))}
                       {dynamicParameters.filter(({config}) => config.ui === "upload").map(({key,config}) => renderDynamicAudioField(key,config))}
@@ -1184,7 +1173,7 @@ export function AudioGenerationForm({
                         value={promptPreset.text}
                         disabled={isGuest || isGenerating}
                         token={promptPreset.preset ? { id: promptPreset.preset.key, offset: promptPreset.tokenOffset, label: promptPreset.preset.name, content: <GenerationPromptPresetChip controller={promptPreset} disabled={isGuest || isGenerating} /> } : undefined}
-                        onChange={(text, present, offset) => { setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
+                        onChange={(text, present, offset) => { historyRevision.current++; setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
                       />
                     </AppFormControl>
                   }
@@ -1195,7 +1184,7 @@ export function AudioGenerationForm({
                   }
                   footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="audio" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ historyRevision.current++; promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
 </> : (
                     <>
                       {!isGuest && hasModels ? (
@@ -1247,7 +1236,7 @@ footerRight={
                         disabled={
                           isGenerating ||
                           (isAuthenticated &&
-                            (isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
+                            (generationHistory.loading || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
                         className="min-w-24"
                         onClick={

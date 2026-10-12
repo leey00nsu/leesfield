@@ -14,6 +14,13 @@ beforeEach(()=>{vi.clearAllMocks();mocks.transaction.mockImplementation(async (c
  generationInputAsset:{createMany:mocks.link},
 }));mocks.catalog.mockResolvedValue(['image','video','audio'].map(type=>({type,key:type,parameters:{width:{},height:{},steps:{},seed:{},fps:{},durationSec:{}}})));});
 describe('repository snapshot persistence',()=>{
+ it.each(['image','video'] as const)('does not inject null for an omitted %s seed',async type=>{
+  const payload={model:type,prompt:'movement direction',dynamicParams:{prompt:'movement direction'}};
+  if(type==='image')await createImageGenerationRecord('r',{...payload,width:512,height:512,imageCount:1,steps:1},'owner');
+  else await createVideoGenerationRecord('r',{...payload,aspectRatio:'16:9',resolution:720,durationSec:4,fps:24,steps:10,guidanceScale:1},'owner');
+  expect(mocks.create.mock.calls[0][0].data.requestParams).not.toHaveProperty('seed');
+  expect(mocks.create.mock.calls[0][0].data.requestParams.dynamicParams).toEqual(payload.dynamicParams);
+ });
  it('writes a legacy image once and restores dimensions without model lookup',async()=>{
  await createImageGenerationRecord('r',{model:'image',prompt:'p',width:768,height:512,steps:9,imageCount:1,seed:'42'},'owner');
  const data=mocks.create.mock.calls[0][0].data;

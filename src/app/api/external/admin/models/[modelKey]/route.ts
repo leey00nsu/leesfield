@@ -5,9 +5,13 @@ import { projectExternalAdminModel } from "@/server/model-catalog/external-model
 import { externalAdminModelUpdateSchema } from "@/shared/api/platform-admin-contract";
 type Context = { params: Promise<{ modelKey: string }> };
 export const dynamic = "force-dynamic";
-export async function PATCH(request: Request, context: Context) {
+async function patchObservedHandler(request: Request, context: Context) {
   return withExternalModelAdmin(request, async (body) => projectExternalAdminModel(await updateModelCatalogHandler({ key: (await context.params).modelKey, payload: externalAdminModelUpdateSchema.parse(body) })), { body: true });
 }
-export async function DELETE(request: Request, context: Context) {
+async function deleteObservedHandler(request: Request, context: Context) {
   return withExternalModelAdmin(request, async () => projectExternalAdminModel(await deleteModelCatalogHandler((await context.params).modelKey)));
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const PATCH = withRequestObservability("/api/external/admin/models/[modelKey]", patchObservedHandler);
+export const DELETE = withRequestObservability("/api/external/admin/models/[modelKey]", deleteObservedHandler);

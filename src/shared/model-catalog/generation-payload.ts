@@ -1,3 +1,4 @@
+import { fileFieldAllowsNullItems } from "./gradio-file-schema";
 import { generationFields } from "@/shared/api/generation-input";
 import { getGradioContract } from "./gradio-contract";
 import { parameterKind, numericParameterValue } from "./parameter-contract";
@@ -19,7 +20,11 @@ export function generationPayload(model: Model, payload: unknown) {
     for (const [name, sources] of Object.entries(fileInputs)) {
       const field = contract.inputs.find(f=>f.name===name&&["file","files","gallery"].includes(f.kind));
       if (!field || !Array.isArray(sources)) { dynamic[name]=sources; continue; }
-      dynamic[name] = field.kind==="file" && sources.length===1 ? sources[0] : sources;
+      const positional = fileFieldAllowsNullItems(field);
+      const declared = dynamic[name];
+      const ordered = positional ? [...sources] : sources.filter(source=>source!==null);
+      if (positional && Array.isArray(declared)) while(ordered.length<declared.length)ordered.push(null);
+      dynamic[name] = field.kind==="file" && ordered.length===1 ? ordered[0] : ordered;
     }
     for (const field of contract.inputs) {
       const key = Object.keys(parameters).find(key => record(record(parameters[key]).binding).parameterName === field.name) ?? field.name;

@@ -23,6 +23,19 @@ function sdkClient(f: typeof fixtures[number]) {
  return {config,view_api:async()=>({named_endpoints:named})};
 }
 describe("공개 Gradio 계약 회귀",()=>{
+it("imports an explicit reference count without rewriting the source label or wire schema",async()=>{
+ const {normalizeGradioModel,fileFieldMaxItems}=await import("@/shared/model-catalog/gradio-contract");
+ const label="References (optional, up to 6)";
+ const schema={type:"array",items:{title:"FileData",type:"object",properties:{path:{type:"string"}}}};
+ const contract=buildImportContract("/generate",{parameters:[{parameter_name:"refs",label,component:"Gallery",type:schema,parameter_has_default:true,parameter_default:[]}],returns:[{component:"Image"}]},{});
+ expect(contract.inputs[0]).toMatchObject({label,schema,fileLimit:6});
+ expect(contract.inputs[0].schema).not.toHaveProperty("maxItems");
+ const model=normalizeGradioModel({parameters:{} as Record<string,unknown>,providerConfig:{gradio_contract:contract}});
+ expect(model.parameters.refs).toMatchObject({label,binding:{fileLimit:6,schema}});
+ const restored=getGradioContract(model)!;
+ expect(fileFieldMaxItems(restored.inputs[0])).toBe(6);
+ expect(restored.inputs[0].label).toBe(label);
+});
 it("keeps exact media output indices and rejects hidden State inputs",()=>{
  const c=buildImportContract("/generate",{parameters:[{parameter_name:"session",component:"State",hidden:true,type:{type:"object"},parameter_has_default:true,parameter_default:{}}],returns:[{component:"Textbox"},{component:"Video"},{component:"Image"}]},{});
  expect(c.inputs[0].hidden).toBe(true);

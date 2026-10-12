@@ -14,6 +14,7 @@ import {
   getGradioContract,
   gradioInputValues,
   assertGradioExecutable,
+  fileFieldMaxItems,
 } from "@/shared/model-catalog/gradio-contract";
 import {
   maxExternalFileBytes,
@@ -25,6 +26,7 @@ import { gradioFileAuthoringSchema } from "@/shared/model-catalog/gradio-file-sc
 import { normalizeGradioSchema } from "@/shared/model-catalog/gradio-schema-normalization";
 import { normalizeRuntimeParameterOptions } from "@/shared/model-catalog/parameter-options";
 import type { PromptPresetRef } from "@/shared/prompt-presets/prompt-preset-contract";
+import { DEFAULT_FILE_INPUT_LIMIT, MAX_FILE_INPUT_LIMIT } from "@/shared/model-catalog/file-input-limits";
 
 type FileInput = {
   name: string;
@@ -38,13 +40,13 @@ function object(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
-function fileInput(name: string, multiple: boolean, maxItems = 8): FileInput {
+function fileInput(name: string, multiple: boolean, maxItems = DEFAULT_FILE_INPUT_LIMIT): FileInput {
   return {
     name,
     multiple,
     multipartField: externalFilePrefix + name,
     maxBytes: maxExternalFileBytes,
-    maxItems: multiple ? Math.max(1, Math.min(8, maxItems)) : 1,
+    maxItems: multiple ? Math.max(1, Math.min(MAX_FILE_INPUT_LIMIT, maxItems)) : 1,
   };
 }
 
@@ -64,11 +66,7 @@ export function getExternalModelInput(model: ModelCatalogItem) {
       let schema: SchemaObject;
       if (["file", "files", "gallery"].includes(field.kind)) {
         const multiple = field.kind !== "file";
-        const declaredMaxItems = Number(field.schema.maxItems);
-        const effectiveMaxItems = Number.isSafeInteger(declaredMaxItems)
-          && declaredMaxItems > 0
-          ? Math.min(8, declaredMaxItems)
-          : 8;
+        const effectiveMaxItems = fileFieldMaxItems(field);
         files.push(fileInput(
           field.name,
           multiple,

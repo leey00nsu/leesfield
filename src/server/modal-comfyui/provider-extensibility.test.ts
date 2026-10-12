@@ -13,6 +13,7 @@ import {frozenExecutionModel,snapshotRequest} from "@/server/generation-request/
 import {getModelCatalog} from "@/server/model-catalog/catalog-service";
 import {fileInputsFromAssets,contractInputPorts} from "@/shared/model-catalog/file-input-ports";
 import {findPortDefinition} from "@/shared/generation-graph/node-registry";
+import {resolveContractGenerationCapabilities} from "@/shared/model-catalog/modality";
 
 const empty={type:"object",properties:{},required:[],additionalProperties:false};
 const workflow=(properties:Record<string,unknown>={},required:string[]=[])=>({id:"new-unlisted-workflow",name:"New workflow",category:"image",output_media:["image"],input_schema:{...empty,properties,required},advanced_schema:empty});
@@ -20,10 +21,61 @@ const image={type:"string",format:"comfy-input-name","x-media":"image"};
 function fixture(){
  let row:ModalJobRecord|null=null;
  const repository:ModalJobRepository={find:async()=>row,acquire:async(requestId,fingerprint)=>{row??={requestId,fingerprint,jobId:null,submission:null,createdAt:new Date(0)};return {...row,lease:"test"};},save:async(_id,_lease,patch)=>{Object.assign(row!,patch);},release:async()=>{}};
- const client={origin:"https://test.modal.run",upload:vi.fn(async(source:string,media?:string)=>`${media}-${source.split('/').pop()}`),download:vi.fn(async(_job:string,asset:number|string)=>({url:String(asset),bytes:1})),json:vi.fn(async(path:string,init?:RequestInit):Promise<unknown>=>path.endsWith("/assets")?{job_id:"job",assets:[{output_key:"images",asset_id:"final-id",media_type:"image",role:"result"},{output_key:"images",asset_id:"preview-id",media_type:"image",role:"preview"}],pagination:{has_more:false}}:{id:"job",status:init?.method==="POST"?"pending":"completed"})};
+ const client={origin:"https://test.modal.run",upload:vi.fn(async(source:string,media?:string)=>`${media}-${source.split('/').pop()}`),download:vi.fn(async(_job:string,asset:number|string)=>({buffer:Buffer.from(String(asset)),contentType:"image/png",bytes:1})),json:vi.fn(async(path:string,init?:RequestInit):Promise<unknown>=>path.endsWith("/assets")?{job_id:"job",assets:[{output_key:"images",asset_id:"final-id",media_type:"image",role:"result"},{output_key:"images",asset_id:"preview-id",media_type:"image",role:"preview"}],pagination:{has_more:false}}:{id:"job",status:init?.method==="POST"?"pending":"completed"})};
  return {repository,client,row:()=>row!};
 }
 describe("provider extensibility",()=>{
+ it("requires an explicit relationship and rejects orphan audio without changing source schemas",()=>{
+  const properties={clips:{type:"array",default:[],maxItems:3,items:{type:"string",format:"comfy-input-name","x-media":"video"}},
+    tracks:{type:"array",default:[],maxItems:3,items:{anyOf:[{type:"string",format:"comfy-input-name","x-media":"audio"},{type:"null"}]}}};
+  const raw=workflow(properties),independent=buildModalModelDraft(raw);
+  expect(getGradioContract(independent)!.inputs[1].attachment).toBeUndefined();
+  expect(gradioInputValues(getGradioContract(independent)!,{dynamicParams:{tracks:["https://files/a.wav"]}}).tracks).toHaveLength(1);
+  const relation={role:"paired_audio",pairedWith:"clips",pairing:"index"};
+  const native=buildModalModelDraft(workflow({...properties,tracks:{...properties.tracks,"x-attachment":relation}}));
+  expect(getGradioContract(native)!.inputs[1].attachment).toEqual(relation);
+  const overridden={...independent,parameters:{...independent.parameters,tracks:{...independent.parameters.tracks,attachment:relation}}};
+  const contract=getGradioContract(overridden)!;
+  expect(contract.inputs[1].attachment).toEqual(relation);
+  expect(resolveContractGenerationCapabilities(contract,"video").modalities).toEqual(["T2V","V2V"]);
+  const withIndependent=getGradioContract(buildModalModelDraft(workflow({...properties,tracks:{...properties.tracks,"x-attachment":relation},independent:properties.tracks})))!;
+  expect(resolveContractGenerationCapabilities(withIndependent,"video").modalities).toContain("A2V");
+  expect(overridden.providerConfig.workflow.input_schema.properties.tracks).not.toHaveProperty("x-attachment");
+  const videos=["https://files/a.mp4","https://files/b.mp4"],audio=[null,"https://files/b.wav"];
+  expect(gradioInputValues(contract,{dynamicParams:{clips:videos,tracks:audio}})).toEqual({clips:videos,tracks:audio});
+  expect(()=>gradioInputValues(contract,{dynamicParams:{tracks:audio}})).toThrow("HF_CONTRACT_ATTACHMENT_ORPHAN:tracks");
+  expect(()=>getGradioContract({...overridden,parameters:{...overridden.parameters,tracks:{...overridden.parameters.tracks,attachment:{...relation,pairedWith:"missing"}}}})).toThrow();
+  expect(()=>getGradioContract({...overridden,parameters:{...overridden.parameters,clips:{...independent.parameters["clips"],attachment:relation}}})).toThrow();
+  expect(getGradioContract({...native,parameters:{...native.parameters,tracks:{...native.parameters.tracks,attachment:null}}})!.inputs[1].attachment).toBeUndefined();
+  expect((generationPayload(overridden,{dynamicParams:{tracks:[null,null,null]},fileInputs:{clips:videos,tracks:["https://files/a.wav"]}}) as {dynamicParams:unknown}).dynamicParams).toEqual({clips:videos,tracks:["https://files/a.wav",null,null]});
+ });
+ it.each(["anyOf","oneOf"])("imports and uploads %s nullable file items without moving slots",async union=>{
+  const audio={type:"string",format:"comfy-input-name","x-media":"audio",pattern:"^audio-.*[.]wav$"};
+  const raw=workflow({tracks:{type:"array",items:{[union]:[audio,{type:"null"}]},default:[],maxItems:3}});
+  const draft=buildModalModelDraft(raw),contract=getGradioContract(draft)!;
+  expect(contract.inputs[0]).toMatchObject({kind:"files",media:"audio",nullable:false});
+  const sources=["https://files/a.wav",null,"https://files/c.wav"];
+  expect(gradioInputValues(contract,{dynamicParams:{tracks:sources}}).tracks).toEqual(sources);
+  expect(()=>gradioInputValues(contract,{dynamicParams:{tracks:[false]}})).toThrow();
+  expect(()=>gradioInputValues(contract,{dynamicParams:{tracks:[null,null,null,null]}})).toThrow();
+  const f=fixture();
+  await executeModalWorkflow({...draft.providerConfig,limits:{max_input_files:2}},{dynamicParams:{tracks:sources}},"nullable",f.repository,{client:f.client});
+  expect(f.client.upload).toHaveBeenCalledTimes(2);
+  expect(f.client.upload.mock.calls.map(call=>call[0])).toEqual([sources[0],sources[2]]);
+  const posted=JSON.parse(f.client.json.mock.calls.find(([,init])=>init?.method==="POST")![1]!.body as string);
+  expect(posted.inputs.tracks).toEqual(["audio-a.wav",null,"audio-c.wav"]);
+  f.client.upload.mockClear();
+  await executeModalWorkflow(draft.providerConfig,{dynamicParams:{tracks:sources}},"nullable",f.repository,{client:f.client});
+  expect(f.client.upload).not.toHaveBeenCalled();
+ });
+ it("keeps Graph file sortOrder slots for nullable arrays and compacts ordinary arrays",()=>{
+  const nullable=buildModalModelDraft(workflow({tracks:{type:"array",maxItems:3,items:{anyOf:[{type:"string",format:"comfy-input-name","x-media":"audio"},{type:"null"}]}}}));
+  const assets=[{portId:"audio-field-tracks",url:"https://files/third.wav",sortOrder:2}];
+  expect((generationPayload(nullable,{fileInputs:fileInputsFromAssets(assets)}) as {dynamicParams:unknown}).dynamicParams).toEqual({tracks:[null,null,assets[0].url]});
+  const ordinary=buildModalModelDraft(workflow({tracks:{type:"array",maxItems:3,items:{type:"string",format:"comfy-input-name","x-media":"audio"}}}));
+  expect((generationPayload(ordinary,{fileInputs:fileInputsFromAssets(assets)}) as {dynamicParams:unknown}).dynamicParams).toEqual({tracks:[assets[0].url]});
+ });
+
  it("publishes input and advanced conditional groups with the same defaults and names as execution",()=>{
   const raw=workflow({mode:{type:"string",enum:["plain","mask"],default:"plain"},mask:{type:["string","null"],default:null}});
   Object.assign(raw.input_schema,{if:{properties:{mode:{const:"mask"}},required:["mode"]},then:{properties:{mask:{type:"string",minLength:1}},required:["mask"]}});
@@ -87,7 +139,7 @@ describe("provider extensibility",()=>{
   model.parameters={seed:{ui:"input",default:99}};
   const frozen=frozenExecutionModel(stored,"image",draft.key)!;
   const f=fixture(),original=executeModalWorkflow;
-  f.client.download.mockResolvedValue({url:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",bytes:68});
+  f.client.download.mockResolvedValue({buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=","base64"),contentType:"image/png",bytes:68});
   const spy=vi.spyOn(await import("./executor"),"executeModalWorkflow").mockImplementation((config,payload,id)=>original(config,payload,id,f.repository,{client:f.client}));
   try {
    const {modalComfyImageAdapter}=await import("@/server/image-generation/adapters/modal-comfyui-adapter");
@@ -119,7 +171,7 @@ describe("provider extensibility",()=>{
   expect(contractInputPorts(draft)?.map(p=>p.name)).toEqual(["image-field-source","image-field-mask","video-field-clips"]);
   expect(findPortDefinition("generate.image","video-field-clips","input")?.valueType).toBe("video");
   const f=fixture();
-  expect((await executeModalWorkflow(draft.providerConfig,payload,"request",f.repository,{client:f.client})).urls).toEqual(["final-id"]);
+  expect((await executeModalWorkflow(draft.providerConfig,payload,"request",f.repository,{client:f.client})).outputs.map(output=>output.buffer.toString())).toEqual(["final-id"]);
   expect(f.client.upload.mock.calls.map(c=>c[1])).toEqual(["image","image","video","video"]);
   const submitted=JSON.parse(f.client.json.mock.calls.find(c=>c[1]?.method==="POST")![1]!.body as string);
   expect(submitted.inputs.clips).toEqual(["video-a.mp4","video-b.mp4"]);
@@ -130,7 +182,7 @@ describe("provider extensibility",()=>{
  it("uses a stable id-only asset reference while excluding previews",async()=>{
   const draft=buildModalModelDraft(workflow());
   const f=fixture();f.client.json.mockImplementation(async(path,init)=>path.endsWith("/assets")?{job_id:"job",assets:[{output_key:"images",id:"preview-id",role:"preview"},{output_key:"images",id:"result-id",role:"result",media_type:"image"}],pagination:{has_more:false}}:{id:"job",status:init?.method==="POST"?"pending":"completed"});
-  expect((await executeModalWorkflow(draft.providerConfig,{},"stable-id",f.repository,{client:f.client})).urls).toEqual(["result-id"]);
+  expect((await executeModalWorkflow(draft.providerConfig,{},"stable-id",f.repository,{client:f.client})).outputs.map(output=>output.buffer.toString())).toEqual(["result-id"]);
   expect(f.client.download).toHaveBeenCalledExactlyOnceWith("job","result-id","image",expect.any(Number));
  });
  it("collects the same completed job after contract drift without reupload or POST",async()=>{

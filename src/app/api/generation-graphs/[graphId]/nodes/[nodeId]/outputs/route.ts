@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 type RouteContext = { params: Promise<{ graphId: string; nodeId: string }> };
 
-export async function GET(_request: Request, context: RouteContext) {
+async function getObservedHandler(_request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
@@ -23,3 +23,6 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/outputs", getObservedHandler);

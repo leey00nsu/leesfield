@@ -106,7 +106,7 @@ describe("hfSpaceVideoAdapter", () => {
       expect.objectContaining({}),
     );
     expect(result).toEqual({
-      videos: ["data:video/mp4;base64,AAAAGA=="],
+      videos: [{buffer:Buffer.from("AAAAGA==","base64"),contentType:"video/mp4"}],
       meta: {
         duration_sec: 3.5,
         fps: 16,

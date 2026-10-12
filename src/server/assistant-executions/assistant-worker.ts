@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { withLogContext } from "@/server/observability/logger";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import { getLlmModelApiKey } from "@/server/model-catalog/model-credential";
-import { logStructured } from "@/server/observability/request-observability";
+import { logSafeError } from "@/server/observability/request-observability";
 import { AssistantProviderError, completeAssistant } from "./assistant-provider";
 import { prepareAssistantVisuals } from "./assistant-visuals";
 import { assistantOutputModeSchema, AssistantListInvalidError, parseAssistantList } from "@/shared/generation-graph/assistant-output";
@@ -25,12 +26,13 @@ async function handle(id: string) {
   const claimed = await claimAssistantExecution(id);
   if (!claimed) return;
   const { row, lease } = claimed;
+  return withLogContext({jobId:id, modelKey:row.modelKey, worker:"assistant", provider:"openai_compatible"}, async () => {
   const controller = new AbortController();
   let lost = false;
   let renewal: Promise<void> | null = null;
   const heartbeat = setInterval(() => {
     if (renewal || lost) return;
-    renewal = renewAssistantLease(id, lease).catch(() => { lost = true; controller.abort(); }).finally(() => { renewal = null; });
+    renewal = renewAssistantLease(id, lease).catch((error) => { logSafeError("assistant.lease.failed", error, {jobId:id, modelKey:row.modelKey, worker:"assistant", phase:"lease.renew"}); lost = true; controller.abort(); }).finally(() => { renewal = null; });
   }, 5_000);
   heartbeat.unref?.();
   try {
@@ -54,11 +56,12 @@ async function handle(id: string) {
       return;
     }
     const code = error instanceof AssistantProviderError || error instanceof AssistantListInvalidError ? error.code : "ASSISTANT_FAILED";
-    logStructured("job.failure", { worker: "assistant", jobId: id, errorType: code }, "error");
+    logSafeError("job.failure", error, { worker: "assistant", jobId: id, modelKey: row.modelKey, errorCode: code, phase: "assistant.execute" });
     await settleAssistantExecution(id, lease, { errorCode: code }).catch((failure) => {
       if (!(failure instanceof AssistantLeaseLostError)) throw failure;
     });
   } finally { clearInterval(heartbeat); }
+  });
 }
 
 export async function processAssistantJobs({ awaitCompletion = true }: { awaitCompletion?: boolean } = {}) {
@@ -78,10 +81,10 @@ export async function processAssistantJobs({ awaitCompletion = true }: { awaitCo
 export function startAssistantWorker() {
   if (stopping || interval) return;
   interval = setInterval(() => void processAssistantJobs({ awaitCompletion: false }).catch((error) => {
-    logStructured("worker.pass.failure", { worker: "assistant", errorType: error instanceof Error ? error.name : typeof error }, "error");
+    logSafeError("worker.pass.failure", error, { worker: "assistant",  });
   }), 2_000);
   interval.unref?.();
-  queueMicrotask(() => void processAssistantJobs({ awaitCompletion: false }).catch(() => undefined));
+  queueMicrotask(() => void processAssistantJobs({ awaitCompletion: false }).catch(error => logSafeError("worker.pass.failure", error, {worker:"assistant",phase:"worker.pass"})));
 }
 
 export async function stopAssistantWorker({ drainTimeoutMs = 25_000 }: { drainTimeoutMs?: number } = {}) {

@@ -1,6 +1,6 @@
 import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 import { generationPayload } from "@/shared/model-catalog/generation-payload";
-import { cinemaAuthoringBlocked } from "@/shared/cinema/cinema-authoring";
+import { cinemaAuthoringBlocked, cinemaAuthoringValidation } from "@/shared/cinema/cinema-authoring";
 import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
@@ -181,8 +181,11 @@ export function resolveNodeRunReadiness(
     const selectedModel = [...catalog.imageModels,...(catalog.videoModels??[]),...(catalog.audioModels??[])].find(m=>m.key===modelKey && "generate." + m.type === node.kind);
     if ((node.kind === "generate.image" || node.kind === "generate.video") && cinemaAuthoringBlocked(config.cinema, node.kind === "generate.image" ? "image" : "video", selectedModel, typeof record(config.promptPreset).key === "string" ? String(record(config.promptPreset).key) : undefined)) reasons.push("NODE_CONFIG_INVALID");
     const contract = selectedModel ? getGradioContract(selectedModel) : null;
+    const authoringPrompt = (node.kind === "generate.image" || node.kind === "generate.video")
+      ? cinemaAuthoringValidation({ prompt: typeof config.prompt === "string" ? config.prompt : "" }, config.cinema,
+        node.kind === "generate.image" ? "image" : "video", selectedModel).prompt : undefined;
     const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&!f.allowEmpty&&f.default===undefined);
-    if (requiresPrompt && !promptFromConfig && !promptFromEdge) reasons.push("PROMPT_REQUIRED");
+    if (requiresPrompt && !promptFromConfig && !promptFromEdge && !authoringPrompt?.trim()) reasons.push("PROMPT_REQUIRED");
     if(contract) for(const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
       const port=`${field.media}-field-${field.name}`;
       const count=readyCounts.get(port)??0;
@@ -208,7 +211,10 @@ export function resolveNodeRunReadiness(
         try {prompt=resolveGraphText(graph,promptEdge.sourceNodeId,new Set(),catalog.assistantResults,promptEdge.sourcePortId);} catch { /* INPUT_NOT_READY is recorded above. */ }
       }
       try {
-        const payload=generationPayload(selectedModel,{...parameters,prompt,fileInputs}) as {prompt?:string;dynamicParams?:Record<string,unknown>};
+        const authored = { ...parameters, prompt, fileInputs };
+        const validation = node.kind === "generate.image" || node.kind === "generate.video"
+          ? cinemaAuthoringValidation(authored, config.cinema, node.kind === "generate.image" ? "image" : "video", selectedModel) : authored;
+        const payload=generationPayload(selectedModel,validation) as {prompt?:string;dynamicParams?:Record<string,unknown>};
         gradioInputValues(contract,payload);
       } catch (error) {
         const detail=error instanceof Error ? error.message.split(":")[1] : "";

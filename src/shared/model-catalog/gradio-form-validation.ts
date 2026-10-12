@@ -1,8 +1,11 @@
 
 import { assertGradioExecutable, gradioInputValues, fileFieldMaxItems, type GradioContract } from "./gradio-contract";
+import { fileInputLabel } from "./file-input-presentation";
 
-export function gradioFieldLabel(field: GradioContract["inputs"][number]): string {
-  const label = field.label || field.name;
+export function gradioFieldLabel(field: GradioContract["inputs"][number], locale?: string): string {
+  if (locale && ["file", "files", "gallery"].includes(field.kind)) return fileInputLabel(field, locale);
+  const fallback = field.label || field.name;
+  const label = fallback;
   return field.required ? label.replace(/\s*\((?:optional|선택|선택 사항)\)/gi, "").trim() : label;
 }
 
@@ -31,7 +34,7 @@ export function gradioFormMessage(error: string, contract: GradioContract, local
   const ko = locale === "ko";
   const detail = error.slice(error.indexOf(":") + 1);
   const field = contract.inputs.find(field => detail === field.name || detail.startsWith(field.name + ":"));
-  const label = (field ? gradioFieldLabel(field) : "") || (ko ? "입력 항목" : "This input");
+  const label = (field ? gradioFieldLabel(field, locale) : "") || (ko ? "입력 항목" : "This input");
   if (error.startsWith("HF_CONTRACT_REQUIRED:"))
     return ko ? label + ": 필수 입력입니다." : label + ": This field is required.";
   if (error.startsWith("HF_CONTRACT_FILE_COUNT_LIMIT:")) {
@@ -44,6 +47,8 @@ export function gradioFormMessage(error: string, contract: GradioContract, local
     return ko ? label + ": 제공된 옵션을 선택해 주세요." : label + ": Select one of the available options.";
   if (error.startsWith("HF_CONTRACT_NOT_NULLABLE:"))
     return ko ? label + ": 값을 입력해 주세요." : label + ": Enter a value.";
+  if (error.startsWith("HF_CONTRACT_ATTACHMENT_ORPHAN:"))
+    return ko ? label + ": 연결할 영상을 먼저 첨부해 주세요." : label + ": Attach the corresponding video first.";
   if (error.startsWith("HF_CONTRACT_TYPE:") || error.startsWith("HF_CONTRACT_SCHEMA:"))
     return ko ? label + ": 입력 형식을 확인해 주세요." : label + ": Check the input format.";
   return ko ? "이 모델의 입력 또는 출력 설정으로는 생성할 수 없습니다. 모델 설정을 확인해 주세요." : "This model cannot generate with its current input or output settings. Check the model configuration.";

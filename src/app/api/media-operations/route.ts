@@ -13,7 +13,7 @@ import { startMediaOperationWorker } from "@/server/media-operations/media-opera
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
- export async function POST(request: Request) {
+ async function postObservedHandler(request: Request) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -32,3 +32,6 @@ export const revalidate = 0;
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/media-operations", postObservedHandler);

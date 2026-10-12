@@ -10,7 +10,7 @@ import { importModelDraftFromSpace } from "@/server/model-catalog/space-importer
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
- export async function POST(request: Request) {
+ async function postObservedHandler(request: Request) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -52,7 +52,13 @@ export const revalidate = 0;
     });
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     const message = error instanceof Error ? error.message : "IMPORT_FAILED";
     return NextResponse.json({ message }, { status: 400 });
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/admin/models/import", postObservedHandler);
+
+import { logSafeError } from "@/server/observability/request-observability";

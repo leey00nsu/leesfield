@@ -4,7 +4,7 @@ import { externalMonitoringDetailSchema } from "@/shared/api/platform-monitoring
 import { externalHistorySelectorSchema } from "@/shared/api/platform-contract";
 import { jsonWithNoStore, buildErrorResponse } from "@/server/http/response";
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   return withExternalMonitoringRoute(request, async (query, search) => {
     const selector = externalHistorySelectorSchema.safeParse({ type: search.get("type") });
     const requestId = search.get("requestId");
@@ -14,3 +14,6 @@ export async function GET(request: Request) {
     return jsonWithNoStore(externalMonitoringDetailSchema.parse(detail));
   });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/external/monitoring/requests/detail", getObservedHandler);

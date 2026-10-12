@@ -21,7 +21,7 @@ function parseIncludeInactive(value: string) {
   return value !== "false" && value !== "0";
 }
 
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
   }
 }
 
- export async function POST(request: Request) {
+ async function postObservedHandler(request: Request) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -114,3 +114,7 @@ export async function GET(request: Request) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/admin/models", getObservedHandler);
+export const POST = withRequestObservability("/api/admin/models", postObservedHandler);

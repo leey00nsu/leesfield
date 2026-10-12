@@ -1,15 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { logger } from "@/shared/logging/logger.mjs";
 import { useTranslations } from "next-intl";
 import { AppRouteHomeAction, AppRouteState } from "@/shared/ui/app-route-state";
 import { AppButton } from "@/shared/ui/app-button";
 
 export default function Error({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => { logger.error("ui.route.failed", error, {phase:"ui.render"}); }, [error]);
   const t = useTranslations("routeState");
   return (
     <AppRouteState

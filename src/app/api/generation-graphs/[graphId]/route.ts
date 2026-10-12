@@ -24,7 +24,7 @@ function unexpectedError(operation: string, error: unknown) {
   return buildErrorResponse("DB_SAVE_FAILED", 500);
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+async function getObservedHandler(_request: Request, context: RouteContext) {
   const ownerEmail = await authenticatedOwnerEmail();
   if (!ownerEmail) return buildErrorResponse("UNAUTHORIZED", 401);
 
@@ -33,11 +33,12 @@ export async function GET(_request: Request, context: RouteContext) {
     const graph = await generationGraphService.get(ownerEmail, graphId);
     return jsonWithNoStore({ graph });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return buildGenerationGraphKnownErrorResponse(error) ?? unexpectedError("get", error);
   }
 }
 
-export async function PUT(request: Request, context: RouteContext) {
+async function putObservedHandler(request: Request, context: RouteContext) {
   const ownerEmail = await authenticatedOwnerEmail();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -51,11 +52,12 @@ export async function PUT(request: Request, context: RouteContext) {
     const graph = await generationGraphService.update(ownerEmail, graphId, body);
     return jsonWithNoStore({ graph });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return buildGenerationGraphKnownErrorResponse(error) ?? unexpectedError("update", error);
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
+async function deleteObservedHandler(request: Request, context: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const ownerEmail = await authenticatedOwnerEmail();
@@ -66,6 +68,12 @@ export async function DELETE(request: Request, context: RouteContext) {
     await generationGraphService.remove(ownerEmail, graphId);
     return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return buildGenerationGraphKnownErrorResponse(error) ?? unexpectedError("delete", error);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs/[graphId]", getObservedHandler);
+export const PUT = withRequestObservability("/api/generation-graphs/[graphId]", putObservedHandler);
+export const DELETE = withRequestObservability("/api/generation-graphs/[graphId]", deleteObservedHandler);

@@ -110,7 +110,7 @@ describe("public API protocol", () => {
       expect.objectContaining({ in: "header", name: "Idempotency-Key", required: false }),
       expect.objectContaining({ in: "header", name: "X-Idempotency-Key", required: false }),
     ]));
-    expect((post.requestBody as RequestBodyObject).description).toMatch(/67108864.*30000.*8.*10485760/);
+    expect((post.requestBody as RequestBodyObject).description).toMatch(/67108864.*30000.*64.*10485760/);
     expect(Object.keys(post.responses!)).toEqual(expect.arrayContaining(["408", "409", "413", "415", "429", "499", "503"]));
     for (const status of ["429", "503"]) {
       expect(post.responses![status]).toHaveProperty("headers.Retry-After");
@@ -175,7 +175,7 @@ describe("public API protocol", () => {
     expect(limit).toHaveProperty("schema", { type: "integer", minimum: 1, maximum: 100, default: 24, "x-normalization": "parse-integer-clamp" });
     expect(parseHistoryQuery(new URLSearchParams()).limit).toBe(24);
     expect(parseHistoryQuery(new URLSearchParams({ limit: "500" })).limit).toBe(100);
-    expect(document.paths["/api/external/generations"]!.post!["x-request-limits"]).toMatchObject({ bodyBytes: 67108864, files: 8, fileBytes: 10485760 });
+    expect(document.paths["/api/external/generations"]!.post!["x-request-limits"]).toMatchObject({ bodyBytes: 67108864, files: 64, fileBytes: 10485760 });
     expect(document.paths["/api/external/monitoring/stats"]!.get!["x-query-limits"]).toMatchObject({ defaultDays: 30, rangeDays: 31 });
     expect(document.paths["/api/external/monitoring/stats"]!.get!["x-conditional-permissions"]).toEqual([
       { field: "scope", permission: "monitoring:read-all", condition: "all" },
@@ -203,7 +203,7 @@ it("keeps filesystem external routes covered by the generated document", async (
             .join("/")
             .replace(/\[([^\]]+)\]/g, "{$1}");
         for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"])
-          if (new RegExp("export async function " + method + "\\b").test(code))
+          if (new RegExp("export (?:async function |const )" + method + "\\b").test(code))
             actual.push(method + " " + route);
       }
     }

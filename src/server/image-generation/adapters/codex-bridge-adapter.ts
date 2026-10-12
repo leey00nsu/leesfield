@@ -142,9 +142,9 @@ async function readBridgeJson(response: Response) {
     return JSON.parse(bytes.toString("utf8")) as unknown;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("CODEX_BRIDGE_TIMEOUT");
+      throw new Error("CODEX_BRIDGE_TIMEOUT", {cause:error});
     }
-    throw new Error("CODEX_BRIDGE_BAD_RESPONSE");
+    throw new Error("CODEX_BRIDGE_BAD_RESPONSE", {cause:error});
   }
 }
 
@@ -215,7 +215,7 @@ async function throwForBridgeHttpError(response: Response) {
     if (error instanceof Error && error.message === "CODEX_BRIDGE_TIMEOUT") {
       throw error;
     }
-    throw new Error("CODEX_BRIDGE_BAD_STATUS");
+    throw new Error("CODEX_BRIDGE_BAD_STATUS", {cause:error});
   }
   throw new Error(mapBridgeHttpErrorCode(getBridgeErrorCode(parsed)));
 }
@@ -237,7 +237,7 @@ async function withBridgeTimeout<T>(
     return await Promise.race([task(controller.signal), timeoutPromise]);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("CODEX_BRIDGE_TIMEOUT");
+      throw new Error("CODEX_BRIDGE_TIMEOUT", {cause:error});
     }
     throw error;
   } finally {
@@ -279,9 +279,9 @@ async function fetchBridge(
     return await fetch(url, { ...init, redirect: "error", signal });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("CODEX_BRIDGE_TIMEOUT");
+      throw new Error("CODEX_BRIDGE_TIMEOUT", {cause:error});
     }
-    throw new Error("CODEX_BRIDGE_BAD_STATUS");
+    throw new Error("CODEX_BRIDGE_BAD_STATUS", {cause:error});
   }
 }
 

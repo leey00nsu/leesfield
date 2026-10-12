@@ -26,7 +26,7 @@ function resolveExtension(contentType?: string | null) {
   return "bin";
 }
 
-export async function GET(request: Request, { params }: RouteContext) {
+async function getObservedHandler(request: Request, { params }: RouteContext) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -84,6 +84,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       },
     });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     if (
       error instanceof RemoteAccessError
       && (error.code === "REMOTE_TIMEOUT" || error.code === "REMOTE_ABORTED")
@@ -99,3 +100,8 @@ export async function GET(request: Request, { params }: RouteContext) {
     );
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/image-generation/[requestId]/download", getObservedHandler);
+
+import { logSafeError } from "@/server/observability/request-observability";

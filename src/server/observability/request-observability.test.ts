@@ -65,7 +65,11 @@ describe("request observability", () => {
     const snapshot = getObservabilitySnapshot();
     expect(snapshot.database[0]).toMatchObject({ operation: "test.query", errors: 1 });
     expect(snapshot.providers[0]).toMatchObject({ provider: "modal", errors: 1 });
-    expect(errorLog).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledTimes(2);
+    const lines = errorLog.mock.calls.map(([line]) => JSON.parse(String(line)));
+    expect(lines[0]).toMatchObject({event:"database.failed",phase:"database",error:{type:"Error",message:"[redacted]"}});
+    expect(lines[1]).toMatchObject({event:"provider.failed",provider:"modal",phase:"provider.request",error:{type:"Error",message:"[redacted]"}});
+    expect(JSON.stringify(lines)).not.toMatch(/database-secret|provider-secret/);
   });
 
   it("redacts unbounded structured field values", () => {

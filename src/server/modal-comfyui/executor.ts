@@ -1,3 +1,5 @@
+import type { BinaryMediaOutput } from "@/server/media-assets/binary-media-output";
+import { logSafeError } from "@/server/observability/request-observability";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { modalConfigSchema, modalInputContract, modalExecutionLimits } from "@/shared/model-catalog/modal-comfyui-contract";
@@ -10,14 +12,13 @@ import type { ModalJobRepository, ModalSubmission } from "./job-repository";
 const jobSchema=z.object({id:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(128),status:z.enum(["pending","in_progress","completed","failed","cancelled"]),error:z.string().optional()});
 const assetsSchema=z.object({
  job_id:z.string(),
- assets:z.array(z.object({output_key:z.enum(["images","video","audio"]),id:z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),asset_id:z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),media_type:z.enum(["image","video","audio"]).optional(),role:z.enum(["result","preview"]).optional()})),
+ assets:z.array(z.object({output_key:z.enum(["images","video","gifs","audio"]),id:z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),asset_id:z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),media_type:z.enum(["image","video","audio"]).optional(),role:z.enum(["result","preview"]).optional()})),
  pagination:z.object({has_more:z.literal(false)}),
 });
 function responseContract<T>(schema:z.ZodType<T>, value:unknown, stage:string):T {
  const parsed=schema.safeParse(value);
  if(!parsed.success) {
-  console.error("[modal-comfyui] response validation", {stage,issues:parsed.error.issues.map(i=>({path:i.path,code:i.code}))});
-  throw new ModalApiError("MODAL_"+stage+"_RESPONSE_INVALID");
+  throw new ModalApiError("MODAL_"+stage+"_RESPONSE_INVALID",false,{cause:parsed.error});
  }
  return parsed.data;
 }
@@ -50,6 +51,7 @@ export async function executeModalWorkflow(
  const record=await repository.acquire(requestId,fingerprint,config.timeout_ms+120_000);
  const deadline=now()+config.timeout_ms;
  let jobId=record.jobId;
+ let phase="input.prepare";
  let submitAttempted=false;
  let completed=false;
  let submission=record.submission as ModalSubmission|null;
@@ -72,14 +74,16 @@ export async function executeModalWorkflow(
   if(!jobId) {
    if(!submission) {
     const mapped={...values};
-    const fileCount=contract.inputs.filter(f=>["file","files"].includes(f.kind)).reduce((n,f)=>n+(Array.isArray(mapped[f.name])?(mapped[f.name] as unknown[]).length:mapped[f.name]==null?0:1),0);
+    const fileCount=contract.inputs.filter(f=>["file","files"].includes(f.kind)).reduce((n,f)=>n+(Array.isArray(mapped[f.name])?(mapped[f.name] as unknown[]).filter(v=>v!==null).length:mapped[f.name]==null?0:1),0);
     if(fileCount>limits.max_input_files)throw new ModalApiError("MODAL_INPUT_COUNT_LIMIT");
     for(const field of contract.inputs) if(["file","files"].includes(field.kind) && mapped[field.name]!==undefined && mapped[field.name]!==null) {
      remaining();
-     const sources=field.kind==="files"?mapped[field.name] as string[]:[mapped[field.name] as string];
+     const sources=field.kind==="files"?mapped[field.name] as (string|null)[]:[mapped[field.name] as string];
      const declaredDefaults=Array.isArray(field.default)?field.default:[field.default];
      const uploaded=[];
+     phase="input.upload";
      for(const source of sources){
+      if(source===null){uploaded.push(null);continue;}
       // A server-declared file default already names an input on its Volume.
       // Arbitrary caller-supplied filenames are still not accepted as uploads.
       if(declaredDefaults.includes(source)&&/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]{0,159}$/.test(source))uploaded.push(source);
@@ -96,12 +100,14 @@ export async function executeModalWorkflow(
       throw new ModalApiError("MODAL_WIRE_INPUT_INVALID");
     await repository.save(requestId,record.lease,{submission});
    }
+   phase="job.submit";
    submitAttempted=true;
    const job=responseContract(jobSchema,await retry(submit),"SUBMIT");jobId=job.id;
    await repository.save(requestId,record.lease,{jobId});
   }
   while(true) {
    remaining();
+   phase="job.poll";
    const job=responseContract(jobSchema,await retry(()=>client.json("/api/jobs/"+jobId)),"STATUS");
    if(job.id!==jobId) throw new ModalApiError("MODAL_JOB_MISMATCH");
    if(job.status==="completed") {completed=true;break;}
@@ -121,6 +127,7 @@ export async function executeModalWorkflow(
   let assets:z.infer<typeof assetsSchema>;
   for(;;) {
    remaining();
+   phase="result.assets";
    assets=responseContract(assetsSchema,await retry(()=>client.json("/api/jobs/"+jobId+"/assets")),"ASSETS");
    if(assets.job_id!==jobId) throw new ModalApiError("MODAL_JOB_MISMATCH");
    if(assets.assets.length) break;
@@ -128,41 +135,43 @@ export async function executeModalWorkflow(
   }
   if(assets.job_id!==jobId) throw new ModalApiError("MODAL_JOB_MISMATCH");
   if(assets.assets.length>limits.max_assets)throw new ModalApiError("MODAL_OUTPUT_COUNT_LIMIT");
-  const urls:string[]=[];
+  const outputs:BinaryMediaOutput[]=[];
   let bytes=0;
   for(const [index,asset] of assets.assets.entries()) {
    remaining();
    if(asset.role==="preview")continue;
    if(asset.media_type && asset.media_type!==config.workflow.category)throw new ModalApiError("MODAL_OUTPUT_MEDIA");
-   // ComfyUI SaveVideo can publish MP4 files in its "images" UI collection.
+   // ComfyUI video nodes can publish MP4 in their "images" or "gifs" collection.
    // This key is not a MIME type; download validates the actual bytes and header.
    const compatibleKey = asset.output_key === "images" ||
-    (config.workflow.category === "video" && asset.output_key === "video");
+    (config.workflow.category === "video" && ["video","gifs"].includes(asset.output_key));
    if (!compatibleKey) throw new ModalApiError("MODAL_OUTPUT_MEDIA");
   let result:Awaited<ReturnType<ModalClient["download"]>>;
   for(;;) {
    try {
      if(bytes>=totalOutputLimit) throw new ModalApiError("MODAL_OUTPUT_TOO_LARGE");
+     phase="result.download";
      result=await retry(()=>client.download(jobId!,asset.asset_id??asset.id??index,config.workflow.category,Math.min(mediaOutputLimit,totalOutputLimit-bytes)));
      break;
     } catch(error) {
-     if(!(error instanceof ModalApiError)) throw new ModalApiError("MODAL_DOWNLOAD_FAILED");
+     if(!(error instanceof ModalApiError)) throw new ModalApiError("MODAL_DOWNLOAD_FAILED",false,{cause:error});
      if(error.code!=="MODAL_HTTP_404") throw error;
      await waitForResult();
     }
    }
    if(result.bytes>mediaOutputLimit || bytes+result.bytes>totalOutputLimit)throw new ModalApiError("MODAL_OUTPUT_TOO_LARGE");
-   urls.push(result.url);bytes+=result.bytes;
+   outputs.push({buffer:result.buffer,contentType:result.contentType});bytes+=result.bytes;
   }
-  if(!urls.length)throw new ModalApiError("MODAL_OUTPUT_EMPTY");
-  return {urls,jobId};
+  if(!outputs.length)throw new ModalApiError("MODAL_OUTPUT_EMPTY");
+  return {outputs,jobId};
  } catch(error) {
+  logSafeError("modal.execution.failed", error, { requestId, jobId: jobId ?? undefined, provider: "modal_comfyui", phase });
   // Reconcile an uncertain POST with the exact durable payload/key before cancellation.
   if(!jobId && submitAttempted && submission) {
    try {jobId=jobSchema.parse(await submit()).id;await repository.save(requestId,record.lease,{jobId});} catch {}
   }
   if(jobId && !completed && !(error instanceof ModalApiError && ["MODAL_JOB_FAILED","MODAL_JOB_CANCELLED"].includes(error.code))) {
-   try {await client.json("/api/jobs/"+jobId,{method:"DELETE"});} catch {throw new ModalApiError("MODAL_FAILED_CANCEL_UNCONFIRMED");}
+   try {await client.json("/api/jobs/"+jobId,{method:"DELETE"});} catch(cancelError) {logSafeError("modal.cancel.failed",cancelError,{requestId,jobId,provider:"modal_comfyui",phase:"job.cancel"});throw new ModalApiError("MODAL_FAILED_CANCEL_UNCONFIRMED",false,{cause:error});}
   }
   throw error;
  } finally {await repository.release(requestId,record.lease);}

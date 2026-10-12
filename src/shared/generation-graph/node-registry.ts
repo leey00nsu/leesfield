@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cinemaSettingsSchema } from "@/shared/cinema/cinema-contract";
+import { cinemaAuthoringSettingsSchema, cinemaImageAuthoringSettingsSchema } from "@/shared/cinema/cinema-contract";
 import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { splitTemplateSchema } from "./split-grid-template";
 
@@ -102,11 +102,8 @@ const generationBaseConfigSchema = z
     ...presentationField,
   })
   .strict();
-const generationConfigSchema = generationBaseConfigSchema.extend({ cinema: cinemaSettingsSchema.optional() });
-const imageGenerationConfigSchema = generationConfigSchema.superRefine((config, ctx) => {
-  if (config.cinema && [config.cinema.genre, config.cinema.rhythm, config.cinema.movement].some(id => id !== "auto"))
-    ctx.addIssue({ code: "custom", path: ["cinema"], message: "CINEMA_VIDEO_ONLY" });
-});
+const generationConfigSchema = generationBaseConfigSchema.extend({ cinema: cinemaAuthoringSettingsSchema.optional() });
+const imageGenerationConfigSchema = generationBaseConfigSchema.extend({ cinema: cinemaImageAuthoringSettingsSchema.optional() });
 const assistantConfigSchema = z.object({
   prompt: z.string().max(20_000),
   modelKey: z.string().trim().min(1).max(200).nullable(),

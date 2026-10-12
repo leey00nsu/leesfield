@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import {
   GENERATION_WORKER_DRAIN_TIMEOUT_MS,
   getGenerationWorkerState,
@@ -127,6 +128,7 @@ export function createWorkerSupervisor(
         (result): result is PromiseRejectedResult => result.status === "rejected",
       );
       if (failure) {
+        logSafeError("worker.shutdown.failed",failure.reason,{worker:"supervisor",phase:"worker.shutdown"});
         runtimeProcess.exitCode = 1;
         if (exit) runtimeProcess.exit(1);
         throw failure.reason;

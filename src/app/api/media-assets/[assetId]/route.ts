@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 type RouteContext = { params: Promise<{ assetId: string }> };
 
-export async function GET(_request: Request, context: RouteContext) {
+async function getObservedHandler(_request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
+async function deleteObservedHandler(request: Request, context: RouteContext) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -41,3 +41,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/media-assets/[assetId]", getObservedHandler);
+export const DELETE = withRequestObservability("/api/media-assets/[assetId]", deleteObservedHandler);

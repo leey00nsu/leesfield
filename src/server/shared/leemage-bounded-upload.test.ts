@@ -130,4 +130,20 @@ describe("Leemage bounded upload", () => {
     );
     expect(client.files.delete).not.toHaveBeenCalled();
   });
+  it.each(["presign","put","confirm"])("logs the original %s failure without signed URLs or file data",async(stage)=>{
+    const sink=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+    const error=Object.assign(new Error("request failed with private-token"),{code:"ECONNRESET"});
+    const presign=vi.fn().mockResolvedValue({presignedUrl:"https://host/?signature=private-token",objectName:"private-file",fileId:"file"});
+    const confirm=vi.fn().mockResolvedValue({file:{id:"file"}});
+    mockRequestRemote.mockResolvedValue({status:200});
+    if(stage==="presign")presign.mockRejectedValue(error);
+    if(stage==="put")mockRequestRemote.mockRejectedValue(error);
+    if(stage==="confirm")confirm.mockRejectedValue(error);
+    const file={name:"private-file",type:"image/png",size:1,arrayBuffer:async()=>Uint8Array.from([1]).buffer};
+    await expect(uploadLeemageFile({files:{presign,confirm}},"project",file,{cleanup:{requestId:"req",reason:"generation_output"}})).rejects.toBe(error);
+    const line=String(sink.mock.calls[0]?.[0]);
+    expect(JSON.parse(line)).toMatchObject({requestId:"req",provider:"leemage",phase:"storage."+stage,error:{code:"ECONNRESET"}});
+    expect(line).not.toMatch(/private-token|private-file|signature/);
+    sink.mockRestore();
+  });
 });

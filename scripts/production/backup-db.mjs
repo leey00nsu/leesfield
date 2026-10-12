@@ -1,13 +1,14 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import { randomUUID } from "node:crypto";
 
 import {
+  ProductionDbToolError,
   buildPgEnvironment,
   databaseTargetSummary,
   displayPath,
   parseDatabaseUrl,
   finishOutput,
   prepareOutputPath,
-  ProductionDbToolError,
   removeIfPresent,
   runPgTool,
   temporaryOutputPath,
@@ -106,9 +107,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  const message = error instanceof ProductionDbToolError
-    ? error.message
-    : "backup failed";
-  console.error(`[db-backup] ${message}`);
+  logger.error("db.backup.failed", error);
   process.exitCode = 1;
 });

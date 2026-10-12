@@ -23,7 +23,7 @@ describe("Modal authenticated transport",()=>{
  it("uses same-origin server-built paths, blocks redirects and reads actual image bytes",async()=>{
   setup();const fetch=vi.fn(async()=>new Response(png,{headers:{"content-type":"image/png"}}));vi.stubGlobal("fetch",fetch);
   const c=createModalClient();
-  expect((await c.download("job-1",0,"image",1024)).url).toBe("data:image/png;base64,"+png.toString("base64"));
+  expect(await c.download("job-1",0,"image",1024)).toEqual({buffer:png,contentType:"image/png",bytes:png.length});
   expect(fetch.mock.calls[0]).toEqual(["https://example.modal.run/api/jobs/job-1/assets/0",expect.objectContaining({redirect:"error",headers:{Authorization:"Bearer private-token"}})]);
   await expect(c.json("/api/jobs/../../health")).rejects.toThrow("PATH_INVALID");
   await expect(c.download("job",0,"video",1024)).rejects.toThrow("OUTPUT_MEDIA");
@@ -32,7 +32,7 @@ describe("Modal authenticated transport",()=>{
   setup();
   const mp4=Buffer.from("000000186674797069736f6d0000020069736f6d69736f32","hex");
   vi.stubGlobal("fetch",vi.fn(async()=>new Response(mp4,{headers:{"content-type":"video/mp4"}})));
-  expect((await createModalClient().download("job",0,"video",1024)).url).toMatch(/^data:video\/mp4;base64,/);
+  expect(await createModalClient().download("job",0,"video",1024)).toEqual({buffer:mp4,contentType:"video/mp4",bytes:mp4.length});
   await expect(createModalClient().download("job",0,"image",1024)).rejects.toThrow("MODAL_OUTPUT_MEDIA");
   vi.stubGlobal("fetch",vi.fn(async()=>new Response(png,{headers:{"content-type":"video/mp4"}})));
   await expect(createModalClient().download("job",0,"video",1024)).rejects.toThrow("MODAL_OUTPUT_MEDIA");

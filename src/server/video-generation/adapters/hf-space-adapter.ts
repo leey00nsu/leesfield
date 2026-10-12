@@ -1,3 +1,5 @@
+import { mapBoundedBinaryOutputs } from "@/server/media-assets/binary-media-output";
+import { loggedOperation } from "@/server/observability/logger";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { executeGradioContract } from "@/server/hf-space/contract-executor";
 import { Client, handle_file } from "@gradio/client";
@@ -21,7 +23,6 @@ import {
   awaitWithTimeout,
   decodeBase64DataUrl,
   fetchBoundedRemoteBytes,
-  mapBoundedMediaOutputs,
   readFetchResponseJson,
   OUTBOUND_FILE_TIMEOUT_MS,
   GENERATION_OUTPUT_LIMITS,
@@ -249,7 +250,7 @@ async function resolveInitImageBuffer(source: string) {
   return { buffer: resolved.buffer, mime: detected };
 }
 
-async function fetchVideoDataUrl(
+async function fetchVideoOutput(
   fileRef: string | ReturnType<typeof resolveHfSpaceFileReference>,
   spaceUrl: string,
   timeoutMs: number = OUTBOUND_FILE_TIMEOUT_MS,
@@ -269,7 +270,7 @@ async function fetchVideoDataUrl(
     if (!contentType.startsWith("video/")) {
       throw new Error("HF_SPACE_VIDEO_FETCH_FAILED");
     }
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
+    return { buffer, contentType };
   }
   const { buffer, contentType: responseContentType } =
     await fetchBoundedRemoteBytes(normalized, {
@@ -283,7 +284,7 @@ async function fetchVideoDataUrl(
   if (!contentType.startsWith("video/")) {
     throw new Error("HF_SPACE_VIDEO_FETCH_FAILED");
   }
-  return `data:${contentType};base64,${buffer.toString("base64")}`;
+  return { buffer, contentType };
 }
 
 export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
@@ -357,15 +358,15 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       await ensureSpaceRunning(config);
       const client = await getClient(config);
       const refs = await executeGradioContract(client, model, payload, config, "video");
-      const urls = await mapBoundedMediaOutputs(
+      const urls = await mapBoundedBinaryOutputs(
         refs,
         "video",
-        (ref, _index, maxBytes) => fetchVideoDataUrl(
+        (ref, _index, maxBytes) => loggedOperation({provider:"hf_space",phase:"result.download"}, () => fetchVideoOutput(
           ref,
           config.spaceUrl,
           Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
           maxBytes,
-        ),
+        )),
       );
       return { videos: urls };
     }
@@ -428,13 +429,13 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       throw new Error("HF_SPACE_RESPONSE_INVALID");
     }
 
-    const dataUrl = await fetchVideoDataUrl(
+    const output = await loggedOperation({provider:"hf_space",phase:"result.download"}, () => fetchVideoOutput(
       fileRef,
       config.spaceUrl,
       Math.min(config.timeoutMs, OUTBOUND_FILE_TIMEOUT_MS),
-    );
+    ));
     return {
-      videos: [dataUrl],
+      videos: [output],
       meta: {
         duration_sec: durationSeconds,
         fps: defaults?.fps ?? 16,

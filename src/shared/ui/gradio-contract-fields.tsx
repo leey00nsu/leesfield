@@ -13,7 +13,11 @@ import {
   AppSelectItem,
 } from "@/shared/ui/app-select";
 import { Switch } from "@/shared/ui/brand/switch/switch";
-import { GradioFileField } from "./gradio-file-field";
+import { resolveContractGenerationCapabilities } from "@/shared/model-catalog/modality";
+import { GenerationReferenceAttachments } from "./generation-reference-attachments";
+import { GradioFileField, GradioFileSlot, PairedAudioSection } from "./gradio-file-field";
+import { pairedAudioField, reorderPairedSlots } from "@/shared/model-catalog/attachment-relationships";
+import { fileFieldMaxItems } from "@/shared/model-catalog/gradio-contract";
 import { AppInput } from "@/shared/ui/app-input";
 import { AppTextarea } from "@/shared/ui/app-form-control";
 import { AppButton } from "@/shared/ui/app-button";
@@ -21,7 +25,7 @@ import { AppPromptMessage } from "./app-prompt-message";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
 import { type JsonValue } from "@/shared/model-catalog/gradio-contract";
 import { numericParameterValue } from "@/shared/model-catalog/parameter-contract";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function isContractFileField(field: GradioContract["inputs"][number]) {
   return ["file", "files", "gallery"].includes(field.kind);
@@ -50,19 +54,27 @@ export function GradioContractFields({
 }) {
   const ko = useLocale() === "ko";
   const [customChoices, setCustomChoices] = useState<Record<string, string>>({});
+  const [relationError,setRelationError] = useState<string|null>(null);
 
+  const latest = useRef(values);
+  useEffect(()=>{latest.current=values;},[values]);
   const update = (name: string, value: JsonValue | undefined) => {
     if (disabled) return;
-    const next = { ...values };
+    const next = { ...latest.current };
     if (value === undefined) delete next[name];
     else next[name] = value;
+    latest.current = next;
     onChange(next as Record<string, JsonValue>);
   };
   const fields = contract.inputs.filter(field =>
     !field.canonical && !field.hidden && !excludeNames.includes(field.name) &&
     (scope === "all" || isContractFileField(field) === (scope === "attachments")),
   );
+  const topFields = fields.filter(field => !field.attachment || !fields.some(parent=>parent.name===field.attachment?.pairedWith));
   if (!fields.length) return null;
+  const capabilities = scope === "attachments" ? resolveContractGenerationCapabilities(contract,contract.output?.media ?? "video") : null;
+  const requiredReferences = capabilities && capabilities.modalities.length > 0 && !capabilities.modalities.some(mode=>mode.startsWith("T2"))
+    ? capabilities.modalities.map(mode=>({I:ko ? "이미지" : "image",V:ko ? "영상" : "video",A:ko ? "오디오" : "audio"}[mode[0] as "I"|"V"|"A"])).join(ko ? " 또는 " : " or ") : null;
   const keys = new Set(fields.map(field => field.name));
   const visibleContract = { ...contract, inputRules: undefined, inputGroups: undefined, inputs: fields };
   const error = gradioFormError(visibleContract, {
@@ -72,15 +84,17 @@ export function GradioContractFields({
     <div data-contract-fields={scope} className={scope === "attachments"
       ? "flex max-h-[35vh] min-w-0 flex-col gap-3 overflow-y-auto px-4 pt-4"
       : "grid max-h-[60vh] min-w-0 grid-cols-2 gap-x-3 gap-y-5 overflow-y-auto p-1"}>
-      {fields
+      <GenerationReferenceAttachments fields={scope === "attachments" ? topFields : []} disabled={disabled} requirement={requiredReferences ? (ko ? requiredReferences + " 참조가 필요합니다." : "A " + requiredReferences + " reference is required.") : undefined}>
+      {topFields
         .map((field) => {
-          const label = gradioFieldLabel(field).replace(/\s*\(optional\)\s*$/i, "");
+          const label = gradioFieldLabel(field, ko ? "ko" : "en").replace(/\s*\(optional\)\s*$/i, "");
           const value = Object.prototype.hasOwnProperty.call(values, field.name)
             ? values[field.name]
             : field.default;
+          const paired = pairedAudioField(fields, field.name);
           return (
             <div key={field.name} className={["file", "files", "gallery"].includes(field.kind) ? "flex min-w-0 flex-col gap-2 text-sm" : "col-span-2 flex min-w-0 flex-col gap-2 text-sm"}>
-              {(scope !== "attachments" || !isContractFileField(field) || !!field.choices?.length) && <span>
+              {(!isContractFileField(field) || !!field.choices?.length) && <span>
                 {label}
                 {field.required ? (
                   <span className="ml-2 text-xs text-destructive">
@@ -88,6 +102,11 @@ export function GradioContractFields({
                   </span>
                 ) : null}
               </span>}
+              {paired && Array.isArray(values[paired.name]) && (values[paired.name] as unknown[]).some((item,index)=>item!=null && index>=(Array.isArray(value)?value.length:0)) &&
+                <AppButton type="button" variant="ghost" size="sm" disabled={disabled} className="self-start text-xs"
+                  onClick={()=>{update(paired.name,(latest.current[paired.name] as JsonValue[]).slice(0,Array.isArray(value)?value.length:0));setRelationError(null);}}>
+                  {ko?"연결할 영상이 없는 오디오 제거":"Remove audio without a matching video"}
+                </AppButton>}
               {field.choiceMode === "multiple" ? (
                 <fieldset aria-label={label} disabled={disabled} className="flex flex-col gap-2">
                   {(field.choices ?? []).map(option => {
@@ -165,7 +184,17 @@ export function GradioContractFields({
                 />
               ) : isContractFileField(field) ? (
                 <GradioFileField disabled={disabled} label={label} field={field} value={value} onChange={(value) => update(field.name, value)}
-                  description={scope === "attachments" ? <span className="text-xs text-muted-foreground">{label}{field.required && <span className="ml-2 text-destructive">{ko ? "필수" : "Required"}</span>}</span> : undefined}/>
+                  onChangeOrder={paired ? order => {
+                    if (disabled || (Object.hasOwn(latest.current,field.name)?latest.current[field.name]:field.default) !== value) return;
+                    const videos = Array.isArray(value) ? value : [];
+                    const audio = latest.current[paired.name] ?? paired.default;
+                    const next = {...latest.current, [field.name]:order.map(index=>videos[index])};
+                    try { if (Array.isArray(audio)) next[paired.name] = reorderPairedSlots(audio,order); }
+                    catch {setRelationError(ko?"미지정 오디오의 기본 동작을 유지할 수 없는 순서입니다. 영상별 오디오를 첨부하거나 비운 뒤 이동해 주세요.":"This order cannot preserve unspecified audio defaults. Attach or clear each video soundtrack before moving it.");return;}
+                    setRelationError(null);
+                    latest.current = next; onChange(next as Record<string,JsonValue>);
+                  } : undefined}
+                  />
               ) : field.kind === "json" ? (
                 <AppTextarea
                   disabled={disabled}
@@ -227,6 +256,27 @@ export function GradioContractFields({
             </div>
           );
         })}
+      </GenerationReferenceAttachments>
+      {topFields.map(field => {
+        const paired = pairedAudioField(fields, field.name);
+        const value = Object.hasOwn(values, field.name) ? values[field.name] : field.default;
+        if (!paired || !Array.isArray(value) || !value.length) return null;
+        const audio = values[paired.name] ?? paired.default;
+        return <PairedAudioSection key={paired.name} field={paired}>
+          {value.slice(0, fileFieldMaxItems(paired)).map((_, index) =>
+            <GradioFileSlot key={index} index={index} disabled={disabled} field={paired} label={gradioFieldLabel(paired, ko ? "ko" : "en")}
+              value={Array.isArray(audio) ? audio[index] ?? null : null}
+              onChange={selected => {
+                if (disabled || (Object.hasOwn(latest.current, field.name) ? latest.current[field.name] : field.default) !== value) return;
+                const current = latest.current[paired.name] ?? paired.default;
+                const next = Array.isArray(current) ? [...current] : [];
+                while (next.length <= index) next.push(null);
+                next[index] = selected ?? null;
+                update(paired.name, next as JsonValue[]);
+              }} />)}
+        </PairedAudioSection>;
+      })}
+      {relationError && <AppPromptMessage>{relationError}</AppPromptMessage>}
       {error && (
         <AppPromptMessage className="col-span-full">
           {gradioFormMessage(error, contract, ko ? "ko" : "en")}

@@ -7,7 +7,7 @@ import { defaultLocale, isLocale, localeCookie } from "@/shared/i18n/config";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+async function getObservedHandler() {
   const cookieStore = await cookies();
   const cookieLocale = cookieStore.get(localeCookie)?.value;
   const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
@@ -22,3 +22,6 @@ export async function GET() {
     },
   });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/openapi", getObservedHandler);

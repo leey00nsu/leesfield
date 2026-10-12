@@ -1,8 +1,10 @@
 "use client";
+import { historyReferenceUpdates } from "@/shared/generation/history-references";
+import { historyOptionUpdates } from "@/shared/generation/history-options";
 import { useCinemaDraft } from "@/shared/cinema/use-cinema-draft";
 import { useCinemaHistoryRestore } from "@/shared/cinema/use-cinema-history-restore";
 import { cinemaPromptField } from "@/shared/cinema/cinema-model-support";
-import { cinemaAuthoringBlocked } from "@/shared/cinema/cinema-authoring";
+import { cinemaAuthoringBlocked, cinemaAuthoringValidation } from "@/shared/cinema/cinema-authoring";
 import { CinemaStudioControls } from "@/shared/ui/cinema/cinema-studio-controls";
 import { AppPromptMessage } from "@/shared/ui/app-prompt-message";
 import { useState } from "react";
@@ -68,7 +70,7 @@ import {
   resolveRuntimeImageMaxInputImages,
 } from "@/shared/model-catalog/runtime-utils";
 import { createRuntimeImageSchema } from "@/shared/model-catalog/runtime-schema";
-import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
+import { resolveGenerationCapabilities } from "@/shared/model-catalog/modality";
 import {
   applyImageModeChoice,
   resolveImageAuthoringDefaults,
@@ -111,7 +113,7 @@ export function ImageGenerationForm({
         id: model.key,
         name: model.label,
         vendor: model.vendor,
-        modalities: resolveGenerationModalities(model),
+        ...resolveGenerationCapabilities(model),
       })),
     [resolvedImageModels],
   );
@@ -131,9 +133,16 @@ export function ImageGenerationForm({
       runtimeSchema,
     ) as unknown as Resolver<ImageGenerationFormValues>;
   }, [runtimeSchema]);
-  const resolver = useCallback<Resolver<ImageGenerationFormValues>>(
-    (values, context, options) => resolverRef.current(values, context, options),
-    [],
+  const resolver = useMemo<Resolver<ImageGenerationFormValues>>(
+    () => async (values, context, options) => {
+      const model = runtimeModelMap.get(values.model);
+      const validation = cinemaAuthoringValidation(values, cinema.settings, "image", model);
+      const result = await resolverRef.current(validation, context, options);
+      // The server composes once from authoring text. Validation must not submit its expansion.
+      if (Object.keys(result.errors).length) return result;
+      return { errors: {}, values: { ...(result.values as ImageGenerationFormValues), prompt: values.prompt, dynamicParams: values.dynamicParams } };
+    },
+    [cinema.settings, runtimeModelMap],
   );
   const form = useForm<ImageGenerationFormValues>({
     resolver,
@@ -202,7 +211,27 @@ export function ImageGenerationForm({
     : "";
 
   const activeRuntimeModel = runtimeModelMap.get(activeModel);
-  const cinemaHistory = useCinemaHistoryRestore({ historyId, media: "image", ready: cinema.ready && !isModelLoading, revision: cinema.revision, change: cinema.change,
+  const prevModeChoiceRef = useRef<string | null>(null);
+  const { subscribe: subscribeForm } = form;
+  const { markEdited: markHistoryEdited } = cinema;
+  useEffect(() => {
+    return subscribeForm({ formState: { values: true }, callback: ({ type }) => {
+      if (type === "change") markHistoryEdited();
+    } });
+  }, [subscribeForm, markHistoryEdited]);
+  const cinemaHistory = useCinemaHistoryRestore({ historyId, media: "image", ready: cinema.ready && !isModelLoading && Boolean(activeRuntimeModel) && (!runtimeModelMap.has(modelFromQuery) || activeModel === modelFromQuery), revision: cinema.revision, change: cinema.change,
+    restoreInputs: ({ references, options }) => {
+      if (!activeRuntimeModel) throw new Error("HISTORY_MODEL_UNAVAILABLE");
+      const updates = { ...historyReferenceUpdates(references, activeRuntimeModel), ...historyOptionUpdates(options, activeRuntimeModel) };
+      // A restored mode already carries its saved steps/guidance; applying the
+      // mode defaults again would overwrite those explicit History values.
+      if (typeof updates.modeChoice === "string") prevModeChoiceRef.current = updates.modeChoice;
+      for (const [path, value] of Object.entries(updates)) {
+        if (path === "initImages") replaceInitImages(value as string[]);
+        else if (path.startsWith("dynamicParams.")) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [path.slice(14)]: value }, { shouldDirty: true, shouldValidate: true });
+        else form.setValue(path as Path<ImageGenerationFormValues>, value as never, { shouldDirty: true, shouldValidate: true });
+      }
+    },
     restorePrompt: prompt => {
       form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
       const field = cinemaPromptField(activeRuntimeModel ?? {}).dynamicName;
@@ -220,7 +249,10 @@ export function ImageGenerationForm({
   const [promptWasEdited, setPromptWasEdited] = useState(false);
   const promptFeedbackSubmitted = form.formState.isSubmitted;
   const mappingPrompt = useWatch({control: form.control, name:"prompt"}) ?? "";
-  const mappingInvalid = gradioContract ? gradioFormError(gradioContract, {prompt: mappingPrompt, dynamicParams: contractValues}) !== null : false;
+  const validationValues = cinemaAuthoringValidation({ prompt: mappingPrompt, dynamicParams: contractValues }, cinema.settings, "image", activeRuntimeModel);
+  const effectivePrompt = validationValues.prompt;
+  const mappingInvalid = gradioContract ? gradioFormError(gradioContract, validationValues) !== null : false;
+  useEffect(() => { void form.trigger(); }, [cinema.settings, form]);
   const presetValues = useWatch({ control: form.control });
   // Subscribe to dirty state before edits, including unregistered provider fields.
   const presetDirtyFields = form.formState.dirtyFields;
@@ -231,6 +263,8 @@ export function ImageGenerationForm({
     onApply: (prompt, updates) => {
       cinema.markEdited();
       form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
+      const field = cinemaPromptField(activeRuntimeModel ?? {}).dynamicName;
+      if (field && Object.hasOwn(form.getValues("dynamicParams") ?? {}, field)) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [field]: prompt }, { shouldDirty: true, shouldValidate: true });
       for (const [path, value] of Object.entries(updates)) {
         form.setValue(path as Path<ImageGenerationFormValues>, value as never, { shouldValidate: true });
       }
@@ -285,7 +319,6 @@ export function ImageGenerationForm({
     Boolean(promptUpsamplingConfig) && promptUpsamplingConfig?.ui !== "hidden";
   const showSeed = Boolean(seedConfig) && seedConfig?.ui !== "hidden";
   const maxInputImages = resolveRuntimeImageMaxInputImages(activeRuntimeModel);
-  const prevModeChoiceRef = useRef<string | null>(null);
   const hasInjectedInitImagesRef = useRef(false);
   const handleInitImagesChange = useCallback(
     (dataUrls: string[]) => {
@@ -526,7 +559,7 @@ export function ImageGenerationForm({
                           </AppFormControl>
                         }
                         feedback={
-                          gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
+                          gradioContract && !effectivePrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                             <AppPromptFormMessage />
                           ) : undefined
                         }
@@ -534,17 +567,17 @@ export function ImageGenerationForm({
                     contract={gradioContract} values={contractValues} prompt={mappingPrompt}
                     onChange={values => { cinema.markEdited(); promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }} />) : (
                           <div className="px-4 pt-4">
-                            <GradioFileField key={activeModel} label={tImage("uploadReference")} buttonLabel={tImage("uploadReference")}
+                            <GradioFileField key={activeModel} label={tImage("uploadReference")}
                               previewLabel={tImage("initImageAlt")}
                               field={{name:"initImages",label:tImage("uploadReference"),kind:"files",media:"image",schema:{},required:false,nullable:false}}
                               maxItems={maxInputImages} value={attachmentImages}
                               disabled={!canUploadImages || isGuest || isGenerating}
-                              onChange={value => replaceInitImages(Array.isArray(value) ? value as string[] : [])}/>
+                              onChange={value => { cinema.markEdited(); replaceInitImages(Array.isArray(value) ? value as string[] : []); }}/>
                           </div>
                         )}
 footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="image" items={modelOptions} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
+<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ cinema.markEdited(); promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
 </> : (
                           <>
                             {!isGuest && hasModels ? (
@@ -824,7 +857,7 @@ footerRight={
                               disabled={
                                 isGenerating ||
                                 (isAuthenticated &&
-                                  (cinemaBlocked || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !mappingPrompt.trim())))
+                                  (cinemaBlocked || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !effectivePrompt.trim())))
                               }
                               className="min-w-24"
                               onClick={

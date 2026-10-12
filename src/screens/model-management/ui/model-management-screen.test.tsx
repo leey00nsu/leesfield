@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -127,6 +127,20 @@ afterEach(() => {
 });
 
 describe("ModelManagementScreen", () => {
+  it("projects anyOf reference requirements into actual I2V/V2V badges instead of legacy T2V metadata",async()=>{
+    const {videoAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const {getGradioContract}=await import("@/shared/model-catalog/gradio-contract");
+    const base=getGradioContract(videoAttachmentModel)!;
+    const fields=(["image","video","audio"] as const).map(media=>({name:media,label:media,kind:"files",media,required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"}}}));
+    const record={...toRecord(modelCatalog.find(item=>item.type === "video")!),provider:"hf_space",providerConfig:{gradio_contract:{...base,inputs:[base.inputs[0],...fields],inputRules:{anyOf:["image","video"].map(name=>({properties:{[name]:{minItems:1}},required:[name]}))}}}};
+    vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify({items:[record]}),{status:200}));
+    renderWithIntl(<ModelManagementScreen/>);
+    expect(await screen.findByText("I2V")).toBeInTheDocument();
+    expect(screen.getByText("V2V")).toBeInTheDocument();
+    expect(screen.getByText("오디오 참조 지원")).toBeInTheDocument();
+    expect(screen.queryByText("T2V")).toBeNull();
+  });
+
   it("OpenAI 호환 LLM을 등록하고 빈 수정 키는 서버에 보내지 않는다", async () => {
     let llm: AdminModelRecord | null = null;
     const writes: Array<Record<string, unknown>> = [];
@@ -166,19 +180,23 @@ describe("ModelManagementScreen", () => {
     await waitFor(() => expect(writes).toHaveLength(2));
     expect(writes[1]).not.toHaveProperty("apiKey");
   }, 30000);
-  it.each([false,true])("Modal 가져오기 결과를 그대로 저장한다 (structured=%s)", async (structured) => {
+  it.each(["simple","structured","nullable"])("Modal 가져오기 결과를 그대로 저장한다 (contract=%s)", async (variant) => {
     const { buildModalModelDraft } = await import("@/server/modal-comfyui/importer");
     const { modelCatalogInputSchema } = await import("@/server/model-catalog/catalog-schema");
     const { default: workflows } = await import("@/server/modal-comfyui/fixtures/workflows.json");
-    const raw=structuredClone(workflows.find(w => w.id === "krea2-t2i")!);
-    if(structured){raw.id="new-workflow";Object.assign(raw.input_schema.properties,{optional_value:{type:["string","null"],default:null},options:{type:"object",properties:{count:{type:"integer"}},default:{count:2}}});}
+    const raw=structuredClone(workflows.find(w => w.id === (variant==="nullable"?"minimax-h3-pdd-fl2va":"krea2-t2i"))!);
+    if(variant==="structured"){raw.id="new-workflow";Object.assign(raw.input_schema.properties,{optional_value:{type:["string","null"],default:null},options:{type:"object",properties:{count:{type:"integer"}},default:{count:2}}});}
+    if(variant==="nullable"){
+      raw.id="minimax-h3-singularity-deno-r2v";raw.name="MiniMax H3 Singularity Deno Ref2VA 7+1";
+      Object.assign(raw.input_schema.properties,Object.fromEntries(([["reference_images","image",9],["reference_videos","video",3],["reference_audios","audio",3]] as const).map(([name,media,maxItems])=>[name,{type:"array",default:[],maxItems,items:{type:"string",format:"comfy-input-name","x-media":media}}])),{reference_video_audios:{type:"array",default:[],maxItems:3,items:{anyOf:[{type:"string",format:"comfy-input-name","x-media":"audio"},{type:"null"}]}}});
+    }
     const draft = buildModalModelDraft(raw);
     const save = vi.fn();
     vi.stubGlobal("fetch", vi.fn(async (url, init) => {
       if (url === "/api/admin/models/modal-comfyui") return {
         ok: true,
         json: async () => init?.method === "POST" ? { draft } : {
-          items: [{ id: raw.id, name: draft.label, type: "image", supported: true, message: null }],
+          items: [{ id: raw.id, name: draft.label, type: draft.type, supported: true, message: null }],
         },
       };
       if (init?.method === "POST") {
@@ -196,8 +214,20 @@ describe("ModelManagementScreen", () => {
     await user.click(screen.getByRole("button", { name: "워크플로우 조회" }));
     await user.click(await screen.findByRole("button", { name: "선택한 워크플로우 가져오기" }));
     await screen.findByDisplayValue(draft.key);
+    if(variant==="nullable"){
+      expect(screen.getByText("참조 입력 한도")).toBeInTheDocument();
+      for(const mode of ["T2V","I2V","V2V"])expect(within(screen.getByRole("dialog")).getByText(mode)).toBeInTheDocument();
+      for(const [label,limit] of [["참조 이미지",9],["참조 영상",3],["참조 오디오",3],["영상별 오디오",3]] as const){
+        const input=screen.getAllByRole("spinbutton",{name:label}).find(input=>input.getAttribute("max")===String(limit))!;expect(input).toHaveValue(limit);expect(input).toHaveAttribute("max",String(limit));
+      }
+      const videoLimit=screen.getByRole("spinbutton",{name:"참조 영상"});
+      await user.clear(videoLimit);await user.type(videoLimit,"2");
+      await user.click(screen.getByRole("combobox",{name:"영상별 오디오: 오디오 연결"}));
+      await user.click(screen.getByRole("option",{name:"참조 영상 · reference_videos"}));
+    }
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ provider: "modal_comfyui", key: draft.key })));
+    if(variant==="nullable")expect(save).toHaveBeenCalledWith(expect.objectContaining({parameters:expect.objectContaining({reference_videos:expect.objectContaining({maxItems:2}),reference_video_audios:expect.objectContaining({attachment:{role:"paired_audio",pairedWith:"reference_videos",pairing:"index"}})})}));
     expect(screen.queryByText("JSON 형식이 올바르지 않습니다.")).not.toBeInTheDocument();
   });
 
@@ -509,8 +539,8 @@ it("계약의 단일 입력은 고정하고 복수 제한만 parameters에 저�
   }));
   const user=userEvent.setup();renderWithIntl(<ModelManagementScreen/>);
   await user.click(await screen.findByRole("button",{name:"Mapped limit"}));
-  expect(screen.getByRole("spinbutton",{name:"최대 입력 이미지 수 · First image"})).toBeDisabled();
-  const count=screen.getByRole("spinbutton",{name:"최대 입력 이미지 수 · Reference images"});
+  expect(screen.getByRole("spinbutton",{name:"시작 프레임"})).toBeDisabled();
+  const count=screen.getByRole("spinbutton",{name:"참조 이미지"});
   expect(count).toHaveAttribute("max","4");
   await user.clear(count);await user.type(count,"2");
   await user.click(screen.getByRole("button",{name:"저장"}));

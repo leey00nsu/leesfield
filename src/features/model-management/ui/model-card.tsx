@@ -6,7 +6,7 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -54,6 +54,7 @@ const typeConfig = {
 };
 
 function resolveCatalogModalities(item: ModelCatalogItem) {
+  if (item.modalities) return item.modalities;
   if (item.type === "image") {
     return resolveImageModalities({
       maxInputImages: item.meta.maxInputImages,
@@ -76,6 +77,7 @@ function resolveCatalogModalities(item: ModelCatalogItem) {
 }
 
 export function ModelCard({ item, onEdit }: ModelCardProps) {
+  const ko = useLocale() === "ko";
   const tCard = useTranslations("model.card");
   const config = typeConfig[item.type];
   const TypeIcon = config.icon;
@@ -126,6 +128,7 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
             aria-hidden="true"
           />
           <span>{tCard(`type.${item.type}`)}</span>
+          {item.audioReference && <span>{ko ? "오디오 참조 지원" : "Audio reference supported"}</span>}
           {modalities.map((modality) => (
             <AppModalityTag key={`${item.key}-${modality}`}>
               {modality}

@@ -35,7 +35,7 @@ async function authenticatedOwnerEmail() {
   return session.isLoggedIn ? session.adminEmail ?? null : null;
 }
 
-export async function GET(request: Request, context: RouteContext) {
+async function getObservedHandler(request: Request, context: RouteContext) {
   const ownerEmail = await authenticatedOwnerEmail();
   if (!ownerEmail) return buildErrorResponse("UNAUTHORIZED", 401);
 
@@ -151,3 +151,6 @@ export async function GET(request: Request, context: RouteContext) {
   });
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs/[graphId]/generation-events", getObservedHandler);

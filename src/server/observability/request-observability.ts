@@ -1,3 +1,5 @@
+import { serverLogger, withLogContext } from "./logger";
+import type { LogFields } from "@/shared/logging/logger.mjs";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import {
@@ -36,81 +38,8 @@ function requestFromArgs(args: readonly unknown[]): Request | undefined {
   return undefined;
 }
 
-function safeErrorType(error: unknown) {
-  const name = error instanceof Error ? error.name : typeof error;
-  return /^[A-Za-z0-9_$.-]{1,64}$/.test(name) ? name : "UnknownError";
-}
-
-function safeStructuredValue(
-  key: string,
-  value: string | number | boolean | null | undefined,
-) {
-  if (value === undefined || value === null || typeof value !== "string") {
-    return value;
-  }
-  if (value.length > 96 || /[\r\n]/.test(value)) return "redacted";
-  if (key === "requestId") {
-    return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/.test(value)
-      ? value
-      : "redacted";
-  }
-  if (key === "jobId") {
-    return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/.test(value)
-      ? value
-      : "redacted";
-  }
-  if (key === "method") {
-    return /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|UNKNOWN|OTHER)$/.test(value)
-      ? value
-      : "OTHER";
-  }
-  if (key === "route") {
-    return /^\/api\/[A-Za-z0-9_./:[\]-]{1,96}$/.test(value)
-      ? value
-      : "unknown";
-  }
-  return /^[A-Za-z0-9_$./:-]{1,96}$/.test(value) ? value : "redacted";
-}
-
-function structuredLog(
-  level: "info" | "error",
-  event: string,
-  fields: Record<string, string | number | boolean | null | undefined>,
-) {
-  const allowedFields = new Set([
-    "requestId",
-    "jobId",
-    "method",
-    "route",
-    "status",
-    "durationMs",
-    "errorType",
-    "errorCode",
-    "provider",
-    "modelKey",
-    "operation",
-    "phase",
-    "kind",
-    "outcome",
-    "worker",
-    "state",
-    "pending",
-    "processing",
-    "oldestPendingAgeSeconds",
-    "failedCleanup",
-  ]);
-  const safeFields = Object.fromEntries(
-    Object.entries(fields).filter(
-      ([key, value]) => allowedFields.has(key) && value !== undefined,
-    ).map(([key, value]) => [key, safeStructuredValue(key, value)]),
-  );
-  const line = JSON.stringify({
-    timestamp: new Date().toISOString(),
-    event: /^[A-Za-z0-9_.-]{1,64}$/.test(event) ? event : "unknown",
-    ...safeFields,
-  });
-  if (level === "error") console.error(line);
-  else console.log(line);
+function structuredLog(level: "info" | "error", event: string, fields: LogFields) {
+  serverLogger.log(level, event, fields);
 }
 
 function attachRequestId(response: Response, requestId: string) {
@@ -131,6 +60,9 @@ export function withRequestObservability<T extends (...args: never[]) => Respons
   handler: T,
 ): (...args: Parameters<T>) => Promise<Response> {
   return async (...args: Parameters<T>) => {
+    // External API helpers may be nested inside an observed route. Keep one
+    // request identity and completion event rather than starting another request.
+    if (getRequestContext()) return await handler(...args);
     const request = requestFromArgs(args);
     const method = request?.method ?? "UNKNOWN";
     const requestId = requestIdFromValue(
@@ -139,7 +71,7 @@ export function withRequestObservability<T extends (...args: never[]) => Respons
     const startedAt = Date.now();
     const context: RequestContext = { requestId, route, method, startedAt };
 
-    return requestContextStorage.run(context, async () => {
+    return requestContextStorage.run(context, () => withLogContext({ requestId, route, method }, async () => {
       try {
         const response = await handler(...args);
         const durationMs = Date.now() - startedAt;
@@ -160,17 +92,16 @@ export function withRequestObservability<T extends (...args: never[]) => Respons
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         recordHttpRequest({ method, route, status: 500, durationMs });
-        structuredLog("error", "http.request.error", {
+        serverLogger.error("http.request.error", error, {
           requestId,
           method,
           route,
           status: 500,
           durationMs,
-          errorType: safeErrorType(error),
         });
         throw error;
       }
-    });
+    }));
   };
 }
 
@@ -193,6 +124,7 @@ export async function measureDatabase<T>(
       durationMs: Date.now() - startedAt,
       success: false,
     });
+    serverLogger.error("database.failed", error, { operation, phase: "database", durationMs: Date.now() - startedAt });
     throw error;
   }
 }
@@ -216,6 +148,7 @@ export async function measureProvider<T>(
       status: "error",
       durationMs: Date.now() - startedAt,
     });
+    serverLogger.error("provider.failed", error, { provider, phase: "provider.request", durationMs: Date.now() - startedAt });
     throw error;
   }
 }
@@ -228,14 +161,7 @@ export function logStructured(
   structuredLog(level, event, fields);
 }
 
-/** Logs only an allowlisted error classification, never message, stack, or cause. */
-export function logSafeError(
-  event: string,
-  error: unknown,
-  fields: Record<string, string | number | boolean | null | undefined> = {},
-) {
-  structuredLog("error", event, {
-    ...fields,
-    errorType: error instanceof Error ? error.name : typeof error,
-  });
+/** Bounded error diagnostics without arbitrary messages or input values. */
+export function logSafeError(event: string, error: unknown, fields: LogFields = {}) {
+  serverLogger.error(event, error, fields);
 }

@@ -21,6 +21,17 @@ function request(body: FormData) {
   });
 }
 describe("multipart dynamic input", () => {
+  it("accepts a declared nine-file input while bounding the total multipart file count", async () => {
+    const value = form();
+    for (let index = 0; index < 9; index++) value.append("file:frames", new File(["a"], `${index}.png`, { type: "image/png" }));
+    const parsed = await readExternalGenerationRequest(request(value));
+    expect(parsed.uploads.get("frames")).toHaveLength(9);
+    const resolved = await resolveExternalFiles(parsed.body.dynamicParams, parsed.uploads, [{ ...fields[1], maxItems: 9 }]);
+    expect(resolved.frames).toHaveLength(9);
+    const excessive = form();
+    for (let index = 0; index < 65; index++) excessive.append("file:frames", new File(["a"], `${index}.png`));
+    await expect(readExternalGenerationRequest(request(excessive))).rejects.toMatchObject({ status: 413 });
+  });
   it("parses preset metadata separately from dynamicParams and rejects malformed JSON", async () => {
     const value = form();
     value.set("promptPreset", JSON.stringify({ key: "custom", revision: 2 }));

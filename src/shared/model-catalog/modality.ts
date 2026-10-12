@@ -1,19 +1,57 @@
-import { getGradioContract } from "./gradio-contract";
+import { getGradioContract, gradioInputValues, fileFieldMaxItems, type GradioContract } from "./gradio-contract";
 import type { RuntimeImageModel, RuntimeVideoModel, RuntimeAudioModel } from "./runtime-utils";
 
-export type ModelModality = "T2I" | "I2I" | "T2V" | "I2V" | "T2A" | "A2A";
+export type ModelModality = "T2I" | "I2I" | "T2V" | "I2V" | "T2A" | "A2A" | "V2V" | "A2V";
 
-/** Mapped providers describe their real media inputs; legacy models use metadata. */
-export function resolveGenerationModalities(model: RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel): string[] {
+type GenerationModel = RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel;
+
+/** Probe media requirements with the same validator used for submission, including anyOf groups. */
+export function resolveGenerationCapabilities(model: GenerationModel): { modalities: string[]; audioReference: boolean } {
   const contract = getGradioContract(model);
-  if (!contract) return model.type === "image" ? resolveImageModalities(model.meta)
-    : model.type === "video" ? resolveVideoModalities(model.meta) : resolveAudioModalities(model.meta);
-  const inputs = contract.inputs.filter(field => ["file", "files", "gallery"].includes(field.kind) && field.media && !field.choices?.length);
-  const output = { image: "I", video: "V", audio: "A" }[model.type];
-  const types = new Set<string>();
-  if (!inputs.some(field => field.required && !(field.nullable && field.default === null))) types.add("T2" + output);
-  for (const field of inputs) types.add({ image: "I", video: "V", audio: "A" }[field.media!] + "2" + output);
-  return [...types];
+  if (!contract) return { modalities: model.type === "image" ? resolveImageModalities(model.meta)
+    : model.type === "video" ? resolveVideoModalities(model.meta) : resolveAudioModalities(model.meta), audioReference: false };
+  return resolveContractGenerationCapabilities(contract, model.type);
+}
+
+export function resolveContractGenerationCapabilities(contract: GradioContract, type: GenerationModel["type"]): {modalities:string[];audioReference:boolean} {
+  const inputs = contract.inputs.filter(field => ["file", "files", "gallery"].includes(field.kind) && field.media && !field.choices?.length && fileFieldMaxItems(field) > 0);
+  const media = ["image", "video", "audio"] as const;
+  const valid = new Set<number>();
+  for (let mask = 0; mask < 8; mask++) {
+    const dynamicParams: Record<string, unknown> = {};
+    for (const field of contract.inputs) {
+      if (inputs.includes(field)) {
+        const parent = field.attachment ? inputs.find(input=>input.name===field.attachment!.pairedWith) : undefined;
+        const enabled = (mask & (1 << media.indexOf(field.media!))) !== 0 && (!parent || (mask & (1 << media.indexOf(parent.media!))) !== 0);
+        if (enabled && fileFieldMaxItems(field) > 0) {
+          const url = "https://reference.example/asset";
+          const count = field.kind === "file" ? 1 : Math.min(fileFieldMaxItems(field),parent ? fileFieldMaxItems(parent) : Infinity);
+          dynamicParams[field.name] = field.kind === "file" ? url : Array.from({length:count},(_,index)=>url+"/"+index);
+        } else if (field.default === undefined && !field.required) continue;
+        else dynamicParams[field.name] = field.nullable ? null : field.kind === "file" ? "" : [];
+      } else if (field.default !== undefined) dynamicParams[field.name] = field.default;
+      else if (field.choices?.length) dynamicParams[field.name] = field.choiceMode === "multiple" ? [field.choices[0]] : field.choices[0];
+      else if (field.required) dynamicParams[field.name] = field.kind === "number" ? field.min ?? 1
+        : field.kind === "boolean" ? false : field.kind === "json" ? {} : "reference";
+    }
+    try {
+      const values = gradioInputValues(contract, {prompt:"reference",dynamicParams});
+      // An empty required file is invalid even when the source schema omits minItems.
+      if (inputs.some(field => field.required && !field.allowEmpty && (values[field.name] === "" || Array.isArray(values[field.name]) && !(values[field.name] as unknown[]).length))) continue;
+      // Don't infer support for a media type absent from the contract.
+      if (media.some((type,index) => (mask & (1 << index)) && !inputs.some(field=>field.media === type &&
+        (Array.isArray(values[field.name]) ? (values[field.name] as unknown[]).some(Boolean) : !!values[field.name])))) continue;
+      valid.add(mask);
+    } catch { /* Unsupported combinations receive no capability badge. */ }
+  }
+  const output = {image:"I",video:"V",audio:"A"}[type];
+  const modalities = [...(valid.has(0) ? ["T2" + output] : []),
+    ...media.flatMap((type,index) => (valid.has(1 << index) || type !== "audio" && valid.has((1 << index) | 4)) ? [{image:"I",video:"V",audio:"A"}[type] + "2" + output] : [])];
+  return {modalities, audioReference: inputs.some(field=>field.media === "audio") && !valid.has(4) && [...valid].some(mask=>(mask & 4) && (mask & 3))};
+}
+
+export function resolveGenerationModalities(model: GenerationModel): string[] {
+  return resolveGenerationCapabilities(model).modalities;
 }
 
 type ImageModalitySource =

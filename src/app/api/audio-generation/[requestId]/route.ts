@@ -14,7 +14,7 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_request: Request, { params }: RouteContext) {
+async function getObservedHandler(_request: Request, { params }: RouteContext) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -51,7 +51,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   );
 }
 
-export async function DELETE(request: Request, { params }: RouteContext) {
+async function deleteObservedHandler(request: Request, { params }: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const session = await getSession();
@@ -97,3 +97,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
   return NextResponse.json({ message: "DELETED" });
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/audio-generation/[requestId]", getObservedHandler);
+export const DELETE = withRequestObservability("/api/audio-generation/[requestId]", deleteObservedHandler);

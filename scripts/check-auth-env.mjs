@@ -1,3 +1,4 @@
+import { logger } from "../src/shared/logging/logger.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -33,9 +34,7 @@ if (!process.env.ADMIN_PASSWORD_HASH) {
 }
 
 if (missing.length > 0) {
-  console.error("[env] 필수 값이 없습니다:", missing.join(", "));
-  console.error("[env] 해시 생성: pnpm gen:admin-password-hash");
-  console.error("[env] .env에 ADMIN_PASSWORD_HASH를 추가하세요.");
+  logger.error("environment.invalid", new Error("ADMIN_PASSWORD_HASH_MISSING"));
   if (process.env.NODE_ENV === "production") {
     process.exit(1);
   }
@@ -47,9 +46,7 @@ if (!missing.includes("ADMIN_PASSWORD_HASH")) {
     "base64url"
   ).toString("utf8");
   if (!decoded.startsWith("$2")) {
-    console.error(
-      "[env] ADMIN_PASSWORD_HASH는 base64url 인코딩된 bcrypt 해시여야 합니다.",
-    );
+    logger.error("environment.invalid", new Error("ADMIN_PASSWORD_HASH_INVALID"));
     if (process.env.NODE_ENV === "production") {
       process.exit(1);
     }

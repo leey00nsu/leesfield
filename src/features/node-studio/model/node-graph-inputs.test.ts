@@ -1,7 +1,7 @@
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 
-import { resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "./node-graph-inputs";
-import { replaceGenerationAttachments, generationAttachmentSlots, type GenerationAttachmentSlot } from "./generation-prompt-attachments";
+import { resolveNodeInputAssetSlots, resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "./node-graph-inputs";
+import { replaceGenerationAttachments, replaceRelatedGenerationAttachments, generationAttachmentSlots, type GenerationAttachmentSlot } from "./generation-prompt-attachments";
 import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 const graph: NodeBananaRuntimeGraph = {
@@ -19,6 +19,25 @@ const graph: NodeBananaRuntimeGraph = {
 };
 
 describe("Node graph input resolution", () => {
+  it("moves/removes paired edges together, retains explicit trailing null and rejects malformed reorders",()=>{
+    const video:GenerationAttachmentSlot={field:{name:"clips",label:"Clips",media:"video",kind:"files",schema:{type:"array",items:{type:"string"}},required:false,nullable:false},ports:["video-field-clips"],limit:3};
+    const audio:GenerationAttachmentSlot={field:{name:"tracks",label:"Tracks",media:"audio",kind:"files",schema:{type:"array",items:{type:["string","null"]}},required:false,nullable:false,
+      attachment:{role:"paired_audio",pairedWith:"clips",pairing:"index"}},ports:["audio-field-tracks"],limit:3};
+    const create=()=>crypto.randomUUID(),slots=[video,audio];
+    const attached=replaceRelatedGenerationAttachments(replaceGenerationAttachments(graph,"target",video,["v1","v2","v3"],create),"target",slots,audio,[null,"a2",null],create);
+    expect(resolveNodeInputAssetSlots(attached,"target",audio.ports[0])).toEqual([null,"a2",null]);
+    const moved=replaceRelatedGenerationAttachments(attached,"target",slots,video,["v2","v3","v1"],create,[1,2,0]);
+    expect(resolveNodeInputAssetSlots(moved,"target",audio.ports[0])).toEqual(["a2",null,null]);
+    const removed=replaceRelatedGenerationAttachments(moved,"target",slots,video,["v3","v1"],create,[1,2]);
+    expect(resolveNodeInputAssetSlots(removed,"target",audio.ports[0])).toEqual([null,null]);
+    expect(removed.edges).toEqual(expect.arrayContaining(graph.edges));
+    expect(()=>replaceRelatedGenerationAttachments(attached,"target",slots,video,["v1","v1"],create,[0,0])).toThrow("ATTACHMENT_ORDER");
+    const short=replaceRelatedGenerationAttachments(attached,"target",slots,audio,["a1"],create);
+    expect(()=>replaceRelatedGenerationAttachments(short,"target",slots,video,["v2","v1","v3"],create,[1,0,2])).toThrow("ATTACHMENT_SLOT_FALLBACK");
+    expect(resolveNodeInputAssetSlots(short,"target",audio.ports[0])).toEqual(["a1"]);
+    expect(JSON.stringify(short)).not.toMatch(/https:|data:|blob:/);
+    expect(()=>replaceRelatedGenerationAttachments(graph,"target",slots,audio,["a1"],create)).toThrow("HF_CONTRACT_ATTACHMENT_ORPHAN");
+  });
   it("attaches durable input nodes in order and removes only the chosen edge", () => {
     const slot: GenerationAttachmentSlot = { field: { name: "images", label: "Images", media: "image", kind: "files", schema: {}, required: true, nullable: false },
       ports: ["primary", "references"], limit: 3 };
@@ -41,6 +60,15 @@ describe("Node graph input resolution", () => {
     expect(resolveNodeInputAssetIds(reduced,"target","references")).toEqual(["c"]);
     expect(() => replaceGenerationAttachments(graph, "target", slot, ["a","b","c","d"], () => "unused")).toThrow("ATTACHMENT_LIMIT");
     expect(JSON.stringify(removed)).not.toMatch(/data:image|blob:/);
+  });
+  it("preserves empty Graph audio indices when replacing positional file slots",()=>{
+    const slot:GenerationAttachmentSlot={field:{name:"tracks",label:"Tracks",media:"audio",kind:"files",nullable:false,required:false,
+      schema:{type:"array",maxItems:3,items:{anyOf:[{type:"string"},{type:"null"}]}}},ports:["audio-field-tracks"],limit:3};
+    const attached=replaceGenerationAttachments(graph,"target",slot,["a",null,"c"],()=>crypto.randomUUID());
+    expect(resolveNodeInputAssetSlots(attached,"target",slot.ports[0])).toEqual(["a",null,"c"]);
+    const cleared=replaceGenerationAttachments(attached,"target",slot,[null,null,"c"],()=>crypto.randomUUID());
+    expect(resolveNodeInputAssetSlots(cleared,"target",slot.ports[0])).toEqual([null,null,"c"]);
+    expect(cleared.edges.filter(edge=>edge.targetHandle===slot.ports[0]).map(edge=>edge.data?.sortOrder)).toEqual([2]);
   });
   it.each(["image","video","audio"] as const)("preserves a mapped %s field's canonical port, type and limit", media => {
     const slot: GenerationAttachmentSlot = { field: { name: "reference", label: "Reference", media, kind: "file", schema: {}, required: true, nullable: true },

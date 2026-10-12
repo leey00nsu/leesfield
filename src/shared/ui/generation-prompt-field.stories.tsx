@@ -7,6 +7,7 @@ import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationSettingsPopover } from "@/shared/ui/generation-settings-popover";
 import { GenerationPresetPicker } from "@/shared/ui/generation-preset-picker";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import { AppPromptEditor } from "@/shared/ui/app-prompt-editor";
 
 type PromptPreviewModality = "image" | "video" | "audio";
 
@@ -68,35 +69,37 @@ function PromptFieldPreview({
   surface = "default",
   disabled = false,
   generating = false,
+  longPrompt = false,
 }: {
   modality?: PromptPreviewModality;
   surface?: "default" | "hero";
   disabled?: boolean;
   generating?: boolean;
+  longPrompt?: boolean;
 }) {
   const [modelId, setModelId] = useState<(typeof imageModels)[number]["id"]>(
     "gpt-image-2",
   );
   const copy = modalityCopy[modality];
+  const [prompt, setPrompt] = useState(longPrompt
+    ? "같은 인물과 장소를 유지하고 카메라의 움직임, 조명과 분위기를 자연스럽게 표현한다.\n".repeat(80)
+    : copy.prompt);
 
   return (
     <div className="min-h-screen bg-background px-6 py-12">
-      <div className="mx-auto max-w-5xl">
+      <div className={longPrompt ? "fixed inset-x-4 bottom-5 mx-auto max-w-5xl" : "mx-auto max-w-5xl"}>
         <GenerationPromptField
           ariaLabel="Storybook generation prompt"
           surface={surface}
-          promptMeta={copy.count}
+          promptMeta={`${prompt.length}자`}
           textarea={
             <>
-              <label htmlFor="storybook-prompt" className="sr-only">
-                Prompt
-              </label>
-              <textarea
-                id="storybook-prompt"
+              <AppPromptEditor
+                aria-label="Prompt"
                 disabled={disabled || generating}
-                className="h-28 w-full resize-none border-none bg-transparent p-4 text-sm leading-6 text-white outline-none placeholder:text-white/45"
                 placeholder={copy.label}
-                defaultValue={copy.prompt}
+                value={prompt}
+                onChange={setPrompt}
               />
             </>
           }
@@ -179,6 +182,7 @@ const meta = {
     },
     disabled: { control: "boolean" },
     generating: { control: "boolean" },
+    longPrompt: { control: "boolean" },
   },
 } satisfies Meta<typeof PromptFieldPreview>;
 
@@ -205,3 +209,7 @@ export const AudioPrompt: Story = {
     modality: "audio",
   },
 };
+
+export const LongImagePrompt: Story = { args: { longPrompt: true } };
+export const LongVideoPrompt: Story = { args: { modality: "video", longPrompt: true } };
+export const LongAudioPrompt: Story = { args: { modality: "audio", longPrompt: true } };

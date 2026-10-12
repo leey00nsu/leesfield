@@ -27,7 +27,7 @@ function unexpected(operation: string, error: unknown) {
   return buildErrorResponse("DB_SAVE_FAILED", 500);
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+async function getObservedHandler(_request: Request, context: RouteContext) {
   const owner = await ownerEmail();
   if (!owner) return buildErrorResponse("UNAUTHORIZED", 401);
   try {
@@ -36,11 +36,12 @@ export async function GET(_request: Request, context: RouteContext) {
       executions: await nodeExecutionService.list(owner, graphId, nodeId),
     });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return nodeExecutionErrorResponse(error) ?? unexpected("list", error);
   }
 }
 
-export async function POST(request: Request, context: RouteContext) {
+async function postObservedHandler(request: Request, context: RouteContext) {
   const owner = await ownerEmail();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -80,6 +81,11 @@ export async function POST(request: Request, context: RouteContext) {
       { status: 202 },
     );
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return nodeExecutionErrorResponse(error) ?? unexpected("execute", error);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/executions", getObservedHandler);
+export const POST = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/executions", postObservedHandler);

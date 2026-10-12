@@ -19,6 +19,9 @@ describe("canonical node registry", () => {
       expect(validateNodeConfig(kind, 1, { ...config, cinema: { ...cinema, lens: "deleted" } }).supported).toBe(false);
     }
     expect(validateNodeConfig("generate.image", 1, { ...config, cinema: { ...cinema, movement: "orbit" } }).supported).toBe(false);
+    expect(validateNodeConfig("generate.image", 1, { ...config, cinema: { ...cinema, shootingEnabled: false, movement: "orbit" } }).supported).toBe(false);
+    expect(validateNodeConfig("generate.image", 1, { ...config, cinema: { ...cinema, shootingEnabled: false, camera: "16mm-film" } }))
+      .toMatchObject({ supported: true, config: { cinema: { ...cinema, camera: "auto" } } });
     expect(validateNodeConfig("generate.video", 1, { ...config, cinema: { ...cinema, movement: "orbit" } }).supported).toBe(true);
     expect(validateNodeConfig("generate.audio", 1, { ...config, cinema }).supported).toBe(false);
   });

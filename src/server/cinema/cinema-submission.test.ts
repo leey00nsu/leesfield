@@ -49,7 +49,7 @@ it.each(["image", "video"] as const)("%s submits expanded optics to the real pro
     cinema: { ...defaultCinemaSettings(), camera: "70mm-film", lens: "modern-prime", composition: "close-up", aperture: "f14" } };
   expect((await (type === "image" ? imagePost : videoPost)(request(type, body))).status).toBe(200);
   const submission = type === "image" ? mocks.image.mock.calls[0][0] : { payload: mocks.video.mock.calls[0][0], cinema: mocks.video.mock.calls[0][4] };
-  expect(submission.cinema).toMatchObject({ mappingVersion: 8, sourcePrompt: scene });
+  expect(submission.cinema).toMatchObject({ mappingVersion: 10, sourcePrompt: scene });
   const final = submission.cinema.finalPrompt;
   expect(final).toContain("Use a close-up shot emphasizing the primary subject");
   expect(final).toContain("focus target sharply resolved");
@@ -65,13 +65,14 @@ it.each(["image", "video"] as const)("%s submits expanded optics to the real pro
   const saved = await snapshotRequest(type, { ...submission.payload, cinema: submission.cinema });
   expect(gradioInputValues(getGradioContract(model(type))!, restoreRequest(saved))).toEqual({ description: final });
 });
-it("changed Cinema selections change the admitted identity even when disabled shooting renders the same prompt", async () => {
+it("drops inactive legacy choices and neutral Cinema metadata from new submissions", async () => {
   for (const camera of ["16mm-film", "modular-8k"]) {
     await imagePost(request("image", { model: "mapped-image", prompt: "a scene", cinema: { ...defaultCinemaSettings(), shootingEnabled: false, camera } }));
   }
   const first = mocks.admit.mock.calls[0][0].payload, second = mocks.admit.mock.calls[1][0].payload;
   expect(first.payload.prompt).toBe(second.payload.prompt);
-  expect(JSON.stringify(first)).not.toBe(JSON.stringify(second));
+  expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+  expect(first.cinema).toBeUndefined();
 });
 it("rejects unknown versions, video-only choices, promptless guidance and conflicting presets before admission", async () => {
   for (const cinema of [{ schemaVersion: 3 }, { ...defaultCinemaSettings(), genre: "western" }, { ...defaultCinemaSettings(), lens: "deleted-lens" }]) {
@@ -89,4 +90,13 @@ it("validates the composed prompt against the actual model length limit", async 
   mocks.catalog.mockResolvedValue([model("image", true, 20)]);
   expect((await imagePost(request("image", { model: "mapped-image", prompt: "scene", cinema: { ...defaultCinemaSettings(), camera: "16mm-film" } }))).status).toBe(400);
   expect(mocks.admit).not.toHaveBeenCalled();
+});
+
+it("submits movement-only source as a nonempty provider prompt exactly once",async()=>{
+  const body={model:"mapped-video",prompt:"",cinema:{...defaultCinemaSettings(),movement:"snorricam"}};
+  expect((await videoPost(request("video",body))).status).toBe(200);
+  const payload=mocks.video.mock.calls[0][0], cinema=mocks.video.mock.calls[0][4];
+  expect(cinema.sourcePrompt).toBe("");expect(payload.prompt).toContain("Cinema direction:");
+  expect(payload.prompt.match(/Cinema direction:/g)).toHaveLength(1);
+  expect(gradioInputValues(getGradioContract(model("video"))!,payload).description).toBe(cinema.finalPrompt);
 });

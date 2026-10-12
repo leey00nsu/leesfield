@@ -43,7 +43,7 @@ import {
   INPUT_MEDIA_TOO_LARGE,
   resolveInputMediaErrorCode,
 } from "@/server/shared/input-media-uploader";
-import { logStructured } from "@/server/observability/request-observability";
+import { logSafeError } from "@/server/observability/request-observability";
 import {
   BodyLimitError,
   withHeavyBodyPermit,
@@ -175,11 +175,11 @@ async function postHandler(request: Request) {
         return buildErrorResponse(mediaCode as string, 400);
       if (mediaCode === INPUT_MEDIA_TOO_LARGE)
         return buildErrorResponse(mediaCode, 413);
-      logStructured("generation.create.failure", {
+      logSafeError("generation.create.failure", error, {
         requestId: admitted.requestId,
         kind: body.type,
-        errorType: error instanceof Error ? error.name : typeof error,
-      }, "error");
+
+      });
       return buildErrorResponse("GENERATION_CREATE_FAILED", 500);
     }
   });

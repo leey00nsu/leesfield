@@ -41,6 +41,18 @@ describe('simple request settings',()=>{
  const stored={width:1024,requestSettings:{width:768,enabled:false,optional:null,api_key:'SECRET',file:'data:image/png;base64,SECRET',prompt:'p'}};
  expect(requestSettings(stored)).toEqual({width:768,enabled:false,optional:null,file:'[file]'});expect(restoreRequest(stored)).toBe(stored);
  });
+ it.each([undefined,3])('treats the old generic seed null as omitted (version %s) without mutating the snapshot',requestVersion=>{
+  const stored={requestVersion,model:'m',seed:null,dynamicParams:{seed:null,enabled:false},cinema:{sourcePrompt:''}};
+  expect(restoreRequest(stored)).toEqual({requestVersion,model:'m',dynamicParams:{seed:null,enabled:false}});
+  expect(stored.seed).toBeNull();
+  expect(stored).toHaveProperty('cinema');
+ });
+ it.each([0,42,'0'])('preserves explicitly selected seed %s',seed=>{
+  expect(restoreRequest({model:'m',seed,dynamicParams:{}})).toHaveProperty('seed',seed);
+ });
+ it('normalizes a v2 generic seed sentinel after translating old definitions',()=>{
+  expect(restoreRequest({requestVersion:2,model:'m',dynamicParams:{seed:null},parameterDefinitions:[{key:'seed',inputKey:'seed',target:'top'}]})).toEqual({model:'m',dynamicParams:{}});
+ });
  it('stores new file inputs as durable references instead of copying their bytes',async()=>{
   mockCatalog.mockResolvedValue([{type:'image',key:'image',provider:'codex',parameters:{initImages:{},width:{}}}]);
   const source = 'data:image/png;base64,' + 'A'.repeat(2000);

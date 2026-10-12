@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
-import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
+import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, hasCinemaGuidance, parseCinemaSettings, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { randomUUID } from "node:crypto";
 import {
@@ -384,7 +384,7 @@ async function resolveInputs(
       const outputs = (edge.sourceNode.outputs ?? []).filter((output) => output.portId === sourcePortId);
       if (edge.sourceNode.selectedOutputAssetId &&
         outputs.some((output) => output.assetId === edge.sourceNode.selectedOutputAssetId)) {
-        let sortOrder = counts.get(targetPortId) ?? 0;
+        let sortOrder = parseFileInputPort(targetPortId)?edge.sortOrder:counts.get(targetPortId) ?? 0;
         for (const output of outputs) {
           candidates.push({
             edge,
@@ -401,7 +401,7 @@ async function resolveInputs(
     }
     const assetId = await effectiveAssetIdFromEdge(ownerEmail, graphId, edge, dependencies);
     if (assetId) {
-      const sortOrder = counts.get(targetPortId) ?? 0;
+      const sortOrder = parseFileInputPort(targetPortId)?edge.sortOrder:counts.get(targetPortId) ?? 0;
       candidates.push({ edge, assetId, portId: targetPortId, sortOrder, type: targetPort.valueType });
       counts.set(targetPortId, sortOrder + 1);
       continue;
@@ -949,6 +949,7 @@ export function createNodeExecutionService(
           }
           return result;
         };
+        const hasCinema = config.cinema && hasCinemaGuidance(parseCinemaSettings(config.cinema, "image"), "image");
         const sourceHash = hashSubmissionPayload({ prompt, model: config.modelKey, parameters: config.parameters,
           promptPreset: config.promptPreset, assets: assetInputs, ...(config.cinema ? { cinema: config.cinema, cinemaMappingVersion: CINEMA_MAPPING_VERSION } : {}) });
         let frozen: Record<string, unknown> | null = null;
@@ -965,7 +966,7 @@ export function createNodeExecutionService(
           repeatCount = Number(snapshot.repeatCount);
           frozen = recordObject(snapshot.payload);
           if (!Object.keys(frozen).length) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
-          if (config.cinema) {
+          if (hasCinema) {
             const parsedCinema = cinemaSnapshotSchema.safeParse(recordObject(root.requestParams).cinema);
             if (!parsedCinema.success) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
             cinema = parsedCinema.data;

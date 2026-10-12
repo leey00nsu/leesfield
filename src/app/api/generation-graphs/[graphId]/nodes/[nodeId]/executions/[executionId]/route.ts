@@ -26,7 +26,7 @@ function unexpected(operation: string, error: unknown) {
   return buildErrorResponse("DB_SAVE_FAILED", 500);
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+async function getObservedHandler(_request: Request, context: RouteContext) {
   const owner = await ownerEmail();
   if (!owner) return buildErrorResponse("UNAUTHORIZED", 401);
   try {
@@ -35,11 +35,12 @@ export async function GET(_request: Request, context: RouteContext) {
       execution: await nodeExecutionService.get(owner, graphId, nodeId, executionId),
     });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return nodeExecutionErrorResponse(error) ?? unexpected("get", error);
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
+async function deleteObservedHandler(request: Request, context: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const owner = await ownerEmail();
@@ -50,11 +51,12 @@ export async function DELETE(request: Request, context: RouteContext) {
       execution: await nodeExecutionService.cancel(owner, graphId, nodeId, executionId),
     });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return nodeExecutionErrorResponse(error) ?? unexpected("cancel", error);
   }
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
+async function patchObservedHandler(request: Request, context: RouteContext) {
   const owner = await ownerEmail();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -68,6 +70,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       execution: await nodeExecutionService.update(owner, graphId, nodeId, executionId, body),
     });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return nodeExecutionErrorResponse(error) ?? unexpected("update", error);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/executions/[executionId]", getObservedHandler);
+export const DELETE = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/executions/[executionId]", deleteObservedHandler);
+export const PATCH = withRequestObservability("/api/generation-graphs/[graphId]/nodes/[nodeId]/executions/[executionId]", patchObservedHandler);

@@ -5,7 +5,7 @@ import {
 import { buildErrorResponse } from "@/server/http/response";
 import { getExternalOperationPermission, hasPlatformPermission, type PlatformPermission } from "@/shared/api/platform-permissions";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -25,9 +25,9 @@ export async function withExternalApi(
       }
       return await handler(auth);
     } catch (error) {
-      logStructured("external_api.failure", {
-        errorType: error instanceof Error ? error.name : typeof error,
-      }, "error");
+      logSafeError("external_api.failure", error, {
+
+      });
       return buildErrorResponse("INTERNAL_SERVER_ERROR", 500);
     }
   });

@@ -8,7 +8,7 @@ import { getHistory } from "@/server/history/handlers/get-history";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -39,3 +39,6 @@ export async function GET(request: Request) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/history", getObservedHandler);

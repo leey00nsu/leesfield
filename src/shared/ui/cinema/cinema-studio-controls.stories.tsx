@@ -21,6 +21,10 @@ const meta = { title: "Project Design/Generation/CinemaStudio", component: Previ
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Shooting: Story = { args: { initialGroup: "shooting" } };
+export const Movement: Story = { args: { initialGroup: "shooting" }, play: async ({ canvasElement }) => {
+  const tab = canvasElement.ownerDocument.querySelector<HTMLButtonElement>('[role="tab"][id$="-movement"]');
+  tab?.click();
+} };
 export const VisualStyle: Story = { args: { initialGroup: "visual" } };
 export const Narrative: Story = { args: { initialGroup: "narrative" } };
 export const ImageControls: Story = { args: { media: "image" } };

@@ -1,5 +1,7 @@
 import {beforeEach, afterEach, expect, it, vi} from "vitest";
-const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),files:vi.fn(),remote:vi.fn()}));
+const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),files:vi.fn(),remote:vi.fn(),asset:vi.fn(),catalog:vi.fn()}));
+vi.mock("@/server/media-assets/media-asset-service",()=>({mediaAssetService:{get:mocks.asset}}));
+vi.mock("@/server/model-catalog/catalog-service",()=>({getModelCatalog:mocks.catalog}));
 vi.mock("@/server/auth/session",()=>({getSession:mocks.session}));
 vi.mock("@/server/db/prisma",()=>({prisma:{imageGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},mediaOperation:{findFirst:mocks.find,deleteMany:mocks.remove},videoGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},audioGeneration:{findFirst:mocks.find,deleteMany:mocks.remove}}}));
 vi.mock("@/server/history/delete-history-files",()=>({deleteHistoryFiles:mocks.files}));
@@ -7,13 +9,14 @@ vi.mock("@/server/http/safe-remote",()=>({requestRemoteStream:mocks.remote}));
 import {GET, DELETE} from "./route";
 import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
+import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 const context={params:Promise.resolve({historyId:"request-1"})};
 it("returns only the owned authoring projection without downloading media or exposing the full snapshot", async () => {
  const cinema = composeCinemaPrompt("source", { ...defaultCinemaSettings(), lighting: "window" }, "image");
  mocks.find.mockResolvedValue({id:"record-1",prompt:cinema.finalPrompt,modelKey:"model",requestParams:{cinema,executionModel:{providerConfig:{token:"PRIVATE"}},inputAssets:[{assetId:"input"}]},images:[]});
  const response = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
  expect(response.status).toBe(200);
- expect(await response.json()).toEqual({cinema,prompt:cinema.finalPrompt,model:"model"});
+ expect(await response.json()).toEqual({cinema,prompt:cinema.finalPrompt,model:"model",references:[],options:[]});
  expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{requestId:"request-1",ownerEmail:"owner@example.com"}}));
  expect(mocks.remote).not.toHaveBeenCalled();
  mocks.find.mockResolvedValue(null);
@@ -21,8 +24,52 @@ it("returns only the owned authoring projection without downloading media or exp
  mocks.session.mockResolvedValue({isLoggedIn:false});
  expect((await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context)).status).toBe(401);
 });
-beforeEach(()=>{vi.clearAllMocks();mocks.session.mockResolvedValue({isLoggedIn:true,adminEmail:"owner@example.com"});});
+beforeEach(()=>{vi.clearAllMocks();mocks.session.mockResolvedValue({isLoggedIn:true,adminEmail:"owner@example.com"});mocks.catalog.mockResolvedValue([]);});
 afterEach(()=>vi.unstubAllGlobals());
+it("restores saved mapped options including zero/false/advanced inputs without exposing secrets or file values",async()=>{
+ const fields=[{name:"prompt",label:"Prompt",kind:"string",canonical:"prompt",schema:{type:"string"},required:true,nullable:false},{name:"width",label:"Width",kind:"number",schema:{type:"integer"},required:false,nullable:false},{name:"seed",label:"Seed",kind:"number",schema:{type:"integer"},required:false,nullable:false},{name:"advanced__enabled",label:"Enabled",kind:"boolean",schema:{type:"boolean"},required:false,nullable:false},{name:"image",label:"Image",kind:"file",media:"image",schema:{},required:false,nullable:true},{name:"api_key",label:"Key",kind:"string",schema:{type:"string"},required:false,nullable:false},{name:"notes",label:"Notes",kind:"json",schema:{type:"object"},required:false,nullable:false}];
+ const providerConfig={token:"PRIVATE",gradio_contract:{version:1,apiName:"/generate",inputs:fields,output:{media:"image",path:[0],multiple:false},diagnostics:[],reviewed:true}};
+ mocks.find.mockResolvedValue({id:"r",prompt:"saved",modelKey:"m",images:[],requestParams:{executionModel:{parameters:{},providerConfig},seed:0,dynamicParams:{prompt:"saved",width:768,advanced__enabled:false,image:null,api_key:"SECRET",notes:{password:"SECRET"}}}});
+ const response=await GET(new Request("http://localhost/api/history/r?type=image&view=authoring"),context);
+ expect(response.status).toBe(200);
+ const body=await response.json();
+ expect(body.options).toEqual([{field:"dynamicParams.width",value:768},{field:"dynamicParams.seed",value:0},{field:"dynamicParams.advanced__enabled",value:false}]);
+ expect(body).not.toHaveProperty("executionModel");expect(JSON.stringify(body)).not.toContain("PRIVATE");expect(JSON.stringify(body)).not.toContain("SECRET");
+});
+it("normalizes legacy v2 option fields and keeps an omitted seed absent",async()=>{
+ const model=runtimeImageModelsFixture.find(m=>m.key==="flux2-klein-9b")!;
+ mocks.catalog.mockResolvedValue([model]);
+ mocks.find.mockResolvedValue({id:"r",prompt:"saved",modelKey:model.key,images:[],requestParams:{requestVersion:2,model:model.key,dynamicParams:{"hf:width":768,"hf:seed":null,"hf:promptUpsampling":false},parameterDefinitions:[{key:"hf:width",inputKey:"width",target:"top"},{key:"hf:seed",inputKey:"seed",target:"top"},{key:"hf:promptUpsampling",inputKey:"promptUpsampling",target:"top"}]}});
+ const response=await GET(new Request("http://localhost/api/history/r?type=image&view=authoring"),context);
+ expect(response.status).toBe(200);
+ expect((await response.json()).options).toEqual(expect.arrayContaining([{field:"width",value:768},{field:"promptUpsampling",value:false}]));
+ const second=await GET(new Request("http://localhost/api/history/r?type=image&view=authoring"),context);
+ expect((await second.json()).options).not.toEqual(expect.arrayContaining([expect.objectContaining({field:"seed"})]));
+});
+it("resolves durable references under the record owner in original field order without exposing secrets", async()=>{
+ mocks.find.mockResolvedValue({id:"r",prompt:"source",modelKey:"m",videos:[],requestParams:{dynamicParams:{prompt:"source",token:"SECRET"},executionModel:{providerConfig:{token:"SECRET"}},inputAssets:[{field:"dynamicParams.reference_images",assetId:"second",sortOrder:1,multiple:true},{field:"dynamicParams.reference_images",assetId:"first",sortOrder:0,multiple:true}]}});
+ mocks.asset.mockImplementation(async(owner,id)=>({type:"image",url:"https://storage.example/"+id+".png"}));
+ const response=await GET(new Request("http://localhost/api/history/r?type=video&view=authoring"),context);
+ expect(response.status).toBe(200);
+ expect(await response.json()).toEqual({cinema:null,prompt:"source",model:"m",options:[],references:[{field:"dynamicParams.reference_images",media:"image",multiple:true,urls:["https://storage.example/first.png","https://storage.example/second.png"]}]});
+ expect(mocks.asset.mock.calls.map(args=>args.slice(0,2))).toEqual([["owner@example.com","first"],["owner@example.com","second"]]);
+ expect(mocks.remote).not.toHaveBeenCalled();
+ mocks.asset.mockRejectedValueOnce(new Error("MEDIA_ASSET_NOT_FOUND"));
+ expect((await GET(new Request("http://localhost/api/history/r?type=video&view=authoring"),context)).status).toBe(404);
+});
+it.each([["image","initImages",["https://storage.example/a.png","https://storage.example/b.png"],true],["video","initImage","https://storage.example/a.png",false],["audio","inputAudio","https://storage.example/a.wav",false]])("restores legacy %s file inputs",async(type,field,value,multiple)=>{
+ mocks.find.mockResolvedValue({id:"r",prompt:"source",modelKey:"m",images:[],videos:[],audios:[],requestParams:{[field as string]:value}});
+ const response=await GET(new Request("http://localhost/api/history/r?type="+type+"&view=authoring"),context);
+ expect(response.status).toBe(200);
+ expect((await response.json()).references).toEqual([{field,media:type==="audio"?"audio":"image",multiple,urls:Array.isArray(value)?value:[value]}]);
+});
+it("projects only declared legacy dynamic file inputs",async()=>{
+ const contract={version:1,apiName:"/generate",inputs:[{name:"references",label:"References",kind:"files",media:"image",schema:{type:"array"},required:false,nullable:true}],output:{media:"image",path:[0],multiple:false},diagnostics:[],reviewed:true};
+ mocks.find.mockResolvedValue({id:"r",prompt:"source",modelKey:"m",images:[],requestParams:{executionModel:{providerConfig:{gradio_contract:contract}},dynamicParams:{references:["https://storage.example/a.png"],secret_url:"https://private.example/token"}}});
+ const response=await GET(new Request("http://localhost/api/history/r?type=image&view=authoring"),context);
+ expect(response.status).toBe(200);
+ expect((await response.json()).references).toEqual([{field:"dynamicParams.references",media:"image",multiple:true,urls:["https://storage.example/a.png"]}]);
+});
 it("streams the owned original as an attachment and rejects unknown owners",async()=>{
  mocks.find.mockResolvedValue({id:"record-1",images:[{url:"https://storage.example/original.png"}]});
  mocks.remote.mockResolvedValue({status:200,headers:{"content-type":"image/png"},body:new Response("original-bytes").body});

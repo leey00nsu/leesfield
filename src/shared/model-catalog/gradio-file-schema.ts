@@ -47,3 +47,11 @@ export function gradioFileAuthoringSchema(field: GradioField): Record<string, un
   }
   return project(field.schema, 0);
 }
+
+/** Null items are positional empty slots, rather than missing attachments. */
+export function fileFieldAllowsNullItems(field: GradioField): boolean {
+  if (field.kind !== "files") return false;
+  const item = record(field.schema.items);
+  if (!Object.keys(item).length) return false;
+  return gradioSchemaValidator(normalizeGradioSchema(resolveGradioSchema(item, field.schema)))(null);
+}

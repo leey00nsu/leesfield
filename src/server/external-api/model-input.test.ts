@@ -5,6 +5,29 @@ import { mappedModel } from "./test-fixtures";
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
 describe("authenticated model input contract", () => {
+  it("publishes declared source-label limits consistently with multipart and JSON parsing",()=>{
+    const model=mappedModel("image");
+    model.parameters.frames.label="References (optional, up to 6)";
+    const external=getExternalModelInput(model);
+    expect(external.files.find(field=>field.name==="frames")?.maxItems).toBe(6);
+    const values={text:"edit",frames:Array.from({length:6},(_,i)=>"https://files.example/"+i+".png")};
+    const validate=new Ajv2020({strict:false}).compile(external.inputSchema);
+    expect(validate(values)).toBe(true);
+    expect(external.parse(values).dynamicParams?.frames).toEqual(values.frames);
+    const overflow={...values,frames:[...values.frames,"https://files.example/seventh.png"]};
+    expect(validate(overflow)).toBe(false);
+    expect(()=>external.parse(overflow)).toThrow();
+  });
+  it("publishes and parses nine-image multipart limits without truncating the provider contract",()=>{
+    const model=mappedModel("video");
+    model.parameters.frames.binding!.schema={type:"array",items:{type:"string"},maxItems:9};
+    const external=getExternalModelInput(model);
+    expect(external.files.find(field=>field.name==="frames")?.maxItems).toBe(9);
+    const values={text:"edit",frames:Array.from({length:9},(_,i)=>"https://files.example/"+i+".png")};
+    expect(new Ajv2020({strict:false}).compile(external.inputSchema)(values)).toBe(true);
+    expect(external.parse(values).dynamicParams?.frames).toEqual(values.frames);
+    expect(()=>external.parse({...values,frames:[...values.frames,"https://files.example/extra.png"]})).toThrow();
+  });
   it("publishes the same typed choices, file limits and default-aware conditions as its parser",()=>{
     const model=mappedModel();
     const parameters=model.parameters as Record<string,unknown>;

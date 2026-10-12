@@ -1,4 +1,4 @@
-const legacySettings = () => { const { composition: _removed, ...rest } = defaultCinemaSettings(); void _removed; return { ...rest, schemaVersion: 1, focalLength: "auto" }; };
+const legacySettings = () => { const { composition: _removed, ...rest } = defaultCinemaSettings(); void _removed; return { ...rest, shootingEnabled: true, schemaVersion: 1, focalLength: "auto" }; };
 
 import { describe, expect, it } from "vitest";
 import { cinemaSnapshotSchema, defaultCinemaSettings, parseCinemaSettings, readCinemaSettings } from "./cinema-contract";
@@ -35,7 +35,7 @@ describe("Cinema authoring and submission", () => {
   it("separates displayed equipment specifications from new rendering directions", () => {
     const settings = { ...defaultCinemaSettings(), camera: "modular-8k", lens: "modern-prime" };
     const current = composeCinemaPrompt("A portrait", settings, "image");
-    expect(current.mappingVersion).toBe(8);
+    expect(current.mappingVersion).toBe(10);
     expect(current.finalPrompt).toContain("RED V-RAPTOR XL");
     expect(current.finalPrompt).toContain("ZEISS Otus");
     expect(current.finalPrompt).not.toMatch(/\d+mm|F\d|8K/);
@@ -108,7 +108,7 @@ describe("Cinema authoring and submission", () => {
     expect(result.sourcePrompt).toBe("A person at a cafe, focus on the eyes");
   });
   it("reads frozen mapping7 exactly and reserves full shots for mapping8", () => {
-    const previous = { ...composeCinemaPrompt("A person", { ...defaultCinemaSettings(), composition: "close-up" }, "image"), mappingVersion: 7, finalPrompt: "Saved mapping7 prompt  \n" };
+    const previous = { ...composeCinemaPrompt("A person", { ...defaultCinemaSettings(), composition: "close-up" }, "image"), settings: { ...defaultCinemaSettings(), shootingEnabled: true, composition: "close-up" }, mappingVersion: 7, finalPrompt: "Saved mapping7 prompt  \n" };
     expect(cinemaSnapshotSchema.parse(previous)).toEqual(previous);
     expect(cinemaSnapshotSchema.safeParse({ ...previous, settings: { ...previous.settings, composition: "full" } }).success).toBe(false);
     expect(cinemaSnapshotSchema.safeParse(composeCinemaPrompt("scene", { ...defaultCinemaSettings(), composition: "full" }, "image")).success).toBe(true);
@@ -129,7 +129,7 @@ describe("Cinema authoring and submission", () => {
     expect(parseCinemaSettings(legacy, "image")).toEqual({ ...defaultCinemaSettings(), aperture: "f14" });
     expect(legacy.focalLength).toBe("85");
     expect(readCinemaSettings({ ...legacy, focalLength: "unknown" }).status).toBe("unsupported");
-    expect(cinemaSnapshotSchema.safeParse({ ...composeCinemaPrompt("scene", undefined, "image"), mappingVersion: 9 }).success).toBe(false);
+    expect(cinemaSnapshotSchema.safeParse({ ...composeCinemaPrompt("scene", undefined, "image"), mappingVersion: 11 }).success).toBe(false);
   });
   it.each([
     ["f14", /focus target sharply resolved.*creamy, smooth blur/],
@@ -151,7 +151,8 @@ describe("Cinema authoring and submission", () => {
     expect(result.finalPrompt).not.toContain("16mm");
     expect(result.finalPrompt).not.toContain("85mm");
     expect(result.finalPrompt).toBe("A portrait\n\nCinema direction: Soft natural window light.");
-    expect(result.settings.camera).toBe("16mm-film");
+    expect(result.settings.camera).toBe("auto");
+    expect(result.settings).not.toHaveProperty("shootingEnabled");
   });
   it("keeps unknown persisted values for explicit recovery and rejects invalid submissions", () => {
     const raw = { ...defaultCinemaSettings(), camera: "deleted-camera" };
@@ -168,6 +169,30 @@ describe("Cinema authoring and submission", () => {
     const next = applyCinemaFinalPrompt(model, payload, snapshot.finalPrompt);
     expect(next.dynamicParams).toEqual({ description: snapshot.finalPrompt, strength: 2 });
     expect(next.prompt).toBe(snapshot.finalPrompt);
+  });
+  it("offers all 33 movements while preserving frozen snapshots and saved orbit separately", () => {
+    expect(cinemaCatalog.movement).toHaveLength(33);
+    expect(new Set(cinemaCatalog.movement.map(item => item.id)).size).toBe(33);
+    expect(cinemaCatalog.movement.some(item => item.id === "orbit")).toBe(false);
+    for (const movement of cinemaCatalog.movement) {
+      const current = composeCinemaPrompt("A scene", { ...defaultCinemaSettings(), movement: movement.id }, "video");
+      expect(current.mappingVersion).toBe(10);
+      expect(current.finalPrompt.toLowerCase()).toContain(movement.prompt.toLowerCase());
+      expect(() => parseCinemaSettings(current.settings, "image")).toThrow("CINEMA_VIDEO_ONLY");
+    }
+    for (const mappingVersion of [7, 8]) {
+      const snapshot = { schemaVersion: 2, mappingVersion, settings: { ...defaultCinemaSettings(), shootingEnabled: true, movement: "orbit" }, sourcePrompt: "source", finalPrompt: "Saved orbit verbatim  \n" };
+      expect(cinemaSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+      expect(cinemaSnapshotSchema.safeParse({ ...snapshot, settings: { ...snapshot.settings, movement: "drone-orbit" } }).success).toBe(false);
+    }
+    const previous = { schemaVersion: 2, mappingVersion: 9,
+      settings: { ...defaultCinemaSettings(), shootingEnabled: false, movement: "snorricam" },
+      sourcePrompt: "source", finalPrompt: "Saved mapping9 unchanged  \n" };
+    expect(cinemaSnapshotSchema.parse(previous)).toEqual(previous);
+    expect(parseCinemaSettings(previous.settings, "video")).toMatchObject({ movement: "auto" });
+    const legacy = { schemaVersion: 1, mappingVersion: 6, settings: { ...legacySettings(), movement: "drone-orbit" }, sourcePrompt: "source", finalPrompt: "saved" };
+    expect(cinemaSnapshotSchema.safeParse(legacy).success).toBe(false);
+    expect(composeCinemaPrompt("source", { ...defaultCinemaSettings(), movement: "orbit" }, "video").finalPrompt).toContain("Camera orbits around the subject");
   });
   it("detects promptless contracts rather than inferring support from a model name", () => {
     expect(cinemaPromptField({ providerConfig: { gradio_contract: { ...model.providerConfig.gradio_contract, inputs: [] } } }).supported).toBe(false);

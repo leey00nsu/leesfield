@@ -25,6 +25,9 @@ import type {
   RuntimeImageModel,
   RuntimeVideoModel,
 } from "@/server/model-catalog/runtime-models";
+import { buildModalModelDraft } from "@/server/modal-comfyui/importer";
+import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
+import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
 const mockValidateAudioPayload = vi.hoisted(() => vi.fn());
 const mockValidateImagePayload = vi.hoisted(() => vi.fn());
@@ -51,6 +54,9 @@ vi.mock("@/server/db/prisma", () => ({
       updateMany: vi.fn(),
     },
   },
+}));
+vi.mock("@/server/modal-comfyui/job-repository", () => ({
+  modalJobRepository: { find: vi.fn(async () => null) },
 }));
 
 vi.mock("@/server/generation-worker/execution-lease", async () => {
@@ -667,6 +673,57 @@ describe("generation worker", () => {
       expect(submitted).toHaveProperty("inputAudio", inputAudio);
     }
     for (const key of ["width", "height", "steps", "imageCount", "durationSec", "fps", "aspectRatio", "resolution", "voice", "speed"]) expect(submitted).not.toHaveProperty(key);
+  });
+
+  it.each([undefined, 0, 42, null])("validates frozen movement-only replay with provider seed %s", async (seed) => {
+    const draft = buildModalModelDraft({
+      id: "movement-reference-video", name: "Reference video", category: "video", output_media: ["video"],
+      input_schema: {
+        type: "object", additionalProperties: false, required: ["prompt", "reference_images"],
+        properties: {
+          prompt: { type: "string", minLength: 1 },
+          reference_images: { type: "array", items: { type: "string", format: "comfy-input-name", "x-media": "image" }, minItems: 1, maxItems: 9 },
+          tracks: {type:"array",maxItems:3,items:{anyOf:[{type:"string",format:"comfy-input-name","x-media":"audio"},{type:"null"}]}},
+          seed: { type: "integer", minimum: 0 },
+        },
+      },
+      advanced_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+    });
+    const executionModel = { ...draft, id: "frozen", isActive: true, createdAt: new Date(), updatedAt: new Date() };
+    const runtime = await mockGetRuntimeCatalog();
+    runtime.videoModels = [{ key: draft.key, mapped: true, isActive: true, isDefault: true, concurrentLimit: 1, defaults: {} }];
+    const settings = { ...defaultCinemaSettings(), movement: "snorricam" as const };
+    const prompt = composeCinemaPrompt("", settings, "video").finalPrompt;
+    const record = {
+      id: "movement-job", requestId: "movement-request", ownerEmail: "owner@example.test", graphNodeId: null, prompt, progress: 0,
+      requestParams: {
+        model: draft.key, prompt, seed: null, initImage: null, requestVersion: 3,
+        dynamicParams: { prompt, tracks:[null,null,null], ...(seed !== undefined ? { seed } : {}) },
+        inputAssets: [{ field: "dynamicParams.reference_images", assetId: "reference", multiple: true, sortOrder: 0 },
+          {field:"dynamicParams.tracks",assetId:"track-second",multiple:true,sortOrder:1}],
+        cinema: { sourcePrompt: "", finalPrompt: prompt, settings },
+        executionModel,
+      },
+    };
+    const actual = await vi.importActual<typeof import("@/server/model-catalog/generation-validation")>("@/server/model-catalog/generation-validation");
+    mockValidateVideoPayload.mockImplementation(actual.validateVideoGenerationPayload);
+    mockGetMediaAsset.mockResolvedValue({ url: "https://example.test/reference.png" });
+    vi.mocked(prisma.videoGeneration.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([record] as never);
+    vi.mocked(prisma.videoGeneration.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(resolveVideoGenerationResult).mockResolvedValue({ status: "completed", skipDbSave: true } as never);
+    await processVideoJobs();
+    if (seed === null) {
+      expect(resolveVideoGenerationResult).not.toHaveBeenCalled();
+      expect(updateVideoGenerationStatus).toHaveBeenCalledWith(record.id, "failed", 0, "INVALID_JOB_PAYLOAD", expect.anything());
+    } else {
+      const submitted = vi.mocked(resolveVideoGenerationResult).mock.calls[0]?.[0];
+      expect(submitted).toMatchObject({ prompt, dynamicParams: { prompt, reference_images: ["https://example.test/reference.png"] } });
+      expect(submitted?.dynamicParams).toHaveProperty("tracks",[null,"https://example.test/reference.png",null]);
+      if (seed === undefined) expect(submitted?.dynamicParams).not.toHaveProperty("seed");
+      else expect(submitted?.dynamicParams).toHaveProperty("seed", seed);
+      expect(resolveVideoGenerationResult).toHaveBeenCalledWith(submitted, record.requestId, { executionModel: expect.objectContaining({ key: draft.key }) });
+      expect(record.requestParams.seed).toBeNull();
+    }
   });
 
   it.each([false,true])("processImageJobs completes old and versioned snapshots (%s)", async (versioned) => {

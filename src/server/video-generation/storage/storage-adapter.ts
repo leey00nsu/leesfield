@@ -1,3 +1,4 @@
+import type { MediaOutput } from "@/server/media-assets/binary-media-output";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
 import type { VideoGenerationResponse } from "@/features/video-generation/model/video-generation-types";
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
@@ -18,6 +19,7 @@ export interface VideoStorageResult {
   errorMessage?: string;
   skipDbSave?: boolean;
   artifacts?: GeneratedMediaArtifact[];
+  failure?: { error: unknown; phase: string };
 }
 
 export interface VideoStorageAvailability {
@@ -30,7 +32,7 @@ export interface VideoStorageAdapter {
   uploadVideos: (
     payload: VideoGenerationFormValues,
     requestId: string,
-    dataUrls: string[],
+    outputs: MediaOutput[],
     meta?: VideoStorageMeta
   ) => Promise<VideoStorageResult>;
   checkAvailability?: () => VideoStorageAvailability;

@@ -1,6 +1,9 @@
 "use client";
+import { logger } from "@/shared/logging/logger.mjs";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { CanvasMediaDropBoundary } from "./canvas-media-drop-boundary";
+import { normalizeDroppedMediaFile } from "@/shared/media-assets/media-file-drop";
 import { Loader2, X } from "lucide-react";
 import { AppMediaOpenButton } from "@/shared/ui/app-media-open-button";
 import { NodeTextEditorScope } from "@/shared/ui/node-text-editor";
@@ -49,7 +52,8 @@ import type { NodeAuthoringCatalogState } from "../model/node-authoring-context"
 import { NodeAuthoringProvider } from "../model/node-authoring-context";
 import { nodeBananaNodeInventory } from "../model/node-banana-node-inventory";
 import { resolveNodeRunReadiness } from "../model/node-run-readiness";
-import { resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "../model/node-graph-inputs";
+import { fileFieldAllowsNullItems } from "@/shared/model-catalog/gradio-file-schema";
+import { resolveNodeInputAssetSlots, resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "../model/node-graph-inputs";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import type { GenerationGraphFlowEdge, ImageGenerationFlowNode } from "../model/flow-types";
 import {
@@ -80,7 +84,7 @@ import { usePromptPresetCatalog } from "@/entities/prompt-preset/model/use-promp
 import { applyNodePromptPreset, presetCanonicalKind, projectNodePromptPresetInputs } from "../model/node-prompt-presets";
 import { SpaceGenerationControlPanel } from "./nodes/space-generation-control-panel";
 import { SpaceGenerationPrompt } from "./nodes/space-generation-prompt";
-import { generationAttachmentSlots, replaceGenerationAttachments, type GenerationAttachmentSlot } from "../model/generation-prompt-attachments";
+import { generationAttachmentSlots, attachmentSlotAssetIds, replaceRelatedGenerationAttachments, type GenerationAttachmentSlot } from "../model/generation-prompt-attachments";
 
 const NodeBananaHostedRuntimeContext = createContext<object | null>(null);
 
@@ -93,7 +97,7 @@ function withNodeErrorBoundary(
     return (
       <NodeBananaCanvasErrorBoundary
         onError={(error) => {
-          console.error(`[node-studio] ${label} node render failed`, error);
+          logger.error("node-studio.node.render_failed", error);
         }}
         fallback={
           <article className="w-72 rounded-2xl border border-red-300/30 bg-red-950/35 p-4 text-sm text-red-100" role="alert">
@@ -270,9 +274,25 @@ export function NodeBananaStudio({
   const effectiveReason = readOnlyReason ?? initialProjection.readOnlyReason;
   const [runtimeGraph, setRuntimeGraph] = useState(initialProjection.state);
   const [upstreamTransientData, setUpstreamTransientData] = useState<Record<string, Record<string, unknown>>>({});
+  const canvasDropSession = useRef<{ controller: AbortController; ids: Set<string> } | null>(null);
+  const [canvasDropBusy, setCanvasDropBusy] = useState(false);
+  useEffect(() => {
+    setCanvasDropBusy(false);
+    return () => {
+      const session = canvasDropSession.current;
+      session?.controller.abort();
+      canvasDropSession.current = null;
+      if (session) setUpstreamTransientData(current => ({ ...current, ...Object.fromEntries([...session.ids].map(id =>
+        [id, { ...current[id], mediaUploading: false }])) }));
+    };
+  }, [graph.id, effectiveWritable]);
   const transientGraphIdRef = useRef(graph.id);
   const canonicalRef = useRef(initialCanonical);
   const runtimeGraphRef = useRef(runtimeGraph);
+  useEffect(() => {
+    const pending = canvasDropSession.current;
+    if (pending && (!effectiveWritable || [...pending.ids].some(id => !runtimeGraph.nodes.some(node => node.id === id)))) pending.controller.abort();
+  }, [effectiveWritable, runtimeGraph.nodes]);
   const onDraftChangeRef = useRef(onDraftChange);
   const prepareImageNodeExecutionRef = useRef(prepareImageNodeExecution);
   const publishedSignatureRef = useRef(
@@ -524,6 +544,8 @@ export function NodeBananaStudio({
       const current = runtimeGraphRef.current;
       const currentNode = current.nodes.find((node) => node.id === nodeId);
       if (!currentNode) return;
+      if (Object.hasOwn(patch, "config")) setUpstreamTransientData(currentData => currentData[nodeId]?.mediaUploadError
+        ? { ...currentData, [nodeId]: { ...currentData[nodeId], mediaUploadError: false } } : currentData);
       const transientPatch = outputGalleryConfig(patch.__upstreamTransient);
       if (Object.keys(transientPatch).length > 0) {
         setUpstreamTransientData((currentData) => {
@@ -781,8 +803,10 @@ export function NodeBananaStudio({
   const displayGraph = useMemo(() => {
     // Upstream group lock skips scheduled workflow execution, not editing or
     // explicit single-node runs. Read-only is the editing boundary here.
-    return { ...runtimeGraph, nodes: runtimeGraph.nodes.map((node) => ({ ...node, draggable: effectiveWritable })) };
-  }, [effectiveWritable, runtimeGraph]);
+    return { ...runtimeGraph, nodes: runtimeGraph.nodes.map((node) => ({ ...node, draggable: effectiveWritable,
+      data: { ...node.data, ...(upstreamTransientData[node.id]?.mediaUploading ? { mediaUploading: true } : {}),
+        ...(upstreamTransientData[node.id]?.mediaUploadError ? { mediaUploadError: true } : {}) } })) };
+  }, [effectiveWritable, runtimeGraph, upstreamTransientData]);
 
   const getHostedNodeRunReadiness = useCallback(
     (nodeId: string) => {
@@ -1228,6 +1252,7 @@ export function NodeBananaStudio({
         </div> : null}
         {resolved?.missingMedia ? <div role="status" className="nodrag nopan absolute inset-x-2 top-8 z-40 rounded-lg bg-background/95 px-3 py-2 text-xs text-muted-foreground pointer-events-none">{tMedia("missingFile")}</div> : null}
         {(uploading || props.data.mediaUploading) ? <div role="status" aria-live="polite" aria-label={tMedia("uploading")} className="nodrag nopan absolute inset-0 z-50 flex items-center justify-center gap-2 rounded-2xl bg-black/55 text-sm text-white backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin" />{tMedia("uploading")}</div> : null}
+        {props.data.mediaUploadError ? <div role="alert" className="nodrag nopan absolute inset-x-2 bottom-2 rounded-lg bg-destructive/90 px-3 py-2 text-xs text-white">{tMedia("uploadError")}</div> : null}
         </>
       );
     }
@@ -1331,6 +1356,7 @@ export function NodeBananaStudio({
       edge.target === nodeId &&
       (edge.data?.targetPortId === targetPortId || edge.targetHandle === targetPortId),
     ), []);
+  const getNodeInputAssetSlots = useCallback((nodeId:string,port:string)=>resolveNodeInputAssetSlots(runtimeGraphRef.current,nodeId,port),[]);
 
   const replaceNodeData = useCallback(
     (nodeId: string, patch: Record<string, unknown>) => {
@@ -1362,8 +1388,8 @@ export function NodeBananaStudio({
     replaceNodeData(nodeId, { config: { ...config, size } });
   }, [effectiveWritable, replaceNodeData]);
 
-  const replaceNodeInputAssets = useCallback((nodeId: string, requestedSlot: GenerationAttachmentSlot, assetIds: readonly string[],
-    expected: { modelKey: unknown; assetIds: readonly string[] }) => {
+  const replaceNodeInputAssets = useCallback((nodeId: string, requestedSlot: GenerationAttachmentSlot, assetIds: readonly (string|null)[],
+    expected: { modelKey: unknown; assetIds: readonly (string|null)[]; relatedAssetIds?: Record<string, readonly (string|null)[]> }, order?: readonly number[]) => {
     if (!effectiveWritable) return false;
     const current = runtimeGraphRef.current, target = current.nodes.find(node => node.id === nodeId);
     const config = outputGalleryConfig(target?.data.config);
@@ -1372,11 +1398,15 @@ export function NodeBananaStudio({
       : target.data.canonicalKind === "generate.video" ? catalog.videoModels ?? []
       : target.data.canonicalKind === "generate.audio" ? catalog.audioModels ?? [] : [];
     const model = models.find(model => model.key === config.modelKey);
-    const slot = model && generationAttachmentSlots(model).find(slot => slot.field.name === requestedSlot.field.name);
+    const slots = model ? generationAttachmentSlots(model) : [];
+    const slot = slots.find(slot => slot.field.name === requestedSlot.field.name);
     const removing = assetIds.length < expected.assetIds.length && assetIds.every(id => expected.assetIds.includes(id));
     if (!slot || slot.field.media !== requestedSlot.field.media || JSON.stringify(slot.ports) !== JSON.stringify(requestedSlot.ports) ||
-        (assetIds.length > slot.limit && !removing) || JSON.stringify(slot.ports.flatMap(port => resolveNodeInputAssetIds(current, nodeId, port))) !== JSON.stringify(expected.assetIds)) return false;
-    const next = replaceGenerationAttachments(current, nodeId, slot, assetIds, () => crypto.randomUUID());
+        (assetIds.length > slot.limit && !removing) || JSON.stringify(slot.ports.flatMap(port => fileFieldAllowsNullItems(slot.field)?resolveNodeInputAssetSlots(current,nodeId,port):resolveNodeInputAssetIds(current, nodeId, port))) !== JSON.stringify(expected.assetIds)) return false;
+    const related = slots.filter(item=>item.field.name===slot.field.attachment?.pairedWith || item.field.attachment?.pairedWith===slot.field.name);
+    if (JSON.stringify(slot.field.attachment)!==JSON.stringify(requestedSlot.field.attachment) || related.some(item=>
+      JSON.stringify(attachmentSlotAssetIds(current,nodeId,item))!==JSON.stringify(expected.relatedAssetIds?.[item.field.name]))) return false;
+    const next = replaceRelatedGenerationAttachments(current, nodeId, slots, slot, assetIds, () => crypto.randomUUID(), order);
     for (const edge of next.edges.filter(edge => !current.edges.some(previous => previous.id === edge.id))) {
       if (!isRuntimeConnectionValid(canonicalRef.current, { ...next, edges: next.edges.filter(candidate => candidate.id !== edge.id) }, edge, {
         imageInputLimit: key => resolveRuntimeImageMaxInputImages(catalog.imageModels.find(model => model.key === key)),
@@ -1413,6 +1443,7 @@ export function NodeBananaStudio({
       getNodePromptInput,
       getNodeInputAssetId,
       getNodeInputAssetIds,
+      getNodeInputAssetSlots,
       replaceNodeInputAssets,
       isNodePortConnected,
       isNodePersisted: (nodeId: string) => persistedNodeIds?.has(nodeId) ?? graph.nodes.some((node) => node.id === nodeId),
@@ -1474,6 +1505,7 @@ export function NodeBananaStudio({
       getNodeRunReadiness,
       getNodeInputAssetId,
       getNodeInputAssetIds,
+      getNodeInputAssetSlots,
       replaceNodeInputAssets,
       getNodePromptInput,
       isNodePortConnected,
@@ -1551,13 +1583,72 @@ export function NodeBananaStudio({
   );
   const importCanvasMedia = useCallback<NonNullable<NodeBananaCanvasProps["onImportCanvasMedia"]>>(async (source, signal) => {
     signal.throwIfAborted();
-    const asset = source instanceof File
-      ? await uploadMediaAsset(source, source.type.split("/")[0] as "image" | "audio" | "video", undefined, signal)
-      : await getMediaAsset(source.assetId, signal);
+    const file = source instanceof File ? normalizeDroppedMediaFile(source) : null;
+    if (source instanceof File && !file) throw new Error("UNSUPPORTED_MEDIA_TYPE");
+    const asset = file
+      ? await uploadMediaAsset(file, file.type.split("/")[0] as "image" | "audio" | "video", undefined, signal)
+      : await getMediaAsset((source as { assetId: string }).assetId, signal);
     signal.throwIfAborted();
     if (source instanceof File) void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.list(asset.type) });
     return { assetId: asset.id, mediaType: asset.type };
   }, [queryClient]);
+  const dropCanvasFiles = useCallback((files: File[], position: { x: number; y: number }) => {
+    if (!effectiveWritable || canvasDropSession.current || !files.length) return;
+    const previous = runtimeGraphRef.current;
+    if (previous.nodes.length + files.length > 500) { onHostError?.(new Error("SPACE_NODE_LIMIT")); return; }
+    const controller = new AbortController();
+    const nodes = files.map((file, index) => createCanonicalRuntimeNode(
+      ("input." + file.type.split("/")[0]) as CanonicalNodeKind, crypto.randomUUID(),
+      { x: position.x + index * 240, y: position.y },
+    ));
+    const session = { controller, ids: new Set(nodes.map(node => node.id)) };
+    canvasDropSession.current = session;
+    setCanvasDropBusy(true);
+    setUpstreamTransientData(current => ({ ...current, ...Object.fromEntries(nodes.map(node =>
+      [node.id, { mediaUploading: true, mediaUploadError: false }])) }));
+    undoRecorderRef.current?.(previous);
+    publishRuntimeGraph({ ...previous, nodes: [...previous.nodes, ...nodes] });
+    const timeout = setTimeout(() => { onHostError?.(new Error("CANVAS_IMPORT_TIMEOUT")); controller.abort(); }, 120_000);
+    void (async () => {
+      try {
+        for (const [index, file] of files.entries()) {
+          const id = nodes[index].id;
+          const asset = await new Promise<{ assetId: string; mediaType: "image" | "audio" | "video" }>((resolve, reject) => {
+            const abort = () => reject(new DOMException("Canvas import cancelled", "AbortError"));
+            if (controller.signal.aborted) { abort(); return; }
+            controller.signal.addEventListener("abort", abort, { once: true });
+            importCanvasMedia(file, controller.signal).then(resolve, reject)
+              .finally(() => controller.signal.removeEventListener("abort", abort));
+          });
+          controller.signal.throwIfAborted();
+          if (canvasDropSession.current !== session) return;
+          const current = runtimeGraphRef.current;
+          const target = current.nodes.find(node => node.id === id);
+          // Deletion, undo or replacement must never restore an obsolete upload.
+          if (!target || outputGalleryConfig(target.data.config).assetId !== null) { controller.abort(); return; }
+          publishRuntimeGraph({ ...current, nodes: current.nodes.map(node => node.id === id ? {
+            ...node, data: { ...node.data, config: { ...outputGalleryConfig(node.data.config), assetId: asset.assetId } },
+          } : node) });
+          session.ids.delete(id);
+          setUpstreamTransientData(currentData => ({ ...currentData, [id]: { ...currentData[id], mediaUploading: false, mediaUploadError: false } }));
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && canvasDropSession.current === session) {
+          onHostError?.(error instanceof Error ? error : new Error("CANVAS_IMPORT_FAILED"));
+          setUpstreamTransientData(current => ({ ...current, ...Object.fromEntries([...session.ids].map(id =>
+            [id, { ...current[id], mediaUploading: false, mediaUploadError: true }])) }));
+        }
+      } finally {
+        clearTimeout(timeout);
+        if (canvasDropSession.current === session) {
+          canvasDropSession.current = null;
+          setCanvasDropBusy(false);
+          setUpstreamTransientData(current => ({ ...current, ...Object.fromEntries([...session.ids].map(id =>
+            [id, { ...current[id], mediaUploading: false }])) }));
+        }
+      }
+    })();
+  }, [effectiveWritable, importCanvasMedia, onHostError, publishRuntimeGraph]);
   const createNode = useCallback<NodeBananaCanvasProps["onCreateNode"]>(
     (item, position, pending) => {
       if (isUnavailableEditNodeKind(item.kind)) throw new Error("NODE_TYPE_UNAVAILABLE");
@@ -1617,7 +1708,7 @@ export function NodeBananaStudio({
   return (
     <NodeBananaCanvasErrorBoundary
       onError={(error) => {
-        console.error("[node-studio] Node Banana Canvas render failed", error);
+        logger.error("node-studio.canvas.render_failed", error);
       }}
       fallback={
         <div className={styles.failure} role="alert">
@@ -1656,6 +1747,7 @@ export function NodeBananaStudio({
               focusHostedCanvas(event.currentTarget);
             }}
           >
+          <CanvasMediaDropBoundary key={graph.id} contextId={graph.id} writable={effectiveWritable} busy={canvasDropBusy} onFilesDrop={dropCanvasFiles} onError={onHostError}>
           <NodeBananaCanvasRuntime
             contextId={graph.id}
             host={canvasHost}
@@ -1701,6 +1793,7 @@ export function NodeBananaStudio({
             onUndoRecorderChange={registerUndoRecorder}
             remapPastedNodes={remapSplitClipboardNodes}
           />
+          </CanvasMediaDropBoundary>
           </div>
         </NodeBananaHostedRuntimeContext.Provider>
       </NodeAuthoringProvider>

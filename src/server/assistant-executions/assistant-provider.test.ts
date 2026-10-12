@@ -38,3 +38,16 @@ it("sends bounded visual Chat Completions input without leaking the key in the r
   });
   expect(options.body).not.toContain("secret-test-key");
 });
+
+it("retains the safe original transport cause while preserving the public error code",async()=>{
+  const sink=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+  const cause=Object.assign(new TypeError("fetch failed"),{code:"ECONNRESET"});
+  remote.requestRemote.mockReset();remote.requestRemote.mockRejectedValue(cause);
+  await expect(completeAssistant({baseUrl:"https://host.example/v1",modelId:"model",apiKey:"private-key",timeoutMs:100,
+    instruction:"private-prompt",text:null,visuals:[],signal:new AbortController().signal,
+  })).rejects.toMatchObject({code:"ASSISTANT_PROVIDER_UNAVAILABLE",cause});
+  const line=String(sink.mock.calls[0]?.[0]);
+  expect(JSON.parse(line)).toMatchObject({provider:"openai_compatible",phase:"provider.request",error:{type:"TypeError",code:"ECONNRESET"}});
+  expect(line).not.toMatch(/private-key|private-prompt|host.example/);
+  sink.mockRestore();
+});

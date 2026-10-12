@@ -22,6 +22,8 @@ interface BaseModelCatalogItem {
   isDefault: boolean;
   createdAt?: string;
   updatedAt?: string;
+  modalities?: string[];
+  audioReference?: boolean;
 }
 
 export interface ImageModelMeta {

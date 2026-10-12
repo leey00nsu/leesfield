@@ -35,7 +35,7 @@ import {
   resolveInputMediaErrorCode,
 } from "@/server/shared/input-media-uploader";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -175,11 +175,11 @@ async function postHandler(request: Request) {
     return buildGenerationSuccessResponse(record);
   } catch (error) {
     await finalizeSubmission(admitted.requestId, "failed");
-    logStructured("generation.create.failure", {
+    logSafeError("generation.create.failure", error, {
       requestId: admitted.requestId,
       kind: "audio",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+
+    });
     const mediaCode = resolveInputMediaErrorCode(error);
     if ([INPUT_MEDIA_FETCH_FAILED, INPUT_MEDIA_INVALID, INPUT_MEDIA_STORAGE_REQUIRED].includes(mediaCode ?? "")) {
       return buildErrorResponse(mediaCode as string, 400);

@@ -1,3 +1,4 @@
+import { serverLogger } from "@/server/observability/logger";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -33,7 +34,7 @@ const pool =
   });
 const adapter = new PrismaPg(pool);
 
-export const prisma =
+const client =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
@@ -44,9 +45,30 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = client;
   globalForPrisma.pgPool = pool;
 }
+
+// Covers model and raw queries, including transaction-scoped queries. Arguments,
+// SQL text and Prisma metadata can contain prompts and are deliberately omitted.
+// This query-only extension changes no model or result types. Keep the public
+// PrismaClient signature compatible with existing TransactionClient helpers.
+export const prisma = client.$extends({
+  name: "safe-error-observability",
+  query: {
+    async $allOperations({ model, operation, args, query }) {
+      try {
+        return await query(args);
+      } catch (error) {
+        serverLogger.error("database.query.failed", error, {
+          operation: (model ?? "raw") + "." + operation,
+          phase: "database.query",
+        });
+        throw error;
+      }
+    },
+  },
+}) as unknown as PrismaClient;
 
 export function getDbPoolSnapshot() {
   return {

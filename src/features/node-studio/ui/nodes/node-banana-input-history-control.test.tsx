@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl as render } from "@/test-utils/intl";
-import { fireEvent, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { NodeBananaInputHistoryControl } from "./node-banana-input-history-control";
@@ -11,11 +11,18 @@ const query = vi.hoisted(() => ({
   isLoading: false,
   isError: false,
   isFetching: false,
+  isFetchingNextPage: false,
+  isFetchNextPageError: false,
   hasNextPage: false,
   refetch: vi.fn(),
   fetchNextPage: vi.fn(),
   requested: vi.fn(),
 }));
+
+const observers: { callback: IntersectionObserverCallback; root: Element | Document | null; target?: Element; disconnect: () => void }[] = [];
+function intersect(observer = observers.at(-1)!, visible = true) {
+  act(() => observer.callback([{ isIntersecting: visible, target: observer.target } as IntersectionObserverEntry], {} as IntersectionObserver));
+}
 
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
   useMediaAssets: (...args: unknown[]) => {
@@ -44,15 +51,28 @@ function openHistory(onSelect = vi.fn()) {
 
 describe("NodeBananaInputHistoryControl", () => {
   beforeEach(() => {
+    observers.length = 0;
+    vi.stubGlobal("IntersectionObserver", class {
+      entry: typeof observers[number];
+      constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit = {}) {
+        this.entry = { callback, root: options.root ?? null, disconnect: vi.fn() };
+        observers.push(this.entry);
+      }
+      observe(target: Element) { this.entry.target = target; }
+      disconnect() { this.entry.disconnect(); }
+    });
     Object.assign(query, {
       data: undefined,
       isLoading: false,
       isError: false,
       isFetching: false,
+      isFetchingNextPage: false,
+      isFetchNextPageError: false,
       hasNextPage: false,
     });
     vi.clearAllMocks();
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("queries each source with the input media restriction", async () => {
     const user = userEvent.setup();
@@ -84,6 +104,7 @@ describe("NodeBananaInputHistoryControl", () => {
             {
               id: "asset",
               type: "image",
+              status: "completed",
               mimeType: "image/png",
               origin: "upload",
               url: "/asset.png",
@@ -105,7 +126,9 @@ describe("NodeBananaInputHistoryControl", () => {
         onOpenChange={onOpenChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "image/png" }));
+    expect(screen.queryByText("image/png")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "asset" })).toHaveAttribute("title", "asset");
+    fireEvent.click(screen.getByRole("button", { name: "asset" }));
     expect(onSelect).toHaveBeenCalledWith("asset");
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
     expect(screen.getByRole("dialog", { name: "에셋" })).toBeInTheDocument();
@@ -129,7 +152,7 @@ describe("NodeBananaInputHistoryControl", () => {
     expect(
       screen.getByRole("button", { name: "다시 시도하는 중…" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "더 불러오기" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "더 불러오기" })).not.toBeInTheDocument();
     expect(
       screen.getByRole("alert").closest('[aria-busy="true"]'),
     ).not.toBeNull();
@@ -167,7 +190,7 @@ describe("NodeBananaInputHistoryControl", () => {
     query.isError = true;
     view.rerender(control(onSelect));
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "image/png" }));
+    fireEvent.click(screen.getByRole("button", { name: "saved-image" }));
     expect(onSelect).toHaveBeenCalledWith("saved-image");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -181,5 +204,60 @@ describe("NodeBananaInputHistoryControl", () => {
     expect(
       screen.queryByText("No assets in this category."),
     ).not.toBeInTheDocument();
+  });
+
+  it("loads the next page from the modal scroll root once and stops at the last page", () => {
+    query.hasNextPage = true;
+    const view = openHistory();
+    const observer = observers.at(-1)!;
+    expect(observer.root).toBe(screen.getByRole("tabpanel", { name: "업로드" }));
+    expect(observer.target?.parentElement).toBe(observer.root);
+    expect(screen.queryByRole("button", { name: "더 불러오기" })).not.toBeInTheDocument();
+    intersect(observer, false);
+    expect(query.fetchNextPage).not.toHaveBeenCalled();
+    intersect(observer); intersect(observer);
+    expect(query.fetchNextPage).toHaveBeenCalledExactlyOnceWith({ cancelRefetch: false });
+    query.isFetching = true; query.isFetchingNextPage = true;
+    view.rerender(control());
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+    expect(screen.getByRole("status")).toHaveTextContent("불러오는 중…");
+    intersect(observer);
+    expect(query.fetchNextPage).toHaveBeenCalledOnce();
+    query.isFetching = false; query.isFetchingNextPage = false;
+    view.rerender(control());
+    const next = observers.at(-1)!;
+    query.hasNextPage = false;
+    view.rerender(control());
+    expect(next.disconnect).toHaveBeenCalledOnce();
+    intersect(next);
+    expect(query.fetchNextPage).toHaveBeenCalledOnce();
+  });
+
+  it("stops automatic paging after a next-page failure and retries that page", () => {
+    query.hasNextPage = true;
+    const view = openHistory();
+    const observer = observers.at(-1)!;
+    query.isError = true; query.isFetchNextPageError = true;
+    view.rerender(control());
+    intersect(observer);
+    expect(query.fetchNextPage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(query.fetchNextPage).toHaveBeenCalledExactlyOnceWith({ cancelRefetch: false });
+    expect(query.refetch).not.toHaveBeenCalled();
+  });
+
+  it("disconnects previous category and closed-dialog observers", () => {
+    query.hasNextPage = true;
+    openHistory();
+    const upload = observers.at(-1)!;
+    fireEvent.click(screen.getByRole("tab", { name: "생성" }));
+    expect(upload.disconnect).toHaveBeenCalledOnce();
+    intersect(upload);
+    expect(query.fetchNextPage).not.toHaveBeenCalled();
+    const generated = observers.at(-1)!;
+    fireEvent.click(screen.getByRole("button", { name: "에셋 목록 닫기" }));
+    expect(generated.disconnect).toHaveBeenCalledOnce();
+    intersect(generated);
+    expect(query.fetchNextPage).not.toHaveBeenCalled();
   });
 });

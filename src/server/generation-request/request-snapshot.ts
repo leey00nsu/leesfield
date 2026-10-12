@@ -136,8 +136,14 @@ export function frozenExecutionModel(snapshot:unknown,type:string,key:unknown) {
 /** Read compatibility for v2 and v3 snapshots; input assets are hydrated by the worker. */
 export function restoreRequest(snapshot: unknown): Record<string, unknown> {
   const original = recordObject(snapshot);
-  const stored = Object.hasOwn(original, "cinema") ? { ...original } : original;
-  if (stored !== original) delete stored.cinema;
+  const stored = Object.hasOwn(original, "cinema") || original.seed === null ? { ...original } : original;
+  if (stored !== original) {
+    delete stored.cinema;
+    // Older repositories used null for an omitted generic seed. It must not
+    // become an explicit nonnullable provider input during mapped replay.
+    // Keep dynamicParams untouched: explicit provider nulls still get validated.
+    if (stored.seed === null) delete stored.seed;
+  }
   if (stored.requestVersion !== 2) return stored;
   const {parameterDefinitions, dynamicParams, ...result} = stored;
   delete result.requestVersion;
@@ -149,5 +155,6 @@ export function restoreRequest(snapshot: unknown): Record<string, unknown> {
     if (def.target === 'top') result[String(def.inputKey)] = values[def.key];
     else dynamic[String(def.inputKey)] = values[def.key];
   }
+  if (result.seed === null) delete result.seed;
   return {...result,dynamicParams:dynamic};
 }

@@ -15,7 +15,7 @@ import { logSafeError } from "@/server/observability/request-observability";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
- export async function POST(request: Request) {
+ async function postObservedHandler(request: Request) {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.adminEmail) {
@@ -51,3 +51,6 @@ export const revalidate = 0;
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/media-assets/uploads", postObservedHandler);

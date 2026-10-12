@@ -50,9 +50,10 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   getNodeRunReadiness?: (nodeId: string) => NodeRunReadiness;
   getNodePromptInput?: (nodeId: string) => NodePromptInputState;
   getNodeInputAssetId?: (nodeId: string, targetPortId: string) => string | null;
+  getNodeInputAssetSlots?: (nodeId: string, targetPortId: string) => (string|null)[];
   getNodeInputAssetIds?: (nodeId: string, targetPortId: string) => string[];
-  replaceNodeInputAssets?: (nodeId: string, slot: GenerationAttachmentSlot, assetIds: readonly string[],
-    expected: { modelKey: unknown; assetIds: readonly string[] }) => boolean;
+  replaceNodeInputAssets?: (nodeId: string, slot: GenerationAttachmentSlot, assetIds: readonly (string|null)[],
+    expected: { modelKey: unknown; assetIds: readonly (string|null)[]; relatedAssetIds?: Record<string, readonly (string|null)[]> }, order?: readonly number[]) => boolean;
   isNodePortConnected?: (nodeId: string, targetPortId: string) => boolean;
   isNodePersisted?: (nodeId: string) => boolean;
   selectNodeOutputAsset?: (nodeId: string, assetId: string | null) => void;

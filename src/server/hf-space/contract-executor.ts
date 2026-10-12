@@ -163,7 +163,7 @@ export async function buildGradioRequest(contract: GradioContract, payload: { pr
     if (field.kind === "file") values[field.name] = await convert(value as string);
     else {
       if ((value as string[]).length > 8) throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT");
-      const files = await mapWithConcurrency(value as string[], OUTBOUND_CONCURRENCY, convert);
+      const files = await mapWithConcurrency(value as (string|null)[], OUTBOUND_CONCURRENCY, source=>source===null?Promise.resolve(null):convert(source));
       values[field.name] = field.kind === "gallery" ? files.map(file => ({[field.media === "video" ? "video" : "image"]:file, caption:null})) : files;
     }
   }

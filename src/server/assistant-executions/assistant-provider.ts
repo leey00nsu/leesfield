@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import { z } from "zod";
 import { requestRemote } from "@/server/http/safe-remote";
 import type { AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
@@ -5,7 +6,7 @@ import type { AssistantOutputMode } from "@/shared/generation-graph/assistant-ou
 export type AssistantVisual = { mimeType: "image/jpeg" | "image/png" | "image/webp"; data: Buffer; label: string };
 
 export class AssistantProviderError extends Error {
-  constructor(readonly code: string) { super(code); this.name = "AssistantProviderError"; }
+  constructor(readonly code: string, options?: ErrorOptions) { super(code, options); this.name = "AssistantProviderError"; }
 }
 
 const completionSchema = z.object({
@@ -47,13 +48,18 @@ export async function completeAssistant(input: {
       maxRedirects: 0,
       signal: input.signal,
     });
-  } catch {
-    throw new AssistantProviderError("ASSISTANT_PROVIDER_UNAVAILABLE");
+  } catch (error) {
+    logSafeError("assistant.provider.failed", error, {provider:"openai_compatible",phase:"provider.request"});
+    throw new AssistantProviderError("ASSISTANT_PROVIDER_UNAVAILABLE", {cause:error});
   }
-  if (response.status < 200 || response.status >= 300) throw new AssistantProviderError("ASSISTANT_PROVIDER_REJECTED");
+  if (response.status < 200 || response.status >= 300) {
+    const error = new AssistantProviderError("ASSISTANT_PROVIDER_REJECTED");
+    logSafeError("assistant.provider.failed", error, {provider:"openai_compatible",phase:"provider.request",status:response.status});
+    throw error;
+  }
   let parsed;
   try { parsed = completionSchema.parse(JSON.parse(response.body.toString("utf8"))); }
-  catch { throw new AssistantProviderError("ASSISTANT_RESPONSE_INVALID"); }
+  catch (error) { throw new AssistantProviderError("ASSISTANT_RESPONSE_INVALID", {cause:error}); }
   const output = parsed.choices[0].message.content.trim();
   if (!output || output.length > (input.outputMode === "list" ? 200_000 : 20_000)) throw new AssistantProviderError("ASSISTANT_RESPONSE_INVALID");
   return output;

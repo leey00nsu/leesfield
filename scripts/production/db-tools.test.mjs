@@ -110,7 +110,7 @@ describe("production database tools", () => {
       });
 
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain("restore target must be a different database");
+      expect(JSON.parse(result.stderr)).toMatchObject({event:"db.restore.failed",error:{type:"ProductionDbToolError",code:"RESTORE_TARGET_MATCHES_SOURCE"}});
       expect(result.stderr).not.toContain("source-secret");
       expect(result.stderr).not.toContain("restore-secret");
     } finally {

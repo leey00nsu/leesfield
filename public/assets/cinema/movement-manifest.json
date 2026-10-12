@@ -1,0 +1,1392 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "expectedMovements": 33,
+  "imageModel": "Viggle/Qwen-Image-2.1-viggle-turbo",
+  "imageVersion": "v0.3",
+  "imageSteps": 6,
+  "imageEnhance": "Off",
+  "videoModel": "Omni 1.1 Flash",
+  "videoResolution": "720p",
+  "videoDurationSeconds": 6,
+  "assets": [
+    {
+      "id": "snorricam",
+      "name": "Snorricam",
+      "scene": "portrait",
+      "attempt": 2,
+      "video": "/assets/cinema/movements/snorricam.mp4",
+      "poster": "/assets/cinema/movements/snorricam.webp",
+      "prompt": "A single continuous six-second Snorricam shot. Start from the reference chest-up portrait. The camera is rigidly attached to the woman's torso and faces back toward her. The woman's face and shoulders stay anchored in the same place and at the same size in the picture throughout as she walks. The cafe background bounces and sways noticeably around her with her footsteps. Keep the face centered. No zoom, no approaching the woman, no tracking from a separate camera, no cuts. Preserve her identity, clothes and cafe setting. Body-mounted viewpoint and moving background are the main effect.",
+      "flowAssetId": "4034d5c7-b7b3-483c-88c2-a58175793809",
+      "inputImage": {
+        "sha256": "a167e6dad4fe692d70dc7a0119864530ee3d1c24a01b9286752c18821e19fd40",
+        "prompt": "Zoom in to a chest-up portrait of the same adult woman in the reference. Her complete face, shoulders and upper chest fill most of the landscape picture, her face centered horizontally. Keep the same face, long dark hair, white collared blouse and gray vest, warm cafe exterior and daylight. She looks into the camera with a calm natural expression. The cafe windows and chairs are clearly visible behind her at several depths. Photorealistic cinematic photograph, one landscape 16:9 image. No camera equipment, no rig, no text, no collage, no extra people.",
+        "seed": 274311031,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2980067,
+        "sha256": "02cd5898421bc14fc16677b0343788c050be5a5d0ba6ab308be5bbb96f9bf295"
+      },
+      "product": {
+        "sha256": "65d0431ed8c8e91692758c162ec4fd8a00708b4bb2763682bbc80cd3dac8fc9e",
+        "bytes": 1038670,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "b16d6c3354117f3e420eac29203415b10fbeea19edaa8b371585238074ff95e8",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Chest-up face and shoulders remain centered and similar in scale while cafe background travels around them. Continuous body-mounted impression; walking wobble is mild.",
+      "downloadedAt": "2026-10-11T05:47:37.217Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "robot-arm",
+      "name": "Robot arm",
+      "scene": "product",
+      "video": "/assets/cinema/movements/robot-arm.mp4",
+      "poster": "/assets/cinema/movements/robot-arm.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Move the camera in a precise, smooth robotic-arm sweep around the subject, transitioning between low and high angles without cuts. All objects remain stationary. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "1d5d56b4-17af-414a-94d6-7b77a215c4c5",
+      "inputImage": {
+        "sha256": "bf49f647a702cc148d9a8d6f05d31186b17725289652a06894fbcebb57214fac",
+        "prompt": "Photorealistic cinematic product photograph in a warm wooden cafe. A single elegant amber glass perfume bottle with a plain black cap and no writing sits upright at the center of a wooden table. The whole bottle is visible and occupies one third of the picture height. A small green potted plant is in the near foreground on the left, a closed cream book on the right, and cafe windows and soft hanging lights in the background several meters away. Wide landscape 16:9 framing with clear foreground-background depth and generous space around and above the product. Natural warm daylight, crisp bottle detail, no people, no labels, no text, no collage.",
+        "seed": 274311025,
+        "referenceHashes": []
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 4167964,
+        "sha256": "9c3200a6a6728153807df53acfcfc63a650861fe3a2d20e898c4384c92a4a9d8"
+      },
+      "product": {
+        "sha256": "747a3ca004cd0db300e726fcfd84bcc1facdc054ca8e2c29e070deae326bba2a",
+        "bytes": 1785731,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart; source dimensions and duration retained",
+        "width": 1280,
+        "height": 720,
+        "duration": 6
+      },
+      "posterSha256": "aca1512c3940cad75ee0cf22321d64ccc38589f8def2e3596f60b37ba5c2e470",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous horizontal and vertical sweep around the stationary product; clear parallax and no cut. AI background geometry is illustrative.",
+      "attempt": 1,
+      "downloadedAt": "2026-10-11T05:36:25.241Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "tilt-up",
+      "name": "Tilt up",
+      "scene": "interior",
+      "attempt": 2,
+      "video": "/assets/cinema/movements/tilt-up.mp4",
+      "poster": "/assets/cinema/movements/tilt-up.webp",
+      "prompt": "A single continuous six-second upward camera tilt starting exactly from the reference view. Keep the camera at the same physical position and use a constant focal length. From the very first frame, rotate the camera steadily upward: the cafe floor leaves the bottom of the picture, the standing woman slides downward in the frame, and more ceiling beams and hanging lamps enter at the top. The woman stays still. ONLY upward camera rotation. No zoom, no dolly, no forward movement, no downward tilt, no jump to a new starting view, no cuts. Preserve the cafe and woman.",
+      "flowAssetId": "30e81d52-7e02-4648-a951-f318b66cde08",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2207515,
+        "sha256": "f414a6b458d6f0b5adf8bcc713a1fbba4a8b6dc8f5ca9f89eae35519bd4169fd"
+      },
+      "product": {
+        "sha256": "08e698c3f9adfe97463d2b707550df948bf5ae7e8445d74c403a8f5b7e1e8725",
+        "bytes": 709114,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "5986ed1685c856cb2c846768cee3ae04bae64dbe7d4d382fbe9fefb296754e1a",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous upward camera rotation from the initial view; ceiling enters from above and stationary woman slides down the frame without a separate cut.",
+      "downloadedAt": "2026-10-11T05:50:56.671Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "rack-focus",
+      "name": "Rack focus",
+      "scene": "focus",
+      "video": "/assets/cinema/movements/rack-focus.mp4",
+      "poster": "/assets/cinema/movements/rack-focus.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Keep the camera stationary and smoothly rack focus from a nearby foreground subject to a more distant background subject. Shift sharpness between depth planes without zooming or changing framing. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The focus shift is the main action. The camera remains locked off throughout.",
+      "flowAssetId": "a8df632f-eecf-4df2-99ea-3278426718a5",
+      "inputImage": {
+        "sha256": "d83d409f169221903b84a0b512d02f8db0f3b971107405ef15e0268e3889be1e",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Frame a large ceramic coffee cup on a wooden table in the near foreground at the lower left, occupying one third of the picture. The woman stands several meters behind the cup on the right, visible from the waist up. Focus sharply on the cup. The distant woman's face and warm hanging cafe lamps are softly defocused. Distinct foreground and background subjects, natural optical shallow depth of field. The woman does not hold the cup.",
+        "seed": 274311022,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 1188364,
+        "sha256": "c37c1c00d391015350fbee292c7e60da0bcae7cc8ce29302590dac07f918c8d4"
+      },
+      "product": {
+        "sha256": "8412653defbffb8694eb38f2e0a770f71fad4b92eb8e68c674e96f5dd8cb70f2",
+        "bytes": 482586,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart; source dimensions and duration retained",
+        "width": 1280,
+        "height": 720,
+        "duration": 6
+      },
+      "posterSha256": "94f44a99cbf8d65581e2fc21cc4ed7b3781e3e2515c7c81c95118ee312578233",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Sharp foreground cup becomes defocused as the background woman's face becomes sharp. Small framing drift remains; not a calibrated optical sample.",
+      "attempt": 1,
+      "downloadedAt": "2026-10-11T05:36:39.116Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "tilt-down",
+      "name": "Tilt down",
+      "scene": "interior",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:35:22.036Z",
+      "video": "/assets/cinema/movements/tilt-down.mp4",
+      "poster": "/assets/cinema/movements/tilt-down.webp",
+      "prompt": "A single continuous six-second downward camera tilt starting exactly from the reference view. The woman remains motionless at her original spot. Camera stays at the same physical position, constant focal length. From the first frame rotate camera steadily downward: ceiling leaves the top, the woman slides upward in frame, more floor enters at bottom until her feet and cafe floor dominate. ONLY downward rotation. No person walking, no approach, no zoom, no dolly, no upward tilt, no jump to another starting view, no cuts.",
+      "flowAssetId": "6cb43091-99b8-4cd4-b169-d12c23271582",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2060744,
+        "sha256": "906e1a2b417150809d806d6472c6d2216ce527d0ff6828c4f1b734d06bf2c226"
+      },
+      "product": {
+        "sha256": "41f31efdb40761b216ce0551e490db6c522ad2b16057e898ce82f37a0240d77a",
+        "bytes": 666647,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "421c0cf286d0fcf9878ef6b60f69fec47850dd1bf44feeaeaf0e92f26c0feae8",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Downward rotation from the initial cafe view makes the still woman slide upward while the floor enters and dominates. No preliminary approach or walking; continuous tilt."
+    },
+    {
+      "id": "pov",
+      "name": "POV",
+      "scene": "pov",
+      "attempt": 1,
+      "video": "/assets/cinema/movements/pov.mp4",
+      "poster": "/assets/cinema/movements/pov.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Show a first-person point-of-view shot from the moving character's eye level, with natural walking motion through the scene. The unseen viewer walks slowly forward through the aisle. No other person enters. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "c542967b-116c-4111-bf74-d76f1e683957",
+      "inputImage": {
+        "sha256": "c01cb298df7fddc887c97f7d7f721a6471f19f087c92462cb3df82fface29204",
+        "prompt": "First-person eye-level photographic view from the entrance of a warm rustic cafe. A central walkway leads between wooden tables and chairs to a long coffee counter at the far end. Hanging lamps, broad windows, ceiling beams, green plants and old wooden furniture. Near tables and distant counter create clearly visible depth. Natural soft daylight. The viewer is standing upright and looking forward, level horizon, no visible person, no hands or body, no text, no collage. Single photorealistic cinematic landscape 16:9 photograph.",
+        "seed": 274311026,
+        "referenceHashes": []
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 4581021,
+        "sha256": "9d5e629935cc92572b65a9f2278b35453e970c06b5120adcab1392ab6ef08c8c"
+      },
+      "product": {
+        "sha256": "40a167f7efba8dd57f5da851ebb5b5deddd971c1dd6b1a3fd2eda9dcc2a18624",
+        "bytes": 1744856,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "8df13c1a415febbfc0915fc8e7db6255cc65fac689d662b72f262f5348ceddc0",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Forward eye-level travel through the empty cafe aisle with foreground tables passing and distant counter approaching. Continuous first-person view with mild walking sway and no cut.",
+      "downloadedAt": "2026-10-11T05:54:33.184Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "pan-left",
+      "name": "Pan left",
+      "scene": "interior",
+      "attempt": 1,
+      "video": "/assets/cinema/movements/pan-left.mp4",
+      "poster": "/assets/cinema/movements/pan-left.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. camera pans to the left. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "428dffae-bfdf-471a-9e2a-f7b83a2cf7b4",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2202784,
+        "sha256": "fee2e9d2351cd6a17eeb88d55f1ed7d4e880ccdfe66d21e1f5a753c58808fd0b"
+      },
+      "product": {
+        "sha256": "429dc2bd1bce86e769d8153c04e58a5d2b561e47cd1bc77ce2acb25d253d7e4f",
+        "bytes": 752825,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "0b2f385e39afe146c7f0817c0b2cdf61ce5c280ea916640aac8f22f1de0a1233",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous leftward camera pan: cafe content and stationary subject travel right across the frame as more of the left side is revealed. Some framing drift remains.",
+      "downloadedAt": "2026-10-11T05:55:37.654Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "crane-up",
+      "name": "Crane up",
+      "scene": "street",
+      "attempt": 1,
+      "video": "/assets/cinema/movements/crane-up.mp4",
+      "poster": "/assets/cinema/movements/crane-up.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Raise the camera in a sweeping upward crane movement, revealing a broader view of the surroundings as the viewpoint rises. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "6c7fff87-26f0-4f69-9547-2ca756c38e31",
+      "inputImage": {
+        "sha256": "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Move the same woman to a broad pedestrian street outside the same cafe. Wide establishing view with the cafe facade on the left, neighboring brick buildings, a small square and distant rooftops. The woman's entire body is visible in the lower middle, about one fifth of the picture height. Camera viewpoint two meters above the pavement, slightly downward, with a broad view of the surroundings and several depth layers. Quiet empty street, soft afternoon daylight.",
+        "seed": 274311024,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 4489698,
+        "sha256": "85c65a78ce8a27ccdf2a2754f50aa35d7024f5a97554e7f424ce495f362bb88d"
+      },
+      "product": {
+        "sha256": "6ecb0c1abf3b1becadfb1555d6edf1c4be4f4bcd3bdefa7f25519e3babb4dda8",
+        "bytes": 1519938,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "153d5abf4784c75553eb25d1f1bede718c8306bec1701b9a919d1744661d0ddd",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Camera rises from street eye level to above the roofs, revealing a higher downward view while the stationary woman becomes smaller. Continuous crane-style rise with some backward drift; generated roof geometry is illustrative.",
+      "downloadedAt": "2026-10-11T05:56:56.648Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "pan-right",
+      "name": "Pan right",
+      "scene": "interior",
+      "attempt": 1,
+      "video": "/assets/cinema/movements/pan-right.mp4",
+      "poster": "/assets/cinema/movements/pan-right.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. camera pans to the right. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "0ec67d9e-3ae4-4c11-a521-ff13480be4ff",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2390868,
+        "sha256": "63478549a38e646b87789751569189437820f696ab1882178401dbd9b9b2c490"
+      },
+      "product": {
+        "sha256": "806adb579c348f11764577a9b7cafbb2dac1f9392213ad9bf36e05410fda6869",
+        "bytes": 801744,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "3fd2b992a44fe475313919c27c5d8f7f86c1a8b56bc7bbb52646ffa5df59c5fe",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous rightward camera rotation reveals the cafe windows and right side as the stationary woman exits to the left. Clear direction and no cut.",
+      "downloadedAt": "2026-10-11T05:58:01.868Z",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "crane-down",
+      "name": "Crane down",
+      "scene": "street",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T05:59:05.313Z",
+      "video": "/assets/cinema/movements/crane-down.mp4",
+      "poster": "/assets/cinema/movements/crane-down.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Lower the camera in a sweeping downward crane movement from an elevated overview toward the subject. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "6fe721d3-4c68-48f2-b056-7002a6958fcd",
+      "inputImage": {
+        "sha256": "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Move the same woman to a broad pedestrian street outside the same cafe. Wide establishing view with the cafe facade on the left, neighboring brick buildings, a small square and distant rooftops. The woman's entire body is visible in the lower middle, about one fifth of the picture height. Camera viewpoint two meters above the pavement, slightly downward, with a broad view of the surroundings and several depth layers. Quiet empty street, soft afternoon daylight.",
+        "seed": 274311024,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 3407164,
+        "sha256": "fd2a143cb8b64422611896f15e7434e850311f9efc4eda699118fae417337cb2"
+      },
+      "product": {
+        "sha256": "4bf1c8f7948b4fbd387914d29886dbf35a9b06a9e62c625dd77e580455ec2fca",
+        "bytes": 1124972,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "bc78d5b31c70e49ef9338b56d6ef31426f70221503af87aedeaeb01ecada4e40",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Camera descends toward a lower upward-looking street viewpoint while the stationary woman remains the subject. Forward drift and scale increase accompany the crane descent; illustrative combined crane move, no cut."
+    },
+    {
+      "id": "side-tracking",
+      "name": "Side tracking",
+      "scene": "street",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:00:03.003Z",
+      "video": "/assets/cinema/movements/side-tracking.mp4",
+      "poster": "/assets/cinema/movements/side-tracking.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Track alongside the moving subject at matching speed, showing their side profile while the background passes laterally. The subject walks slowly forward; keep the camera movement clearly visible. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "02ae5024-1512-4fb7-96b7-1dfa12770d64",
+      "inputImage": {
+        "sha256": "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Move the same woman to a broad pedestrian street outside the same cafe. Wide establishing view with the cafe facade on the left, neighboring brick buildings, a small square and distant rooftops. The woman's entire body is visible in the lower middle, about one fifth of the picture height. Camera viewpoint two meters above the pavement, slightly downward, with a broad view of the surroundings and several depth layers. Quiet empty street, soft afternoon daylight.",
+        "seed": 274311024,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 3441652,
+        "sha256": "82ca9f6a182e606dd01b73ffc8b7133a76a4b95d88f647032a9b2fd6a74277a4"
+      },
+      "product": {
+        "sha256": "77a8ce26567eacdbeaa1be6a8dd5b5940e1b2ad653e2081307a533f19c65bb68",
+        "bytes": 1277292,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "77a5d63977879b89c1b9527dde0887d4eb5736e42f46afbe49452c964dbaccd2",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Woman turns into profile and walks laterally while the camera travels beside her; cafe facade moves behind her and side-view framing is maintained. Continuous side tracking."
+    },
+    {
+      "id": "pedestal-up",
+      "name": "Pedestal up",
+      "scene": "interior",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:01:06.417Z",
+      "video": "/assets/cinema/movements/pedestal-up.mp4",
+      "poster": "/assets/cinema/movements/pedestal-up.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Translate the camera vertically upward on a pedestal, keeping its viewing direction level. Show changing foreground-background parallax without tilting. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "c43f4fe0-f84f-49fc-b70c-c810c1e9b126",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2241731,
+        "sha256": "6133726621642485a204f1b0ee74fba583cd682ed7cdc85478f67b8ce06909b1"
+      },
+      "product": {
+        "sha256": "ae0aaee2a025125e7200e09c24bff54a36d4dfb3da08fb1a287f2d5c24213aee",
+        "bytes": 746181,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "accd97e74047946f36ab5a0ebba928301b8c188b5cd6c41a66ce172ac1af375a",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Stationary woman moves lower in frame at nearly constant scale as nearby cafe surfaces shift relative to the background, showing an upward vertical lift. Small framing drift remains."
+    },
+    {
+      "id": "pedestal-down",
+      "name": "Pedestal down",
+      "scene": "interior",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:02:04.118Z",
+      "video": "/assets/cinema/movements/pedestal-down.mp4",
+      "poster": "/assets/cinema/movements/pedestal-down.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Translate the camera vertically downward on a pedestal, keeping its viewing direction level. Show changing foreground-background parallax without tilting. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "f7b8c950-504b-4686-b0f4-f4600a78d176",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2124254,
+        "sha256": "02fe46c55ac66b1d474fd4f92c84759f9416cc21562d8165c001f3e6cacdca9b"
+      },
+      "product": {
+        "sha256": "c71f614c795d83503e64ca376a8b36bc0739f42ef5079e5288ceb8de2df23e3b",
+        "bytes": 705391,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "a2179b6355829a8c44b9fbccbd40158e813aba716a2a828ca7365e2228931fff",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Stationary woman and near tables move upward in frame at nearly constant subject scale, showing a gentle straight vertical descent. Minor lateral/framing drift remains; no cut."
+    },
+    {
+      "id": "handheld",
+      "name": "Handheld",
+      "scene": "portrait",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:36:33.648Z",
+      "video": "/assets/cinema/movements/handheld.mp4",
+      "poster": "/assets/cinema/movements/handheld.webp",
+      "prompt": "One continuous six-second handheld portrait. Start from this chest-up view and keep roughly the same distance and subject size. The woman stays still. Camera remains near its starting position with visible small irregular human hand jitters, tiny lateral and vertical shakes, and slightly uneven horizon micro-roll. Not a smooth gimbal shot. No zoom, no dolly, no approaching subject, no walk, no pan sweep, no cut. Preserve her face, clothes and cafe.",
+      "flowAssetId": "13babae9-6c78-45f8-8756-bab5a6f6762b",
+      "inputImage": {
+        "sha256": "a167e6dad4fe692d70dc7a0119864530ee3d1c24a01b9286752c18821e19fd40",
+        "prompt": "Zoom in to a chest-up portrait of the same adult woman in the reference. Her complete face, shoulders and upper chest fill most of the landscape picture, her face centered horizontally. Keep the same face, long dark hair, white collared blouse and gray vest, warm cafe exterior and daylight. She looks into the camera with a calm natural expression. The cafe windows and chairs are clearly visible behind her at several depths. Photorealistic cinematic photograph, one landscape 16:9 image. No camera equipment, no rig, no text, no collage, no extra people.",
+        "seed": 274311031,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.037333,
+        "bytes": 3290823,
+        "sha256": "72b19b2bbebeebf2c32ce14494be15b80c38969ca23abfaf6d214fd03063d044"
+      },
+      "product": {
+        "sha256": "ca3273119dea73202b6c3c62b8fe4616f0946e5e3e6d04624858f41d020f9134",
+        "bytes": 754983,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "be86efd3a18afa9d64020326641d276f2d1f51b26f198b4272879d1b5b0231d4",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Chest-up distance stays comparable while small uneven lateral/vertical shifts and horizon wobble appear around the still woman. Subtle handheld impression without the original strong push-in."
+    },
+    {
+      "id": "tracking",
+      "name": "Tracking",
+      "scene": "street",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:04:14.760Z",
+      "video": "/assets/cinema/movements/tracking.mp4",
+      "poster": "/assets/cinema/movements/tracking.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. camera tracks the moving subject. The subject walks slowly forward; keep the camera movement clearly visible. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "d909218e-b787-4b6b-9cc5-1d1164ff4a9e",
+      "inputImage": {
+        "sha256": "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Move the same woman to a broad pedestrian street outside the same cafe. Wide establishing view with the cafe facade on the left, neighboring brick buildings, a small square and distant rooftops. The woman's entire body is visible in the lower middle, about one fifth of the picture height. Camera viewpoint two meters above the pavement, slightly downward, with a broad view of the surroundings and several depth layers. Quiet empty street, soft afternoon daylight.",
+        "seed": 274311024,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 3782855,
+        "sha256": "8a5778aa06bae6e8ea38cb7f1ea512158208b3a3e40fd28c4aa02edbc0582fd6"
+      },
+      "product": {
+        "sha256": "eb6b140d88427a056dd697399653aa9ea0d280b8e2e7081d7174cd72bf5664cd",
+        "bytes": 1241521,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "224e633f5e4b214ad8026a19940131c053e1024660c9da7b5a2d3bf95b300084",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Woman walks forward while the camera travels with her and keeps a comparable full-body framing; street background changes with parallax. Clear continuous tracking rather than a stationary camera."
+    },
+    {
+      "id": "drone-orbit",
+      "name": "Drone orbit",
+      "scene": "street",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:39:00.085Z",
+      "video": "/assets/cinema/movements/drone-orbit.mp4",
+      "poster": "/assets/cinema/movements/drone-orbit.webp",
+      "prompt": "A single continuous six-second elevated drone orbit starting from this high aerial reference. Keep the camera well above the cafe roof for the whole shot. Smoothly fly on a circular path around the cafe building while looking downward, showing changing roof and street perspectives. Maintain elevated altitude. Keep the cafe near the center. People and objects stay still. No descending to street level, no zoom, no cut, no scene change.",
+      "flowAssetId": "4323cf61-ba3b-4428-8ba3-4fbd0da85d8c",
+      "inputImage": {
+        "sha256": "1925a8c5a545317fe65dbc2282127e9deeeb157316359d25219083d61cd6590b",
+        "prompt": "Keep the same warm brick corner cafe and quiet surrounding street from the reference. Reframe the scene as an unmistakable high drone photograph, from well above the cafe roof, looking steeply downward at the cafe building, roof surfaces, road layout, sidewalks and neighboring rooftops. The camera is already high in the air, not at pedestrian eye level. Include the cafe roof and at least two neighboring rooftops with clear foreground and distant depth. No people are visible in this architectural overview. Photorealistic natural afternoon light, one landscape 16:9 photograph, no text, no collage.",
+        "seed": 274311032,
+        "referenceHashes": [
+          "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 5120396,
+        "sha256": "6b12a39411aeef02b736c375a0ebb8f9a1938a207d3708a453cda1f6c5bdf1fa"
+      },
+      "product": {
+        "sha256": "60878823c294379ecd6501316ba327183ac4ac72521c199caf16cd19986fece9",
+        "bytes": 1605514,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "a912013f274151e86b16e40e6ade0caf7bec2ad039037704c2c53862c72cae35",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Camera remains high above the cafe and circles the building, showing changed roof/street orientation and clear overhead depth. Distinct elevated orbit rather than the original pedestrian-height Arc; generated roof geometry is approximate."
+    },
+    {
+      "id": "dolly-zoom",
+      "name": "Dolly zoom",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:08:40.910Z",
+      "video": "/assets/cinema/movements/dolly-zoom.mp4",
+      "poster": "/assets/cinema/movements/dolly-zoom.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Dolly the camera backward while simultaneously zooming in to keep the subject approximately the same size. Make the background's apparent scale change dramatically while the subject stays centered. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "3fb066f3-0145-4240-ad0d-c7a18a34e130",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.037333,
+        "bytes": 3672753,
+        "sha256": "f5add050384513ac649b658e80f657662c4e75c7f323c8ea9fc7df7156c3f0e6"
+      },
+      "product": {
+        "sha256": "4a8446e1f9511a5fe565e6d00872700de7e65dbd2c173067d04d3872017341b4",
+        "bytes": 1034076,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "55dfc08fdb757672f262921c0e4b1cb502457d8742e9aa99c37fe4ee3108f912",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Woman remains approximately full-body size while cafe background changes relative scale and depth, consistent with dolly-back/zoom-in effect. Some subject foot motion and small size drift remain; illustrative rather than calibrated."
+    },
+    {
+      "id": "aerial-pullback",
+      "name": "Aerial pullback",
+      "scene": "street",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:09:46.308Z",
+      "video": "/assets/cinema/movements/aerial-pullback.mp4",
+      "poster": "/assets/cinema/movements/aerial-pullback.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Pull the camera backward and upward in an aerial retreat, making the subject smaller while revealing an increasingly expansive landscape. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "70edb67e-eb07-4427-9603-b7a1636febce",
+      "inputImage": {
+        "sha256": "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Move the same woman to a broad pedestrian street outside the same cafe. Wide establishing view with the cafe facade on the left, neighboring brick buildings, a small square and distant rooftops. The woman's entire body is visible in the lower middle, about one fifth of the picture height. Camera viewpoint two meters above the pavement, slightly downward, with a broad view of the surroundings and several depth layers. Quiet empty street, soft afternoon daylight.",
+        "seed": 274311024,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 5166560,
+        "sha256": "eb37a14244efbc2b5cfed1710a013ce24f5cb682b02678f013d17f8eeae9abcd"
+      },
+      "product": {
+        "sha256": "9f258eb133b75ab5dd0817bd2d6886927c65fc4bf74095f91dc0ed4039ed8347",
+        "bytes": 1897795,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "5792c9aa6c4ac4aeebe93e4bff68c5ee3355812752b15b1ff013188aa0cbbe42",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous backward and upward retreat from the woman to a broad roof-level city view; subject becomes much smaller and surrounding landscape is revealed. Generated distant architecture remains approximate."
+    },
+    {
+      "id": "static",
+      "name": "Static shot",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:10:48.245Z",
+      "video": "/assets/cinema/movements/static.mp4",
+      "poster": "/assets/cinema/movements/static.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. locked-off static camera. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. Only subtle subject motion is visible. The camera remains completely locked off throughout.",
+      "flowAssetId": "948950b6-7c83-4b0d-8446-7ff3482a6de9",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2230461,
+        "sha256": "1822ccd643aa87b6c88962d5d466779f1a08e95761354914b4f7762fb6e8a210"
+      },
+      "product": {
+        "sha256": "15e98994197fdf3121b4c6c7a09513518a8fe87d2842642f125e0a32bcde111b",
+        "bytes": 691838,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "009a97686276c8809df6565be9908ee6330603343780ca659892c4267e4e494e",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Cafe geometry and full-body framing remain fixed throughout; only subtle subject expression and breathing changes. No camera sweep or cut."
+    },
+    {
+      "id": "bullet-time",
+      "name": "Bullet time",
+      "scene": "product",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:40:34.813Z",
+      "video": "/assets/cinema/movements/bullet-time.mp4",
+      "poster": "/assets/cinema/movements/bullet-time.webp",
+      "prompt": "One continuous six-second bullet-time shot starting from this reference. Time is frozen: the tilted bottle and every suspended liquid droplet remain completely fixed in space, preserving their pose and relative positions. Only the camera moves in a smooth orbit around the floating bottle, revealing different sides and background parallax. Do not let the bottle or drops fall, rotate, drift or animate. No pouring, no jump, no zoom, no cut. Preserve the cafe table, plant, book and lighting.",
+      "flowAssetId": "3eeda191-b431-429f-ba0a-196607d3d021",
+      "inputImage": {
+        "sha256": "33d968688f9b1c8d9423c71cc5dd9abef36523f7ae9dfbaf36f4ac7561eb3906",
+        "prompt": "Keep the same amber perfume bottle with black cap, wooden cafe table, potted plant, cream book and cafe background from the reference. Capture one dramatic frozen instant: the bottle is suspended just above the table in a tilted mid-fall position, with a few small amber liquid droplets suspended in the air beside it. The bottle and droplets are sharp as if time has stopped. Clear space around the entire floating bottle and droplets. Nothing is shattered or broken. Cinematic photorealistic product photograph, landscape 16:9, no people, no labels, no text, no collage.",
+        "seed": 274311033,
+        "referenceHashes": [
+          "bf49f647a702cc148d9a8d6f05d31186b17725289652a06894fbcebb57214fac"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 4084403,
+        "sha256": "6dd02d91a35c85b8febe4a62896c4313972d4c3b630a36195d8efbcea8ecd53b"
+      },
+      "product": {
+        "sha256": "c458cd9e3da37945ebf3803c58ba27d96aad1faa84c835fdb220be14e3ad3cf6",
+        "bytes": 1692698,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "50e2f5dcd0e48ae3a7758ca63f6a5c177a89db246c3b952f4b0d7bc593a2edc3",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Tilted bottle and suspended droplets remain in an almost frozen pose above the table while the camera reveals changing sides and background parallax. Stronger time-freeze cue than the original still-person orbit; tiny droplet/geometry drift remains."
+    },
+    {
+      "id": "whip-pan",
+      "name": "Whip pan",
+      "scene": "interior",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:12:53.654Z",
+      "video": "/assets/cinema/movements/whip-pan.mp4",
+      "poster": "/assets/cinema/movements/whip-pan.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Perform a rapid horizontal whip pan with strong directional motion blur during the turn, then settle into a stable view. Keep the shot continuous. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "8a3f0721-3795-4cd8-8b43-3e749cfe1052",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 1997072,
+        "sha256": "b0841a0db45b2605ffdb8d61f9303b1434046ebb056db8085bd175da79b92749"
+      },
+      "product": {
+        "sha256": "b00b38c04328a624d13437c02a5317d190a601922e8888cc4bc9d140bb64fd1f",
+        "bytes": 761406,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "9cd55d056bb147ecfbf584be06f23d9fae3366c230d9f1a30ba1962a91d02dcc",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Initial view snaps horizontally with strong directional blur during the turn and then settles into a stable cafe-window view. Continuous shot with a distinct rapid pan rather than a cut."
+    },
+    {
+      "id": "slow-zoom-in",
+      "name": "Slow zoom in",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:14:34.524Z",
+      "video": "/assets/cinema/movements/slow-zoom-in.mp4",
+      "poster": "/assets/cinema/movements/slow-zoom-in.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Slowly zoom in from a fixed camera position, tightening the framing on the subject without moving the camera or changing perspective. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "3fc14707-903f-467a-9e88-d632ee0f77b9",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2571898,
+        "sha256": "ed2ba7ab81cef9618fd80a8ca45c84f39e8236bba10ced67d0b9ce11a7226efb"
+      },
+      "product": {
+        "sha256": "dabd197045bbec1f95bcc39ab752bf8ca6daa807273760093a3c4ee843aff9b6",
+        "bytes": 940663,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "bafb52caf278df709ff791a318f8e546d5749a61deaec1bc220e8a66150a1da8",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous gradual tightening from full-body to chest-up portrait with no cut. Background perspective drifts slightly, so fixed-position optical precision is not claimed."
+    },
+    {
+      "id": "arc-left",
+      "name": "Arc left",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:15:43.265Z",
+      "video": "/assets/cinema/movements/arc-left.mp4",
+      "poster": "/assets/cinema/movements/arc-left.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Move the camera left along a curved horizontal arc around the subject at eye level, keeping the subject centered and revealing changing background parallax. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "8f213dff-6dba-4b29-bd6c-3612d2cd725d",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 3095294,
+        "sha256": "0f941ca6488e9f2a2fbacca410e4bd44028d75244b2078dca2f02531646345d0"
+      },
+      "product": {
+        "sha256": "f4f7782398fce0ec7bc0be00623271a6f624e072bc063934f3dc599b6a37cd3f",
+        "bytes": 1127589,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "912b08ab541b0b25e827f54d140b00bd3524b0186a7a88ccd5c37a0c2bdafb03",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Camera moves left on a curved path around the stationary woman, keeping her central while revealing the cafe side with changing background perspective. No cut; some gaze tracking remains."
+    },
+    {
+      "id": "slow-zoom-out",
+      "name": "Slow zoom out",
+      "scene": "portrait",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:41:40.079Z",
+      "video": "/assets/cinema/movements/slow-zoom-out.mp4",
+      "poster": "/assets/cinema/movements/slow-zoom-out.webp",
+      "prompt": "A single continuous six-second slow zoom OUT starting exactly from this close portrait. The woman remains stationary at her original position, with no walking or approach. Keep camera position fixed. Smoothly widen the lens view throughout, so her face and body get progressively smaller and more of the cafe and surrounding chairs enter the frame. Reveal her full body by the end. Only outward zoom, never inward. No dolly, no forward movement, no initial push-in, no cuts. Preserve identity, clothes and cafe.",
+      "flowAssetId": "77b03f05-af8e-447f-8a7b-9c665aabd751",
+      "inputImage": {
+        "sha256": "a167e6dad4fe692d70dc7a0119864530ee3d1c24a01b9286752c18821e19fd40",
+        "prompt": "Zoom in to a chest-up portrait of the same adult woman in the reference. Her complete face, shoulders and upper chest fill most of the landscape picture, her face centered horizontally. Keep the same face, long dark hair, white collared blouse and gray vest, warm cafe exterior and daylight. She looks into the camera with a calm natural expression. The cafe windows and chairs are clearly visible behind her at several depths. Photorealistic cinematic photograph, one landscape 16:9 image. No camera equipment, no rig, no text, no collage, no extra people.",
+        "seed": 274311031,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.037333,
+        "bytes": 3474511,
+        "sha256": "18e48ae5fc545b9ae4ea12df074d180e14ec9a5ad0a641bca45447aed7f19476"
+      },
+      "product": {
+        "sha256": "1e63274512d00d860d3dd00521ee00c091d5a81bf8be2fff2ddccd92bdda83a2",
+        "bytes": 839923,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "3fc56d52d998090531ec273b6b0fbe241fe6f704ebe177f265a646a576348938",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous widening from chest-up to a looser upper-body view makes the stationary woman smaller and reveals more cafe surroundings. Correct outward direction, though the requested full-body endpoint was not reached and the zoom range is modest."
+    },
+    {
+      "id": "arc-right",
+      "name": "Arc right",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:25:05.426Z",
+      "video": "/assets/cinema/movements/arc-right.mp4",
+      "poster": "/assets/cinema/movements/arc-right.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Move the camera right along a curved horizontal arc around the subject at eye level, keeping the subject centered and revealing changing background parallax. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "5ef4b23c-2026-4dab-881a-8b6547f95582",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 3003200,
+        "sha256": "36192b7af211ed54a8e94aa10d62643d78bd3d6a5363ad6977cfed5ba4a5546a"
+      },
+      "product": {
+        "sha256": "805b1deeb0f8d1dd3840e2c8d427c6c6e54e0ea833137e6e291b5a9f13b534e1",
+        "bytes": 1142504,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "54e736a75e513d3554a4798420716b77a527e38371cb10d5c75d97e4f1555a73",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Camera follows a rightward curved path around the stationary woman, revealing the opposite cafe side from Arc left with changing background perspective. Continuous shot with mild gaze tracking."
+    },
+    {
+      "id": "truck-right",
+      "name": "Truck right",
+      "scene": "interior",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:26:13.095Z",
+      "video": "/assets/cinema/movements/truck-right.mp4",
+      "poster": "/assets/cinema/movements/truck-right.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Translate the camera horizontally to the right on a straight path while keeping its viewing direction fixed, creating lateral parallax across foreground and background. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "3f7e9992-54c8-4648-9a6e-7a164ff430dc",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2422291,
+        "sha256": "240848b24a74c0e99d1dbdfedd5ea2fa55f55f69c7c07813929538990878c979"
+      },
+      "product": {
+        "sha256": "f855edf01ade4f78377ff11ec0070f068a31a2a5b7abcad71eabe02df4b2f72f",
+        "bytes": 857926,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "498d5cea8402bbb76f3c390f9ff3bcd41d5d0b9305474169d60e201b26919cd8",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Rightward horizontal travel shifts the stationary woman and cafe left while near tables and distant wall move with different parallax. Gentle side translation without a large pan sweep; minor subject foot drift remains."
+    },
+    {
+      "id": "dolly-in",
+      "name": "Dolly in",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:28:01.985Z",
+      "video": "/assets/cinema/movements/dolly-in.mp4",
+      "poster": "/assets/cinema/movements/dolly-in.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. camera slowly dollies toward the subject. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "c69be8f1-dcd8-4d98-a94c-d452d553b77a",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2801986,
+        "sha256": "82d8c64de4dba355282b57430a8abe6d50d515ad321a7e3d0220967f22e9a4e8"
+      },
+      "product": {
+        "sha256": "38b0ca823852afb07b1e3f997556b60a4375165c82e14d9601907010a8f97cce",
+        "bytes": 982676,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "9facb5ba75c1b378f4d0d71bb2074d465425541b33a85c3883ad26df5d09af94",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous forward approach toward the stationary woman from full-body to chest-up, with foreground table/window parallax and tightening perspective. Subtle generated geometry drift remains; no cut."
+    },
+    {
+      "id": "truck-left",
+      "name": "Truck left",
+      "scene": "interior",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:29:04.201Z",
+      "video": "/assets/cinema/movements/truck-left.mp4",
+      "poster": "/assets/cinema/movements/truck-left.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Translate the camera horizontally to the left on a straight path while keeping its viewing direction fixed, creating lateral parallax across foreground and background. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "f0ac6233-337a-462e-a814-88e10d50e90b",
+      "inputImage": {
+        "sha256": "561ad01638adbb4fa32c6f99a90840dfc751d57fc947fa0e39cfe27de1461014",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Show the spacious cafe interior in a wide architectural view. The woman stands centered in the middle distance, fully visible and occupying only one third of the picture height. Tall ceiling beams, hanging lamps, windows, long counter and wooden chairs extend across the frame. Include nearby tables and distant objects on both sides so camera rotation and vertical or lateral movement have clear spatial cues. Camera at seated eye level, level horizon, broad visible floor and ceiling.",
+        "seed": 274311023,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2508929,
+        "sha256": "641e35d43c798149d6cce6acecf3000c6827d93626d7b96b6e1e677ea8efe402"
+      },
+      "product": {
+        "sha256": "7a0a7db48bc16c7dd60b009818029c8d0c2e61cb34637dac05d2f477b500cc74",
+        "bytes": 881381,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "985d487c527384873b4222f34f5484d43bbea34cd3f3ad475b239665950f559e",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Leftward horizontal travel shifts the woman and distant cafe toward the right while foreground tables reveal parallax. Clear opposite direction to Truck right, no cut; small scale drift remains."
+    },
+    {
+      "id": "dolly-out",
+      "name": "Dolly out",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:30:00.922Z",
+      "video": "/assets/cinema/movements/dolly-out.mp4",
+      "poster": "/assets/cinema/movements/dolly-out.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. camera slowly dollies away from the subject. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "08be6c11-a5da-4d1c-ae14-637bc9d0a4e1",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2852046,
+        "sha256": "bc4eb032be41ca8e88ba0255611f1dcff72fa54524711fc30b0550b8a4fe3e0e"
+      },
+      "product": {
+        "sha256": "7f547c356aa0ae0a6c39298fcba975366cb4c99b52fa7aa09015734d6b75cee4",
+        "bytes": 937396,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "857cc7a156f55fbe87f5b2886442064205336c1b2a7a985f59a3634293602d53",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Continuous backward travel makes the stationary woman smaller and reveals surrounding chairs and pavement. Foreground/background parallax is visible; no cut."
+    },
+    {
+      "id": "slider-right",
+      "name": "Slider right",
+      "scene": "product",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:30:57.807Z",
+      "video": "/assets/cinema/movements/slider-right.mp4",
+      "poster": "/assets/cinema/movements/slider-right.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Make a short, smooth camera slide to the right on a slider, using nearby foreground objects to reveal gentle parallax while keeping a level viewing direction. All objects remain stationary. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "64730e9e-2a3e-4744-ba94-598957f0be5b",
+      "inputImage": {
+        "sha256": "bf49f647a702cc148d9a8d6f05d31186b17725289652a06894fbcebb57214fac",
+        "prompt": "Photorealistic cinematic product photograph in a warm wooden cafe. A single elegant amber glass perfume bottle with a plain black cap and no writing sits upright at the center of a wooden table. The whole bottle is visible and occupies one third of the picture height. A small green potted plant is in the near foreground on the left, a closed cream book on the right, and cafe windows and soft hanging lights in the background several meters away. Wide landscape 16:9 framing with clear foreground-background depth and generous space around and above the product. Natural warm daylight, crisp bottle detail, no people, no labels, no text, no collage.",
+        "seed": 274311025,
+        "referenceHashes": []
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2147297,
+        "sha256": "c7121a1657e5c56fe20dbed35d488581e9c557ad95a13f961927ab9102a82c70"
+      },
+      "product": {
+        "sha256": "44925b99321518e81029067df7f296a26bfff0b481b2e972b75d9ca7353cbaf5",
+        "bytes": 771523,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "13f778855bfeed635ed106dc0b1d3c7b56a0dc8eff1487138e74c178e60ed816",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Short smooth rightward product-camera slide shifts the bottle and plant left while the distant cafe shifts by a different amount. Clear nearby-object parallax, no cut."
+    },
+    {
+      "id": "crush-zoom",
+      "name": "Crush zoom",
+      "scene": "portrait",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:32:05.614Z",
+      "video": "/assets/cinema/movements/crush-zoom.mp4",
+      "poster": "/assets/cinema/movements/crush-zoom.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Make a sudden, fast zoom in from a fixed camera position, snapping from a wider view to a tight view of the subject without a cut. The subject remains still apart from subtle breathing and natural blinking. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "0fb4cc58-a94e-4985-8751-56a0f65f022b",
+      "inputImage": {
+        "sha256": "d33d1e96658ec62ac806bfc72ea73e144c14adec41213710870606f423879934",
+        "prompt": "Keep the same adult woman, face, long dark hair, white collared blouse, gray knit vest, dark long skirt and cream shoes as the reference. Keep the warm natural cafe atmosphere, wooden furniture and soft daylight. Photorealistic cinematic photography. Single landscape 16:9 image, no text, no collage, no extra people. Wide full-body view of the woman standing on the cafe terrace. She occupies about half the image height, centered, with generous space on both sides and above her. Wooden chairs are visible in the near foreground, cafe windows and hanging lamps behind her. Clearly visible foreground, subject and background depth layers. Eye-level camera, normal perspective, sharp face, recognizable background.",
+        "seed": 274311021,
+        "referenceHashes": [
+          "2230be90303d7743c14214f5230835cf2ff233ac9bdf5ef9fa15de3c805a09ad"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2294640,
+        "sha256": "280e27a3197d68a0f1ea4d2a955274dee70bce7ccf0ad09ee60575cb2b0dc717"
+      },
+      "product": {
+        "sha256": "5f8ffd94bd8613fba09e5de1eff39b578786abcb3b5888a82d2cc2caf16e6fca",
+        "bytes": 802802,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "1df022fd0f6be55a3f05210e25c76cea5085f7d7ba370809e72764454e7eed21",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Wide view abruptly tightens into close portrait through a fast blurred zoom, then stabilizes. Extra 12fps transition frames from 1.8-3.8 seconds confirm an intermediate zoom rather than a hard cut."
+    },
+    {
+      "id": "slider-left",
+      "name": "Slider left",
+      "scene": "product",
+      "attempt": 1,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:33:07.302Z",
+      "video": "/assets/cinema/movements/slider-left.mp4",
+      "poster": "/assets/cinema/movements/slider-left.webp",
+      "prompt": "One continuous six-second photorealistic shot starting from the reference image. Preserve the reference subject, objects, setting and lighting. Make a short, smooth camera slide to the left on a slider, using nearby foreground objects to reveal gentle parallax while keeping a level viewing direction. All objects remain stationary. No cuts, no transitions, no scene changes, no text. The camera motion is the main action.",
+      "flowAssetId": "5d19cfcc-fe3f-422c-9815-9fce136936a8",
+      "inputImage": {
+        "sha256": "bf49f647a702cc148d9a8d6f05d31186b17725289652a06894fbcebb57214fac",
+        "prompt": "Photorealistic cinematic product photograph in a warm wooden cafe. A single elegant amber glass perfume bottle with a plain black cap and no writing sits upright at the center of a wooden table. The whole bottle is visible and occupies one third of the picture height. A small green potted plant is in the near foreground on the left, a closed cream book on the right, and cafe windows and soft hanging lights in the background several meters away. Wide landscape 16:9 framing with clear foreground-background depth and generous space around and above the product. Natural warm daylight, crisp bottle detail, no people, no labels, no text, no collage.",
+        "seed": 274311025,
+        "referenceHashes": []
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 2723512,
+        "sha256": "63eedf84015fd5cb3dad8b1cec4dc25c7b6753d31b54af3b594966b12abf0d56"
+      },
+      "product": {
+        "sha256": "f740ebca56bbcfb7858bed7ddfc274c5ba05cc452004d4d5ce82dc0609d1d708",
+        "bytes": 1096900,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "23b16c422aafe76807b211cfe6978fbb34ae1b74222c90f6ad5b649c48235617",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Short smooth leftward product-camera slide shifts the bottle and foreground plant right while the distant windows reveal different parallax. Clear opposite direction to Slider right and no cut."
+    },
+    {
+      "id": "helicopter-shot",
+      "name": "Helicopter shot",
+      "scene": "street",
+      "attempt": 2,
+      "date": "2026-10-11",
+      "downloadedAt": "2026-10-11T06:42:52.561Z",
+      "video": "/assets/cinema/movements/helicopter-shot.mp4",
+      "poster": "/assets/cinema/movements/helicopter-shot.webp",
+      "prompt": "One continuous six-second high helicopter flyover starting from this already-elevated aerial reference above the rooftops. Fly steadily FORWARD across the cafe roof and onward over neighboring rooftops; foreground roofs pass below and behind the camera, revealing distant buildings ahead. Keep a high aerial viewpoint with a gentle bank and subtle flight vibration. No retreat, no backward pullback, no orbit, no descent to the woman, no zoom, no cut. People and buildings remain stationary.",
+      "flowAssetId": "119894d9-aa07-49af-8825-10059337295d",
+      "inputImage": {
+        "sha256": "1925a8c5a545317fe65dbc2282127e9deeeb157316359d25219083d61cd6590b",
+        "prompt": "Keep the same warm brick corner cafe and quiet surrounding street from the reference. Reframe the scene as an unmistakable high drone photograph, from well above the cafe roof, looking steeply downward at the cafe building, roof surfaces, road layout, sidewalks and neighboring rooftops. The camera is already high in the air, not at pedestrian eye level. Include the cafe roof and at least two neighboring rooftops with clear foreground and distant depth. No people are visible in this architectural overview. Photorealistic natural afternoon light, one landscape 16:9 photograph, no text, no collage.",
+        "seed": 274311032,
+        "referenceHashes": [
+          "dfe092ac687033a6e441388feb0be73758ea5d28497bef85060621d17c6e610f"
+        ]
+      },
+      "original": {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frameRate": "24/1",
+        "duration": 6.016,
+        "bytes": 6646785,
+        "sha256": "90a1d7209a6a66fb1973d21f5bdcea29b54ed3a71aaec184f51c4fe6854f733e"
+      },
+      "product": {
+        "sha256": "f85483b4751567dc3cce9da207aa3947e4cd6d8cff3a8f79404b63d374e42e68",
+        "bytes": 2182838,
+        "width": 1280,
+        "height": 720,
+        "duration": 6,
+        "codec": "h264",
+        "audio": false,
+        "conversion": "ffmpeg libx264 CRF24/preset slow/yuv420p/faststart"
+      },
+      "posterSha256": "0dd865680963781daf68f097b55c2ff0bc97371583e449ebe57bcc0a4cc939b8",
+      "posterConversion": "source frame 0.08s; center square384px; WebP quality82",
+      "evaluation": "Starts high above roofs and flies forward across the cafe and neighboring rooftops, with nearby roofs passing below and distant city ahead. Distinct forward flyover from the original upward retreat; gentle bank and generated architecture approximation remain."
+    }
+  ]
+}

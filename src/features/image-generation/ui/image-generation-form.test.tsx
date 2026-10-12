@@ -44,6 +44,56 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("ImageGenerationForm", () => {
+  it.each(["mapped","legacy"])("selects a generated asset and submits the %s image reference field",async kind=>{
+    const {multiImageAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const model=kind==="mapped"?multiImageAttachmentModel:runtimeImageModelsFixture.find(m=>m.key==="flux2-klein-9b")!;
+    const url="https://storage.example/saved.png",startGeneration=vi.fn(),user=userEvent.setup();
+    mockUseImageGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    navigationMocks.searchParams=new URLSearchParams({model:model.key});
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"image",status:"completed",origin:"generation",url,mimeType:"image/png"}],nextCursor:null}:{items:[model]}))));
+    renderWithIntl(<ImageGenerationForm isAuthenticated/>);
+    await screen.findByRole("button",{name:new RegExp(model.label.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"))});
+    await user.type(screen.getByRole("textbox"),"asset scene");
+    await user.click(screen.getByRole("button",{name:/에셋 선택$/}));
+    await user.click(screen.getByRole("tab",{name:"생성"}));
+    await user.click(await screen.findByRole("button",{name:"saved"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining(kind==="mapped"?{dynamicParams:expect.objectContaining({references:[url]})}:{initImages:[url]}),1));
+    expect(vi.mocked(fetch).mock.calls.some(([input])=>String(input).includes("category=generated"))).toBe(true);
+  });
+  it("restores History references into visible attachments and the submitted provider field",async()=>{
+    const {multiImageAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const model={...multiImageAttachmentModel,parameters:{...multiImageAttachmentModel.parameters,width:{ui:"input",label:"Width",default:512,min:256,max:1024,step:64,binding:{source:"hf_space",parameterName:"width",kind:"number",valueType:"number",schema:{type:"integer"},order:2}}}};
+    const startGeneration=vi.fn(), user=userEvent.setup();
+    mockUseImageGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    navigationMocks.searchParams=new URLSearchParams({historyId:"h",model:model.key,prompt:"final prompt in URL"});
+    const urls=["https://example.com/first.png","https://example.com/second.png"];
+    vi.stubGlobal("fetch",vi.fn(async(input)=>new Response(JSON.stringify(String(input).includes("view=authoring")?{cinema:null,model:model.key,prompt:"original authoring prompt",references:[{field:"dynamicParams.references",media:"image",multiple:true,urls}],options:[{field:"dynamicParams.width",value:768}]}:{items:[model]}))));
+    renderWithIntl(<ImageGenerationForm isAuthenticated/>);
+    await waitFor(()=>expect(screen.getByRole("textbox")).toHaveTextContent("original authoring prompt"));
+    expect(screen.getAllByAltText("참조 이미지")).toHaveLength(2);
+    await user.click(screen.getByRole("button",{name:"상세 옵션"}));
+    expect(screen.getByLabelText("Width")).toHaveValue(768);
+    await user.keyboard("{Escape}");
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({dynamicParams:expect.objectContaining({references:urls,width:768}),prompt:"original authoring prompt"}),1));
+  });
+  it("restores legacy image previews and ordered initImages on recreation",async()=>{
+    const startGeneration=vi.fn(), user=userEvent.setup();
+    mockUseImageGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    navigationMocks.searchParams=new URLSearchParams({historyId:"old",model:"flux2-klein-9b"});
+    const urls=["https://example.com/one.png","https://example.com/two.png"];
+    const restored={width:768,height:512,steps:20,guidanceScale:2,modeChoice:"Base (50 steps)",promptUpsampling:false,seed:0};
+    vi.stubGlobal("fetch",vi.fn(async(input)=>new Response(JSON.stringify(String(input).includes("view=authoring")?{cinema:null,model:"flux2-klein-9b",prompt:"restored legacy scene",references:[{field:"initImages",media:"image",multiple:true,urls}],options:Object.entries(restored).map(([field,value])=>({field,value}))}:{items:runtimeImageModelsFixture}))));
+    renderWithIntl(<ImageGenerationForm isAuthenticated/>);
+    await waitFor(()=>expect(screen.getByRole("textbox")).toHaveTextContent("restored legacy scene"));
+    expect(await screen.findAllByAltText("입력 이미지 미리보기")).toHaveLength(2);
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({...restored,seed:"0",initImages:urls,prompt:"restored legacy scene"}),1));
+  });
   it("selects Cinema independently from the source prompt and submits its internal authoring settings", async () => {
     const startGeneration = vi.fn(), user = userEvent.setup();
     mockUseImageGeneration.mockReturnValue({ state: { status: "idle", progress: 0 }, startGeneration, reset: vi.fn() });
@@ -515,7 +565,7 @@ describe("ImageGenerationForm", () => {
     await screen.findByRole("button",{name:/Krea2 Turbo Identity Edit/});
     expect(screen.getByRole("button", {name:"장수 · 3장"})).toBeInTheDocument();
     const dock=screen.getByRole("region",{name:"작업 입력"});
-    const input=within(dock).getByLabelText("image");
+    const input=within(dock).getByLabelText("참조 이미지");
     expect(input).toHaveAttribute("accept","image/*");
     expect(input).not.toHaveAttribute("multiple");
     await user.type(screen.getByRole("textbox"),"edit identity");
@@ -547,7 +597,7 @@ describe("ImageGenerationForm", () => {
     expect(screen.getByRole("button",{name:"프리셋"}).compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const prompt = screen.getByRole("textbox");
     await user.type(prompt,"preserve this prompt");
-    await user.upload(screen.getByLabelText("image"),new File(["image"],"reference.png",{type:"image/png"}));
+    await user.upload(screen.getByLabelText("참조 이미지"),new File(["image"],"reference.png",{type:"image/png"}));
     await user.click(trigger);
     await user.click(within(screen.getByRole("dialog",{name:"장수"})).getByRole("button",{name:"4장"}));
     await user.click(screen.getByRole("button",{name:"생성"}));

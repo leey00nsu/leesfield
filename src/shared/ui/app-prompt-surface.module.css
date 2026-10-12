@@ -1,0 +1,58 @@
+/* Classic composers have a viewport budget; Space surfaces opt out. */
+.bounded {
+  max-height: min(520px, calc(100svh - 7rem));
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.bounded :is(textarea, [data-app-prompt-editor]) {
+  min-height: min(72px, 24svh);
+  max-height: min(160px, 28svh);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+
+.attachments {
+  flex-shrink: 0;
+  max-height: min(160px, 24svh);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.footer {
+  max-height: min(160px, 30svh);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.actions {
+  align-items: flex-end;
+}
+
+.actions > :is(button, a) {
+  min-height: 44px;
+  height: 48px;
+}
+
+@media (min-width: 640px) {
+  .bounded {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .actions {
+    align-items: stretch;
+  }
+  .actions > :is(button, a) {
+    height: auto;
+  }
+}

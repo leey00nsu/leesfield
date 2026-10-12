@@ -4,8 +4,11 @@ import { externalMonitoringTopSchema } from "@/shared/api/platform-monitoring-co
 import { jsonWithNoStore } from "@/server/http/response";
 import { parseTopLimit } from "@/server/monitoring/monitoring-query";
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   return withExternalMonitoringRoute(request, async (query, search) =>
     jsonWithNoStore(externalMonitoringTopSchema.parse(await getMonitoringTop(query, parseTopLimit(search)))),
     {});
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/external/monitoring/top", getObservedHandler);

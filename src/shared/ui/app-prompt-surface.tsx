@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AppCard } from "@/shared/ui/app-card";
 import { cn } from "@/shared/lib/utils";
+import styles from "./app-prompt-surface.module.css";
 
 interface AppPromptSurfaceProps {
   textarea: ReactNode;
@@ -12,6 +13,7 @@ interface AppPromptSurfaceProps {
   footerRight?: ReactNode;
   promptMeta?: ReactNode;
   className?: string;
+  bounded?: boolean;
 }
 
 interface AppPromptFieldProps {
@@ -28,6 +30,7 @@ interface AppPromptFieldProps {
   ariaLabel?: string;
   testId?: string;
   surface?: "default" | "hero";
+  bounded?: boolean;
 }
 
 const appPromptFieldSurfaceClassNames: Record<
@@ -48,37 +51,42 @@ export function AppPromptSurface({
   footerRight,
   promptMeta,
   className,
+  bounded = false,
 }: AppPromptSurfaceProps) {
+  const promptBody = (
+    <>
+      {header}
+      {attachments ? <div className={bounded ? styles.attachments : undefined}>{attachments}</div> : null}
+      <div className="relative flex min-h-0 flex-1 flex-col [&_textarea]:flex-1">
+        {textarea}
+        {promptMeta ? (
+          <div data-testid="shared-prompt-meta"
+            className="pointer-events-none absolute bottom-3 right-4 text-xs text-muted-foreground">
+            {promptMeta}
+          </div>
+        ) : null}
+      </div>
+      {feedback ? (
+        <div data-testid="shared-prompt-feedback" className="px-4 py-2">
+          {feedback}
+        </div>
+      ) : null}
+    </>
+  );
   return (
     <AppCard
       variant="prompt"
       data-testid="shared-prompt-form-surface"
       className={cn(
         "relative grid min-w-0 flex-1 gap-0 py-0 sm:grid-cols-[minmax(0,1fr)_auto]",
+        bounded && styles.bounded,
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col">
-        {header}
-        {attachments}
-        <div className="relative flex flex-1 flex-col [&_textarea]:flex-1">
-          {textarea}
-          {promptMeta ? (
-            <div
-              data-testid="shared-prompt-meta"
-              className="pointer-events-none absolute bottom-3 right-4 text-xs text-muted-foreground"
-            >
-              {promptMeta}
-            </div>
-          ) : null}
-        </div>
-        {feedback ? (
-          <div data-testid="shared-prompt-feedback" className="px-4 py-2">
-            {feedback}
-          </div>
-        ) : null}
+      <div className="flex min-h-0 min-w-0 flex-col">
+        {bounded ? <div className={styles.body}>{promptBody}</div> : promptBody}
         {footer ?? (
-          <div className="px-4 pb-4 pt-2">
+          <div className={cn("shrink-0 px-4 pb-4 pt-2", bounded && styles.footer)}>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {footerLeft}
             </div>
@@ -86,7 +94,7 @@ export function AppPromptSurface({
         )}
       </div>
       {footerRight && (
-        <div className="flex shrink-0 items-stretch gap-2 p-3 sm:pl-0 [&>button]:h-auto [&>a]:h-auto">
+        <div className={cn("flex shrink-0 items-stretch gap-2 p-3 sm:pl-0 [&>button]:h-auto [&>a]:h-auto", bounded && styles.actions)}>
           {footerRight}
         </div>
       )}
@@ -108,6 +116,7 @@ export function AppPromptField({
   ariaLabel,
   testId,
   surface = "default",
+  bounded = false,
 }: AppPromptFieldProps) {
   const content = (
     <AppPromptSurface
@@ -119,6 +128,7 @@ export function AppPromptField({
       footerLeft={footerLeft}
       footerRight={footerRight}
       promptMeta={promptMeta}
+      bounded={bounded}
     />
   );
 

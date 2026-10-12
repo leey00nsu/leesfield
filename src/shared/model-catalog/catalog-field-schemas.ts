@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { MAX_FILE_INPUT_LIMIT } from "./file-input-limits";
 import { jsonValueSchema, gradioContractSchema } from "./gradio-contract";
+import { attachmentRelationshipSchema } from "./attachment-relationships";
 
 const parameterUiOptions = [
   "range",
@@ -49,6 +51,7 @@ const hfParameterBindingSchema = z
     allowEmpty: z.boolean().optional(),
     component: z.string().optional(),
     media: z.enum(["image", "video", "audio"]).optional(),
+    fileLimit: z.number().int().min(1).max(MAX_FILE_INPUT_LIMIT).optional(),
   })
   .strict();
 
@@ -57,9 +60,10 @@ export const parameterSchema = z
     ui: z.enum(parameterUiOptions),
     label: z.string().optional(),
     required: z.boolean().optional(),
+    attachment: attachmentRelationshipSchema.nullable().optional(),
     min: z.number().optional(),
     max: z.number().optional(),
-    maxItems: z.number().int().min(1).max(8).optional(),
+    maxItems: z.number().int().min(1).max(MAX_FILE_INPUT_LIMIT).optional(),
     step: z.number().optional(),
     default: jsonValueSchema.optional(),
     options: z.array(parameterOptionInputSchema).optional(),

@@ -4,7 +4,7 @@ import { buildGenerationGraphKnownErrorResponse } from "@/server/generation-grap
 import { generationGraphService } from "@/server/generation-graph/generation-graph-service";
 import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
 
-export async function POST(request: Request, context: { params: Promise<{ graphId: string }> }) {
+async function postObservedHandler(request: Request, context: { params: Promise<{ graphId: string }> }) {
   const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -14,6 +14,12 @@ export async function POST(request: Request, context: { params: Promise<{ graphI
     const graph = await generationGraphService.copy(session.adminEmail, graphId);
     return jsonWithNoStore({ graph }, { status: 201 });
   } catch (error) {
+    logSafeError("http.handler.failed", error, {phase:"request.handle"});
     return buildGenerationGraphKnownErrorResponse(error) ?? buildErrorResponse("DB_SAVE_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const POST = withRequestObservability("/api/generation-graphs/[graphId]/copy", postObservedHandler);
+
+import { logSafeError } from "@/server/observability/request-observability";

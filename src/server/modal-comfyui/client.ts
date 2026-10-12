@@ -5,7 +5,7 @@ import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 import { measureProvider } from "@/server/observability/request-observability";
 
 export class ModalApiError extends Error {
- constructor(public code:string,public retryable=false) {super(code);}
+ constructor(public code:string,public retryable=false, options?: ErrorOptions) {super(code, options);this.name="ModalApiError";}
 }
 export function modalConnection() {
  const value=process.env.MODAL_COMFY_URL, key=process.env.MODAL_COMFY_API_KEY;
@@ -54,7 +54,7 @@ export function createModalClient(timeoutMs=30_000, options: Partial<z.infer<typ
    return {bytes:await readModalBytes(response,limit),mime:response.headers.get("content-type")?.split(";")[0].toLowerCase()};
   } catch(error) {
    if(error instanceof ModalApiError) throw error;
-   throw new ModalApiError(timer.aborted?"MODAL_TIMEOUT":"MODAL_NETWORK",true);
+   throw new ModalApiError(timer.aborted?"MODAL_TIMEOUT":"MODAL_NETWORK",true,{cause:error});
   }
  }
   async function request(path:string,init:RequestInit={},limit=2*1024*1024) {
@@ -62,7 +62,7 @@ export function createModalClient(timeoutMs=30_000, options: Partial<z.infer<typ
   }
  async function json(path:string,init:RequestInit={}) {
   const result=await request(path,init);
-  try {return JSON.parse(result.bytes.toString()) as unknown;} catch {throw new ModalApiError("MODAL_RESPONSE_INVALID");}
+  try {return JSON.parse(result.bytes.toString()) as unknown;} catch(error) {throw new ModalApiError("MODAL_RESPONSE_INVALID",false,{cause:error});}
  }
  return {
   origin:connection.origin,json,
@@ -80,7 +80,7 @@ export function createModalClient(timeoutMs=30_000, options: Partial<z.infer<typ
    const {bytes,mime}=await request("/api/jobs/"+jobId+"/assets/"+index,{},limit);
    const file=await fileTypeFromBuffer(bytes);
    if(!file || file.mime!==mime || !mime?.startsWith(media+"/")) throw new ModalApiError("MODAL_OUTPUT_MEDIA");
-   return {url:"data:"+mime+";base64,"+bytes.toString("base64"),bytes:bytes.length};
+   return {buffer:bytes,contentType:mime,bytes:bytes.length};
   },
  };
 }

@@ -317,3 +317,12 @@ describe("resolveNodeRunReadiness", () => {
     });
   });
 });
+
+it("accepts composed movement-only video prompt while retaining attachment requirements",()=>{
+  const config={prompt:"",modelKey:videoModel.key,parameters:resolveRuntimeVideoDefaults(videoModel),cinema:{...defaultCinemaSettings(),movement:"snorricam"}};
+  const document: GraphDocumentV2 = {id:"prompt-only",title:"",version:1,schemaVersion:2,minimumWriterVersion:2,nodes:[node("generate","generate.video",config)],edges:[]};
+  expect(resolveNodeRunReadiness(document,"generate",catalog).reasons).not.toContain("PROMPT_REQUIRED");
+  expect(resolveNodeRunReadiness(document,"generate",catalog).reasons).toContain("INPUT_REQUIRED");
+  const optional={...videoModel,parameters:{},meta:{supports_init_image:false}};
+  expect(resolveNodeRunReadiness(document,"generate",{...catalog,videoModels:[optional]}).ready).toBe(true);
+});

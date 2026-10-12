@@ -11,7 +11,7 @@ function getSearchParam(searchParams: URLSearchParams, key: string) {
   return value?.trim() ?? "";
 }
 
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
     return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
@@ -47,3 +47,6 @@ export async function GET(request: Request) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/models", getObservedHandler);

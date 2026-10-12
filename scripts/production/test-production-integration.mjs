@@ -1,3 +1,4 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
@@ -97,7 +98,7 @@ function runProcess(command, args, environment) {
     activeChild = child;
     let finished = false;
     const timeout = setTimeout(() => {
-      console.error(`[production-integration] ${command} exceeded ${processTimeoutMs}ms`);
+      logger.error("production.integration.timeout", new Error("PROCESS_TIMEOUT"), {operation:"child", durationMs:processTimeoutMs});
       signalChild(child, "SIGTERM");
       const forceKill = setTimeout(() => signalChild(child, "SIGKILL"), 5_000);
       forceKill.unref();
@@ -202,8 +203,7 @@ let exitCode = 1;
 try {
   exitCode = await main();
 } catch (error) {
-  const message = error instanceof Error ? error.message : "unknown setup failure";
-  console.error(`[production-integration] ${message}`);
+  logger.error("production.integration.failed", error);
   exitCode = 1;
 } finally {
   await cleanup();

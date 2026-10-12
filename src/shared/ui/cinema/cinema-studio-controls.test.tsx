@@ -1,10 +1,33 @@
 import { useState } from "react";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import ko from "@/shared/i18n/messages/ko.json";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import { CinemaStudioControls } from "./cinema-studio-controls";
+
+const motionPreference = vi.hoisted(() => ({ reduced: false }));
+vi.mock("framer-motion", async importOriginal => ({
+  ...await importOriginal<typeof import("framer-motion")>(), useReducedMotion: () => motionPreference.reduced,
+}));
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); motionPreference.reduced = false; });
+function mockMovementMedia() {
+  const observers: { callback: IntersectionObserverCallback; target?: Element; disconnect: Mock<() => void> }[] = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    entry: typeof observers[number];
+    constructor(callback: IntersectionObserverCallback) { this.entry = { callback, disconnect: vi.fn() }; observers.push(this.entry); }
+    observe(target: Element) { this.entry.target = target; }
+    disconnect() { this.entry.disconnect(); }
+  });
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+  const visibility = (target: Element, visible: boolean) => {
+    const observer = observers.find(item => item.target === target)!;
+    act(() => observer.callback([{ target, isIntersecting: visible, intersectionRatio: visible ? 1 : 0 } as IntersectionObserverEntry], {} as IntersectionObserver));
+  };
+  return { observers, play, pause, hidden, visibility };
+}
 
 function expectPhotoPath(image: HTMLElement, expected: string) {
   expect(new URL((image as HTMLImageElement).src, window.location.href).pathname).toBe(expected);
@@ -20,6 +43,87 @@ function mount(props: Partial<React.ComponentProps<typeof CinemaStudioControls>>
   return change;
 }
 describe("Cinema authoring interactions", () => {
+  it("offers 33 English movements without search, filter, Auto or enable controls", () => {
+    mockMovementMedia();
+    const change = mount({ initialGroup: "shooting" });
+    fireEvent.click(screen.getByRole("tab", { name: "움직임" }));
+    const grid = screen.getByRole("group", { name: "움직임" });
+    expect(within(grid).getAllByRole("button")).toHaveLength(33);
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Auto" })).not.toBeInTheDocument();
+    const first = within(grid).getAllByRole("button")[0];
+    first.focus(); fireEvent.keyDown(first, { key: "End" });
+    expect(screen.getByRole("button", { name: "Helicopter shot" })).toHaveFocus();
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(first);
+    expect(change.mock.calls.at(-1)![0].movement).toBe("snorricam");
+    expect(screen.getByRole("button", { name: /^카메라:/, hidden: true })).toHaveAttribute("aria-label", "카메라: Snorricam");
+    fireEvent.click(first);
+    expect(change.mock.calls.at(-1)![0].movement).toBe("auto");
+  });
+  it("plays only visible cards, pauses on page hiding and close, and keeps selection after media failure", async () => {
+    const media = mockMovementMedia();
+    const change = mount({ initialGroup: "shooting" });
+    fireEvent.click(screen.getByRole("tab", { name: "움직임" }));
+    const snorricam = screen.getByRole("button", { name: "Snorricam" });
+    const video = snorricam.querySelector("video")!;
+    expect(media.play).not.toHaveBeenCalled();
+    media.visibility(video, true);
+    await waitFor(() => expect(media.play).toHaveBeenCalledTimes(1));
+    media.hidden.mockReturnValue(true);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(media.pause).toHaveBeenCalled();
+    media.hidden.mockReturnValue(false);
+    fireEvent(document, new Event("visibilitychange"));
+    await waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
+    const retainedSource = video.getAttribute("src");
+    media.visibility(video, false);
+    expect(video.getAttribute("src")).toBe(retainedSource);
+    media.visibility(video, true);
+    expect(video.getAttribute("src")).toBe(retainedSource);
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(snorricam);
+    fireEvent.error(video);
+    expect(snorricam).toHaveAttribute("aria-pressed", "true");
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(within(snorricam).getByText("영상 미리보기를 불러올 수 없습니다.")).toBeInTheDocument();
+    const robot = screen.getByRole("button", { name: "Robot arm" }).querySelector("video")!;
+    media.visibility(robot, true);
+    let resolvePlay!: () => void;
+    media.play.mockImplementationOnce(() => new Promise<void>(resolve => { resolvePlay = resolve; }));
+    // Re-enter visibility to start a pending autoplay operation.
+    media.visibility(robot, false);
+    media.visibility(robot, true);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    media.pause.mockClear();
+    await act(async () => { resolvePlay(); });
+    expect(media.pause).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(media.observers.every(observer => observer.disconnect.mock.calls.length > 0)).toBe(true);
+  });
+  it("keeps saved orbit separate from drone orbit", () => {
+    mockMovementMedia();
+    const change = mount({ initialGroup: "shooting", settings: { ...defaultCinemaSettings(), movement: "orbit" } });
+    fireEvent.click(screen.getByRole("tab", { name: "움직임" }));
+    expect(screen.getByRole("button", { name: "Orbit (saved)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Drone orbit" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Drone orbit" }));
+    expect(change.mock.calls.at(-1)![0].movement).toBe("drone-orbit");
+    expect(screen.queryByRole("button", { name: "Orbit (saved)" })).not.toBeInTheDocument();
+  });
+  it("keeps reduced-motion previews still while allowing selection", () => {
+    motionPreference.reduced = true;
+    const media = mockMovementMedia();
+    const change = mount({ initialGroup: "shooting" });
+    fireEvent.click(screen.getByRole("tab", { name: "움직임" }));
+    const card = screen.getByRole("button", { name: "Snorricam" });
+    media.visibility(card.querySelector("video")!, true);
+    expect(media.play).not.toHaveBeenCalled();
+    fireEvent.click(card);
+    expect(change.mock.calls.at(-1)![0].movement).toBe("snorricam");
+  });
   it("can clear retained guidance after switching to a promptless model without enabling its controls", () => {
     const change = mount({ supportsPrompt: false, settings: { ...defaultCinemaSettings(), lighting: "window" } });
     expect(screen.getByRole("button", { name: /^카메라:/ })).toBeDisabled();
@@ -28,13 +132,13 @@ describe("Cinema authoring interactions", () => {
     expect(screen.getByRole("button", { name: /^카메라:/ })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "전체 초기화" })).not.toBeInTheDocument();
   });
-  it("selects a camera with the keyboard and disables the retained shooting values", () => {
+  it("keeps camera selection always available and drops the old enable property", () => {
     const change = mount({ initialGroup: "shooting" });
     const camera = screen.getByRole("spinbutton", { name: "카메라" });
     fireEvent.keyDown(camera, { key: "ArrowDown" });
     expect(camera).toHaveAttribute("aria-valuetext", "RED V-RAPTOR XL 8K S35");
-    fireEvent.click(screen.getByRole("switch"));
-    expect(change.mock.calls.at(-1)![0]).toMatchObject({ shootingEnabled: false, camera: "modular-8k" });
+    expect(change.mock.calls.at(-1)![0]).not.toHaveProperty("shootingEnabled");
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     fireEvent.keyDown(camera, { key: "ArrowDown" });
     expect(change).toHaveBeenCalledTimes(2);
   });
@@ -93,7 +197,7 @@ describe("Cinema authoring interactions", () => {
     expect(screen.getByRole("img", { name: `카메라 미리보기 · ${label}` })).toBe(photo);
     expect(change.mock.calls.at(-1)![0]).toEqual({ ...defaultCinemaSettings(), composition, aperture: "f11" });
   });
-  it("uses a neutral example for Auto/off and keeps hardware out of photo selection", () => {
+  it("uses a neutral example for Auto and keeps hardware out of photo selection", () => {
     const change = mount({ initialGroup: "shooting" });
     expect(change).not.toHaveBeenCalled();
     const shot = screen.getByRole("spinbutton", { name: "구도" });
@@ -103,10 +207,8 @@ describe("Cinema authoring interactions", () => {
     fireEvent.keyDown(screen.getByRole("spinbutton", { name: "카메라" }), { key: "End" });
     fireEvent.keyDown(screen.getByRole("spinbutton", { name: "렌즈" }), { key: "End" });
     expect(screen.getByRole("img", { name: "카메라 미리보기 · 익스트림 클로즈업" })).toBe(photo);
-    fireEvent.click(screen.getByRole("switch"));
+    fireEvent.click(screen.getByRole("button", { name: "전체 초기화" }));
     expectPhotoPath(screen.getByRole("img", { name: "카메라 미리보기 · 전신 샷" }), "/assets/cinema/previews/full.webp");
-    fireEvent.click(screen.getByRole("switch"));
-    expect(screen.getByRole("img", { name: "카메라 미리보기 · 익스트림 클로즈업" })).toBeInTheDocument();
   });
   it("isolates failures and recovers on selection after the fallback fails", () => {
     const change = mount({ initialGroup: "shooting", settings: { ...defaultCinemaSettings(), composition: "close-up", aperture: "f14" } });
@@ -155,5 +257,7 @@ describe("Cinema authoring interactions", () => {
     fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "전체 초기화" }));
     expect(change).toHaveBeenCalledWith(defaultCinemaSettings());
     expect(screen.getByRole("button", { name: /^카메라:/ })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /^카메라:/ }));
+    expect(screen.queryByRole("tab", { name: "움직임" })).not.toBeInTheDocument();
   });
 });

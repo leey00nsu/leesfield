@@ -34,7 +34,7 @@ import {
   resolveInputMediaErrorCode,
 } from "@/server/shared/input-media-uploader";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -114,11 +114,11 @@ async function postHandler(request: Request) {
     return buildGenerationSuccessResponse(record);
   } catch (error) {
     await finalizeSubmission(admitted.requestId, "failed");
-    logStructured("generation.create.failure", {
+    logSafeError("generation.create.failure", error, {
       requestId: admitted.requestId,
       kind: "video",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+
+    });
     const code = resolveInputImageErrorCode(error);
     if (code === INPUT_IMAGE_STORAGE_REQUIRED || code === INPUT_IMAGE_INVALID) {
       return buildErrorResponse(code, 400);

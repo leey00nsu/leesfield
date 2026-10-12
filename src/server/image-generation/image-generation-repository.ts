@@ -42,7 +42,7 @@ export async function createImageGenerationRecord(
     modeChoice: payload.modeChoice ?? null,
     guidanceScale: payload.guidanceScale ?? null,
     promptUpsampling: payload.promptUpsampling ?? null,
-    seed: payload.seed || null,
+    ...(payload.seed != null ? { seed: payload.seed } : {}),
     imageCount: payload.imageCount,
     initImagesCount: payload.initImages?.length ?? 0,
     initImages: payload.initImages ?? [],

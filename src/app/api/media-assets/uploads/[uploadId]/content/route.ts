@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 type RouteContext = { params: Promise<{ uploadId: string }> };
 
- export async function PUT(request: Request, context: RouteContext) {
+ async function putObservedHandler(request: Request, context: RouteContext) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -38,3 +38,6 @@ type RouteContext = { params: Promise<{ uploadId: string }> };
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("MEDIA_STORAGE_UNAVAILABLE", 503);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const PUT = withRequestObservability("/api/media-assets/uploads/[uploadId]/content", putObservedHandler);

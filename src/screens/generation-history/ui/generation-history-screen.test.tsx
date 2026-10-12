@@ -492,6 +492,18 @@ it("keeps loaded cards visible on a subsequent page failure", () => {
   fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
   expect(retry).toHaveBeenCalledOnce();
 });
+it.each(["failed","pending","completed"])("keeps a disabled download action for %s history without a usable result",async status=>{
+ const item={...detailFixture,status,resultUrl:status==="failed"?"https://example.com/stale.png":null,thumbnailUrl:null};
+ useGenerationHistoryListMock.mockReturnValue({items:[item],total:1,isLoading:false,sentinelRef:{current:null},removeItem:vi.fn()});
+ useMonitoringRequestDetailMock.mockReturnValue({data:null});
+ const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);
+ try {
+ renderWithIntl(<GenerationHistoryScreen />);await userEvent.click(screen.getByTestId("history-list"));
+ const button=screen.getByRole("button",{name:"다운로드"});
+ expect(button).toBeDisabled();expect(screen.queryByRole("link",{name:"다운로드"})).not.toBeInTheDocument();
+ await userEvent.click(button);expect(fetcher).not.toHaveBeenCalled();
+ }finally{vi.unstubAllGlobals();}
+});
 
 it("displays separate Cinema source/settings/final text and recreates through an owned history ID", async () => {
   const cinema = composeCinemaPrompt("original authoring text", { ...defaultCinemaSettings(), lighting: "window" }, "image");

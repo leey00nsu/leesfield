@@ -1,9 +1,15 @@
 import userEvent from "@testing-library/user-event";
 
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import type { MediaAssetDto, MediaType } from "@/shared/media-assets/media-asset-contract";
+import { GradioFileField } from "./gradio-file-field";
 import { GradioContractFields } from "./gradio-contract-fields";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
+const assetQuery = vi.hoisted(() => ({data:{pages:[{items:[] as MediaAssetDto[]}]},isLoading:false,isError:false,isFetching:false,hasNextPage:false,refetch:vi.fn(),fetchNextPage:vi.fn(),requested:vi.fn()}));
+vi.mock("@/features/media-assets/hook/use-media-assets",()=>({useMediaAssets:(...args:unknown[])=>{assetQuery.requested(...args);return assetQuery;}}));
+const asset = (id:string,type:MediaType="image",status:MediaAssetDto["status"]="completed") => ({id,type,status,url:"https://storage.example/"+id,mimeType:type === "image" ? "image/png" : type === "video" ? "video/mp4" : "audio/wav",origin:"upload"} as MediaAssetDto);
+beforeEach(()=>{assetQuery.data={pages:[{items:[]}]};vi.clearAllMocks();});
 vi.mock("next-intl", () => ({
   useLocale: () => "ko",
   useTranslations: () => (key: string) => key,
@@ -35,6 +41,255 @@ const contract: GradioContract = {
   reviewed: true,
 };
 describe("Gradio contract fields", () => {
+  it("opens a separate declared audio section for videos and atomically moves/removes both arrays",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn();
+    const fields:GradioContract["inputs"]=[{name:"clips",label:"Videos",kind:"files",media:"video",required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3}},
+      {name:"tracks",label:"Tracks",kind:"files",media:"audio",required:false,nullable:false,default:[],schema:{type:"array",items:{type:["string","null"]},maxItems:3},attachment:{role:"paired_audio",pairedWith:"clips",pairing:"index"}}];
+    const props={contract:{...contract,inputs:fields},scope:"attachments" as const,prompt:"scene",onChange};
+    const view=render(<GradioContractFields {...props} values={{}}/>);
+    expect(screen.queryByRole("region",{name:"영상별 오디오"})).toBeNull();
+    expect(screen.queryByLabelText("영상별 오디오 1")).toBeNull();
+    const values={clips:["https://files/a.mp4","https://files/b.mp4"],tracks:[null,"https://files/b.wav"],duration:7};
+    view.rerender(<GradioContractFields {...props} values={values}/>);
+    expect(screen.getByLabelText("영상별 오디오 1")).toBeVisible();
+    expect(screen.getByLabelText("영상별 오디오 2")).toBeVisible();
+    expect(screen.queryByLabelText("영상별 오디오 3")).toBeNull();
+    expect(screen.getByLabelText("영상별 오디오 1")).toHaveAttribute("data-paired-file-slot");
+    const section=screen.getByRole("region",{name:"영상별 오디오"});
+    expect(within(section).getByLabelText("영상별 오디오 1")).toBeVisible();
+    expect(section.querySelector('input[accept="video/*"]')).toBeNull();
+    expect(screen.getByLabelText("참조 영상").closest('[data-attachment-field]')?.querySelector('[data-paired-audio-section]')).toBeNull();
+    await user.click(screen.getByRole("button",{name:"참조 영상 1: 뒤로 이동"}));
+    expect(onChange).toHaveBeenLastCalledWith({clips:[values.clips[1],values.clips[0]],tracks:[values.tracks[1],null],duration:7});
+    view.rerender(<GradioContractFields {...props} values={onChange.mock.lastCall![0]}/>);
+    const parent=screen.getByRole("button",{name:"참조 영상 1: 뒤로 이동"}).parentElement!.parentElement!;
+    await user.click(within(parent).getAllByRole("button",{name:"제거"})[0]);
+    expect(onChange).toHaveBeenLastCalledWith({clips:[values.clips[0]],tracks:[null],duration:7});
+    view.rerender(<GradioContractFields {...props} values={onChange.mock.lastCall![0]}/>);
+    await user.click(screen.getByRole("button",{name:"제거"}));
+    expect(onChange).toHaveBeenLastCalledWith({clips:[],tracks:[],duration:7});
+    view.rerender(<GradioContractFields {...props} values={onChange.mock.lastCall![0]}/>);
+    expect(screen.queryByRole("region",{name:"영상별 오디오"})).toBeNull();
+  });
+  it("does not infer a video relationship from a nullable audio field name",()=>{
+    const tracks:GradioContract["inputs"][number]={name:"reference_video_audios",label:"reference_video_audios",kind:"files",media:"audio",required:false,nullable:false,schema:{type:"array",items:{type:["string","null"]},maxItems:3}};
+    render(<GradioContractFields contract={{...contract,inputs:[tracks]}} values={{}} prompt="scene" onChange={vi.fn()}/>);
+    for(let i=1;i<=3;i++)expect(screen.getByLabelText("영상별 오디오 "+i)).toBeVisible();
+  });
+  it("shows a normalized label and count once and rejects the seventh reference before reading",()=>{
+    const onChange=vi.fn();
+    const field={...contract.inputs[1],name:"references",label:"References (optional, up to 6)",kind:"files" as const,media:"image" as const,nullable:false,required:true,schema:{type:"array",items:{type:"string"}}};
+    const refs=Array.from({length:5},(_,i)=>"https://files.example/"+i+".png");
+    render(<GradioContractFields contract={{...contract,inputs:[field]}} values={{references:refs}} prompt="scene" onChange={onChange}/>);
+    expect(screen.getAllByText("참조 이미지")).toHaveLength(1);
+    expect(screen.getByText("필수")).toBeVisible();
+    expect(screen.getByLabelText("첨부 개수")).toHaveTextContent("5 / 6");
+    expect(screen.queryByText(field.label)).toBeNull();
+    fireEvent.change(screen.getByLabelText("참조 이미지"),{target:{files:[new File(["i"],"sixth.png",{type:"image/png"}),new File(["i"],"seventh.png",{type:"image/png"})]}});
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("최대 6개");
+  });
+  it("allows the ninth reference image and rejects a tenth before reading files",async()=>{
+    const onChange=vi.fn(),field={...contract.inputs[1],name:"refs",label:"Images",kind:"files" as const,media:"image" as const,required:false,nullable:false,schema:{type:"array",items:{type:"string"},maxItems:9}};
+    const value=Array.from({length:8},(_,i)=>"https://files.example/"+i+".png");
+    const view=render(<GradioFileField label="Images" field={field} value={value} onChange={onChange}/>);
+    fireEvent.change(screen.getByLabelText("참조 이미지"),{target:{files:[new File(["i"],"ninth.png",{type:"image/png"})]}});
+    await waitFor(()=>expect(onChange).toHaveBeenCalledWith([...value,expect.stringMatching(/^data:image/)]));
+    view.rerender(<GradioFileField label="Images" field={field} value={onChange.mock.calls[0][0]} onChange={onChange}/>);
+    fireEvent.change(screen.getByLabelText("참조 이미지"),{target:{files:[new File(["i"],"tenth.png",{type:"image/png"})]}});
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+  it("clears and replaces nullable audio slots without shifting neighboring tracks",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn();
+    const field={...contract.inputs[1],name:"tracks",label:"Track",kind:"files" as const,media:"audio" as const,nullable:false,required:false,
+      schema:{type:"array",maxItems:3,items:{anyOf:[{type:"string",format:"comfy-input-name","x-media":"audio"},{type:"null"}]}}};
+    const view=render(<GradioFileField label="Track" field={field} value={["https://cdn/a.wav",null,"https://cdn/c.wav"]} onChange={onChange}/>);
+    const first=screen.getByRole("link",{name:"open: 참조 오디오 · Track 1"}).closest("[data-attachment-field]")!;
+    await user.click(within(first as HTMLElement).getByRole("button",{name:"제거"}));
+    expect(onChange).toHaveBeenLastCalledWith([null,null,"https://cdn/c.wav"]);
+    view.rerender(<GradioFileField label="Track" field={field} value={[null,null,"https://cdn/c.wav"]} onChange={onChange}/>);
+    fireEvent.change(screen.getByLabelText("참조 오디오 · Track 2"),{target:{files:[new File(["b"],"b.wav",{type:"audio/wav"})]}});
+    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith([null,expect.stringMatching(/^data:audio/),"https://cdn/c.wav"]));
+  });
+  it("shows a required positional array once without requiring every empty slot",()=>{
+    const field={...contract.inputs[1],name:"reference_video_audios",label:"reference_video_audios",kind:"files" as const,media:"audio" as const,required:true,nullable:false,
+      schema:{type:"array",maxItems:3,items:{anyOf:[{type:"string"},{type:"null"}]}}};
+    render(<GradioFileField label="raw" field={field} value={[null,"https://cdn/second.wav",null]} onChange={vi.fn()}/>);
+    expect(screen.getAllByText("필수")).toHaveLength(1);
+    expect(screen.getAllByLabelText("첨부 개수")[0]).toHaveTextContent("1 / 3");
+    expect(screen.getByLabelText("영상별 오디오 1")).toHaveAttribute("aria-required","false");
+    expect(screen.getByLabelText("영상별 오디오 2")).toHaveAttribute("aria-required","false");
+  });
+
+  it.each(["video","audio"] as const)("previews %s on hover/focus, stops on leave, opens originals and recovers from stale sources",async media=>{
+    const field={...contract.inputs[1],media,label:"Reference"};
+    const play=vi.spyOn(HTMLMediaElement.prototype,"play").mockResolvedValue();
+    const pause=vi.spyOn(HTMLMediaElement.prototype,"pause").mockImplementation(()=>{});
+    const name=media==="video"?"open: 참조 영상":"open: 참조 오디오";
+    try {
+      const view=render(<GradioFileField label="Reference" field={field} value="asset:existing" getPreviewUrl={()=>""} onChange={vi.fn()}/>);
+      fireEvent.error(view.container.querySelector(media)!);
+      fireEvent.pointerEnter(screen.getByLabelText(name),{pointerType:"mouse"});
+      expect(play).not.toHaveBeenCalled();
+      view.rerender(<GradioFileField label="Reference" field={field} value="asset:existing" getPreviewUrl={()=>"https://assets.example/ready"} onChange={vi.fn()}/>);
+      const link=screen.getByRole("link",{name});
+      expect(link).toHaveAttribute("href","https://assets.example/ready");
+      expect(link).toHaveAttribute("target","_blank");
+      expect(link).toHaveAttribute("rel","noopener noreferrer");
+      expect(screen.queryByRole("button",{name:/재생|일시 정지/})).toBeNull();
+      if(media==="video")expect(view.container.querySelector("video")).toHaveProperty("muted",true);
+      let resolve!:()=>void;
+      play.mockImplementationOnce(()=>new Promise<void>(done=>{resolve=done;}));
+      fireEvent.pointerEnter(link,{pointerType:"mouse"});
+      fireEvent.pointerLeave(link,{pointerType:"mouse"});
+      const oldPlayer=view.container.querySelector(media);
+      await act(async()=>resolve());
+      expect(pause.mock.instances).toContain(oldPlayer);
+      fireEvent.focus(link);expect(play).toHaveBeenCalledTimes(2);
+      fireEvent.blur(link);
+      let reject!:(reason:Error)=>void;
+      play.mockImplementationOnce(()=>new Promise((_,fail)=>{reject=fail;}));
+      fireEvent.pointerEnter(link,{pointerType:"mouse"});
+      view.rerender(<GradioFileField label="Reference" field={field} value="asset:existing" getPreviewUrl={()=>"https://assets.example/replacement"} onChange={vi.fn()}/>);
+      await act(async()=>reject(new Error("interrupted")));
+      const replacement=screen.getByRole("link",{name});
+      fireEvent.pointerEnter(replacement,{pointerType:"mouse"});
+      expect(play).toHaveBeenCalledTimes(4);
+      fireEvent.pointerLeave(replacement,{pointerType:"mouse"});
+      play.mockRejectedValueOnce(new DOMException("blocked","NotAllowedError"));
+      fireEvent.pointerEnter(replacement,{pointerType:"mouse"});
+      await act(async()=>{});
+      fireEvent.pointerLeave(replacement,{pointerType:"mouse"});
+      fireEvent.pointerEnter(replacement,{pointerType:"mouse"});
+      expect(play).toHaveBeenCalledTimes(6);
+      fireEvent.pointerLeave(replacement,{pointerType:"mouse"});
+      let rejectOld!: (reason: Error) => void;
+      play.mockImplementationOnce(()=>new Promise((_,fail)=>{rejectOld=fail;}));
+      fireEvent.pointerEnter(replacement,{pointerType:"mouse"});
+      fireEvent.pointerLeave(replacement,{pointerType:"mouse"});
+      fireEvent.pointerEnter(replacement,{pointerType:"mouse"});
+      await act(async()=>rejectOld(new Error("old hover failed")));
+      fireEvent.focus(replacement);
+      expect(play).toHaveBeenCalledTimes(8);
+      const hidden=vi.spyOn(document,"hidden","get").mockReturnValue(true);
+      try {
+        const pauses=pause.mock.calls.length;
+        fireEvent(document,new Event("visibilitychange"));
+        expect(pause.mock.calls.length).toBeGreaterThan(pauses);
+        fireEvent.focus(replacement);
+        expect(play).toHaveBeenCalledTimes(8);
+      } finally {hidden.mockRestore();}
+      replacement.addEventListener("click",event=>event.preventDefault());
+      fireEvent.click(replacement,{button:0});
+      view.unmount();
+    } finally {play.mockRestore();pause.mockRestore();}
+  });
+
+  it.each(["image","video","audio"] as const)("opens local %s using a media Blob link and releases it on replacement/removal",media=>{
+    const create=vi.fn().mockReturnValueOnce("blob:preview-1").mockReturnValueOnce("blob:preview-2"),revoke=vi.fn();
+    const previousCreate=Object.getOwnPropertyDescriptor(URL,"createObjectURL"),previousRevoke=Object.getOwnPropertyDescriptor(URL,"revokeObjectURL");
+    Object.defineProperty(URL,"createObjectURL",{configurable:true,value:create});Object.defineProperty(URL,"revokeObjectURL",{configurable:true,value:revoke});
+    try {
+      const mime={image:"image/png",video:"video/mp4",audio:"audio/wav"}[media];
+      const view=render(<GradioFileField label="Reference" field={{...contract.inputs[1],media}} value={"data:"+mime+";base64,YQ=="} onChange={vi.fn()}/>);
+      expect(screen.getByRole("link")).toHaveAttribute("href","blob:preview-1");
+      expect(create.mock.calls[0][0]).toMatchObject({type:mime,size:1});
+      view.rerender(<GradioFileField label="Reference" field={{...contract.inputs[1],media}} value={"data:"+mime+";base64,Yg=="} onChange={vi.fn()}/>);
+      expect(revoke).toHaveBeenCalledWith("blob:preview-1");
+      expect(screen.getByRole("link")).toHaveAttribute("href","blob:preview-2");
+      view.unmount();expect(revoke).toHaveBeenCalledWith("blob:preview-2");
+    } finally {
+      if(previousCreate)Object.defineProperty(URL,"createObjectURL",previousCreate);else Reflect.deleteProperty(URL,"createObjectURL");
+      if(previousRevoke)Object.defineProperty(URL,"revokeObjectURL",previousRevoke);else Reflect.deleteProperty(URL,"revokeObjectURL");
+    }
+  });
+
+  const references:GradioContract={...contract,inputs:[contract.inputs[0],...(["image","video","audio"] as const).map(media=>({
+    name:"reference_"+(media === "image" ? "images" : media === "video" ? "videos" : "audios"),
+    label:"reference_"+(media === "image" ? "images" : media === "video" ? "videos" : "audios"),
+    kind:"files" as const,media,required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:2},
+  }))]};
+  it("unifies entry points, routes assets by media, enforces independent limits and cancels a disabled picker",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn(),image=asset("img"),video=asset("vid","video"),audio=asset("aud","audio");
+    assetQuery.data={pages:[{items:[image,video,audio]}]};
+    const view=render(<GradioContractFields scope="attachments" contract={references} values={{duration:7,reference_images:[image.url]}} prompt="scene" onChange={onChange}/>);
+    expect(screen.getAllByRole("button",{name:"참조 자료 첨부"})).toHaveLength(1);
+    expect(screen.getAllByRole("button",{name:"참조 자료 에셋 선택"})).toHaveLength(1);
+    expect(screen.getByText("참조 이미지")).toBeInTheDocument();
+    await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,"uploads");
+    expect(within(screen.getByRole("dialog")).getByRole("button",{name:image.id})).toBeDisabled();
+    await user.click(screen.getByRole("tab",{name:"비디오"}));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:video.id}));
+    expect(onChange).toHaveBeenLastCalledWith({duration:7,reference_images:[image.url],reference_videos:[video.url]});
+    view.rerender(<GradioContractFields scope="attachments" contract={references} values={{reference_videos:[video.url],reference_audios:[audio.url]}} prompt="scene" onChange={onChange}/>);
+    expect(screen.getByRole("link",{name:"open: 참조 영상"})).toHaveAttribute("target","_blank");
+    expect(screen.getByRole("link",{name:"open: 참조 오디오"})).toHaveAttribute("target","_blank");
+    await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));
+    view.rerender(<GradioContractFields disabled scope="attachments" contract={references} values={{}} prompt="scene" onChange={onChange}/>);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    view.rerender(<GradioContractFields scope="attachments" contract={references} values={{}} prompt="scene" onChange={onChange}/>);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("mixed file batches preserve each provider field and option; an overflow batch is rejected before reading",async()=>{
+    const onChange=vi.fn();
+    render(<GradioContractFields scope="attachments" contract={references} values={{duration:7}} prompt="scene" onChange={onChange}/>);
+    const input=screen.getByLabelText("참조 자료 첨부",{selector:"input"});
+    const image=new File(["img"],"ref.png",{type:"image/png"}),video=new File(["vid"],"ref.mp4",{type:"video/mp4"});
+    fireEvent.change(input,{target:{files:[image,image,image,video]}});
+    expect(screen.getByRole("alert")).toHaveTextContent("최대 2개");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(input,{target:{files:[image,video]}});
+    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith({duration:7,reference_images:[expect.stringMatching(/^data:image\/png/)],reference_videos:[expect.stringMatching(/^data:video\/mp4/)]}));
+  });
+  it("keeps named first/end frame slots separate instead of routing both by media",()=>{
+    const roles={...contract,inputs:[{...contract.inputs[1],name:"first",label:"First frame",media:"image" as const},{...contract.inputs[1],name:"end",label:"End frame",media:"image" as const}]};
+    render(<GradioContractFields scope="attachments" contract={roles} values={{}} prompt="scene" onChange={vi.fn()}/>);
+    expect(screen.queryByRole("button",{name:"참조 자료 첨부"})).toBeNull();
+    expect(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"끝 프레임: 에셋 선택"})).toBeInTheDocument();
+  });
+
+  it("adds a compatible asset in order, preserves options, and enforces the current limit",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn(),first=asset("first"),second=asset("second");
+    assetQuery.data={pages:[{items:[first,second,asset("wrong","video"),asset("failed","image","failed")]}]};
+    const gallery={...contract,inputs:[contract.inputs[0],{...contract.inputs[1],name:"frames",kind:"files" as const,media:"image" as const,schema:{type:"array",items:{type:"string"},maxItems:2}}]};
+    const view=render(<GradioContractFields scope="attachments" contract={gallery} values={{duration:7,frames:[first.url]}} prompt="scene" onChange={onChange}/>);
+    await user.click(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"}));
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,"uploads");
+    const dialog=screen.getByRole("dialog",{name:"에셋"});
+    const cards=[first,second,asset("failed")].map(item=>within(dialog).getByRole("button",{name:item.id}));
+    expect(cards[0]).toBeDisabled();expect(cards[2]).toBeDisabled();
+    expect(within(dialog).getByRole("button",{name:"wrong"})).toBeDisabled();
+    await user.click(cards[1]);
+    expect(onChange).toHaveBeenLastCalledWith({duration:7,frames:[first.url,second.url]});
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(()=>expect(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"})).toHaveFocus());
+    view.rerender(<GradioContractFields scope="attachments" contract={gallery} values={{duration:7,frames:[first.url,second.url]}} prompt="scene" onChange={onChange}/>);
+    expect(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"})).toBeDisabled();
+  });
+  it.each(["image","video","audio"] as const)("replaces a single %s reference with its matching existing asset",async media=>{
+    const item=asset("saved",media),onChange=vi.fn(),user=userEvent.setup();
+    assetQuery.data={pages:[{items:[item]}]};
+    const typed={...contract,inputs:[{...contract.inputs[1],media,label:"References"}]};
+    render(<GradioContractFields scope="attachments" contract={typed} values={{frame:"https://old.example/ref"}} prompt="scene" onChange={onChange}/>);
+    await user.click(screen.getByRole("button",{name:({image:"참조 이미지",video:"참조 영상",audio:"참조 오디오"}[media])+": 에셋 선택"}));
+    expect(assetQuery.requested).toHaveBeenLastCalledWith(media,true,"uploads");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:item.id}));
+    expect(onChange).toHaveBeenLastCalledWith({frame:item.url});
+  });
+  it("cancels the picker when the field becomes disabled and permits a type filter only for unspecified media",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn();
+    const view=render(<GradioContractFields scope="attachments" contract={contract} values={{}} prompt="scene" onChange={onChange}/>);
+    await user.click(screen.getByRole("button",{name:"참조 파일 · First Frame: 에셋 선택"}));
+    await user.click(screen.getByRole("tab",{name:"비디오"}));
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("video",true,"uploads");
+    view.rerender(<GradioContractFields disabled scope="attachments" contract={contract} values={{}} prompt="scene" onChange={onChange}/>);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+    view.rerender(<GradioContractFields scope="attachments" contract={contract} values={{}} prompt="scene" onChange={onChange}/>);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
   it("edits typed multiple choices and custom values without converting numbers to strings", async () => {
     const user=userEvent.setup(),onChange=vi.fn();
     const choices={...contract,inputs:[{name:"tags",label:"Tags",kind:"json" as const,choiceMode:"multiple" as const,allowCustomValue:true,maxChoices:2,choices:[1,"a"],schema:{type:"array",items:{type:"string",enum:[1,"a"]}},required:false,nullable:false,default:[]}]};
@@ -65,7 +320,7 @@ describe("Gradio contract fields", () => {
     const onChange=vi.fn(), user=userEvent.setup();
     const fileChoices={...contract,inputs:[{...contract.inputs[1],choices:["first.png","second.png"]}]};
     render(<GradioContractFields scope="attachments" contract={fileChoices} values={{}} prompt="demo" onChange={onChange}/>);
-    await user.click(screen.getByRole("combobox",{name:"First Frame"}));
+    await user.click(screen.getByRole("combobox",{name:"참조 파일 · First Frame"}));
     await user.click(await screen.findByRole("option",{name:"second.png"}));
     expect(onChange).toHaveBeenCalledWith({frame:"second.png"});
   });
@@ -82,12 +337,12 @@ describe("Gradio contract fields", () => {
     try {
       const onChange=vi.fn();
       const {rerender}=render(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:5}} prompt="demo" onChange={onChange}/>);
-      fireEvent.change(screen.getByLabelText("First Frame"),{target:{files:[new File(["a"],"a.png",{type:"image/png"})]}});
+      fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["a"],"a.png",{type:"image/png"})]}});
       rerender(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:7}} prompt="demo" onChange={onChange}/>);
       await act(async()=>finish?.());
       expect(onChange).toHaveBeenLastCalledWith({duration:7,frame:"data:image/png;base64,YQ=="});
       onChange.mockClear();
-      fireEvent.change(screen.getByLabelText("First Frame"),{target:{files:[new File(["b"],"b.png",{type:"image/png"})]}});
+      fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["b"],"b.png",{type:"image/png"})]}});
       rerender(<GradioContractFields key="next-model" scope="attachments" contract={contract} values={{}} prompt="demo" onChange={onChange}/>);
       await act(async()=>finish?.());
       expect(onChange).not.toHaveBeenCalled();
@@ -103,7 +358,7 @@ describe("Gradio contract fields", () => {
     const options=within(container.querySelector('[data-contract-fields="options"]') as HTMLElement);
     expect(attachments.getByRole("alert")).toHaveTextContent("First Frame");
     expect(attachments.queryByLabelText("Duration")).toBeNull();
-    expect(options.queryByLabelText("First Frame")).toBeNull();
+    expect(options.queryByLabelText("참조 파일 · First Frame")).toBeNull();
     expect(options.queryByRole("alert")).toBeNull();
     expect(options.getByLabelText("Duration")).toHaveValue(7);
   });
@@ -115,10 +370,10 @@ describe("Gradio contract fields", () => {
       {...contract.inputs[1],name:"hidden",hidden:true},
     ]};
     const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{duration:7}} prompt="demo" onChange={onChange}/>);
-    const input=screen.getByLabelText("References");
+    const input=screen.getByLabelText({image:"참조 이미지",video:"참조 영상",audio:"참조 오디오"}[media]);
     expect(input).toHaveAttribute("accept",media+"/*");
     expect(input).toHaveAttribute("multiple");
-    expect(screen.queryByLabelText("First Frame")).toBeNull();
+    expect(screen.queryByLabelText("참조 파일 · First Frame")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     await user.upload(input,[new File(["a"],"a."+media,{type:media+"/test"}),new File(["b"],"b."+media,{type:media+"/test"})]);
     await waitFor(()=>expect(onChange).toHaveBeenCalledWith({duration:7,refs:[expect.stringMatching("data:"+media+"/"),expect.stringMatching("data:"+media+"/")]}));
@@ -130,7 +385,7 @@ describe("Gradio contract fields", () => {
   it("비활성 첨부는 파일 선택/삭제를 차단하고 파일 없는 계약은 첨부 영역이 없다", async () => {
     const onChange=vi.fn(), user=userEvent.setup();
     const {rerender,container}=render(<GradioContractFields disabled scope="attachments" contract={contract} values={{frame:"data:image/png;base64,YQ=="}} prompt="demo" onChange={onChange}/>);
-    expect(screen.getByLabelText("First Frame")).toBeDisabled();
+    expect(screen.getByLabelText("참조 파일 · First Frame")).toBeDisabled();
     expect(screen.getByRole("button",{name:"제거"})).toBeDisabled();
     await user.click(screen.getByRole("button",{name:"제거"}));
     expect(onChange).not.toHaveBeenCalled();
@@ -167,13 +422,13 @@ it("labels required inputs and explains missing values without internal codes", 
       onChange={vi.fn()}
     />,
   );
-  expect(screen.getByLabelText("First Frame")).toHaveAttribute(
+  expect(screen.getByLabelText("참조 파일 · First Frame")).toHaveAttribute(
     "aria-required",
     "true",
   );
   expect(screen.getByText("필수")).toBeVisible();
   expect(screen.getByRole("alert")).toHaveTextContent(
-    "First Frame: 필수 입력입니다.",
+    "참조 파일 · First Frame: 필수 입력입니다.",
   );
   expect(screen.getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
 });
@@ -223,10 +478,10 @@ expect(screen.getByRole("alert")).not.toHaveTextContent("Text to Synthesize");
 it("파일 첨부 후에만 삭제를 제공하며 nullable 파일 삭제는 null을 전달한다", async () => {
  const onChange=vi.fn(); const user=userEvent.setup();
  const {rerender}=render(<GradioContractFields contract={contract} values={{frame:null}} prompt="demo" onChange={onChange}/>);
- await user.upload(screen.getByLabelText("First Frame"),new File(["image"],"frame.png",{type:"image/png"}));
+ await user.upload(screen.getByLabelText("참조 파일 · First Frame"),new File(["image"],"frame.png",{type:"image/png"}));
  expect(onChange).toHaveBeenCalledWith({frame:expect.stringMatching(/^data:image/)});
  rerender(<GradioContractFields contract={contract} values={{frame:"data:image/png;base64,aW1hZ2U="}} prompt="demo" onChange={onChange}/>);
- expect(screen.getByRole("img",{name:"First Frame"})).toBeVisible();
+ expect(screen.getByRole("img",{name:"참조 파일 · First Frame"})).toBeVisible();
  await user.click(screen.getByRole("button",{name:"제거"}));
  expect(onChange).toHaveBeenLastCalledWith({frame:null});
 });
@@ -237,15 +492,15 @@ it("복수 첨부는 순서대로 추가·개별 제거하고 초과 배치는 �
   const first="data:image/png;base64,YQ==";
   const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
   expect(screen.getByText("첨부")).toBeVisible();
-  await user.upload(screen.getByLabelText("References"),new File(["b"],"b.png",{type:"image/png"}));
+  await user.upload(screen.getByLabelText("참조 이미지"),new File(["b"],"b.png",{type:"image/png"}));
   await waitFor(()=>expect(onChange).toHaveBeenCalledWith({refs:[first,"data:image/png;base64,Yg=="]}));
   rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first,"data:image/png;base64,Yg=="]}} prompt="edit" onChange={onChange}/>);
-  expect(screen.getByRole("button",{name:"References: 파일 추가"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"참조 이미지: 파일 추가"})).toBeDisabled();
   await user.click(screen.getAllByRole("button",{name:"제거"})[0]);
   expect(onChange).toHaveBeenLastCalledWith({refs:["data:image/png;base64,Yg=="]});
   onChange.mockClear();
   rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
-  await user.upload(screen.getByLabelText("References"),[new File(["b"],"b.png",{type:"image/png"}),new File(["c"],"c.png",{type:"image/png"})]);
+  await user.upload(screen.getByLabelText("참조 이미지"),[new File(["b"],"b.png",{type:"image/png"}),new File(["c"],"c.png",{type:"image/png"})]);
   expect(onChange).not.toHaveBeenCalled();
   expect(screen.getByRole("alert")).toHaveTextContent("최대 2개까지 첨부할 수 있습니다.");
   expect(screen.getAllByRole("img")).toHaveLength(1);

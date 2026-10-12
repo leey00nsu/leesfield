@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -30,10 +30,12 @@ const mocks = vi.hoisted(() => ({
   updateConfig: vi.fn(),
   replaceAssets: vi.fn().mockReturnValue(true),
   ids: [] as string[],
+  slots: [] as (string|null)[],
   writable: true,
   running: false,
   maxInputImages: 2,
   videoSupportsInitImage: true,
+  videoContract: null as Record<string,unknown> | null,
   promptInput: { connected: false, text: null } as { connected: boolean; text: string | null },
 }));
 
@@ -67,6 +69,7 @@ vi.mock("../../model/node-authoring-context", () => ({
     }],
     videoModels: [{
       type: "video",
+      providerConfig: mocks.videoContract ? {gradio_contract:mocks.videoContract} : {},
       key: "video-a",
       label: "Video A",
       vendor: "Leesfield",
@@ -96,7 +99,8 @@ vi.mock("../../model/node-authoring-context", () => ({
     retry: vi.fn(),
     getNodeRunReadiness: () => ({ ready: true, reasons: [] }),
     getNodePromptInput: () => mocks.promptInput,
-    getNodeInputAssetIds: (_id:string,port:string) => port === "primary" ? mocks.ids.slice(0,1) : port === "references" ? mocks.ids.slice(1) : [],
+    getNodeInputAssetIds: (_id:string,port:string) => port === "video-field-source" ? mocks.ids : port === "primary" ? mocks.ids.slice(0,1) : port === "references" ? mocks.ids.slice(1) : [],
+    getNodeInputAssetSlots: () => mocks.slots,
     replaceNodeInputAssets: mocks.replaceAssets,
   }),
 }));
@@ -160,6 +164,110 @@ function renderNodes() {
 }
 
 describe("GenerationNode common presenter", () => {
+  it("opens a separate Space audio section for attached videos and sends related IDs with a joint reorder",async()=>{
+    mocks.ids=["v1","v2"];mocks.slots=[null,"a2"];
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"source",label:"Videos",kind:"files",media:"video",required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3}},
+      {name:"tracks",label:"Tracks",kind:"files",media:"audio",required:false,nullable:false,default:[],schema:{type:"array",items:{type:["string","null"]},maxItems:3},attachment:{role:"paired_audio",pairedWith:"source",pairing:"index"}},
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async()=>new Response(JSON.stringify({asset:{url:"https://storage.example/preview"}}),{status:200}));
+    try {
+      const user=userEvent.setup();
+      const config={modelKey:"video-a",prompt:"Scene",parameters:{}};
+      const view=render(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>,{wrapper:promptWrapper});
+      expect(screen.getByLabelText("영상별 오디오 1")).toBeVisible();expect(screen.queryByLabelText("영상별 오디오 3")).toBeNull();
+      expect(screen.getByRole("region",{name:"영상별 오디오"})).toContainElement(screen.getByLabelText("영상별 오디오 1"));
+      expect(screen.getByLabelText("참조 영상").closest('[data-attachment-field]')?.querySelector('[data-paired-audio-section]')).toBeNull();
+      await user.click(screen.getByRole("button",{name:"참조 영상 1: 뒤로 이동"}));
+      await waitFor(()=>expect(mocks.replaceAssets).toHaveBeenCalledWith("node",expect.objectContaining({ports:["video-field-source"]}),["v2","v1"],
+        {modelKey:"video-a",assetIds:["v1","v2"],relatedAssetIds:{tracks:[null,"a2"]}},[1,0]));
+      expect(mocks.updateConfig).not.toHaveBeenCalled();
+      mocks.ids=[];mocks.slots=[];
+      view.rerender(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>);
+      expect(screen.queryByRole("region",{name:"영상별 오디오"})).toBeNull();
+    } finally {fetcher.mockRestore();}
+  });
+  it("discards a delayed paired audio selection after its parent video changes",async()=>{
+    mocks.ids=["v1"];mocks.slots=[];
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"source",label:"Videos",kind:"files",media:"video",required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3}},
+      {name:"tracks",label:"Tracks",kind:"files",media:"audio",required:false,nullable:false,default:[],schema:{type:"array",items:{type:["string","null"]},maxItems:3},attachment:{role:"paired_audio",pairedWith:"source",pairing:"index"}},
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    const item={id:"selected",type:"audio",status:"completed",mimeType:"audio/wav",url:"https://storage.example/selected.wav",origin:"upload"};
+    let resolve!: (response:Response)=>void;
+    const delayed=new Promise<Response>(done=>{resolve=done;});
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>String(input).endsWith("/api/media-assets/selected")?delayed:
+      new Response(JSON.stringify(String(input).includes("/api/media-assets?")?{items:[item],nextCursor:null}:{asset:{id:"v1",url:"https://storage.example/v1.mp4"}}),{status:200}));
+    try {
+      const user=userEvent.setup(),config={modelKey:"video-a",prompt:"Scene",parameters:{}};
+      const view=render(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>,{wrapper:promptWrapper});
+      await user.click(screen.getAllByRole("button",{name:"에셋"})[1]);
+      await user.click(await screen.findByRole("button",{name:"selected"}));
+      await waitFor(()=>expect(fetcher.mock.calls.some(([input])=>String(input).endsWith("/api/media-assets/selected"))).toBe(true));
+      mocks.ids=["replacement-video"];
+      view.rerender(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>);
+      await act(async()=>{resolve(new Response(JSON.stringify({asset:item}),{status:200}));await delayed;});
+      expect(mocks.replaceAssets).not.toHaveBeenCalled();
+    } finally {fetcher.mockRestore();}
+  });
+  it("shows the same source-declared six-reference limit and localized label in Space",()=>{
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"refs",label:"References (optional, up to 6)",kind:"files",media:"image",default:[],required:false,nullable:false,schema:{type:"array",items:{type:"string"}}}
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"video-a",prompt:"Keep",parameters:{}}} modality="video"/>,{wrapper:promptWrapper});
+    expect(screen.getByLabelText("참조 이미지")).toHaveAttribute("multiple");
+    expect(screen.getByLabelText("첨부 개수")).toHaveTextContent("0 / 6");
+    expect(screen.queryByText("References (optional, up to 6)")).toBeNull();
+    expect(screen.getAllByRole("button",{name:"에셋"})).toHaveLength(1);
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+    expect(mocks.replaceAssets).not.toHaveBeenCalled();
+  });
+  it("clears a positional Space audio slot using asset IDs without moving its neighbors",async()=>{
+    const user=userEvent.setup();
+    mocks.slots=[null,"second"];
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"tracks",label:"Tracks",kind:"files",media:"audio",default:[],required:false,nullable:false,
+        schema:{type:"array",maxItems:3,items:{anyOf:[{type:"string"},{type:"null"}]}}}
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    const fetcher=vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify({asset:{id:"second",type:"audio",status:"completed",mimeType:"audio/wav",url:"https://cdn/second.wav"}}),{status:200}));
+    try{
+      render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"video-a",prompt:"Keep",parameters:{}}} modality="video"/>,{wrapper:promptWrapper});
+      expect(screen.getAllByRole("button",{name:/참조 오디오 · Tracks [123]: 에셋 선택/})).toHaveLength(3);
+      await waitFor(()=>expect(screen.getByRole("link",{name:/참조 오디오 · Tracks 2$/})).toHaveAttribute("target","_blank"));
+      await user.click(screen.getByRole("button",{name:"제거"}));
+      await waitFor(()=>expect(mocks.replaceAssets).toHaveBeenCalledWith("node",expect.objectContaining({ports:["audio-field-tracks"]}),[null,null],{modelKey:"video-a",assetIds:[null,"second"]}));
+      expect(mocks.updateConfig).not.toHaveBeenCalled();
+    }finally{fetcher.mockRestore();}
+  });
+
+  it("routes grouped reference asset selection to its typed Space port using the actual asset ID",async()=>{
+    const user=userEvent.setup(),item={id:"video-existing",type:"video",status:"completed",mimeType:"video/mp4",url:"https://storage.example/video.mp4",origin:"upload"};
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"text",label:"Prompt",canonical:"prompt",kind:"string",required:true,nullable:false,schema:{type:"string"}},
+      ...(["image","video","audio"] as const).map(media=>({name:media,label:media,kind:"files",media,default:[],required:false,nullable:false,schema:{type:"array",items:{type:"string"},maxItems:3}})),
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>new Response(JSON.stringify(String(input).includes("/api/media-assets?") ? {items:[item],nextCursor:null} : {asset:item}),{status:200}));
+    try {
+      render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"video-a",prompt:"Keep",parameters:{}}} modality="video"/>,{wrapper:promptWrapper});
+      expect(screen.getAllByRole("button",{name:"참조 자료 에셋 선택"})).toHaveLength(1);
+      await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));
+      await user.click(screen.getByRole("tab",{name:"비디오"}));
+      await user.click(await screen.findByRole("button",{name:item.id}));
+      await waitFor(()=>expect(mocks.replaceAssets).toHaveBeenCalledWith("node",expect.objectContaining({ports:["video-field-video"]}),[item.id],{modelKey:"video-a",assetIds:[]}));
+      expect(mocks.updateConfig).not.toHaveBeenCalled();
+    } finally {fetcher.mockRestore();}
+  });
+
+  it("removes the English movement chip while preserving the video node source and other settings", async () => {
+    const config = { prompt: "My scene", modelKey: null, parameters: { seed: 7 },
+      cinema: { ...defaultCinemaSettings(), movement: "snorricam", lighting: "window" } };
+    const user = userEvent.setup();
+    render(<SpaceGenerationPrompt nodeId="node" config={config} modality="video" />, { wrapper: promptWrapper });
+    await user.click(screen.getByRole("button", { name: "프롬프트 편집" }));
+    expect(screen.getByRole("textbox", { name: "프롬프트" })).toHaveTextContent("Snorricam");
+    await user.click(screen.getByRole("button", { name: "Remove Snorricam" }));
+    expect(mocks.updateConfig).toHaveBeenLastCalledWith("node", { ...config, cinema: { ...config.cinema, movement: "auto" } });
+  });
   it("stores Cinema beside a connected read-only prompt without replacing the authored source", async () => {
     mocks.promptInput = { connected: true, text: "connected scene" };
     const config = { prompt: "saved scene", modelKey: "image-a", parameters: { width: 640 }, cinema: defaultCinemaSettings() };
@@ -207,7 +315,7 @@ describe("GenerationNode common presenter", () => {
     mocks.writable=false;
     render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"image-a",prompt:"Keep",parameters:{}}} modality="image" />,{wrapper:promptWrapper});
     expect(screen.getByRole("textbox",{name:"프롬프트"})).toHaveAttribute("contenteditable","false");
-    expect(screen.getByRole("button",{name:/Reference:.*파일 추가/})).toBeDisabled();
+    expect(screen.getByRole("button",{name:/참조 이미지:.*파일 추가/})).toBeDisabled();
     expect(screen.getByRole("button",{name:"프리셋"})).toBeDisabled();
   });
   it("rehydrates a token between paragraphs, clears only its body and never guesses legacy text", () => {
@@ -237,10 +345,12 @@ describe("GenerationNode common presenter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ids = [];
+    mocks.slots = [];
     mocks.writable = true;
     mocks.running = false;
     mocks.maxInputImages = 2;
     mocks.videoSupportsInitImage = true;
+    mocks.videoContract = null;
     mocks.promptInput = { connected: false, text: null };
   });
 

@@ -9,7 +9,7 @@ import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(request: Request) {
+async function getObservedHandler(request: Request) {
   const session = await getSession();
   if (!session.isLoggedIn || !session.adminEmail) {
     return buildErrorResponse("UNAUTHORIZED", 401);
@@ -30,3 +30,6 @@ export async function GET(request: Request) {
     return buildMediaAssetKnownErrorResponse(error) ?? buildErrorResponse("DB_READ_FAILED", 500);
   }
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/media-assets", getObservedHandler);

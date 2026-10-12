@@ -1,3 +1,6 @@
+import { failureLogContext } from "@/server/observability/logger";
+import { mediaOutputDataUrl, normalizeMediaOutputs, type MediaOutput } from "@/server/media-assets/binary-media-output";
+import { logSafeError } from "@/server/observability/request-observability";
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { videoOutputMetadata } from "@/server/media-assets/video-output-metadata";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
@@ -9,9 +12,7 @@ import type {
   VideoStorageResult,
 } from "@/server/video-generation/storage/storage-adapter";
 import {
-  decodeBase64DataUrl,
   GENERATION_OUTPUT_LIMITS,
-  mapBoundedMediaOutputs,
   OUTBOUND_CONCURRENCY,
 } from "@/server/http/bounded-io";
 import { mapWithConcurrency } from "@/server/http/bounded-body";
@@ -100,14 +101,6 @@ function buildUploadFile(
   };
 }
 
-function parseDataUrl(dataUrl: string) {
-  return decodeBase64DataUrl(dataUrl, {
-    maxBytes: GENERATION_OUTPUT_LIMITS.video,
-    invalidCode: "지원하지 않는 비디오 포맷입니다.",
-    tooLargeCode: "비디오 결과가 허용된 크기를 초과했습니다.",
-  });
-}
-
 function resolveVideoExtension(contentType: string) {
   if (contentType === "video/mp4") return "mp4";
   if (contentType === "video/webm") return "webm";
@@ -148,23 +141,18 @@ function resolveFileUrl(file: { url: string | null }) {
 async function uploadGeneratedVideos(
   payload: VideoGenerationFormValues,
   requestId: string,
-  dataUrls: string[]
+  refs: MediaOutput[]
 ): Promise<VideoStorageResult> {
-  const meta = await videoOutputMetadata(dataUrls);
+  const outputs = await normalizeMediaOutputs(refs, "video");
+  const meta = await videoOutputMetadata(outputs);
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
 
   try {
-    const boundedDataUrls = await mapBoundedMediaOutputs(
-      dataUrls,
-      "video",
-      async (dataUrl) => dataUrl,
-    );
     const uploads = await mapWithConcurrency(
-      boundedDataUrls,
+      outputs,
       OUTBOUND_CONCURRENCY,
-      async (dataUrl, index) => {
-        const { contentType, buffer } = parseDataUrl(dataUrl);
+      async ({ contentType, buffer }, index) => {
         const extension = resolveVideoExtension(contentType);
         const name = `${requestId}-${index + 1}.${extension}`;
         const file = buildUploadFile(buffer, name, contentType);
@@ -198,9 +186,11 @@ async function uploadGeneratedVideos(
       }),
     };
   } catch (error) {
+    logSafeError("storage.upload.failed", error, { requestId, kind: "video", provider: "leemage", phase: failureLogContext(error)?.phase ?? "storage.upload" });
     return {
       status: "completed",
-      result: buildResultFromDataUrls(payload, dataUrls, meta),
+      result: buildResultFromDataUrls(payload, outputs.map(mediaOutputDataUrl), meta),
+      failure: { error, phase: String(failureLogContext(error)?.phase ?? "storage.upload") },
       errorMessage:
         error instanceof Error ? error.message : "저장에 실패했습니다.",
     };

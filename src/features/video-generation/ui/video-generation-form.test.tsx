@@ -1,4 +1,4 @@
-import { fireEvent, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VideoGenerationForm } from "@/features/video-generation/ui/video-generation-form";
@@ -47,7 +47,52 @@ async function openModelPicker(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("VideoGenerationForm", () => {
+  it("selects an existing video asset and submits the original provider source field",async()=>{
+    const {videoAttachmentModel:model}=await import("@/test-utils/fixtures/media-attachment-models");
+    const url="https://storage.example/saved.mp4",user=userEvent.setup();
+    navigationMocks.searchParams=new URLSearchParams({model:model.key});
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"video",status:"completed",origin:"upload",url,mimeType:"video/mp4"}],nextCursor:null}:{items:[model]}))));
+    renderWithIntl(<VideoGenerationForm isAuthenticated/>);
+    await screen.findByRole("button",{name:/Video reference model/});
+    await user.type(screen.getByRole("textbox"),"saved motion");
+    await user.click(screen.getByRole("button",{name:/에셋 선택$/}));
+    await user.click(await screen.findByRole("button",{name:"saved"}));
+    expect(document.querySelector("video")).toHaveAttribute("src",url);
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({dynamicParams:expect.objectContaining({source:url})})));
+  });
+  it("keeps a detail option edit when a delayed History response arrives",async()=>{
+    const {videoAttachmentModel:model}=await import("@/test-utils/fixtures/media-attachment-models");
+    navigationMocks.searchParams=new URLSearchParams({historyId:"late",model:model.key,prompt:"current draft"});
+    let resolve!: (response:Response)=>void;
+    vi.stubGlobal("fetch",vi.fn(async(input)=>String(input).includes("view=authoring")?new Promise<Response>(done=>{resolve=done;}):new Response(JSON.stringify({items:[model]}))));
+    const user=userEvent.setup();renderWithIntl(<VideoGenerationForm isAuthenticated/>);
+    await waitFor(()=>expect(resolve).toBeTypeOf("function"));
+    await user.click(screen.getByRole("button",{name:"상세 옵션"}));
+    fireEvent.change(screen.getByLabelText("Strength"),{target:{value:"0.8"}});
+    await act(async()=>resolve(new Response(JSON.stringify({cinema:null,model:model.key,prompt:"previous prompt",references:[],options:[{field:"dynamicParams.strength",value:0.2}]}))));
+    expect(screen.getByLabelText("Strength")).toHaveValue(0.8);
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("textbox")).not.toHaveTextContent("previous prompt");
+  });
+  it("restores the original reference video and submits its provider field on recreation",async()=>{
+    const {videoAttachmentModel:model}=await import("@/test-utils/fixtures/media-attachment-models");
+    navigationMocks.searchParams=new URLSearchParams({historyId:"h",model:model.key});
+    const url="https://example.com/reference.mp4";
+    vi.stubGlobal("fetch",vi.fn(async(input)=>new Response(JSON.stringify(String(input).includes("view=authoring")?{cinema:null,model:model.key,prompt:"restored motion",references:[{field:"dynamicParams.source",media:"video",multiple:false,urls:[url]}],options:[{field:"dynamicParams.strength",value:0.2}]}:{items:[model]}))));
+    const user=userEvent.setup();renderWithIntl(<VideoGenerationForm isAuthenticated/>);
+    await waitFor(()=>expect(screen.getByRole("textbox")).toHaveTextContent("restored motion"));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    expect(document.querySelector("video")).toHaveAttribute("src",url);
+    await user.click(screen.getByRole("button",{name:"상세 옵션"}));
+    expect(screen.getByLabelText("Strength")).toHaveValue(0.2);
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({dynamicParams:expect.objectContaining({source:url,strength:0.2}),prompt:"restored motion"})));
+  });
   beforeEach(() => {
+    localStorage.clear();
     navigationMocks.push.mockReset();
     navigationMocks.pathname = "/video";
     navigationMocks.searchParams = new URLSearchParams();
@@ -123,7 +168,7 @@ describe("VideoGenerationForm", () => {
     await user.click(screen.getByRole("button",{name:/상세 옵션/}));
     expect(screen.getByRole("button",{name:/상세 옵션/})).toBeDisabled();
     expect(within(screen.getByRole("region", {name:"작업 입력"})).getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
-    await user.upload(screen.getByLabelText("First Frame"),new File(["test"],"frame.png",{type:"image/png"}));
+    await user.upload(screen.getByLabelText("참조 파일 · First Frame"),new File(["test"],"frame.png",{type:"image/png"}));
     await user.keyboard("{Escape}");
     expect(submit).toBeEnabled();
     await user.click(screen.getByRole("button",{name:"제거"}));
@@ -359,7 +404,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
-    const uploadButton = screen.getByRole("button", {name:"레퍼런스 이미지 업로드"});
+    const uploadButton = screen.getByRole("button", {name:"참조 이미지: 파일 추가"});
 
     expect(uploadButton).toBeInTheDocument();
   });
@@ -409,7 +454,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated/>);
     await screen.findByRole("button",{name:new RegExp(model.label)});
     const dock=screen.getByRole("region",{name:"작업 입력"});
-    const label=media==="video"?"Source video":"First frame";
+    const label=media==="video"?"참조 영상":"시작 프레임";
     const input=within(dock).getByLabelText(label);
     expect(input).toHaveAttribute("accept",media+"/*");
     await user.type(screen.getByRole("textbox"),"transform reference");
@@ -428,5 +473,22 @@ describe("VideoGenerationForm", () => {
     await user.click(within(dock).getByRole("button",{name:"제거"}));
     expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();
   });
+
+it("movement alone enables mapped submission while preserving the empty source and rejects removal",async()=>{
+  const {defaultCinemaSettings}=await import("@/shared/cinema/cinema-contract");
+  const {getGradioContract}=await import("@/shared/model-catalog/gradio-contract");
+  const model={...runtimeVideoModelsFixture[0],providerConfig:{...runtimeVideoModelsFixture[0].providerConfig,gradio_contract:{version:1,apiName:"/generate",reviewed:true,diagnostics:[],inputs:[{name:"description",label:"Prompt",kind:"string",canonical:"prompt",required:true,nullable:false,schema:{type:"string"}}],output:{media:"video",path:[0],multiple:false}}}};
+  expect(getGradioContract(model)).not.toBeNull();
+  localStorage.setItem("leesfield:cinema:video:v1",JSON.stringify({draftVersion:1,settings:{...defaultCinemaSettings(),movement:"snorricam"}}));
+  vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}))));
+  const user=userEvent.setup();renderWithIntl(<VideoGenerationForm isAuthenticated/>);
+  await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+  expect(screen.getByRole("textbox").textContent).toContain("Snorricam");
+  await user.click(screen.getByRole("button",{name:"생성"}));
+  await waitFor(()=>expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({prompt:"",cinema:expect.objectContaining({movement:"snorricam"})})));
+  expect(startGenerationMock.mock.calls.at(-1)?.[0].prompt).not.toContain("Cinema direction");
+  await user.click(screen.getByRole("button",{name:"Remove Snorricam"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeDisabled());
+});
 
 });

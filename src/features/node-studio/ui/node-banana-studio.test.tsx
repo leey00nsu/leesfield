@@ -1,7 +1,7 @@
 import { act, useEffect, type ComponentType } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { NodeProps } from "@xyflow/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NodeBananaCanvasProps } from "@node-banana-runtime/runtime-entry";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
@@ -30,7 +30,7 @@ vi.mock("@node-banana-runtime/runtime-entry", async (importOriginal) => ({
     useEffect(() => {
       if (runtime.echoControlledGraph) onGraphChange(graph, "nodes");
     }, [graph, onGraphChange]);
-    return <div data-testid="node-banana-canvas" />;
+    return <div data-testid="node-banana-canvas" data-node-banana-component="WorkflowCanvas"><div className="react-flow__viewport" style={{transform:"matrix(1, 0, 0, 1, 0, 0)"}} /></div>;
   },
   NodeBananaUpstreamNode: ({ id, data, host, onUpdateNodeData }: MockUpstreamNodeProps) => (
     <>
@@ -62,6 +62,10 @@ vi.mock("@node-banana-runtime/runtime-entry", async (importOriginal) => ({
   </div>,
 }));
 
+import { uploadMediaAsset } from "@/features/media-assets/api/media-asset-api";
+vi.mock("@/features/media-assets/api/media-asset-api", async importOriginal => ({...await importOriginal<typeof import("@/features/media-assets/api/media-asset-api")>(), uploadMediaAsset: vi.fn()}));
+
+import { CanvasMediaDropBoundary } from "./canvas-media-drop-boundary";
 import { NodeBananaStudio } from "./node-banana-studio";
 import { SpacePreferencesContext } from "../hook/use-space-preferences";
 import { downloadImageZip } from "../lib/image-zip-download";
@@ -1032,3 +1036,119 @@ function modelWithImageDefaults() {
     isDefault: false,
   };
 }
+
+
+describe("Space file drag preview", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  function fixture(writable = true, busy = false) {
+    const dropped = vi.fn(); const error = vi.fn();
+    render(<CanvasMediaDropBoundary contextId="drop-test" writable={writable} onError={error} onFilesDrop={dropped}>
+      <div data-testid="drop-canvas" data-node-banana-component="WorkflowCanvas" aria-busy={busy}>
+        <div className="react-flow__viewport" style={{ transform: "matrix(0.5, 0, 0, 0.5, 20, 30)" }} />
+        <textarea aria-label="Node text" />
+      </div>
+    </CanvasMediaDropBoundary>, { wrapper: createIntlWrapper() });
+    return { canvas: screen.getByTestId("drop-canvas"), dropped, error };
+  }
+  const data = (type = "image/png") => ({ types: ["Files"], items: [{ kind: "file", type }], files: [new File(["png"], "sample.png", { type })] });
+  it("shows a nonpersistent preview, follows pointer/zoom and removes it on leave or Escape", () => {
+    const { canvas, dropped } = fixture();
+    const event = new Event("dragover", { bubbles: true, cancelable: true });
+    Object.assign(event, { dataTransfer: data(), clientX: 240, clientY: 180 }); fireEvent(canvas, event);
+    const preview = document.querySelector<HTMLElement>("[data-space-drop-preview]")!;
+    expect(preview).not.toBeNull(); expect(preview.style.left).toBe("240px"); expect(preview.style.transform).toBe("scale(0.5)");
+    expect(dropped).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "Escape" }); expect(document.querySelector("[data-space-drop-preview]")).toBeNull();
+    fireEvent(canvas, event);
+    const leave = new Event("dragleave", { bubbles: true });
+    Object.assign(leave, { relatedTarget: document.body, clientX: 1000, clientY: 1000 });
+    fireEvent(canvas, leave); expect(document.querySelector("[data-space-drop-preview]")).toBeNull();
+  });
+  it("delivers a valid drop to the host exactly once and clears the preview", () => {
+    const { canvas, dropped } = fixture(); fireEvent.dragOver(canvas, { dataTransfer: data() }); fireEvent.drop(canvas, { dataTransfer: data() });
+    expect(dropped).toHaveBeenCalledTimes(1); expect(document.querySelector("[data-space-drop-preview]")).toBeNull();
+  });
+  it("forwards a supported extension with missing OS MIME once without changing drop coordinates", () => {
+    class Transfer {
+      files: File[] = [];
+      items = { add: (file: File) => this.files.push(file) };
+    }
+    class NativeDrag extends Event {
+      constructor(type: string, init: EventInit & Record<string, unknown>) {
+        super(type, init); Object.assign(this, { dataTransfer: init.dataTransfer, clientX: init.clientX, clientY: init.clientY });
+      }
+    }
+    vi.stubGlobal("DataTransfer", Transfer); vi.stubGlobal("DragEvent", NativeDrag);
+    const { canvas, dropped } = fixture();
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.assign(event, { dataTransfer: { types: ["Files"], files: [new File(["png"], "sample.png", { type: "" })] }, clientX: 270, clientY: 210 });
+    fireEvent(canvas, event);
+    expect(dropped).toHaveBeenCalledTimes(1);
+    expect(dropped.mock.calls[0][0][0].type).toBe("image/png");
+    expect(dropped.mock.calls[0][1]).toEqual({x:500,y:360});
+  });
+  it.each([[false, false], [true, true]])("does not preview or import read-only/busy canvases (%s,%s)", (writable, busy) => {
+    const { canvas, dropped } = fixture(writable, busy); fireEvent.dragOver(canvas, { dataTransfer: data() }); fireEvent.drop(canvas, { dataTransfer: data() });
+    expect(dropped).not.toHaveBeenCalled(); expect(document.querySelector("[data-space-drop-preview]")).toBeNull();
+  });
+  it("rejects unsupported files and leaves node text editing alone", () => {
+    const { canvas, dropped, error } = fixture(); const unsupported = data("image/svg+xml");
+    fireEvent.dragOver(canvas, { dataTransfer: unsupported }); fireEvent.drop(canvas, { dataTransfer: unsupported });
+    expect(error).toHaveBeenCalledTimes(1); expect(dropped).not.toHaveBeenCalled();
+    fireEvent.dragOver(screen.getByRole("textbox"), { dataTransfer: data() }); expect(document.querySelector("[data-space-drop-preview]")).toBeNull();
+  });
+});
+
+
+describe("Space pending drop nodes", () => {
+  const upload = vi.mocked(uploadMediaAsset);
+  function setup() {
+    const changed = vi.fn(), error = vi.fn();
+    const props = {graph, catalog, writable:true, readOnlyReason:null, prepareImageNodeExecution:vi.fn(), onDraftChange:changed,onHostError:error};
+    const view = render(<NodeBananaStudio {...props}/>, {wrapper:createIntlWrapper()});
+    const drop = () => {
+      const event = new Event("drop",{bubbles:true,cancelable:true});
+      Object.assign(event,{clientX:240,clientY:160,dataTransfer:{types:["Files"],files:[new File(["bytes"],"preview.png",{type:"image/png"})]}});
+      fireEvent(screen.getByTestId("node-banana-canvas"),event);
+    };
+    return {changed,error,view,props,drop};
+  }
+  it("inserts an actual spinner node before upload resolves, then updates the same ID without losing movement",async()=>{
+    let complete!: (asset:Awaited<ReturnType<typeof uploadMediaAsset>>) => void;
+    upload.mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));
+    const {changed,drop}=setup(); drop();
+    const pending=runtime.props!.graph.nodes.find(node=>node.id!=="node_1")!;
+    expect(pending).toMatchObject({position:{x:240,y:160},data:{canonicalKind:"input.image",config:{assetId:null},mediaUploading:true}});
+    expect(changed).toHaveBeenCalledTimes(1);
+    act(()=>runtime.props!.onGraphChange({...runtime.props!.graph,nodes:runtime.props!.graph.nodes.map(node=>node.id===pending.id?{...node,position:{x:300,y:200}}:node)},"nodes"));
+    await act(async()=>complete({id:"new-asset",type:"image"} as Awaited<ReturnType<typeof uploadMediaAsset>>));
+    const ready=runtime.props!.graph.nodes.find(node=>node.id===pending.id)!;
+    expect(ready).toMatchObject({position:{x:300,y:200},data:{config:{assetId:"new-asset"}}});
+    expect(ready.data.mediaUploading).not.toBe(true);
+    expect(runtime.props!.graph.nodes).toHaveLength(2);
+  });
+  it("keeps a failed node available for retry and stops its spinner",async()=>{
+    upload.mockRejectedValueOnce(new Error("NETWORK_FAILED"));
+    const {drop,error}=setup(); await act(async()=>drop());
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({message:"NETWORK_FAILED"}));
+    const failed=runtime.props!.graph.nodes.find(node=>node.id!=="node_1")!;
+    expect(failed.data.config).toMatchObject({assetId:null}); expect(failed.data.mediaUploading).not.toBe(true); expect(failed.data.mediaUploadError).toBe(true);
+  });
+  it("aborts deletion and never restores a node on a late upload completion",async()=>{
+    let complete!: (asset:Awaited<ReturnType<typeof uploadMediaAsset>>) => void;
+    let signal!: AbortSignal;
+    upload.mockImplementationOnce((_file,_type,_progress,abort)=>{signal=abort!;return new Promise(resolve=>{complete=resolve})});
+    const {drop}=setup(); drop();
+    await act(async()=>runtime.props!.onGraphChange({...runtime.props!.graph,nodes:runtime.props!.graph.nodes.filter(node=>node.id==="node_1")},"nodes"));
+    expect(signal.aborted).toBe(true);
+    await act(async()=>complete({id:"late",type:"image"} as Awaited<ReturnType<typeof uploadMediaAsset>>));
+    expect(runtime.props!.graph.nodes).toHaveLength(1);
+  });
+  it("aborts a pending upload when the Space becomes read-only",async()=>{
+    let signal!: AbortSignal;
+    upload.mockImplementationOnce((_file,_type,_progress,abort)=>{signal=abort!;return new Promise(()=>{})});
+    const {drop,view,props}=setup(); drop();
+    await act(async()=>view.rerender(<NodeBananaStudio {...props} writable={false}/>));
+    expect(signal.aborted).toBe(true);expect(runtime.props!.graph.nodes.some(node=>node.data.mediaUploading)).toBe(false);
+  });
+});

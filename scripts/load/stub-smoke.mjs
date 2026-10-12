@@ -1,3 +1,4 @@
+import { logger } from "../../src/shared/logging/logger.mjs";
 import { createServer } from "node:http";
 import { performance } from "node:perf_hooks";
 import { once } from "node:events";
@@ -119,6 +120,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`[load-stub] ${error instanceof Error ? error.message : "failed"}`);
+  logger.error("load.failed", error);
   process.exitCode = 1;
 });

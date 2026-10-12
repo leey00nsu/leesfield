@@ -16,6 +16,44 @@ function select(node: Node, at: number, endNode = node, endAt = at) {
   const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
 }
 describe("inline prompt token editing", () => {
+  it("hides the empty placeholder during the first IME composition without publishing unfinished text", () => {
+    const change = vi.fn();
+    render(<AppPromptEditor aria-label="Prompt" value="" placeholder="무엇을 만들고 싶으세요?" onChange={change} />);
+    const editor = screen.getByRole("textbox");
+    expect(editor).toHaveAttribute("data-empty", "true");
+    fireEvent.compositionStart(editor);
+    expect(editor).toHaveAttribute("data-empty", "false");
+    editor.firstChild!.textContent = "ㅎ";
+    fireEvent.input(editor, { isComposing: true, inputType: "insertCompositionText" });
+    expect(editor).toHaveAttribute("data-empty", "false");
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(editor);
+    expect(change).toHaveBeenLastCalledWith("ㅎ", false, 0);
+    editor.firstChild!.textContent = "";
+    fireEvent.input(editor);
+    expect(editor).toHaveAttribute("data-empty", "true");
+  });
+  it("restores the placeholder when an empty IME composition is cancelled", () => {
+    render(<AppPromptEditor aria-label="Prompt" value="" placeholder="Prompt" onChange={vi.fn()} />);
+    const editor = screen.getByRole("textbox");
+    fireEvent.compositionStart(editor); fireEvent.compositionEnd(editor);
+    expect(editor).toHaveAttribute("data-empty", "true");
+  });
+  it("removes a movement atom independently of a preset without putting chip labels in source text", () => {
+    const change = vi.fn();
+    render(<AppPromptEditor aria-label="Prompt" value="before after"
+      token={{ id: "preset", label: "Preset", offset: 7, content: <span>Preset</span> }}
+      tokens={[{ id: "cinema:movement", label: "Snorricam", offset: 12, content: <span>Snorricam</span> }]}
+      onChange={change} />);
+    const editor = screen.getByRole("textbox");
+    const movement = editor.querySelector('[data-prompt-token="cinema:movement"]')!;
+    const range = document.createRange(); range.setStartAfter(movement); range.collapse(true);
+    window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range);
+    fireEvent.keyDown(editor, { key: "Backspace" });
+    expect(movement.isConnected).toBe(false);
+    expect(editor.querySelector('[data-prompt-token="preset"]')).not.toBeNull();
+    expect(change).toHaveBeenLastCalledWith("before after", true, 7, [{ id: "preset", offset: 7 }]);
+  });
   it("keeps node text draggable until click, preserves composing Escape, and returns to display on Escape", () => {
     const change = vi.fn();
     render(<NodeTextEditor label="Edit prompt">{editing =>

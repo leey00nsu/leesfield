@@ -17,7 +17,7 @@ type RouteContext = {
   }>;
 };
 
- export async function PATCH(request: Request, context: RouteContext) {
+ async function patchObservedHandler(request: Request, context: RouteContext) {
    const session = await getSession();
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
@@ -72,7 +72,7 @@ type RouteContext = {
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
+async function deleteObservedHandler(request: Request, context: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const session = await getSession();
@@ -97,3 +97,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   }
 }
 import { logSafeError } from "@/server/observability/request-observability";
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const PATCH = withRequestObservability("/api/admin/models/[modelKey]", patchObservedHandler);
+export const DELETE = withRequestObservability("/api/admin/models/[modelKey]", deleteObservedHandler);

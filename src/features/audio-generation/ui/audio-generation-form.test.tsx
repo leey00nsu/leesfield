@@ -279,6 +279,40 @@ function expectLabelNotToBeRequired(label: string) {
 }
 
 describe("AudioGenerationForm", () => {
+  it.each(["mapped","legacy"])("selects an existing audio asset and submits the %s reference field",async kind=>{
+    const {audioAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const model=kind==="mapped"?audioAttachmentModel:{...runtimeAudioModelsFixture[0],key:"audio-clone",label:"Audio clone",parameters:{...runtimeAudioModelsFixture[0].parameters,inputAudio:{ui:"upload",label:"Sample audio",required:true}},meta:{supports_input_audio:true}};
+    const url="https://storage.example/saved.wav",startGeneration=vi.fn(),user=userEvent.setup();
+    mockUseAudioGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    navigationMocks.searchParams=new URLSearchParams({model:model.key});
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"audio",status:"completed",origin:"upload",url,mimeType:"audio/wav"}],nextCursor:null}:{items:[model]}))));
+    renderWithIntl(<AudioGenerationForm isAuthenticated/>);
+    await screen.findByRole("button",{name:new RegExp(model.label)});
+    await user.type(screen.getByRole("textbox"),"saved narration");
+    await user.click(screen.getByRole("button",{name:/에셋 선택$/}));
+    await user.click(await screen.findByRole("button",{name:"saved"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining(kind==="mapped"?{dynamicParams:expect.objectContaining({source:url})}:{inputAudio:url})));
+  });
+  it("restores History reference audio and includes the original field in submission",async()=>{
+    const {audioAttachmentModel:model}=await import("@/test-utils/fixtures/media-attachment-models");
+    const startGeneration=vi.fn(), user=userEvent.setup();
+    mockUseAudioGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    navigationMocks.searchParams=new URLSearchParams({historyId:"h",model:model.key});
+    const url="https://example.com/reference.wav";
+    vi.stubGlobal("fetch",vi.fn(async(input)=>new Response(JSON.stringify(String(input).includes("view=authoring")?{cinema:null,model:model.key,prompt:"restored narration",references:[{field:"dynamicParams.source",media:"audio",multiple:false,urls:[url]}],options:[{field:"dynamicParams.strength",value:0.2}]}:{items:[model]}))));
+    renderWithIntl(<AudioGenerationForm isAuthenticated/>);
+    await waitFor(()=>expect(screen.getByRole("textbox")).toHaveTextContent("restored narration"));
+    expect(within(screen.getByRole("region",{name:"작업 입력"})).getByRole("button",{name:"제거"})).toBeInTheDocument();
+    expect(screen.getByLabelText("첨부 개수")).toHaveTextContent("1 / 1");
+    await waitFor(()=>expect(screen.getByRole("button",{name:"생성"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"상세 옵션"}));
+    expect(screen.getByLabelText("Strength")).toHaveValue(0.2);
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({dynamicParams:expect.objectContaining({source:url,strength:0.2}),prompt:"restored narration"})));
+  });
   beforeEach(() => {
     navigationMocks.push.mockReset();
     navigationMocks.pathname = "/audio";
@@ -412,7 +446,7 @@ describe("AudioGenerationForm", () => {
     expect(dock).toHaveTextContent("상세 옵션");
     expect(dock).not.toHaveTextContent("1x");
     expect(within(dock).queryByRole("slider")).toBeNull();
-    expect(within(dock).queryByLabelText("Sample audio")).toBeNull();
+    expect(within(dock).queryByLabelText("참조 오디오 · Sample audio")).toBeNull();
     expect(
       screen.getByRole("button", { name: /Qwen 3\.5 TTS/i }),
     ).toHaveAttribute("aria-haspopup", "dialog");
@@ -653,10 +687,11 @@ describe("AudioGenerationForm", () => {
       "hello clone",
     );
     await user.click(screen.getByRole("button", { name: /상세 옵션/i }));
-    expectLabelToBeRequired("Sample audio");
+    expect(screen.getByLabelText("참조 오디오 · Sample audio")).toHaveAttribute("aria-required","true");
+    expect(within(screen.getByLabelText("참조 오디오 · Sample audio").closest("[data-attachment-field]")!).getByText("필수")).toBeVisible();
     expectLabelToBeRequired("샘플 문장");
     await user.upload(
-      await screen.findByLabelText("Sample audio"),
+      await screen.findByLabelText("참조 오디오 · Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
@@ -732,7 +767,7 @@ describe("AudioGenerationForm", () => {
       { target: { textContent: "hello qwen" } },
     );
     await user.upload(
-      screen.getByLabelText("Sample audio"),
+      screen.getByLabelText("참조 오디오 · Sample audio"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
@@ -878,7 +913,7 @@ describe("AudioGenerationForm", () => {
     renderWithIntl(<AudioGenerationForm isAuthenticated/>);
     await screen.findByRole("button",{name:/Audio reference model/});
     const dock=screen.getByRole("region",{name:"작업 입력"});
-    const input=within(dock).getByLabelText("Reference audio");
+    const input=within(dock).getByLabelText("참조 오디오");
     expect(input).toHaveAttribute("accept","audio/*");
     await user.type(screen.getByRole("textbox"),"refine voice");
     expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();

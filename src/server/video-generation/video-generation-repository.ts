@@ -42,7 +42,7 @@ export async function createVideoGenerationRecord(
     fps: payload.fps,
     steps: payload.steps,
     guidanceScale: payload.guidanceScale,
-    seed: payload.seed ?? null,
+    ...(payload.seed != null ? { seed: payload.seed } : {}),
   };
 
   const refs = inputAssetRefs ?? inputAssetRefsFromSnapshot("video", requestParams);

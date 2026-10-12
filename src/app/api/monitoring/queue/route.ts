@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
 import { getQueueStatus } from "@/server/monitoring/queue-status";
 import {
-  logStructured,
+  logSafeError,
   withRequestObservability,
 } from "@/server/observability/request-observability";
 
@@ -24,10 +24,10 @@ async function getHandler() {
       },
     });
   } catch (error) {
-    logStructured("monitoring.query.failure", {
+    logSafeError("monitoring.query.failure", error, {
       kind: "queue",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+
+    });
     return NextResponse.json(
       { message: "INTERNAL_SERVER_ERROR" },
       { status: 500 },

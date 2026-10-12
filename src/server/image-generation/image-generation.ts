@@ -1,3 +1,4 @@
+import { withLogContext } from "@/server/observability/logger";
 import { ModalApiError } from "@/server/modal-comfyui/client";
 import { modalComfyImageAdapter } from "./adapters/modal-comfyui-adapter";
 import type { ImageGenerationFormValues } from "@/features/image-generation/model/image-generation-schema";
@@ -43,12 +44,12 @@ async function resolveImageProvider(
 
 async function getAdapter(
   modelKey: ImageGenerationFormValues["model"]
-): Promise<ImageGenerationAdapter> {
+) {
   const provider = await resolveImageProvider(modelKey);
-  if (provider === "modal_comfyui") return modalComfyImageAdapter;
-  if (provider === "hf_space") return hfSpaceImageAdapter;
-  if (provider === "codex_cli") return codexCliImageAdapter;
-  if (provider === "codex_bridge") return codexBridgeImageAdapter;
+  if (provider === "modal_comfyui") return { adapter: modalComfyImageAdapter, provider };
+  if (provider === "hf_space") return { adapter: hfSpaceImageAdapter, provider };
+  if (provider === "codex_cli") return { adapter: codexCliImageAdapter, provider };
+  if (provider === "codex_bridge") return { adapter: codexBridgeImageAdapter, provider };
   throw new Error(`IMAGE_PROVIDER_NOT_SUPPORTED:${provider}`);
 }
 
@@ -100,56 +101,71 @@ export async function resolveImageGenerationResult(
   skipDbSave?: boolean;
   artifacts?: GeneratedMediaArtifact[];
 }> {
-  let adapter: ImageGenerationAdapter | null = null;
-  try {
-    adapter = lifecycle.executionModel?.provider==="modal_comfyui" ? modalComfyImageAdapter : await getAdapter(payload.model);
-    if (adapter === modalComfyImageAdapter && resolveImageStorageProvider().provider !== "leemage")
-      throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
-    const result = isNodeStudioE2EMockGenerationEnabled()
-      ? mockImageGenerationResult(payload)
-      : await adapter.generate(payload, {
-          requestId,
-          executionModel: lifecycle.executionModel,
-        });
-    const { provider, warningMessage } = resolveImageStorageProvider();
+  return withLogContext({ requestId, modelKey: payload.model, kind: "image" }, async () => {
+    let adapter: ImageGenerationAdapter | null = null;
+    let provider = "unresolved";
+    let phase = "provider.resolve";
+    try {
+      const selected = lifecycle.executionModel?.provider === "modal_comfyui"
+        ? { adapter: modalComfyImageAdapter, provider: "modal_comfyui" }
+        : await getAdapter(payload.model);
+      adapter = selected.adapter;
+      provider = selected.provider;
+      phase = "storage.configure";
+      if (adapter === modalComfyImageAdapter && resolveImageStorageProvider().provider !== "leemage")
+        throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
+      phase = "provider.generate";
+      const activeAdapter = adapter;
+      const result = await withLogContext({ provider, phase }, async () => isNodeStudioE2EMockGenerationEnabled()
+        ? mockImageGenerationResult(payload)
+        : await activeAdapter.generate(payload, {
+            requestId,
+            executionModel: lifecycle.executionModel,
+          }));
+      phase = "storage.resolve";
+      const { provider: storageProvider, warningMessage } = resolveImageStorageProvider();
+      provider = storageProvider ?? "unresolved";
 
-    if (!provider) {
-      if(adapter === modalComfyImageAdapter) throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
-      const message =
-        warningMessage ??
-        "이미지 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
-      logStructured("generation.storage_skipped", {
-        requestId,
-        kind: "image",
-        outcome: "storage_unavailable",
-      });
+      if (!storageProvider) {
+        if(adapter === modalComfyImageAdapter) throw new ModalApiError("MODAL_STORAGE_NOT_CONFIGURED");
+        const message =
+          warningMessage ??
+          "이미지 저장소가 지정되지 않아 결과가 저장되지 않습니다.";
+        logStructured("generation.storage_skipped", {
+          requestId,
+          kind: "image",
+          outcome: "storage_unavailable",
+        });
+        return {
+          status: "completed",
+          result: buildInlineResult(payload, result.images),
+          errorMessage: message,
+          skipDbSave: true,
+        };
+      }
+
+      phase = "storage.uploading";
+      await lifecycle.onUploading?.();
+      phase = "storage.upload";
+      const storageAdapter = getStorageAdapter();
+      const stored=await withLogContext({ provider, phase }, () => storageAdapter.uploadImages(
+        adapter===modalComfyImageAdapter && result.meta ? {...payload,...result.meta,imageCount:result.images.length} : payload,
+        requestId,result.images));
+      if(adapter===modalComfyImageAdapter && (!stored.artifacts?.length || stored.errorMessage))
+        throw new ModalApiError("MODAL_STORAGE_FAILED");
+      return stored;
+    } catch (error) {
+      if (error instanceof NodeExecutionCancelledError) throw error;
+      logGenerationProviderFailure(
+        { requestId, kind: "image", modelKey: payload.model, provider, phase },
+        error,
+      );
       return {
-        status: "completed",
-        result: buildInlineResult(payload, result.images),
-        errorMessage: message,
-        skipDbSave: true,
+        status: "failed",
+        errorMessage: generationFailureMessage({ kind: "image", phase }, error, () => mapProviderError(adapter, error)),
       };
     }
-
-    await lifecycle.onUploading?.();
-    const storageAdapter = getStorageAdapter();
-    const stored=await storageAdapter.uploadImages(
-      adapter===modalComfyImageAdapter && result.meta ? {...payload,...result.meta,imageCount:result.images.length} : payload,
-      requestId,result.images);
-    if(adapter===modalComfyImageAdapter && (!stored.artifacts?.length || stored.errorMessage))
-      throw new ModalApiError("MODAL_STORAGE_FAILED");
-    return stored;
-  } catch (error) {
-    if (error instanceof NodeExecutionCancelledError) throw error;
-    logGenerationProviderFailure(
-      { requestId, kind: "image", modelKey: payload.model },
-      error,
-    );
-    return {
-      status: "failed",
-      errorMessage: mapProviderError(adapter, error),
-    };
-  }
+  });
 }
 import { logStructured } from "@/server/observability/request-observability";
-import { logGenerationProviderFailure } from "@/server/observability/generation-failure";
+import { generationFailureMessage, logGenerationProviderFailure } from "@/server/observability/generation-failure";

@@ -28,6 +28,22 @@ function fixture(type: "image" | "video" | "audio") {
   });
 }
 describe("source-only model defaults", () => {
+  it("normalizes HF native relationships and administrator overrides and freezes them in History",async()=>{
+    const base=fixture("video"),relationship={role:"paired_audio",pairedWith:"clips",pairing:"index"};
+    const clips={ui:"upload",default:[],binding:{source:"hf_space",parameterName:"clips",order:5,valueType:"string",kind:"files",media:"video",schema:{type:"array",items:{type:"string"},maxItems:3}}};
+    const tracks={ui:"upload",default:[],binding:{source:"hf_space",parameterName:"tracks",order:6,valueType:"string",kind:"files",media:"audio",schema:{type:"array",items:{type:["string","null"]},maxItems:3,"x-attachment":relationship}}};
+    const model=modelCatalogInputSchema.parse({...base,parameters:{...base.parameters,clips,"hf:tracks":tracks}});
+    const contract=getGradioContract(model)!;
+    expect(contract.inputs.find(field=>field.name==="tracks")?.attachment).toEqual(relationship);
+    expect(model.parameters["hf:tracks"].binding?.schema).toEqual(tracks.binding.schema);
+    const disabled=modelCatalogInputSchema.parse({...model,parameters:{...model.parameters,"hf:tracks":{...tracks,attachment:null}}});
+    expect(getGradioContract(disabled)!.inputs.find(field=>field.name==="tracks")?.attachment).toBeUndefined();
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,"hf:tracks":{...tracks,attachment:{...relationship,pairedWith:"not-declared"}}}}).success).toBe(false);
+    vi.mocked(getModelCatalog).mockResolvedValue([model] as never);
+    const dynamicParams={clips:["https://files/a.mp4","https://files/b.mp4"],tracks:[null,"https://files/b.wav",null]};
+    const saved=await snapshotRequest("video",{model:model.key,prompt:"Scene",dynamicParams});
+    expect(restoreRequest(saved).dynamicParams).toMatchObject(dynamicParams);
+  });
   for (const media of ["image", "video", "audio"] as const) {
     it(`${media}: imports/saves and initializes only source inputs, preserving falsy defaults`, async () => {
       const model = fixture(media);
@@ -81,6 +97,40 @@ describe("source-only model defaults", () => {
 });
 
 describe("model attachment limits", () => {
+  it("existing source labels share six-reference validation across UI runtime, server, Space and uploader",async()=>{
+    const {contractInputPorts}=await import("@/shared/model-catalog/file-input-ports");
+    const {generationInputMediaForPayload}=await import("@/server/shared/input-media-uploader");
+    const base=fixture("image"),label="References (optional, up to 6)";
+    const model=modelCatalogInputSchema.parse({...base,parameters:{...base.parameters,refs:{ui:"upload",label,binding:{source:"hf_space",parameterName:"refs",valueType:"string",kind:"files",media:"image",order:5,schema:{type:"array",items:{type:"string"}}}}}});
+    const refs=Array.from({length:6},(_,i)=>"https://files.example/"+i+".png");
+    const payload={model:model.key,prompt:"edit",dynamicParams:{refs}};
+    vi.mocked(getModelCatalog).mockResolvedValue([model] as never);
+    expect(createRuntimeImageSchema([model as RuntimeImageModel]).safeParse(payload).success).toBe(true);
+    expect((await validateImageGenerationPayload(payload)).success).toBe(true);
+    expect(contractInputPorts(model)).toEqual([expect.objectContaining({name:"image-field-refs",label:"Reference images",maxItems:6})]);
+    expect(generationInputMediaForPayload("image",payload,model)[0].sources).toHaveLength(6);
+    const overflow={...payload,dynamicParams:{refs:[...refs,"https://files.example/seventh.png"]}};
+    expect(createRuntimeImageSchema([model as RuntimeImageModel]).safeParse(overflow).success).toBe(false);
+    expect((await validateImageGenerationPayload(overflow)).success).toBe(false);
+    expect(()=>generationInputMediaForPayload("image",overflow,model)).toThrow("INPUT_MEDIA_COUNT_LIMIT");
+    expect(model.parameters.refs.label).toBe(label);
+    expect(model.parameters.refs.binding!.schema).not.toHaveProperty("maxItems");
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,refs:{...model.parameters.refs,maxItems:7}}}).success).toBe(false);
+    const lowered={...model,parameters:{...model.parameters,refs:{...model.parameters.refs,maxItems:2}}};
+    expect(contractInputPorts(lowered)?.[0].maxItems).toBe(2);
+  });
+  it("honors declared nine-image limits across server runtime Space and configured overrides",async()=>{
+    const {contractInputPorts}=await import("@/shared/model-catalog/file-input-ports");
+    const base=fixture("video");
+    const model=modelCatalogInputSchema.parse({...base,parameters:{...base.parameters,references:{ui:"upload",maxItems:9,binding:{source:"hf_space",parameterName:"references",valueType:"string",kind:"files",media:"image",order:5,schema:{type:"array",items:{type:"string"},maxItems:9}}}}});
+    const refs=Array.from({length:9},(_,i)=>"https://files.example/"+i+".png");
+    const payload={model:model.key,prompt:"edit",dynamicParams:{references:refs}};
+    vi.mocked(getModelCatalog).mockResolvedValue([model] as never);
+    expect(createRuntimeVideoSchema([model as RuntimeVideoModel]).safeParse(payload).success).toBe(true);
+    expect((await validateVideoGenerationPayload(payload)).success).toBe(true);
+    expect(contractInputPorts(model)).toEqual([expect.objectContaining({maxItems:9})]);
+    expect(modelCatalogInputSchema.safeParse({...model,parameters:{...model.parameters,references:{...model.parameters.references,maxItems:10}}}).success).toBe(false);
+  });
   const image = (count: number) => Array.from({length:count}, (_, i) => `https://assets.example.com/${i}.png`);
   it.each(["image", "video"] as const)("%s: saves array limits and shares runtime/server/Space/provider validation", async media => {
     const { contractInputPorts } = await import("@/shared/model-catalog/file-input-ports");
@@ -125,6 +175,27 @@ describe("model attachment limits", () => {
 
 
 describe("native output count and modality contracts", () => {
+  it("anyOf image/video requirements exclude text/audio-only while retaining supplemental audio", async () => {
+    const {resolveGenerationCapabilities,resolveContractGenerationCapabilities}=await import("@/shared/model-catalog/modality");
+    const {videoAttachmentModel}=await import("@/test-utils/fixtures/media-attachment-models");
+    const base=getGradioContract(videoAttachmentModel)!;
+    const refs=(["image","video","audio"] as const).map(media=>({
+      name:"reference_"+media,label:"reference_"+media,kind:"files" as const,media,
+      required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3},
+    }));
+    const inputRules={anyOf:refs.slice(0,2).map(field=>({required:[field.name],properties:{[field.name]:{minItems:1}}}))};
+    const contract={...base,inputs:[base.inputs[0],...refs],inputRules};
+    const model={...videoAttachmentModel,providerConfig:{gradio_contract:contract},meta:{supports_init_image:true,t2v_model_id:"legacy"}};
+    expect(()=>gradioInputValues(contract,{prompt:"scene"})).toThrow();
+    expect(()=>gradioInputValues(contract,{prompt:"scene",dynamicParams:{reference_audio:["https://a.example/audio"]}})).toThrow();
+    for (const name of ["reference_image","reference_video"]) expect(gradioInputValues(contract,{prompt:"scene",dynamicParams:{[name]:["https://a.example/ref"]}})[name]).toHaveLength(1);
+    expect(resolveGenerationCapabilities(model)).toEqual({modalities:["I2V","V2V"],audioReference:true});
+    expect(resolveContractGenerationCapabilities({...contract,inputRules:undefined,inputGroups:[{prefix:"",schema:inputRules}]},"video")).toEqual({modalities:["I2V","V2V"],audioReference:true});
+    expect(resolveGenerationCapabilities({...model,providerConfig:{gradio_contract:{...contract,inputRules:undefined}}})).toEqual({modalities:["T2V","I2V","V2V","A2V"],audioReference:false});
+    expect(resolveContractGenerationCapabilities({...contract,inputRules:{required:["reference_image","reference_audio"],properties:{reference_image:{minItems:2},reference_audio:{minItems:1}}}},"video")).toEqual({modalities:["I2V"],audioReference:true});
+    expect(resolveGenerationCapabilities({...model,providerConfig:{gradio_contract:{...contract,inputRules:{required:["reference_image","reference_video"],properties:{reference_image:{minItems:1},reference_video:{minItems:1}}}}}}).modalities).toEqual([]);
+  });
+
   it("Krea count values keep their provider key through runtime, server and immutable snapshots", async () => {
     const {resolveImageOutputCount} = await import("@/shared/model-catalog/image-output-count");
     const {identityEditModel} = await import("@/test-utils/fixtures/media-attachment-models");

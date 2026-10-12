@@ -1,3 +1,4 @@
+import { withLogContext } from "@/server/observability/logger";
 import { uploadMediaOperationImages } from "@/server/image-generation/storage/adapters/leemage-storage-adapter";
 import { uploadMediaOperationVideo } from "@/server/video-generation/storage/adapters/leemage-storage-adapter";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
@@ -13,7 +14,7 @@ import { removeImageBackground } from "./hf-background-removal-adapter";
 import { processVideoOperation, VideoOperationError } from "./ffmpeg-video-processor";
 import { processVideoFrameOperation } from "./ffmpeg-frame-processor";
 import { recordWorkerFailure } from "@/server/observability/metrics";
-import { logStructured } from "@/server/observability/request-observability";
+import { logSafeError } from "@/server/observability/request-observability";
 
 const WORKER_INTERVAL_MS = 2_000;
 const WORKER_TOKEN = Symbol("media-operation-worker");
@@ -54,6 +55,7 @@ async function handleOperation(operationId: string) {
   const claimed = await mediaAssetRepository.claimPendingServerOperation(operationId);
   if (!claimed) return;
   const { operation } = claimed;
+  return withLogContext({requestId:operation.id, jobId:operation.id, worker:"media-operation", phase:"media-operation.execute"}, async () => {
   const ownedLease = requireMediaOperationLease(
     operation,
     operation.id,
@@ -102,12 +104,11 @@ async function handleOperation(operationId: string) {
     );
   } catch (error) {
     recordWorkerFailure("media-operation");
-    logStructured("job.failure", {
+    logSafeError("job.failure", error, {
       worker: "media-operation",
       jobId: operation.id,
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
-    await releaseStorageCleanupsForRequest(undefined, operation.id).catch(() => undefined);
+    });
+    await releaseStorageCleanupsForRequest(undefined, operation.id).catch(error => logSafeError("cleanup.release.failed",error,{phase:"storage.cleanup_release"}));
     const code = error instanceof VideoOperationError
       ? error.code
       : error instanceof Error && error.message === "PROCESSOR_UNAVAILABLE"
@@ -127,6 +128,7 @@ async function handleOperation(operationId: string) {
   } finally {
     monitor.stop();
   }
+  });
 }
 
 export async function processMediaOperationJobs({
@@ -159,10 +161,10 @@ async function tick() {
     await processMediaOperationJobs({ awaitCompletion: false });
   } catch (error) {
     recordWorkerFailure("media-operation.pass");
-    logStructured("worker.pass.failure", {
+    logSafeError("worker.pass.failure", error, {
       worker: "media-operation",
-      errorType: error instanceof Error ? error.name : typeof error,
-    }, "error");
+      phase: "worker.pass",
+    });
   } finally {
     global.__mediaOperationWorkerRunning = false;
   }

@@ -1,8 +1,10 @@
 import { modalConfigSchema, modalInputContract } from "./modal-comfyui-contract";
+import { DEFAULT_FILE_INPUT_LIMIT, MAX_FILE_INPUT_LIMIT, declaredFileCount } from "./file-input-limits";
 import { gradioSchemaValidator, gradioSchemaContainsFileData } from "./gradio-json-schema";
 import { gradioChoiceSchema } from "./gradio-choice-schema";
 import { assertGradioInputRules } from "./gradio-input-rules";
-import { gradioFileAuthoringSchema } from "./gradio-file-schema";
+import { fileFieldAllowsNullItems, gradioFileAuthoringSchema } from "./gradio-file-schema";
+import { attachmentRelationshipSchema, attachmentRelationship, assertAttachmentRelationships, assertPairedInputValues } from "./attachment-relationships";
 
 import { z } from "zod";
 
@@ -27,6 +29,8 @@ export const gradioFieldSchema = z.object({
   default: jsonValueSchema.optional(),
   canonical: z.enum(["prompt"]).optional(),
   media: z.enum(["image", "video", "audio"]).optional(),
+  attachment: attachmentRelationshipSchema.optional(),
+  fileLimit: z.number().int().min(1).max(MAX_FILE_INPUT_LIMIT).optional(),
   choices: z.array(z.union([z.string(), z.number()])).optional(),
   choiceMode: z.enum(["single", "multiple"]).optional(),
   allowCustomValue: z.boolean().optional(),
@@ -54,14 +58,16 @@ export const gradioContractSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Duplicate Gradio parameter names" });
   if (c.inputs.filter(p => p.canonical === "prompt").length > 1)
     ctx.addIssue({ code: "custom", message: "Duplicate prompt binding" });
+  try { assertAttachmentRelationships(c.inputs); }
+  catch (error) { ctx.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid attachment relationship" }); }
 });
 export type GradioContract = z.infer<typeof gradioContractSchema>;
 export type GradioField = GradioContract["inputs"][number];
 
-/** Provider arrays have always been limited to eight files per input. */
+/** Honor declared provider limits; bound unspecified arrays and resource use. */
 export function fileFieldMaxItems(field: GradioField): number {
   if (field.kind === "file") return 1;
-  return Math.min(8, typeof field.schema.maxItems === "number" ? field.schema.maxItems : 8);
+  return Math.min(MAX_FILE_INPUT_LIMIT, typeof field.schema.maxItems === "number" ? field.schema.maxItems : field.fileLimit ?? declaredFileCount(field.label) ?? DEFAULT_FILE_INPUT_LIMIT);
 }
 
 function withFileLimits(contract: GradioContract, parameters: unknown): GradioContract {
@@ -116,6 +122,7 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
       ui: field.hidden ? "hidden" : parameter.ui ?? (field.choices?.length ? "select" : ["file", "files", "gallery"].includes(field.kind) ? "upload" : field.kind === "boolean" ? "toggle" : field.kind === "number" ? "input" : "textarea"),
       label: field.label,
       required: field.required,
+      ...(field.attachment && !Object.hasOwn(parameter, "attachment") ? { attachment: field.attachment } : {}),
       binding: {
         source: "hf_space", parameterName: field.name, order,
         valueType: ["string", "number", "boolean", "file"].includes(field.kind) ? field.kind : "string",
@@ -127,6 +134,7 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
         ...(field.component ? { component: field.component } : {}),
         ...(field.canonical ? { canonicalKey: field.canonical } : object(parameter.binding).canonicalKey ? { canonicalKey: object(parameter.binding).canonicalKey } : {}),
         ...(field.media ? { media: field.media } : {}),
+        ...(field.fileLimit !== undefined ? { fileLimit: field.fileLimit } : {}),
       },
     });
     if (Object.prototype.hasOwnProperty.call(field, "default")) parameter.default = field.default;
@@ -182,6 +190,8 @@ export function getGradioContract(model: MappedModel): GradioContract | null {
         ...(b.component ? { component: b.component } : {}),
         ...(b.canonicalKey === "prompt" ? { canonical: "prompt" } : {}),
         ...(b.media ? { media: b.media } : {}),
+        attachment: attachmentRelationship(object(b.schema), p),
+        ...(b.fileLimit !== undefined ? { fileLimit: b.fileLimit } : {}),
         ...(p.default !== undefined ? { default: p.default } : {}),
         ...(Array.isArray(p.options) ? { choices: p.options.map(option => typeof option === "object" && option !== null ? Array.isArray(option) ? option[1] : object(option).value : option) } : {}),
         ...(p.min !== undefined ? { min: p.min } : {}),
@@ -211,7 +221,7 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
     } else {
       const valid = field.kind === "number" ? typeof value === "number" && Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value))
         : field.kind === "boolean" ? typeof value === "boolean"
-        : field.kind === "files" || field.kind === "gallery" ? Array.isArray(value) && value.every(v => typeof v === "string")
+        : field.kind === "files" || field.kind === "gallery" ? Array.isArray(value) && value.every(v => typeof v === "string" || (v === null && fileFieldAllowsNullItems(field)))
         : field.kind === "json" ? jsonValueSchema.safeParse(value).success
         : typeof value === "string";
       if (!valid) throw new Error("HF_CONTRACT_TYPE:" + field.name);
@@ -234,6 +244,7 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
     }
     result[field.name] = value;
   }
+  assertPairedInputValues(contract.inputs, result);
   for(const group of contract.inputGroups??[]) {
     const values=Object.fromEntries(Object.entries(result).filter(([name])=>group.prefix?name.startsWith(group.prefix):!name.startsWith("advanced__")).map(([name,value])=>[name.slice(group.prefix.length),value]));
     validateJsonSchema(values,group.schema,"inputs");
@@ -289,7 +300,7 @@ export function assessGradioSupport(contract: GradioContract): GradioSupport {
    }
   }
   if(Object.prototype.hasOwnProperty.call(f,"default")) {
-   try {gradioInputValues({...contract,inputRules:undefined,inputGroups:undefined,inputs:[{...f,canonical:undefined}]},{});}
+   try {gradioInputValues({...contract,inputRules:undefined,inputGroups:undefined,inputs:[{...f,canonical:undefined,attachment:undefined}]},{});}
    catch {limitations.push("DEFAULT_SCHEMA_CONFLICT:"+f.name);}
   }
  }

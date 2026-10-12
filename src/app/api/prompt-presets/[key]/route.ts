@@ -5,20 +5,25 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 type Context = { params: Promise<{ key: string }> };
 
-export async function GET(request: Request, context: Context) {
+async function getObservedHandler(request: Request, context: Context) {
   const { key } = await context.params;
   return withPromptPresetRoute(request, async (ownerEmail) => ({ item: await promptPresetService.get(ownerEmail, key) }));
 }
-export async function PATCH(request: Request, context: Context) {
+async function patchObservedHandler(request: Request, context: Context) {
   const { key } = await context.params;
   return withPromptPresetRoute(request, async (ownerEmail, body) => ({
     item: await promptPresetService.update(ownerEmail, key, body),
   }), { mutation: true });
 }
-export async function DELETE(request: Request, context: Context) {
+async function deleteObservedHandler(request: Request, context: Context) {
   const { key } = await context.params;
   return withPromptPresetRoute(request, async (ownerEmail, body) => {
     await promptPresetService.remove(ownerEmail, key, body);
     return { deleted: true };
   }, { mutation: true });
 }
+
+import { withRequestObservability } from "@/server/observability/request-observability";
+export const GET = withRequestObservability("/api/prompt-presets/[key]", getObservedHandler);
+export const PATCH = withRequestObservability("/api/prompt-presets/[key]", patchObservedHandler);
+export const DELETE = withRequestObservability("/api/prompt-presets/[key]", deleteObservedHandler);

@@ -1,3 +1,5 @@
+// @vitest-environment node
+import { mediaOutputDataUrl } from "@/server/media-assets/binary-media-output";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { mockVideoGenerationResult } from "./node-studio-e2e-media-fixtures";
@@ -73,7 +75,7 @@ const cases = [
 describe("E2E provider fixtures retain durable generation storage", () => {
   it("uses the exact independently playable checked-in video fixture", () => {
     const result = mockVideoGenerationResult();
-    const dataUrl = result.videos[0];
+    const dataUrl = mediaOutputDataUrl(result.videos[0]);
     expect(Buffer.from(dataUrl.split(",")[1], "base64")).toEqual(readFileSync("public/sample-video.mp4"));
   });
   beforeEach(() => {

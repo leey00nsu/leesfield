@@ -14,6 +14,7 @@ import { cinemaShootingGuide } from "@/shared/cinema/cinema-shooting-guide";
 import { CinemaImage } from "./cinema-image";
 import { CinemaCoverflow } from "./cinema-coverflow";
 import { CinemaPhotoPreview } from "./cinema-photo-preview";
+import { CinemaMovementGrid } from "./cinema-movement-grid";
 import styles from "./cinema-studio-controls.module.css";
 
 type Group = "shooting" | "visual" | "narrative";
@@ -93,7 +94,7 @@ function PhotoGrid({ category, value, disabled, onChange }: {
   return <div className={styles.photoGrid} role="group" aria-label={t(category)}>
     {cinemaOptions(category).map(option => <button key={option.id} type="button" disabled={disabled} aria-pressed={option.id === value} className={styles.photoCard} onClick={() => onChange(option.id)}>
       <div className={styles.cardImage}><CinemaImage option={option} />{option.id === "auto" && <span className={styles.autoLabel}>Auto</span>}</div>
-      {option.swatches && <div className={styles.swatches} aria-hidden="true">{option.swatches.map(color => <span key={color} style={{ background: color }} />)}</div>}
+      <div className={styles.swatches} aria-hidden="true">{option.swatches?.map(color => <span key={color} style={{ background: color }} />)}</div>
       <span className={styles.cardName}>{locale === "ko" ? option.ko : option.name}</span>
     </button>)}
   </div>;
@@ -129,15 +130,15 @@ export function CinemaStudioControls({ media, settings: raw, onChange, disabled 
         {(media === "video" ? ["narrative", "visual", "shooting"] : ["visual", "shooting"]).map(item => {
           const key = item as Group;
           const Icon = key === "shooting" ? Camera : key === "visual" ? Palette : Clapperboard;
-          const text = key === "shooting" ? settings.shootingEnabled ? summary(["camera", "lens", "composition", "aperture", ...(media === "video" ? ["movement" as const] : [])]) : t("off") : key === "visual" ? summary(["palette", "lighting", "artStyle"]) : summary(["genre", "rhythm"]);
+          const text = key === "shooting" ? summary(["camera", "lens", "composition", "aperture", ...(media === "video" ? ["movement" as const] : [])]) : key === "visual" ? summary(["palette", "lighting", "artStyle"]) : summary(["genre", "rhythm"]);
           return <AppDialogTrigger key={key} asChild><AppButton type="button" variant="ghost" size="sm" className={styles.trigger} disabled={blocked} onClick={() => setGroup(key)} aria-label={`${t(key)}: ${text}`}><Icon size={15} /><span>{t(key)}</span><small>{text}</small><ChevronDown size={12} /></AppButton></AppDialogTrigger>;
         })}
       </div>
       {unsupported && <AppPromptMessage className={styles.notice}><span>{t("unsupported")}</span><AppButton type="button" size="sm" variant="surface" disabled={disabled} onClick={() => onChange(defaultCinemaSettings())}>{t("reset")}</AppButton></AppPromptMessage>}
       {!supportsPrompt && <AppPromptMessage className={styles.notice}><span>{t("promptUnsupported")}</span>{!unsupported && hasCinemaGuidance(settings, media) && <AppButton type="button" size="sm" variant="surface" disabled={disabled} onClick={() => onChange(defaultCinemaSettings())}>{t("reset")}</AppButton>}</AppPromptMessage>}
-      {conflict && <AppPromptMessage className={styles.notice} role="status"><span>{t("presetConflict")}</span><AppButton type="button" size="sm" variant="surface" disabled={disabled} onClick={() => onChange({ ...settings, shootingEnabled: false })}>{t("disableShooting")}</AppButton></AppPromptMessage>}
+      {conflict && <AppPromptMessage className={styles.notice} role="status"><span>{t("presetConflict")}</span><AppButton type="button" size="sm" variant="surface" disabled={disabled} onClick={() => onChange({ ...settings, camera: "auto", lens: "auto", composition: "auto", aperture: "auto" })}>{t("resetShooting")}</AppButton></AppPromptMessage>}
     </div>
-    <AppDialogContent size="xl" padding="none" showCloseButton={false} className={`${styles.dialog} nodrag nopan nowheel`}>
+    <AppDialogContent size="xl" padding="none" showCloseButton={false} className={`${styles.dialog} ${selectedGroup === "shooting" && shootingTab === "movement" ? styles.movementDialog : ""} nodrag nopan nowheel`}>
       <AppDialogHeader className={styles.header}>
         <AppDialogTitle className={styles.title}>{t(selectedGroup)}</AppDialogTitle>
         <div className={styles.headerActions}><AppButton type="button" variant="ghost" size="sm" disabled={disabled || !supportsPrompt} onClick={() => onChange(defaultCinemaSettings())}><RotateCcw size={14} />{t("reset")}</AppButton><AppDialogClose asChild><AppCloseButton /></AppDialogClose></div>
@@ -152,13 +153,12 @@ export function CinemaStudioControls({ media, settings: raw, onChange, disabled 
           selectTab(tabList[next]);
           event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next].focus();
         }}>{t(tab)}</button>)}
-        {selectedGroup === "shooting" && <button type="button" role="switch" aria-checked={settings.shootingEnabled} aria-label={t("enableShooting")} disabled={blocked} className={styles.switch} onClick={() => { if (!blocked) onChange({ ...settings, shootingEnabled: !settings.shootingEnabled }); }}><span />{t(settings.shootingEnabled ? "on" : "off")}</button>}
       </div>
-      <AppDialogBody className={styles.body} id={`${instanceId}-panel-${selectedGroup}`} role="tabpanel" aria-labelledby={`${instanceId}-tab-${selectedTab}`}>
+      <AppDialogBody className={`${styles.body} ${selectedGroup === "shooting" && shootingTab === "movement" ? styles.movementBody : ""}`} id={`${instanceId}-panel-${selectedGroup}`} role="tabpanel" aria-labelledby={`${instanceId}-tab-${selectedTab}`}>
         {selectedGroup === "shooting" && shootingTab === "setup" ? <>
           <CinemaPhotoPreview settings={settings} />
-          <div className={styles.wheels} aria-disabled={!settings.shootingEnabled}>{(["camera", "lens", "composition", "aperture"] as const).map(category => <SelectionWheel key={category} category={category} value={settings[category]} disabled={blocked || !settings.shootingEnabled} onChange={id => patch(category, id)} />)}</div>
-        </> : selectedGroup === "shooting" ? <PhotoGrid category="movement" value={settings.movement} disabled={blocked || !settings.shootingEnabled} onChange={id => patch("movement", id)} />
+          <div className={styles.wheels}>{(["camera", "lens", "composition", "aperture"] as const).map(category => <SelectionWheel key={category} category={category} value={settings[category]} disabled={blocked} onChange={id => patch(category, id)} />)}</div>
+        </> : selectedGroup === "shooting" ? <CinemaMovementGrid value={settings.movement} disabled={blocked} active={open} onChange={id => patch("movement", id)} />
           : selectedGroup === "visual" && visualTab !== "artStyle" ? <PhotoGrid category={visualTab} value={settings[visualTab]} disabled={blocked} onChange={id => patch(visualTab, id)} />
           : <CinemaCoverflow key={selectedGroup === "visual" ? "artStyle" : narrativeTab} category={selectedGroup === "visual" ? "artStyle" : narrativeTab} value={settings[selectedGroup === "visual" ? "artStyle" : narrativeTab]} disabled={blocked} onChange={id => patch(selectedGroup === "visual" ? "artStyle" : narrativeTab, id)} />}
       </AppDialogBody>

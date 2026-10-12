@@ -1,3 +1,4 @@
+import { logSafeError } from "@/server/observability/request-observability";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { ZodError } from "zod";
 
@@ -310,6 +311,7 @@ export function createMediaAssetService(
           bytes: input.declaredBytes,
         }), new MediaStorageUnavailableError({ stage: "presign", reason: "timeout" }));
       } catch (error) {
+        logSafeError("storage.presign.failed",error,{provider:storage.name,phase:"storage.presign"});
         if (error instanceof MediaStorageUnavailableError) throw error;
         // Never retain SDK messages, response bodies, URLs or credentials in
         // route logs. A bounded status/category identifies failures safely.
@@ -433,6 +435,7 @@ export function createMediaAssetService(
         }
         await readFetchResponseBytes(response, 1024 * 1024);
       } catch (error) {
+        logSafeError("storage.relay.failed",error,{provider:storage.name,jobId:uploadId,phase:"storage.put"});
         if (error instanceof BoundedIoError) {
           throw new MediaVerificationError("MEDIA_SIZE_MISMATCH");
         }
@@ -441,7 +444,11 @@ export function createMediaAssetService(
       } finally {
         timeout.clear();
       }
-      if (!response.ok) throw new MediaStorageUnavailableError();
+      if (!response.ok) {
+        const error = new MediaStorageUnavailableError();
+        logSafeError("storage.relay.failed",error,{provider:storage.name,jobId:uploadId,phase:"storage.put",status:response.status});
+        throw error;
+      }
     },
 
     async confirmUpload(ownerEmail: string, uploadId: string, body: unknown) {
@@ -461,6 +468,7 @@ export function createMediaAssetService(
           await boundedStorage(storage.delete(session.storageObjectId)).catch(() => undefined);
         }
       };
+      let phase = "storage.confirm";
       try {
         confirmed = await boundedStorage(storage.confirm({
           objectId: session.storageObjectId,
@@ -484,6 +492,7 @@ export function createMediaAssetService(
         ) {
           throw new MediaVerificationError("MEDIA_MIME_MISMATCH");
         }
+        phase = "storage.inspect";
         inspected = await boundedStorage(storage.inspect({
           url: confirmed.url,
           expectedType: session.intendedType,
@@ -500,6 +509,7 @@ export function createMediaAssetService(
           throw new MediaVerificationError("MEDIA_METADATA_INVALID");
         }
       } catch (error) {
+        logSafeError("storage.confirm.failed",error,{provider:storage.name,jobId:uploadId,phase});
         await queueFailedUpload(errorCode(error));
         if (error instanceof MediaVerificationError) throw error;
         throw new MediaStorageUnavailableError();
