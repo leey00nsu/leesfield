@@ -14,6 +14,7 @@
     "start": "next start",
     "lint": "eslint",
     "security:production": "pnpm audit --prod --audit-level high",
+    "pretypecheck": "pnpm db:generate",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm vendor:node-banana:prepare",
     "test": "vitest run --maxWorkers=4",
