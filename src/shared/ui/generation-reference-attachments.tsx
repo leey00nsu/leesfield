@@ -8,7 +8,7 @@ import { fileFieldAllowsNullItems } from "@/shared/model-catalog/gradio-file-sch
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { droppedMediaType, normalizeDroppedMediaFile } from "@/shared/media-assets/media-file-drop";
 import type { GradioField } from "@/shared/model-catalog/gradio-contract";
-import { AppButton } from "./app-button";
+import { AppMediaActionButton } from "./app-media-action-button";
 import { AppPromptMessage } from "./app-prompt-message";
 
 export interface ReferenceAttachmentControl {
@@ -67,7 +67,7 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
   return <ReferenceContext.Provider value={context}>
     <div className="flex min-w-0 flex-col gap-3" data-reference-attachments="">
       <input ref={input} type="file" className="sr-only" tabIndex={-1} multiple
-        aria-label={ko ? "참조 자료 첨부" : "Attach references"}
+        aria-label={ko ? "참조 자료 업로드" : "Upload references"}
         accept={fields.map(field=>field.media+"/*").join(",")} disabled={!canAdd}
         onChange={async event=>{
           const original=Array.from(event.target.files??[]);event.target.value="";
@@ -88,14 +88,14 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
           await Promise.all([...batch].map(([control,files])=>control.attachFiles(files)));
         }}/>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <AppButton type="button" variant="surface-muted" size="pill-sm" className="rounded-full px-3" disabled={!canAdd}
-          aria-label={ko ? "참조 자료 첨부" : "Attach references"} onClick={()=>input.current?.click()}>
-          {busy ? <Loader2 className="size-4 animate-spin"/> : <Plus className="size-4"/>}{ko ? "첨부" : "Attach"}
-        </AppButton>
-        <AppButton ref={trigger} type="button" variant="surface-muted" size="pill-sm" className="rounded-full px-3" disabled={!canAdd}
+        <AppMediaActionButton disabled={!canAdd}
+          aria-label={ko ? "참조 자료 업로드" : "Upload references"} onClick={()=>input.current?.click()}>
+          {busy ? <Loader2 className="size-4 animate-spin"/> : <Plus className="size-4"/>}{ko ? "업로드" : "Upload"}
+        </AppMediaActionButton>
+        <AppMediaActionButton ref={trigger} disabled={!canAdd}
           aria-label={ko ? "참조 자료 에셋 선택" : "Choose reference assets"} onClick={()=>setOpenKey(key)}>
           <FolderOpen className="size-4"/>{ko ? "에셋" : "Assets"}
-        </AppButton>
+        </AppMediaActionButton>
         <span className="text-xs text-muted-foreground">{ko ? "참조 자료" : "References"}</span>
       </div>
       {requirement && <span className="text-xs text-muted-foreground">{requirement}</span>}

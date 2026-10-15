@@ -1,4 +1,5 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
 import { Switch } from "@/shared/ui/brand/switch/switch";
 
@@ -364,9 +365,7 @@ export function VideoOperationNodeControls({
         {latest || blockedReason ? (
           <span className="min-w-0 text-[11px] leading-4 text-white/50" role="status" aria-live="polite">
             {latest ? t(`execution.status.${latest.status}`) : t(`execution.blocked.${blockedReason}`)}
-            {latest && !["completed", "failed", "cancelled"].includes(latest.status)
-              ? ` · ${Math.round(latest.progress)}%`
-              : ""}
+            {latest ? <> · <ExecutionTime {...latest} /></> : null}
           </span>
         ) : <span />}
         {!customHeader && (active || controller.current) ? (

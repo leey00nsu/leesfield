@@ -8,6 +8,7 @@ import { GenerationPromptSurface } from "@/shared/ui/generation-prompt-field";
 import { AppPromptEditor } from "@/shared/ui/app-prompt-editor";
 import { NodeTextEditor } from "@/shared/ui/node-text-editor";
 import { AppPromptMessage } from "@/shared/ui/app-prompt-message";
+import { AppMediaActionButton } from "@/shared/ui/app-media-action-button";
 import { AppButton } from "@/shared/ui/app-button";
 import { GenerationReferenceAttachments } from "@/shared/ui/generation-reference-attachments";
 import { gradioFieldLabel } from "@/shared/model-catalog/gradio-form-validation";
@@ -235,8 +236,8 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
       getPreviewUrl={(_value, index) => assets[ids.slice(0,slotIndex??index).filter(id=>id!==null).length]?.data?.url ?? ""}
       onChangeOrder={paired ? order=>mutate(order.map(index=>urls[index]),undefined,undefined,order) : undefined}
       disabled={disabled || busy} assetPickerTrigger={
-        <AppButton type="button" variant="surface-muted" size="pill-sm" disabled={disabled || busy}
-          onClick={() => setOpen(true)}><FolderOpen className="size-4" />{ko ? "에셋" : "Assets"}</AppButton>
+        <AppMediaActionButton disabled={disabled || busy}
+          onClick={() => setOpen(true)}><FolderOpen className="size-4" />{ko ? "에셋" : "Assets"}</AppMediaActionButton>
       } onChange={next => mutate(next)} />
     {error && <AppPromptMessage>{error}</AppPromptMessage>}
     {ids.length > slot.limit && <AppPromptMessage>{ko ? `최대 ${slot.limit}개까지 첨부할 수 있습니다.` : `Attach up to ${slot.limit} files.`}</AppPromptMessage>}

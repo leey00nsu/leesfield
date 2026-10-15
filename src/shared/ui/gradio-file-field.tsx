@@ -5,6 +5,7 @@ import { FileUp, FolderOpen, Loader2, Plus, X, AudioLines, ChevronLeft, ChevronR
 import { MediaAssetPicker } from "@/features/media-assets/ui/media-asset-picker";
 import { isAllowedMediaMimeType, type MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { AppButton } from "./app-button";
+import { AppMediaActionButton } from "./app-media-action-button";
 import { AppMediaOrderBadge } from "./app-media-order-badge";
 import { AppAttachmentImagePreview } from "./app-attachment-image-preview";
 import { AppAttachmentPreviewLink } from "./app-attachment-preview-link";
@@ -166,20 +167,20 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
       disabled={busy || disabled || limit === 0}
       onChange={event=>{const files=Array.from(event.target.files??[]);event.target.value="";void attachFiles(files);}} />
     <div className="flex min-w-0 flex-wrap items-center gap-2">
-      {!group && <AppButton type="button" variant="surface-muted" size="pill-sm"
+      {!group && <AppMediaActionButton
         disabled={busy || disabled || limit === 0 || (multiple && items.length >= limit)}
         onClick={() => input.current?.click()}
-        aria-label={label + ": " + (items.length && !multiple ? (ko ? "파일 교체" : "Replace file") : (ko ? "파일 추가" : "Add file"))}
-        className="rounded-full px-3">
+        aria-label={label + ": " + (items.length && !multiple ? (ko ? "파일 교체" : "Replace file") : (ko ? "파일 업로드" : "Upload file"))}
+       >
         {busy ? <Loader2 className="size-4 animate-spin"/> : <Plus className="size-4"/>}
-        {ko ? "첨부" : "Attach"}
-      </AppButton>}
-      {!group && showAssetPicker && <AppButton ref={assetTrigger} type="button" variant="surface-muted" size="pill-sm"
-        disabled={!canAdd} className="rounded-full px-3"
+        {ko ? "업로드" : "Upload"}
+      </AppMediaActionButton>}
+      {!group && showAssetPicker && <AppMediaActionButton ref={assetTrigger}
+        disabled={!canAdd}
         aria-label={label + ": " + (ko ? "에셋 선택" : "Choose asset")}
         onClick={() => setAssetContext({name:field.name,kind:field.kind,media:field.media})}>
         <FolderOpen className="size-4"/>{ko ? "에셋" : "Assets"}
-      </AppButton>}
+      </AppMediaActionButton>}
       {!group && assetPickerTrigger}
       <span className="text-xs text-muted-foreground">{label}{field.required && <span className="ml-2 text-destructive">{ko ? "필수" : "Required"}</span>}</span>
       {limit > 0 && <span className="text-xs text-muted-foreground" aria-label={ko ? "첨부 개수" : "Attachment count"}>{items.length} / {limit}</span>}

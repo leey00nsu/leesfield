@@ -135,7 +135,7 @@ describe("GenerationNodeExecution", () => {
     expect(screen.getByRole("button", { name: "실행" })).toBeDisabled();
   });
 
-  it("shows progress and cancels by the common execution id", async () => {
+  it("shows elapsed time and cancels by the common execution id", async () => {
     const user = userEvent.setup();
     mocks.query.data = [record("processing")];
     renderWithIntl(
@@ -143,7 +143,8 @@ describe("GenerationNodeExecution", () => {
     );
 
     expect(screen.getByText(/생성 중/)).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "45");
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.getByText(/경과$/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "취소" }));
     expect(mocks.cancel).toHaveBeenCalledWith({
       graphId: "graph-1",

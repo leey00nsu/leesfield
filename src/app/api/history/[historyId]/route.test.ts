@@ -1,3 +1,4 @@
+import { findBuiltinPromptPreset } from "@/shared/prompt-presets/builtin-prompt-presets";
 import {beforeEach, afterEach, expect, it, vi} from "vitest";
 const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),files:vi.fn(),remote:vi.fn(),asset:vi.fn(),catalog:vi.fn()}));
 vi.mock("@/server/media-assets/media-asset-service",()=>({mediaAssetService:{get:mocks.asset}}));
@@ -16,7 +17,7 @@ it("returns only the owned authoring projection without downloading media or exp
  mocks.find.mockResolvedValue({id:"record-1",prompt:cinema.finalPrompt,modelKey:"model",requestParams:{cinema,executionModel:{providerConfig:{token:"PRIVATE"}},inputAssets:[{assetId:"input"}]},images:[]});
  const response = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
  expect(response.status).toBe(200);
- expect(await response.json()).toEqual({cinema,prompt:cinema.finalPrompt,model:"model",references:[],options:[]});
+ expect(await response.json()).toEqual({cinema,inputPrompt:"source",promptPreset:null,prompt:cinema.finalPrompt,model:"model",references:[],options:[]});
  expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{requestId:"request-1",ownerEmail:"owner@example.com"}}));
  expect(mocks.remote).not.toHaveBeenCalled();
  mocks.find.mockResolvedValue(null);
@@ -51,7 +52,7 @@ it("resolves durable references under the record owner in original field order w
  mocks.asset.mockImplementation(async(owner,id)=>({type:"image",url:"https://storage.example/"+id+".png"}));
  const response=await GET(new Request("http://localhost/api/history/r?type=video&view=authoring"),context);
  expect(response.status).toBe(200);
- expect(await response.json()).toEqual({cinema:null,prompt:"source",model:"m",options:[],references:[{field:"dynamicParams.reference_images",media:"image",multiple:true,urls:["https://storage.example/first.png","https://storage.example/second.png"]}]});
+ expect(await response.json()).toEqual({cinema:null,inputPrompt:"source",promptPreset:null,prompt:"source",model:"m",options:[],references:[{field:"dynamicParams.reference_images",media:"image",multiple:true,urls:["https://storage.example/first.png","https://storage.example/second.png"]}]});
  expect(mocks.asset.mock.calls.map(args=>args.slice(0,2))).toEqual([["owner@example.com","first"],["owner@example.com","second"]]);
  expect(mocks.remote).not.toHaveBeenCalled();
  mocks.asset.mockRejectedValueOnce(new Error("MEDIA_ASSET_NOT_FOUND"));
@@ -93,3 +94,29 @@ it("deletes an edit record after deleting its stored files",async()=>{
 });
 
 it("keeps history when file deletion fails",async()=>{mocks.find.mockResolvedValue({id:"r",status:"completed",images:[{id:"i",url:"https://storage.example/a"}]});mocks.files.mockRejectedValueOnce(new Error("storage down"));expect((await DELETE(new Request("http://localhost/api/history/request-1?type=image"),context)).status).toBe(502);expect(mocks.remove).not.toHaveBeenCalled();});
+
+it.each([["typed text", "typed text"], ["", ""], [undefined, null]])("returns separate typed text for preset history (%s)", async (inputPrompt, expected) => {
+  mocks.find.mockResolvedValue({ id: "record", prompt: "preset body plus typed text", modelKey: "model", images: [],
+    requestParams: { promptPreset: { key: "preset" }, ...(inputPrompt !== undefined ? { inputPrompt } : {}) } });
+  const response = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"), context);
+  expect((await response.json()).inputPrompt).toBe(expected);
+});
+
+it("restores exact versioned builtin preset text and exposes a chip without the expanded body", async () => {
+  const preset = findBuiltinPromptPreset("multi-camera-nine-grid")!;
+  mocks.find.mockResolvedValue({id:"record",prompt:preset.prompt+"\n\n 개 대신 고양이로",modelKey:"model",images:[],requestParams:{promptPreset:{key:preset.key,revision:preset.revision,builtinRevision:1,requiredInputs:preset.requiredInputs,recommendedParameters:preset.recommendedParameters}}});
+  const response = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
+  expect(await response.json()).toMatchObject({ inputPrompt:" 개 대신 고양이로",promptPreset:{key:preset.key,name:preset.name,tokenOffset:0} });
+  mocks.find.mockResolvedValue({id:"record",prompt:"changed body\n\ntyped text",modelKey:"model",images:[],requestParams:{promptPreset:{key:preset.key,revision:preset.revision,builtinRevision:1,requiredInputs:preset.requiredInputs,recommendedParameters:preset.recommendedParameters}}});
+  const changed = await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
+  expect((await changed.json()).inputPrompt).toBeNull();
+});
+it("keeps custom preset names, token positions, and preset-only empty user text frozen",async()=>{
+  const preset={key:"my-preset",revision:7,requiredInputs:{referenceImageCount:0},recommendedParameters:{}};
+  for (const text of ["before after", ""]) {
+    const tokenOffset = text ? 7 : 0;
+    mocks.find.mockResolvedValue({id:"record",prompt:"provider expanded prompt",modelKey:"model",images:[],requestParams:{inputPrompt:text,promptPreset:preset,promptPresetState:{name:"My frozen preset",appliedPrompt:"frozen body",userText:text,tokenOffset}}});
+    const response=await GET(new Request("http://localhost/api/history/request-1?type=image&view=authoring"),context);
+    expect(await response.json()).toMatchObject({inputPrompt:text,promptPreset:{key:preset.key,name:"My frozen preset",tokenOffset}});
+  }
+});

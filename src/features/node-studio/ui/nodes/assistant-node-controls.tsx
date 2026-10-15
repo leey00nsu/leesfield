@@ -1,4 +1,5 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -187,6 +188,7 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
         </li>)}
       </ol> : result?.outputText ?? (active ? "생성 중입니다…" : "아직 생성된 결과가 없습니다.")}</div>}
 
+    {latest && <div className="text-xs text-muted-foreground"><ExecutionTime {...latest} /></div>}
     {latest?.status === "failed" ? <span role="alert" className="text-[11px] text-red-300">{errorMessage(latest.errorCode)}</span> : null}
     {submitError ? <span role="alert" className="text-[11px] text-red-300">{submitError}</span> : null}
   </div>;

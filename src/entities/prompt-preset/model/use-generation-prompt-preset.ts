@@ -57,6 +57,7 @@ export function useGenerationPromptPreset(options: Options) {
       }
     },
     reference: draft.preset ? promptPresetReference(draft.preset) : undefined,
+    authoringState: draft.preset ? { name: draft.preset.name, appliedPrompt: draft.appliedPrompt!, userText: text, tokenOffset } : undefined,
     modified, pending, requestApply,
     clear: () => {
       if (draft.preset) options.onApply(text, {});

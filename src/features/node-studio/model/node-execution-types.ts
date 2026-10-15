@@ -27,6 +27,7 @@ export type NodeExecutionDto = {
   selectedItemId?: string | null;
   selectionVersion?: number;
   createdAt: string;
+  finishedAt?: string | null;
   /** Current durable node selection, read after execution history. */
   selectedOutputAssetId?: string | null;
 };
@@ -62,4 +63,4 @@ export type BrowserMediaOperationPlan = {
 export type StartNodeExecutionResult = Pick<
   NodeExecutionDto,
   "executionId" | "executionKind" | "mediaType" | "graphNodeId" | "status" | "progress"
-> & { plan?: BrowserMediaOperationPlan };
+> & { createdAt?: string; finishedAt?: string | null; plan?: BrowserMediaOperationPlan };

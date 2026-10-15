@@ -394,6 +394,24 @@ async function uploadOne(
   sortOrder: number,
   remainingBytes: number,
 ) {
+  // Library references retain their identity; only new or external sources are stored.
+  if (/^https?:\/\//i.test(source)) {
+    const existing = await prisma.mediaAsset.findFirst({
+      where: { ownerEmail, status: "completed", type: input.mediaType,
+        OR: [{ storageUrl: source }, { legacyUrl: source }] },
+      select: { id: true, storageUrl: true, legacyUrl: true, bytes: true, mimeType: true },
+    });
+    if (existing) {
+      if (!isAllowedMediaMimeType(input.mediaType, existing.mimeType)) throw new InputMediaStorageError(INPUT_MEDIA_INVALID);
+      const bytes = existing.bytes == null ? 0 : Number(existing.bytes);
+      if (bytes > Math.min(INPUT_MEDIA_LIMITS[input.mediaType], remainingBytes)) throw new InputMediaStorageError(INPUT_MEDIA_TOO_LARGE);
+      return {
+        ref: { assetId: existing.id, field: input.field, sortOrder, generationType: input.generationType, multiple: input.multiple ?? false },
+        url: existing.storageUrl ?? existing.legacyUrl ?? source,
+        mediaType: input.mediaType, sourceBytes: bytes,
+      } satisfies UploadedInputMedia;
+    }
+  }
   mediaStorageProvider(input.mediaType);
   const resolved = await resolveSource(source, input.mediaType, remainingBytes);
   const mimeType = await detectMime(input.mediaType, resolved);

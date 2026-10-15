@@ -29,6 +29,8 @@ export type ImageGenerationSubmissionRecord = {
   id: string;
   status: ImageGenerationStatus;
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
 };
 
 export class ImageGenerationActiveNodeError extends NodeExecutionActiveError {
@@ -137,6 +139,8 @@ export async function submitImageGeneration({
       id: record.requestId,
       status: record.status,
       progress: record.progress,
+    createdAt: record.createdAt?.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
     } satisfies ImageGenerationSubmissionRecord,
   };
 }

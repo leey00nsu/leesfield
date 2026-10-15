@@ -234,7 +234,7 @@ function toOperationDto(operation: MediaOperationRecord): MediaOperationDto {
     })),
     createdAt: operation.createdAt.toISOString(),
     updatedAt: operation.updatedAt.toISOString(),
-    completedAt: operation.completedAt?.toISOString() ?? null,
+    finishedAt: operation.finishedAt?.toISOString() ?? null,
   };
 }
 

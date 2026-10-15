@@ -86,7 +86,7 @@ type AudioGenerationFormProps = {
 
 type AudioFieldName = Exclude<
   keyof AudioGenerationFormValues,
-  "prompt" | "model" | "dynamicParams" | "promptPreset"
+  "prompt" | "model" | "dynamicParams" | "promptPreset" | "promptPresetState" | "inputPrompt"
 >;
 
 const audioFieldOrder: Record<AudioFieldName, number> = {
@@ -490,7 +490,7 @@ export function AudioGenerationForm({
         typeof values.voice === "string" &&
         values.voice.trim() === resolvedVoiceDefault.trim();
 
-      if (activeRuntimeModel && getGradioContract(activeRuntimeModel)) { startGeneration({ ...values, promptPreset: promptPreset.reference }); return; }
+      if (activeRuntimeModel && getGradioContract(activeRuntimeModel)) { startGeneration({ ...values, inputPrompt: promptPreset.text, promptPreset: promptPreset.reference, promptPresetState: promptPreset.authoringState }); return; }
       const resolvedValues: AudioGenerationFormValues = {
         ...values,
         voice: shouldSuppressLegacyVoice
@@ -548,7 +548,7 @@ export function AudioGenerationForm({
             ? Number(getResolvedDefaultValue("repetitionPenalty"))
             : values.repetitionPenalty,
       };
-      startGeneration({ ...resolvedValues, promptPreset: promptPreset.reference });
+      startGeneration({ ...resolvedValues, inputPrompt: promptPreset.text, promptPreset: promptPreset.reference, promptPresetState: promptPreset.authoringState });
     })(event);
   };
 
@@ -1119,6 +1119,8 @@ export function AudioGenerationForm({
             <GenerationCanvas
               isGenerating={isGenerating}
               status={state.status}
+                createdAt={state.createdAt}
+                finishedAt={state.finishedAt}
               errorMessage={state.errorMessage}
               className={
                 embedded

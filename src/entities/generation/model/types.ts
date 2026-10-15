@@ -29,6 +29,7 @@ export interface GenerationHistoryItem {
   prompt: string;
   model: string | null;
   createdAt: string;
+  finishedAt?: string | null;
   updatedAt?: string | null;
   durationMs?: number | null;
   progress?: number | null;

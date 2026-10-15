@@ -98,7 +98,7 @@ export async function selectAssistantItem(ownerEmail: string, graphId: string, g
 export async function cancelAssistantExecution(ownerEmail: string, graphId: string, graphNodeId: string, id: string) {
   const row = await getAssistantExecution(ownerEmail, graphId, graphNodeId, id);
   if (row.status === "pending") {
-    await prisma.assistantExecution.updateMany({ where: { id, status: "pending" }, data: { status: "cancelled", completedAt: new Date() } });
+    await prisma.assistantExecution.updateMany({ where: { id, status: "pending" }, data: { status: "cancelled", finishedAt: new Date() } });
   } else if (row.status === "processing") {
     await prisma.assistantExecution.updateMany({ where: { id, status: "processing" }, data: { cancelRequestedAt: new Date() } });
   }
@@ -111,7 +111,7 @@ export async function claimAssistantExecution(id: string): Promise<{ row: Assist
     const now = new Date();
     await tx.assistantExecution.updateMany({
       where: { status: "processing", executionLeaseUntil: { lte: now } },
-      data: { status: "failed", errorCode: "ASSISTANT_LEASE_EXPIRED", completedAt: now, executionLeaseToken: null, executionLeaseUntil: null },
+      data: { status: "failed", errorCode: "ASSISTANT_LEASE_EXPIRED", finishedAt: now, executionLeaseToken: null, executionLeaseUntil: null },
     });
     const active = await tx.assistantExecution.count({ where: { status: "processing", executionLeaseUntil: { gt: now } } });
     if (active >= 4) return null;
@@ -149,8 +149,8 @@ export async function settleAssistantExecution(id: string, lease: AssistantLease
   const update = await tx.assistantExecution.updateMany({
     where: { id, ...leaseWhere(lease) },
     data: "text" in result
-      ? { status: "completed", outputText: result.text, outputListJson: items ?? Prisma.DbNull, selectedItemId: items?.[0].id ?? null, completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null }
-      : { status: "failed", errorCode: result.errorCode, completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
+      ? { status: "completed", outputText: result.text, outputListJson: items ?? Prisma.DbNull, selectedItemId: items?.[0].id ?? null, finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null }
+      : { status: "failed", errorCode: result.errorCode, finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
   });
   if (!update.count) throw new AssistantLeaseLostError();
   });
@@ -159,7 +159,7 @@ export async function settleAssistantExecution(id: string, lease: AssistantLease
 export async function finalizeAssistantCancellation(id: string, lease: AssistantLease) {
   const update = await prisma.assistantExecution.updateMany({
     where: { id, status: "processing", executionLeaseToken: lease.token, executionLeaseVersion: lease.version, cancelRequestedAt: { not: null } },
-    data: { status: "cancelled", completedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
+    data: { status: "cancelled", finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
   });
   return update.count === 1;
 }

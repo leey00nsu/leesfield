@@ -380,7 +380,7 @@ export function VideoGenerationForm({
     if (cinemaBlocked) { event.preventDefault(); return; }
     if (presetInputIssue) { event.preventDefault(); return; }
     if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
-    void form.handleSubmit((values) => startGeneration({ ...values, promptPreset: promptPreset.reference, cinema: cinema.settings }))(event);
+    void form.handleSubmit((values) => startGeneration({ ...values, inputPrompt: promptPreset.text, promptPreset: promptPreset.reference, promptPresetState: promptPreset.authoringState, cinema: cinema.settings }))(event);
   };
 
   return (
@@ -407,6 +407,8 @@ export function VideoGenerationForm({
             <GenerationCanvas
               isGenerating={isGenerating}
               status={state.status}
+                createdAt={state.createdAt}
+                finishedAt={state.finishedAt}
               errorMessage={state.errorMessage}
               className={
                 embedded

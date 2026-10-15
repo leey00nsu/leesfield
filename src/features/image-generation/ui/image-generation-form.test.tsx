@@ -504,7 +504,7 @@ describe("ImageGenerationForm", () => {
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "생성" }));
     await waitFor(() => expect(startGeneration).toHaveBeenCalledTimes(1));
-    expect(startGeneration).toHaveBeenLastCalledWith(expect.objectContaining({ prompt: "이번 생성의 프리셋 본문\n\n현재 작업 수정본", imageCount: 1, initImages: ["https://example.com/reference.png"], promptPreset: expect.objectContaining({ key: "multi-camera-nine-grid", revision: 3 }) }), 1);
+    expect(startGeneration).toHaveBeenLastCalledWith(expect.objectContaining({ prompt: "이번 생성의 프리셋 본문\n\n현재 작업 수정본", inputPrompt: "현재 작업 수정본", promptPresetState: { name: "멀티 카메라 9 그리드", appliedPrompt: "이번 생성의 프리셋 본문", userText: "현재 작업 수정본", tokenOffset: 0 }, imageCount: 1, initImages: ["https://example.com/reference.png"], promptPreset: expect.objectContaining({ key: "multi-camera-nine-grid", revision: 3 }) }), 1);
     await user.click(screen.getByRole("button", { name: "멀티 카메라 9 그리드 프리셋 제거" }));
     expect(prompt).toHaveTextContent("현재 작업 수정본");
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -712,4 +712,22 @@ describe("ImageGenerationResult pagination", () => {
     expect(screen.getByRole("button", {name: "이전 페이지"})).toBeDisabled();
     expect(screen.getByRole("button", {name: "다음 페이지"})).toBeDisabled();
   });
+});
+
+it("keeps completed images visible beside pending batch cards and terminates failed placeholders", () => {
+  const initial: ImageGenerationState = { status: "processing", progress: 0, batch: { total: 3, finished: 1, failed: 0 },
+    result: { images: [{ url: "/done.webp" }] }, slots: [
+      { id: "slot-1", status: "completed", images: [{ url: "/done.webp" }] },
+      { id: "slot-2", status: "processing", images: [] },
+      { id: "slot-3", status: "pending", images: [] },
+    ] };
+  const { rerender } = renderWithIntl(<ImageGenerationResult embedded state={initial} />);
+  const done = screen.getByRole("img", { name: "생성된 이미지 1" });
+  expect(done).toBeVisible();
+  expect(screen.getAllByTestId("generation-skeleton")).toHaveLength(2);
+  rerender(<ImageGenerationResult embedded state={{ ...initial, slots: [initial.slots![0], { id: "slot-2", status: "failed", images: [], errorMessage: "provider error", createdAt: "2026-10-15T00:00:00Z", finishedAt: "2026-10-15T00:00:20Z" }, initial.slots![2]] }} />);
+  expect(screen.getByRole("img", { name: "생성된 이미지 1" })).toBe(done);
+  expect(screen.getAllByTestId("generation-skeleton")).toHaveLength(1);
+  expect(screen.getByText("provider error")).toBeVisible();
+  expect(screen.getByText("20초 소요")).toBeVisible();
 });

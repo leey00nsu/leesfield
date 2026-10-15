@@ -3,6 +3,7 @@ import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, Images, LayoutTemplate, Plus, SlidersHorizontal, Sparkles } from "lucide-react";
+import { AppMediaActionPresentation } from "@/shared/ui/app-media-action-button";
 import { AppButtonPresentation } from "@/shared/ui/app-button";
 import { GenerationPromptField } from "@/shared/ui/generation-prompt-field";
 import { GenerationMediaRail } from "@/shared/ui/generation-media-rail";
@@ -53,7 +54,7 @@ export function LandingComposer({ media, isAuthenticated = false }: { media: Med
           className="absolute inset-0 z-10 rounded-[1.05rem] outline-none focus-visible:ring-2 focus-visible:ring-data-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background" />
       </>}
       attachments={<div className="flex items-center gap-2 px-4 pt-4">
-        <AppButtonPresentation variant="surface-muted" size="pill-sm"><Plus className="size-4" />{ko ? "첨부" : "Attach"}</AppButtonPresentation>
+        <AppMediaActionPresentation><Plus className="size-4" />{ko ? "업로드" : "Upload"}</AppMediaActionPresentation>
       </div>}
       textarea={<div data-landing-prompt-preview className="min-h-32 flex-1 p-4 text-sm leading-6 text-muted-foreground">{t(`preview.placeholders.${media}`)}</div>}
       footerLeft={<>

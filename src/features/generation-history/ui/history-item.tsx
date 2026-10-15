@@ -7,9 +7,7 @@ import {
   AudioLines,
   CheckCircle2,
   Clock,
-  Image as ImageIcon,
   Loader2,
-  Video,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type {
@@ -18,6 +16,7 @@ import type {
 } from "@/entities/generation/model/types";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppBadge } from "@/shared/ui/app-badge";
+import { AppMediaTypeBadge } from "@/shared/ui/app-media-type-badge";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { appMediaGalleryTileClassName } from "@/shared/ui/app-media-gallery";
 import { cn } from "@/shared/lib/utils";
@@ -54,12 +53,6 @@ const statusConfig: Record<
   },
 };
 
-const typeConfig = {
-  image: { icon: ImageIcon },
-  video: { icon: Video },
-  audio: { icon: AudioLines },
-};
-
 export function HistoryItem({
   item,
   autoplay = true,
@@ -77,14 +70,11 @@ export function HistoryItem({
   const locale = useLocale();
   const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const tStatuses = useTranslations("history.statuses");
-  const tTypes = useTranslations("history.types");
   const tStates = useTranslations("history.states");
   const tActions = useTranslations("history.actions");
   const tHistory = useTranslations("history");
   const status = statusConfig[item.status];
-  const type = typeConfig[item.type];
   const StatusIcon = status.icon;
-  const TypeIcon = type.icon;
   const urls = item.type === "image" && item.resultUrl ? imageUrlsFor({url: item.resultUrl, imageVariants: item.imageVariants}, "list") : [item.thumbnailUrl ?? item.resultUrl].filter((url): url is string => Boolean(url));
   if (!item.imageVariants && item.thumbnailUrl) urls.unshift(item.thumbnailUrl);
   const candidates = [...new Set(urls)];
@@ -129,10 +119,7 @@ export function HistoryItem({
         <div className="absolute inset-0 bg-black/58 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2">
-          <AppBadge variant="overlay" className="gap-1.5 backdrop-blur">
-            <TypeIcon className="h-3 w-3" />
-            {tTypes(item.type)}
-          </AppBadge>
+          <AppMediaTypeBadge type={item.type} />
           {mediaDuration != null && <AppBadge variant="overlay">{mediaDuration.toFixed(1)}s</AppBadge>}
           <AppBadge
             className={cn(

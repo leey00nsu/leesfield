@@ -26,7 +26,7 @@ const configuredTimeoutMs =
 // 모델 응답 지연을 고려해 기본 타임아웃에 버퍼를 더한다.
 const pollTimeoutMs = configuredTimeoutMs + EXTRA_TIMEOUT_MS;
 
-const terminalStatuses = ["completed", "failed"] as const;
+const terminalStatuses = ["completed", "failed", "cancelled"] as const;
 
 export type VideoGenerationState = GenerationPollingState<
   VideoGenerationStatus,

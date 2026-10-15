@@ -4,7 +4,7 @@ import { cinemaSnapshotSchema, parseCinemaSettings, type CinemaMedia, type Cinem
 import { historyReferencesSchema, type HistoryReference } from "@/shared/generation/history-references";
 import { historyOptionsSchema, type HistoryOption } from "@/shared/generation/history-options";
 
-export type CinemaHistory = { cinema: CinemaSnapshot | null; prompt: string; model: string | null; references: HistoryReference[]; options: HistoryOption[] };
+export type CinemaHistory = { cinema: CinemaSnapshot | null; inputPrompt?: string | null; promptPreset?: { key: string; name: string; builtinKey: string | null; tokenOffset: number } | null; prompt: string; model: string | null; references: HistoryReference[]; options: HistoryOption[] };
 export function useCinemaHistory(historyId: string | null | undefined, media: CinemaMedia | "audio", enabled = true) {
   const [result, setResult] = useState<{ id?: string; data?: CinemaHistory; error?: boolean }>({});
   useEffect(() => {
@@ -20,7 +20,7 @@ export function useCinemaHistory(historyId: string | null | undefined, media: Ci
         if (typeof raw.prompt !== "string" || (raw.model !== null && typeof raw.model !== "string")) throw new Error("CINEMA_HISTORY_UNSUPPORTED");
         const references = historyReferencesSchema.parse(raw.references ?? []);
         const options = historyOptionsSchema.parse(raw.options ?? []);
-        if (!controller.signal.aborted) setResult({ id: historyId, data: { cinema, prompt: raw.prompt, model: raw.model, references, options } });
+        if (!controller.signal.aborted) setResult({ id: historyId, data: { cinema, inputPrompt: typeof raw.inputPrompt === "string" ? raw.inputPrompt : null, promptPreset: raw.promptPreset && typeof raw.promptPreset.key === "string" && typeof raw.promptPreset.name === "string" && Number.isInteger(raw.promptPreset.tokenOffset) ? raw.promptPreset : null, prompt: raw.prompt, model: raw.model, references, options } });
       } catch { if (!controller.signal.aborted) setResult({ id: historyId, error: true }); }
     })();
     return () => controller.abort();

@@ -1,6 +1,6 @@
 import { formJsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { z } from "zod";
-import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
+import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import {
   defaultModelKey,
   getImageParamConfig,
@@ -24,7 +24,9 @@ const imageGenerationBaseSchema = z.object({
   height: z.number().int(),
   initImages: z.array(z.string()).optional(),
   model: z.string().min(1),
+  inputPrompt: z.string().optional(),
   promptPreset: promptPresetRefSchema.optional(),
+  promptPresetState: promptPresetWorkStateSchema.optional(),
   dynamicParams: z.record(z.string(), formJsonValueSchema).optional(),
   imageCount: z.number().int(),
   steps: z.number().int(),

@@ -25,7 +25,7 @@ const pollTimeoutMs =
     ? configuredTimeoutMs
     : DEFAULT_TIMEOUT_MS) + EXTRA_TIMEOUT_MS;
 
-const terminalStatuses = ["completed", "failed"] as const;
+const terminalStatuses = ["completed", "failed", "cancelled"] as const;
 
 export type AudioGenerationState = GenerationPollingState<
   AudioGenerationStatus,

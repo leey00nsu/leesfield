@@ -103,6 +103,8 @@ describe("requestAudioGeneration", () => {
     await requestAudioGeneration({
       prompt: "hello",
       model: "qwen-dynamic",
+      inputPrompt: "",
+      promptPresetState: { name: "Audio preset", appliedPrompt: "Audio body", userText: "", tokenOffset: 0 },
       promptPreset: { key: "audio-demo", revision: 7, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} },
       dynamicParams: {
         "hf:model_size": "1.7B",
@@ -112,6 +114,8 @@ describe("requestAudioGeneration", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = init.body as FormData;
+    expect(body.get("inputPrompt")).toBe("");
+    expect(JSON.parse(String(body.get("promptPresetState")))).toEqual({name:"Audio preset",appliedPrompt:"Audio body",userText:"",tokenOffset:0});
     expect(JSON.parse(String(body.get("promptPreset")))).toEqual({ key: "audio-demo", revision: 7, requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {} });
     expect(body.get("dynamicParams")).toBe(
       JSON.stringify({

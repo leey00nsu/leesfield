@@ -1,9 +1,8 @@
 import { useMemo } from "react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type {
   MonitoringFilters,
   MonitoringMetric,
-  MonitoringRequestResponse,
 } from "@/features/monitoring-dashboard/model/types";
 import {
   fetchMonitoringApiKeys,
@@ -59,8 +58,7 @@ export function useMonitoringRequests(
   pagination: { limit: number; offset: number },
 ) {
   const key = useMemo(() => buildFilterKey(filters), [filters]);
-  const queryClient = useQueryClient();
-  const result = useQuery({
+  return useQuery({
     queryKey: [
       "monitoring",
       "requests",
@@ -69,7 +67,8 @@ export function useMonitoringRequests(
       ...key,
     ],
     queryFn: () =>
-      fetchMonitoringRequests(filters, pagination.limit, pagination.offset, pagination.offset === 0),
+      // Numbered pagination needs a total on every page, independent of cache lifetime.
+      fetchMonitoringRequests(filters, pagination.limit, pagination.offset, true),
     staleTime: 3_000,
     gcTime: 5 * 60_000,
     retry: 1,
@@ -77,18 +76,6 @@ export function useMonitoringRequests(
     // Pause polling while browsing older pages to avoid unexpected table jumps.
     refetchInterval: pagination.offset === 0 ? POLL_INTERVAL_MS : false,
   });
-  const firstPage = queryClient.getQueryData<MonitoringRequestResponse>([
-    "monitoring",
-    "requests",
-    pagination.limit,
-    0,
-    ...key,
-  ]);
-  const total = result.data?.total ?? firstPage?.total ?? null;
-  return {
-    ...result,
-    data: result.data ? { ...result.data, total } : result.data,
-  };
 }
 
 export function useMonitoringRequestDetail(

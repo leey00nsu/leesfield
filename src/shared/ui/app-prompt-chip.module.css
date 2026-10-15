@@ -1,12 +1,12 @@
 .chip {
   display: inline-flex;
   max-width: 100%;
-  align-items: center;
+  align-items: baseline;
   gap: 0.25em;
   padding: 0 0.5em;
   font: inherit;
   line-height: 1.5;
-  vertical-align: middle;
+  vertical-align: baseline;
 }
 
 .chip button {
@@ -19,4 +19,10 @@
 .chip svg {
   width: 1em;
   height: 1em;
+}
+
+/* The label supplies the inline baseline; controls stay centered in the pill. */
+.chip > svg,
+.chip > button {
+  align-self: center;
 }

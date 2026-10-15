@@ -55,6 +55,23 @@ beforeAll(() => {
 });
 
 describe("MonitoringRequestTable", () => {
+  it("빈 페이지에서도 이전 페이지로 돌아갈 수 있고 표시 범위를 만들지 않는다", async () => {
+    const user = userEvent.setup();
+    const onOffsetChange = vi.fn();
+    mockUseMonitoringRequestDetail.mockReturnValue({ data: null, isLoading: false, error: null });
+    renderWithIntl(
+      <MonitoringRequestTable
+        items={[]} total={50} limit={50} offset={50}
+        onLimitChange={vi.fn()} onOffsetChange={onOffsetChange}
+        isLoading={false} error={null} updatedAt={null} timeZone="UTC"
+      />,
+    );
+    expect(screen.getByText("0-0 / 50")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음 페이지" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "이전 페이지" }));
+    expect(onOffsetChange).toHaveBeenCalledWith(0);
+  });
+
   it("범위/전체 건수와 페이지 정보를 표시한다", () => {
     const items = createItems(50);
     mockUseMonitoringRequestDetail.mockReturnValue({

@@ -25,6 +25,7 @@ export type MonitoringRequestDetail = {
   model: string | null;
   prompt: string;
   createdAt: string;
+  finishedAt?: string | null;
   updatedAt: string;
   durationMs: number | null;
   progress: number | null;
@@ -64,11 +65,11 @@ async function listInputAssets(
   }) as Promise<InputAssetRow[]>;
 }
 
-const FINISHED_STATUSES = new Set(["completed", "failed"]);
+const FINISHED_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
-function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
-  if (!FINISHED_STATUSES.has(status)) return null;
-  return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+function toDurationMs(createdAt: Date, finishedAt: Date | null | undefined, status: string) {
+  if (!FINISHED_STATUSES.has(status) || !finishedAt) return null;
+  return Math.max(0, finishedAt.getTime() - createdAt.getTime());
 }
 
 function splitDetailMessage(status: string, message: string | null) {
@@ -121,6 +122,7 @@ async function getMonitoringRequestDetailUnobserved(
         requestParams: true,
         createdAt: true,
         updatedAt: true,
+        finishedAt: true,
         progress: true,
         errorMessage: true,
         images: {
@@ -149,8 +151,9 @@ async function getMonitoringRequestDetailUnobserved(
       requestParameters: requestSettings(record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
+      finishedAt: record.finishedAt?.toISOString() ?? null,
       updatedAt: record.updatedAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+      durationMs: toDurationMs(record.createdAt, record.finishedAt, record.status),
       progress: record.progress,
       errorMessage: messages.errorMessage,
       warningMessage: messages.warningMessage,
@@ -182,6 +185,7 @@ async function getMonitoringRequestDetailUnobserved(
         requestParams: true,
         createdAt: true,
         updatedAt: true,
+        finishedAt: true,
         progress: true,
         errorMessage: true,
         audios: {
@@ -208,8 +212,9 @@ async function getMonitoringRequestDetailUnobserved(
       requestParameters: requestSettings(record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
+      finishedAt: record.finishedAt?.toISOString() ?? null,
       updatedAt: record.updatedAt.toISOString(),
-      durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+      durationMs: toDurationMs(record.createdAt, record.finishedAt, record.status),
       progress: record.progress,
       errorMessage: messages.errorMessage,
       warningMessage: messages.warningMessage,
@@ -242,6 +247,7 @@ async function getMonitoringRequestDetailUnobserved(
       requestParams: true,
       createdAt: true,
       updatedAt: true,
+        finishedAt: true,
       progress: true,
       errorMessage: true,
       videos: {
@@ -270,8 +276,9 @@ async function getMonitoringRequestDetailUnobserved(
       requestParameters: requestSettings(record.requestParams),
     prompt: record.prompt,
     createdAt: record.createdAt.toISOString(),
+      finishedAt: record.finishedAt?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
-    durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+    durationMs: toDurationMs(record.createdAt, record.finishedAt, record.status),
     progress: record.progress,
     errorMessage: messages.errorMessage,
     warningMessage: messages.warningMessage,

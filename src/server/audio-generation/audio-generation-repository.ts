@@ -35,9 +35,11 @@ export async function createAudioGenerationRecord(
       return;
     }
     requestParams[key] =
-      typeof value === "string"
-        ? value.trim() || null
-        : JSON.parse(JSON.stringify(value));
+      key === "inputPrompt"
+        ? value as string
+        : typeof value === "string"
+          ? value.trim() || null
+          : JSON.parse(JSON.stringify(value));
   });
 
   const refs = inputAssetRefs ?? inputAssetRefsFromSnapshot("audio", requestSnapshot ?? requestParams);

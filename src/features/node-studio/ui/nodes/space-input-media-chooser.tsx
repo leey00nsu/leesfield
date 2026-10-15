@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
+import { AppMediaActionButton } from "@/shared/ui/app-media-action-button";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
 export function SpaceInputMediaChooser({ open, onOpenChange, onUpload, renderAssets, restoreFocus }: {
@@ -36,10 +37,10 @@ export function SpaceInputMediaChooser({ open, onOpenChange, onUpload, renderAss
     {open && <div ref={menu} data-space-media-chooser="" role="group" aria-label={tc("Upload")}
       className="nodrag nopan absolute inset-px z-20 flex flex-col items-center justify-center gap-3 rounded-[7px] bg-neutral-900"
       onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <button type="button" className="h-10 w-32 rounded-md border border-neutral-600 bg-neutral-900 px-4 text-xs text-neutral-200"
-        onClick={() => { onOpenChange(false); onUpload(); }}>{tc("Upload")}</button>
-      <button type="button" className="flex h-10 w-32 items-center justify-center gap-2 rounded-md border border-neutral-600 bg-neutral-900 px-4 text-xs text-neutral-200"
-        onClick={() => { onOpenChange(false); setAssetsOpen(true); }}><FolderOpen className="h-4 w-4" />{tc("Assets")}</button>
+      <AppMediaActionButton className="min-w-28"
+        onClick={() => { onOpenChange(false); onUpload(); }}><Plus className="size-4" />{tc("Upload")}</AppMediaActionButton>
+      <AppMediaActionButton className="min-w-28"
+        onClick={() => { onOpenChange(false); setAssetsOpen(true); }}><FolderOpen className="h-4 w-4" />{tc("Assets")}</AppMediaActionButton>
       <button type="button" className="text-xs text-neutral-400" onClick={() => { onOpenChange(false); restoreFocus(); }}>{tc("Cancel")}</button>
     </div>}
     {renderAssets({ open: assetsOpen, onOpenChange: next => { setAssetsOpen(next); if (!next) requestAnimationFrame(restoreFocus); } })}

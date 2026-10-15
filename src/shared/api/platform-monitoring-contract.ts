@@ -37,7 +37,7 @@ export const externalMonitoringStatsSchema = z.object({
 export const externalMonitoringRequestsSchema = z.object({
   updatedAt: z.string(), total: z.number().nullable(), limit: z.number(), offset: z.number(),
   items: z.array(z.object({ id: z.string(), type: z.enum(["image", "video", "audio"]), status: z.string(),
-    model: z.string().nullable(), createdAt: z.string(), durationMs: z.number().nullable(), apiKeyLabel: z.string() })),
+    model: z.string().nullable(), createdAt: z.string(), finishedAt: z.string().nullable().optional(), durationMs: z.number().nullable(), apiKeyLabel: z.string() })),
 });
 const top = z.object({ key: z.string(), label: z.string(), total: z.number(), failed: z.number(), errorRate: z.number(), ...latency });
 export const externalMonitoringTopSchema = z.object({

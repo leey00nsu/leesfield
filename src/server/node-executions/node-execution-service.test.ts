@@ -69,7 +69,7 @@ function setup() {
     inputs: [],
     createdAt: "2026-09-03T10:00:00.000Z",
     updatedAt: "2026-09-03T10:00:00.000Z",
-    completedAt: null,
+    finishedAt: null,
   });
   const listNodeOperations = vi.fn().mockResolvedValue([]);
   const getOperation = vi.fn();
@@ -261,7 +261,9 @@ describe("nodeExecutionService", () => {
     const submitted = state.submitImage.mock.calls[0][0];
     expect(submitted.payload).toMatchObject({ prompt: "편집한 최종 프롬프트", imageCount: 1, initImages: ["https://signed.example/reference"], promptPreset });
     expect(submitted.requestSnapshot).toMatchObject({ prompt: "편집한 최종 프롬프트", promptPreset, inputAssets: [{ assetId: "reference-asset", portId: "primary", sortOrder: 0 }] });
-    expect(submitted.payload).not.toHaveProperty("promptPresetState");
+    expect(submitted.payload.promptPresetState).toEqual({ name: preset.name, appliedPrompt: preset.prompt });
+    expect(submitted.requestSnapshot.promptPresetState).toEqual(submitted.payload.promptPresetState);
+    expect(submitted.payload.dynamicParams ?? {}).not.toHaveProperty("promptPresetState");
     expect(submitted.payload.dynamicParams ?? {}).not.toHaveProperty("promptPreset");
   });
   it.each([

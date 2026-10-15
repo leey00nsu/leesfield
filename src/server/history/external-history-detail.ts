@@ -16,7 +16,7 @@ export async function getExternalHistoryDetail(ownerEmail: string, historyId: st
     id: record.id, type: selector.type, origin: "edit" as const,
     status: record.status, model: null, prompt: "",
     createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
-    durationMs: Math.max(0, record.updatedAt.getTime() - record.createdAt.getTime()), progress: null,
+    finishedAt: record.finishedAt?.toISOString() ?? null, durationMs: record.finishedAt ? Math.max(0, record.finishedAt.getTime() - record.createdAt.getTime()) : null, progress: null,
     errorMessage: null, warningMessage: record.errorMessage,
     requestParameters: requestSettings(record.parameters),
     inputImages: record.inputs.filter(({ asset }) => asset.type === "image").flatMap(({ asset }) => asset.storageUrl ?? asset.legacyUrl ?? []),

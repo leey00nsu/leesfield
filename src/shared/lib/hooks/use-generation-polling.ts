@@ -4,6 +4,8 @@ export interface GenerationPollingResponse<TStatus extends string, TResult> {
   requestId: string;
   status: TStatus;
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
   result?: TResult;
   errorMessage?: string;
 }
@@ -11,6 +13,8 @@ export interface GenerationPollingResponse<TStatus extends string, TResult> {
 export interface GenerationPollingState<TStatus extends string, TResult> {
   status: TStatus | "idle";
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
   requestId?: string;
   result?: TResult;
   errorMessage?: string;
@@ -87,6 +91,8 @@ export function useGenerationPolling<
         setState({
           status: response.status,
           progress: response.progress,
+          createdAt: response.createdAt,
+          finishedAt: response.finishedAt,
           requestId: response.requestId,
           errorMessage: response.errorMessage,
           result: response.result,
@@ -141,6 +147,8 @@ export function useGenerationPolling<
           ...prev,
           status: response.status,
           progress: response.progress,
+          createdAt: response.createdAt ?? prev.createdAt,
+          finishedAt: response.finishedAt === undefined ? prev.finishedAt : response.finishedAt,
           errorMessage: response.errorMessage,
           result: response.result,
         }));

@@ -127,6 +127,8 @@ async function postHandler(request: Request) {
           requestId: admitted.requestId,
           status: existing?.status ?? "pending",
           progress: existing?.progress ?? 0,
+          createdAt: existing?.createdAt,
+          finishedAt: existing?.finishedAt ?? null,
         }),
       );
     }
@@ -163,6 +165,8 @@ async function postHandler(request: Request) {
           requestId: record.id,
           status: record.status,
           progress: record.progress,
+          createdAt: record.createdAt,
+          finishedAt: "finishedAt" in record ? record.finishedAt : null,
         }),
       );
     } catch (error) {

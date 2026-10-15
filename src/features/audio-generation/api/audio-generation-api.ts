@@ -39,11 +39,12 @@ export async function requestAudioGeneration(
 ): Promise<AudioGenerationResponse> {
   const formData = new FormData();
   Object.entries(payload).forEach(([key, value]) => {
-    if ((key === "dynamicParams" || key === "promptPreset") && value && typeof value === "object") {
+    if ((key === "dynamicParams" || key === "promptPreset" || key === "promptPresetState") && value && typeof value === "object") {
       formData.append(key, JSON.stringify(value));
       return;
     }
-    appendIfPresent(formData, key, value);
+    if (key === "inputPrompt" && typeof value === "string") formData.append(key, value);
+    else appendIfPresent(formData, key, value);
   });
 
   const key = audioSubmissionIntent.take(JSON.stringify(payload));

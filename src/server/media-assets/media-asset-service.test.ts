@@ -92,7 +92,7 @@ function operation(overrides: Partial<MediaOperationRecord> = {}): MediaOperatio
     errorMessage: null,
     createdAt: now,
     updatedAt: now,
-    completedAt: null,
+    finishedAt: null,
     graphNode: { id: "node_1", graphId: "graph_1", kind: "edit.video.trim", configVersion: 1 },
     inputs: [],
     outputs: [],

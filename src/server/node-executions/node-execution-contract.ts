@@ -36,6 +36,7 @@ export type NodeExecutionDto = {
   selectionVersion?: number;
   selectedOutputAssetId?: string | null;
   createdAt: string;
+  finishedAt?: string | null;
 };
 
 export type BrowserMediaOperationPlan = {
@@ -69,7 +70,7 @@ export type BrowserMediaOperationPlan = {
 export type StartNodeExecutionResult = Pick<
   NodeExecutionDto,
   "executionId" | "executionKind" | "mediaType" | "graphNodeId" | "status" | "progress"
-> & { plan?: BrowserMediaOperationPlan };
+> & { createdAt?: string; finishedAt?: string | null; plan?: BrowserMediaOperationPlan };
 
 export type NodeExecutionInputSnapshot = {
   assetId: string;

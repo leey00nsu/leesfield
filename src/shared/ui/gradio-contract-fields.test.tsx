@@ -213,7 +213,7 @@ describe("Gradio contract fields", () => {
     const user=userEvent.setup(),onChange=vi.fn(),image=asset("img"),video=asset("vid","video"),audio=asset("aud","audio");
     assetQuery.data={pages:[{items:[image,video,audio]}]};
     const view=render(<GradioContractFields scope="attachments" contract={references} values={{duration:7,reference_images:[image.url]}} prompt="scene" onChange={onChange}/>);
-    expect(screen.getAllByRole("button",{name:"참조 자료 첨부"})).toHaveLength(1);
+    expect(screen.getAllByRole("button",{name:"참조 자료 업로드"})).toHaveLength(1);
     expect(screen.getAllByRole("button",{name:"참조 자료 에셋 선택"})).toHaveLength(1);
     expect(screen.getByText("참조 이미지")).toBeInTheDocument();
     await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));
@@ -234,7 +234,7 @@ describe("Gradio contract fields", () => {
   it("mixed file batches preserve each provider field and option; an overflow batch is rejected before reading",async()=>{
     const onChange=vi.fn();
     render(<GradioContractFields scope="attachments" contract={references} values={{duration:7}} prompt="scene" onChange={onChange}/>);
-    const input=screen.getByLabelText("참조 자료 첨부",{selector:"input"});
+    const input=screen.getByLabelText("참조 자료 업로드",{selector:"input"});
     const image=new File(["img"],"ref.png",{type:"image/png"}),video=new File(["vid"],"ref.mp4",{type:"video/mp4"});
     fireEvent.change(input,{target:{files:[image,image,image,video]}});
     expect(screen.getByRole("alert")).toHaveTextContent("최대 2개");
@@ -245,7 +245,7 @@ describe("Gradio contract fields", () => {
   it("keeps named first/end frame slots separate instead of routing both by media",()=>{
     const roles={...contract,inputs:[{...contract.inputs[1],name:"first",label:"First frame",media:"image" as const},{...contract.inputs[1],name:"end",label:"End frame",media:"image" as const}]};
     render(<GradioContractFields scope="attachments" contract={roles} values={{}} prompt="scene" onChange={vi.fn()}/>);
-    expect(screen.queryByRole("button",{name:"참조 자료 첨부"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"참조 자료 업로드"})).toBeNull();
     expect(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"})).toBeInTheDocument();
     expect(screen.getByRole("button",{name:"끝 프레임: 에셋 선택"})).toBeInTheDocument();
   });
@@ -491,11 +491,11 @@ it("복수 첨부는 순서대로 추가·개별 제거하고 초과 배치는 �
   const files={...contract,inputs:[{...contract.inputs[1],name:"refs",label:"References",kind:"files" as const,media:"image" as const,schema:{type:"array",items:{type:"string"},maxItems:2}}]};
   const first="data:image/png;base64,YQ==";
   const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
-  expect(screen.getByText("첨부")).toBeVisible();
+  expect(screen.getByText("업로드")).toBeVisible();
   await user.upload(screen.getByLabelText("참조 이미지"),new File(["b"],"b.png",{type:"image/png"}));
   await waitFor(()=>expect(onChange).toHaveBeenCalledWith({refs:[first,"data:image/png;base64,Yg=="]}));
   rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first,"data:image/png;base64,Yg=="]}} prompt="edit" onChange={onChange}/>);
-  expect(screen.getByRole("button",{name:"참조 이미지: 파일 추가"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"참조 이미지: 파일 업로드"})).toBeDisabled();
   await user.click(screen.getAllByRole("button",{name:"제거"})[0]);
   expect(onChange).toHaveBeenLastCalledWith({refs:["data:image/png;base64,Yg=="]});
   onChange.mockClear();

@@ -36,7 +36,7 @@ describe("node executions route", () => {
   it("starts only the stored Node and returns a provider-neutral 202 DTO", async () => {
     mocks.execute.mockResolvedValue({
       mediaType: "video",
-      record: { id: "request-1", status: "pending", progress: 0 },
+      record: { id: "request-1", status: "pending", progress: 0, createdAt:"2026-10-15T00:00:00Z", finishedAt:null },
     });
     const response = await POST(new Request("http://localhost", {
       method: "POST",
@@ -53,6 +53,7 @@ describe("node executions route", () => {
         graphNodeId: "node-1",
         status: "pending",
         progress: 0,
+        createdAt:"2026-10-15T00:00:00Z", finishedAt:null,
       },
     });
     expect(mocks.execute).toHaveBeenCalledWith(

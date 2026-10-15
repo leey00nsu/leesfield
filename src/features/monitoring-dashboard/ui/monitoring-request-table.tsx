@@ -1,3 +1,4 @@
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { AppResourceEmpty } from "@/shared/ui/app-resource-list";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { useMemo, useState } from "react";
@@ -10,7 +11,6 @@ import {
 import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
-import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 import { MonitoringRequestDetailDialog } from "@/features/monitoring-dashboard/ui/monitoring-request-detail-dialog";
@@ -32,6 +32,7 @@ interface MonitoringRequestTableProps {
   onLimitChange: (limit: number) => void;
   onOffsetChange: (offset: number) => void;
   isLoading: boolean;
+  isPageChanging?: boolean;
   error: string | null;
   updatedAt: string | null;
   timeZone: string;
@@ -45,6 +46,7 @@ export function MonitoringRequestTable({
   onLimitChange,
   onOffsetChange,
   isLoading,
+  isPageChanging = false,
   error,
   updatedAt,
   timeZone,
@@ -90,12 +92,9 @@ export function MonitoringRequestTable({
   const pageIndex = limit > 0 ? Math.floor(offset / limit) : 0;
   const pageCount = limit > 0 ? Math.ceil(total / limit) : 0;
   const canPreviousPage = offset > 0;
-  const canNextPage = offset + items.length < total;
-  const rangeStart = total === 0 ? 0 : Math.min(offset + 1, total);
-  const fallbackVisibleCount =
-    total === 0 ? 0 : Math.min(limit, total - offset);
-  const visibleCount = items.length > 0 ? items.length : fallbackVisibleCount;
-  const rangeEnd = total === 0 ? 0 : Math.min(offset + visibleCount, total);
+  const canNextPage = offset + limit < total;
+  const rangeStart = items.length === 0 ? 0 : Math.min(offset + 1, total);
+  const rangeEnd = items.length === 0 ? 0 : Math.min(offset + items.length, total);
   const safeCurrentPage = total === 0 ? 0 : pageIndex + 1;
   const safePageCount = total === 0 ? 0 : Math.max(1, pageCount);
 
@@ -157,7 +156,7 @@ export function MonitoringRequestTable({
         header: t("requests.columns.duration"),
         cell: ({ row }) => (
           <span className="whitespace-nowrap text-primary">
-            {formatDuration(row.original.durationMs)}
+            <ExecutionTime {...row.original} />
           </span>
         ),
       },
@@ -267,117 +266,116 @@ export function MonitoringRequestTable({
         ) : items.length === 0 ? (
           <AppResourceEmpty icon={<Activity />} title={t("requests.emptyTitle")} description={t("requests.empty")} />
         ) : (
-          <>
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr
-                    key={headerGroup.id}
-                    className="border-b border-white/10 text-xs font-sans uppercase tracking-widest text-gray-500"
-                  >
-                    {headerGroup.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className={cn(
-                          "whitespace-nowrap px-4 py-3",
-                          header.id === "status" && "min-w-32 text-right",
-                          header.id === "open" && "w-12 text-right",
-                          header.id === "duration" && "min-w-24",
-                        )}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="group cursor-pointer transition-colors hover:bg-interaction-hover focus-within:bg-interaction-hover"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleOpenDetail(row.original)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleOpenDetail(row.original);
-                      }
-                    }}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="font-sans uppercase tracking-widest">
-                  {t("requests.pagination.rowsPerPage")}
-                </span>
-                <AppSelectRoot
-                  value={String(limit)}
-                  onValueChange={handleLimitChange}
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr
+                  key={headerGroup.id}
+                  className="border-b border-white/10 text-xs font-sans uppercase tracking-widest text-gray-500"
                 >
-                  <AppSelectTrigger
-                    triggerSize="sm"
-                    className="w-[92px] text-xs"
-                  >
-                    <AppSelectValue />
-                  </AppSelectTrigger>
-                  <AppSelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <AppSelectItem key={option} value={String(option)}>
-                        {option}
-                      </AppSelectItem>
-                    ))}
-                  </AppSelectContent>
-                </AppSelectRoot>
-              </div>
-              <div className="flex items-center gap-2">
-                <AppButton
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  onClick={() => onOffsetChange(Math.max(0, offset - limit))}
-                  disabled={!canPreviousPage}
-                  aria-label={t("requests.pagination.previous")}
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className={cn(
+                        "whitespace-nowrap px-4 py-3",
+                        header.id === "status" && "min-w-32 text-right",
+                        header.id === "open" && "w-12 text-right",
+                        header.id === "duration" && "min-w-24",
+                      )}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="group cursor-pointer transition-colors hover:bg-interaction-hover focus-within:bg-interaction-hover"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleOpenDetail(row.original)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleOpenDetail(row.original);
+                    }
+                  }}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </AppButton>
-                <div className="min-w-[84px] text-center text-xs font-sans text-gray-400">
-                  {t("requests.pagination.page", {
-                    current: safeCurrentPage,
-                    total: safePageCount,
-                  })}
-                </div>
-                <AppButton
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  onClick={() => onOffsetChange(offset + limit)}
-                  disabled={!canNextPage}
-                  aria-label={t("requests.pagination.next")}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </AppButton>
-              </div>
-            </div>
-          </>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span className="font-sans uppercase tracking-widest">
+              {t("requests.pagination.rowsPerPage")}
+            </span>
+            <AppSelectRoot
+              value={String(limit)}
+              onValueChange={handleLimitChange}
+              disabled={isLoading || isPageChanging}
+            >
+              <AppSelectTrigger
+                triggerSize="sm"
+                className="w-[92px] text-xs"
+              >
+                <AppSelectValue />
+              </AppSelectTrigger>
+              <AppSelectContent>
+                {pageSizeOptions.map((option) => (
+                  <AppSelectItem key={option} value={String(option)}>
+                    {option}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </AppSelectRoot>
+          </div>
+          <div className="flex items-center gap-2">
+            <AppButton
+              type="button"
+              size="sm"
+              variant="surface"
+              onClick={() => onOffsetChange(Math.max(0, offset - limit))}
+              disabled={isLoading || isPageChanging || !canPreviousPage}
+              aria-label={t("requests.pagination.previous")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </AppButton>
+            <div className="min-w-[84px] text-center text-xs font-sans text-gray-400">
+              {t("requests.pagination.page", {
+                current: safeCurrentPage,
+                total: safePageCount,
+              })}
+            </div>
+            <AppButton
+              type="button"
+              size="sm"
+              variant="surface"
+              onClick={() => onOffsetChange(offset + limit)}
+              disabled={isLoading || isPageChanging || Boolean(error) || !canNextPage}
+              aria-label={t("requests.pagination.next")}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </AppButton>
+          </div>
+        </div>
       </div>
       <MonitoringRequestDetailDialog
         open={dialogOpen}

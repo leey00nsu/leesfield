@@ -7,10 +7,12 @@ import type {
 export const ACTIVE_STATUSES: MonitoringStatus[] = [
   "pending",
   "processing",
+  "uploading",
 ];
 export const FINISHED_STATUSES: MonitoringStatus[] = [
   "completed",
   "failed",
+  "cancelled",
 ];
 
 export type RawFilters = {
@@ -69,7 +71,7 @@ export function buildBaseSelect(
 ) {
   const tableName = Prisma.raw(`"${table}"`);
   return Prisma.sql`
-    SELECT "createdAt", "updatedAt", "status"::text as "status", "modelKey", "apiKeyId"
+    SELECT "createdAt", "finishedAt", "status"::text as "status", "modelKey", "apiKeyId"
     FROM ${tableName}
     ${where}
   `;

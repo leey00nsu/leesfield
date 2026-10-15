@@ -1,3 +1,5 @@
+import { PromptPresetInputText } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
+import { AppExpandableText } from "@/shared/ui/app-expandable-text";
 import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
@@ -107,4 +109,17 @@ export const Empty: Story = {
     items: [],
     emptyMessage: "No generation history yet.",
   },
+};
+
+export const InputPromptPreset: Story = {
+  args: {items:[]},
+  render: () => <div className="grid w-full max-w-md gap-6">
+    {["개 대신 고양이로", ""].map((text,index)=><section key={index} className="grid gap-3 text-sm">
+      <span className="font-semibold">입력 프롬프트{text ? "" : " · 프리셋만 적용"}</span>
+      <AppExpandableText textValue={"멀티 카메라 9 그리드 " + text} showMoreLabel="더 보기" showLessLabel="접기" collapsedLines={4}
+        className="rounded-xl border border-white/10 bg-black/18 p-4" bodyClassName="text-sm leading-6 text-white/68">
+        <PromptPresetInputText preset={{key:"multi-camera-nine-grid",name:"멀티 카메라 9 그리드",builtinKey:"multi-camera-nine-grid",tokenOffset:0}} text={text} />
+      </AppExpandableText>
+    </section>)}
+  </div>
 };

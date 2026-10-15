@@ -17,7 +17,7 @@ export const externalHistoryQuerySchema = z.object({
 export const externalHistoryItemSchema = z.object({
   id: z.string(), type: z.enum(["image", "video", "audio"]), origin: z.enum(["generation", "edit"]).optional(),
   status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
-  prompt: z.string(), model: z.string().nullable(), createdAt: z.string(), updatedAt: z.string().nullable().optional(),
+  prompt: z.string(), model: z.string().nullable(), createdAt: z.string(), finishedAt: z.string().nullable().optional(), updatedAt: z.string().nullable().optional(),
   resultUrl: z.string().nullable(), thumbnailUrl: z.string().nullable(), errorMessage: z.string().nullable(),
   durationMs: z.number().nullable().optional(), progress: z.number().nullable().optional(),
   inputImages: z.array(z.string()).optional(), inputAudios: z.array(z.string()).optional(), referenceText: z.string().nullable().optional(),
@@ -40,7 +40,7 @@ export const externalHistoryDetailSchema = z.object({
   status: z.string(),
   model: z.string().nullable(),
   prompt: z.string(),
-  createdAt: z.string(),
+  createdAt: z.string(), finishedAt: z.string().nullable().optional(),
   updatedAt: z.string(),
   durationMs: z.number().nullable(),
   progress: z.number().nullable(),

@@ -13,6 +13,8 @@ export type VideoGenerationRecord = {
   id: string;
   status: VideoGenerationStatus;
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
   result?: VideoGenerationResponse["result"];
   errorMessage?: string;
 };
@@ -37,6 +39,8 @@ function mapRecord(
     id: record.requestId,
     status: record.status,
     progress: record.progress,
+    createdAt: record.createdAt?.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
     result,
     errorMessage: record.errorMessage ?? undefined,
   };

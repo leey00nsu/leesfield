@@ -6,6 +6,8 @@ export type MonitoringStatusFilter =
   | "active"
   | "pending"
   | "processing"
+  | "uploading"
+  | "cancelled"
   | "completed"
   | "failed";
 
@@ -45,6 +47,7 @@ export type MonitoringRequestItem = {
   status: string;
   model: string | null;
   createdAt: string;
+  finishedAt?: string | null;
   durationMs: number | null;
   apiKeyLabel: string;
 };
@@ -65,6 +68,7 @@ export type MonitoringRequestDetail = {
   model: string | null;
   prompt: string;
   createdAt: string;
+  finishedAt?: string | null;
   updatedAt: string;
   durationMs: number | null;
   progress: number | null;

@@ -25,8 +25,8 @@ export type PromptPresetRef = z.infer<typeof promptPresetRefSchema>;
 export const promptPresetWorkStateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   appliedPrompt: promptPresetPromptSchema,
-  userText: z.string().max(20_000).optional(),
-  tokenOffset: z.number().int().min(0).max(20_000).optional(),
+  userText: z.string().optional(),
+  tokenOffset: z.number().int().min(0).optional(),
 }).strict();
 export type PromptPresetWorkState = z.infer<typeof promptPresetWorkStateSchema>;
 

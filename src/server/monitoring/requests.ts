@@ -13,6 +13,7 @@ export type MonitoringRequestItem = {
   status: string;
   model: string | null;
   createdAt: string;
+  finishedAt?: string | null;
   durationMs: number | null;
   apiKeyLabel: string;
 };
@@ -25,7 +26,7 @@ export type MonitoringRequestResponse = {
   offset: number;
 };
 
-const FINISHED_STATUSES = new Set(["completed", "failed"]);
+const FINISHED_STATUSES = new Set(["completed", "failed", "cancelled"]);
 const ORDER_BY = [
   { createdAt: "desc" as const },
   { requestId: "desc" as const },
@@ -39,6 +40,7 @@ type RequestRecordBase = {
   modelKey: string | null;
   createdAt: Date;
   updatedAt: Date;
+  finishedAt?: Date | null;
   apiKeyId: string | null;
   apiKey?: {
     maskedKey: string | null;
@@ -50,9 +52,9 @@ function resolveApiKeyLabel(maskedKey: string | null, apiKeyId: string | null) {
   return maskedKey ?? "-";
 }
 
-function toDurationMs(createdAt: Date, updatedAt: Date, status: string) {
-  if (!FINISHED_STATUSES.has(status)) return null;
-  return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+function toDurationMs(createdAt: Date, finishedAt: Date | null | undefined, status: string) {
+  if (!FINISHED_STATUSES.has(status) || !finishedAt) return null;
+  return Math.max(0, finishedAt.getTime() - createdAt.getTime());
 }
 
 function compareRecords(
@@ -77,7 +79,8 @@ function toMonitoringRequestItem(
     status: record.status,
     model: record.modelKey ?? null,
     createdAt: record.createdAt.toISOString(),
-    durationMs: toDurationMs(record.createdAt, record.updatedAt, record.status),
+      finishedAt: record.finishedAt?.toISOString() ?? null,
+    durationMs: toDurationMs(record.createdAt, record.finishedAt, record.status),
     apiKeyLabel: resolveApiKeyLabel(record.apiKey?.maskedKey ?? null, record.apiKeyId),
   };
 }
@@ -105,6 +108,7 @@ async function getMonitoringRequestsUnobserved(
     modelKey: true,
     createdAt: true,
     updatedAt: true,
+        finishedAt: true,
     apiKeyId: true,
     apiKey: {
       select: {

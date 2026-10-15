@@ -1362,3 +1362,62 @@
 .dropPreviewHeader { display: flex; align-items: center; gap: .5rem; height: 40px; padding: 0 .75rem; border-bottom: 1px solid var(--border); font-size: .75rem; }
 .dropPreviewBody { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; height: calc(100% - 40px); font-size: .875rem; color: var(--muted-foreground); }
 .dropPreviewPort { position: absolute; right: -5px; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--data-accent); }
+
+/* Execution is independent of selection; no geometry or hit-area changes. */
+.runtime :global(.react-flow__node.leesfield-node-running) {
+  border-radius: var(--radius-lg, 0.5rem);
+  box-shadow: 0 0 0 2px var(--data-accent);
+}
+
+/* Animate only the outer light, leaving content, ports and the ring steady. */
+.runtime :global(.react-flow__node.leesfield-node-running)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 24px 4px color-mix(in srgb, var(--data-accent) 24%, transparent),
+    0 0 48px 8px color-mix(in srgb, var(--data-accent) 10%, transparent);
+}
+
+@keyframes running-node-breath {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .runtime :global(.react-flow__node.leesfield-node-running)::before {
+    animation: running-node-breath 3s ease-in-out infinite;
+  }
+}
+
+/* Hide the pinned upstream operation percentage; the host owns the clock. */
+.runtime [data-space-timed-operation] :global(.absolute.inset-0) > span {
+  display: none;
+}
+.executionTime {
+  display: flex;
+  gap: 0.5rem;
+  position: absolute;
+  bottom: -1.5rem;
+  right: 0;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.operationTime {
+  flex-direction: column;
+  gap: 0.25rem;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 3rem;
+  z-index: 11;
+  color: var(--foreground);
+  font-size: 12px;
+  pointer-events: none;
+}

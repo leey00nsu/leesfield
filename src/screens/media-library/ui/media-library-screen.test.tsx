@@ -78,6 +78,10 @@ describe("asset library project actions", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Name one" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(await within(dialog).findByRole("textbox", { name: "이름" }), { target: { value: "Changed" } });
+    fireEvent.click(within(dialog).getByRole("tab", { name: "히스토리" }));
+    expect(await within(dialog).findByText("출처")).toBeVisible();
+    expect(within(dialog).getByText("업로드")).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "일반" }));
     expect(within(dialog).queryByText("사용처와 출처")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button",{name:"참조로 사용"})).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("link",{name:"상세"})).not.toBeInTheDocument();
@@ -106,6 +110,7 @@ describe("asset library project actions", () => {
     const file = new File(["png"], "pending.png", { type: "image/png" });
     fireEvent.drop(screen.getByRole("region", { name: "에셋" }), { dataTransfer: { files: [file], types: ["Files"] } });
     const card = await screen.findByRole("article", { name: "pending.png" }); expect(within(card).getByRole("status")).toHaveTextContent("업로드 중");
+    expect(within(card).getByTestId("generation-skeleton")).toBeVisible();
     fireEvent.click(within(card).getByRole("button", { name: "취소" })); expect(within(card).getByRole("status")).toHaveTextContent("업로드 취소");
   });
 });

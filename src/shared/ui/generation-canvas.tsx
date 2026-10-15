@@ -1,7 +1,8 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { Loader2 } from "lucide-react";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/lib/utils";
 
@@ -12,6 +13,8 @@ interface GenerationCanvasProps {
   hasContent?: boolean;
   isGenerating: boolean;
   status: string;
+  createdAt?: string;
+  finishedAt?: string | null;
   errorMessage?: string;
   className?: string;
 }
@@ -23,6 +26,8 @@ export function GenerationCanvas({
   hasContent = true,
   isGenerating,
   status,
+  createdAt,
+  finishedAt,
   errorMessage,
   className,
 }: GenerationCanvasProps) {
@@ -45,12 +50,10 @@ export function GenerationCanvas({
       {showEmptyState ? emptyState : children}
 
       {isGenerating && (
-        <div role="status" className="absolute inset-0 z-20 bg-[#090b0d]">
-          <AppSkeleton surface="media" className="absolute inset-0 rounded-none motion-reduce:animate-none" data-testid="generation-skeleton" />
-          <GenerationProgress status={status} />
-        </div>
+        <GenerationPending status={status} createdAt={createdAt} finishedAt={finishedAt} />
       )}
 
+      {!isGenerating && ["completed", "failed", "cancelled"].includes(status) && <div className="absolute bottom-3 right-3 z-30 rounded bg-background/80 px-2 py-1 text-xs"><ExecutionTime createdAt={createdAt} finishedAt={finishedAt} status={status} /></div>}
       {showError && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-background/70 px-6 text-center">
           <p className="text-sm font-bold text-red-300">{t("failedTitle")}</p>
@@ -63,18 +66,20 @@ export function GenerationCanvas({
   );
 }
 
-function GenerationProgress({ status }: { status: string }) {
+/** Shared pending media surface for generation results and library uploads. */
+export function GenerationPending({ status, createdAt, finishedAt }: { status: string; createdAt?: string; finishedAt?: string | null }) {
+  return <div role="status" className="absolute inset-0 z-20 bg-[#090b0d]">
+    <AppSkeleton surface="media" className="absolute inset-0 rounded-none motion-reduce:animate-none" data-testid="generation-skeleton" />
+    <GenerationProgress status={status} createdAt={createdAt} finishedAt={finishedAt} />
+  </div>;
+}
+
+function GenerationProgress({ status, createdAt, finishedAt }: { status: string; createdAt?: string; finishedAt?: string | null }) {
   const t = useTranslations("generation.canvas");
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    const started = Date.now();
-    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
   const label = status === "pending" ? t("queued") : status === "uploading" ? t("uploading") : t("generating");
   return <div className="relative flex size-full flex-col items-center justify-center gap-2 text-sm text-foreground">
     <Loader2 className="size-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-    <span className="sr-only">{label}</span>
-    <span aria-live="off" className="text-xs tabular-nums text-muted-foreground">{t("waitingTime", { seconds })}</span>
+    <span>{label}</span>
+    {createdAt && <ExecutionTime createdAt={createdAt} finishedAt={finishedAt} status={status} className="text-xs tabular-nums text-muted-foreground" />}
   </div>;
 }

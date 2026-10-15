@@ -87,13 +87,13 @@ async function queryTopByModel(query: MonitoringQuery, limit: number) {
       COUNT(*) FILTER (WHERE "status" = 'failed')::int as failed,
       AVG(CASE
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
-        THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
+        THEN EXTRACT(EPOCH FROM ("finishedAt" - "createdAt")) * 1000
         ELSE NULL
       END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
-          THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
+          THEN EXTRACT(EPOCH FROM ("finishedAt" - "createdAt")) * 1000
           ELSE NULL
         END
       ) as p95_ms
@@ -139,13 +139,13 @@ async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
       COUNT(*) FILTER (WHERE "status" = 'failed')::int as failed,
       AVG(CASE
         WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
-        THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
+        THEN EXTRACT(EPOCH FROM ("finishedAt" - "createdAt")) * 1000
         ELSE NULL
       END)::double precision as avg_ms,
       PERCENTILE_CONT(0.95) WITHIN GROUP (
         ORDER BY CASE
           WHEN "status" IN (${Prisma.join(FINISHED_STATUSES)})
-          THEN EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) * 1000
+          THEN EXTRACT(EPOCH FROM ("finishedAt" - "createdAt")) * 1000
           ELSE NULL
         END
       ) as p95_ms

@@ -746,7 +746,7 @@ describe("NodeBananaStudio host adapter", () => {
     expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
   });
 
-  it.each(["pending", "processing", "uploading"])("disables toolbar Run for a %s execution and restores it after completion", (executionStatus) => {
+  it.each(["pending", "processing", "uploading", "loading"])("disables toolbar Run for a %s execution and restores it after completion", (executionStatus) => {
     const props = {
       graph: runnableGraph,
       onDraftChange: vi.fn(), prepareImageNodeExecution: vi.fn(), catalog,
@@ -755,7 +755,11 @@ describe("NodeBananaStudio host adapter", () => {
     };
     const { rerender } = render(<NodeBananaStudio {...props} />, { wrapper: createIntlWrapper() });
     expect(runtime.props!.isNodeRunnable!("node_1")).toBe(false);
-    rerender(<NodeBananaStudio {...props} resolveUpstreamNodeData={() => ({ executionStatus: "completed" })} />);
+    expect(runtime.props!.graph.nodes.find(node=>node.id==="node_1")).toMatchObject({className:"leesfield-node-running"});
+    for (const terminal of ["completed","failed","cancelled"]) {
+      rerender(<NodeBananaStudio {...props} resolveUpstreamNodeData={() => ({ executionStatus: terminal })} />);
+      expect(runtime.props!.graph.nodes.find(node=>node.id==="node_1")).not.toMatchObject({className:"leesfield-node-running"});
+    }
     expect(runtime.props!.isNodeRunnable!("node_1")).toBe(true);
   });
 

@@ -1,4 +1,5 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 
 import { useMemo, useState } from "react";
@@ -309,7 +310,7 @@ export function GenerationNodeExecution({
           >
             {statusIcon(status)}
             {t(`execution.status.${status}`)}
-            {active ? ` · ${latest?.progress ?? 0}%` : null}
+            {latest ? <> · <ExecutionTime {...latest} /></> : null}
           </span>
         ) : blockedReason ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] leading-4 text-white/48" role="status" aria-live="polite">
@@ -344,11 +345,6 @@ export function GenerationNodeExecution({
         )}
       </div>
 
-      {active ? (
-        <div className="h-1.5 overflow-hidden rounded-full bg-white/8" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={latest?.progress ?? 0}>
-          <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${latest?.progress ?? 0}%` }} />
-        </div>
-      ) : null}
 
       {errorMessage ? (
         <div className="flex items-start justify-between gap-2 rounded-xl border border-red-300/15 bg-red-300/5 px-3 py-2 text-[11px] leading-5 text-red-100" role="alert">

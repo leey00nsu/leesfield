@@ -47,6 +47,7 @@ const detailFixture = vi.hoisted(() => ({
   model: "flux2-klein-9b",
   createdAt: "2026-03-10T00:00:00.000Z",
   updatedAt: "2026-03-10T00:00:02.500Z",
+  finishedAt: "2026-03-10T00:00:02.500Z",
   durationMs: 2500,
   progress: 100,
   resultUrl: "https://example.com/result.png",
@@ -242,24 +243,24 @@ describe("GenerationHistoryScreen", () => {
     fireEvent.click(screen.getByRole("tab", { name: "프롬프트" }));
     expect(screen.getByText("medium shot editorial result")).toBeInTheDocument();
 
-    const copyButton = screen.getByRole("button", { name: "복사" });
+    const copyButton = screen.getAllByRole("button", { name: "복사" }).find(button => !button.hasAttribute("disabled"))!;
     fireEvent.click(copyButton);
     expect(clipboardWriteTextMock).toHaveBeenCalledWith(
       "medium shot editorial result",
     );
 
     await waitFor(() => expect(copyToasts.copied).toHaveBeenCalledWith("복사됨"));
-    expect(screen.getByRole("button", {name:"복사"})).toBe(copyButton);
+    expect(screen.getAllByRole("button", { name: "복사" }).find(button => !button.hasAttribute("disabled"))!).toBe(copyButton);
     clipboardWriteTextMock.mockRejectedValueOnce(new Error("denied"));
     fireEvent.click(copyButton);
     await waitFor(() => expect(copyToasts.error).toHaveBeenCalledWith("복사하지 못했습니다."));
-    expect(screen.getByRole("button", {name:"복사"})).toBe(copyButton);
+    expect(screen.getAllByRole("button", { name: "복사" }).find(button => !button.hasAttribute("disabled"))!).toBe(copyButton);
 
     fireEvent.click(screen.getByRole("tab", { name: "설정" }));
     expect(screen.getByText("모델")).toBeInTheDocument();
     expect(screen.getAllByText("flux2-klein-9b").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("상태")).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.queryByText("100%")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
     expect(screen.getByText("요청 ID")).toBeInTheDocument();
@@ -267,7 +268,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("요청 시간")).toBeInTheDocument();
     expect(screen.getByText("완료 시간")).toBeInTheDocument();
     expect(screen.getByText("소요 시간")).toBeInTheDocument();
-    expect(screen.getByText("2.5s")).toBeInTheDocument();
+    expect(screen.getByText("2초 소요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
     expect(screen.getByText("입력 이미지")).toBeInTheDocument();
@@ -368,6 +369,7 @@ describe("GenerationHistoryScreen", () => {
         model: "hydrated-model",
         createdAt: "2026-03-10T00:00:00.000Z",
         updatedAt: "2026-03-10T00:00:02.500Z",
+  finishedAt: "2026-03-10T00:00:02.500Z",
         durationMs: 2500,
         progress: 100,
         errorMessage: null,
@@ -403,13 +405,13 @@ describe("GenerationHistoryScreen", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "설정" }));
     expect(screen.getAllByText("hydrated-model").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.queryByText("100%")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
-    const completedAtRow = screen.getByText("완료 시간").parentElement;
-    expect(completedAtRow).toHaveTextContent("2026");
-    expect(completedAtRow).not.toHaveTextContent("-");
-    expect(screen.getByText("2.5s")).toBeInTheDocument();
+    const finishedAtRow = screen.getByText("완료 시간").parentElement;
+    expect(finishedAtRow).toHaveTextContent("2026");
+    expect(finishedAtRow).not.toHaveTextContent("-");
+    expect(screen.getByText("2초 소요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
     expect(screen.getByText("경고 메시지")).toBeInTheDocument();
@@ -513,11 +515,11 @@ it.each(["failed","pending","completed"])("keeps a disabled download action for 
  }finally{vi.unstubAllGlobals();}
 });
 
-it("displays separate Cinema source/settings/final text in the shared editor without recreation", async () => {
+it("displays typed text separately from full prompt and moves Cinema settings to settings in the shared editor without recreation", async () => {
   const cinema = composeCinemaPrompt("original authoring text", { ...defaultCinemaSettings(), lighting: "window" }, "image");
-  useCinemaHistoryMock.mockReturnValue({ data: { cinema, prompt: cinema.finalPrompt, model: detailFixture.model }, loading: false, error: false });
+  useCinemaHistoryMock.mockReturnValue({ data: { cinema, inputPrompt: "original authoring text", prompt: cinema.finalPrompt, model: detailFixture.model }, loading: false, error: false });
   useGenerationHistoryListMock.mockReturnValue({ items: [detailFixture], total: 1, isLoading: false, sentinelRef: { current: null }, removeItem: vi.fn() });
-  useMonitoringRequestDetailMock.mockReturnValue({ data: { ...detailFixture, assets: [], inputAudios: [], referenceText: null } });
+  useMonitoringRequestDetailMock.mockReturnValue({ data: { ...detailFixture, prompt: cinema.finalPrompt, assets: [], inputAudios: [], referenceText: null } });
   renderWithIntl(<GenerationHistoryScreen />);
   await userEvent.click(screen.getByTestId("history-list"));
   await userEvent.click(screen.getByRole("tab",{name:"프롬프트"}));
@@ -526,6 +528,14 @@ it("displays separate Cinema source/settings/final text in the shared editor wit
   expect(screen.getByRole("button",{name:"저장"})).toBeDisabled();
   expect(screen.queryByRole("button",{name:"다시 생성"})).not.toBeInTheDocument();
   expect(routerPushMock).not.toHaveBeenCalled();
+  expect(screen.queryByText("최종 프롬프트")).not.toBeInTheDocument();
+  expect(screen.getByText("입력 프롬프트")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "복사" })).toHaveLength(2);
+  await userEvent.click(screen.getByRole("tab", { name: "설정" }));
+  expect(screen.getByText("조명")).toBeVisible();
+  await userEvent.click(screen.getByRole("tab", { name: "히스토리" }));
+  expect(screen.getByText("출처")).toBeVisible();
+  expect(screen.getByText("생성")).toBeVisible();
 });
 
 it("edits the result asset through the same form and Save action used by the asset library", async () => {
@@ -573,3 +583,17 @@ it("requires confirmation, preserves detail on cancellation/failure, and removes
  await userEvent.click(screen.getByRole("button",{name:"다시 시도"}));
  expect(retry).toHaveBeenCalledOnce();
  });
+
+it.each(["개 대신 고양이로", ""])("shows a readonly preset chip and user text without the empty prompt notice (%s)",async text=>{
+  useCinemaHistoryMock.mockReturnValue({data:{cinema:null,inputPrompt:text,prompt:"expanded preset body",model:detailFixture.model,promptPreset:{key:"multi-camera-nine-grid",name:"멀티 카메라 9 그리드",builtinKey:"multi-camera-nine-grid",tokenOffset:0}},loading:false,error:false});
+  useGenerationHistoryListMock.mockReturnValue({items:[detailFixture],total:1,isLoading:false,sentinelRef:{current:null},removeItem:vi.fn()});
+  useMonitoringRequestDetailMock.mockReturnValue({data:null});
+  renderWithIntl(<GenerationHistoryScreen />);
+  await userEvent.click(screen.getByTestId("history-list"));
+  await userEvent.click(screen.getByRole("tab",{name:"프롬프트"}));
+  expect(screen.getByText("멀티 카메라 9 그리드")).toBeVisible();
+  if(text) expect(screen.getByText(text)).toBeVisible();
+  expect(screen.queryByText("직접 입력한 프롬프트가 없습니다.")).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button",{name:"복사"})[0]).toBeEnabled();
+  expect(screen.queryByRole("button",{name:/프리셋 제거/})).not.toBeInTheDocument();
+});

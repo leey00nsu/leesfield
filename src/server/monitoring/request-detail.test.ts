@@ -42,6 +42,7 @@ describe("getMonitoringRequestDetail", () => {
       },
       createdAt,
       updatedAt,
+      finishedAt: updatedAt,
       progress: 100,
       errorMessage: null,
       audios: [
@@ -83,6 +84,7 @@ describe("getMonitoringRequestDetail", () => {
       requestParams: {},
       createdAt,
       updatedAt,
+      finishedAt: updatedAt,
       progress: 100,
       errorMessage: "오디오 저장소가 지정되지 않아 외부 저장소 업로드를 건너뛰고 inline 결과를 사용합니다.",
       audios: [

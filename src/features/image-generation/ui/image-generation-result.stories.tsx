@@ -49,3 +49,21 @@ function GrowingResultsPreview() {
   </>;
 }
 export const GrowingResults: Story = { render: () => <GrowingResultsPreview /> };
+
+function BatchPreview() {
+  const [finished, setFinished] = useState(0);
+  const state: ImageGenerationState = {
+    status: finished < 4 ? "processing" : "completed", progress: 0,
+    batch: { total: 4, finished, failed: 0 },
+    result: { images: images(finished) },
+    slots: Array.from({ length: 4 }, (_, index) => ({
+      id: "batch-" + index,
+      status: index < finished ? "completed" : index === finished ? "processing" : "pending",
+      images: index < finished ? [{ url: storybookImage.url, requestId: "job-" + index, outputIndex: 0 }] : [],
+    })),
+  };
+  return <><ImageGenerationResult embedded state={state} />
+    <div className="flex gap-2"><AppButton variant="surface" disabled={finished === 4} onClick={() => setFinished(value => value + 1)}>다음 결과 완료</AppButton>
+      <AppButton variant="surface" onClick={() => setFinished(0)}>초기화</AppButton></div></>;
+}
+export const BatchLifecycle: Story = { render: () => <BatchPreview /> };

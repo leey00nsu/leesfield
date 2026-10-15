@@ -170,8 +170,10 @@ describe("NodeStudioWorkspace", () => {
   });
   it("keeps a visible failed result node when admission fails without an execution receipt", async () => {
     outputMocks.startExecution.mockRejectedValue(new Error("QUEUE_FULL"));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph(1)} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
+    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph(4)} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
     await act(async () => { await expect(mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat")).rejects.toThrow("QUEUE_FULL"); });
+    expect(mocks.update.mock.lastCall![0].nodes.slice(1)).toHaveLength(4);
+    expect(mocks.update.mock.lastCall![0].nodes.slice(1).every((n: { config: { resultSource: { state: string } } }) => n.config.resultSource.state === "failed")).toBe(true);
     const result = mocks.update.mock.lastCall![0].nodes[1];
     expect(result.config).toMatchObject({assetId:null,resultSource:{executionId:null,state:"failed"}});
     expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData(result.id,{})).toMatchObject({resultStatus:"failed"});
@@ -641,6 +643,9 @@ describe("NodeStudioWorkspace", () => {
     const rows: import("../model/node-execution-types").NodeExecutionDto[] = [];
     outputMocks.listExecutions.mockImplementation(async () => [...rows]);
     outputMocks.startExecution.mockImplementation(async (_g, _n, _v, repeat) => {
+      const reserved = mocks.update.mock.lastCall![0];
+      expect(reserved.nodes.slice(1)).toHaveLength(4);
+      expect(reserved.edges).toHaveLength(4);
       const index = rows.length;
       expect(index === 0 ? repeat : repeat.repeatIndex).toBe(index === 0 ? undefined : index);
       if (index > 0) expect(rows[0].status).not.toBe("pending");
@@ -655,6 +660,10 @@ describe("NodeStudioWorkspace", () => {
     const studio = () => mocks.nodeStudio.mock.lastCall![0];
     let receipt!: import("../model/server-execution-tracking").NodeExecutionReceipt;
     await act(async () => { receipt = await studio().onRegenerateNode("repeat"); });
+    const reserved = mocks.update.mock.lastCall![0].nodes.slice(1);
+    const reservedIds = reserved.map((n: {id: string}) => n.id);
+    const positions = reserved.map((n: {position: unknown}) => n.position);
+    expect(reserved.map((n: {id:string}) => studio().resolveUpstreamNodeData(n.id, {}).resultStatus)).toEqual(["pending", "pending", "pending", "pending"]);
     const complete = vi.fn(); void receipt.completion.then(complete);
     await act(async () => { await expect(studio().onRegenerateNode("repeat")).rejects.toThrow("NODE_GENERATION_ACTIVE"); });
     for (let i = 0; i < 4; i++) {
@@ -672,6 +681,8 @@ describe("NodeStudioWorkspace", () => {
     expect(outputMocks.startExecution.mock.calls.slice(1).map(call => call[3])).toEqual([1, 2, 3].map(repeatIndex => ({ repeatOfExecutionId: "run-0", repeatIndex })));
     const outputs = mocks.update.mock.lastCall![0].nodes.filter((node: {kind:string}) => node.kind === "input.image");
     expect(outputs).toHaveLength(4);
+    expect(outputs.map((n: {id:string}) => n.id)).toEqual(reservedIds);
+    expect(outputs.map((n: {position:unknown}) => n.position)).toEqual(positions);
     expect(outputs.map((node: {config:{assetId:string|null}}) => node.config.assetId)).toEqual(["asset-0", null, "asset-2", "asset-3"]);
     expect(outputs[1].config.resultSource).toMatchObject({executionId:"run-1",state:"failed"});
     view.unmount(); client.clear();
@@ -684,8 +695,38 @@ describe("NodeStudioWorkspace", () => {
     let receipt!: import("../model/server-execution-tracking").NodeExecutionReceipt;
     await act(async () => { receipt = await mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat"); });
     if (scenario === "unmount") view.unmount();
-    else act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange({ ...snapshot, nodes: scenario === "delete" ? [] : snapshot.nodes.map(node => ({ ...node, config: { ...node.config as object, prompt: "changed" } })) }));
+    else act(() => {
+      const draft = mocks.update.mock.lastCall![0];
+      mocks.nodeStudio.mock.lastCall![0].onDraftChange({ ...draft, nodes: scenario === "delete"
+        ? draft.nodes.filter((node: {id:string}) => node.id !== "repeat")
+        : draft.nodes.map((node: {id:string;config:object}) => node.id === "repeat" ? { ...node, config: { ...node.config, prompt: "changed" } } : node) });
+    });
     await act(async () => { await expect(receipt.completion).rejects.toMatchObject({ name: "AbortError" }); });
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
+    const stopped = mocks.update.mock.lastCall![0].nodes.filter((node: {kind:string}) => node.kind === "input.image");
+    expect(stopped.map((node: {config:{resultSource:unknown}}) => node.config.resultSource)).toMatchObject([
+      {executionId:"root",state:"pending"},{executionId:null,state:"cancelled"},{executionId:null,state:"cancelled"},{executionId:null,state:"cancelled"},
+    ]);
+    view.unmount();
+  });
+  it("stops reservations without receipts on reload and keeps accepted execution identity", () => {
+    const reserved = appendResultNodes(repeatGraph(1), "repeat");
+    const accepted = appendResultNodes(reserved.draft, "repeat", "accepted");
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    const view = renderWithIntl(<NodeStudioWorkspace graph={{...repeatGraph(1),...accepted.draft}} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
+    const nodes = mocks.update.mock.lastCall![0].nodes;
+    expect(nodes[1].config.resultSource).toMatchObject({executionId:null,state:"cancelled"});
+    expect(nodes[2].config.resultSource).toMatchObject({executionId:"accepted",state:"pending"});
+    view.unmount();
+  });
+  it("preserves an accepted receipt when saving its binding fails and stops the other reservations", async () => {
+    mocks.saveNow.mockResolvedValueOnce({version:4}).mockRejectedValueOnce(new Error("SAVE_FAILED")).mockResolvedValue({version:5});
+    outputMocks.startExecution.mockResolvedValue({executionId:"accepted",status:"pending",outputAssetIds:[]});
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph()} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
+    await act(async () => {await expect(mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat")).rejects.toThrow("SAVE_FAILED");});
+    const sources = mocks.update.mock.lastCall![0].nodes.slice(1).map((node:{config:{resultSource:unknown}})=>node.config.resultSource);
+    expect(sources).toMatchObject([{executionId:"accepted",state:"pending"},{executionId:null,state:"failed"},{executionId:null,state:"failed"},{executionId:null,state:"failed"}]);
     expect(outputMocks.startExecution).toHaveBeenCalledOnce();
     view.unmount();
   });

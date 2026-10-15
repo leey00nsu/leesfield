@@ -81,7 +81,7 @@ describe("submitImageGeneration", () => {
       null,
     );
     expect(result).toEqual({
-      record: { id: "request-id", status: "pending", progress: 0 },
+      record: { id: "request-id", status: "pending", progress: 0, createdAt: undefined, finishedAt: null },
     });
   });
 

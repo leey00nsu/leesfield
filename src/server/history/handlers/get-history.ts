@@ -144,6 +144,7 @@ async function imageItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  finishedAt?: Date | null;
   images: Array<{ assetId: string | null; url: string; asset?: {imageVariants: unknown; status?: string; storageUrl?: string | null; legacyUrl?: string | null} | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
@@ -162,8 +163,9 @@ async function imageItem(ownerEmail: string, record: {
     prompt: previewHistoryText(record.prompt) ?? "",
     model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
-    durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
+    durationMs: toHistoryDurationMs(record.createdAt, record.finishedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
     imageVariants: completed && asset.url ? parseImageVariants(output?.asset?.imageVariants) : null,
@@ -186,6 +188,7 @@ async function videoItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  finishedAt?: Date | null;
   videos: Array<{ assetId: string | null; url: string; asset?: { status?: string; storageUrl?: string | null; legacyUrl?: string | null } | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
@@ -204,8 +207,9 @@ async function videoItem(ownerEmail: string, record: {
     prompt: previewHistoryText(record.prompt) ?? "",
     model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
-    durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
+    durationMs: toHistoryDurationMs(record.createdAt, record.finishedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
     thumbnailUrl: null,
@@ -227,6 +231,7 @@ async function audioItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  finishedAt?: Date | null;
   audios: Array<{ assetId: string | null; url: string; asset?: { status?: string; storageUrl?: string | null; legacyUrl?: string | null } | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
@@ -245,8 +250,9 @@ async function audioItem(ownerEmail: string, record: {
     prompt: previewHistoryText(record.prompt) ?? "",
     model: record.modelKey ?? extractModel(record.requestParams),
     createdAt: record.createdAt.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
-    durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
+    durationMs: toHistoryDurationMs(record.createdAt, record.finishedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
     thumbnailUrl: null,
@@ -294,7 +300,7 @@ export async function getHistory(
           where: { ownerEmail, ...filter, AND: [buildImageWhere(query), cursorWhere(cursor, 0, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
-            graphNodeId: true, graphNode, progress: true, errorMessage: true,
+            graphNodeId: true, graphNode, finishedAt: true, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
@@ -310,7 +316,7 @@ export async function getHistory(
           where: { ownerEmail, ...filter, AND: [buildVideoWhere(query), cursorWhere(cursor, 1, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
-            graphNodeId: true, graphNode, progress: true, errorMessage: true,
+            graphNodeId: true, graphNode, finishedAt: true, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             videos: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
@@ -326,7 +332,7 @@ export async function getHistory(
           where: { ownerEmail, ...filter, AND: [buildAudioWhere(query), cursorWhere(cursor, 2, "requestId", asc)] }, orderBy: [orderBy, { requestId: asc ? "asc" : "desc" }], take,
           select: {
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
-            graphNodeId: true, graphNode, progress: true, errorMessage: true,
+            graphNodeId: true, graphNode, finishedAt: true, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
             audios: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
@@ -342,7 +348,7 @@ export async function getHistory(
       where: { ...editWhere, AND: [cursorWhere(cursor, 3, "id", asc)] }, orderBy: [orderBy, { id: asc ? "asc" : "desc" }], take,
       select: {
         id: true, graphId: true, graphNodeId: true, type: true, configVersion: true,
-        parameters: true, progress: true, createdAt: true, updatedAt: true,
+        parameters: true, progress: true, createdAt: true, updatedAt: true, finishedAt: true,
         inputs: { orderBy: [{ portId: "asc" }, { sortOrder: "asc" }], select: { assetId: true } },
         outputs: {
           where: { ...(query.type === "all" ? {} : { type: query.type }) },
@@ -391,8 +397,9 @@ export async function getHistory(
       prompt: operation.type,
       model: null,
       createdAt: operation.createdAt.toISOString(),
+      finishedAt: operation.finishedAt?.toISOString() ?? null,
       updatedAt: operation.updatedAt.toISOString(),
-      durationMs: toHistoryDurationMs(operation.createdAt, operation.updatedAt, "completed"),
+      durationMs: toHistoryDurationMs(operation.createdAt, operation.finishedAt, "completed"),
       progress: operation.progress,
       resultUrl: asset.url,
       imageVariants: asset.url && output.type === "image" ? parseImageVariants(output.imageVariants) : null,
@@ -444,7 +451,8 @@ export async function getHistoryRecordItem(owner: string, id: string, selector: 
     item = { id: record.id, type: output.type, origin: "edit", assetId: output.id, graphId: record.graphId,
       graphNodeId: record.graphNodeId, sourceAssetIds: record.inputs.map(input => input.assetId),
       operation: { id: record.id, type: record.type, configVersion: record.configVersion, parameters: previewHistoryValue(record.parameters) },
-      status: record.status, prompt: record.type, model: null, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
+      status: record.status, prompt: record.type, model: null, createdAt: record.createdAt.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null, updatedAt: record.updatedAt.toISOString(),
       progress: record.progress, resultUrl: result.url, thumbnailUrl: output.type === "image" ? result.url : null, errorMessage: previewHistoryText(record.errorMessage) };
   }
   return { ...item, hidden: !!record.hiddenAt };

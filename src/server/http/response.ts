@@ -12,6 +12,8 @@ type GenerationRecord = {
   id: string;
   status: string;
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
 };
 
 export function jsonWithNoStore<T>(body: T, init: ResponseInit = {}) {
@@ -28,6 +30,8 @@ export function buildGenerationSuccessResponse(record: GenerationRecord) {
       requestId: record.id,
       status: record.status,
       progress: record.progress,
+      createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
     }),
   );
 }

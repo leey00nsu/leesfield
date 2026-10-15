@@ -54,6 +54,7 @@ export type StoredNodeExecutionTarget = {
 };
 
 export type StoredExecutionRecord = {
+  finishedAt?: Date | null;
   executionId: string;
   mediaType: NodeExecutionMediaType;
   graphNodeId: string;
@@ -167,6 +168,7 @@ async function listExecutions(
         errorMessage: true,
         modelKey: true,
         createdAt: true,
+        finishedAt: true,
         images: {
           orderBy: { createdAt: "asc" },
           select: { assetId: true, url: true, width: true, height: true },
@@ -182,6 +184,7 @@ async function listExecutions(
       errorMessage: record.errorMessage,
       modelKey: record.modelKey,
       createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
       outputs: outputRows(record.images),
     }));
   }
@@ -197,6 +200,7 @@ async function listExecutions(
         errorMessage: true,
         modelKey: true,
         createdAt: true,
+        finishedAt: true,
         videos: {
           orderBy: { createdAt: "asc" },
           select: { assetId: true, url: true, width: true, height: true, durationSec: true },
@@ -212,6 +216,7 @@ async function listExecutions(
       errorMessage: record.errorMessage,
       modelKey: record.modelKey,
       createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
       outputs: outputRows(record.videos),
     }));
   }
@@ -226,6 +231,7 @@ async function listExecutions(
       errorMessage: true,
       modelKey: true,
       createdAt: true,
+        finishedAt: true,
       audios: {
         orderBy: { createdAt: "asc" },
         select: { assetId: true, url: true, durationSec: true },
@@ -241,6 +247,7 @@ async function listExecutions(
     errorMessage: record.errorMessage,
     modelKey: record.modelKey,
     createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
     outputs: outputRows(record.audios),
   }));
 }
@@ -266,6 +273,7 @@ async function findExecution(
         errorMessage: true,
         modelKey: true,
         createdAt: true,
+        finishedAt: true,
         images: { orderBy: { createdAt: "asc" }, select: { assetId: true, url: true, width: true, height: true } },
       },
     });
@@ -279,6 +287,7 @@ async function findExecution(
       errorMessage: record.errorMessage,
       modelKey: record.modelKey,
       createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
       outputs: outputRows(record.images),
     };
   }
@@ -292,6 +301,7 @@ async function findExecution(
         errorMessage: true,
         modelKey: true,
         createdAt: true,
+        finishedAt: true,
         videos: { orderBy: { createdAt: "asc" }, select: { assetId: true, url: true, width: true, height: true, durationSec: true } },
       },
     });
@@ -305,6 +315,7 @@ async function findExecution(
       errorMessage: record.errorMessage,
       modelKey: record.modelKey,
       createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
       outputs: outputRows(record.videos),
     };
   }
@@ -317,6 +328,7 @@ async function findExecution(
       errorMessage: true,
       modelKey: true,
       createdAt: true,
+        finishedAt: true,
       audios: { orderBy: { createdAt: "asc" }, select: { assetId: true, url: true, durationSec: true } },
     },
   });
@@ -330,6 +342,7 @@ async function findExecution(
     errorMessage: record.errorMessage,
     modelKey: record.modelKey,
     createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
     outputs: outputRows(record.audios),
   };
 }
@@ -452,7 +465,7 @@ async function markUploading(
           }
         : {}),
     },
-    data: { status: "uploading", progress: 95 },
+    data: { status: "uploading", progress: 0 },
   });
   if (updated.count === 1) return;
   if (await settleCancelledIfRequested(mediaType, generationId, lease)) {

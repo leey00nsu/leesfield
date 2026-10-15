@@ -40,6 +40,7 @@ function createRecord(params: {
   modelKey?: string | null;
   createdAt: Date;
   updatedAt?: Date;
+  finishedAt?: Date | null;
   apiKeyId?: string | null;
   maskedKey?: string | null;
 }) {
@@ -51,6 +52,7 @@ function createRecord(params: {
     modelKey: params.modelKey ?? "flux",
     createdAt: params.createdAt,
     updatedAt: params.updatedAt ?? params.createdAt,
+    finishedAt: params.finishedAt ?? null,
     apiKeyId,
     apiKey:
       apiKeyId === null
@@ -68,6 +70,12 @@ describe("getMonitoringRequests", () => {
     (prisma.audioGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
+  it("does not reinterpret a legacy metadata update as a finish time", async () => {
+    (prisma.imageGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([createRecord({requestId:"legacy",createdAt:new Date("2026-01-01T00:00:00Z"),updatedAt:new Date("2026-10-15T00:00:00Z"),finishedAt:null})]);
+    const result=await getMonitoringRequests(baseQuery);
+    expect(result.items[0]).toMatchObject({finishedAt:null,durationMs:null});
+  });
+
   it("API Key 표시와 duration을 계산한다", async () => {
     const createdAt = new Date("2026-01-02T10:00:00Z");
     const updatedAt = new Date("2026-01-02T10:00:02Z");
@@ -79,6 +87,7 @@ describe("getMonitoringRequests", () => {
         modelKey: "flux",
         createdAt,
         updatedAt,
+        finishedAt: updatedAt,
         apiKeyId: "key-1",
         apiKey: { maskedKey: "lf_live_aaaa...bbbb" },
       },
@@ -88,6 +97,7 @@ describe("getMonitoringRequests", () => {
         modelKey: "flux",
         createdAt,
         updatedAt,
+        finishedAt: updatedAt,
         apiKeyId: null,
         apiKey: null,
       },
@@ -168,6 +178,7 @@ describe("getMonitoringRequests", () => {
         status: "completed",
         createdAt,
         updatedAt: completedUpdatedAt,
+        finishedAt: completedUpdatedAt,
       }),
     ]);
     (prisma.videoGeneration.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([

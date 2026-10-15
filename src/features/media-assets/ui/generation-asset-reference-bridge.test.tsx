@@ -13,9 +13,9 @@ describe("explicit library reference bridge", () => {
     const attached = vi.fn();
     function Draft() { const [values, setValues] = useState({ prompt: "existing draft", seed: 0, flag: false, refs: ["old"] }); return <><GenerationAssetReferenceBridge fields={[field]} values={values} disabled={false} onAttach={(name, value) => { const next = { ...values, [name]: value }; attached(next); setValues(next as typeof values); }} /><p>{values.prompt}</p></>; }
     renderWithIntl(<GenerationQueryContext.Provider value={new URLSearchParams({ assetId: "stable" })}><Draft /></GenerationQueryContext.Provider>);
-    expect(attached).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "첨부" }));
+    expect(attached).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "업로드" }));
     expect(attached).toHaveBeenCalledWith({ prompt: "existing draft", seed: 0, flag: false, refs: ["old", "https://storage.example/new.png"] });
-    expect(screen.getByText("existing draft")).toBeInTheDocument(); expect(screen.queryByRole("button", { name: "첨부" })).not.toBeInTheDocument();
+    expect(screen.getByText("existing draft")).toBeInTheDocument(); expect(screen.queryByRole("button", { name: "업로드" })).not.toBeInTheDocument();
   });
-  it("does not route an asset into a full or incompatible role", () => { renderWithIntl(<GenerationQueryContext.Provider value={new URLSearchParams({ assetId: "stable" })}><GenerationAssetReferenceBridge fields={[field]} values={{ refs: ["a", "b"] }} disabled={false} onAttach={vi.fn()} /></GenerationQueryContext.Provider>); expect(screen.queryByRole("button", { name: "첨부" })).not.toBeInTheDocument(); expect(screen.getByText("호환되는 참조 입력이 있는 모델을 선택하세요.")).toBeInTheDocument(); });
+  it("does not route an asset into a full or incompatible role", () => { renderWithIntl(<GenerationQueryContext.Provider value={new URLSearchParams({ assetId: "stable" })}><GenerationAssetReferenceBridge fields={[field]} values={{ refs: ["a", "b"] }} disabled={false} onAttach={vi.fn()} /></GenerationQueryContext.Provider>); expect(screen.queryByRole("button", { name: "업로드" })).not.toBeInTheDocument(); expect(screen.getByText("호환되는 참조 입력이 있는 모델을 선택하세요.")).toBeInTheDocument(); });
 });

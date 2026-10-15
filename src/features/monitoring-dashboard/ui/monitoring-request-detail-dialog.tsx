@@ -1,4 +1,5 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { AppDialogBody } from "@/shared/ui/app-dialog";
 import { VariantImage } from "@/shared/media-assets/variant-image";
@@ -20,7 +21,6 @@ import type {
   MonitoringRequestItem,
 } from "@/features/monitoring-dashboard/model/types";
 import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
-import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
 import { resolveMonitoringStatus } from "@/features/monitoring-dashboard/lib/monitoring-request-status";
 
 interface MonitoringRequestDetailDialogProps {
@@ -31,7 +31,7 @@ interface MonitoringRequestDetailDialogProps {
   detailOverride?: MonitoringRequestDetail | null;
 }
 
-const FINISHED_STATUSES = new Set(["completed", "failed"]);
+const FINISHED_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -128,6 +128,7 @@ function mergeMonitoringDetail({
     model: fetched?.model ?? seed?.model ?? null,
     prompt: fetched?.prompt ?? seed?.prompt ?? "",
     createdAt,
+    finishedAt: fetched?.finishedAt ?? seed?.finishedAt ?? request?.finishedAt ?? null,
     updatedAt: fetched?.updatedAt ?? seed?.updatedAt ?? createdAt,
     durationMs:
       fetched?.durationMs ?? seed?.durationMs ?? request?.durationMs ?? null,
@@ -238,15 +239,11 @@ export function MonitoringRequestDetailDialog({
               />
               <DetailRow
                 label={t("requests.detailFinished")}
-                value={isFinished ? formatDateTime(detail.updatedAt) : "-"}
+                value={isFinished && detail.finishedAt ? formatDateTime(detail.finishedAt) : "-"}
               />
               <DetailRow
                 label={t("requests.detailDuration")}
-                value={formatDuration(detail.durationMs)}
-              />
-              <DetailRow
-                label={t("requests.detailProgress")}
-                value={detail.progress !== null ? `${detail.progress}%` : "-"}
+                value={<ExecutionTime {...detail} />}
               />
               <DetailRow
                 label={t("requests.detailStatus")}

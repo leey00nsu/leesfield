@@ -43,6 +43,8 @@ const statusFilters: MonitoringStatusFilter[] = [
   "active",
   "pending",
   "processing",
+  "uploading",
+  "cancelled",
   "completed",
   "failed",
 ];
@@ -299,6 +301,7 @@ export function MonitoringDashboardScreen() {
             }}
             onOffsetChange={setRequestOffset}
             isLoading={requestsQuery.isLoading}
+            isPageChanging={requestsQuery.isLoading || requestsQuery.isPlaceholderData}
             error={requestsError}
             updatedAt={updatedAt}
             timeZone={filters.tz}

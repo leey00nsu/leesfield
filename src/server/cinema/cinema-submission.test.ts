@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 it.each(["image", "video"] as const)("%s uses the actual provider prompt and keeps metadata out of input fields", async type => {
-  const body = { model: `mapped-${type}`, prompt: "unused canonical", dynamicParams: { description: "a rainy street" }, cinema: { ...defaultCinemaSettings(), lighting: "window" } };
+  const body = { model: `mapped-${type}`, prompt: "unused canonical", dynamicParams: { description: "a rainy street" }, inputPrompt: "typed text".repeat(3_000), cinema: { ...defaultCinemaSettings(), lighting: "window" } };
   const response = await (type === "image" ? imagePost : videoPost)(request(type, body));
   expect(response.status).toBe(200);
   const submission = type === "image" ? mocks.image.mock.calls[0][0] : { payload: mocks.video.mock.calls[0][0], cinema: mocks.video.mock.calls[0][4] };
@@ -40,6 +40,7 @@ it.each(["image", "video"] as const)("%s uses the actual provider prompt and kee
   expect(mocks.admit.mock.calls[0][0].payload.cinema).toEqual(submission.cinema);
   const saved = await snapshotRequest(type, { ...submission.payload, cinema: submission.cinema });
   expect(saved.cinema).toEqual(submission.cinema);
+  expect(saved.inputPrompt).toBe("typed text".repeat(3_000));
   expect(restoreRequest(saved)).not.toHaveProperty("cinema");
   expect(gradioInputValues(getGradioContract(model(type))!, restoreRequest(saved))).toEqual(inputs);
 });

@@ -37,7 +37,7 @@ export function appendResultNodes(draft: GraphDraft, sourceId: string, execution
 export function bindResultNodes(draft: GraphDraft, ids: readonly string[], executionId: string | null, state: ResultSource["state"] = "pending") {
   return { ...draft, nodes: draft.nodes.map(node => {
     const source = resultSource(node.config);
-    return ids.includes(node.id) && source ? { ...node, config: { ...record(node.config), resultSource: { ...source, executionId, state } } } : node;
+    return ids.includes(node.id) && source?.state === "pending" && (!source.executionId || source.executionId === executionId) ? { ...node, config: { ...record(node.config), resultSource: { ...source, executionId, state } } } : node;
   }) } as GraphDraft;
 }
 

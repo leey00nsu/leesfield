@@ -213,13 +213,13 @@ export function extractReferenceText(params: unknown): string | null {
     : null;
 }
 
-const FINISHED_STATUSES = new Set(["completed", "failed"]);
+const FINISHED_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 export function toHistoryDurationMs(
   createdAt: Date,
-  updatedAt: Date,
+  finishedAt: Date | null | undefined,
   status: string,
 ) {
-  if (!FINISHED_STATUSES.has(status)) return null;
-  return Math.max(0, updatedAt.getTime() - createdAt.getTime());
+  if (!FINISHED_STATUSES.has(status) || !finishedAt) return null;
+  return Math.max(0, finishedAt.getTime() - createdAt.getTime());
 }

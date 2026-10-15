@@ -109,7 +109,7 @@ const operationSelect = {
   errorMessage: true,
   createdAt: true,
   updatedAt: true,
-  completedAt: true,
+  finishedAt: true,
   graphNode: { select: { id: true, graphId: true, kind: true, configVersion: true } },
   inputs: {
     orderBy: [{ portId: "asc" as const }, { sortOrder: "asc" as const }],
@@ -410,7 +410,7 @@ async function completeServerOperation(
         data: {
           status: "completed",
           progress: 100,
-          completedAt: now,
+          finishedAt: now,
           executionLeaseToken: null,
           executionLeaseUntil: null,
         },
@@ -421,7 +421,7 @@ async function completeServerOperation(
     } else {
       await tx.mediaOperation.update({
         where: { id: operationId },
-        data: { status: "completed", progress: 100, completedAt: now },
+        data: { status: "completed", progress: 100, finishedAt: now },
       });
     }
     return assetIds;
@@ -891,7 +891,7 @@ async function completeUpload(input: {
       if (completedUploads.length === session.operation.expectedOutputCount) {
         const completed = await tx.mediaOperation.updateMany({
           where: { id: session.operationId, ownerEmail: input.ownerEmail, status: "uploading" },
-          data: { status: "completed", progress: 100, completedAt: input.now },
+          data: { status: "completed", progress: 100, finishedAt: input.now },
         });
         if (completed.count !== 1) {
           throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");

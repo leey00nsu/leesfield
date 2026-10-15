@@ -34,7 +34,7 @@ export function AppPromptEditor({ value, token, tokens, disabled, placeholder, o
       const element = document.createElement("span");
       element.contentEditable = "false";
       element.dataset.promptToken = item.id;
-      element.className = "mr-2 inline-block max-w-full align-middle";
+      element.className = "mr-2 inline-block max-w-full align-baseline";
       return { token: item, element };
     });
     renderDocument(element, value, nextHosts);

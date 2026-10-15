@@ -29,6 +29,8 @@ export type VideoGenerationSubmissionRecord = {
   id: string;
   status: VideoGenerationStatus;
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
 };
 
 function isUniqueConstraintError(error: unknown) {
@@ -104,6 +106,8 @@ export async function submitVideoGeneration({
         id: record.requestId,
         status: record.status,
         progress: record.progress,
+    createdAt: record.createdAt?.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
       } satisfies VideoGenerationSubmissionRecord,
     };
   } catch (error) {

@@ -397,6 +397,7 @@ describe("VideoGenerationForm", () => {
       ...videoGenerationDefaults,
       initImage: "data:image/png;base64,AAAA",
       prompt: "cinematic sunrise",
+      inputPrompt: "cinematic sunrise",
     });
   });
 
@@ -404,7 +405,7 @@ describe("VideoGenerationForm", () => {
     renderWithIntl(<VideoGenerationForm isAuthenticated />);
     await waitForModels();
 
-    const uploadButton = screen.getByRole("button", {name:"참조 이미지: 파일 추가"});
+    const uploadButton = screen.getByRole("button", {name:"참조 이미지: 파일 업로드"});
 
     expect(uploadButton).toBeInTheDocument();
   });

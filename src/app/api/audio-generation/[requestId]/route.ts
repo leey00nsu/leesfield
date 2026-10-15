@@ -39,6 +39,8 @@ async function getObservedHandler(_request: Request, { params }: RouteContext) {
       requestId: record.id,
       status: record.status,
       progress: record.progress,
+      createdAt: record.createdAt,
+      finishedAt: record.finishedAt,
       result: record.result,
       errorMessage: record.errorMessage,
     },

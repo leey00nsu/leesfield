@@ -19,7 +19,10 @@ export const generationStatusSchema = z.enum([
 export const generationResponseSchema = z.object({
   requestId: z.string(),
   status: generationStatusSchema,
+  /** @deprecated Compatibility only; use status and timestamps. */
   progress: z.number(),
+  createdAt: z.string().optional(),
+  finishedAt: z.string().nullable().optional(),
 });
 export const errorResponseSchema = z.object({
   message: z.string(),

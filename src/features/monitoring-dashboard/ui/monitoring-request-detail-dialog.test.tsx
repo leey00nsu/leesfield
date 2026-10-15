@@ -71,16 +71,17 @@ describe("MonitoringRequestDetailDialog", () => {
     expect(screen.queryByTestId("monitoring-detail-loading")).not.toBeInTheDocument();
   });
 
-  it("partial seed가 있어도 상세 조회로 duration/progress/asset duration을 보강한다", () => {
+  it("partial seed가 있어도 상세 조회로 terminal time/asset duration을 보강한다", () => {
     mockUseMonitoringRequestDetail.mockReturnValue({
       data: {
         id: "vid-1",
         type: "video",
-        status: "processing",
+        status: "completed",
         model: "wan-2.2",
         prompt: "full prompt",
         createdAt: "2026-01-10T10:00:00.000Z",
         updatedAt: "2026-01-10T10:00:03.000Z",
+        finishedAt: "2026-01-10T10:00:02.500Z",
         durationMs: 2500,
         progress: 75,
         errorMessage: null,
@@ -143,8 +144,8 @@ describe("MonitoringRequestDetailDialog", () => {
     );
 
     expect(mockUseMonitoringRequestDetail).toHaveBeenCalledWith("video", "vid-1", true);
-    expect(screen.getByText("2.5s")).toBeInTheDocument();
-    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText("2초 소요")).toBeInTheDocument();
+    expect(screen.queryByText("75%")).not.toBeInTheDocument();
     expect(screen.getByText("4s")).toBeInTheDocument();
   });
 

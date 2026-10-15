@@ -356,6 +356,7 @@ export function MonitoringKpiCards({
       <MonitoringStatsChart data={stats} isLoading={statsLoading} compact />
       <StatCard
         title={t("kpi.avgLatency")}
+        footnote={t("kpi.durationFootnote")}
         value={isLoading ? "..." : avgLatency}
         icon={Timer}
         visual={

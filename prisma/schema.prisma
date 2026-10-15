@@ -136,6 +136,7 @@ model ImageGeneration {
   errorMessage      String?
   hiddenAt DateTime?
   createdAt         DateTime               @default(now())
+  finishedAt        DateTime?
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
   executionLeaseToken String?
@@ -245,7 +246,7 @@ model AssistantExecution {
   cancelRequestedAt     DateTime?
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
-  completedAt           DateTime?
+  finishedAt            DateTime?
   graphNode             GenerationGraphNode      @relation(fields: [graphNodeId], references: [id], onDelete: Cascade)
 
   @@index([ownerEmail, graphNodeId, createdAt])
@@ -289,6 +290,7 @@ model VideoGeneration {
   errorMessage      String?
   hiddenAt DateTime?
   createdAt         DateTime               @default(now())
+  finishedAt        DateTime?
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
   executionLeaseToken String?
@@ -340,6 +342,7 @@ model AudioGeneration {
   errorMessage      String?
   hiddenAt DateTime?
   createdAt         DateTime               @default(now())
+  finishedAt        DateTime?
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
   executionLeaseToken String?
@@ -620,7 +623,7 @@ model MediaOperation {
   hiddenAt DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
-  completedAt         DateTime?
+  finishedAt          DateTime?
   graph               GenerationGraph?      @relation(fields: [graphId], references: [id], onDelete: SetNull)
   graphNode           GenerationGraphNode?  @relation(fields: [graphNodeId], references: [id], onDelete: SetNull)
   inputs              MediaOperationInput[]

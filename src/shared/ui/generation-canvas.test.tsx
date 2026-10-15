@@ -36,17 +36,35 @@ describe("GenerationCanvas", () => {
   });
 });
 
-it("shows the waiting state and elapsed time only while a job is running", () => {
+it("uses the server receipt after remount and freezes at each terminal status", () => {
   vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-15T00:00:10Z"));
   try {
-    const view = renderWithIntl(<GenerationCanvas isGenerating status="pending" />);
-    expect(screen.getByText("대기 중…")).toHaveClass("sr-only");
+    const props = {createdAt:"2026-10-15T00:00:00Z", finishedAt:null};
+    const view = renderWithIntl(<GenerationCanvas isGenerating status="pending" {...props} />);
+    expect(screen.getByText("대기 중…")).toBeVisible();
     expect(screen.getByRole("status").querySelector("svg.animate-spin")).not.toBeNull();
+    expect(screen.getByText("10초 경과")).toBeVisible();
     act(() => { vi.advanceTimersByTime(2000); });
-    expect(screen.getByText("2초")).toBeVisible();
+    expect(screen.getByText("12초 경과")).toBeVisible();
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);
-  } finally {
-    vi.useRealTimers();
-  }
+    for (const status of ["completed", "failed", "cancelled"] as const) {
+      const terminal = renderWithIntl(<GenerationCanvas isGenerating={false} status={status} createdAt={props.createdAt} finishedAt="2026-10-15T00:00:08Z" />);
+      expect(screen.getByText("8초 소요")).toBeVisible();
+      act(() => { vi.advanceTimersByTime(3000); });
+      expect(screen.getByText("8초 소요")).toBeVisible();
+      terminal.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    }
+    const restored = renderWithIntl(<GenerationCanvas isGenerating status="processing" {...props} />);
+    expect(screen.getByText("21초 경과")).toBeVisible();
+    restored.unmount();
+  } finally { vi.useRealTimers(); }
+});
+
+it("does not invent an end time for old terminal records", () => {
+  const view=renderWithIntl(<GenerationCanvas isGenerating={false} status="completed" createdAt="2026-10-15T00:00:00Z" />);
+  expect(screen.getByText("시간 미확인")).toBeVisible();
+  view.unmount();
 });

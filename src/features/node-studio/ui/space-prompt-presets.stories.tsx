@@ -143,8 +143,8 @@ export const SharedRepeatFour: Story = {render:()=> <SharedComposerPreview repea
 export const SharedRepeatPartial: Story = {render:()=> <SharedComposerPreview repeatCount={4} progress={{completed:3,failed:1,total:4,running:true}} />};
 export const SharedRepeatCompleted: Story = {render:()=> <SharedComposerPreview repeatCount={4} progress={{completed:4,failed:1,total:4,running:false}} />};
 
-function SeparateResultsPreview({ modality = "image", status = "idle" }: {
-  modality?: "image" | "video" | "audio"; status?: "idle" | "pending" | "completed" | "failed" | "cancelled";
+function SeparateResultsPreview({ modality = "image", status = "idle", repeatCount = 1 }: {
+  modality?: "image" | "video" | "audio"; status?: "idle" | "pending" | "completed" | "failed" | "cancelled"; repeatCount?: number;
 }) {
   const sampleUrl = modality === "image" ? storybookImage.url : modality === "video" ? "/assets/storybook/puppy.mp4" : "/assets/storybook/tone.wav";
   const previewModel = { ...model, type: modality, key: "separate-" + modality, label: "Storybook model", provider:"hf_space",meta:{max_input_images:0},
@@ -165,13 +165,17 @@ function SeparateResultsPreview({ modality = "image", status = "idle" }: {
   const [snapshot,setSnapshot] = useState<GenerationGraphSnapshotDto>(() => {
     const draft = { ...initial,schemaVersion:3 as const,minimumWriterVersion:3 as const,groups:[],edges:[],nodes:[{
       id:"generation",kind:`generate.${modality}`,configVersion:1,position:{x:40,y:40},selectedOutputAssetId:null,
-      config:{prompt:"Describe a cinematic scene",modelKey:previewModel.key,parameters:{},presentation:{customTitle:"Generation input"}},
+      config:{prompt:"Describe a cinematic scene",modelKey:previewModel.key,parameters:{},repeatCount,presentation:{customTitle:"Generation input"}},
     }] };
     if(status === "idle") return draft;
-    const appended = appendResultNodes(draft,"generation","preview-run");
-    return status === "pending" ? {...draft,...appended.draft} : {...draft,...reconcileResultNodes(appended.draft,"generation",{
-      executionId:"preview-run",status,outputAssetIds:status === "completed"?["sample-output"]:[],
-    })};
+    let result: GenerationGraphSnapshotDto & import("../hook/use-graph-autosave").GraphDraft = {...draft, schemaVersion:3, groups:[]};
+    for (let index=0;index<repeatCount;index++) {
+      result={...result,...appendResultNodes(result,"generation","preview-run-"+index).draft};
+      if(status !== "pending") result={...result,...reconcileResultNodes(result,"generation",{
+        executionId:"preview-run-"+index,status,outputAssetIds:status === "completed"?["sample-output"]:[],
+      })};
+    }
+    return result;
   });
   const previewCatalog = { ...catalog,imageModels:previewModel.type === "image"?[previewModel]:[],
     videoModels:previewModel.type === "video"?[previewModel]:[],audioModels:previewModel.type === "audio"?[previewModel]:[] };
@@ -179,21 +183,32 @@ function SeparateResultsPreview({ modality = "image", status = "idle" }: {
     <NodeBananaStudio graph={snapshot} catalog={previewCatalog} writable readOnlyReason={null} prepareImageNodeExecution={async()=>1}
       onDraftChange={draft=>setSnapshot(previous=>({...previous,...draft,version:previous.version+1}))}
       onRegenerateNode={async nodeId => {
-        const appended = appendResultNodes({...snapshot,schemaVersion:3,groups:snapshot.groups??[]},nodeId,crypto.randomUUID());
-        const executionId = resultSource(appended.draft.nodes.find(node=>node.id===appended.ids[0])?.config)!.executionId!;
-        setSnapshot(previous=>({...previous,...bindResultNodes(appended.draft,appended.ids,executionId)}));setPhase("pending");
-        return {executionId,completion:new Promise<void>(resolve=>setTimeout(()=>{
-          setSnapshot(previous=>({...previous,...reconcileResultNodes({...previous,schemaVersion:3,groups:previous.groups??[]},nodeId,{
-            executionId,status:"completed",outputAssetIds:["sample-output"],
-          })}));setPhase("completed");resolve();
-        },2000))};
+        let reserved = {...snapshot,schemaVersion:3 as const,groups:snapshot.groups??[]};
+        const runs: {ids:string[];executionId:string}[]=[];
+        const count=modality==="image" ? Number((snapshot.nodes.find(node=>node.id===nodeId)?.config as {repeatCount?:number})?.repeatCount??1) : 1;
+        for(let index=0;index<count;index++) {
+          const appended=appendResultNodes(reserved,nodeId);
+          runs.push({ids:appended.ids,executionId:crypto.randomUUID()});reserved={...reserved,...appended.draft};
+        }
+        setSnapshot(previous=>({...previous,...reserved}));setPhase("pending");
+        return {executionId:runs[0].executionId,completion:(async()=>{
+          for(const run of runs) {
+            setSnapshot(previous=>({...previous,...bindResultNodes({...previous,schemaVersion:3,groups:previous.groups??[]},run.ids,run.executionId)}));
+            await new Promise<void>(resolve=>setTimeout(resolve,1600));
+            setSnapshot(previous=>({...previous,...reconcileResultNodes({...previous,schemaVersion:3,groups:previous.groups??[]},nodeId,{
+              executionId:run.executionId,status:"completed",outputAssetIds:["sample-output"],
+            })}));
+          }
+          setPhase("completed");
+        })()};
       }}
       resolveUpstreamNodeData={(id,data)=> {
         if(id === "generation") return { executionStatus: phase === "pending" ? "processing" : phase === "idle" ? undefined : phase,
+          executionCreatedAt:phase==="idle"?undefined:new Date(Date.now()-30_000).toISOString(),executionFinishedAt:phase==="pending"?null:new Date(Date.now()-10_000).toISOString(),
           supportsImageInput:false,providerInputSchema:[],outputImage:phase==="completed"?sampleUrl:null,outputVideo:phase==="completed"?sampleUrl:null };
         const source = resultSource(data.config);
         const assetId = (data.config as {assetId?:string}).assetId;
-        return source ? {resultStatus:source.state,resultProgress:source.state==="pending"?35:100,
+        return source ? {resultStatus:source.state,resultCreatedAt:new Date(Date.now()-30_000).toISOString(),resultFinishedAt:source.state==="pending"?null:new Date(Date.now()-10_000).toISOString(),
           image:assetId?sampleUrl:null,imageRef:assetId??null,video:assetId?sampleUrl:null,videoRef:assetId??null,
           audioFile:assetId?sampleUrl:null,audioFileRef:assetId??null,filename:assetId?"Storybook sample":null,duration:2,
           dimensions:modality==="audio"?null:{width:640,height:462}} : {};
@@ -210,7 +225,8 @@ export const SeparateImageCompleted: Story = {render:()=> <SeparateResultsPrevie
 export const SeparateVideoCompleted: Story = {render:()=> <SeparateResultsPreview modality="video" status="completed" />};
 export const SeparateAudioCompleted: Story = {render:()=> <SeparateResultsPreview modality="audio" status="completed" />};
 
-function SelectionStylePreview() {
+function SelectionStylePreview({running=false}:{running?:boolean}) {
+  const [receipt] = useState(()=>new Date(Date.now()-25_000).toISOString());
   const [kind, setKind] = useState<CanonicalNodeKind>("generate.image");
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } }));
   const media = kind === "input.image" ? "image" : kind === "input.video" ? "video" : kind === "input.audio" ? "audio" : null;
@@ -229,7 +245,7 @@ function SelectionStylePreview() {
     <div className="flex h-screen flex-col" data-preview-kind={kind}>
       <NodeBananaStudio key={kind} graph={graph} catalog={catalog} writable readOnlyReason={null}
         prepareImageNodeExecution={async () => 1} onDraftChange={() => undefined}
-        resolveUpstreamNodeData={() => media ? { image: sampleUrl, video: sampleUrl, audioFile: sampleUrl, filename: "Storybook sample", duration: 2 } : {}}
+        resolveUpstreamNodeData={() => ({...(media ? { image: sampleUrl, video: sampleUrl, audioFile: sampleUrl, filename: "Storybook sample", duration: 2 } : {}),...(running?{executionStatus:"processing",executionProgress:92,executionCreatedAt:receipt,executionFinishedAt:null}: {})})}
       />
     </div>
   </QueryClientProvider>;
@@ -280,3 +296,8 @@ function InputUXPreview() {
   </>;
 }
 export const InputInteractions: Story = { render: () => <InputUXPreview /> };
+
+export const SeparateRepeatFour: Story = {render:()=> <SeparateResultsPreview repeatCount={4} />};
+export const SeparateRepeatFourPending: Story = {render:()=> <SeparateResultsPreview repeatCount={4} status="pending" />};
+
+export const RunningSelection: Story = {render:()=> <SelectionStylePreview running />};

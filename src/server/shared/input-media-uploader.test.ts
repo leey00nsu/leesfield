@@ -1,7 +1,8 @@
 import { buildModalModelDraft } from "@/server/modal-comfyui/importer";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/db/prisma", () => ({ prisma: {} }));
+const assetLookup = vi.hoisted(() => vi.fn());
+vi.mock("@/server/db/prisma", () => ({ prisma: { mediaAsset: { findFirst: assetLookup } } }));
 
 import {
   applyUploadedGenerationInputAssets,
@@ -161,4 +162,20 @@ describe("generation input media normalization", () => {
       dynamicParams: { reference: "old-reference", prompt: "keep" },
     });
   });
+});
+
+it("reuses only an owned completed asset with the requested media type and original field position", async () => {
+  assetLookup.mockResolvedValueOnce({ id: "existing", storageUrl: "https://storage.example/original.webp", legacyUrl: null, bytes: BigInt(100), mimeType: "image/webp" });
+  const result = await uploadGenerationInputAssets("new-request", "owner@example.com", [{
+    generationType: "video", field: "dynamicParams.references", mediaType: "image", multiple: true,
+    sources: [null, "https://storage.example/original.webp"],
+  }]);
+  expect(result).toEqual([{ ref: { assetId: "existing", field: "dynamicParams.references", generationType: "video", sortOrder: 1, multiple: true }, url: "https://storage.example/original.webp", mediaType: "image", sourceBytes: 100 }]);
+  expect(assetLookup).toHaveBeenLastCalledWith(expect.objectContaining({ where: {
+    ownerEmail: "owner@example.com", type: "image", status: "completed",
+    OR: [{ storageUrl: "https://storage.example/original.webp" }, { legacyUrl: "https://storage.example/original.webp" }],
+  }}));
+  // No storage credentials are configured; a reused reference needs no upload.
+  assetLookup.mockResolvedValueOnce({ id: "large", bytes: BigInt(11 * 1024 * 1024), mimeType: "image/png" });
+  await expect(uploadGenerationInputAssets("request", "owner", [{ generationType: "image", field: "initImages", mediaType: "image", sources: ["https://storage.example/large.png"] }])).rejects.toThrow("INPUT_MEDIA_TOO_LARGE");
 });

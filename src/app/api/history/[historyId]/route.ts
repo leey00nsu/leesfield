@@ -9,6 +9,7 @@ import {
   limitReadableStream,
 } from "@/server/http/bounded-io";
 import { requestRemoteStream } from "@/server/http/safe-remote";
+import { historyPromptAuthoring } from "@/server/history/history-prompt-authoring";
 import { historyAuthoringReferences, historyAuthoringOptions } from "@/server/history/history-authoring-references";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,8 @@ async function getObservedHandler(request: Request, context: Context) {
     try {
       const references = await historyAuthoringReferences(result.ownerEmail, result.type, result.record.modelKey, raw);
       const options = await historyAuthoringOptions(result.type, result.record.modelKey, raw);
-      return jsonWithNoStore({ cinema, prompt: result.record.prompt, model: result.record.modelKey, references, options });
+      const authoring = historyPromptAuthoring(raw, result.record.prompt);
+      return jsonWithNoStore({ cinema, ...authoring, prompt: result.record.prompt, model: result.record.modelKey, references, options });
     } catch { return new Response(null, { status: 404 }); }
   }
   if (!result.record || !result.url) return new Response(null, {status: 404});

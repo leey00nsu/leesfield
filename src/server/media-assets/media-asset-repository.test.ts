@@ -263,7 +263,7 @@ describe("mediaAssetRepository", () => {
     expect(mocks.tx.mediaOperation.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: "op_1", status: "uploading" }),
-        data: { status: "completed", progress: 100, completedAt: now },
+        data: { status: "completed", progress: 100, finishedAt: now },
       }),
     );
     expect(mocks.tx.generationGraphNodeOutput.deleteMany).toHaveBeenCalledWith({
@@ -294,7 +294,7 @@ describe("mediaAssetRepository", () => {
       errorMessage: null,
       createdAt: now,
       updatedAt: now,
-      completedAt: null,
+      finishedAt: null,
     });
 
     await mediaAssetRepository.completeServerOperation("owner@example.com", "op_1", [{

@@ -315,7 +315,7 @@ describe("GenerationNode common presenter", () => {
     mocks.writable=false;
     render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"image-a",prompt:"Keep",parameters:{}}} modality="image" />,{wrapper:promptWrapper});
     expect(screen.getByRole("textbox",{name:"프롬프트"})).toHaveAttribute("contenteditable","false");
-    expect(screen.getByRole("button",{name:/참조 이미지:.*파일 추가/})).toBeDisabled();
+    expect(screen.getByRole("button",{name:/참조 이미지:.*파일 업로드/})).toBeDisabled();
     expect(screen.getByRole("button",{name:"프리셋"})).toBeDisabled();
   });
   it("rehydrates a token between paragraphs, clears only its body and never guesses legacy text", () => {

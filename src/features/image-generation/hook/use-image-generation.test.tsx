@@ -28,13 +28,13 @@ describe("useImageGeneration", () => {
     mockRequestImageGeneration.mockResolvedValueOnce({
       requestId: "request-id",
       status: "processing",
-      progress: 12,
+      progress: 12, createdAt:"2026-10-15T00:00:00Z",
     });
 
     mockFetchImageGenerationStatus.mockResolvedValueOnce({
       requestId: "request-id",
       status: "completed",
-      progress: 100,
+      progress: 100, createdAt:"2026-10-15T00:00:00Z", finishedAt:"2026-10-15T00:00:08Z",
       result: {
         images: [{ url: "https://example.com/result.png" }],
       },
@@ -54,9 +54,22 @@ describe("useImageGeneration", () => {
       expect(result.current.state.status).toBe("completed"),
     );
 
-    expect(result.current.state.progress).toBe(100);
+    expect(result.current.state.progress).toBe(0);
+    expect(result.current.state.createdAt).toBe("2026-10-15T00:00:00Z");
+    expect(result.current.state.finishedAt).toBe("2026-10-15T00:00:08Z");
     expect(result.current.state.result?.images).toHaveLength(1);
     expect(mockFetchImageGenerationStatus).toHaveBeenCalled();
+  });
+
+  it("stops a cancelled batch without submitting remaining paid requests", async () => {
+    mockRequestImageGeneration.mockResolvedValueOnce({requestId:"cancelled",status:"cancelled",progress:0,createdAt:"2026-10-15T00:00:00Z",finishedAt:"2026-10-15T00:00:05Z"});
+    const {result}=renderHook(()=>useImageGeneration(),{wrapper:createIntlWrapper()});
+    await act(async()=>{await result.current.startGeneration(payload,4)});
+    await waitFor(()=>expect(result.current.state.status).toBe("cancelled"));
+    expect(mockRequestImageGeneration).toHaveBeenCalledTimes(1);
+    expect(mockFetchImageGenerationStatus).not.toHaveBeenCalled();
+    expect(result.current.state.finishedAt).toBe("2026-10-15T00:00:05Z");
+    expect(result.current.state.slots?.map(slot => slot.status)).toEqual(Array(4).fill("cancelled"));
   });
 
   it("요청 실패 시 실패 상태와 메시지를 설정한다", async () => {
@@ -118,6 +131,7 @@ describe("useImageGeneration", () => {
     await act(async()=>{await result.current.startGeneration(payload,3);});
     await waitFor(()=>expect(result.current.state.batch).toEqual({total:3,finished:3,failed:1}));
     expect(result.current.state.status).toBe("completed");
+    expect(result.current.state.slots?.map(slot => [slot.status, slot.images.length])).toEqual([["completed", 2], ["failed", 0], ["completed", 1]]);
     expect(mockRequestImageGeneration).toHaveBeenCalledTimes(3);
     const calls=mockRequestImageGeneration.mock.calls;
     expect(calls.map(([values])=>values)).toEqual([payload,payload,payload]);
@@ -165,5 +179,24 @@ describe("useImageGeneration", () => {
     await act(async()=>{resolve({requestId:"late",status:"completed",progress:100});});
     expect(mockRequestImageGeneration).toHaveBeenCalledTimes(1);
   });
+
+it("reserves every slot before submission and publishes the first result while the next request is unresolved", async () => {
+  let first!: (value: unknown) => void;
+  mockRequestImageGeneration.mockReturnValueOnce(new Promise(resolve => { first = resolve; }))
+    .mockReturnValueOnce(new Promise(() => {}));
+  const { result, unmount } = renderHook(() => useImageGeneration(), { wrapper: createIntlWrapper() });
+  await act(async () => { await result.current.startGeneration({ ...imageGenerationDefaults, prompt: "scene" }, 4); });
+  const ids = result.current.state.slots!.map(slot => slot.id);
+  expect(ids).toHaveLength(4);
+  expect(result.current.state.slots!.every(slot => slot.status === "pending" && !slot.createdAt)).toBe(true);
+  expect(mockRequestImageGeneration).toHaveBeenCalledTimes(1);
+  await act(async () => { first({ requestId: "first", status: "completed", progress: 100, result: { images: [{ url: "/first.webp" }] } }); });
+  await waitFor(() => expect(mockRequestImageGeneration).toHaveBeenCalledTimes(2));
+  expect(result.current.state.status).toBe("processing");
+  expect(result.current.state.slots!.map(slot => slot.id)).toEqual(ids);
+  expect(result.current.state.slots![0].images[0].url).toBe("/first.webp");
+  expect(result.current.state.slots!.slice(1).every(slot => slot.status === "pending")).toBe(true);
+  unmount();
+});
 
 });

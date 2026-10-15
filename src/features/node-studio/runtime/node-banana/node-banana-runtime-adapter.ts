@@ -47,6 +47,8 @@ export type NodeBananaNodeData = Record<string, unknown> & {
   supportReason: string | null;
   executionStatus?: NodeExecutionEvent["status"];
   executionProgress?: number;
+  executionCreatedAt?: string;
+  executionFinishedAt?: string | null;
 };
 
 const runtimeTypeForKind = (kind: string) =>
@@ -413,6 +415,8 @@ export const nodeBananaRuntimeAdapter: EditorRuntimeAdapter<NodeBananaRuntimeGra
                 ...node.data,
                 executionStatus: event.status,
                 executionProgress: event.progress,
+                executionCreatedAt: event.createdAt ?? node.data.executionCreatedAt,
+                executionFinishedAt: event.finishedAt === undefined ? node.data.executionFinishedAt : event.finishedAt,
               },
             }
           : node,

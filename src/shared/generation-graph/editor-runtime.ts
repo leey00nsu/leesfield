@@ -14,6 +14,8 @@ export type NodeExecutionEvent = {
   executionId: string;
   status: "pending" | "processing" | "uploading" | "completed" | "failed" | "cancelled";
   progress: number;
+  createdAt?: string;
+  finishedAt?: string | null;
 };
 
 export type RuntimeProjection<TRuntimeState> = {

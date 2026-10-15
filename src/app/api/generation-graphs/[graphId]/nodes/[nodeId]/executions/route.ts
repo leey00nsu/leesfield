@@ -66,6 +66,8 @@ async function postObservedHandler(request: Request, context: RouteContext) {
           graphNodeId: nodeId,
           status: result.operation.status,
           progress: result.operation.progress,
+          createdAt: result.operation.createdAt,
+          finishedAt: result.operation.finishedAt ?? null,
           ...(result.plan ? { plan: result.plan } : {}),
         }
       : {
@@ -75,6 +77,8 @@ async function postObservedHandler(request: Request, context: RouteContext) {
           graphNodeId: nodeId,
           status: result.record.status,
           progress: result.record.progress,
+          createdAt: "createdAt" in result.record ? result.record.createdAt : undefined,
+          finishedAt: "finishedAt" in result.record ? result.record.finishedAt : null,
         };
     return jsonWithNoStore(
       { execution },

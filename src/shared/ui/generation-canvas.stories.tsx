@@ -43,7 +43,7 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const WithResult: Story = {};
+export const WithResult: Story = {args:{status:"completed",createdAt:"2026-10-15T00:00:00Z",finishedAt:"2026-10-15T00:00:18Z"}};
 
 export const Empty: Story = {
   args: {
@@ -63,7 +63,8 @@ export const Empty: Story = {
 export const Generating: Story = {
   args: {
     isGenerating: true,
-    status: "generating",
+    status: "processing",
+    createdAt: new Date(Date.now()-12_000).toISOString(),
   },
 };
 
@@ -74,5 +75,5 @@ export const Failed: Story = {
   },
 };
 
-export const Queued: Story = { args: { isGenerating: true, status: "pending" } };
-export const Uploading: Story = { args: { isGenerating: true, status: "uploading" } };
+export const Queued: Story = { args: { isGenerating: true, status: "pending", createdAt:new Date(Date.now()-30_000).toISOString() } };
+export const Uploading: Story = { args: { isGenerating: true, status: "uploading", createdAt:new Date(Date.now()-35_000).toISOString() } };

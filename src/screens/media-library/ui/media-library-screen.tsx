@@ -16,6 +16,7 @@ import { AppDatePicker } from "@/shared/ui/app-calendar";
 import { AppMediaFitControl, useMediaPreviewFit } from "@/shared/ui/app-media-fit-control";
 import { useMediaAssets, useAssetProjects, useAssetModelOptions } from "@/features/media-assets/hook/use-media-assets";
 import { useAssetLibraryUploads } from "@/features/media-assets/hook/use-asset-library-uploads";
+import { MediaAssetUploadCard } from "@/features/media-assets/ui/media-asset-upload-card";
 import { ManagedMediaAssetCard } from "@/features/media-assets/ui/managed-media-asset-card";
 import { MediaAssetDetail } from "@/features/media-assets/ui/media-asset-detail";
 import { AssetProjectSidebar } from "@/features/media-assets/ui/asset-project-sidebar";
@@ -213,11 +214,7 @@ export function MediaLibraryScreen() {
       </AppFilterToolbar>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {(assets.length > 0 || uploads.uploads.length > 0) && <AppMediaGallery data-testid="asset-library-gallery">
-        {uploads.uploads.map((upload) => upload.asset ? <div key={upload.id} className={cn("relative", appMediaGalleryTileClassName)}><ManagedMediaAssetCard presentation="gallery" fit={fit} className="h-full" asset={upload.asset} onSelect={() => setDetail(upload.asset!)} onError={cardError} />{upload.placementFailed && <div className="absolute inset-x-0 bottom-0 bg-black/90 p-2"><p role="alert" className="mt-2 text-xs text-destructive">{t("placementFailed")}</p><AppButton size="sm" variant="ghost" onClick={() => uploads.remove(upload.id)}>{t("remove")}</AppButton></div>}</div> : <article key={upload.id} aria-label={upload.file.name} className={cn("flex flex-col overflow-hidden bg-card p-2", appMediaGalleryTileClassName)}>
-          <div className="flex min-h-0 flex-1 items-center justify-center bg-black/30">{upload.status === "uploading" ? <Loader2 className="size-6 animate-spin motion-reduce:animate-none" /> : <Upload className="size-6 text-muted-foreground" />}</div>
-          <p className="mt-2 truncate text-sm">{upload.file.name}</p><p role="status" className="mt-1 text-xs text-muted-foreground">{t(upload.status === "uploading" ? "uploading" : upload.status === "failed" ? "uploadFailed" : "uploadCancelled")}</p>
-          <div className="mt-2 flex flex-wrap gap-1">{upload.status === "uploading" ? <AppButton size="sm" variant="ghost" onClick={() => uploads.cancel(upload.id)}>{t("cancel")}</AppButton> : <AppButton size="sm" variant="ghost" onClick={() => uploads.retry(upload.id)}>{t("retry")}</AppButton>}<AppButton size="sm" variant="ghost" onClick={() => uploads.remove(upload.id)}>{t("remove")}</AppButton></div>
-        </article>)}
+        {uploads.uploads.map((upload) => upload.asset ? <div key={upload.id} className={cn("relative", appMediaGalleryTileClassName)}><ManagedMediaAssetCard presentation="gallery" fit={fit} className="h-full" asset={upload.asset} onSelect={() => setDetail(upload.asset!)} onError={cardError} />{upload.placementFailed && <div className="absolute inset-x-0 bottom-0 bg-black/90 p-2"><p role="alert" className="mt-2 text-xs text-destructive">{t("placementFailed")}</p><AppButton size="sm" variant="ghost" onClick={() => uploads.remove(upload.id)}>{t("remove")}</AppButton></div>}</div> : <MediaAssetUploadCard key={upload.id} upload={upload} onCancel={() => uploads.cancel(upload.id)} onRetry={() => uploads.retry(upload.id)} onRemove={() => uploads.remove(upload.id)} />)}
         {assets.map((asset) => <ManagedMediaAssetCard key={asset.id} presentation="gallery" fit={fit} className={appMediaGalleryTileClassName} asset={asset} onSelect={() => setDetail(asset)} onError={cardError} />)}
       </AppMediaGallery>}
       {library.isLoading && !assets.length && !uploads.uploads.length && <AppMediaGalleryLoading label={t("loading")} />}

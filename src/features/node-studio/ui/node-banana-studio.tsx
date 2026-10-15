@@ -1,4 +1,5 @@
 "use client";
+import { ExecutionTime } from "@/shared/ui/execution-time";
 import { appToast } from "@/shared/ui/app-toast";
 import { logger } from "@/shared/logging/logger.mjs";
 
@@ -805,10 +806,19 @@ export function NodeBananaStudio({
   const displayGraph = useMemo(() => {
     // Upstream group lock skips scheduled workflow execution, not editing or
     // explicit single-node runs. Read-only is the editing boundary here.
-    return { ...runtimeGraph, nodes: runtimeGraph.nodes.map((node) => ({ ...node, draggable: effectiveWritable,
-      data: { ...node.data, ...(upstreamTransientData[node.id]?.mediaUploading ? { mediaUploading: true } : {}),
-        ...(upstreamTransientData[node.id]?.mediaUploadError ? { mediaUploadError: true } : {}) } })) };
-  }, [effectiveWritable, runtimeGraph, upstreamTransientData]);
+    return { ...runtimeGraph, nodes: runtimeGraph.nodes.map((node) => {
+      const resolved = resolveHostedNodeData(node.id, node.data);
+      const running = submittingNodeIds.has(node.id)
+        || isActiveExecutionStatus(resolved.executionStatus ?? node.data.executionStatus)
+        || isActiveExecutionStatus(resolved.resultStatus)
+        || resolved.mediaUploading === true
+        || (resolved.repeatProgress as {running?:boolean} | undefined)?.running === true;
+      return { ...node, draggable: effectiveWritable,
+        className: running ? "leesfield-node-running" : undefined,
+        data: { ...node.data, ...(upstreamTransientData[node.id]?.mediaUploading ? { mediaUploading: true } : {}),
+          ...(upstreamTransientData[node.id]?.mediaUploadError ? { mediaUploadError: true } : {}) } };
+    }) };
+  }, [effectiveWritable, runtimeGraph, upstreamTransientData, resolveHostedNodeData, submittingNodeIds]);
 
   const getHostedNodeRunReadiness = useCallback(
     (nodeId: string) => {
@@ -1113,6 +1123,7 @@ export function NodeBananaStudio({
   const HostedUpstreamNode = useMemo(() => {
     function HostedUpstreamNodeComponent(props: NodeProps) {
       const tMedia = useTranslations("nodeStudio.mediaNodes");
+      const tExecutionStatus = useTranslations("monitoringDashboard.statuses");
       const tc = useCanvasTranslation();
       const [uploading, setUploading] = useState(false);
       const [choosingMedia, setChoosingMedia] = useState(false);
@@ -1201,7 +1212,7 @@ export function NodeBananaStudio({
       }), [current, uploadInput, getNodeRunReadiness, isRunning, resolveNodeData]);
       return (
         <>
-        <div ref={nodeRoot} className="contents" data-space-media-input={mediaType ?? undefined}
+        <div ref={nodeRoot} className="contents" data-space-timed-operation={inputKind.startsWith("edit.") && isRunning ? "" : undefined} data-space-media-input={mediaType ?? undefined}
           data-space-media-empty={mediaType && !mediaUrl ? true : undefined}
           data-space-connected-media={hasInputConnection ? true : undefined}
           data-space-input-only={['generate.image', 'generate.video', 'generate.audio'].includes(String(props.data.canonicalKind)) ? true : undefined}
@@ -1233,6 +1244,10 @@ export function NodeBananaStudio({
         />
         </NodeTextEditorScope>
         </div>
+        {typeof resolved?.executionCreatedAt === "string" && <div className={`nodrag nopan ${isRunning && inputKind.startsWith("edit.") ? styles.operationTime : styles.executionTime}`}>
+          {isRunning && inputKind === "edit.image.gif" && <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+          <span>{tExecutionStatus(String(resolved.executionStatus))}</span>
+          <ExecutionTime createdAt={resolved.executionCreatedAt} finishedAt={typeof resolved.executionFinishedAt === "string" ? resolved.executionFinishedAt : null} status={String(resolved.executionStatus)} /></div>}
         {runtimeNode && <HostedUpstreamHeaderComponent node={{ ...runtimeNode, selected: props.selected }} />}
         {showMediaOpen ? <AppMediaOpenButton href={mediaUrl as string} compact isolateCanvasEvents
           className={`nodrag nopan ${styles.mediaOpen} ${inputKind === "input.audio" ? styles.mediaOpenAudio : ""}`} /> : null}
@@ -1249,7 +1264,7 @@ export function NodeBananaStudio({
           role={resolved.resultStatus === "failed" ? "alert" : "status"} aria-live="polite"
           className={`nodrag nopan ${styles.resultStatus} flex flex-col items-center justify-center gap-2 bg-background px-4 text-center text-sm text-muted-foreground`}
           onPointerDown={event => event.stopPropagation()}>
-          {isActiveExecutionStatus(resolved.resultStatus) ? <><Loader2 className="h-6 w-6 animate-spin" /><span>{tMedia("generating")}</span>{typeof resolved.resultProgress === "number" && <span>{resolved.resultProgress}%</span>}</>
+          {isActiveExecutionStatus(resolved.resultStatus) ? <><Loader2 className="h-6 w-6 animate-spin" /><span>{tMedia("generating")}</span>{typeof resolved.resultCreatedAt === "string" && <ExecutionTime createdAt={resolved.resultCreatedAt} finishedAt={typeof resolved.resultFinishedAt === "string" ? resolved.resultFinishedAt : null} status={String(resolved.resultStatus)} />}</>
             : <span>{tMedia(resolved.resultStatus === "cancelled" ? "resultCancelled" : "resultFailed")}</span>}
         </div> : null}
         {resolved?.missingMedia ? <div role="status" className="nodrag nopan absolute inset-x-2 top-8 z-40 rounded-lg bg-background/95 px-3 py-2 text-xs text-muted-foreground pointer-events-none">{tMedia("missingFile")}</div> : null}

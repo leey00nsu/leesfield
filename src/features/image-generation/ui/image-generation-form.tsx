@@ -515,7 +515,7 @@ export function ImageGenerationForm({
     if (cinemaBlocked) { event.preventDefault(); return; }
     if (presetInputIssue) { event.preventDefault(); return; }
     if (mappingInvalid) { setPromptWasEdited(true); form.setValue("prompt", mappingPrompt, {shouldTouch:true}); event.preventDefault(); return; }
-    void form.handleSubmit((values) => startGeneration({ ...values, promptPreset: promptPreset.reference, cinema: cinema.settings }, repeatCount))(event);
+    void form.handleSubmit((values) => startGeneration({ ...values, inputPrompt: promptPreset.text, promptPreset: promptPreset.reference, promptPresetState: promptPreset.authoringState, cinema: cinema.settings }, repeatCount))(event);
   };
   return (
     <AppForm {...form}>

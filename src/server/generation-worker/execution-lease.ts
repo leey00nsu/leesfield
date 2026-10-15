@@ -220,7 +220,7 @@ async function claimOneGeneration(
     },
     data: {
       status: "processing",
-      progress: 92,
+      progress: 0,
       executionLeaseToken: token,
       executionLeaseUntil: leaseUntil,
       executionLeaseVersion: { increment: 1 },

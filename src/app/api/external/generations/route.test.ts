@@ -61,7 +61,7 @@ beforeEach(() => {
   );
   for (const fn of [mocks.image, mocks.video, mocks.audio])
     fn.mockResolvedValue({
-      record: { id: "job-id", status: "pending", progress: 0 },
+      record: { id: "job-id", status: "pending", progress: 0, createdAt:"2026-10-15T00:00:00Z", finishedAt:null },
     });
 });
 describe("unified generation POST", () => {
@@ -152,6 +152,7 @@ describe("unified generation POST", () => {
         requestId: "job-id",
         status: "pending",
         progress: 0,
+        createdAt:"2026-10-15T00:00:00Z", finishedAt:null,
       });
       const fn = mocks[type];
       const payload =

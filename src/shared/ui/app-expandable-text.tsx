@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/utils";
 type AppExpandableTextProps = {
   children: ReactNode;
   collapsedLines?: number;
+  textValue?: string;
   collapseAfter?: number;
   showMoreLabel: string;
   showLessLabel: string;
@@ -16,6 +17,7 @@ type AppExpandableTextProps = {
 export function AppExpandableText({
   children,
   collapsedLines = 3,
+  textValue,
   collapseAfter = 160,
   showMoreLabel,
   showLessLabel,
@@ -23,7 +25,7 @@ export function AppExpandableText({
   bodyClassName,
 }: AppExpandableTextProps) {
   const [expanded, setExpanded] = useState(false);
-  const stringValue = typeof children === "string" ? children : "";
+  const stringValue = textValue ?? (typeof children === "string" ? children : "");
   const canCollapse = stringValue.length > collapseAfter;
   const clampStyle: CSSProperties =
     canCollapse && !expanded

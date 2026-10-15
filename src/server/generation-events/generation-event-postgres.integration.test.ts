@@ -442,7 +442,7 @@ integration("PostgreSQL Node execution notifications", () => {
       const committed = await prisma.$transaction(async (tx) => {
         await tx.mediaOperation.update({
           where: { id: operation.id },
-          data: { status: "completed", progress: 100, completedAt: new Date() },
+          data: { status: "completed", progress: 100, finishedAt: new Date() },
         });
         const asset = await tx.mediaAsset.create({
           data: {

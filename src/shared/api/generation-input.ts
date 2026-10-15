@@ -1,6 +1,6 @@
 import "./external-contract";
 import { z } from "zod";
-import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
+import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import type { GenerationMedia } from "./external-contract";
 type Wire = "string" | "number" | "boolean" | "json" | "file" | "files";
 export type Field = {
@@ -24,7 +24,9 @@ const boolean = () => ({
 const common = {
   model: { schema: z.string().min(1), wire: "string" as const },
   prompt: string(),
+  inputPrompt: { schema: z.string().optional(), wire: "string" as const },
   promptPreset: { schema: promptPresetRefSchema.optional(), wire: "json" as const },
+  promptPresetState: { schema: promptPresetWorkStateSchema.optional(), wire: "json" as const },
   dynamicParams: {
     schema: z.record(z.string(), z.unknown()).optional(),
     wire: "json",

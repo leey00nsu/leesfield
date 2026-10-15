@@ -19,7 +19,7 @@ export function FormComparison() {
         <div className={glass ? styles.proposed : styles.current}>
           <Tabs.Root className="group/tabs" value={media} onValueChange={(value) => setMedia(String(value))} orientation={vertical ? "vertical" : "horizontal"} data-vertical={vertical ? "" : undefined} data-horizontal={!vertical ? "" : undefined}>
             <GenerationPromptField surface="hero" mediaSelector={<GenerationMediaRail />}
-              attachments={<div className="px-4 pt-4"><AppButton variant="surface" size="icon" aria-label="파일 첨부 미리보기"><ImagePlus /></AppButton></div>}
+              attachments={<div className="px-4 pt-4"><AppButton variant="surface" size="icon" aria-label="파일 업로드 미리보기"><ImagePlus /></AppButton></div>}
               textarea={<AppTextarea surface="transparent" className="min-h-[100px]" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="어떤 장면을 만들고 싶나요?" />}
               footerLeft={<><AppButton variant="surface">{media === "audio" ? "Qwen3 TTS" : media === "video" ? "Wan 2.2" : "GPT Image 2"}<ChevronDown /></AppButton><AppButton variant="surface">{media === "audio" ? "1×" : "1:1"}<ChevronDown /></AppButton></>}
               footerRight={<AppButton variant="generate" className="min-w-28 text-base">생성 <Sparkles /></AppButton>}

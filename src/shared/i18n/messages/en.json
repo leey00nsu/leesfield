@@ -298,7 +298,7 @@
           "video": "Text or image to video",
           "audio": "Speech · Audio generation"
         },
-        "attachment": "Attach reference image",
+        "attachment": "Upload reference image",
         "removeAttachment": "Remove reference image",
         "fileError": "Choose an image under 3 MB."
       },
@@ -699,7 +699,8 @@
     },
     "origins": {
       "generation": "Generation",
-      "edit": "Edit"
+      "edit": "Edit",
+      "upload": "Upload"
     },
     "actions": {
       "reusePrompt": "Reuse Prompt",
@@ -725,7 +726,7 @@
       "date": "Date",
       "requestId": "Request ID",
       "requestedAt": "Requested",
-      "completedAt": "Completed",
+      "finishedAt": "Completed",
       "duration": "Duration",
       "progress": "Progress",
       "origin": "Origin",
@@ -757,7 +758,12 @@
       "parameterEmpty": "No value",
       "parameterTrue": "Enabled",
       "parameterFalse": "Disabled",
-      "failureFallback": "Generation failed. Check the execution details."
+      "failureFallback": "Generation failed. Check the execution details.",
+      "inputPrompt": "Input prompt",
+      "inputPromptUnknown": "The original input was not stored separately.",
+      "noInputPrompt": "No prompt was entered directly.",
+      "promptLoading": "Loading prompt",
+      "recordedAt": "Added at"
     },
     "detailActions": {
       "recreate": "Recreate",
@@ -809,13 +815,14 @@
     "kpi": {
       "successRate": "Success rate",
       "active": "Active Tasks",
-      "avgLatency": "Latency",
+      "avgLatency": "Average duration",
       "total": "Requests",
       "live": "Live",
       "usageFootnote": "Usage in selected range",
       "successful": "Successful",
       "failed": "Failed",
-      "other": "Other"
+      "other": "Other",
+      "durationFootnote": "Finished jobs in selected statuses · receipt through result storage"
     },
     "statuses": {
       "pending": "Pending",
@@ -845,7 +852,9 @@
         "pending": "Pending",
         "processing": "Processing",
         "completed": "Completed",
-        "failed": "Failed"
+        "failed": "Failed",
+        "uploading": "Uploading",
+        "cancelled": "Cancelled"
       }
     },
     "stats": {
@@ -2070,7 +2079,7 @@
     "referType": "Create {type}",
     "noInput": "Select a model with a compatible reference input.",
     "referencePending": "Choose an input for this reference",
-    "attach": "Attach",
+    "attach": "Upload",
     "references": "Reference input",
     "referenceAdded": "Reference added",
     "close": "Close",

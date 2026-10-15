@@ -188,7 +188,7 @@ export type MediaOperationDto = {
   }>;
   createdAt: string;
   updatedAt: string;
-  completedAt: string | null;
+  finishedAt: string | null;
 };
 
 export function isAllowedMediaMimeType(type: MediaType, mimeType: string) {

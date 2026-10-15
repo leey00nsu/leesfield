@@ -6,7 +6,7 @@ import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { getMediaAssetName, getMediaAssetReferenceId } from "@/shared/media-assets/media-asset-name";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppBadge } from "@/shared/ui/app-badge";
+import { AppMediaTypeBadge } from "@/shared/ui/app-media-type-badge";
 import { appMediaGalleryTileClassName } from "@/shared/ui/app-media-gallery";
 import { cn } from "@/shared/lib/utils";
 
@@ -51,7 +51,10 @@ export function MediaAssetCard({ asset, selected = false, disabled = false, onSe
         <span title={name} className="block truncate text-sm font-medium">{name}</span>
         <span className="flex min-w-0 items-center gap-2 text-[10px] text-white/65"><span title={getMediaAssetReferenceId(asset)} className="min-w-0 flex-1 truncate font-mono">{getMediaAssetReferenceId(asset)}</span>{asset.durationMs != null && <span className="shrink-0">{(asset.durationMs / 1000).toFixed(1)}s</span>}</span>
       </span>
-      <AppBadge variant="overlay" title={t(asset.type)} className="absolute top-3 left-3 max-w-[calc(100%-4rem)] gap-1.5 backdrop-blur">{selected && <Check className="size-3 shrink-0" aria-hidden="true" />}<span className="truncate">{t(asset.type)}</span></AppBadge>
+      <span className="absolute top-3 left-3 flex max-w-[calc(100%-4rem)] items-center gap-2">
+        <AppMediaTypeBadge type={asset.type} />
+        {selected && <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden="true"><Check className="size-3" /></span>}
+      </span>
     </button>
     <div className="absolute top-2 right-2 flex flex-col gap-1 sm:flex-row">
       {onDetails && <AppButton type="button" size="icon-sm" variant="surface" className="border-white/15 bg-black/50 text-white backdrop-blur hover:bg-black/70" aria-label={t("details", { name })} onClick={onDetails}><Info className="size-4" /></AppButton>}

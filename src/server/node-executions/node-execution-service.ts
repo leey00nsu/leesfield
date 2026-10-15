@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { hydrateNodePromptPreset } from "@/features/node-studio/model/node-prompt-presets";
 import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
 import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, hasCinemaGuidance, parseCinemaSettings, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
@@ -526,6 +527,7 @@ function toDto(record: StoredExecutionRecord): NodeExecutionDto {
     modelKey: record.modelKey,
     outputAssetIds: record.outputs.flatMap((output) => output.assetId ? [output.assetId] : []),
     createdAt: record.createdAt.toISOString(),
+    finishedAt: record.finishedAt?.toISOString() ?? null,
   };
 }
 
@@ -549,6 +551,7 @@ function operationToDto(operation: MediaOperationDto): NodeExecutionDto {
     outputAssetIds: operation.outputAssetIds,
     outputBindings: operation.outputBindings,
     createdAt: operation.createdAt,
+    finishedAt: operation.finishedAt,
   };
 }
 
@@ -559,7 +562,7 @@ function assistantToDto(row: AssistantExecution): NodeExecutionDto {
     mediaType: "text",
     graphNodeId: row.graphNodeId,
     status: row.status,
-    progress: row.status === "completed" ? 100 : row.status === "processing" ? 20 : 0,
+    progress: row.status === "completed" ? 100 : 0,
     errorCode: row.errorCode,
     modelKey: row.modelKey,
     outputAssetIds: [],
@@ -569,6 +572,7 @@ function assistantToDto(row: AssistantExecution): NodeExecutionDto {
     selectedItemId: row.selectedItemId ?? null,
     selectionVersion: row.selectionVersion ?? 0,
     createdAt: row.createdAt.toISOString(),
+    finishedAt: row.finishedAt?.toISOString() ?? null,
   };
 }
 
@@ -799,7 +803,7 @@ export function createNodeExecutionService(
           },
         });
         startAssistantWorker();
-        return { record: { id: record.id, status: record.status, progress: 0 }, mediaType: "text" as const, executionKind: "assistant" as const };
+        return { record: { id: record.id, status: record.status, progress: 0, createdAt: record.createdAt.toISOString(), finishedAt: record.finishedAt?.toISOString() ?? null }, mediaType: "text" as const, executionKind: "assistant" as const };
       }
       if (!mediaType) throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNSUPPORTED"] });
       if (definition.executionMode === "browser-operation" || definition.executionMode === "server-operation") {
@@ -873,6 +877,8 @@ export function createNodeExecutionService(
       const executionModel = (await getModelCatalog()).find(candidate => candidate.key === config.modelKey && candidate.type === mediaType);
       if (executionModel && executionModel.type !== "llm") resolved.assets = normalizeFileInputAssets(executionModel, resolved.assets);
       const prompt = resolved.prompt ?? config.prompt;
+      const presetAuthoring = hydrateNodePromptPreset(node.config as Record<string, unknown>, mediaType);
+      const inputPrompt = config.promptPreset ? (presetAuthoring.preset ? presetAuthoring.text : undefined) : config.prompt;
       const fileInputs = fileInputsFromAssets(resolved.assets);
       if (config.promptPreset && !promptPresetReferenceImageCount(config.promptPreset) && resolved.assets.length) {
         throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { reason: "PRESET_TEXT_INPUT_ONLY" });
@@ -934,8 +940,8 @@ export function createNodeExecutionService(
         const initImages = resolved.assets
           .filter((asset) => asset.type === "image" && !parseFileInputPort(asset.portId))
           .map((asset) => asset.url);
-        const candidate = { ...config.parameters, prompt, model: config.modelKey, initImages, fileInputs,
-          ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
+        const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey, initImages, fileInputs,
+          ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
         // Persist normalized, file-free inputs. URLs are resolved afresh from
         // owner-scoped durable assets; neither client payload nor live defaults
         // can silently replace the first accepted request's settings.
@@ -1008,8 +1014,8 @@ export function createNodeExecutionService(
       }
       if (mediaType === "video") {
         const initImage = resolved.assets.find((asset) => asset.portId === "initImage")?.url ?? "";
-        const candidate = { ...config.parameters, prompt, model: config.modelKey, initImage, fileInputs,
-          ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
+        const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey, initImage, fileInputs,
+          ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
         const prepared = await prepareCinema("video", candidate);
         const validated = await dependencies.validateVideo(prepared.payload);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
@@ -1036,8 +1042,8 @@ export function createNodeExecutionService(
         );
         return { ...submission, mediaType };
       }
-      const candidate = { ...config.parameters, prompt, model: config.modelKey,
-        ...(config.promptPreset ? { promptPreset: config.promptPreset } : {}) };
+      const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey,
+        ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
       const validated = await dependencies.validateAudio(candidate);
       if (!validated.success) throw mapValidationError(validated.error, mediaType);
       const submission = await submitAdmitted(

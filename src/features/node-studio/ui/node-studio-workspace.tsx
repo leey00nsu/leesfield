@@ -390,9 +390,20 @@ function NodeStudioWorkspaceContent({
   const updateDraft = useCallback((next: GraphDraft) => {
     if (JSON.stringify(next) === JSON.stringify(draftRef.current)) return;
     draftRef.current = next;
-    setDraftRevision((revision) => revision + 1);
+    if (observingRef.current) setDraftRevision((revision) => revision + 1);
     autosaveUpdateRef.current(next);
   }, []);
+
+  useEffect(() => {
+    // A reservation without a server receipt cannot resume after a reload.
+    const ids = graph.nodes.filter(node => {
+      const source = resultSource(node.config);
+      return source?.state === "pending" && !source.executionId;
+    }).map(node => node.id);
+    if (graph.writable !== false && ids.length) updateDraft(bindResultNodes(draftRef.current, ids, null, "cancelled"));
+    // Only inspect the snapshot used at mount, never a live batch reservation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph.id]);
 
   reconcileReadRef.current = (nodeId, executions, read) => {
     const node = draftRef.current.nodes.find(candidate => candidate.id === nodeId);
@@ -634,7 +645,9 @@ function NodeStudioWorkspaceContent({
     const executionPatch = latest
       ? {
           executionStatus: repetition?.running ? "processing" : latest.status,
-          executionProgress: repetition?.running ? Math.round(repetition.completed / repetition.total * 100) : latest.progress,
+          executionProgress: 0,
+          executionCreatedAt: latest.createdAt,
+          executionFinishedAt: latest.finishedAt ?? null,
           error: latest.errorCode,
         }
       : {};
@@ -767,7 +780,7 @@ function NodeStudioWorkspaceContent({
       ...modelProjection,
       ...executionPatch,
       repeatProgress: repetition,
-      ...(result ? { resultStatus, resultProgress: resultExecution?.progress ?? null,
+      ...(result ? { resultStatus, resultCreatedAt: resultExecution?.createdAt ?? null, resultFinishedAt: resultExecution?.finishedAt ?? null,
         resultError: resultExecution?.errorCode ?? (resultStatus === "failed" ? "RESULT_UNAVAILABLE" : null) } : {}),
       outputDimensions,
       outputBytes: Number.isFinite(outputBytes) ? outputBytes : null,
@@ -1092,12 +1105,25 @@ function NodeStudioWorkspaceContent({
     selectionTracker.current.beginSubmission(nodeId, selectionRevision);
     let serverAccepted = false;
     let resultIds: string[] = [];
+    const resultGroups: string[][] = [];
+    const stopUnsubmitted = (state: "failed" | "cancelled") => {
+      const ids = resultGroups.flat().filter(id => {
+        const source = resultSource(draftRef.current.nodes.find(node => node.id === id)?.config);
+        return source?.state === "pending" && !source.executionId;
+      });
+      if (ids.length) updateDraft(bindResultNodes(draftRef.current, ids, null, state));
+    };
     try {
       const ports = automaticResultPorts(node.kind);
       if (draftRef.current.nodes.length + ports.length * repeatCount > 500 || draftRef.current.edges.length + ports.length * repeatCount > 2000) throw new Error("RESULT_NODE_LIMIT_EXCEEDED");
-      const appended = appendResultNodes(draftRef.current, nodeId);
-      resultIds = appended.ids;
-      if (resultIds.length) updateDraft(appended.draft);
+      let reserved = draftRef.current;
+      for (let index = 0; index < repeatCount; index++) {
+        const appended = appendResultNodes(reserved, nodeId);
+        resultGroups.push(appended.ids);
+        reserved = appended.draft;
+      }
+      resultIds = resultGroups[0];
+      if (reserved !== draftRef.current) updateDraft(reserved);
       const expectedGraphVersion = await prepareExecution();
       assertCurrent();
       const execution = await startExecution.mutateAsync({
@@ -1124,9 +1150,7 @@ function NodeStudioWorkspaceContent({
             for (let index = 0; index < repeatCount; index++) {
               assertCurrent();
               if (index > 0) {
-                const appended = appendResultNodes(draftRef.current, nodeId);
-                resultIds = appended.ids;
-                if (resultIds.length) updateDraft(appended.draft);
+                resultIds = resultGroups[index];
                 const version = await prepareExecution();
                 assertCurrent();
                 selectionTracker.current.beginSubmission(nodeId, selectionRevision);
@@ -1160,8 +1184,10 @@ function NodeStudioWorkspaceContent({
             }
             if (failed === repeatCount) throw firstError;
           } catch (error) {
-            const source = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
-            if (source && !source.executionId) updateDraft(bindResultNodes(draftRef.current, resultIds, null, controller.signal.aborted ? "cancelled" : "failed"));
+            stopUnsubmitted(controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError") ? "cancelled" : "failed");
+            // Save stopped reservations as well as accepted receipts. Accepted
+            // runs stay pending until the server supplies their actual outcome.
+            void autosaveSaveNowRef.current().catch(() => {});
             throw error;
           } finally {
             publishProgress(false);
@@ -1172,7 +1198,7 @@ function NodeStudioWorkspaceContent({
         })();
         // Observation can outlive a detached UI callback. Always consume errors.
         void completion.catch(error => {
-          if (!controller.signal.aborted) setHostError(error instanceof Error ? error.message : "GENERATION_FAILED");
+          if (observingRef.current && !controller.signal.aborted) setHostError(error instanceof Error ? error.message : "GENERATION_FAILED");
         });
         serverAccepted = true;
         return { executionId: execution.executionId, completion };
@@ -1204,12 +1230,8 @@ function NodeStudioWorkspaceContent({
         } : {}),
       } : undefined;
     } catch (error) {
-      if (resultIds.length) {
-        const current = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
-        // A receipt remains recoverable even when saving its graph binding fails.
-        updateDraft(bindResultNodes(draftRef.current, resultIds, current?.executionId ?? null,
-          current?.executionId ? "pending" : controller.signal.aborted ? "cancelled" : "failed"));
-      }
+      stopUnsubmitted(controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError") ? "cancelled" : "failed");
+      void autosaveSaveNowRef.current().catch(() => {});
       throw error;
     } finally {
       selectionTracker.current.endSubmission(nodeId);
