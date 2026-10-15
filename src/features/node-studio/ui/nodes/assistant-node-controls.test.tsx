@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { AppCanvasInputProvider } from "@/shared/ui/app-canvas-input-provider";
@@ -100,7 +101,7 @@ describe("AssistantNodeControls", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("scarf"));
     fireEvent.click(screen.getByRole("button", { name: "결과 복사" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("1. coat\n\n2. coat\n\n3. scarf"));
-    expect(mocks.copied).toHaveBeenCalledWith("복사했습니다.");
+    expect(mocks.copied).toHaveBeenCalledWith("복사됨");
     mocks.executions.unshift({ executionId: "failed-run", executionKind: "assistant", status: "failed", errorCode: "ASSISTANT_LIST_INVALID" }); redraw();
     expect(screen.getByRole("button", { name: "3번 항목 선택" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("올바른 목록");
@@ -140,9 +141,10 @@ describe("AssistantNodeControls", () => {
     expect(document.querySelector('button[data-canvas-action="run"]')).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Assistant 모델 선택" }));
-    expect(screen.getByRole("dialog", { name: "Browse Models" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "모델 살펴보기" })).toBeInTheDocument();
     expect(document.querySelector('[data-node-banana-component="ModelSearchDialog"]')).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "모델 검색" }), { target: { value: "creative-1" } });
+    await userEvent.click(screen.getByRole("button", { name: "검색" }));
+    fireEvent.change(await screen.findByLabelText("모델 검색", { selector: "input" }), { target: { value: "creative-1" } });
     fireEvent.click(screen.getByRole("button", { name: /Creative LLM/ }));
     expect(mocks.updateConfig).toHaveBeenCalledWith("assistant-1", { prompt: "Describe this clothes", modelKey: "llm-1" });
     expect(mocks.trackModel).toHaveBeenCalledWith("llm-1");
@@ -154,12 +156,14 @@ describe("AssistantNodeControls", () => {
     mocks.recentKeys = ["inactive-llm", "llm-1"];
     renderAssistant();
     fireEvent.click(screen.getByRole("button", { name: "Assistant 모델 선택" }));
-    const dialog = screen.getByRole("dialog", { name: "Browse Models" });
+    const dialog = screen.getByRole("dialog", { name: "모델 살펴보기" });
     expect(within(dialog).queryByText("Inactive LLM")).not.toBeInTheDocument();
     expect(within(dialog).getByText("최근 사용")).toBeInTheDocument();
     expect(within(dialog).getByText("creative-1")).toBeInTheDocument();
-    expect(within(dialog).getByRole("combobox", { name: "모델 기능" })).toHaveTextContent("LLM");
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "모델 검색" }), { target: { value: "goat-text" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "필터" }));
+    expect(screen.getByRole("combobox", { name: "모델 기능" })).toHaveTextContent("LLM");
+    await userEvent.click(within(dialog).getByRole("button", { name: "검색" }));
+    fireEvent.change(await screen.findByLabelText("모델 검색", { selector: "input" }), { target: { value: "goat-text" } });
     await waitFor(() => expect(within(dialog).queryByRole("button", { name: /Creative LLM/ })).not.toBeInTheDocument());
     fireEvent.click(within(dialog).getByRole("button", { name: /Goat LLM/ }));
     expect(mocks.updateConfig).toHaveBeenCalledWith("assistant-1", expect.objectContaining({ modelKey: "goat-llm" }));
@@ -188,7 +192,7 @@ describe("AssistantNodeControls", () => {
     expect(screen.getByRole("tabpanel", { name: "결과" })).toHaveTextContent("pink bandana");
     fireEvent.click(screen.getByRole("button", { name: "결과 복사" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(longText));
-    expect(mocks.copied).toHaveBeenCalledWith("복사했습니다.");
+    expect(mocks.copied).toHaveBeenCalledWith("복사됨");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     mocks.executions = [{ executionId: "run-2", executionKind: "assistant", status: "failed", errorCode: "ASSISTANT_PROVIDER_UNAVAILABLE" }, ...mocks.executions];
@@ -217,7 +221,7 @@ describe("AssistantNodeControls", () => {
     fireEvent.change(prompt, { target: { value: "Current draft.\n\nSecond paragraph." } });
     fireEvent.click(screen.getByRole("button", { name: "원본 복사" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Current draft.\n\nSecond paragraph."));
-    expect(mocks.copied).toHaveBeenCalledWith("복사했습니다.");
+    expect(mocks.copied).toHaveBeenCalledWith("복사됨");
     fireEvent.change(prompt, { target: { value: "" } });
     expect(screen.getByRole("button", { name: "원본 복사" })).toBeDisabled();
     writeText.mockClear();
@@ -240,7 +244,7 @@ describe("AssistantNodeControls", () => {
     fireEvent.click(screen.getByRole("button", { name: "결과 복사" }));
     await waitFor(() => expect(mocks.copyError).toHaveBeenCalledWith("복사하지 못했습니다."));
     fireEvent.click(screen.getByRole("button", { name: "결과 복사" }));
-    await waitFor(() => expect(mocks.copied).toHaveBeenCalledWith("복사했습니다."));
+    await waitFor(() => expect(mocks.copied).toHaveBeenCalledWith("복사됨"));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(writeText).toHaveBeenLastCalledWith("First paragraph.\n\nSecond paragraph.");
   });

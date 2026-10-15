@@ -24,7 +24,7 @@ export async function getExternalHistoryDetail(ownerEmail: string, historyId: st
     inputVideos: record.inputs.filter(({ asset }) => asset.type === "video").flatMap(({ asset }) => asset.storageUrl ?? asset.legacyUrl ?? []),
     referenceText: null,
     assets: record.outputs.flatMap((asset) => {
-      const url = asset.storageUrl ?? asset.legacyUrl;
+      const url = asset.status === "completed" ? asset.storageUrl ?? asset.legacyUrl : null;
       return url ? [{ url, width: asset.width, height: asset.height, durationSec: asset.durationMs === null ? null : asset.durationMs / 1000,
         imageVariants: parseImageVariants(asset.imageVariants) }] : [];
     }),

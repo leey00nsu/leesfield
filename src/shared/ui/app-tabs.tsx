@@ -18,6 +18,7 @@ export function AppTabs({
   className,
   listClassName,
   panelClassName,
+  triggerClassName,
 }: {
   items: AppTabItem[];
   defaultValue?: string;
@@ -25,6 +26,7 @@ export function AppTabs({
   className?: string;
   listClassName?: string;
   panelClassName?: string;
+  triggerClassName?: string;
 }) {
   return (
     <Tabs
@@ -34,7 +36,7 @@ export function AppTabs({
     >
       <TabsList aria-label={ariaLabel} className={listClassName}>
         {items.map((item) => (
-          <TabsTrigger key={item.value} value={item.value}>
+          <TabsTrigger key={item.value} value={item.value} className={triggerClassName}>
             {item.label}
           </TabsTrigger>
         ))}

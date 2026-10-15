@@ -53,10 +53,22 @@ export const listMediaAssetsSchema = z
   .object({
     type: mediaTypeSchema.optional(),
     category: z.enum(["uploads", "generated", "edited"]).optional(),
-    cursor: mediaAssetIdSchema.optional(),
+    classification: z.enum(["none", "character", "location", "prop"]).optional(),
+    managementStatus: z.enum(["none", "draft", "active", "archived"]).optional(),
+    dateFrom: z.iso.datetime().optional(),
+    dateTo: z.iso.datetime().optional(),
+    model: z.string().trim().min(1).max(255).optional(),
+    cursor: z.string().trim().min(1).max(4096).regex(/^[A-Za-z0-9_.-]+$/).optional(),
+    query: z.string().trim().max(255).optional(),
+    folderId: z.union([z.literal("root"), mediaAssetIdSchema]).optional(),
+    projectId: z.union([z.literal("root"), mediaAssetIdSchema]).optional(),
+    starred: z.preprocess((value) => value === "true" ? true : value === "false" ? false : value, z.boolean()).optional(),
+    tagIds: z.array(mediaAssetIdSchema).max(100).optional(),
+    sort: z.enum(["latest", "oldest", "name"]).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(24),
   })
-  .strict();
+  .strict().refine(value => !value.dateFrom || !value.dateTo || Date.parse(value.dateFrom) < Date.parse(value.dateTo),
+    { message: "dateFrom must precede the exclusive dateTo boundary", path: ["dateTo"] });
 
 const mediaOperationInputSchema = z
   .object({
@@ -98,6 +110,18 @@ export type UpdateMediaOperationInput = z.infer<typeof updateMediaOperationSchem
 export type ListMediaAssetsInput = z.infer<typeof listMediaAssetsSchema>;
 
 export type MediaAssetDto = {
+  classification?: "character" | "location" | "prop" | null;
+  referenceId?: string | null;
+  displayVersion?: string | null;
+  description?: string | null;
+  managementStatus?: "draft" | "active" | "archived" | null;
+  displayName?: string | null;
+  originalFileName?: string | null;
+  name?: string;
+  folderId?: string | null;
+  projectIds?: string[];
+  starred?: boolean;
+  tags?: Array<{ id: string; name: string; version: number }>;
   imageVariants?: ImageVariants | null;
   id: string;
   version: number;

@@ -11,7 +11,7 @@ import {executeModalWorkflow} from "./executor";
 import type {ModalJobRecord,ModalJobRepository,ModalSubmission} from "./job-repository";
 import {frozenExecutionModel,snapshotRequest} from "@/server/generation-request/request-snapshot";
 import {getModelCatalog} from "@/server/model-catalog/catalog-service";
-import {fileInputsFromAssets,contractInputPorts} from "@/shared/model-catalog/file-input-ports";
+import {fileInputsFromAssets,contractInputPorts,normalizeFileInputAssets} from "@/shared/model-catalog/file-input-ports";
 import {findPortDefinition} from "@/shared/generation-graph/node-registry";
 import {resolveContractGenerationCapabilities} from "@/shared/model-catalog/modality";
 
@@ -214,3 +214,15 @@ describe("provider extensibility",()=>{
   expect(other.client.download).not.toHaveBeenCalled();
  });
 });
+
+ it("maps a legacy image port only for an unambiguous field and preserves audio slot order",()=>{
+   const one=buildModalModelDraft(workflow({refs:{type:"array",maxItems:6,items:image}}));
+   const assets=[{portId:"references",sortOrder:0,url:"https://files/second.png"},{portId:"primary",sortOrder:0,url:"https://files/first.png"}];
+   const normalized=normalizeFileInputAssets(one,assets);
+   expect((generationPayload(one,{fileInputs:fileInputsFromAssets(normalized)}) as {dynamicParams:unknown}).dynamicParams).toEqual({refs:["https://files/first.png","https://files/second.png"]});
+   const two=buildModalModelDraft(workflow({start:image,end:image}));
+   expect(normalizeFileInputAssets(two,assets)).toEqual(assets);
+   const audio=[{portId:"audio-field-tracks",sortOrder:2,url:"https://files/third.wav"}];
+   expect(normalizeFileInputAssets(one,audio)).toEqual(audio);
+   expect(assets[0].portId).toBe("references");
+ });

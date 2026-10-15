@@ -53,7 +53,7 @@ async function getObservedHandler(request: Request, { params }: RouteContext) {
 
   const image = record.images[index];
 
-  if (!image) {
+  if (!image || !image.url) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 

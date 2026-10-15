@@ -8,7 +8,6 @@ import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-c
 import { ModelReferenceInputLimits } from "./model-image-input-limits";
 import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
-import { ModelFilterGroup } from "@/features/model-management/ui/model-filter-group";
 
 
 import { useCallback, useMemo, useState } from "react";
@@ -65,8 +64,8 @@ import { AppInput } from "@/shared/ui/app-input";
 import { useDebouncedValue } from "@/shared/lib/hooks/use-debounced-value";
 import {
   AppFilterGroup,
+  AppFilterSection,
   AppFilterToolbar,
-  AppFilterActions,
   appFilterSearchLayoutClassName,
   AppFilterToggle,
   AppSearchField,
@@ -395,6 +394,7 @@ function sortModelCatalogItems(
 
 export function ModelManagementScreen() {
   const locale = useLocale();
+  const tListControls = useTranslations("common.listControls");
   const tModel = useTranslations("model");
   const tAdmin = useTranslations("model.admin");
   const tCommonLabels = useTranslations("common.labels");
@@ -830,93 +830,108 @@ export function ModelManagementScreen() {
     <AppPageShell>
       <h1 className="sr-only">{tModel("title.leading") + " " + tModel("title.accent")}</h1>
       <div className="flex w-full min-w-0 flex-col gap-6">
-        <AppFilterToolbar >
-          <ModelFilterGroup>
-            <AppFilterGroup>
-              <AppFilterToggle
-                onClick={() => setType("all")}
-                aria-pressed={type === "all"}
-                active={type === "all"}
-                icon={<Grid2X2 className="h-4 w-4" />}
-              >
-                {tCommonLabels("all")}
-              </AppFilterToggle>
-              <AppFilterToggle
-                onClick={() => setType("image")}
-                aria-pressed={type === "image"}
-                active={type === "image"}
-                icon={<ImageIcon className="h-4 w-4" />}
-              >
-                {tCommonLabels("images")}
-              </AppFilterToggle>
-              <AppFilterToggle
-                onClick={() => setType("video")}
-                aria-pressed={type === "video"}
-                active={type === "video"}
-                icon={<Video className="h-4 w-4" />}
-              >
-                {tCommonLabels("videos")}
-              </AppFilterToggle>
-              <AppFilterToggle
-                onClick={() => setType("audio")}
-                aria-pressed={type === "audio"}
-                active={type === "audio"}
-                icon={<AudioLines className="h-4 w-4" />}
-              >
-                {tCommonLabels("audios")}
-              </AppFilterToggle>
-              <AppFilterToggle
-                onClick={() => setType("llm")}
-                aria-pressed={type === "llm"}
-                active={type === "llm"}
-                icon={<Sparkles className="h-4 w-4" />}
-              >
-                {locale === "ko" ? "AI 어시스턴트" : "AI Assistant"}
-              </AppFilterToggle>
-            </AppFilterGroup>
-          </ModelFilterGroup>
-
-          <AppFilterActions>
-              <AppSearchField
-                aria-label={tCommonLabels("searchPlaceholder")}
-                containerClassName={appFilterSearchLayoutClassName}
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder={tCommonLabels("searchPlaceholder")}
-              />
-              <AppSortSelect
-                value={sort}
-                onValueChange={(value) => setSort(value as ModelSortOption)}
-                ariaLabel={tModel("sort.label")}
-                className="w-full sm:w-[12rem]"
-                options={modelSortOptions.map((option) => ({
-                  value: option,
-                  label: tModel(`sort.${option}`),
-                }))}
-              />
-            <AppButton
-              type="button"
-              variant="surface"
-              size="md"
-              isLoading={loadState === "loading"}
-              loadingText={tAdmin("toolbar.reloading")}
-              onClick={loadModels}
-              className="shrink-0 self-end"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {tAdmin("toolbar.reload")}
-            </AppButton>
-            <AppButton
-              type="button"
-              size="md"
-              variant="brand"
-              onClick={openCreateDialog}
-              className="shrink-0 self-end"
-            >
-              <Plus className="h-4 w-4" />
-              {tAdmin("toolbar.create")}
-            </AppButton>
-          </AppFilterActions>
+        <AppFilterToolbar
+          filters={
+            <>
+              <AppFilterSection label={tListControls("type")}>
+                <AppFilterGroup>
+                  <AppFilterToggle
+                    onClick={() => setType("all")}
+                    aria-pressed={type === "all"}
+                    active={type === "all"}
+                    icon={<Grid2X2 className="h-4 w-4" />}
+                  >
+                    {tCommonLabels("all")}
+                  </AppFilterToggle>
+                  <AppFilterToggle
+                    onClick={() => setType("image")}
+                    aria-pressed={type === "image"}
+                    active={type === "image"}
+                    icon={<ImageIcon className="h-4 w-4" />}
+                  >
+                    {tCommonLabels("images")}
+                  </AppFilterToggle>
+                  <AppFilterToggle
+                    onClick={() => setType("video")}
+                    aria-pressed={type === "video"}
+                    active={type === "video"}
+                    icon={<Video className="h-4 w-4" />}
+                  >
+                    {tCommonLabels("videos")}
+                  </AppFilterToggle>
+                  <AppFilterToggle
+                    onClick={() => setType("audio")}
+                    aria-pressed={type === "audio"}
+                    active={type === "audio"}
+                    icon={<AudioLines className="h-4 w-4" />}
+                  >
+                    {tCommonLabels("audios")}
+                  </AppFilterToggle>
+                  <AppFilterToggle
+                    onClick={() => setType("llm")}
+                    aria-pressed={type === "llm"}
+                    active={type === "llm"}
+                    icon={<Sparkles className="h-4 w-4" />}
+                  >
+                    {locale === "ko" ? "AI 어시스턴트" : "AI Assistant"}
+                  </AppFilterToggle>
+                </AppFilterGroup>
+              </AppFilterSection>
+              <AppFilterSection label={tListControls("sort")}>
+                <AppSortSelect
+                  value={sort}
+                  onValueChange={(value) => setSort(value as ModelSortOption)}
+                  ariaLabel={tModel("sort.label")}
+                  className="w-full sm:w-[12rem]"
+                  options={modelSortOptions.map((option) => ({
+                    value: option,
+                    label: tModel(`sort.${option}`),
+                  }))}
+                />
+              </AppFilterSection>
+            </>
+          }
+          search={
+            <AppSearchField
+              autoFocus
+              aria-label={tCommonLabels("searchPlaceholder")}
+              containerClassName={appFilterSearchLayoutClassName}
+              value={searchInput}
+              onClear={() => setSearchInput("")}
+            onChange={(event) => setSearchInput(event.target.value)}
+              placeholder={tCommonLabels("searchPlaceholder")}
+            />
+          }
+          searchActive={Boolean(searchInput.trim())}
+          filterChips={[...(type !== "all" ? [{label: type === "llm" ? (locale === "ko" ? "AI 어시스턴트" : "AI Assistant") : tCommonLabels(type === "image" ? "images" : type === "video" ? "videos" : "audios"), onRemove: () => setType("all")}] : []), ...(sort !== modelSortOptions[0] ? [{label: tModel("sort." + sort), onRemove: () => setSort(modelSortOptions[0])}] : [])]}
+          filterCount={Number(type !== "all") + Number(sort !== modelSortOptions[0])}
+          onResetFilters={() => {
+            setType("all");
+            setSort(modelSortOptions[0]);
+          }}
+        >
+          <AppButton
+            type="button"
+            variant="surface"
+            size="md"
+            isLoading={loadState === "loading"}
+            loadingText={tAdmin("toolbar.reloading")}
+            onClick={loadModels}
+            className="shrink-0 self-end"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {tAdmin("toolbar.reload")}
+          </AppButton>
+          <AppButton
+            type="button"
+            size="md"
+            variant="brand"
+            onClick={openCreateDialog}
+            className="shrink-0 self-end"
+          >
+            <Plus className="h-4 w-4" />
+            {tAdmin("toolbar.create")}
+          </AppButton>
         </AppFilterToolbar>
 
         {content}

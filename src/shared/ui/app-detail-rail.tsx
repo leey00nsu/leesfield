@@ -5,6 +5,7 @@ import { AppCard } from "@/shared/ui/app-card";
 type AppDetailRailProps = ComponentProps<typeof AppCard> & {
   header?: ReactNode;
   footer?: ReactNode;
+  bodyClassName?: string;
 };
 
 export function AppDetailRail({
@@ -12,6 +13,7 @@ export function AppDetailRail({
   header,
   footer,
   children,
+  bodyClassName,
   ...props
 }: AppDetailRailProps) {
   return (
@@ -25,7 +27,7 @@ export function AppDetailRail({
       {...props}
     >
       {header ? <div className="border-b border-white/10 p-5">{header}</div> : null}
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto p-5", bodyClassName)}>{children}</div>
       {footer ? <div className="border-t border-white/10 p-5">{footer}</div> : null}
     </AppCard>
   );

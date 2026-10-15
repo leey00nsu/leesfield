@@ -23,6 +23,14 @@ async function getObservedHandler(request: Request) {
       ...(searchParams.get("type") ? { type: searchParams.get("type") } : {}),
       ...(searchParams.get("cursor") ? { cursor: searchParams.get("cursor") } : {}),
       ...(searchParams.get("limit") ? { limit: searchParams.get("limit") } : {}),
+      ...(searchParams.has("query") ? { query: searchParams.get("query") } : {}),
+      ...(searchParams.has("folderId") ? { folderId: searchParams.get("folderId") } : {}),
+      ...(searchParams.has("projectId") ? { projectId: searchParams.get("projectId") } : {}),
+      ...(searchParams.has("starred") ? { starred: searchParams.get("starred") } : {}),
+      ...(searchParams.has("sort") ? { sort: searchParams.get("sort") } : {}),
+      ...Object.fromEntries(["classification", "managementStatus", "dateFrom", "dateTo", "model"]
+        .filter(key => searchParams.has(key)).map(key => [key, searchParams.get(key)])),
+      ...(searchParams.has("tagIds") ? { tagIds: searchParams.getAll("tagIds") } : {}),
     });
     return jsonWithNoStore(assets);
   } catch (error) {

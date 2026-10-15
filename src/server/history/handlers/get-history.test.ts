@@ -204,7 +204,7 @@ describe("getHistory durable provenance", () => {
     }]);
     const versions = {version: 1, isAnimated: false, display: {url: "https://permanent.example/display.webp", mimeType: "image/webp", bytes: 300, width: 1200, height: 800}, thumbnail: {url: "https://permanent.example/thumb.webp", mimeType: "image/webp", bytes: 30, width: 480, height: 320}};
     const rows = await mocks.imageFindMany();
-    rows[0].images[0].asset = {imageVariants: versions};
+    rows[0].images[0].asset = {status: "completed", storageUrl: "https://permanent.example/generation", imageVariants: versions};
     mocks.imageCount.mockResolvedValue(1);
     mocks.operationFindMany.mockResolvedValue([{
       id: "operation-1",
@@ -219,6 +219,7 @@ describe("getHistory durable provenance", () => {
       inputs: [{ assetId: "source-2" }],
       outputs: [{
         id: "asset-edit",
+        status: "completed",
         type: "image",
         storageUrl: "https://permanent.example/edit",
         legacyUrl: null,

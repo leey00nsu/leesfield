@@ -111,7 +111,7 @@ export async function getHistoryStatus(
   const query = parseHistoryQuery(searchParams);
 
   if (query.type === "image") {
-    const where = { ownerEmail, ...buildImageWhere(query) };
+    const where = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildImageWhere(query) };
     const status = await getActiveImageStatus(where);
     return {
       hasActive: status.activeCount > 0,
@@ -121,7 +121,7 @@ export async function getHistoryStatus(
   }
 
   if (query.type === "video") {
-    const where = { ownerEmail, ...buildVideoWhere(query) };
+    const where = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildVideoWhere(query) };
     const status = await getActiveVideoStatus(where);
     return {
       hasActive: status.activeCount > 0,
@@ -131,7 +131,7 @@ export async function getHistoryStatus(
   }
 
   if (query.type === "audio") {
-    const where = { ownerEmail, ...buildAudioWhere(query) };
+    const where = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildAudioWhere(query) };
     const status = await getActiveAudioStatus(where);
     return {
       hasActive: status.activeCount > 0,
@@ -140,9 +140,9 @@ export async function getHistoryStatus(
     };
   }
 
-  const imageWhere = { ownerEmail, ...buildImageWhere(query) };
-  const videoWhere = { ownerEmail, ...buildVideoWhere(query) };
-  const audioWhere = { ownerEmail, ...buildAudioWhere(query) };
+  const imageWhere = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildImageWhere(query) };
+  const videoWhere = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildVideoWhere(query) };
+  const audioWhere = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildAudioWhere(query) };
 
   const [imageStatus, videoStatus, audioStatus] = await Promise.all([
     getActiveImageStatus(imageWhere),

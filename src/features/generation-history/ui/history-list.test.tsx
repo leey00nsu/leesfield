@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe("HistoryList", () => {
-  it("uses varied masonry tile sizes instead of uniform cards", () => {
+  it("renders every result in one uniform grid tile", () => {
     mockMatchMedia({ isMdUp: true, isXlUp: false });
 
     const items = Array.from({ length: 3 }, (_, index) => ({
@@ -72,11 +72,11 @@ describe("HistoryList", () => {
     renderWithIntl(<HistoryList items={items} />);
     const wrapper = screen.getByTestId("history-gallery-grid");
 
-    expect(wrapper).toHaveClass("auto-rows-[7rem]");
-    expect(wrapper.children[0]).toHaveClass("md:col-span-2");
-    expect(wrapper.children[0]).toHaveClass("md:row-span-5");
-    expect(wrapper.children[1]).toHaveClass("row-span-2");
-    expect(wrapper.children[2]).toHaveClass("row-span-3");
+    expect(wrapper.children).toHaveLength(items.length);
+    for (const tile of wrapper.children) {
+      expect(tile).toHaveClass("aspect-square");
+      expect(tile).not.toHaveClass("md:col-span-2");
+    }
   });
 
   it("renders all statuses in one gallery grid without separate activity sections", () => {
@@ -178,7 +178,7 @@ describe("HistoryList", () => {
       name: "xl viewport",
       media: { isMdUp: true, isXlUp: true },
     },
-  ])("uses responsive masonry skeleton grid for $name", ({ media }) => {
+  ])("uses the same uniform grid for skeletons in $name", ({ media }) => {
     mockMatchMedia(media);
 
     const { container } = renderWithIntl(<HistoryList items={[]} isLoading />);
@@ -187,12 +187,11 @@ describe("HistoryList", () => {
     expect(wrapper).toBeTruthy();
     expect(wrapper).toHaveClass("grid");
     expect(wrapper).toHaveClass("grid-cols-2");
-    expect(wrapper).toHaveClass("md:grid-cols-4");
-    expect(wrapper).toHaveClass("xl:grid-cols-6");
+    expect(wrapper).toHaveClass("lg:grid-cols-4");
+    expect(wrapper).toHaveClass("xl:grid-cols-5");
     expect(wrapper).not.toHaveClass("columns-1");
 
     expect(wrapper?.children.length).toBe(12);
-    expect(wrapper?.children[0]).toHaveClass("md:col-span-2");
-    expect(wrapper?.children[2]).toHaveClass("row-span-3");
+    for (const tile of wrapper!.children) expect(tile).toHaveClass("aspect-square");
   });
 });

@@ -51,7 +51,7 @@ export const nodeBananaNodeInventory = {
 } as const satisfies Readonly<Record<CanonicalNodeKind, NodeBananaNodeInventoryItem>>;
 
 /**
- * Default dimensions copied from Node Banana v1.9.0 nodeDefaults.ts.
+ * Node Banana defaults with host generation forms sized to show their primary controls.
  */
 export const nodeBananaNodeGeometry = {
   "note.memo": { width: 300, height: 220, minWidth: 220, minHeight: 140 },
@@ -60,9 +60,9 @@ export const nodeBananaNodeGeometry = {
   "input.video": { width: 300, height: 280, minWidth: 180, minHeight: 100 },
   "input.prompt": { width: 320, height: 220, minWidth: 180, minHeight: 100 },
   "process.promptConstructor": { width: 340, height: 280, minWidth: 180, minHeight: 100 },
-  "generate.image": { width: 300, height: 300, minWidth: 180, minHeight: 100 },
+  "generate.image": { width: 400, height: 360, minWidth: 180, minHeight: 100 },
   "generate.audio": { width: 300, height: 280, minWidth: 300, minHeight: 250 },
-  "generate.video": { width: 300, height: 300, minWidth: 180, minHeight: 100 },
+  "generate.video": { width: 400, height: 400, minWidth: 180, minHeight: 100 },
   "generate.assistant": { width: 420, height: 420, minWidth: 320, minHeight: 280 },
   "edit.image.annotation": { width: 300, height: 280, minWidth: 180, minHeight: 100 },
   "edit.image.resize": { width: 320, height: 360, minWidth: 300, minHeight: 340 },

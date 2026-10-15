@@ -60,3 +60,16 @@ export const runtimeVideoModelsFixture: RuntimeVideoModel[] = videoModels.map(
   }),
 );
 
+
+/** Stored legacy reference binding used by Space's Qwen-style gallery contract. */
+export const mappedReferenceImageModelFixture: RuntimeImageModel = {
+  type: "image", key: "mapped-reference", label: "Reference gallery", vendor: "Hugging Face", provider: "hf_space",
+  isActive: true, isDefault: false, meta: {max_input_images: 6},
+  parameters: {"hf:refs": {ui: "upload", default: [], binding: {source:"hf_space", parameterName:"refs", order:1, kind:"gallery", valueType:"string", media:"image", schema:{type:"array",maxItems:6,items:{type:"string"}}}}},
+  providerConfig: {space_id:"owner/reference",api_name:"/generate",gradio_contract:{
+    version:1,apiName:"/generate",diagnostics:[],reviewed:true,output:{media:"image",path:[0],multiple:false},inputs:[
+      {name:"prompt",label:"Prompt",kind:"string",required:true,nullable:false,canonical:"prompt",schema:{type:"string",minLength:1}},
+      {name:"refs",label:"References",kind:"gallery",media:"image",required:false,nullable:false,default:[],schema:{type:"array",maxItems:6,items:{type:"string"}}},
+    ],
+  }},
+};

@@ -4,6 +4,7 @@ import { Client } from "@gradio/client";
 import { describe, expect, it, vi } from "vitest";
 import sources from "./fixtures/provider-schema-sources.json";
 import { buildImportContract } from "./import-contract";
+import { uploadGradioInputFiles } from "./input-file-upload";
 import { buildGradioRequest } from "./contract-executor";
 import { gradioInputValues, assessGradioSupport, normalizeGradioModel } from "@/shared/model-catalog/gradio-contract";
 import { gradioSchemaValidator } from "@/shared/model-catalog/gradio-json-schema";
@@ -25,11 +26,22 @@ describe("actual Gradio SDK upload transformation", () => {
     expect(entries[0][media]).not.toHaveProperty("path");
     const sdk = new Client("https://test.hf.space");
     sdk.config = { root:"https://test.hf.space" } as NonNullable<Client["config"]>;
-    sdk.upload_files = vi.fn(async (_root, files) => ({files:["/uploaded/"+String((await files[0].arrayBuffer()).byteLength)+".bin"]}));
-    const wire = await sdk.handle_blob("https://test.hf.space",[entries],{parameters:[gallery],returns:[]} as unknown as Parameters<Client["handle_blob"]>[2]);
-    expect(sdk.upload_files).toHaveBeenCalledTimes(2);
+    sdk.api_prefix = "/gradio_api";
+    const filenames: string[] = [];
+    sdk.fetch = vi.fn(async (_url, init) => {
+      const file = (init?.body as FormData).get("files") as File;
+      filenames.push(file.name);
+      expect(file.type).toBe(mime);
+      return new Response(JSON.stringify(["/uploaded/" + file.size + "/" + file.name]), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof sdk.fetch;
+    // Deliberately wrong ID-derived host: the SDK's resolved root must win.
+    const uploaded = await uploadGradioInputFiles(sdk, { entries }, "https://test.2.1.hf.space");
+    const wire = await sdk.handle_blob("https://test.hf.space",[uploaded.entries],{parameters:[gallery],returns:[]} as unknown as Parameters<Client["handle_blob"]>[2]);
+    expect(sdk.fetch).toHaveBeenCalledTimes(2);
+    expect(sdk.fetch).toHaveBeenCalledWith("https://test.hf.space/gradio_api/upload", expect.any(Object));
+    expect(filenames).toEqual(["reference." + (media === "image" ? "png" : "mp4"), "reference." + (media === "image" ? "png" : "mp4")]);
     const serialized = JSON.parse(JSON.stringify(wire[0]));
-    expect(serialized.map((entry:Record<string,{path:string}>)=>entry[media].path)).toEqual(buffers.map(bytes=>"/uploaded/"+bytes.byteLength+".bin"));
+    expect(serialized.map((entry:Record<string,{path:string}>)=>entry[media].path)).toEqual(buffers.map(bytes=>"/uploaded/"+bytes.byteLength+"/reference."+(media === "image" ? "png" : "mp4")));
     expect(gradioSchemaValidator(gallery.type)(serialized)).toBe(true);
     sdk.close();
   });
@@ -46,7 +58,8 @@ describe("actual Gradio SDK upload transformation", () => {
     const sdk=new Client("https://test.hf.space");
     sdk.config={root:"https://test.hf.space"} as NonNullable<Client["config"]>;
     sdk.upload_files=vi.fn(async()=>({files:["/uploaded/a.png"]}));
-    const wire=await sdk.handle_blob("https://test.hf.space",[request.files],{parameters:[{component:"File"}],returns:[]} as unknown as Parameters<Client["handle_blob"]>[2]);
+    const uploaded = await uploadGradioInputFiles(sdk, request);
+    const wire=await sdk.handle_blob("https://test.hf.space",[uploaded.files],{parameters:[{component:"File"}],returns:[]} as unknown as Parameters<Client["handle_blob"]>[2]);
     expect(gradioSchemaValidator(schema)(JSON.parse(JSON.stringify(wire[0])))).toBe(true);
     sdk.close();
   });

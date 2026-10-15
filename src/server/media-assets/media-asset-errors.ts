@@ -12,6 +12,20 @@ export class MediaAssetNotFoundError extends Error {
   }
 }
 
+export class AssetOrganizationNotFoundError extends Error {
+  constructor() {
+    super("ASSET_ORGANIZATION_NOT_FOUND");
+    this.name = "AssetOrganizationNotFoundError";
+  }
+}
+
+export class AssetMetadataConflictError extends Error {
+  constructor(public readonly code: "ASSET_ID_CONFLICT" | "ASSET_NAME_CONFLICT" | "ASSET_VERSION_CONFLICT" | "ASSET_FOLDER_CYCLE" | "ASSET_PROJECT_CYCLE" | "ASSET_PROJECT_DEPTH") {
+    super(code);
+    this.name = "AssetMetadataConflictError";
+  }
+}
+
 export class MediaUploadNotFoundError extends Error {
   constructor() {
     super("MEDIA_UPLOAD_NOT_FOUND");
@@ -83,6 +97,7 @@ export class MediaAssetInUseError extends Error {
     public readonly graphIds: string[],
     public readonly operationIds: string[] = [],
     public readonly generationRequestIds: string[] = [],
+    public readonly projectCoverIds: string[] = [],
   ) {
     super("MEDIA_ASSET_IN_USE");
     this.name = "MediaAssetInUseError";

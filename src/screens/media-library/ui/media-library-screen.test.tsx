@@ -1,0 +1,111 @@
+import userEvent from "@testing-library/user-event";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/intl";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MediaLibraryScreen } from "./media-library-screen";
+import { listMediaAssets, getAssetProjects, getMediaAsset, getAssetUsage, patchAssetMetadata, uploadMediaAsset, assetOrganizationRequest } from "@/features/media-assets/api/media-asset-api";
+import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+vi.mock("@/features/media-assets/api/media-asset-api", async original => ({ ...await original<typeof import("@/features/media-assets/api/media-asset-api")>(), listMediaAssets: vi.fn(), getAssetProjects: vi.fn(), getMediaAsset: vi.fn(), getAssetUsage: vi.fn(), patchAssetMetadata: vi.fn(), uploadMediaAsset: vi.fn(), assetOrganizationRequest: vi.fn() }));
+const asset = (id: string): MediaAssetDto => ({ id, name: "Name " + id, version: 2, projectIds: [], type: "image", origin: "upload", status: "completed", url: "/asset.png", mimeType: "image/png", bytes: "12", width: 100, height: 100, durationMs: null, sourceOperationId: null, createdAt: "2026-10-13T00:00:00Z", updatedAt: "2026-10-13T00:00:00Z" });
+const project = { id: "project", name: "Cafe", parentId: null, description: "", coverAssetId: null, cover: null, version: 1, createdAt: "", updatedAt: "" };
+function setup() {
+  vi.mocked(listMediaAssets).mockResolvedValue({ items: [asset("one"), asset("two")], nextCursor: null });
+  vi.mocked(assetOrganizationRequest).mockResolvedValue({ models: ["past-model"] });
+  vi.mocked(getAssetProjects).mockResolvedValue([project]);
+  vi.mocked(getMediaAsset).mockImplementation(async id => asset(id));
+  vi.mocked(getAssetUsage).mockResolvedValue({ graphIds: [], operationIds: [], generationRequestIds: [], generations: [], provenance: [], projectCoverIds: [], inUse: false });
+  return renderWithIntl(<MediaLibraryScreen />);
+}
+afterEach(() => vi.clearAllMocks());
+describe("asset library project actions", () => {
+  it("clears the common search input and preserves project filters", async () => {
+    setup(); await screen.findByRole("button", { name: "Name one" });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    const input = screen.getByRole("searchbox");
+    fireEvent.change(input, { target: { value: "검증" } });
+    fireEvent.click(screen.getByRole("button", { name: "입력 지우기" }));
+    expect(input).toHaveValue(""); expect(input).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "입력 지우기" })).not.toBeInTheDocument();
+  });
+  it("sends server metadata/model filters, removes a condition and resets remaining filters", async () => {
+    const user = userEvent.setup(); setup(); await screen.findByRole("button", { name: "Name one" });
+    fireEvent.click(screen.getByRole("button", { name: "필터" }));
+    await user.click(screen.getByRole("combobox", { name: "분류" }));
+    await user.click(await screen.findByRole("option", { name: "소품" }));
+    await user.click(screen.getByRole("combobox", { name: "관리 상태" }));
+    await user.click(await screen.findByRole("option", { name: "보관" }));
+    await user.click(screen.getByRole("combobox", { name: "생성 모델" }));
+    await user.click(await screen.findByRole("option", { name: "past-model" }));
+    await waitFor(() => expect(listMediaAssets).toHaveBeenLastCalledWith(undefined, null, expect.any(AbortSignal), undefined, expect.objectContaining({ classification: "prop", managementStatus: "archived", model: "past-model" })));
+    await user.keyboard("{Escape}");
+    fireEvent.click(screen.getByRole("button", { name: "조건 해제: 소품" }));
+    await waitFor(() => expect(listMediaAssets).toHaveBeenLastCalledWith(undefined, null, expect.any(AbortSignal), undefined, expect.objectContaining({ classification: undefined, managementStatus: "archived" })));
+    fireEvent.click(screen.getByRole("button", { name: /필터/ }));
+    fireEvent.click(screen.getByRole("button", { name: "필터 초기화" }));
+    await waitFor(() => expect(listMediaAssets).toHaveBeenLastCalledWith(undefined, null, expect.any(AbortSignal), undefined, expect.not.objectContaining({ model: "past-model" })));
+  });
+  it("filters the shared library by project without offering tags or page selection mode", async () => {
+    setup(); await screen.findByRole("button", { name: "Name one" });
+    const nav = screen.getByRole("navigation", { name: "에셋 탐색", hidden: true });
+    fireEvent.click(await within(nav).findByRole("button", { name: "Cafe", hidden: true }));
+    await waitFor(() => expect(listMediaAssets).toHaveBeenLastCalledWith(undefined, null, expect.any(AbortSignal), undefined, { query: "", sort: "latest", projectId: "project", starred: undefined }));
+    expect(screen.queryByRole("button", { name: "파일 선택" })).not.toBeInTheDocument();
+    expect(screen.queryByText("태그")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "상세: Name one" })).not.toBeInTheDocument();
+  });
+  it("keeps other stars enabled and preserves card selection while one star is saving", async () => {
+    let finish!: (asset: MediaAssetDto) => void;
+    vi.mocked(patchAssetMetadata).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    setup(); const one = await screen.findByRole("button", { name: "Name one" });
+    const two = screen.getByRole("button", { name: "Name two" });
+    const first = within(one.closest("article")!).getByRole("button", { name: "즐겨찾기 추가" });
+    const second = within(two.closest("article")!).getByRole("button", { name: "즐겨찾기 추가" });
+    fireEvent.click(first);
+    await waitFor(() => expect(first).toBeDisabled());
+    expect(second).toBeEnabled(); expect(one).toBeEnabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    finish({ ...asset("one"), starred: true, version: 3 });
+    await waitFor(() => expect(within(one.closest("article")!).getByRole("button", { name: "즐겨찾기 해제" })).toBeEnabled());
+    expect(second).toHaveAttribute("aria-pressed", "false");
+    expect(listMediaAssets).toHaveBeenCalledTimes(1);
+  });
+  it("opens the History-style detail and saves multiple project memberships with the fetched version", async () => {
+    setup(); vi.mocked(getAssetProjects).mockResolvedValue([project, { ...project, id: "second", name: "Second" }]);
+    vi.mocked(getMediaAsset).mockResolvedValue({ ...asset("one"), version: 4, displayName: "Latest" });
+    vi.mocked(patchAssetMetadata).mockResolvedValue({ ...asset("one"), version: 5, projectIds: ["project", "second"], displayName: "Changed" });
+    fireEvent.click(await screen.findByRole("button", { name: "Name one" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(await within(dialog).findByRole("textbox", { name: "이름" }), { target: { value: "Changed" } });
+    expect(within(dialog).queryByText("사용처와 출처")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button",{name:"참조로 사용"})).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("link",{name:"상세"})).not.toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByRole("button", { name: /프로젝트 (변경|선택)/ }));
+    const selector = await screen.findByRole("dialog", { name: "프로젝트 선택" });
+    fireEvent.click(within(selector).getByRole("checkbox", { name: "Cafe" }));
+    fireEvent.click(within(selector).getByRole("checkbox", { name: "Second" }));
+    fireEvent.click(within(selector).getByRole("button", { name: "선택 완료" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(patchAssetMetadata).toHaveBeenCalledWith("one", { expectedVersion: 4, displayName: "Changed", projectIds: ["project", "second"], referenceId: null, classification: null, displayVersion: null, description: null, managementStatus: null }));
+    await within(dialog).findByText("저장했습니다.");
+  });
+  it("creates a named project with description through the project sidebar", async () => {
+    setup();
+    vi.mocked(assetOrganizationRequest).mockResolvedValue({ project: { ...project, id: "new", name: "New project", description: "Notes" } });
+    fireEvent.click(await screen.findByRole("button", { name: "새 프로젝트", hidden: true }));
+    const dialog = await screen.findByRole("dialog", { name: "새 프로젝트" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "프로젝트명" }), { target: { value: "New project" } });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "설명" }), { target: { value: "Notes" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "만들기" }));
+    await waitFor(() => expect(assetOrganizationRequest).toHaveBeenCalledWith("/projects", "POST", { name: "New project", description: "Notes", parentId: null, coverAssetId: null }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+  it("shows an upload spinner immediately and offers cancel without waiting for storage", async () => {
+    vi.mocked(uploadMediaAsset).mockImplementation(() => new Promise(() => {})); setup(); await screen.findByRole("button", { name: "Name one" });
+    const file = new File(["png"], "pending.png", { type: "image/png" });
+    fireEvent.drop(screen.getByRole("region", { name: "에셋" }), { dataTransfer: { files: [file], types: ["Files"] } });
+    const card = await screen.findByRole("article", { name: "pending.png" }); expect(within(card).getByRole("status")).toHaveTextContent("업로드 중");
+    fireEvent.click(within(card).getByRole("button", { name: "취소" })); expect(within(card).getByRole("status")).toHaveTextContent("업로드 취소");
+  });
+});

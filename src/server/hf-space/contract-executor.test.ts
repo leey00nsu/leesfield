@@ -10,6 +10,39 @@ const contract:GradioContract={version:1,apiName:"/output_video",inputs:[
 {name:"in_7",label:"Upsample",kind:"boolean",schema:{type:"boolean"},confirmed:true,nullable:false,required:false,default:false}],
 output:{media:"video",path:[1],multiple:false},diagnostics:[],reviewed:true};
 describe("Gradio contract executor",()=>{
+ it("preuploads typed references while preserving order and null slots, and stops on upload failures", async () => {
+  const bytes=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=","base64");
+  const blob=new Blob([bytes],{type:"image/png"});
+  const upload=vi.fn(async (_root:string, files:File[])=>{
+   expect(files[0].name).toBe("reference.png");
+   expect(files[0].type).toBe("image/png");
+   expect(Buffer.from(await files[0].arrayBuffer())).toEqual(bytes);
+   return {files:["/uploaded/reference.png"]};
+  });
+  const predict=vi.fn(async()=>({data:["ok"]}));
+  const client={predict,upload_files:upload};
+  const values={refs:[{image:blob,caption:null},null]};
+  await predictWithDeadline(client,"/generate",values,1000,"https://test.hf.space");
+  expect(predict).toHaveBeenCalledWith("/generate",{refs:[{image:expect.objectContaining({path:"/uploaded/reference.png",orig_name:"reference.png",mime_type:"image/png"}),caption:null},null]});
+  expect(values.refs[0]?.image).toBe(blob);
+  predict.mockClear();
+  for(const result of [{error:"rejected"},{files:[]},{files:[""]}]) {
+   await expect(predictWithDeadline({predict,upload_files:async()=>result},"/generate",values,1000,"https://test.hf.space")).rejects.toThrow("FILE_UPLOAD_FAILED");
+   expect(predict).not.toHaveBeenCalled();
+  }
+  await expect(predictWithDeadline(client,"/generate",{image:new Blob(["invalid"],{type:"image/png"})},1000,"https://test.hf.space")).rejects.toThrow("FILE_MEDIA");
+  expect(predict).not.toHaveBeenCalled();
+ });
+ it("does not submit a late upload after the prediction deadline expires", async () => {
+  let finish!:()=>void;
+  const pending=new Promise<{files:string[]}>(resolve=>{finish=()=>resolve({files:["/uploaded/reference.png"]});});
+  const predict=vi.fn(async()=>({data:[]}));
+  const bytes=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=","base64");
+  await expect(predictWithDeadline({predict,upload_files:async()=>pending},"/generate",{image:new Blob([bytes],{type:"image/png"})},10,"https://test.hf.space")).rejects.toThrow("HF_SPACE_REQUEST_TIMEOUT");
+  finish();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  expect(predict).not.toHaveBeenCalled();
+ });
 it("명시한 이름과 null/default를 그대로 전송하고 두 번째 출력을 선택한다",async()=>{
 const predict=vi.fn(async()=>({data:["done",{url:"https://test.hf.space/gradio_api/file=result.mp4"}]}));
 const result=await executeGradioContract({predict},{providerConfig:{gradio_contract:contract}},{prompt:"hello",dynamicParams:{in_1:null}},{timeoutMs:1000,spaceUrl:"https://test.hf.space"},"video");

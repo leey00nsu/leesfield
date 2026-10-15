@@ -1,5 +1,5 @@
 "use client";
-import { CanvasDialog, CanvasSelect } from "../../leesfield/inputs";
+import { CanvasDialog, CanvasSelect, CanvasFilterToolbar, CanvasBadge, CanvasModelList } from "../../leesfield/inputs";
 
 
 import { useCanvasTranslation } from "../../leesfield/localization";
@@ -131,7 +131,6 @@ export function ModelSearchDialog({
   const error = refreshError ?? hosted?.error ?? hostedModelsError ?? null;
 
   // Refs
-  const searchInputRef = useRef<HTMLInputElement>(null);
   // Track request version to ignore stale responses
   const requestVersionRef = useRef(0);
 
@@ -186,25 +185,18 @@ export function ModelSearchDialog({
   useEffect(() => { setIsRefreshing(false); }, [isOpen, catalog]);
 
   const supportedModels = useMemo(() => catalog.filter((model) =>
-    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "text-to-audio", "text-to-text", "image-to-text", "video-to-text"].includes(cap))
+    model.capabilities.some((cap) => ["text-to-image", "image-to-image", "text-to-video", "image-to-video", "audio-to-video", "video-to-video", "audio-to-audio", "text-to-audio", "text-to-text", "image-to-text", "video-to-text"].includes(cap))
   ), [catalog]);
   const models = useMemo(() => supportedModels.filter((model) => {
     if (providerFilter !== "all" && (model.providerLabel ?? model.provider) !== providerFilter) return false;
     const query = debouncedSearch.trim().toLowerCase();
     if (query && !`${model.name} ${model.id} ${model.modelId ?? ""} ${model.providerLabel ?? model.provider} ${model.description ?? ""}`.toLowerCase().includes(query)) return false;
     const capabilities = capabilityFilter === "image" ? ["text-to-image", "image-to-image"]
-      : capabilityFilter === "video" ? ["text-to-video", "image-to-video", "audio-to-video"]
-      : capabilityFilter === "audio" ? ["text-to-audio"]
+      : capabilityFilter === "video" ? ["text-to-video", "image-to-video", "video-to-video", "audio-to-video"]
+      : capabilityFilter === "audio" ? ["text-to-audio", "audio-to-audio"]
       : capabilityFilter === "llm" ? ["text-to-text", "image-to-text", "video-to-text"] : null;
     return !capabilities || model.capabilities.some((cap) => capabilities.includes(cap));
   }), [supportedModels, providerFilter, capabilityFilter, debouncedSearch]);
-
-  // Focus search input when dialog opens
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
 
   // Handle model selection
   const handleSelectModel = useCallback(
@@ -222,26 +214,6 @@ export function ModelSearchDialog({
     },
     [supportedModels, selectModel, onClose, trackModelUsage, hosted?.disabled]
   );
-
-  // Get provider badge color
-  const getProviderBadgeColor = (provider: ProviderType) => {
-    switch (provider) {
-      case "gemini":
-        return "bg-green-500/20 text-green-300";
-      case "replicate":
-        return "bg-blue-500/20 text-blue-300";
-      case "fal":
-        return "bg-yellow-500/20 text-yellow-300";
-      case "kie":
-        return "bg-orange-500/20 text-orange-300";
-      case "wavespeed":
-        return "bg-purple-500/20 text-purple-300";
-      case "openai":
-        return "bg-teal-500/20 text-teal-300";
-      default:
-        return "bg-neutral-500/20 text-neutral-300";
-    }
-  };
 
   // Get provider display name
   const getProviderDisplayName = (provider: string) => {
@@ -319,56 +291,47 @@ export function ModelSearchDialog({
     const badges: React.ReactNode[] = [];
 
     capabilities.forEach((cap) => {
-      let color = "";
       let label = "";
 
       switch (cap) {
         case "text-to-text":
-          color = "bg-purple-500/20 text-purple-300";
           label = tc("Text");
           break;
         case "image-to-text":
-          color = "bg-green-500/20 text-green-300";
           label = tc("Image");
           break;
         case "video-to-text":
-          color = "bg-pink-500/20 text-pink-300";
           label = tc("Video");
           break;
         case "text-to-image":
-          color = "bg-green-500/20 text-green-300";
           label = "T2I";
           break;
         case "image-to-image":
-          color = "bg-cyan-500/20 text-cyan-300";
           label = "I2I";
           break;
         case "text-to-video":
-          color = "bg-purple-500/20 text-purple-300";
           label = "T2V";
           break;
         case "image-to-video":
-          color = "bg-pink-500/20 text-pink-300";
           label = "I2V";
           break;
+        case "video-to-video":
+          label = "V2V";
+          break;
+        case "audio-to-audio":
+          label = "A2A";
+          break;
         case "text-to-audio":
-          color = "bg-fuchsia-500/20 text-fuchsia-300";
           label = "T2A";
           break;
         case "audio-to-video":
-          color = "bg-violet-500/20 text-violet-300";
           label = "A2V";
           break;
       }
 
       if (label) {
         badges.push(
-          <span
-            key={cap}
-            className={`text-[10px] px-1.5 py-0.5 rounded ${color}`}
-          >
-            {label}
-          </span>
+          <CanvasBadge key={cap}>{label}</CanvasBadge>
         );
       }
     });
@@ -376,39 +339,20 @@ export function ModelSearchDialog({
     return badges;
   };
 
+  const capabilityLabels: Partial<Record<ModelCapability,string>> = {"text-to-image":"T2I","image-to-image":"I2I","text-to-video":"T2V","image-to-video":"I2V","video-to-video":"V2V","audio-to-video":"A2V","text-to-audio":"T2A","audio-to-audio":"A2A","text-to-text":tc("Text"),"image-to-text":tc("Image"),"video-to-text":tc("Video")};
+  const listItems = models.map(model => ({
+    id: model.id, modelId: model.modelId ?? model.id, name: getDisplayName(model), provider: model.providerLabel ?? model.provider,
+    type: (model.capabilities.some(cap=>cap.endsWith("-to-text")) ? "llm" : model.capabilities.some(cap=>cap.endsWith("-to-video")) ? "video" : model.capabilities.some(cap=>cap.endsWith("-to-audio")) ? "audio" : "image") as "image"|"video"|"audio"|"llm",
+    modalities: model.capabilities.map(cap=>capabilityLabels[cap] ?? cap),
+  }));
+
   if (!isOpen) return null;
 
   const dialogContent = (
     <CanvasDialog componentName="ModelSearchDialog" closeLabel={tc("Close models")} title={tc(title)} onClose={onClose} className="w-full max-w-5xl h-[min(760px,calc(100dvh-2rem))] flex flex-col overflow-hidden">
         {/* Filter Bar */}
         <div className="px-6 py-4 border-b border-neutral-700">
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search Input */}
-            <div className="flex-1 relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                ref={searchInputRef}
-                aria-label={tc("Search models")}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={tc("Search models...")}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-neutral-700 border border-neutral-600 rounded text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-500"
-              />
-            </div>
-
+          <CanvasFilterToolbar search={searchQuery} onSearchChange={setSearchQuery} searchLabel={tc("Search models")} filterCount={Number(providerFilter !== "all") + Number(capabilityFilter !== (initialCapabilityFilter ?? "all"))} onResetFilters={() => {setProviderFilter("all");setCapabilityFilter(initialCapabilityFilter ?? "all");}} filters={<>
             <CanvasSelect aria-label={tc("Provider")} value={providerFilter} onChange={event=>setProviderFilter(event.target.value)}><option value="all">{tc("All Providers")}</option>{[...availableProviders].map(provider=><option key={provider} value={provider}>{getProviderDisplayName(provider)}</option>)}</CanvasSelect>
             {/* Capability Filter */}
             <CanvasSelect
@@ -422,6 +366,7 @@ export function ModelSearchDialog({
               {(hosted?.capabilityFilters ?? ["all", "image", "video", "audio", ...(supportedModels.some(model => model.capabilities.includes("text-to-text")) ? ["llm"] : [])]).map(type => <option key={type} value={type}>{tc(type === "all" ? "All Types" : type === "image" ? "Image" : type === "video" ? "Video" : type === "audio" ? "Audio" : "LLM")}</option>)}
             </CanvasSelect>
 
+            </>}>
             {/* Refresh Cache */}
             <button
               onClick={handleRefresh}
@@ -443,10 +388,13 @@ export function ModelSearchDialog({
                 />
               </svg>
             </button>
-          </div>
+          </CanvasFilterToolbar>
         </div>
 
         {/* Model List */}
+        <CanvasModelList items={listItems} recentIds={!searchQuery ? filteredRecentModels.map(recent=>recent.modelId) : []} loading={isLoading} error={error} disabled={hosted?.disabled}
+          selectedId={hosted?.selectedModelId} onSelect={id=>{const model=models.find(item=>item.id===id);if(model)handleSelectModel(model)}}
+          onRetry={refreshCatalog?()=>void handleRefresh():undefined} onClear={showClearOption?onClearSelection:undefined}>
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-48">
@@ -596,11 +544,7 @@ export function ModelSearchDialog({
                             <div className="font-medium text-neutral-100 text-sm truncate">
                               {recent.displayName}
                             </div>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded ${getProviderBadgeColor(recent.provider)}`}
-                            >
-                              {model.providerLabel ?? getProviderDisplayName(recent.provider)}
-                            </span>
+                            <CanvasBadge>{model.providerLabel ?? getProviderDisplayName(recent.provider)}</CanvasBadge>
                           </div>
                         </button>
                       );
@@ -690,11 +634,7 @@ export function ModelSearchDialog({
 
                     {/* Badges row */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${getProviderBadgeColor(model.provider)}`}
-                      >
-                        {model.providerLabel ?? getProviderDisplayName(model.provider)}
-                      </span>
+                      <CanvasBadge>{model.providerLabel ?? getProviderDisplayName(model.provider)}</CanvasBadge>
                       {getCapabilityBadges(model.capabilities)}
                     </div>
 
@@ -728,6 +668,8 @@ export function ModelSearchDialog({
             </div>
           )}
         </div>
+
+        </CanvasModelList>
 
         {/* Footer with model count */}
         {!isLoading && !error && models.length > 0 && (

@@ -2,6 +2,8 @@ import type { RefObject } from "react";
 import { KeyRound, Plus, ShieldCheck, Slash } from "lucide-react";
 import type { ApiKeyStatusFilter } from "@/features/api-key-management/hook/use-api-key-management";
 import {
+  AppFilterSection,
+  AppFilterToolbar,
   AppFilterGroup,
   AppFilterToggle,
   AppSearchField,
@@ -28,55 +30,68 @@ export function ApiKeyToolbar({
   onGenerate,
   generateButtonRef,
 }: ApiKeyToolbarProps) {
+  const tListControls = useTranslations("common.listControls");
   const t = useTranslations("apiKey.toolbar");
 
   return (
-    <>
-      <AppFilterGroup>
-        <AppFilterToggle
-          onClick={() => onFilterChange("all")}
-          aria-pressed={filter === "all"}
-          active={filter === "all"}
-          icon={<KeyRound className="h-4 w-4" />}
-        >
-          {t("allKeys")}
-        </AppFilterToggle>
-        <AppFilterToggle
-          onClick={() => onFilterChange("active")}
-          aria-pressed={filter === "active"}
-          active={filter === "active"}
-          icon={<ShieldCheck className="h-4 w-4" />}
-        >
-          {t("active")}
-        </AppFilterToggle>
-        <AppFilterToggle
-          onClick={() => onFilterChange("revoked")}
-          aria-pressed={filter === "revoked"}
-          active={filter === "revoked"}
-          icon={<Slash className="h-4 w-4" />}
-        >
-          {t("revoked")}
-        </AppFilterToggle>
-      </AppFilterGroup>
-      <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+    <AppFilterToolbar
+      filters={
+        <AppFilterSection label={tListControls("status")}>
+          <AppFilterGroup>
+            <AppFilterToggle
+              onClick={() => onFilterChange("all")}
+              aria-pressed={filter === "all"}
+              active={filter === "all"}
+              icon={<KeyRound className="h-4 w-4" />}
+            >
+              {t("allKeys")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => onFilterChange("active")}
+              aria-pressed={filter === "active"}
+              active={filter === "active"}
+              icon={<ShieldCheck className="h-4 w-4" />}
+            >
+              {t("active")}
+            </AppFilterToggle>
+            <AppFilterToggle
+              onClick={() => onFilterChange("revoked")}
+              aria-pressed={filter === "revoked"}
+              active={filter === "revoked"}
+              icon={<Slash className="h-4 w-4" />}
+            >
+              {t("revoked")}
+            </AppFilterToggle>
+          </AppFilterGroup>
+        </AppFilterSection>
+      }
+      search={
         <AppSearchField
+          autoFocus
           value={searchInput}
-          onChange={(event) => onSearchInputChange(event.target.value)}
+          onClear={() => onSearchInputChange("")}
+            onChange={(event) => onSearchInputChange(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
           containerClassName="lg:max-w-md lg:flex-[1_1_20rem]"
         />
-        <AppButton variant="brand"
-          ref={generateButtonRef}
-          type="button"
-          onClick={onGenerate}
-          size="toolbar"
-          className="font-semibold"
-        >
-          <Plus className="h-5 w-5" />
-          {t("generate")}
-        </AppButton>
-      </div>
-    </>
+      }
+      filterCount={Number(filter !== "all")}
+      searchActive={Boolean(searchInput.trim())}
+      filterChips={filter !== "all" ? [{label: t(filter), onRemove: () => onFilterChange("all")}] : []}
+      onResetFilters={() => onFilterChange("all")}
+    >
+      <AppButton
+        variant="brand"
+        ref={generateButtonRef}
+        type="button"
+        onClick={onGenerate}
+        size="toolbar"
+        className="font-semibold"
+      >
+        <Plus className="h-5 w-5" />
+        {t("generate")}
+      </AppButton>
+    </AppFilterToolbar>
   );
 }

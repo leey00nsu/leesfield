@@ -9,6 +9,7 @@ export interface HistoryQueryParams {
   query: string;
   model?: string;
   prompt?: string;
+  hidden?: boolean;
   sort: GenerationHistorySort;
   limit: number;
   offset?: number;
@@ -22,6 +23,7 @@ function buildHistoryUrl(params: HistoryQueryParams) {
   if (params.type) searchParams.set("type", params.type);
   if (params.model) searchParams.set("model", params.model);
   if (params.prompt) searchParams.set("prompt", params.prompt);
+  if (params.hidden !== undefined) searchParams.set("hidden", String(params.hidden));
   if (params.query) searchParams.set("query", params.query);
   if (params.sort) searchParams.set("sort", params.sort);
   searchParams.set("limit", String(params.limit));

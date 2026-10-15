@@ -1,9 +1,11 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
   predict: vi.fn(),
-  handleFile: vi.fn((value) => ({ file: value })),
+  upload: vi.fn(),
+  handleFile: vi.fn((value) => value),
   catalog: vi.fn(),
   resolveBuffer: vi.fn(),
 }));
@@ -51,12 +53,16 @@ const model = {
   updatedAt: new Date(),
 } as const;
 
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=", "base64");
+const sdkRoot = "https://actual-remove-bg.hf.space";
+
 describe("HF background removal adapter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.catalog.mockResolvedValue([model]);
-    mocks.connect.mockResolvedValue({ predict: mocks.predict });
-    mocks.resolveBuffer.mockResolvedValue({ buffer: Buffer.from("input"), mime: "image/png" });
+    mocks.connect.mockResolvedValue({ predict: mocks.predict, upload_files: mocks.upload, config: { root: sdkRoot } });
+    mocks.upload.mockResolvedValue({ files: ["/uploaded/reference.png"] });
+    mocks.resolveBuffer.mockResolvedValue({ buffer: png, mime: "image/png" });
   });
 
   it("selects only an active, explicitly capable model", async () => {
@@ -77,7 +83,14 @@ describe("HF background removal adapter", () => {
       modelKey: "remove-bg",
     });
     expect(mocks.predict).toHaveBeenCalledWith("/remove_background", {
-      source_image: { file: expect.any(Blob) },
+      source_image: expect.objectContaining({ path: "/uploaded/reference.png", orig_name: "reference.png", mime_type: "image/png" }),
     });
+    expect(mocks.upload).toHaveBeenCalledWith(sdkRoot, [expect.objectContaining({ name: "reference.png", type: "image/png" })]);
+    mocks.predict.mockResolvedValue({ data: [{ path: "/tmp/output.png" }] });
+    await expect(removeImageBackground("https://read.example/input.png")).resolves.toEqual({
+      dataUrl: "data:image/png;base64," + png.toString("base64"),
+      modelKey: "remove-bg",
+    });
+    expect(mocks.resolveBuffer).toHaveBeenLastCalledWith(sdkRoot + "/gradio_api/file=/tmp/output.png", expect.any(Object));
   });
 });

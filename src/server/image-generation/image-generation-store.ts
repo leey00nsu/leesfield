@@ -16,7 +16,7 @@ function mapRecord(
   record: Awaited<ReturnType<typeof getImageGenerationByRequestId>>,
 ): ImageGenerationRecord | null {
   if (!record) return null;
-  const images = record.images ?? [];
+  const images = (record.images ?? []).filter((output) => Boolean(output.url));
   const result = images.length
     ? {
         images: images.map((image) => ({

@@ -185,7 +185,7 @@ export const GenerationNode = memo(function GenerationNode({ id, data, selected 
   const modelItems = models.map((model) => ({
     id: model.key,
     name: model.label,
-    vendor: model.vendor,
+    vendor: model.vendor, provider: model.provider,
   }));
   const selectionLabel = modelKey && !activeModel
     ? t("node.modelUnavailable", { model: modelKey })

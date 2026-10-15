@@ -1,4 +1,5 @@
 
+import { uploadGradioInputFiles, type GradioFileUploadClient } from "./input-file-upload";
 import { handle_file } from "@gradio/client";
 import { fileTypeFromBuffer } from "file-type";
 import { assertGradioExecutable, getGradioContract, gradioInputValues, selectGradioOutput, type GradioContract } from "@/shared/model-catalog/gradio-contract";
@@ -25,7 +26,7 @@ type GradioSubmission = AsyncIterable<GradioEvent> & {
   cancel?: () => Promise<void>;
 };
 
-type GradioPredictionClient = {
+type GradioPredictionClient = GradioFileUploadClient & {
   predict: (api: string, values: Record<string, unknown>) => Promise<{ data: unknown }>;
   submit?: (
     api: string,
@@ -73,9 +74,10 @@ export function predictWithDeadline(
   api: string,
   values: Record<string, unknown>,
   timeoutMs: number,
+  spaceUrl?: string,
 ) {
   return measureProvider("hf_space", () =>
-    predictWithDeadlineInternal(client, api, values, timeoutMs),
+    predictWithDeadlineInternal(client, api, values, timeoutMs, spaceUrl),
   );
 }
 
@@ -84,16 +86,19 @@ async function predictWithDeadlineInternal(
   api: string,
   values: Record<string, unknown>,
   timeoutMs: number,
+  spaceUrl?: string,
 ) {
   let submission: GradioSubmission | undefined;
   let timedOut = false;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const task = (async () => {
+    const request = await uploadGradioInputFiles(client, values, spaceUrl);
+    if (timedOut) throw new Error("HF_SPACE_REQUEST_TIMEOUT");
     if (client.submit) {
-      submission = client.submit(api, values, undefined, null, true);
+      submission = client.submit(api, request, undefined, null, true);
       return collectGradioSubmission(submission);
     }
-    return client.predict(api, values);
+    return client.predict(api, request);
   })();
 
   try {
@@ -179,7 +184,7 @@ export async function executeGradioContract(
   const contract = getGradioContract(model);
   if (!contract || contract.output?.media !== media) throw new Error("HF_CONTRACT_MEDIA");
   const request = await buildGradioRequest(contract, payload);
-  const result = await predictWithDeadline(client, contract.apiName, request, config.timeoutMs);
+  const result = await predictWithDeadline(client, contract.apiName, request, config.timeoutMs, config.spaceUrl);
   const selected = selectGradioOutput(result.data, contract);
   const items = contract.output.multiple && Array.isArray(selected) ? selected : [selected];
   if (!items.length) throw new Error("HF_CONTRACT_OUTPUT_MISSING");

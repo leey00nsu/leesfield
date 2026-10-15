@@ -33,6 +33,7 @@ describe("/api/media-assets/:assetId", () => {
       message: "MEDIA_ASSET_IN_USE",
       graphIds: ["graph_1", "graph_2"],
       operationIds: [],
+      projectCoverIds: [],
       generationRequestIds: [],
     });
   });
@@ -45,6 +46,7 @@ describe("/api/media-assets/:assetId", () => {
       message: "MEDIA_ASSET_IN_USE",
       graphIds: [],
       operationIds: [],
+      projectCoverIds: [],
       generationRequestIds: ["request-1"],
     });
   });

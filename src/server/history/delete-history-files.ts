@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
+import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
+import { MediaAssetInUseError } from "@/server/media-assets/media-asset-errors";
+import { lockOrganization } from "@/server/media-assets/asset-organization-repository";
 import { deleteHistoryStorageFile } from "@/server/media-assets/leemage-media-storage";
 import {
   completeStorageCleanup,
@@ -18,11 +21,20 @@ export async function deleteHistoryFiles(ownerEmail: string, outputs: {id: strin
   const assets = await prisma.mediaAsset.findMany({where: {ownerEmail, OR: [{id: {in: ids}}, {storageUrl: {in: urls}}, {legacyUrl: {in: urls}}]}});
   const covered = new Set<string>();
   for (const asset of assets) {
+    const usage = await mediaAssetRepository.getAssetUsage(ownerEmail, asset.id);
+    if (usage.graphIds.length || usage.operationIds.length || usage.generationRequestIds.length || usage.projectCoverIds?.length) {
+      throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds, usage.projectCoverIds);
+    }
+  }
+  for (const asset of assets) {
     covered.add(asset.id);
     if (asset.storageUrl) covered.add(asset.storageUrl);
     if (asset.legacyUrl) covered.add(asset.legacyUrl);
     if (asset.status === "failed" && !asset.storageUrl && !asset.legacyUrl) continue;
     const cleanup = await prisma.$transaction(async (tx) => {
+      await lockOrganization(tx, ownerEmail);
+      const covers = await tx.assetProject.findMany({ where: { ownerEmail, coverAssetId: asset.id }, select: { id: true } });
+      if (covers.length) throw new MediaAssetInUseError([], [], [], covers.map(({ id }) => id));
       await tx.mediaAsset.update({where: {id: asset.id}, data: {status: "deleting"}});
       if (!isCleanupClient(tx)) return null;
       return queueStorageCleanup(tx, {
@@ -35,6 +47,11 @@ export async function deleteHistoryFiles(ownerEmail: string, outputs: {id: strin
       });
     });
     try {
+      const usage = await mediaAssetRepository.getAssetUsage(ownerEmail, asset.id);
+      if (usage.graphIds.length || usage.operationIds.length || usage.generationRequestIds.length || usage.projectCoverIds?.length) {
+        await mediaAssetRepository.restoreAsset(ownerEmail, asset.id);
+        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds, usage.projectCoverIds);
+      }
       await deleteHistoryStorageFile(asset.storageProvider === "leemage" ? asset.storageObjectId : null, asset.storageUrl ?? asset.legacyUrl);
     } catch (error) {
       throw error;

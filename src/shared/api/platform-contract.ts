@@ -12,7 +12,7 @@ export const externalHistoryQuerySchema = z.object({
   type: z.enum(["image", "video", "audio", "all"]).optional(),
   query: z.string().optional(), model: z.string().optional(), prompt: z.string().optional(),
   sort: z.enum(["date_desc", "date_asc"]).optional(), limit: z.string().optional(), offset: z.string().optional(),
-  includeTotal: z.string().optional(), cursor: z.string().optional(),
+  includeTotal: z.string().optional(), cursor: z.string().optional(), hidden: z.string().optional(),
 });
 export const externalHistoryItemSchema = z.object({
   id: z.string(), type: z.enum(["image", "video", "audio"]), origin: z.enum(["generation", "edit"]).optional(),

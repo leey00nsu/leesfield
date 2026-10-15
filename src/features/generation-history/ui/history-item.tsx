@@ -19,6 +19,7 @@ import type {
 import { AppButton } from "@/shared/ui/app-button";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
+import { appMediaGalleryTileClassName } from "@/shared/ui/app-media-gallery";
 import { cn } from "@/shared/lib/utils";
 
 const statusConfig: Record<
@@ -62,16 +63,19 @@ const typeConfig = {
 export function HistoryItem({
   item,
   autoplay = true,
+  fit = "cover",
   onSelect,
   className,
 }: {
   item: GenerationHistoryItem;
   autoplay?: boolean;
+  fit?: "cover" | "contain";
   onDeleted?: (item: Pick<GenerationHistoryItem, "id" | "type">) => void;
   onSelect?: (item: GenerationHistoryItem) => void;
   className?: string;
 }) {
   const locale = useLocale();
+  const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
   const tStates = useTranslations("history.states");
@@ -105,37 +109,34 @@ export function HistoryItem({
   return (
     <article
       className={cn(
-        "group relative break-inside-avoid overflow-hidden rounded-none bg-black",
+        "group relative overflow-hidden rounded-none bg-black",
+        appMediaGalleryTileClassName,
         className,
       )}
     >
-      <div className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]">
+      <div className="relative aspect-square w-full overflow-hidden bg-[#090b0d]">
         {isAudio ? (
             <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-4 overflow-hidden bg-card p-6">
               <AudioLines className="h-8 w-8 shrink-0 text-primary" />
               <p className="line-clamp-4 max-w-full break-words text-center text-sm leading-6 text-foreground">{item.prompt}</p>
             </div>
           ) : previewUrl ? (
-            <HistoryMedia key={candidates.join("|")} urls={candidates} type={item.type === "video" ? "video" : "image"} alt={tHistory("previewAlt")} autoplay={autoplay} />
+            <HistoryMedia key={candidates.join("|")} urls={candidates} type={item.type === "video" ? "video" : "image"} alt={tHistory("previewAlt")} autoplay={autoplay} fit={fit} onDuration={setMediaDuration} />
         ) : (
           <div className="absolute inset-0 bg-white/[0.045]" />
         )}
 
         <div className="absolute inset-0 bg-black/58 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
 
-        <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="absolute inset-x-3 top-3 flex flex-wrap items-center gap-2">
           <AppBadge variant="overlay" className="gap-1.5 backdrop-blur">
             <TypeIcon className="h-3 w-3" />
             {tTypes(item.type)}
           </AppBadge>
-          {item.origin ? (
-            <AppBadge variant="overlay" className="backdrop-blur">
-              {tHistory(`origins.${item.origin}`)}
-            </AppBadge>
-          ) : null}
+          {mediaDuration != null && <AppBadge variant="overlay">{mediaDuration.toFixed(1)}s</AppBadge>}
           <AppBadge
             className={cn(
-              "gap-1.5 rounded-full px-2 py-1 text-[10px] font-black uppercase",
+              "gap-1.5",
               status.className,
             )}
           >
@@ -146,22 +147,6 @@ export function HistoryItem({
           </AppBadge>
         </div>
 
-        <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2 opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-          {item.model ? (
-            <AppBadge
-              variant="overlay"
-              className="max-w-full truncate normal-case tracking-normal backdrop-blur"
-            >
-              {item.model}
-            </AppBadge>
-          ) : null}
-          <AppBadge
-            variant="overlay"
-            className="normal-case tracking-normal backdrop-blur"
-          >
-            {formattedDate}
-          </AppBadge>
-        </div>
 
         {item.status === "failed" || item.status === "cancelled" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/45 px-4 text-center">
@@ -179,6 +164,11 @@ export function HistoryItem({
             <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>
         ) : null}
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex min-w-0 flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-12 pb-3 text-white">
+          <span title={item.model ?? undefined} className="block truncate text-sm font-medium">{item.model || tHistory("states.unknownModel")}</span>
+          <span className="text-[10px] text-white/65">{formattedDate}</span>
+        </div>
 
         {onSelect ? (
           <button
@@ -199,11 +189,11 @@ export function HistoryItemSkeleton({
   return (
     <article
       data-testid="history-item-skeleton"
-      className={cn("break-inside-avoid overflow-hidden bg-black", className)}
+      className={cn("overflow-hidden bg-black", appMediaGalleryTileClassName, className)}
     >
       <div
         data-testid="history-item-skeleton-media"
-        className="relative h-full min-h-[12rem] w-full overflow-hidden bg-[#090b0d]"
+        className="relative aspect-square w-full overflow-hidden bg-[#090b0d]"
       >
         <AppSkeleton
           data-testid="history-item-skeleton-media-fill"
@@ -215,7 +205,7 @@ export function HistoryItemSkeleton({
   );
 }
 
-function HistoryMedia({ urls, type, alt, autoplay }: { urls: string[]; type: "image" | "video"; alt: string; autoplay: boolean }) {
+function HistoryMedia({ urls, type, alt, autoplay, fit, onDuration }: { urls: string[]; type: "image" | "video"; alt: string; autoplay: boolean; fit: "cover" | "contain"; onDuration: (duration: number | null) => void }) {
   const t = useTranslations("history.media");
   const actions = useTranslations("common.actions");
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
@@ -239,10 +229,10 @@ function HistoryMedia({ urls, type, alt, autoplay }: { urls: string[]; type: "im
     else video.pause();
   }, [autoplay, visible, url, attempt]);
   const failed = () => { if (candidate + 1 < urls.length) {setCandidate(candidate + 1); setState("loading");} else setState("error"); };
-  const className = cn("h-full w-full object-cover transition-opacity motion-reduce:transition-none", state !== "loaded" && "opacity-0");
+  const className = cn("h-full w-full transition-opacity motion-reduce:transition-none", fit === "cover" ? "object-cover" : "object-contain", state !== "loaded" && "opacity-0");
   return <>
     {state === "loading" && <AppSkeleton role="status" aria-label={t("loading")} className="absolute inset-0 rounded-none motion-reduce:animate-none" />}
-    {type === "video" ? <video ref={videoRef} autoPlay={autoplay && visible} key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedData={() => setState("loaded")} onError={failed} /> :
+    {type === "video" ? <video ref={videoRef} autoPlay={autoplay && visible} key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedMetadata={event => { const duration = event.currentTarget.duration; onDuration(Number.isFinite(duration) && duration > 0 ? duration : null); }} onLoadedData={() => setState("loaded")} onError={failed} /> :
       // eslint-disable-next-line @next/next/no-img-element
       <img key={`${candidate}-${attempt}`} src={url} alt={alt} loading="lazy" decoding="async" fetchPriority="low" className={className} onLoad={() => setState("loaded")} onError={failed} />}
     {state === "error" && <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card p-4 text-center text-sm">

@@ -14,8 +14,8 @@ import {
   CodeBlockContent,
 } from "@/shared/ui/app-code-block";
 
-import { useEffect, useMemo, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Copy } from "lucide-react";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
 import { ApiDocsSection } from "@/widgets/api-docs/ui/api-docs-section";
@@ -23,8 +23,7 @@ import { cn } from "@/shared/lib/utils";
 import { ApiDocsParameters } from "./api-docs-parameters";
 import { ApiDocsPermissions } from "./api-docs-permissions";
 import { ApiDocsModelConfig } from "./api-docs-model-config";
-import { copyTextToClipboard } from "@/shared/lib/clipboard";
-import { appToast } from "@/shared/ui/app-toast";
+import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import { useTranslations } from "next-intl";
 import {
   buildExampleFromSchema,
@@ -92,9 +91,7 @@ export function ApiDocsEndpointsSection({
   const [snippetLanguagesById, setSnippetLanguagesById] = useState<
     Record<string, SnippetLanguage>
   >({});
-  const [copiedOperationId, setCopiedOperationId] = useState<string | null>(
-    null,
-  );
+  const copy = useClipboardCopy();
   const exampleStrings: ExampleStrings = {
     sample: tExamples("sample"),
     samplePrompt: tExamples("samplePrompt"),
@@ -104,22 +101,7 @@ export function ApiDocsEndpointsSection({
   };
   const orderedLanguages = useMemo(() => snippetLanguages, []);
 
-  useEffect(() => {
-    if (!copiedOperationId) return;
-    const timer = window.setTimeout(() => setCopiedOperationId(null), 1500);
-    return () => window.clearTimeout(timer);
-  }, [copiedOperationId]);
-
-  const handleCopySnippet = async (operationId: string, snippet: string) => {
-    if (!snippet.trim()) return;
-    const copied = await copyTextToClipboard(snippet);
-    if (copied) {
-      setCopiedOperationId(operationId);
-      appToast.copied(tSnippets("copied"));
-    } else {
-      setCopiedOperationId(null);
-    }
-  };
+  const handleCopySnippet = (snippet: string) => copy(snippet, { successMessage: tSnippets("copied") });
 
   return (
     <>
@@ -266,17 +248,11 @@ export function ApiDocsEndpointsSection({
                                 variant="surface"
                                 className="text-xs font-semibold"
                                 onClick={() =>
-                                  handleCopySnippet(operation.id, snippet)
+                                  handleCopySnippet(snippet)
                                 }
                               >
-                                {copiedOperationId === operation.id ? (
-                                  <Check className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                                {copiedOperationId === operation.id
-                                  ? tSnippets("copied")
-                                  : tSnippets("copy")}
+                                <Copy className="h-3.5 w-3.5" />
+                                {tSnippets("copy")}
                               </AppButton>
                             </div>
                           </CodeBlockHeader>
@@ -313,9 +289,9 @@ export function ApiDocsEndpointsSection({
                           <summary className="cursor-pointer text-sm text-muted-foreground">{tSnippets("multipartTitle")}</summary>
                           <p className="max-w-3xl text-sm leading-7 text-muted-foreground">{tSnippets("multipartDescription")}</p>
                           <AppButton aria-label={tSnippets("multipartTitle") + " " + tSnippets("copy")} size="pill-sm" variant="surface" onClick={() => handleCopySnippet(
-                            operation.id + "-multipart", buildGenerationMultipartSnippet(apiBaseUrl, exampleStrings.samplePrompt),
+                            buildGenerationMultipartSnippet(apiBaseUrl, exampleStrings.samplePrompt),
                           )}>
-                            {copiedOperationId === operation.id + "-multipart" ? tSnippets("copied") : tSnippets("copy")}
+                            {tSnippets("copy")}
                           </AppButton>
                           <AppCodeSnippet code={buildGenerationMultipartSnippet(apiBaseUrl, exampleStrings.samplePrompt)} language="bash" />
                         </details>

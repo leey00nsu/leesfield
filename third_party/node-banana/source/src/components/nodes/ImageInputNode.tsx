@@ -120,7 +120,6 @@ export function ImageInputNode({ id, data, selected }: NodeProps<ImageInputNodeT
 
       {nodeData.image ? (
         <div className="relative group w-full h-full overflow-clip rounded-lg">
-          {!nodeData.hasConnectedImage && <button ref={(element) => { triggerRef.current = element; }} type="button" className="absolute left-2 top-2 z-20 nodrag nopan rounded-md border border-neutral-600 bg-neutral-900/90 px-2 py-1.5 text-xs text-neutral-200" disabled={!writable} aria-label={tc("Choose image")} onClick={() => setChoosingImage(true)}>{tc("Replace")}</button>}
           <img
             src={adaptiveImage ?? undefined}
             alt={nodeData.hasConnectedImage ? tc("Connected image") : nodeData.filename || tc("Uploaded image")}

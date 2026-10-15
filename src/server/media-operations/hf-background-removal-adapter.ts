@@ -13,6 +13,7 @@ import {
   GENERATION_OUTPUT_LIMITS,
 } from "@/server/http/bounded-io";
 import { predictWithDeadline } from "@/server/hf-space/contract-executor";
+import { gradioSpaceRoot } from "@/server/hf-space/input-file-upload";
 import {
   isNodeStudioE2EMockBackgroundRemovalEnabled,
   mockBackgroundRemovalDataUrl,
@@ -69,11 +70,13 @@ async function getClient(processor: BackgroundRemovalProcessor) {
     clientCache.set(key, client);
   }
   try {
-    return await awaitWithTimeout(
+    const resolved = await awaitWithTimeout(
       client,
       Math.min(processor.timeoutMs, 10_000),
       "HF_SPACE_CONNECT_TIMEOUT",
     );
+    processor.spaceUrl = gradioSpaceRoot(resolved, processor.spaceUrl)!;
+    return resolved;
   } catch (error) {
     if (clientCache.get(key) === client) clientCache.delete(key);
     throw error;

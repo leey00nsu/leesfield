@@ -1,3 +1,6 @@
+import { getOwnedHistoryRecord } from "../history-record";
+import type { ExternalHistorySelector } from "@/shared/api/platform-contract";
+import { generationOutputUrl, generationOutputAssetSelect } from "../generation-output-availability";
 import { imageUrlsFor, parseImageVariants } from "@/shared/media-assets/image-variants";
 import type { Prisma } from "@prisma/client";
 
@@ -110,8 +113,9 @@ async function resolvedAsset(
   ownerEmail: string,
   assetId: string | null | undefined,
   fallbackUrl: string | null,
+  currentAsset?: { status?: string; storageUrl?: string | null; legacyUrl?: string | null } | null,
 ) {
-  return { assetId: assetId ?? null, url: fallbackUrl };
+  return { assetId: assetId ?? null, url: generationOutputUrl({ assetId, url: fallbackUrl, asset: currentAsset }) };
 }
 
 function graphProvenance(record: {
@@ -140,11 +144,11 @@ async function imageItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
-  images: Array<{ assetId: string | null; url: string; asset?: {imageVariants: unknown} | null }>;
+  images: Array<{ assetId: string | null; url: string; asset?: {imageVariants: unknown; status?: string; storageUrl?: string | null; legacyUrl?: string | null} | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.images[0];
-  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
+  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null, output?.asset);
   const completed = record.status === "completed";
   return {
     id: record.requestId,
@@ -162,7 +166,7 @@ async function imageItem(ownerEmail: string, record: {
     durationMs: toHistoryDurationMs(record.createdAt, record.updatedAt, record.status),
     progress: record.progress,
     resultUrl: completed ? asset.url : null,
-    imageVariants: completed ? parseImageVariants(output?.asset?.imageVariants) : null,
+    imageVariants: completed && asset.url ? parseImageVariants(output?.asset?.imageVariants) : null,
     thumbnailUrl: completed && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output?.asset?.imageVariants}, "list")[0] : null,
     inputImages: [],
     errorMessage: record.status === "failed" ? previewHistoryText(record.errorMessage) : null,
@@ -182,11 +186,11 @@ async function videoItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
-  videos: Array<{ assetId: string | null; url: string }>;
+  videos: Array<{ assetId: string | null; url: string; asset?: { status?: string; storageUrl?: string | null; legacyUrl?: string | null } | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.videos[0];
-  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
+  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null, output?.asset);
   const completed = record.status === "completed";
   return {
     id: record.requestId,
@@ -223,11 +227,11 @@ async function audioItem(ownerEmail: string, record: {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
-  audios: Array<{ assetId: string | null; url: string }>;
+  audios: Array<{ assetId: string | null; url: string; asset?: { status?: string; storageUrl?: string | null; legacyUrl?: string | null } | null }>;
   generationInputAssets?: Array<{ assetId: string; sortOrder: number }>;
 }): Promise<GenerationHistoryItem> {
   const output = record.audios[0];
-  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null);
+  const asset = await resolvedAsset(ownerEmail, output?.assetId, output?.url ?? null, output?.asset);
   const completed = record.status === "completed";
   return {
     id: record.requestId,
@@ -256,11 +260,11 @@ async function audioItem(ownerEmail: string, record: {
 function operationWhere(query: HistoryQuery, ownerEmail: string): Prisma.MediaOperationWhereInput {
   return {
     ownerEmail,
+    hiddenAt: query.hidden ? { not: null } : null,
     ...(query.model || query.prompt ? {id:{in:[] as string[]}} : {}),
     status: "completed",
     outputs: {
       some: {
-        status: "completed",
         ...(query.type === "all" ? {} : { type: query.type }),
       },
     },
@@ -275,11 +279,11 @@ export async function getHistory(
   const query = parseHistoryQuery(searchParams);
   const status = searchParams.get("status") ?? "all";
   const validStatus = ["pending", "processing", "uploading", "completed", "failed", "cancelled"].includes(status) ? status : "all";
-  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus, ...(query.model || query.prompt ? [query.model ?? "", query.prompt ?? ""] : [])]);
+  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus, query.hidden ?? false, ...(query.model || query.prompt ? [query.model ?? "", query.prompt ?? ""] : [])]);
   const cursor = decodeHistoryCursor(searchParams.get("cursor"), scope);
   const pageOffset = cursor ? 0 : query.offset;
   const take = query.limit + pageOffset + 1;
-  const filter = validStatus === "all" ? {} : { status: validStatus as GenerationHistoryItem["status"] };
+  const filter = { hiddenAt: query.hidden ? { not: null } : null, ...(validStatus === "all" ? {} : { status: validStatus as GenerationHistoryItem["status"] }) };
   const asc = query.sort === "date_asc";
   const orderBy = { createdAt: query.sort === "date_asc" ? "asc" : "desc" } as const;
   const graphNode = { select: { graphId: true } } as const;
@@ -292,7 +296,7 @@ export async function getHistory(
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
-            images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: {select: {imageVariants: true}} } },
+            images: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
         }),
         query.includeTotal
@@ -308,7 +312,7 @@ export async function getHistory(
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
-            videos: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
+            videos: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
         }),
         query.includeTotal
@@ -324,7 +328,7 @@ export async function getHistory(
             requestId: true, status: true, prompt: true, modelKey: true, historyMetadata: true,
             graphNodeId: true, graphNode, progress: true, errorMessage: true,
             createdAt: true, updatedAt: true,
-            audios: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true } },
+            audios: { orderBy: { createdAt: "asc" }, take: 1, select: { assetId: true, url: true, asset: { select: generationOutputAssetSelect } } },
           },
         }),
         query.includeTotal
@@ -341,9 +345,9 @@ export async function getHistory(
         parameters: true, progress: true, createdAt: true, updatedAt: true,
         inputs: { orderBy: [{ portId: "asc" }, { sortOrder: "asc" }], select: { assetId: true } },
         outputs: {
-          where: { status: "completed", ...(query.type === "all" ? {} : { type: query.type }) },
+          where: { ...(query.type === "all" ? {} : { type: query.type }) },
           orderBy: { createdAt: "asc" }, take: 1,
-          select: { id: true, type: true, storageUrl: true, legacyUrl: true, imageVariants: true },
+          select: { id: true, status: true, type: true, storageUrl: true, legacyUrl: true, imageVariants: true },
         },
       },
     }),
@@ -369,7 +373,7 @@ export async function getHistory(
   const operationItems = await Promise.all(operations.flatMap((operation) => {
     const output = operation.outputs[0];
     if (!output) return [];
-    return [resolvedAsset(ownerEmail, output.id, output.storageUrl ?? output.legacyUrl).then((asset): GenerationHistoryItem => ({
+    return [resolvedAsset(ownerEmail, output.id, output.storageUrl ?? output.legacyUrl, output).then((asset): GenerationHistoryItem => ({
       id: operation.id,
       type: output.type,
       origin: "edit",
@@ -391,7 +395,7 @@ export async function getHistory(
       durationMs: toHistoryDurationMs(operation.createdAt, operation.updatedAt, "completed"),
       progress: operation.progress,
       resultUrl: asset.url,
-      imageVariants: output.type === "image" ? parseImageVariants(output.imageVariants) : null,
+      imageVariants: asset.url && output.type === "image" ? parseImageVariants(output.imageVariants) : null,
       thumbnailUrl: output.type === "image" && asset.url ? imageUrlsFor({url: asset.url, imageVariants: output.imageVariants}, "list")[0] : null,
       inputImages: [],
       inputAudios: [],
@@ -424,4 +428,24 @@ export async function getHistory(
     limit: query.limit,
     offset: pageOffset,
   };
+}
+
+/** Owner-scoped deep-link projection, including hidden and unavailable results. */
+export async function getHistoryRecordItem(owner: string, id: string, selector: ExternalHistorySelector): Promise<GenerationHistoryItem | null> {
+  const result = await getOwnedHistoryRecord(owner, id, selector);
+  const record = result.record;
+  if (!record) return null;
+  let item: GenerationHistoryItem;
+  if ("images" in record) item = await imageItem(owner, { ...record, graphNode: null });
+  else if ("videos" in record) item = await videoItem(owner, { ...record, graphNode: null });
+  else if ("audios" in record) item = await audioItem(owner, { ...record, graphNode: null });
+  else {
+    const output = record.outputs[0]; if (!output) return null;
+    item = { id: record.id, type: output.type, origin: "edit", assetId: output.id, graphId: record.graphId,
+      graphNodeId: record.graphNodeId, sourceAssetIds: record.inputs.map(input => input.assetId),
+      operation: { id: record.id, type: record.type, configVersion: record.configVersion, parameters: previewHistoryValue(record.parameters) },
+      status: record.status, prompt: record.type, model: null, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
+      progress: record.progress, resultUrl: result.url, thumbnailUrl: output.type === "image" ? result.url : null, errorMessage: previewHistoryText(record.errorMessage) };
+  }
+  return { ...item, hidden: !!record.hiddenAt };
 }

@@ -20,6 +20,7 @@ export const RATE_LIMITS = {
   uploadOwner: { name: "upload-owner", capacity: 2, refillPerSecond: 10 / 60 },
   statsOwner: { name: "stats-owner", capacity: 5, refillPerSecond: 30 / 60 },
   readOwner: { name: "read-owner", capacity: 30, refillPerSecond: 2 },
+  assetWriteOwner: { name: "asset-write-owner", capacity: 30, refillPerSecond: 2 },
 } satisfies Record<string, RateLimitPolicy>;
 
 /** Subject used when the client address is unknown or untrusted. */

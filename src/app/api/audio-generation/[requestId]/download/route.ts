@@ -46,7 +46,7 @@ async function getObservedHandler(request: Request, { params }: RouteContext) {
 
   const audio = record.audios[index];
 
-  if (!audio) {
+  if (!audio || !audio.url) {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 

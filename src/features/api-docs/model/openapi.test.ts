@@ -174,6 +174,8 @@ describe("public API protocol", () => {
     const limit = history.parameters!.find((p) => !("$ref" in p) && p.name === "limit")!;
     expect(limit).toHaveProperty("schema", { type: "integer", minimum: 1, maximum: 100, default: 24, "x-normalization": "parse-integer-clamp" });
     expect(parseHistoryQuery(new URLSearchParams()).limit).toBe(24);
+    expect(history.parameters!.find((p) => !("$ref" in p) && p.name === "hidden")).toHaveProperty("schema", { type: "boolean", default: false, "x-normalization": "boolean-aliases" });
+    expect(parseHistoryQuery(new URLSearchParams({ hidden: "true" })).hidden).toBe(true);
     expect(parseHistoryQuery(new URLSearchParams({ limit: "500" })).limit).toBe(100);
     expect(document.paths["/api/external/generations"]!.post!["x-request-limits"]).toMatchObject({ bodyBytes: 67108864, files: 64, fileBytes: 10485760 });
     expect(document.paths["/api/external/monitoring/stats"]!.get!["x-query-limits"]).toMatchObject({ defaultDays: 30, rangeDays: 31 });

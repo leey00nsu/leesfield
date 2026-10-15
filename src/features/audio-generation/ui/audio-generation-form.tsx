@@ -1,4 +1,5 @@
 "use client";
+import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { useCinemaHistoryRestore } from "@/shared/cinema/use-cinema-history-restore";
 import { GradioFileField } from "@/shared/ui/gradio-file-field";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
@@ -177,7 +178,7 @@ export function AudioGenerationForm({
       resolvedAudioModels.map((model) => ({
         id: model.key,
         name: model.label,
-        vendor: model.vendor,
+        vendor: model.vendor, provider: model.provider,
         ...resolveGenerationCapabilities(model),
       })),
     [resolvedAudioModels],
@@ -1105,6 +1106,8 @@ export function AudioGenerationForm({
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-6">
+<GenerationAssetReferenceBridge key={activeModel} fields={gradioContract?.inputs ?? (true ? (parameterKeys.includes("inputAudio") ? [{name:"inputAudio",label:"Audio",kind:"file",media:"audio",schema:{},required:false,nullable:false}] : []) : [])} values={gradioContract ? contractValues : {inputAudio:form.getValues("inputAudio")}} disabled={isGuest || isGenerating || isModelLoading} onAttach={(field,value) => { historyRevision.current++; if (gradioContract) form.setValue("dynamicParams",{...form.getValues("dynamicParams"),[field]:value},{shouldDirty:true,shouldValidate:true}); else form.setValue("inputAudio",value as string,{shouldDirty:true,shouldValidate:true}); }} />
+
           <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
             {!embedded && (<GenerationStudioIntro
                 compact={embedded}

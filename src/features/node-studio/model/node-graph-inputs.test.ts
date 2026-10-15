@@ -1,8 +1,8 @@
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 
 import { resolveNodeInputAssetSlots, resolveNodeInputAssetId, resolveNodeInputAssetIds, resolveNodePromptInput } from "./node-graph-inputs";
-import { replaceGenerationAttachments, replaceRelatedGenerationAttachments, generationAttachmentSlots, type GenerationAttachmentSlot } from "./generation-prompt-attachments";
-import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
+import { attachmentSlotAssetIds, replaceGenerationAttachments, replaceRelatedGenerationAttachments, generationAttachmentSlots, type GenerationAttachmentSlot } from "./generation-prompt-attachments";
+import { runtimeImageModelsFixture, mappedReferenceImageModelFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 
 const graph: NodeBananaRuntimeGraph = {
   nodes: [
@@ -159,3 +159,22 @@ describe("Node graph input resolution", () => {
     expect(resolveNodePromptInput(chained, "generation")).toEqual({ connected: true, text: "root text" });
   });
 });
+
+ it("shows and edits chained legacy references without duplicating the relay or original assets",()=>{
+   const slot=generationAttachmentSlots(mappedReferenceImageModelFixture)[0];
+   const relay={...graph.nodes[1],id:"relay",data:{canonicalKind:"input.image",config:{assetId:null}}};
+   const chain={...graph,nodes:[...graph.nodes,relay],edges:[...graph.edges,
+     {id:"pass",source:"image",target:"relay",sourceHandle:"image",targetHandle:"reference"},
+     {id:"use",source:"relay",target:"target",sourceHandle:"image",targetHandle:"image",data:{targetPortId:"primary",sortOrder:0}}]};
+   expect(attachmentSlotAssetIds(chain,"target",slot)).toEqual(["asset-input"]);
+   const same=replaceGenerationAttachments(chain,"target",slot,["asset-input"],()=>"unused");
+   expect(same.nodes).toEqual(chain.nodes);
+   expect(same.edges.find(e=>e.id==="use")).toMatchObject({source:"relay",targetHandle:"image-field-refs",data:{targetPortId:"image-field-refs"}});
+   expect(attachmentSlotAssetIds(same,"target",slot)).toEqual(["asset-input"]);
+   const paused={...chain,edges:chain.edges.map(e=>e.id==="pass"?{...e,data:{hasPause:true}}:e)};
+   expect(attachmentSlotAssetIds(paused,"target",slot)).toEqual([]);
+   expect(attachmentSlotAssetIds({...chain,edges:chain.edges.map(e=>e.id==="use"?{...e,data:{...e.data,hasPause:true}}:e)},"target",slot)).toEqual([]);
+   const cleared=replaceGenerationAttachments(chain,"target",slot,[],()=>"unused");
+   expect(cleared.nodes).toEqual(chain.nodes);expect(cleared.edges.some(e=>e.id==="use")).toBe(false);
+   expect(cleared.edges.some(e=>e.id==="pass")).toBe(true);
+ });

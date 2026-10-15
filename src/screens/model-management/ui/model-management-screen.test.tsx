@@ -223,7 +223,7 @@ describe("ModelManagementScreen", () => {
       const videoLimit=screen.getByRole("spinbutton",{name:"참조 영상"});
       await user.clear(videoLimit);await user.type(videoLimit,"2");
       await user.click(screen.getByRole("combobox",{name:"영상별 오디오: 오디오 연결"}));
-      await user.click(screen.getByRole("option",{name:"참조 영상 · reference_videos"}));
+      await user.click(await screen.findByRole("option",{name:"참조 영상 · reference_videos"}));
     }
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ provider: "modal_comfyui", key: draft.key })));
@@ -266,7 +266,8 @@ describe("ModelManagementScreen", () => {
 
     const imageLabels = await screen.findAllByText(imageModel!.label);
     expect(imageLabels.length).toBeGreaterThan(0);
-    expect(screen.getByPlaceholderText("검색…")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("검색…")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "필터" }));
     expect(
       screen.getByRole("combobox", { name: "모델 정렬" }),
     ).toBeInTheDocument();
@@ -276,7 +277,7 @@ describe("ModelManagementScreen", () => {
     expect(screen.queryByText(/^총\s/)).not.toBeInTheDocument();
     const toolbar = document.querySelector("[data-app-filter-toolbar]");
     expect(toolbar).toBeInTheDocument();
-    expect(toolbar).toHaveClass("lg:flex-wrap");
+    expect(screen.getByRole("button", { name: "필터" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "전체" })).not.toHaveClass(
       "rounded-none",
     );
@@ -337,6 +338,7 @@ describe("ModelManagementScreen", () => {
     const videoLabels = await screen.findAllByText(videoModel!.label);
     expect(videoLabels.length).toBeGreaterThan(0);
 
+    await user.click(screen.getByRole("button", { name: "검색" }));
     const input = screen.getByPlaceholderText("검색…");
 
     await user.clear(input);
@@ -382,6 +384,7 @@ describe("ModelManagementScreen", () => {
 
     await screen.findAllByText(audioModel!.label);
 
+    await user.click(screen.getByRole("button", { name: "필터" }));
     await user.click(screen.getByRole("button", { name: "오디오" }));
 
     await waitFor(() => {

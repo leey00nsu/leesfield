@@ -19,8 +19,6 @@ export interface ApiKeyIssueModalProps {
   onGenerate: () => void;
   onClose: () => void;
   pendingKey: { label: string; apiKey: string } | null;
-  copied: boolean;
-  copyError: string | null;
   onCopy: () => void;
 }
 export function ApiKeyIssueModal(props: ApiKeyIssueModalProps) {
@@ -40,8 +38,6 @@ export function ApiKeyIssueModal(props: ApiKeyIssueModalProps) {
               <AppLabel htmlFor={id + "-key"}>{t("key")}</AppLabel>
               <AppInput id={id + "-key"} readOnly value={props.pendingKey.apiKey}
                 onFocus={(event) => event.currentTarget.select()} className="font-mono text-xs" />
-              {props.copyError ? <p role="alert" className="text-sm text-destructive">{props.copyError}</p> : null}
-              {props.copied ? <p role="status" className="text-sm text-muted-foreground">{tPending("copied")}</p> : null}
             </div>
             <AppDialogFooter>
               <AppDialogCancelButton type="button" onClick={props.onClose}>{t("done")}</AppDialogCancelButton>

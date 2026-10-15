@@ -5,6 +5,8 @@ import {
 } from "@/server/http/response";
 
 import {
+  AssetOrganizationNotFoundError,
+  AssetMetadataConflictError,
   MediaAssetInUseError,
   MediaAssetInputError,
   MediaAssetNotFoundError,
@@ -20,6 +22,8 @@ import {
 } from "./media-asset-errors";
 
 export function buildMediaAssetKnownErrorResponse(error: unknown) {
+  if (error instanceof AssetOrganizationNotFoundError) return buildErrorResponse(error.message, 404);
+  if (error instanceof AssetMetadataConflictError) return buildErrorResponse(error.code, 409);
   if (error instanceof MediaAssetInputError) {
     return buildInvalidRequestResponse(error.details);
   }
@@ -60,6 +64,7 @@ export function buildMediaAssetKnownErrorResponse(error: unknown) {
         graphIds: error.graphIds,
         operationIds: error.operationIds,
         generationRequestIds: error.generationRequestIds,
+        projectCoverIds: error.projectCoverIds,
       },
       { status: 409 },
     );

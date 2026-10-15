@@ -41,12 +41,13 @@ describe("새로운 endpoint 계약 유형의 공통 실행",()=>{
  const data=media==="audio"?"data:audio/wav;base64,"+readFileSync("public/assets/storybook/tone.wav").toString("base64"):"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=";
  const values=media==="image"?{references:[data,data]}:media==="video"?{first_frame:data,last_frame:null}:{reference_audio:data};
  const predict=vi.fn(async()=>({data:["done",{url:"https://example.hf.space/gradio_api/file=result."+ (media==="image"?"png":media==="video"?"mp4":"wav")}]}));
- const refs=await executeGradioContract({predict},{providerConfig:{gradio_contract:c}},{prompt:"hello",dynamicParams:values},{timeoutMs:1000,spaceUrl:"https://example.hf.space"},media);
+ const upload_files=vi.fn(async(_root:string,files:File[])=>({files:files.map(file=>"/uploaded/"+file.name)}));
+ const refs=await executeGradioContract({predict,upload_files},{providerConfig:{gradio_contract:c}},{prompt:"hello",dynamicParams:values},{timeoutMs:1000,spaceUrl:"https://example.hf.space"},media);
  expect(predict.mock.calls[0]).toEqual(["/render",expect.objectContaining({prompt:"hello"})]);
  const sent=(predict.mock.calls as unknown as Array<[string,Record<string,unknown>]>)[0][1];
- if(media==="image") expect(sent.references).toEqual([{uploaded:expect.any(Blob)},{uploaded:expect.any(Blob)}]);
- if(media==="video") {expect(sent.last_frame).toBeNull();expect(sent.first_frame).toEqual({uploaded:expect.any(Blob)});}
- if(media==="audio") expect(sent.reference_audio).toEqual({uploaded:expect.any(Blob)});
+ if(media==="image") expect(sent.references).toEqual([{uploaded:expect.objectContaining({path:expect.stringMatching(/reference\.(png|wav)$/),orig_name:expect.stringMatching(/reference\.(png|wav)$/)})},{uploaded:expect.objectContaining({path:expect.stringMatching(/reference\.(png|wav)$/),orig_name:expect.stringMatching(/reference\.(png|wav)$/)})}]);
+ if(media==="video") {expect(sent.last_frame).toBeNull();expect(sent.first_frame).toEqual({uploaded:expect.objectContaining({path:expect.stringMatching(/reference\.(png|wav)$/),orig_name:expect.stringMatching(/reference\.(png|wav)$/)})});}
+ if(media==="audio") expect(sent.reference_audio).toEqual({uploaded:expect.objectContaining({path:expect.stringMatching(/reference\.(png|wav)$/),orig_name:expect.stringMatching(/reference\.(png|wav)$/)})});
  expect(refs[0].normalizedUrl).toContain("result.");
  });
  it("미디어 출력이 없는 계약은 predict 전에 거절한다",async()=>{

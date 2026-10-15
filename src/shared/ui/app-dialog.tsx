@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
 import { AppCloseButton } from "./app-close-button";
 import { AppButton } from "@/shared/ui/app-button";
-import { useAppOverlayScope } from "./app-overlay-scope";
+import { AppDialogOverlayProvider, useAppOverlayScope } from "./app-overlay-scope";
 import {
   Dialog,
   DialogClose,
@@ -63,7 +63,7 @@ export function AppDialogContent({
   padding?: AppDialogPadding;
 }) {
   const scope = useAppOverlayScope();
-  const effectiveSurface = surface ?? (scope === "canvas" ? "canvas" : "default");
+  const effectiveSurface = surface ?? (scope === "canvas" || scope === "dialog" ? "canvas" : "default");
   return (
     <DialogContent
       data-app-dialog-content=""
@@ -83,7 +83,9 @@ export function AppDialogContent({
         className,
       )}
       {...props}
-    />
+    >
+      <AppDialogOverlayProvider>{props.children}</AppDialogOverlayProvider>
+    </DialogContent>
   );
 }
 
@@ -94,7 +96,7 @@ export function AppDialogHeader({
   return (
     <div
       data-app-dialog-header=""
-      className={cn("flex shrink-0 items-start justify-between gap-4", className)}
+      className={cn("flex min-h-10 shrink-0 items-start justify-between gap-4", className)}
       {...props}
     />
   );

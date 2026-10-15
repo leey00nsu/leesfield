@@ -134,6 +134,7 @@ model ImageGeneration {
   status            ImageGenerationStatus
   progress          Int
   errorMessage      String?
+  hiddenAt DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
@@ -286,6 +287,7 @@ model VideoGeneration {
   status            VideoGenerationStatus
   progress          Int
   errorMessage      String?
+  hiddenAt DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
@@ -336,6 +338,7 @@ model AudioGeneration {
   status            AudioGenerationStatus
   progress          Int
   errorMessage      String?
+  hiddenAt DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   cancelRequestedAt DateTime?
@@ -372,7 +375,20 @@ model AudioGenerationAudio {
 }
 
 model MediaAsset {
+  referenceId          String?
   imageVariants        Json?
+  displayName          String?
+  classification       String?
+  displayVersion       String?
+  description          String?
+  managementStatus     String?
+  originalFileName     String?
+  folderId             String?
+  starred              Boolean @default(false)
+  folder               AssetFolder? @relation(fields: [folderId, ownerEmail], references: [id, ownerEmail], onDelete: Restrict, onUpdate: Restrict)
+  tagAssignments       AssetTagAssignment[]
+  projectMemberships   AssetProjectMembership[]
+  coveringProjects     AssetProject[] @relation("AssetProjectCover")
   id                   String                      @id @default(cuid())
   version              Int                         @default(1)
   ownerEmail           String
@@ -403,9 +419,93 @@ model MediaAsset {
   audioGenerationAudio AudioGenerationAudio?       @relation("AudioGenerationAsset")
   cleanupTasks         MediaCleanupTask[]
 
+  @@unique([id, ownerEmail])
+  @@unique([ownerEmail, referenceId])
   @@unique([storageProvider, storageObjectId])
+  @@index([ownerEmail, folderId, status, createdAt, id])
+  @@index([ownerEmail, starred, status, createdAt, id])
   @@index([ownerEmail, type, status, createdAt])
   @@index([sourceOperationId])
+}
+
+model AssetProject {
+  id String @id @default(cuid())
+  ownerEmail String
+  name String
+  normalizedName String
+  description String @default("")
+  version Int @default(1)
+  parentId String?
+  parentKey String @default("root")
+  coverAssetId String?
+  parent AssetProject? @relation("AssetProjectChildren", fields: [parentId, ownerEmail], references: [id, ownerEmail], onDelete: Restrict, onUpdate: Restrict)
+  children AssetProject[] @relation("AssetProjectChildren")
+  coverAsset MediaAsset? @relation("AssetProjectCover", fields: [coverAssetId, ownerEmail], references: [id, ownerEmail], onDelete: Restrict, onUpdate: Restrict)
+  memberships AssetProjectMembership[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, ownerEmail])
+  @@unique([ownerEmail, parentKey, normalizedName])
+  @@index([ownerEmail, parentId])
+  @@index([ownerEmail, coverAssetId])
+}
+
+model AssetProjectMembership {
+  assetId String
+  projectId String
+  ownerEmail String
+  asset MediaAsset @relation(fields: [assetId, ownerEmail], references: [id, ownerEmail], onDelete: Cascade, onUpdate: Restrict)
+  project AssetProject @relation(fields: [projectId, ownerEmail], references: [id, ownerEmail], onDelete: Cascade, onUpdate: Restrict)
+  createdAt DateTime @default(now())
+
+  @@id([assetId, projectId])
+  @@index([ownerEmail, projectId, assetId])
+}
+
+model AssetFolder {
+  id String @id @default(cuid())
+  ownerEmail String
+  name String
+  normalizedName String
+  version Int @default(1)
+  parentId String?
+  parentKey String @default("root")
+  parent AssetFolder? @relation("AssetFolderChildren", fields: [parentId, ownerEmail], references: [id, ownerEmail], onDelete: Restrict, onUpdate: Restrict)
+  children AssetFolder[] @relation("AssetFolderChildren")
+  assets MediaAsset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, ownerEmail])
+  @@unique([ownerEmail, parentKey, normalizedName])
+  @@index([ownerEmail, parentId])
+}
+
+model AssetTag {
+  id String @id @default(cuid())
+  ownerEmail String
+  name String
+  normalizedName String
+  version Int @default(1)
+  assignments AssetTagAssignment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, ownerEmail])
+  @@unique([ownerEmail, normalizedName])
+}
+
+model AssetTagAssignment {
+  assetId String
+  tagId String
+  ownerEmail String
+  asset MediaAsset @relation(fields: [assetId, ownerEmail], references: [id, ownerEmail], onDelete: Cascade, onUpdate: Restrict)
+  tag AssetTag @relation(fields: [tagId, ownerEmail], references: [id, ownerEmail], onDelete: Cascade, onUpdate: Restrict)
+  createdAt DateTime @default(now())
+
+  @@id([assetId, tagId])
+  @@index([ownerEmail, tagId, assetId])
 }
 
 // A generation keeps a durable, owner-scoped reference to every uploaded
@@ -517,6 +617,7 @@ model MediaOperation {
   executionLeaseToken String?
   executionLeaseUntil DateTime?
   executionLeaseVersion Int                 @default(0)
+  hiddenAt DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   completedAt         DateTime?

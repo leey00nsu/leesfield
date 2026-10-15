@@ -1,3 +1,4 @@
+import { AppResourceEmpty } from "@/shared/ui/app-resource-list";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { useMemo, useState } from "react";
 import {
@@ -6,7 +7,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { MonitoringRequestItem } from "@/features/monitoring-dashboard/model/types";
 import { formatDuration } from "@/features/monitoring-dashboard/lib/format";
@@ -264,9 +265,7 @@ export function MonitoringRequestTable({
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-background-dark/50 text-sm text-gray-400">
-            {t("requests.empty")}
-          </div>
+          <AppResourceEmpty icon={<Activity />} title={t("requests.emptyTitle")} description={t("requests.empty")} />
         ) : (
           <>
             <table className="w-full min-w-[760px] text-left text-sm">

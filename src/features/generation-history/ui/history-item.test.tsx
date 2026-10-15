@@ -8,11 +8,12 @@ import {
 import { renderWithIntl } from "@/test-utils/intl";
 
 describe("HistoryItem", () => {
-  it("renders an image-first tile with hover/focus metadata pills", () => {
+  it("renders model/date without interaction and omits origin chips", () => {
     renderWithIntl(
       <HistoryItem
         item={{
           id: "item-1",
+          origin: "generation",
           type: "image",
           status: "completed",
           prompt: "a prompt",
@@ -31,7 +32,9 @@ describe("HistoryItem", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("이미지")).toBeInTheDocument();
     expect(screen.getByText("완료")).toBeInTheDocument();
-    expect(screen.getByText("flux2-klein-9b")).toBeInTheDocument();
+    expect(screen.getByText("flux2-klein-9b")).toBeVisible();
+    expect(screen.getByText("2026년 2월 03일")).toBeVisible();
+    expect(screen.queryByText("생성")).not.toBeInTheDocument();
     expect(screen.queryByText("더보기")).not.toBeInTheDocument();
     expect(screen.queryByText("a prompt")).not.toBeInTheDocument();
   });

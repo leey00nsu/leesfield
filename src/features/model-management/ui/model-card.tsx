@@ -1,10 +1,6 @@
 import {
-  AudioLines,
   Circle,
-  Image as ImageIcon,
   MoreVertical,
-  Sparkles,
-  Video,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
@@ -13,7 +9,7 @@ import {
   ResourceRowButton,
   resourceRowInteractiveClassName,
 } from "@/shared/ui/brand/resource-row-link/resource-row-link";
-import { AppModalityTag } from "@/shared/ui/app-modality-tag";
+import { AppModelIdentity } from "@/shared/ui/app-model-identity";
 import { Badge } from "@/shared/ui/brand/badge/badge";
 import { appResourceRowLayoutClassName } from "@/shared/ui/app-resource-list";
 import {
@@ -26,32 +22,6 @@ interface ModelCardProps {
   item: ModelCatalogItem;
   onEdit?: (key: string) => void;
 }
-
-const neutralTypeCardIconClassName = "text-white/66";
-const neutralTypeCardSurfaceClassName = "border-white/10 bg-white/[0.035]";
-
-const typeConfig = {
-  image: {
-    icon: ImageIcon,
-    iconClassName: neutralTypeCardIconClassName,
-    surfaceClassName: neutralTypeCardSurfaceClassName,
-  },
-  video: {
-    icon: Video,
-    iconClassName: neutralTypeCardIconClassName,
-    surfaceClassName: neutralTypeCardSurfaceClassName,
-  },
-  audio: {
-    icon: AudioLines,
-    iconClassName: neutralTypeCardIconClassName,
-    surfaceClassName: neutralTypeCardSurfaceClassName,
-  },
-  llm: {
-    icon: Sparkles,
-    iconClassName: neutralTypeCardIconClassName,
-    surfaceClassName: neutralTypeCardSurfaceClassName,
-  },
-};
 
 function resolveCatalogModalities(item: ModelCatalogItem) {
   if (item.modalities) return item.modalities;
@@ -79,8 +49,6 @@ function resolveCatalogModalities(item: ModelCatalogItem) {
 export function ModelCard({ item, onEdit }: ModelCardProps) {
   const ko = useLocale() === "ko";
   const tCard = useTranslations("model.card");
-  const config = typeConfig[item.type];
-  const TypeIcon = config.icon;
   const modalities = resolveCatalogModalities(item);
   const isEnabled = item.isActive;
 
@@ -93,49 +61,10 @@ export function ModelCard({ item, onEdit }: ModelCardProps) {
         onEdit && resourceRowInteractiveClassName,
       )}
     >
-      <div
-        data-model-type-icon=""
-        className={cn(
-          "flex size-10 items-center justify-center rounded-md border",
-          config.surfaceClassName,
-        )}
-      >
-        <TypeIcon className={cn("h-6 w-6", config.iconClassName)} />
-      </div>
-
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-medium text-foreground">
-            {onEdit ? (
-              <ResourceRowButton
-                onClick={() => onEdit(item.key)}
-                className="text-left"
-              >
-                {item.label}
-              </ResourceRowButton>
-            ) : (
-              item.label
-            )}
-          </h3>
-          {item.isDefault ? (
-            <Badge variant="secondary">{tCard("default")}</Badge>
-          ) : null}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{item.vendor}</span>
-          <span
-            className="h-1 w-1 rounded-full bg-white/22"
-            aria-hidden="true"
-          />
-          <span>{tCard(`type.${item.type}`)}</span>
-          {item.audioReference && <span>{ko ? "오디오 참조 지원" : "Audio reference supported"}</span>}
-          {modalities.map((modality) => (
-            <AppModalityTag key={`${item.key}-${modality}`}>
-              {modality}
-            </AppModalityTag>
-          ))}
-        </div>
-      </div>
+      <AppModelIdentity identifier={item.key} provider={item.provider} type={item.type} modalities={[tCard(`type.${item.type}`), ...modalities]}
+        name={onEdit ? <ResourceRowButton onClick={()=>onEdit(item.key)} className="text-left">{item.label}</ResourceRowButton> : item.label}
+        badge={item.isDefault ? <Badge variant="secondary">{tCard("default")}</Badge> : undefined}
+        audioLabel={item.audioReference ? ko ? "오디오 참조 지원" : "Audio reference supported" : undefined} />
 
       <div className="col-start-2 flex items-center gap-2 md:col-auto md:justify-start">
         <Circle

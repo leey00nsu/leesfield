@@ -8,7 +8,7 @@ import {
   finalizeSubmission,
   hashSubmissionPayload,
 } from "@/server/generation-admission/submission-ledger";
-import {fileInputsFromAssets,parseFileInputPort} from "@/shared/model-catalog/file-input-ports";
+import {fileInputsFromAssets,parseFileInputPort,normalizeFileInputAssets} from "@/shared/model-catalog/file-input-ports";
 import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
 import { recordObject } from "@/server/generation-request/request-snapshot";
 import { ZodError } from "zod";
@@ -208,7 +208,7 @@ async function loadPassThroughEdge(
   visited.add(edge.sourceNodeId);
   const source = await dependencies.repository.getOwnedNode(ownerEmail, graphId, edge.sourceNodeId);
   if (source.id !== edge.sourceNodeId || source.kind !== kind) return null;
-  const upstream = source.incomingEdges.find((candidate) => edgeTargetPort(candidate) === targetPortId &&
+  const upstream = source.incomingEdges.find((candidate) => !candidate.hasPause && edgeTargetPort(candidate) === targetPortId &&
     !(kind === "input.image" && sourceKind(candidate) === "edit.image.splitGrid")) ?? null;
   if (!upstream) return null;
   const upstreamKind = sourceKind(upstream);
@@ -320,7 +320,7 @@ async function resolveInputs(
     }
   }
 
-  const incomingEdges = [...node.incomingEdges].sort((left, right) => {
+  const incomingEdges = node.incomingEdges.filter(edge => !edge.hasPause).sort((left, right) => {
     const leftPort = edgeTargetPort(left);
     const rightPort = edgeTargetPort(right);
     const clipRank = leftPort === orderedPort && rightPort === orderedPort
@@ -870,6 +870,8 @@ export function createNodeExecutionService(
           } : undefined,
         };
       }
+      const executionModel = (await getModelCatalog()).find(candidate => candidate.key === config.modelKey && candidate.type === mediaType);
+      if (executionModel && executionModel.type !== "llm") resolved.assets = normalizeFileInputAssets(executionModel, resolved.assets);
       const prompt = resolved.prompt ?? config.prompt;
       const fileInputs = fileInputsFromAssets(resolved.assets);
       if (config.promptPreset && !promptPresetReferenceImageCount(config.promptPreset) && resolved.assets.length) {

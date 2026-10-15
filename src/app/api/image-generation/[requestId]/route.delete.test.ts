@@ -1,163 +1,37 @@
-import { DELETE } from "@/app/api/image-generation/[requestId]/route";
-
-const mockGetSession = vi.hoisted(() => vi.fn());
-const mockFindFirst = vi.hoisted(() => vi.fn());
-const mockDelete = vi.hoisted(() => vi.fn());
-const mockDeleteLeemageFilesByPrefix = vi.hoisted(() => vi.fn());
-
-vi.mock("@/server/auth/session", () => ({
-  getSession: mockGetSession,
-}));
-
-vi.mock("@/server/db/prisma", () => ({
-  prisma: {
-    imageGeneration: {
-      findFirst: mockFindFirst,
-      delete: mockDelete,
-    },
-  },
-}));
-
-vi.mock("@/server/shared/leemage-file-deleter", () => ({
-  deleteLeemageFilesByPrefix: mockDeleteLeemageFilesByPrefix,
-}));
-
-describe("DELETE /api/image-generation/[requestId]", () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ session: vi.fn(), get: vi.fn(), remove: vi.fn() }));
+vi.mock("@/server/auth/session", () => ({ getSession: mocks.session }));
+vi.mock("@/server/history/history-record", () => ({ getOwnedHistoryRecord: mocks.get, deleteOwnedHistoryRecord: mocks.remove }));
+import { DELETE } from "./route";
+describe("legacy image History DELETE compatibility", () => {
+  const context = { params: Promise.resolve({ requestId: "request-1" }) };
   beforeEach(() => {
-    mockGetSession.mockReset();
-    mockFindFirst.mockReset();
-    mockDelete.mockReset();
-    mockDeleteLeemageFilesByPrefix.mockReset();
-    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.clearAllMocks();
+    mocks.session.mockResolvedValue({ isLoggedIn: true, adminEmail: "owner@example.com" });
+    mocks.get.mockResolvedValue({ record: { id: "db-1", status: "completed" }, ownerEmail: "owner@example.com" });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
-  });
-
-  it("로그인하지 않은 경우 401을 반환한다", async () => {
-    mockGetSession.mockResolvedValue({ isLoggedIn: false });
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "request-id" }),
-    });
-    const payload = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(payload.message).toBe("UNAUTHORIZED");
-  });
-
-  it("요청이 없으면 404를 반환한다", async () => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockFindFirst.mockResolvedValue(null);
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "missing-id" }),
-    });
-    const payload = await response.json();
-
-    expect(response.status).toBe(404);
-    expect(payload.message).toBe("NOT_FOUND");
-  });
-
-  it.each(["pending", "processing", "uploading"])("진행 중인 %s 요청이면 400을 반환한다", async (status) => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockFindFirst.mockResolvedValue({
-      id: "db-id",
-      status,
-      requestId: "request-id",
-    });
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "request-id" }),
-    });
-    const payload = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(payload.message).toBe("IN_PROGRESS");
-    expect(mockDelete).not.toHaveBeenCalled();
-    expect(mockDeleteLeemageFilesByPrefix).not.toHaveBeenCalled();
-  });
-
-  it("스토리지 삭제가 실패하면 500을 반환하고 DB를 삭제하지 않는다", async () => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockFindFirst.mockResolvedValue({
-      id: "db-id",
-      status: "completed",
-      requestId: "request-id",
-    });
-    mockDeleteLeemageFilesByPrefix.mockRejectedValue(new Error("fail"));
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "request-id" }),
-    });
-    const payload = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(payload.message).toBe("STORAGE_DELETE_FAILED");
-    expect(mockDelete).not.toHaveBeenCalled();
-  });
-
-  it("스토리지 삭제 후 DB 레코드를 삭제한다", async () => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockFindFirst.mockResolvedValue({
-      id: "db-id",
-      status: "completed",
-      requestId: "request-id",
-    });
-    mockDeleteLeemageFilesByPrefix.mockResolvedValue({
-      matchedCount: 2,
-      deletedCount: 2,
-    });
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "request-id" }),
-    });
-    const payload = await response.json();
-
+  it("requires login and passes the owner and generation selector to the shared deletion boundary", async () => {
+    mocks.session.mockResolvedValueOnce({ isLoggedIn: false });
+    expect((await DELETE(new Request("http://localhost", { method: "DELETE" }), context)).status).toBe(401);
+    expect(mocks.get).not.toHaveBeenCalled();
+    mocks.remove.mockResolvedValue(204);
+    const response = await DELETE(new Request("http://localhost", { method: "DELETE" }), context);
     expect(response.status).toBe(200);
-    expect(payload.message).toBe("DELETED");
-    expect(mockDeleteLeemageFilesByPrefix).toHaveBeenCalledWith("request-id-");
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: "db-id" } });
+    expect(await response.json()).toEqual({ message: "DELETED" });
+    expect(mocks.get).toHaveBeenCalledWith("owner@example.com", "request-1", { type: "image", origin: "generation" });
   });
-
-  it("스토리지 삭제 성공 후 DB 삭제가 실패하면 500을 반환한다", async () => {
-    mockGetSession.mockResolvedValue({
-      isLoggedIn: true,
-      adminEmail: "admin@example.com",
-    });
-    mockFindFirst.mockResolvedValue({
-      id: "db-id",
-      status: "completed",
-      requestId: "request-id",
-    });
-    mockDeleteLeemageFilesByPrefix.mockResolvedValue({
-      matchedCount: 1,
-      deletedCount: 1,
-    });
-    mockDelete.mockRejectedValue(new Error("db error"));
-
-    const response = await DELETE(new Request("http://localhost"), {
-      params: Promise.resolve({ requestId: "request-id" }),
-    });
-    const payload = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(payload.message).toBe("DB_DELETE_FAILED");
-    expect(mockDeleteLeemageFilesByPrefix).toHaveBeenCalledWith("request-id-");
+  it.each(["pending", "processing", "uploading"])("preserves active %s rejection without storage work", async (status) => {
+    mocks.get.mockResolvedValue({ record: { status } });
+    const response = await DELETE(new Request("http://localhost", { method: "DELETE" }), context);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ message: "IN_PROGRESS" });
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+  it.each([[404,404,"NOT_FOUND"],[409,409,"HISTORY_IN_USE_OR_ACTIVE"],[502,500,"STORAGE_DELETE_FAILED"]])("returns shared deletion status %s safely", async (status, expected, message) => {
+    mocks.remove.mockResolvedValue(status);
+    const response = await DELETE(new Request("http://localhost", { method: "DELETE" }), context);
+    expect(response.status).toBe(expected);
+    expect(await response.json()).toEqual({ message });
   });
 });

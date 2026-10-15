@@ -18,7 +18,7 @@ function mapRecord(
   record: Awaited<ReturnType<typeof getAudioGenerationByRequestId>>,
 ): AudioGenerationRecord | null {
   if (!record) return null;
-  const audios = record.audios ?? [];
+  const audios = (record.audios ?? []).filter((output) => Boolean(output.url));
   const result = audios.length
     ? {
         audios: audios.map((audio) => ({

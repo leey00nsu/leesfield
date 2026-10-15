@@ -142,15 +142,15 @@ export function SpaceGenerationPrompt({ nodeId, config, modality, connected: hos
       feedback={<>{progress && <p className="text-xs text-muted-foreground" role="status">{ko ? `${progress.completed}/${progress.total}회 · 성공 ${progress.completed - progress.failed} · 실패 ${progress.failed}${progress.running ? " · 생성 중" : ""}` : `${progress.completed}/${progress.total} runs · ${progress.completed - progress.failed} succeeded · ${progress.failed} failed${progress.running ? " · generating" : ""}`}</p>}{connected && <p className="text-xs text-muted-foreground">{ko ? "연결된 프롬프트를 사용합니다." : "Using the connected prompt."}</p>}
         {error && <AppPromptMessage>{error}</AppPromptMessage>}
         {inputIssue && <AppPromptMessage>{t(inputIssue === "referenceRequired" ? "referenceMissing" : inputIssue)}</AppPromptMessage>}</>}
-      footerLeft={<>
-        <GenerationModelSection modality={modality} items={models.map(model => ({ id: model.key, name: model.label, vendor: model.vendor, ...resolveGenerationCapabilities(model) }))}
-          activeId={model?.key ?? null} disabled={disabled} loading={authoring.isLoading}
+      footer={<div className="px-4 pb-4 pt-2"><div className="flex min-w-0 flex-wrap items-center gap-2">
+        <GenerationModelSection modality={modality} items={models.map(model => ({ id: model.key, name: model.label, vendor: model.vendor, provider: model.provider, ...resolveGenerationCapabilities(model) }))}
+          activeId={model?.key ?? null} disabled={disabled} loading={authoring.isLoading} className="min-w-0 flex-[1_1_14rem]"
           onSelect={key => authoring.updateCanonicalNodeConfig?.(nodeId, projectGenerationModelSelectionDefaults(current.current.config,
             { ...current.current.config, modelKey: key, parameters: {} }, models) as CanonicalJsonValue)} />
         <GenerationPromptPresetControls controller={controller} disabled={disabled || connected} />
         {modality === "image" && <GenerationImageCountSelector value={typeof config.repeatCount === "number" ? config.repeatCount : 1} disabled={disabled}
           onChange={repeatCount => authoring.updateCanonicalNodeConfig?.(nodeId, { ...current.current.config, repeatCount } as CanonicalJsonValue)} />}
-      </>} />
+      </div></div>} />
   </div>;
 }
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useLocale } from "next-intl";
+import { ko, enUS } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "@/shared/lib/utils";
@@ -15,7 +17,7 @@ import { Calendar } from "@/shared/ui/calendar";
 type AppCalendarProps = ComponentProps<typeof Calendar>;
 
 type AppDatePickerProps = {
-  value: Date;
+  value?: Date;
   onChange: (date: Date) => void;
   "aria-label": string;
   disabled?: boolean;
@@ -34,8 +36,10 @@ export function AppCalendar({
   classNames,
   ...props
 }: AppCalendarProps) {
+  const locale = useLocale();
   return (
     <Calendar
+      locale={locale === "ko" ? ko : enUS}
       data-app-calendar=""
       className={cn("rounded-xl bg-transparent p-2 text-white", className)}
       classNames={{
@@ -63,7 +67,8 @@ export function AppDatePicker({
   className,
 }: AppDatePickerProps) {
   const [open, setOpen] = useState(false);
-  const label = useMemo(() => formatDateLabel(value), [value]);
+  const popup = useRef<HTMLDivElement>(null);
+  const label = useMemo(() => value ? formatDateLabel(value) : ariaLabel, [value, ariaLabel]);
 
   return (
     <AppPopover open={open} onOpenChange={setOpen}>
@@ -84,8 +89,10 @@ export function AppDatePicker({
         </AppButton>
       </AppPopoverTrigger>
       <AppPopoverContent
+        ref={popup}
+        initialFocus={() => { popup.current?.focus({ preventScroll: true }); return false; }}
         align="start"
-        className="w-auto rounded-[1.35rem] border-white/10 bg-card p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.46)]"
+        className="w-auto max-w-[calc(100vw-2rem)] max-h-[var(--available-height)] overflow-y-auto rounded-[1.35rem] border-white/10 bg-card p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.46)]"
       >
         <AppCalendar
           mode="single"

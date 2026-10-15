@@ -1,8 +1,10 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 
-import type { MediaAssetCategory, MediaType } from "@/shared/media-assets/media-asset-contract";
+import type { MediaAssetCategory, MediaAssetListDto, MediaType } from "@/shared/media-assets/media-asset-contract";
+import type { AssetProjectDto, CreateAssetProjectInput, UpdateAssetProjectInput } from "@/shared/media-assets/asset-project-contract";
 
 import {
   deleteMediaAsset,
@@ -10,25 +12,92 @@ import {
   listMediaAssets,
   resolveNodeAssets,
   uploadMediaAsset,
+  getAssetOrganization,
+  getAssetProjects,
+  getAssetUsage,
+  patchAssetMetadata,
+  patchAssetBatch,
+  assetOrganizationRequest,
+  type AssetListFilters,
 } from "../api/media-asset-api";
+import type { UpdateAssetMetadataInput } from "@/shared/media-assets/asset-organization-contract";
 
 export const mediaAssetKeys = {
   all: ["media-assets"] as const,
-  list: (type: MediaType, category?: MediaAssetCategory) => category
-    ? [...mediaAssetKeys.all, "list", type, category] as const
-    : [...mediaAssetKeys.all, "list", type] as const,
+  list: (type?: MediaType, category?: MediaAssetCategory, filters?: AssetListFilters) =>
+    [...mediaAssetKeys.all, "list", type, ...(category ? [category] : []), ...(filters ? [filters] : [])] as const,
+  organization: ["media-assets", "organization"] as const,
+  projects: ["media-assets", "projects"] as const,
+  usage: (id: string) => [...mediaAssetKeys.all, "usage", id] as const,
   detail: (assetId: string) => [...mediaAssetKeys.all, "detail", assetId] as const,
   nodeOutput: (graphId: string, nodeId: string) =>
     [...mediaAssetKeys.all, "node-output", graphId, nodeId] as const,
 };
 
-export function useMediaAssets(type: MediaType, enabled = true, category?: MediaAssetCategory) {
+export function useMediaAssets(type?: MediaType, enabled = true, category?: MediaAssetCategory, filters?: AssetListFilters) {
   return useInfiniteQuery({
-    queryKey: mediaAssetKeys.list(type, category),
-    queryFn: ({ pageParam, signal }) => listMediaAssets(type, pageParam, signal, category),
+    queryKey: mediaAssetKeys.list(type, category, filters),
+    queryFn: ({ pageParam, signal }) => listMediaAssets(type, pageParam, signal, category, filters),
     initialPageParam: null as string | null,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled,
+  });
+}
+
+export function useAssetModelOptions(enabled = true) {
+  return useQuery({ queryKey: [...mediaAssetKeys.all, "models"],
+    queryFn: ({ signal }) => assetOrganizationRequest<{ models: string[] }>("/models", "GET", undefined, signal), enabled });
+}
+
+export function useAssetOrganization(enabled = true) {
+  return useQuery({ queryKey: mediaAssetKeys.organization, queryFn: ({ signal }) => getAssetOrganization(signal), enabled });
+}
+export function useAssetProjects(enabled = true) {
+  return useQuery({ queryKey: mediaAssetKeys.projects, queryFn: ({ signal }) => getAssetProjects(signal), enabled });
+}
+type ProjectWrite = { method: "POST"; body: CreateAssetProjectInput } | { method: "PATCH"; id: string; body: UpdateAssetProjectInput } | { method: "DELETE"; id: string; body: { expectedVersion: number } };
+export function useWriteAssetProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProjectWrite) => {
+      const result = await assetOrganizationRequest<{ project: AssetProjectDto } | undefined>(input.method === "POST" ? "/projects" : `/projects/${encodeURIComponent(input.id)}`, input.method, input.body);
+      return result?.project;
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: mediaAssetKeys.all }),
+  });
+}
+export function useAssetUsage(id: string | null) {
+  return useQuery({ queryKey: mediaAssetKeys.usage(id ?? "none"), queryFn: ({ signal }) => getAssetUsage(id!, signal), enabled: !!id });
+}
+export function usePatchAssetMetadata() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateAssetMetadataInput & { id: string }) => patchAssetMetadata(id, input),
+    onSuccess: async (asset, variables) => {
+      client.setQueryData(mediaAssetKeys.detail(asset.id), asset);
+      client.setQueriesData<InfiniteData<MediaAssetListDto>>({ queryKey: ["media-assets", "list"] }, previous => previous ? {
+        ...previous, pages: previous.pages.map(page => ({ ...page, items: page.items.map(item => item.id === asset.id ? asset : item) })),
+      } : previous);
+      const starOnly = Object.keys(variables).every(key => ["id", "expectedVersion", "starred"].includes(key));
+      if (starOnly) {
+        await client.invalidateQueries({ queryKey: ["media-assets", "list"], predicate: query => query.queryKey.some(part => !!part && typeof part === "object" && "starred" in part && part.starred !== undefined) });
+      } else await client.invalidateQueries({ queryKey: mediaAssetKeys.all });
+    },
+    onError: async (_error, variables) => {
+      await client.invalidateQueries({ queryKey: mediaAssetKeys.detail(variables.id) });
+      await client.invalidateQueries({ queryKey: ["media-assets", "list"] });
+    },
+  });
+}
+export function usePatchAssetBatch() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (input: Parameters<typeof patchAssetBatch>[0]) => patchAssetBatch(input), onSettled: () => client.invalidateQueries({ queryKey: mediaAssetKeys.all }) });
+}
+export function useWriteAssetOrganization() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ path, method, body }: { path: string; method: "POST" | "PATCH" | "DELETE"; body: unknown }) => assetOrganizationRequest(path, method, body),
+    onSettled: () => client.invalidateQueries({ queryKey: mediaAssetKeys.all }),
   });
 }
 

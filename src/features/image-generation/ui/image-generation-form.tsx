@@ -1,4 +1,5 @@
 "use client";
+import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
 import { historyOptionUpdates } from "@/shared/generation/history-options";
 import { useCinemaDraft } from "@/shared/cinema/use-cinema-draft";
@@ -112,7 +113,7 @@ export function ImageGenerationForm({
       resolvedImageModels.map((model) => ({
         id: model.key,
         name: model.label,
-        vendor: model.vendor,
+        vendor: model.vendor, provider: model.provider,
         ...resolveGenerationCapabilities(model),
       })),
     [resolvedImageModels],
@@ -528,6 +529,8 @@ export function ImageGenerationForm({
       >
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-6">
+<GenerationAssetReferenceBridge key={activeModel} fields={gradioContract?.inputs ?? (canUploadImages ? ([{name:"initImages",label:tImage("uploadReference"),kind:"files",media:"image",schema:{type:"array",items:{type:"string"},maxItems:maxInputImages},required:false,nullable:false}]) : [])} values={gradioContract ? contractValues : {initImages:attachmentImages}} disabled={isGuest || isGenerating || isModelLoading} onAttach={(field,value) => { cinema.markEdited(); if (gradioContract) form.setValue("dynamicParams",{...form.getValues("dynamicParams"),[field]:value},{shouldDirty:true,shouldValidate:true}); else replaceInitImages(value as string[]); }} />
+
             <ImageGenerationResult state={state} embedded={embedded} />
 
             <div className="flex flex-col gap-4">

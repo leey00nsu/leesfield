@@ -1,6 +1,12 @@
 import type { NodeBananaProviderModel } from "@node-banana-runtime/runtime-entry";
 import type { NodeAuthoringCatalogState } from "../../model/node-authoring-context";
-import { resolveRuntimeImageMaxInputImages, resolveRuntimeVideoSupportsInitImage } from "@/shared/model-catalog/runtime-utils";
+import type { RuntimeImageModel, RuntimeVideoModel, RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
+import { resolveGenerationModalities } from "@/shared/model-catalog/modality";
+
+const capabilityByModality: Record<string, NodeBananaProviderModel["capabilities"][number]> = {T2I:"text-to-image", I2I:"image-to-image", T2V:"text-to-video", I2V:"image-to-video", V2V:"video-to-video", A2V:"audio-to-video", T2A:"text-to-audio", A2A:"audio-to-audio"};
+export function nodeBananaModelCapabilities(model: RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel): NodeBananaProviderModel["capabilities"] {
+  return resolveGenerationModalities(model).flatMap(modality => capabilityByModality[modality] ? [capabilityByModality[modality]] : []);
+}
 
 function webUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return;
@@ -15,8 +21,6 @@ export function nodeBananaCatalogModels(catalog: NodeAuthoringCatalogState): Nod
       description: typeof model.meta.description === "string" ? model.meta.description : null,
       coverImage: webUrl(model.meta.coverImage),
       pageUrl: webUrl(model.meta.pageUrl),
-      capabilities: (model.type === "image" ? resolveRuntimeImageMaxInputImages(model) > 0 ? ["text-to-image", "image-to-image"] : ["text-to-image"]
-        : model.type === "video" ? resolveRuntimeVideoSupportsInitImage(model) ? ["text-to-video", "image-to-video"] : ["text-to-video"]
-          : ["text-to-audio"]) as NodeBananaProviderModel["capabilities"],
+      capabilities: nodeBananaModelCapabilities(model),
     }));
 }

@@ -1,5 +1,6 @@
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { executeGradioContract } from "@/server/hf-space/contract-executor";
+import { gradioSpaceRoot } from "@/server/hf-space/input-file-upload";
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
@@ -150,11 +151,13 @@ async function getClient(config: SpaceConfig) {
     clientCache.set(config.spaceId, cached);
   }
   try {
-    return await awaitWithTimeout(
+    const client = await awaitWithTimeout(
       cached,
       Math.min(config.timeoutMs, 10_000),
       "HF_SPACE_CONNECT_TIMEOUT",
     );
+    config.spaceUrl = gradioSpaceRoot(client, config.spaceUrl)!;
+    return client;
   } catch (error) {
     if (clientCache.get(config.spaceId) === cached) clientCache.delete(config.spaceId);
     throw error;
@@ -1019,7 +1022,7 @@ export const hfSpaceAudioAdapter: AudioGenerationAdapter = {
 
       let result: { data: unknown };
       try {
-        result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs);
+        result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs, config.spaceUrl);
       } catch (error) {
         const classified = classifyPredictError(error);
         if (classified) {

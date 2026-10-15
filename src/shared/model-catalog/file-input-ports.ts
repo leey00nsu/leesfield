@@ -1,4 +1,4 @@
-import { getGradioContract, fileFieldMaxItems } from "./gradio-contract";
+import { getGradioContract, fileFieldMaxItems, type GradioContract, type GradioField } from "./gradio-contract";
 import { fileInputLabel } from "./file-input-presentation";
 
 export const fileInputPort = (media:string,name:string) => `${media}-field-${name}`;
@@ -29,4 +29,28 @@ export function fileInputsFromAssets(assets:ReadonlyArray<{portId:string;url:str
   const groups:Record<string,{url:string;sortOrder:number}[]>={};
   for(const asset of assets){const port=parseFileInputPort(asset.portId);if(port){const group=groups[port.name]??=[];group.push({url:asset.url,sortOrder:asset.sortOrder??group.length});}}
   return Object.fromEntries(Object.entries(groups).map(([name,entries])=>[name,orderedFileSources(entries)]));
+}
+
+/** Legacy image ports belong to a field only when the model has one image input. */
+export function fileFieldInputPorts(contract: GradioContract, field: GradioField): string[] {
+  const ports = [fileInputPort(field.media!, field.name)];
+  if (field.media === "image" && contract.inputs.filter(f => f.media === "image" && ["file", "files", "gallery"].includes(f.kind)).length === 1)
+    ports.push("primary", "references", "initImage");
+  return ports;
+}
+
+/** Snapshot canonical field ports so workers hydrate connected assets over empty UI defaults. */
+export function normalizeFileInputAssets<T extends {portId: string; sortOrder: number}>(model: Parameters<typeof getGradioContract>[0], assets: readonly T[]): T[] {
+  const contract = getGradioContract(model);
+  if (!contract) return [...assets];
+  const fields = contract.inputs.filter(f => f.media && ["file", "files", "gallery"].includes(f.kind));
+  const result = [...assets];
+  for (const field of fields) {
+    const ports = fileFieldInputPorts(contract, field), canonical = ports[0];
+    const indices = result.map((asset, index) => ports.includes(asset.portId) ? index : -1).filter(index => index >= 0);
+    if (!indices.some(index => result[index].portId !== canonical)) continue;
+    indices.sort((a,b) => ports.indexOf(result[a].portId) - ports.indexOf(result[b].portId) || result[a].sortOrder - result[b].sortOrder);
+    indices.forEach((index, order) => { result[index] = {...result[index], portId: canonical, sortOrder: order}; });
+  }
+  return result;
 }

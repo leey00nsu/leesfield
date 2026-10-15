@@ -2,6 +2,7 @@ import { mapBoundedBinaryOutputs } from "@/server/media-assets/binary-media-outp
 import { loggedOperation } from "@/server/observability/logger";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { executeGradioContract } from "@/server/hf-space/contract-executor";
+import { gradioSpaceRoot } from "@/server/hf-space/input-file-upload";
 import { Client, handle_file } from "@gradio/client";
 import { z } from "zod";
 import type { VideoGenerationFormValues } from "@/features/video-generation/model/video-generation-schema";
@@ -117,11 +118,13 @@ async function getClient(config: SpaceConfig) {
     clientCache.set(config.spaceId, cached);
   }
   try {
-    return await awaitWithTimeout(
+    const client = await awaitWithTimeout(
       cached,
       Math.min(config.timeoutMs, 10_000),
       "HF_SPACE_CONNECT_TIMEOUT",
     );
+    config.spaceUrl = gradioSpaceRoot(client, config.spaceUrl)!;
+    return client;
   } catch (error) {
     if (clientCache.get(config.spaceId) === cached) clientCache.delete(config.spaceId);
     throw error;
@@ -418,7 +421,7 @@ export const hfSpaceVideoAdapter: VideoGenerationAdapter = {
       requestPayload.input_image = imageFile;
     }
 
-    const result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs);
+    const result = await predictWithDeadline(client, apiName, requestPayload, config.timeoutMs, config.spaceUrl);
     const data = Array.isArray(result?.data) ? result.data : result;
     const videoFile = Array.isArray(data) ? data[0] : data;
     const fileRef = selectPreferredHfSpaceFileReference(videoFile, {

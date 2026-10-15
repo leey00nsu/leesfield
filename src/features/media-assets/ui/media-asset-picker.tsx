@@ -5,21 +5,29 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/shared/ui/brand/tabs/tabs";
-import { AppInput } from "@/shared/ui/app-input";
-import { VariantImage } from "@/shared/media-assets/variant-image";
+import { AppButton } from "@/shared/ui/app-button";
+import { AppFilterToolbar, AppSearchField } from "@/shared/ui/app-filter-toolbar";
+import { AppResourceEmpty } from "@/shared/ui/app-resource-list";
+import { AppMediaGallery, AppMediaGalleryLoading } from "@/shared/ui/app-media-gallery";
+import { useTranslations } from "next-intl";
+import { ManagedMediaAssetCard } from "./managed-media-asset-card";
+import { AssetProjectFilters } from "./asset-project-filters";
+import { MediaAssetDetail } from "./media-asset-detail";
+import { assetErrorKey } from "../lib/asset-ui";
+import type { AssetListFilters } from "../api/media-asset-api";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 
 import { useEffect, useMemo, useState } from "react";
-import { AudioLines, Search, X } from "lucide-react";
+import { FolderOpen, X } from "lucide-react";
 
-import { useMediaAssets } from "@/features/media-assets/hook/use-media-assets";
+import { useMediaAssets, useAssetProjects } from "@/features/media-assets/hook/use-media-assets";
 import type {
   MediaAssetCategory,
   MediaAssetDto,
   MediaType,
 } from "@/shared/media-assets/media-asset-contract";
-import { cn } from "@/shared/lib/utils";
+
 import {
   AppDialog,
   AppDialogClose,
@@ -30,51 +38,28 @@ import {
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 
-function AssetPreview({ asset }: { asset: MediaAssetDto }) {
-  if (asset.type === "audio") {
-    return (
-      <div className="flex aspect-video items-center justify-center rounded bg-black/35 text-neutral-500">
-        <AudioLines className="h-7 w-7" aria-hidden="true" />
-      </div>
-    );
-  }
-  if (asset.type === "video") {
-    return (
-      <video
-        muted
-        playsInline
-        preload="metadata"
-        src={asset.url}
-        className="aspect-video w-full rounded bg-black/45 object-contain"
-      />
-    );
-  }
-  return (
-    <VariantImage
-      asset={asset}
-      purpose="list"
-      alt=""
-      loading="lazy"
-      className="aspect-video w-full rounded bg-black/45 object-contain"
-    />
-  );
-}
-
 export function MediaAssetPicker({
-  mediaType, selectedAssetId = null, selectedUrls = [], writable, onSelect, open, onOpenChange, canSelectAsset,
+  mediaType, selectedAssetId = null, selectedUrls = [], writable, onSelect, open, onOpenChange, canSelectAsset, allowDetails = true, className,
 }: {
   mediaType?: MediaType; selectedAssetId?: string | null; selectedUrls?: readonly string[];
   writable: boolean; onSelect: (asset: MediaAssetDto) => void;
   open: boolean; onOpenChange: (open: boolean) => void;
   canSelectAsset?: (asset: MediaAssetDto) => boolean;
+  allowDetails?: boolean; className?: string;
 }) {
   const tc = useCanvasTranslation();
+  const t = useTranslations("assets");
+  const projects = useAssetProjects(open);
+  const [filters, setFilters] = useState<AssetListFilters>({sort:"latest"});
+  const [query, setQuery] = useState("");
+  const [detail, setDetail] = useState<MediaAssetDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [chosenType, setChosenType] = useState<MediaType>("image");
   const activeMediaType = mediaType ?? chosenType;
-  const [category, setCategory] = useState<MediaAssetCategory>("uploads");
-  const categories = ["uploads", "generated", "edited"] as const;
+  const [category, setCategory] = useState<MediaAssetCategory | "all">("all");
+  const categories = ["all", "uploads", "generated", "edited"] as const;
   const [search, setSearch] = useState("");
-  const assetsQuery = useMediaAssets(activeMediaType, open, category);
+  const assetsQuery = useMediaAssets(activeMediaType, open, category === "all" ? undefined : category, { ...filters, query });
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const { hasNextPage, isFetching, isError, fetchNextPage } = assetsQuery;
@@ -82,16 +67,8 @@ export function MediaAssetPicker({
     () => assetsQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [assetsQuery.data],
   );
-  const visibleAssets = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return query
-      ? assets.filter((asset) =>
-          `${asset.id} ${asset.mimeType} ${asset.origin}`
-            .toLowerCase()
-            .includes(query),
-        )
-      : assets;
-  }, [assets, search]);
+  const visibleAssets = assets;
+  useEffect(() => { const timer = setTimeout(() => setQuery(search.trim()), 250); return () => clearTimeout(timer); }, [search]);
 
   useEffect(() => {
     const target = sentinel;
@@ -110,13 +87,14 @@ export function MediaAssetPicker({
 
   const close = onOpenChange;
   return (
+      <>
       <AppDialog open={open} onOpenChange={close}>
         <AppDialogContent
           showCloseButton={false}
-          size="md"
+          size="xl"
           surface="editor"
           padding="none"
-          className="z-[10001] flex h-[min(720px,calc(100dvh-2rem))] flex-col overflow-hidden"
+          className={"z-[10001] flex h-[min(720px,calc(100dvh-2rem))] flex-col overflow-hidden " + (className ?? "")}
           aria-label={tc("Assets")}
           data-media-asset-picker=""
         >
@@ -141,51 +119,44 @@ export function MediaAssetPicker({
               </AppDialogIconButton>
             </AppDialogClose>
           </AppDialogHeader>
-          {!mediaType && <Tabs value={chosenType} onValueChange={value => { setChosenType(value as MediaType); setSearch(""); scrollRoot?.scrollTo?.({ top: 0 }); }} className="mx-4 mt-3 shrink-0">
+          {!mediaType && <Tabs data-horizontal="" value={chosenType} onValueChange={value => { setChosenType(value as MediaType); scrollRoot?.scrollTo?.({ top: 0 }); }} className="mx-4 mt-3 shrink-0">
             <TabsList aria-label={tc("Media type")}>{(["image","video","audio"] as const).map(type => <TabsTrigger key={type} value={type}>{tc(type[0].toUpperCase() + type.slice(1))}</TabsTrigger>)}</TabsList>
           </Tabs>}
           <Tabs
             value={category}
             onValueChange={(value) => {
-              setCategory(value as MediaAssetCategory);
-              setSearch("");
+              setCategory(value as MediaAssetCategory | "all");
               scrollRoot?.scrollTo?.({ top: 0 });
             }}
             data-horizontal=""
             className="min-h-0 flex-1 flex flex-col"
           >
+            <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-3">
             <TabsList
               activateOnFocus
               aria-label={tc("Asset source")}
-              className="mx-4 mt-3 shrink-0"
+              className="shrink-0 bg-background"
             >
               {categories.map((value) => (
-                <TabsTrigger key={value} value={value}>
-                  {tc(value[0].toUpperCase() + value.slice(1))}
+                <TabsTrigger key={value} value={value} className="data-active:bg-data-accent/20 data-active:text-data-accent-foreground data-active:border-data-accent/40 dark:data-active:bg-data-accent/20 dark:data-active:text-data-accent-foreground dark:data-active:border-data-accent/40">
+                  {value === "all" ? t("all") : tc(value[0].toUpperCase() + value.slice(1))}
                 </TabsTrigger>
               ))}
             </TabsList>
-            <div className="border-b border-neutral-700 p-3">
-              <label className="relative block">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <AppInput
-                  autoFocus
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={tc("Search loaded assets...")}
-                  className="h-9 w-full pl-9 text-sm"
-                />
-              </label>
+            <AppFilterToolbar className="w-full sm:w-auto sm:flex-1"
+              search={<AppSearchField autoFocus value={search} onClear={() => setSearch("")} onChange={event => setSearch(event.target.value)} aria-label={t("search")} placeholder={t("search")} />}
+              searchActive={!!search.trim()}
+              filterCount={Number(!!filters.projectId) + Number(!!filters.starred)}
+              onResetFilters={() => setFilters({ sort: "latest" })}
+              filters={<><AssetProjectFilters value={filters} onChange={setFilters} projects={projects.data} />{projects.isError && <p role="alert" className="text-xs text-destructive">{t("error")} <AppButton size="sm" variant="ghost" onClick={() => void projects.refetch()}>{t("retry")}</AppButton></p>}</>} />
             </div>
+            {error && <p role="alert" className="px-3 text-xs text-destructive">{error}</p>}
             <TabsContent
               ref={setScrollRoot}
               value={category}
               tabIndex={0}
               aria-busy={assetsQuery.isFetching}
-              className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
             >
               {assetsQuery.isError ? (
                 <div className="col-span-full text-center text-xs text-neutral-400">
@@ -202,32 +173,17 @@ export function MediaAssetPicker({
                   </button>
                 </div>
               ) : null}
+              {assetsQuery.isLoading && !visibleAssets.length ? <AppMediaGalleryLoading label={tc("Loading...")} /> : <AppMediaGallery>
               {visibleAssets.map((asset) => (
-                <button
-                  key={asset.id}
-                  type="button"
-                  aria-label={asset.id}
-                  title={asset.id}
-                  aria-pressed={(asset.id === selectedAssetId || selectedUrls.includes(asset.url))}
-                  className={cn(
-                    "min-w-0 rounded-lg border p-2 text-left hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                    (asset.id === selectedAssetId || selectedUrls.includes(asset.url))
-                      ? "border-primary/60 bg-primary/5"
-                      : "border-neutral-700 bg-neutral-900/35",
-                  )}
-                  disabled={!writable || asset.type !== activeMediaType || asset.status !== "completed" || (canSelectAsset && !canSelectAsset(asset))}
-                  onClick={() => {
-                    if (writable && asset.type === activeMediaType && asset.status === "completed" && (!canSelectAsset || canSelectAsset(asset))) {
-                      onSelect(asset);
-                    }
-                  }}
-                >
-                  <AssetPreview asset={asset} />
-                  <span className="mt-1.5 block truncate text-[10px] text-neutral-400">
-                    {asset.id}
-                  </span>
-                </button>
+                <ManagedMediaAssetCard key={asset.id} asset={asset}
+                  presentation="gallery"
+                  selected={asset.id === selectedAssetId || selectedUrls.includes(asset.url)}
+                  disabled={!writable || asset.type !== activeMediaType || asset.status !== "completed" || (!!canSelectAsset && !canSelectAsset(asset))}
+                  onSelect={() => { if (writable && asset.type === activeMediaType && asset.status === "completed" && (!canSelectAsset || canSelectAsset(asset))) onSelect(asset); }}
+                  onDetails={allowDetails ? () => setDetail(asset) : undefined}
+                  writable={writable} onError={err => setError(t(assetErrorKey(err)))} />
               ))}
+              </AppMediaGallery>}
               {assetsQuery.isLoading || assetsQuery.isFetchingNextPage ? (
                 <p
                   role="status"
@@ -240,14 +196,14 @@ export function MediaAssetPicker({
               !assetsQuery.isFetchingNextPage &&
               !assetsQuery.isError &&
               visibleAssets.length === 0 ? (
-                <p className="col-span-full py-8 text-center text-xs text-neutral-400">
-                  {tc("No assets in this category.")}
-                </p>
+                <AppResourceEmpty icon={<FolderOpen />} description={search.trim() || filters.projectId || filters.starred ? t("noSearchResults") : tc("No assets in this category.")}>{(search.trim() || filters.projectId || filters.starred) && <AppButton type="button" size="sm" variant="surface" onClick={() => { setSearch(""); setQuery(""); setFilters({ sort: "latest" }); }}>{t("clearConditions")}</AppButton>}</AppResourceEmpty>
               ) : null}
               <div ref={setSentinel} className="col-span-full h-px" aria-hidden="true" />
             </TabsContent>
           </Tabs>
         </AppDialogContent>
       </AppDialog>
+      {open && detail && <MediaAssetDetail asset={detail} onClose={() => setDetail(null)} writable={writable} />}
+      </>
   );
 }

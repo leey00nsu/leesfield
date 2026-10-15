@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { ApiKeyToolbar } from "@/features/api-key-management/ui/api-key-toolbar";
-import { AppFilterToolbar } from "@/shared/ui/app-filter-toolbar";
 
 type ApiKeyStatusFilter = "all" | "active" | "revoked";
 
@@ -10,7 +9,7 @@ function ApiKeyToolbarPreview() {
   const [search, setSearch] = useState("");
 
   return (
-    <AppFilterToolbar>
+    <div className="w-full">
       <ApiKeyToolbar
         filter={filter}
         onFilterChange={setFilter}
@@ -19,7 +18,7 @@ function ApiKeyToolbarPreview() {
         searchPlaceholder="Search keys..."
         onGenerate={() => {}}
       />
-    </AppFilterToolbar>
+    </div>
   );
 }
 

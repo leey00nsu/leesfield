@@ -51,7 +51,7 @@ describe("VideoGenerationForm", () => {
     const {videoAttachmentModel:model}=await import("@/test-utils/fixtures/media-attachment-models");
     const url="https://storage.example/saved.mp4",user=userEvent.setup();
     navigationMocks.searchParams=new URLSearchParams({model:model.key});
-    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"video",status:"completed",origin:"upload",url,mimeType:"video/mp4"}],nextCursor:null}:{items:[model]}))));
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).endsWith("/api/media-assets/projects")?{projects:[]}:String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",name:"saved",version:1,createdAt:"2026-10-13T00:00:00Z",type:"video",status:"completed",origin:"upload",url,mimeType:"video/mp4"}],nextCursor:null}:{items:[model]}))));
     renderWithIntl(<VideoGenerationForm isAuthenticated/>);
     await screen.findByRole("button",{name:/Video reference model/});
     await user.type(screen.getByRole("textbox"),"saved motion");

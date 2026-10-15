@@ -1,5 +1,7 @@
 import { logSafeError } from "@/server/observability/request-observability";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
+import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
+import { encodeAssetCursor, usesAssetLibraryQuery } from "./asset-library-search";
 import { ZodError } from "zod";
 
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
@@ -182,6 +184,18 @@ async function toAssetDto(
   }
   return {
     imageVariants: parseImageVariants(asset.imageVariants),
+    name: getMediaAssetName(asset),
+    displayName: asset.displayName ?? null,
+    classification: asset.classification as MediaAssetDto["classification"] ?? null,
+    referenceId: asset.referenceId ?? null,
+    displayVersion: asset.displayVersion ?? null,
+    description: asset.description ?? null,
+    managementStatus: asset.managementStatus as MediaAssetDto["managementStatus"] ?? null,
+    originalFileName: asset.originalFileName ?? null,
+    folderId: asset.folderId ?? null,
+    projectIds: asset.projectMemberships?.map(({ projectId }) => projectId) ?? [],
+    starred: asset.starred ?? false,
+    tags: asset.tagAssignments?.map(({ tag }) => tag) ?? [],
     id: asset.id,
     version: asset.version,
     type: asset.type,
@@ -542,24 +556,27 @@ export function createMediaAssetService(
       const page = records.slice(0, input.limit);
       return {
         items: await Promise.all(page.map((asset) => toAssetDto(asset, storage))),
-        nextCursor: records.length > input.limit ? page.at(-1)?.id ?? null : null,
+        nextCursor: records.length > input.limit && page.at(-1)
+          ? usesAssetLibraryQuery(input) ? encodeAssetCursor(ownerEmail, input, page.at(-1)!) : page.at(-1)!.id
+          : null,
       };
     },
 
     async remove(ownerEmail: string, assetId: string) {
       const usage = await repository.getAssetUsage(ownerEmail, assetId);
-      if (usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0) {
-        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds);
+      if (usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0 || Boolean(usage.projectCoverIds?.length)) {
+        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds, usage.projectCoverIds);
       }
       const asset = await repository.markAssetDeleting(ownerEmail, assetId);
       let storageDeleted = false;
       try {
         const racedUsage = await repository.getAssetUsage(ownerEmail, assetId);
-        if (racedUsage.graphIds.length > 0 || racedUsage.operationIds.length > 0 || racedUsage.generationRequestIds.length > 0) {
+        if (racedUsage.graphIds.length > 0 || racedUsage.operationIds.length > 0 || racedUsage.generationRequestIds.length > 0 || Boolean(racedUsage.projectCoverIds?.length)) {
           throw new MediaAssetInUseError(
             racedUsage.graphIds,
             racedUsage.operationIds,
             racedUsage.generationRequestIds,
+            racedUsage.projectCoverIds,
           );
         }
         if (asset.storageProvider === "leemage") {

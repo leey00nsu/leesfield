@@ -10,9 +10,9 @@ import { copyGenerationGraph, getGenerationGraph, updateGenerationGraph } from "
 import { AppButton } from "@/shared/ui/app-button";
 import { AppInput } from "@/shared/ui/app-input";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
-import { AppResourceList, appResourceRowLayoutClassName, appResourceRowIconClassName } from "@/shared/ui/app-resource-list";
+import { AppResourceEmpty, AppResourceList, appResourceRowLayoutClassName, appResourceRowIconClassName } from "@/shared/ui/app-resource-list";
 import { AppCard } from "@/shared/ui/app-card";
-import { AppFilterToolbar, AppFilterActions, appFilterSearchLayoutClassName, AppSearchField, AppSortSelect } from "@/shared/ui/app-filter-toolbar";
+import { AppFilterSection, AppFilterToolbar, appFilterSearchLayoutClassName, AppSearchField, AppSortSelect } from "@/shared/ui/app-filter-toolbar";
 import { ResourceRowLink, resourceRowInteractiveClassName } from "@/shared/ui/brand/resource-row-link/resource-row-link";
 import { rememberSpaceListEntry, restoreSpaceListScroll } from "@/features/node-studio/model/space-navigation";
 import { AppDialog, AppDialogContent, AppDialogTitle, AppDialogDescription, AppDialogFooter, AppDialogCancelButton, AppDialogActionButton, AppDialogDangerButton } from "@/shared/ui/app-dialog";
@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 type SpaceAction = { kind: "create" } | { kind: "rename" | "delete"; id: string; title: string };
 
 export function SpacesScreen() {
+  const tListControls = useTranslations("common.listControls");
   const t = useTranslations("spaces");
   const locale = useLocale();
   const format = useFormatter();
@@ -77,36 +78,54 @@ export function SpacesScreen() {
   return (
     <AppPageShell aria-label={t("title")}>
       <h1 className="sr-only">{t("title")}</h1>
-      <AppFilterToolbar>
-        <AppFilterActions>
-          <AppSearchField value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("search")} aria-label={t("search")} containerClassName={appFilterSearchLayoutClassName} />
-          <AppSortSelect
-            value={sort}
-            onValueChange={setSort}
-            ariaLabel={t("sort")}
-            className="w-full sm:w-[12rem]"
-            options={[
-              { value: "updated", label: t("updated") },
-              { value: "created", label: t("created") },
-              { value: "name", label: t("nameSort") },
-            ]}
+      <AppFilterToolbar
+        search={
+          <AppSearchField
+            autoFocus
+            value={search}
+            onClear={() => setSearch("")}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("search")}
+            aria-label={t("search")}
+            containerClassName={appFilterSearchLayoutClassName}
           />
-          <span role="status" className="shrink-0 text-xs text-muted-foreground sm:ml-2">{term ? t("filteredCount", { count: spaces.length, total: query.data?.length ?? 0 }) : t("count", { count: spaces.length })}</span>
-        <AppButton variant="brand" size="md" className="shrink-0 self-end" onClick={() => begin({ kind: "create" })} disabled={busy}><Plus aria-hidden="true" />{t("new")}</AppButton>
-        </AppFilterActions>
+        }
+        filters={
+          <AppFilterSection label={tListControls("sort")}>
+            <AppSortSelect
+              value={sort}
+              onValueChange={setSort}
+              ariaLabel={t("sort")}
+              className="w-full sm:w-[12rem]"
+              options={[
+                { value: "updated", label: t("updated") },
+                { value: "created", label: t("created") },
+                { value: "name", label: t("nameSort") },
+              ]}
+            />
+          </AppFilterSection>
+        }
+        filterCount={Number(sort !== "updated")}
+        searchActive={Boolean(term)}
+        filterChips={sort !== "updated" ? [{label: t(sort === "name" ? "nameSort" : "created"), onRemove: () => setSort("updated")}] : []}
+        onResetFilters={() => setSort("updated")}
+      >
+        <AppButton
+          variant="brand"
+          size="md"
+          className="shrink-0 self-end"
+          onClick={() => begin({ kind: "create" })}
+          disabled={busy}
+        >
+          <Plus aria-hidden="true" />
+          {t("new")}
+        </AppButton>
       </AppFilterToolbar>
       {error && !action ? <p role="alert" className="text-destructive">{t(error)}</p> : null}
       {query.isLoading ? <ResourceListLoading label={t("loading")} /> : null}
       {query.isError ? <AppCard variant="editorial-flat" radius="lg" className="p-8" role="alert"><p>{t("loadError")}</p><AppButton variant="surface" className="mt-4" onClick={() => void query.refetch()}>{t("retry")}</AppButton></AppCard> : null}
-      {!query.isLoading && !query.isError && !query.data?.length ? <AppCard variant="editorial-flat" radius="lg" className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center">
-        <Workflow className="size-8 text-muted-foreground" aria-hidden />
-        <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2><p className="text-sm text-muted-foreground">{t("emptyDescription")}</p>
-        <AppButton variant="brand" className="mt-3" onClick={() => begin({ kind: "create" })} disabled={busy}>{t("create")}</AppButton>
-      </AppCard> : null}
-      {!query.isLoading && !query.isError && Boolean(query.data?.length) && spaces.length === 0 ? <AppCard variant="editorial-flat" radius="lg" className="flex min-h-[240px] flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">{t("noResults")}</p>
-        <AppButton variant="surface" onClick={() => setSearch("")}>{t("clearSearch")}</AppButton>
-      </AppCard> : null}
+      {!query.isLoading && !query.isError && !query.data?.length ? <AppResourceEmpty icon={<Workflow />} title={t("emptyTitle")} description={t("emptyDescription")}><AppButton variant="brand" onClick={() => begin({ kind: "create" })} disabled={busy}>{t("create")}</AppButton></AppResourceEmpty> : null}
+      {!query.isLoading && !query.isError && Boolean(query.data?.length) && spaces.length === 0 ? <AppResourceEmpty icon={<Workflow />} title={tListControls("noResults")} description={t("noResults")}><AppButton variant="surface" onClick={() => setSearch("")}>{t("clearSearch")}</AppButton></AppResourceEmpty> : null}
       {spaces.length ? <AppResourceList aria-label={t("title")}>
         {spaces.map((space) => <div key={space.id} role="listitem">
           <article className={cn(resourceRowInteractiveClassName, appResourceRowLayoutClassName, "md:grid-cols-[2.5rem_minmax(0,1fr)_auto]")}>

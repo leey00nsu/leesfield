@@ -13,6 +13,7 @@ export interface UseHistoryStatusQueryParams {
   query: string;
   model?: string;
   prompt?: string;
+  hidden?: boolean;
 }
 
 const HISTORY_STATUS_QUERY_KEY = "history-status";
@@ -20,11 +21,11 @@ const HISTORY_STATUS_POLL_INTERVAL_MS = 2000;
 
 export function useHistoryStatusQuery(params: UseHistoryStatusQueryParams) {
   const t = useTranslations("history");
-  const { type, query, model, prompt } = params;
+  const { type, query, model, prompt, hidden } = params;
   const queryResult = useQuery({
-    queryKey: [HISTORY_STATUS_QUERY_KEY, type, query, model, prompt],
+    queryKey: [HISTORY_STATUS_QUERY_KEY, type, query, model, prompt, hidden],
     queryFn: ({ signal }) =>
-      fetchHistoryStatus({ type, query, model, prompt }, { signal }),
+      fetchHistoryStatus({ type, query, model, prompt, hidden }, { signal }),
     staleTime: 0,
     gcTime: 5 * 60_000,
     retry: 1,

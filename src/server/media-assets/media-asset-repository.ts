@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/server/db/prisma";
+import { findAssetLibraryIds, usesAssetLibraryQuery } from "./asset-library-search";
+import { lockOrganization } from "./asset-organization-repository";
 import {
   countActiveMediaOperations,
   lockMediaOperationClaims,
@@ -26,6 +28,7 @@ import type {
 
 import {
   MediaAssetNotFoundError,
+  MediaAssetInUseError,
   MediaOperationConflictError,
   MediaOperationNotFoundError,
   MediaQuotaExceededError,
@@ -44,6 +47,17 @@ import {
 } from "./media-cleanup-repository";
 
 const assetSelect = {
+  classification: true,
+  referenceId: true,
+  displayVersion: true,
+  description: true,
+  managementStatus: true,
+  displayName: true,
+  originalFileName: true,
+  folderId: true,
+  projectMemberships: { select: { projectId: true }, orderBy: { projectId: "asc" as const } },
+  starred: true,
+  tagAssignments: { select: { tag: { select: { id: true, name: true, version: true } } }, orderBy: { tagId: "asc" as const } },
   id: true,
   version: true,
   ownerEmail: true,
@@ -837,6 +851,7 @@ async function completeUpload(input: {
         ownerEmail: input.ownerEmail,
         type: session.intendedType,
         origin: session.operationId ? "media_operation" : "upload",
+        originalFileName: session.operationId ? null : session.fileName,
         storageProvider: session.storageProvider,
         storageObjectId: input.confirmed.objectId,
         storageUrl: input.confirmed.url,
@@ -931,6 +946,15 @@ async function getAsset(ownerEmail: string, assetId: string) {
 }
 
 async function listAssets(ownerEmail: string, input: ListMediaAssetsInput) {
+  if (usesAssetLibraryQuery(input)) {
+    const ids = await findAssetLibraryIds(ownerEmail, input);
+    const assets = await prisma.mediaAsset.findMany({
+      where: { ownerEmail, status: "completed", id: { in: ids.map(({ id }) => id) } },
+      select: assetSelect,
+    });
+    const byId = new Map(assets.map((asset) => [asset.id, asset]));
+    return ids.flatMap(({ id }) => byId.has(id) ? [byId.get(id)!] : []);
+  }
   const categoryWhere = input.category === "uploads" ? { origin: "upload" as const }
     : input.category === "edited" ? { origin: "media_operation" as const }
     : input.category === "generated" ? { origin: { in: ["generation", "legacy_generation"] as ("generation" | "legacy_generation")[] } } : {};
@@ -973,6 +997,7 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
   const asset = await prisma.mediaAsset.findFirst({
     where: { id: assetId, ownerEmail },
     select: {
+      coveringProjects: { where: { ownerEmail }, select: { id: true } },
       selectedByGraphNodes: { select: { graphId: true } },
       graphNodeOutputs: { select: { graphNode: { select: { graphId: true } } } },
       operationInputs: {
@@ -1016,25 +1041,15 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
   const operationIds = Array.from(
     new Set(asset.operationInputs.map((input) => input.operation.id)),
   ).sort();
-  const generationRequestIds = Array.from(
-    new Set([
-      ...asset.generationInputAssets.map((input) => input.requestId),
-      ...(asset.imageGenerationImage?.generation.ownerEmail === ownerEmail
-        ? [asset.imageGenerationImage.generation.requestId]
-        : []),
-      ...(asset.videoGenerationVideo?.generation.ownerEmail === ownerEmail
-        ? [asset.videoGenerationVideo.generation.requestId]
-        : []),
-      ...(asset.audioGenerationAudio?.generation.ownerEmail === ownerEmail
-        ? [asset.audioGenerationAudio.generation.requestId]
-        : []),
-    ]),
-  ).sort();
-  return { graphIds, operationIds, generationRequestIds };
+  const generationRequestIds = Array.from(new Set(asset.generationInputAssets.map((input) => input.requestId))).sort();
+  return { graphIds, operationIds, generationRequestIds, projectCoverIds: asset.coveringProjects?.map(({ id }) => id) ?? [] };
 }
 
 async function markAssetDeleting(ownerEmail: string, assetId: string) {
   return prisma.$transaction(async (tx) => {
+    await lockOrganization(tx, ownerEmail);
+    const covers = await tx.assetProject.findMany({ where: { ownerEmail, coverAssetId: assetId }, select: { id: true } });
+    if (covers.length) throw new MediaAssetInUseError([], [], [], covers.map(({ id }) => id));
     const result = await tx.mediaAsset.updateMany({
       where: { id: assetId, ownerEmail, status: "completed" },
       data: { status: "deleting" },
@@ -1091,8 +1106,9 @@ async function deleteAsset(ownerEmail: string, assetId: string) {
       where: { id: assetId, ownerEmail },
       select: { storageProvider: true, storageObjectId: true },
     });
-    const result = await tx.mediaAsset.deleteMany({
+    const result = await tx.mediaAsset.updateMany({
       where: { id: assetId, ownerEmail, status: "deleting" },
+      data: { status: "failed", storageUrl: null, legacyUrl: null, imageVariants: Prisma.DbNull, version: { increment: 1 } },
     });
     if (result.count !== 1) throw new MediaAssetNotFoundError();
     if (asset && hasCleanupClient(tx)) {

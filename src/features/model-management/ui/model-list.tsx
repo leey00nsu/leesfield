@@ -3,9 +3,8 @@ import { useTranslations } from "next-intl";
 import type { ModelCatalogItem } from "@/features/model-management/model/model-catalog";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { ModelCard, modelRowLayoutClassName } from "@/features/model-management/ui/model-card";
-import { AppCard } from "@/shared/ui/app-card";
 
-import { AppResourceList } from "@/shared/ui/app-resource-list";
+import { AppResourceList, AppResourceEmpty } from "@/shared/ui/app-resource-list";
 
 interface ModelListProps {
   items: ModelCatalogItem[];
@@ -19,19 +18,7 @@ export function ModelList({ items, emptyMessage, onEdit }: ModelListProps) {
 
   if (items.length === 0) {
     return (
-      <AppCard
-        variant="editorial-flat"
-        radius="lg"
-        className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center"
-      >
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-surface-lighter">
-          <Boxes className="h-6 w-6 text-gray-500" />
-        </div>
-        <h3 className="text-lg font-bold text-gray-200">{tEmpty("title")}</h3>
-        <p className="text-xs font-sans uppercase tracking-widest text-gray-500">
-          {resolvedEmptyMessage}
-        </p>
-      </AppCard>
+      <AppResourceEmpty icon={<Boxes />} title={tEmpty("title")} description={resolvedEmptyMessage} />
     );
   }
 

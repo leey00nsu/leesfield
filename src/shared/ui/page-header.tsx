@@ -82,7 +82,8 @@ export function PageHeaderSearchInput({
   return (
     <AppSearchField
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onClear={() => onChange("")}
+            onChange={(event) => onChange(event.target.value)}
       placeholder={resolvedPlaceholder}
       containerClassName={cn("w-full", className)}
       className={inputClassName}

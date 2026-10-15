@@ -35,10 +35,10 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     const session = await mediaAssetRepository.createUploadSession(ownerEmail, {intendedType: "image", fileName: "original.png", declaredMimeType: "image/png", declaredBytes: 1000, sortOrder: 0}, {objectId: "image-" + suffix, objectName: "image.png", objectUrl: "https://storage.example/original.png", presignedUrl: "https://upload.example/image", expiresAt: new Date(Date.now()+60000)}, BigInt(100000));
     await mediaAssetRepository.claimUpload(ownerEmail, session.id, new Date());
     const asset = await mediaAssetRepository.completeUpload({ownerEmail, uploadId: session.id, confirmed: {objectId: "image-" + suffix, url: "https://storage.example/original.png", mimeType: "image/png", bytes: 1000, imageVariants}, inspected: {detectedMimeType: "image/png", width: 1200, height: 800, durationMs: null, isAnimated: false}, now: new Date()});
-    expect(asset).toMatchObject({bytes: BigInt(1000), imageVariants: {...imageVariants, isAnimated: false}});
+    expect(asset).toMatchObject({bytes: BigInt(1000), originalFileName: "original.png", folderId: null, starred: false, tagAssignments: [], imageVariants: {...imageVariants, isAnimated: false}});
     const service = createMediaAssetService(mediaAssetRepository, {name: "leemage", assertAvailable() {}, presign: async () => {throw new Error("unexpected");}, confirm: async () => {throw new Error("unexpected");}, inspect: async () => {throw new Error("unexpected");}, delete: async () => {throw new Error("unexpected");}, resolveReadUrl: async () => {throw new Error("Unexpected remote read");}} as Parameters<typeof createMediaAssetService>[1]);
     const page = await service.list(ownerEmail, {type: "image"});
-    expect(page.items).toContainEqual(expect.objectContaining({id: asset.id, url: "https://storage.example/original.png", bytes: "1000", imageVariants: {...imageVariants, isAnimated: false}}));
+    expect(page.items).toContainEqual(expect.objectContaining({id: asset.id, name: "original.png", originalFileName: "original.png", starred: false, tags: [], url: "https://storage.example/original.png", bytes: "1000", imageVariants: {...imageVariants, isAnimated: false}}));
     await prisma.mediaAsset.delete({where: {id: asset.id}});
     const {saveImageGenerationResult} = await import("@/server/image-generation/image-generation-repository");
     const generation = await prisma.imageGeneration.create({data: {ownerEmail, requestId: "f062-"+suffix, prompt: "test", status: "processing", progress: 10, modelKey: "test", requestParams: {}, aspectRatio: "1200x800", imageCount: 1, steps: 1}});
@@ -203,7 +203,7 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     ).rejects.toBeInstanceOf(MediaAssetNotFoundError);
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, output.id),
-    ).resolves.toEqual({ graphIds: [graphId], operationIds: [], generationRequestIds: [generationRequestId] });
+    ).resolves.toEqual({ graphIds: [graphId], operationIds: [], generationRequestIds: [generationRequestId], projectCoverIds: [] });
     await prisma.generationInputAsset.deleteMany({ where: { requestId: generationRequestId } });
 
     await prisma.generationGraph.delete({ where: { id: graphId } });
@@ -212,9 +212,9 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     ).resolves.toMatchObject({ id: output.id, sourceOperationId: operation.id });
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, output.id),
-    ).resolves.toEqual({ graphIds: [], operationIds: [], generationRequestIds: [] });
+    ).resolves.toEqual({ graphIds: [], operationIds: [], generationRequestIds: [], projectCoverIds: [] });
     await expect(
       mediaAssetRepository.getAssetUsage(ownerEmail, sourceAssetId),
-    ).resolves.toEqual({ graphIds: [], operationIds: [operation.id], generationRequestIds: [] });
+    ).resolves.toEqual({ graphIds: [], operationIds: [operation.id], generationRequestIds: [], projectCoverIds: [] });
   });
 });

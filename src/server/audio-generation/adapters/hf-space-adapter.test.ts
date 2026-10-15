@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockConnect = vi.hoisted(() => vi.fn());
@@ -99,6 +100,7 @@ describe("hfSpaceAudioAdapter", () => {
     });
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: viewApi,
       predict,
       config: {
@@ -223,6 +225,7 @@ describe("hfSpaceAudioAdapter", () => {
       data: [{ path: "/file=/tmp/generated.wav" }],
     });
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/generate_voice_clone": {
@@ -271,14 +274,14 @@ describe("hfSpaceAudioAdapter", () => {
       speed: 1,
       dynamicParams: {
         "hf:model_size": "1.7B",
-        "hf:reference_sample": "data:audio/wav;base64,UklGRg==",
+        "hf:reference_sample": "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
       },
     });
 
     expect(predict).toHaveBeenCalledWith("/generate_voice_clone", {
       target_text: "hello dynamic",
       model_size: "1.7B",
-      reference_sample: expect.objectContaining({ mockedFile: expect.any(Blob) }),
+      reference_sample: expect.objectContaining({ mockedFile: expect.objectContaining({ orig_name: "reference.wav", mime_type: "audio/wav" }) }),
     });
   });
 
@@ -313,6 +316,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
     const predict = vi.fn();
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/generate_voice_clone": {
@@ -419,6 +423,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/run_generation": {
@@ -461,7 +466,7 @@ describe("hfSpaceAudioAdapter", () => {
       voice: "Vivian",
       speed: 1,
       seed: "",
-      inputAudio: "data:audio/wav;base64,UklGRg==",
+      inputAudio: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
       referenceText: "reference words",
     });
 
@@ -551,6 +556,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/run_generation": {
@@ -598,7 +604,7 @@ describe("hfSpaceAudioAdapter", () => {
       voice: "",
       speed: 1,
       seed: "11",
-      inputAudio: "data:audio/wav;base64,UklGRg==",
+      inputAudio: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
       referenceText: "reference words",
       modeChoice: "voice_clone",
       language: "English",
@@ -666,6 +672,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/run_generation": {
@@ -783,6 +790,7 @@ describe("hfSpaceAudioAdapter", () => {
     });
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: viewApi,
       predict,
     });
@@ -871,6 +879,7 @@ describe("hfSpaceAudioAdapter", () => {
     });
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: viewApi,
       predict,
       config: {
@@ -953,6 +962,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/run_generation": {
@@ -1055,6 +1065,7 @@ describe("hfSpaceAudioAdapter", () => {
     });
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: viewApi,
       predict,
       config: {
@@ -1131,6 +1142,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/voice_clone": {
@@ -1210,6 +1222,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/voice_clone": {
@@ -1291,6 +1304,7 @@ describe("hfSpaceAudioAdapter", () => {
     const viewApi = vi.fn().mockRejectedValue(new Error("view_api unavailable"));
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: viewApi,
       predict,
       config: {
@@ -1367,6 +1381,7 @@ describe("hfSpaceAudioAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      upload_files: vi.fn(async (_root: string, files: File[]) => ({ files: files.map(file => "/uploaded/" + file.name) })),
       view_api: vi.fn().mockResolvedValue({
         named_endpoints: {
           "/run_generation": {

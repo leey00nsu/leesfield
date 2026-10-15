@@ -1,3 +1,4 @@
+import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
@@ -271,12 +272,14 @@ export async function getImageGenerationByRequestId(
   ownerEmail: string,
   apiKeyId?: string | null,
 ) {
-  return prisma.imageGeneration.findFirst({
+  const record = await prisma.imageGeneration.findFirst({
     where: { requestId, ownerEmail, ...(apiKeyId ? { apiKeyId } : {}) },
     include: {
       images: {
+        include: { asset: { select: generationOutputAssetSelect } },
         orderBy: { createdAt: "asc" },
       },
     },
   });
+  return record ? { ...record, images: record.images.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "" })) } : null;
 }

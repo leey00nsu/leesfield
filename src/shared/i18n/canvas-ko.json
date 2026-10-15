@@ -37,6 +37,7 @@
   "All nodes": "모든 노드",
   "Prompt": "프롬프트",
   "Output": "결과",
+  "Browse Models": "모델 살펴보기",
   "Browse models": "모델 살펴보기",
   "All models": "전체 모델",
   "Select a runnable node first": "실행할 수 있는 노드를 먼저 선택하세요",

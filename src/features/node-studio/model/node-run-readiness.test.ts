@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mappedReferenceImageModelFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 
@@ -326,3 +327,35 @@ it("accepts composed movement-only video prompt while retaining attachment requi
   const optional={...videoModel,parameters:{},meta:{supports_init_image:false}};
   expect(resolveNodeRunReadiness(document,"generate",{...catalog,videoModels:[optional]}).ready).toBe(true);
 });
+
+ it.each(["primary","image-field-refs"])("counts a chained %s reference over an empty persisted gallery for a preset", port => {
+   const model=mappedReferenceImageModelFixture;
+   const preset={key:"multi-camera-nine-grid",revision:1,builtinRevision:1,requiredInputs:{referenceImageCount:1},recommendedParameters:{imageCount:1}};
+   const graph={nodes:[node("root","input.image",{assetId:"root-asset"}),node("relay","input.image",{assetId:null}),
+     node("generate","generate.image",{prompt:"create nine views",modelKey:model.key,parameters:{"hf:refs":[]},promptPreset:preset})],
+     edges:[edge("pass","root","image","relay","reference"),edge("use","relay","image","generate",port)]};
+   expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[model]})).toEqual({ready:true,reasons:[]});
+   graph.edges[0].hasPause=true;
+   expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[model]}).reasons).toContain("INPUT_NOT_READY");
+   graph.edges[0].hasPause=false; graph.nodes[0].config={assetId:null};
+   expect(resolveNodeRunReadiness(graph,"generate",{imageModels:[model]}).ready).toBe(false);
+ });
+ it("checks expanded ordered outputs against the field limit",()=>{
+   const model=mappedReferenceImageModelFixture;
+   const graph={nodes:[node("frames","edit.image.splitGrid",{parameters:{}},"first"),node("g","generate.image",{prompt:"views",modelKey:model.key,parameters:{}})],
+     edges:[edge("use","frames","images","g","image-field-refs")]};
+   const mediaOutputs={frames:Array.from({length:7},(_,i)=>({portId:"images",sortOrder:i,assetId:i===0?"first":"asset-"+i}))};
+   expect(resolveNodeRunReadiness(graph,"g",{imageModels:[model],mediaOutputs}).reasons).toContain("INPUT_UNSUPPORTED");
+ });
+
+ it.each(["image","video","audio"] as const)("uses the actual required %s field through a relay and blocks a wrong upstream media",media=>{
+   const model={...mappedReferenceImageModelFixture,type:media,key:"mapped-"+media,parameters:{},providerConfig:{space_id:"owner/media",api_name:"/generate",output:{media,path:[0],multiple:false},gradio_contract:{version:1,apiName:"/generate",diagnostics:[],reviewed:true,output:{media,path:[0],multiple:false},inputs:[{name:"ref",label:"Reference",kind:"file",media,required:true,nullable:false,schema:{type:"string"}}]}}};
+   const pass=media==="image"?"reference":media;
+   const graph={nodes:[node("root","input."+media,{assetId:"owned"}),node("relay","input."+media,{assetId:null}),node("g","generate."+media,{prompt:"test",modelKey:model.key,parameters:{}})],edges:[edge("pass","root",media,"relay",pass),edge("use","relay",media,"g",media+"-field-ref")]};
+   const models={imageModels:media==="image"?[model as RuntimeImageModel]:[],videoModels:media==="video"?[model as RuntimeVideoModel]:[],audioModels:media==="audio"?[model as import("@/shared/model-catalog/runtime-utils").RuntimeAudioModel]:[]};
+   expect(resolveNodeRunReadiness(graph,"g",models)).toEqual({ready:true,reasons:[]});
+   graph.edges[0].hasPause=true;
+   expect(resolveNodeRunReadiness(graph,"g",models).ready).toBe(false);
+   graph.edges[0].hasPause=false;graph.nodes[0].kind=media==="audio"?"input.image":"input.audio";graph.edges[0].sourcePortId=media==="audio"?"image":"audio";
+   expect(resolveNodeRunReadiness(graph,"g",models).reasons).toContain("INPUT_NOT_READY");
+ });

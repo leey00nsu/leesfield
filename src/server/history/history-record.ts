@@ -1,4 +1,7 @@
 import { prisma } from "@/server/db/prisma";
+import { logSafeError } from "@/server/observability/request-observability";
+import { generationOutputUrl, generationOutputAssetSelect } from "./generation-output-availability";
+import { MediaAssetInUseError } from "@/server/media-assets/media-asset-errors";
 import { deleteHistoryFiles } from "./delete-history-files";
 import type { ExternalHistorySelector } from "@/shared/api/platform-contract";
 
@@ -14,18 +17,18 @@ export async function getOwnedHistoryRecord(ownerEmail: string, historyId: strin
         inputs: { where: { asset: { ownerEmail } }, include: { asset: true }, orderBy: { sortOrder: "asc" } },
       },
     });
-    return { record, type, origin, ownerEmail, url: record?.outputs[0]?.storageUrl ?? record?.outputs[0]?.legacyUrl };
+    return { record, type, origin, ownerEmail, url: record?.outputs.filter(output => output.status === "completed").map(output => output.storageUrl ?? output.legacyUrl).find(Boolean) ?? null };
   }
   if (type === "image") {
-    const record = await prisma.imageGeneration.findFirst({ where, include: { images: { orderBy: { createdAt: "asc" } } } });
-    return { record, type, origin, ownerEmail, url: record?.images[0]?.url };
+    const record = await prisma.imageGeneration.findFirst({ where, include: { images: { include: { asset: { select: generationOutputAssetSelect } }, orderBy: { createdAt: "asc" } } } });
+    return { record, type, origin, ownerEmail, url: record?.images.map(generationOutputUrl).find(Boolean) ?? null };
   }
   if (type === "video") {
-    const record = await prisma.videoGeneration.findFirst({ where, include: { videos: { orderBy: { createdAt: "asc" } } } });
-    return { record, type, origin, ownerEmail, url: record?.videos[0]?.url };
+    const record = await prisma.videoGeneration.findFirst({ where, include: { videos: { include: { asset: { select: generationOutputAssetSelect } }, orderBy: { createdAt: "asc" } } } });
+    return { record, type, origin, ownerEmail, url: record?.videos.map(generationOutputUrl).find(Boolean) ?? null };
   }
-  const record = await prisma.audioGeneration.findFirst({ where, include: { audios: { orderBy: { createdAt: "asc" } } } });
-  return { record, type, origin, ownerEmail, url: record?.audios[0]?.url };
+  const record = await prisma.audioGeneration.findFirst({ where, include: { audios: { include: { asset: { select: generationOutputAssetSelect } }, orderBy: { createdAt: "asc" } } } });
+  return { record, type, origin, ownerEmail, url: record?.audios.map(generationOutputUrl).find(Boolean) ?? null };
 }
 
 export async function deleteOwnedHistoryRecord(result: Awaited<ReturnType<typeof getOwnedHistoryRecord>>): Promise<number> {
@@ -34,7 +37,11 @@ export async function deleteOwnedHistoryRecord(result: Awaited<ReturnType<typeof
   const where = { id: result.record.id, ownerEmail: result.ownerEmail, status: { notIn: [...active] } };
   const outputs = "outputs" in result.record ? result.record.outputs : "images" in result.record ? result.record.images
     : "videos" in result.record ? result.record.videos : result.record.audios;
-  try { await deleteHistoryFiles(result.ownerEmail, outputs); } catch { return 502; }
+  try { await deleteHistoryFiles(result.ownerEmail, outputs); } catch (error) {
+    if (error instanceof MediaAssetInUseError) return 409;
+    logSafeError("history.delete_files_failed", error, { phase: "storage.delete" });
+    return 502;
+  }
   const deleted = result.origin === "edit" ? await prisma.mediaOperation.deleteMany({ where })
     : result.type === "image" ? await prisma.imageGeneration.deleteMany({ where })
     : result.type === "video" ? await prisma.videoGeneration.deleteMany({ where })

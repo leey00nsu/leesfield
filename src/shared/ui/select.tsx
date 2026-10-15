@@ -43,7 +43,7 @@ export const SelectGroup = B.SelectGroup,
   SelectScrollUpButton = B.SelectScrollUpButton,
   SelectScrollDownButton = B.SelectScrollDownButton;
 export function SelectContent({
-  position,
+  position = "popper",
   ...props
 }: ComponentProps<typeof B.SelectContent> & {
   position?: "popper" | "item-aligned";

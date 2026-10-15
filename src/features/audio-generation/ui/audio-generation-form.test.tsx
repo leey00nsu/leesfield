@@ -285,7 +285,7 @@ describe("AudioGenerationForm", () => {
     const url="https://storage.example/saved.wav",startGeneration=vi.fn(),user=userEvent.setup();
     mockUseAudioGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
     navigationMocks.searchParams=new URLSearchParams({model:model.key});
-    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"audio",status:"completed",origin:"upload",url,mimeType:"audio/wav"}],nextCursor:null}:{items:[model]}))));
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).endsWith("/api/media-assets/projects")?{projects:[]}:String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",name:"saved",version:1,createdAt:"2026-10-13T00:00:00Z",type:"audio",status:"completed",origin:"upload",url,mimeType:"audio/wav"}],nextCursor:null}:{items:[model]}))));
     renderWithIntl(<AudioGenerationForm isAuthenticated/>);
     await screen.findByRole("button",{name:new RegExp(model.label)});
     await user.type(screen.getByRole("textbox"),"saved narration");

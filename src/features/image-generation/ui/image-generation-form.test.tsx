@@ -50,7 +50,7 @@ describe("ImageGenerationForm", () => {
     const url="https://storage.example/saved.png",startGeneration=vi.fn(),user=userEvent.setup();
     mockUseImageGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
     navigationMocks.searchParams=new URLSearchParams({model:model.key});
-    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",type:"image",status:"completed",origin:"generation",url,mimeType:"image/png"}],nextCursor:null}:{items:[model]}))));
+    vi.stubGlobal("fetch",vi.fn(async input=>new Response(JSON.stringify(String(input).endsWith("/api/media-assets/projects")?{projects:[]}:String(input).startsWith("/api/media-assets?")?{items:[{id:"saved",name:"saved",version:1,createdAt:"2026-10-13T00:00:00Z",type:"image",status:"completed",origin:"generation",url,mimeType:"image/png"}],nextCursor:null}:{items:[model]}))));
     renderWithIntl(<ImageGenerationForm isAuthenticated/>);
     await screen.findByRole("button",{name:new RegExp(model.label.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"))});
     await user.type(screen.getByRole("textbox"),"asset scene");

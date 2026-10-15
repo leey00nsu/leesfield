@@ -1,4 +1,5 @@
 "use client";
+import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
 import { historyOptionUpdates } from "@/shared/generation/history-options";
 import { useCinemaDraft } from "@/shared/cinema/use-cinema-draft";
@@ -117,7 +118,7 @@ export function VideoGenerationForm({
       resolvedVideoModels.map((model) => ({
         id: model.key,
         name: model.label,
-        vendor: model.vendor,
+        vendor: model.vendor, provider: model.provider,
         ...resolveGenerationCapabilities(model),
       })),
     [resolvedVideoModels],
@@ -393,6 +394,8 @@ export function VideoGenerationForm({
         onSubmit={handleFormSubmit}
       >
         <div className="flex flex-col gap-6">
+<GenerationAssetReferenceBridge key={activeModel} fields={gradioContract?.inputs ?? (supportsInitImage ? ([{name:"initImage",label:tVideo("uploadReference"),kind:"file",media:"image",schema:{},required:false,nullable:false}]) : [])} values={gradioContract ? contractValues : {initImage:initImageValue}} disabled={isGuest || isGenerating || isModelLoading} onAttach={(field,value) => { cinema.markEdited(); if (gradioContract) form.setValue("dynamicParams",{...form.getValues("dynamicParams"),[field]:value},{shouldDirty:true,shouldValidate:true}); else form.setValue("initImage",value as string,{shouldDirty:true,shouldValidate:true}); }} />
+
           <GenerationResultReveal visible={!embedded || isGenerating || hasResults || state.status === "failed"} className={embedded ? "generation-result" : studioPreviewShellClass}>
             {!embedded && (<GenerationStudioIntro
                 compact={embedded}

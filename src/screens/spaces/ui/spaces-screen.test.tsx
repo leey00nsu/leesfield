@@ -1,6 +1,6 @@
 import { renderWithIntl as render } from "@/test-utils/intl";
 import enMessages from "@/shared/i18n/messages/en.json";
-import { screen, within } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpacesScreen } from "./spaces-screen";
@@ -67,25 +67,39 @@ describe("Spaces list", () => {
   render(<SpacesScreen />);
   const names = () => screen.getAllByRole("listitem").map((row) => within(row).getByRole("link").textContent);
   expect(names()).toEqual(["Beta", "Alpha"]);
+  expect(screen.queryByRole("combobox", { name: "스페이스 정렬" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "필터" }));
   await user.click(screen.getByRole("combobox", { name: "스페이스 정렬" }));
   await user.click(await screen.findByRole("option", { name: "최근 생성순" }));
   expect(names()).toEqual(["Alpha", "Beta"]);
-  const input = screen.getByRole("searchbox", { name: "스페이스 이름 검색" });
+  await user.click(screen.getByRole("button", { name: "검색" }));
+  const input = await screen.findByRole("searchbox", { name: "스페이스 이름 검색" });
+  expect(screen.queryByRole("combobox", { name: "스페이스 정렬" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "검색 지우기" })).not.toBeInTheDocument();
   await user.type(input, " BETA ");
+  expect(screen.queryByRole("button", { name: /조건 해제:.*BETA/ })).not.toBeInTheDocument();
   expect(names()).toEqual(["Beta"]);
   await user.clear(input);
   await user.type(input, "missing");
-  expect(screen.getByText(/검색 결과가 없습니다/)).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "검색 초기화" }));
+  expect(screen.getByRole("heading", { name: "검색 결과가 없습니다" })).toBeInTheDocument();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.getByRole("button", { name: "검색" })).toHaveFocus());
+  expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "검색" }));
+  expect(screen.getByRole("searchbox")).toHaveValue("missing");
+  await user.click(screen.getByRole("button", { name: "입력 지우기" }));
   expect(names()).toEqual(["Alpha", "Beta"]);
+  await user.click(screen.getByRole("button", { name: "필터" }));
+  await user.click(screen.getByRole("button", { name: "필터 초기화" }));
+  expect(names()).toEqual(["Beta", "Alpha"]);
   expect(items.map((item) => item.id)).toEqual(["a", "b"]);
 });
 
-it("localizes the list, counts and dialog in English without translating user names", async () => {
+it("localizes the list and dialog without a count in English without translating user names", async () => {
   mocks.list.mockReturnValue({ data: [space] });
   render(<SpacesScreen />, { locale: "en", messages: enMessages });
   expect(screen.getByRole("heading", { name: "Spaces" })).toBeInTheDocument();
-  expect(screen.getByText("1 space")).toBeInTheDocument();
+  expect(screen.queryByText("1 space")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: space.title })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Rename First Space" }));
   expect(screen.getByRole("textbox", { name: "Space name" })).toHaveValue(space.title);

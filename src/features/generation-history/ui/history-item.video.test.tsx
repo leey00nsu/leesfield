@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { HistoryItem } from "@/features/generation-history/ui/history-item";
@@ -20,6 +20,7 @@ describe("HistoryItem video", () => {
           type: "video" as never,
           status: "completed",
           prompt: "hello video",
+          durationMs: 90000,
           model: "wan-video",
           createdAt: "2026-02-03T00:00:00.000Z",
           resultUrl: "https://example.com/result.mp4",
@@ -33,6 +34,10 @@ describe("HistoryItem video", () => {
 
     const video = document.querySelector("video");
     expect(video).not.toBeNull();
+    expect(screen.queryByText("90.0s")).not.toBeInTheDocument();
+    Object.defineProperty(video, "duration", {value:5.2,configurable:true});
+    fireEvent.loadedMetadata(video!);
+    expect(screen.getByText("5.2s")).toBeInTheDocument();
     expect(video).not.toHaveAttribute("controls");
     expect(video).not.toHaveAttribute("autoplay");
     act(() => notify([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));

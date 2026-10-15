@@ -1,3 +1,4 @@
+import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
@@ -263,12 +264,14 @@ export async function getAudioGenerationByRequestId(
   ownerEmail: string,
   apiKeyId?: string | null,
 ) {
-  return prisma.audioGeneration.findFirst({
+  const record = await prisma.audioGeneration.findFirst({
     where: { requestId, ownerEmail, ...(apiKeyId ? { apiKeyId } : {}) },
     include: {
       audios: {
+        include: { asset: { select: generationOutputAssetSelect } },
         orderBy: { createdAt: "asc" },
       },
     },
   });
+  return record ? { ...record, audios: record.audios.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "" })) } : null;
 }

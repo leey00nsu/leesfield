@@ -1,3 +1,4 @@
+import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import { Prisma } from "@prisma/client";
@@ -275,12 +276,14 @@ export async function getVideoGenerationByRequestId(
   ownerEmail: string,
   apiKeyId?: string | null,
 ) {
-  return prisma.videoGeneration.findFirst({
+  const record = await prisma.videoGeneration.findFirst({
     where: { requestId, ownerEmail, ...(apiKeyId ? { apiKeyId } : {}) },
     include: {
       videos: {
+        include: { asset: { select: generationOutputAssetSelect } },
         orderBy: { createdAt: "asc" },
       },
     },
   });
+  return record ? { ...record, videos: record.videos.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "" })) } : null;
 }

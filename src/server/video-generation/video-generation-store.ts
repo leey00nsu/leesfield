@@ -21,7 +21,7 @@ function mapRecord(
   record: Awaited<ReturnType<typeof getVideoGenerationByRequestId>>,
 ): VideoGenerationRecord | null {
   if (!record) return null;
-  const videos = record.videos ?? [];
+  const videos = (record.videos ?? []).filter((output) => Boolean(output.url));
   const result = videos.length
     ? {
         videos: videos.map((video) => ({

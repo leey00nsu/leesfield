@@ -2,8 +2,9 @@ import { orderedFileSources, parseFileInputPort } from "@/shared/model-catalog/f
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
 import type { AssistantResults } from "@/shared/generation-graph/assistant-output";
-import { mediaAssetIdsForPort, mediaOutputPorts, type MediaOutputBinding } from "@/shared/generation-graph/media-output";
+import { mediaAssetIdsForPort, type MediaOutputBinding } from "@/shared/generation-graph/media-output";
 
+import { findPortDefinition } from "@/shared/generation-graph/node-registry";
 import type { NodePromptInputState } from "./node-authoring-context";
 
 function record(value: unknown) {
@@ -17,7 +18,7 @@ export function resolveNodePromptInput(
   nodeId: string,
   assistantResults: AssistantResults = {},
 ): NodePromptInputState {
-  const edge = graph.edges.find((candidate) => candidate.target === nodeId &&
+  const edge = graph.edges.find((candidate) => candidate.target === nodeId && !candidate.data?.hasPause &&
     ["text", "prompt"].includes(String(candidate.data?.targetPortId ?? candidate.targetHandle)));
   if (!edge) return { connected: false, text: null };
   try {
@@ -62,7 +63,7 @@ function resolveInputAssetIds(
   if (visited.has(visitKey)) return [];
   visited.add(visitKey);
   const edges = graph.edges.filter((candidate) =>
-    candidate.target === nodeId &&
+    candidate.target === nodeId && !candidate.data?.hasPause &&
     !(targetPortId === "reference" &&
       graph.nodes.find((node) => node.id === nodeId)?.data.canonicalKind === "input.image" &&
       graph.nodes.find((node) => node.id === candidate.source)?.data.canonicalKind === "edit.image.splitGrid") &&
@@ -76,7 +77,7 @@ function resolveInputAssetIds(
     const sourcePassThroughPort = passThroughPort(source.data.canonicalKind);
     if (sourcePassThroughPort) {
       const hasUpstream = graph.edges.some((candidate) =>
-        candidate.target === source.id &&
+        candidate.target === source.id && !candidate.data?.hasPause &&
         !(source.data.canonicalKind === "input.image" &&
           graph.nodes.find((node) => node.id === candidate.source)?.data.canonicalKind === "edit.image.splitGrid") &&
         (candidate.data?.targetPortId === sourcePassThroughPort || candidate.targetHandle === sourcePassThroughPort),
@@ -84,10 +85,14 @@ function resolveInputAssetIds(
       const upstream = resolveInputAssetIds(graph, source.id, sourcePassThroughPort, new Set(visited));
       if (hasUpstream) return upstream;
     }
-    if (!sourcePassThroughPort && mediaOutputPorts(String(source.data.canonicalKind)).length > 1) return mediaAssetIdsForPort(String(source.data.canonicalKind),
-      String(edge.data?.sourcePortId ?? edge.sourceHandle),
-      typeof source.data.selectedOutputAssetId === "string" ? source.data.selectedOutputAssetId : null,
-      Array.isArray(source.data.outputBindings) ? source.data.outputBindings as MediaOutputBinding[] : []);
+    if (!sourcePassThroughPort) {
+      const ids = mediaAssetIdsForPort(String(source.data.canonicalKind),
+        String(edge.data?.sourcePortId ?? edge.sourceHandle),
+        typeof source.data.selectedOutputAssetId === "string" ? source.data.selectedOutputAssetId : null,
+        Array.isArray(source.data.outputBindings) ? source.data.outputBindings as MediaOutputBinding[] : []);
+      const target = graph.nodes.find(node=>node.id===nodeId);
+      return findPortDefinition(String(target?.data.canonicalKind),targetPortId,"input")?.valueShape === "ordered-list" ? ids : ids.slice(0,1);
+    }
     if (typeof source.data.selectedOutputAssetId === "string") return [source.data.selectedOutputAssetId];
     const assetId = record(source.data.config).assetId;
     return typeof assetId === "string" ? [assetId] : [];
@@ -96,7 +101,7 @@ function resolveInputAssetIds(
 
 /** Positional file slots keep empty indices distinct from ordered ordinary references. */
 export function resolveNodeInputAssetSlots(graph:NodeBananaRuntimeGraph,nodeId:string,port:string): (string|null)[] {
-  const entries=graph.edges.filter(edge=>edge.target===nodeId&&(edge.data?.targetPortId===port||edge.targetHandle===port))
+  const entries=graph.edges.filter(edge=>!edge.data?.hasPause&&edge.target===nodeId&&(edge.data?.targetPortId===port||edge.targetHandle===port))
     .flatMap(edge=>resolveNodeInputAssetIds({...graph,edges:[edge,...graph.edges.filter(item=>item.target!==nodeId)]},nodeId,port)
       .map((url,index)=>({url,sortOrder:Number(edge.data?.sortOrder??0)+index})));
   const config=graph.nodes.find(node=>node.id===nodeId)?.data.config;

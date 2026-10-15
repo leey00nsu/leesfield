@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  listMediaAssetsSchema,
   createMediaOperationSchema,
   createMediaUploadSchema,
   isAllowedMediaMimeType,
 } from "./media-asset-contract";
 
 describe("media asset contracts", () => {
+  it("validates metadata filters and exclusive UTC date boundaries", () => {
+    const input = { classification: "none", managementStatus: "archived", model: "past-model", dateFrom: "2026-10-12T15:00:00.000Z", dateTo: "2026-10-13T15:00:00.000Z" };
+    expect(listMediaAssetsSchema.parse(input)).toMatchObject(input);
+    for (const invalid of [{ classification: "unknown" }, { managementStatus: "deleted" }, { model: "" }, { dateFrom: "today" }, { ...input, dateTo: input.dateFrom }, { ...input, dateTo: "2026-10-11T00:00:00Z" }]) {
+      expect(listMediaAssetsSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
   it("accepts an operation-bound ordered output and normalizes MIME casing", () => {
     expect(
       createMediaUploadSchema.parse({

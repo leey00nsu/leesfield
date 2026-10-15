@@ -12,6 +12,7 @@ import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import { AppTextarea } from "@/shared/ui/app-form-control";
 import { NodeTextEditor } from "@/shared/ui/node-text-editor";
 import { appToast } from "@/shared/ui/app-toast";
+import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import { useCancelNodeExecution, useNodeExecutions, useStartNodeExecution, useSelectAssistantItem } from "../../hook/use-node-executions";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
@@ -40,6 +41,7 @@ function errorMessage(code: string | null) {
 }
 
 export function AssistantNodeControls({ id, data, selected = false, title = "AI 어시스턴트" }: { id: string; data: NodeBananaNodeData; selected?: boolean; title?: string }) {
+  const copyToClipboard = useClipboardCopy();
   const tc = useCanvasTranslation();
   const t = useTranslations("assistantList");
   const authoring = useNodeAuthoring();
@@ -102,8 +104,7 @@ export function AssistantNodeControls({ id, data, selected = false, title = "AI 
   const copyText = tab === "original" ? draft : result?.outputText;
   const copy = async (text = copyText) => {
     if (!text) return;
-    try { await navigator.clipboard.writeText(text); appToast.copied("복사했습니다."); }
-    catch { appToast.error("복사하지 못했습니다."); }
+    await copyToClipboard(text);
   };
   const chooseItem = async (itemId: string) => {
     if (!result || !writable || selectItem.isPending || result.selectedItemId === itemId) return;

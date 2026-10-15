@@ -1,4 +1,5 @@
 "use client";
+import { appToast } from "@/shared/ui/app-toast";
 import { logger } from "@/shared/logging/logger.mjs";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
@@ -79,7 +80,7 @@ import { getMediaAsset, uploadMediaAsset } from "@/features/media-assets/api/med
 import { useSpacePreferences } from "../hook/use-space-preferences";
 import { useSpaceComments } from "../hook/use-space-comments";
 import { validSpaceDefaultParameters } from "@/shared/generation-graph/space-preferences";
-import { nodeBananaCatalogModels } from "../runtime/node-banana/node-banana-model-catalog";
+import { nodeBananaCatalogModels, nodeBananaModelCapabilities } from "../runtime/node-banana/node-banana-model-catalog";
 import { usePromptPresetCatalog } from "@/entities/prompt-preset/model/use-prompt-preset-catalog";
 import { applyNodePromptPreset, presetCanonicalKind, projectNodePromptPresetInputs } from "../model/node-prompt-presets";
 import { SpaceGenerationControlPanel } from "./nodes/space-generation-control-panel";
@@ -265,6 +266,7 @@ export function NodeBananaStudio({
   const comments = useSpaceComments();
   const t = useTranslations("nodeStudio");
   const tPresets = useTranslations("promptPresets");
+  const tCommonActions = useTranslations("common.actions");
   const initialCanonical = useMemo(() => graphSnapshotToCanonicalDocument(graph), [graph]);
   const initialProjection = useMemo(
     () => nodeBananaRuntimeAdapter.project(initialCanonical),
@@ -1299,21 +1301,21 @@ export function NodeBananaStudio({
         label: model.label,
         provider: model.provider,
         mediaType: "image" as const,
-        capabilities: resolveRuntimeImageMaxInputImages(model) > 0 ? ["text-to-image", "image-to-image"] : ["text-to-image"],
+        capabilities: nodeBananaModelCapabilities(model),
       })),
       ...(catalog.videoModels ?? []).map((model) => ({
         key: model.key,
         label: model.label,
         provider: model.provider,
         mediaType: "video" as const,
-        capabilities: resolveRuntimeVideoSupportsInitImage(model) ? ["text-to-video", "image-to-video"] : ["text-to-video"],
+        capabilities: nodeBananaModelCapabilities(model),
       })),
       ...(catalog.audioModels ?? []).map((model) => ({
         key: model.key,
         label: model.label,
         provider: model.provider,
         mediaType: "audio" as const,
-        capabilities: ["text-to-audio"],
+        capabilities: nodeBananaModelCapabilities(model),
       })),
     ],
     [catalog.audioModels, catalog.imageModels, catalog.videoModels],
@@ -1762,6 +1764,7 @@ export function NodeBananaStudio({
             className={styles.runtime}
             createId={createId}
             onGraphChange={publishRuntimeGraph}
+            onCopied={() => appToast.copied(tCommonActions("copied"))}
             isValidConnection={validateConnection}
             filterPaletteItems={filterPaletteItems}
             onCreateNode={createNode}

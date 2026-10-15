@@ -36,7 +36,7 @@ describe("hfSpaceImageAdapter", () => {
     vi.clearAllMocks();
   });
 
-  it("path 기반 HF Space 결과 이미지를 gradio_api/file 경로로 다운로드한다", async () => {
+  it("점이 포함된 Space ID도 SDK가 확인한 호스트에서 path 결과를 다운로드한다", async () => {
     mockGetModelCatalog.mockResolvedValue([
       {
         id: "image-model-1",
@@ -46,7 +46,7 @@ describe("hfSpaceImageAdapter", () => {
         vendor: "HUGGINGFACE",
         provider: "hf_space",
         providerConfig: {
-          space_id: "demo/image-space",
+          space_id: "demo/image-space-2.1",
           api_name: "/generate_image",
           timeout_ms: 120000,
         },
@@ -62,6 +62,7 @@ describe("hfSpaceImageAdapter", () => {
     ]);
 
     mockConnect.mockResolvedValue({
+      config: { root: "https://demo-image-space-2-1.hf.space" },
       predict: vi.fn().mockResolvedValue({
         data: [{ path: "/tmp/generated.png" }],
       }),
@@ -97,7 +98,7 @@ describe("hfSpaceImageAdapter", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://demo-image-space.hf.space/gradio_api/file=/tmp/generated.png",
+      "https://demo-image-space-2-1.hf.space/gradio_api/file=/tmp/generated.png",
       expect.objectContaining({}),
     );
     expect(result).toEqual({

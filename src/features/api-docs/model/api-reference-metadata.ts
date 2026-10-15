@@ -89,6 +89,7 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
           if ((history || monitoring) && ["query", "q", "model", "prompt"].includes(parameter.name))
             Object.assign(schema, { maxLength: 200, "x-normalization": "trim-truncate" });
           if (parameter.name === "scope") schema.default = "owner";
+          if (parameter.name === "hidden" && history) parameter.schema = { type: "boolean", default: false, "x-normalization": "boolean-aliases" };
           if (parameter.name === "includeTotal") parameter.schema = { type: "boolean", default: true, "x-normalization": "boolean-aliases" };
           if (parameter.name === "includeInactive") schema.default = path.includes("/admin/") ? "true" : "false";
           if (parameter.name === "type" && (history || monitoring) && schema.enum?.includes("all")) schema.default = "all";

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Plus, Circle, MoreVertical, Image as ImageIcon, Video, AudioLines } from "lucide-react";
+import { LayoutTemplate, Plus, Circle, MoreVertical, Image as ImageIcon, Video, AudioLines } from "lucide-react";
 import { usePromptPresetCatalog, promptPresetQueryKey } from "@/entities/prompt-preset/model/use-prompt-preset-catalog";
 import { getPromptPreset, mutatePromptPreset, PromptPresetApiError } from "@/entities/prompt-preset/api/prompt-preset-api";
 import { createPromptPresetSchema, promptPresetSchema, type PromptPreset, type PromptPresetModality } from "@/shared/prompt-presets/prompt-preset-contract";
@@ -16,9 +16,8 @@ import { AppTextarea, AppLabel, AppSelect, AppCheckbox } from "@/shared/ui/app-f
 import { StatePanel } from "@/shared/ui/brand/state-panel/state-panel";
 import { appToast } from "@/shared/ui/app-toast";
 import { AppDialog, AppDialogContent, AppDialogHeading, AppDialogBody, AppDialogTitle, AppDialogDescription, AppDialogFooter, AppDialogCancelButton, AppDialogActionButton, AppDialogDangerButton } from "@/shared/ui/app-dialog";
-import { AppFilterToolbar, AppFilterActions, AppFilterGroup, AppFilterToggle, AppSearchField, AppSortSelect, appFilterSearchLayoutClassName } from "@/shared/ui/app-filter-toolbar";
-import { AppFilterPanel } from "@/shared/ui/app-filter-panel";
-import { AppResourceList, appResourceRowLayoutClassName, appResourceRowIconClassName } from "@/shared/ui/app-resource-list";
+import { AppFilterSection, AppFilterToolbar, AppFilterGroup, AppFilterToggle, AppSearchField, AppSortSelect, appFilterSearchLayoutClassName } from "@/shared/ui/app-filter-toolbar";
+import { AppResourceEmpty, AppResourceList, appResourceRowLayoutClassName, appResourceRowIconClassName } from "@/shared/ui/app-resource-list";
 import { ResourceRowButton, resourceRowInteractiveClassName } from "@/shared/ui/brand/resource-row-link/resource-row-link";
 import { promptPresetDisplayName } from "@/shared/prompt-presets/prompt-preset-display-name";
 import { promptPresetInputMode } from "@/shared/prompt-presets/prompt-preset-input-mode";
@@ -35,6 +34,7 @@ const editorChanged = (e: Editor) => e.source ? JSON.stringify(e) !== JSON.strin
 type Confirm = { kind: "discard"; action: () => void } | { kind: "restore" | "delete"; editor: Editor };
 
 export function PromptPresetsScreen() {
+  const tListControls = useTranslations("common.listControls");
   const t = useTranslations("promptPresets");
   const queryClient = useQueryClient();
   const catalog = usePromptPresetCatalog(undefined, true);
@@ -103,22 +103,82 @@ export function PromptPresetsScreen() {
   };
   return <AppPageShell aria-label={t("title")}>
     <h1 className="sr-only">{t("title")}</h1>
-    <AppFilterToolbar>
-      <AppFilterPanel title={t("filters.title")} description={t("filters.description")} applyLabel={t("filters.apply")}>
-        <AppFilterGroup>{(["all", "image", "video", "audio"] as const).map(value => {
-          const Icon = value === "image" ? ImageIcon : value === "video" ? Video : value === "audio" ? AudioLines : null;
-          return <AppFilterToggle key={value} active={modality === value} aria-pressed={modality === value} onClick={() => setModality(value)} icon={Icon ? <Icon className="size-4" /> : undefined}>{t(value)}</AppFilterToggle>;
-        })}</AppFilterGroup>
-      </AppFilterPanel>
-      <AppFilterActions>
-        <AppSearchField aria-label={t("search")} placeholder={t("search")} value={query} onChange={e => setQuery(e.target.value)} containerClassName={appFilterSearchLayoutClassName} />
-        <AppSortSelect value={activity} onValueChange={setActivity} ariaLabel={t("active")} className="w-full sm:w-[12rem]" options={["all", "active", "inactive"].map(value => ({ value, label: t(value) }))} />
-        <AppButton type="button" variant="brand" size="md" className="shrink-0 self-end" disabled={busy} onClick={() => open(emptyEditor())}><Plus className="size-4" />{t("new")}</AppButton>
-      </AppFilterActions>
+    <AppFilterToolbar
+      filters={
+        <>
+          <AppFilterSection label={tListControls("type")}>
+            <AppFilterGroup>
+              {(["all", "image", "video", "audio"] as const).map((value) => {
+                const Icon =
+                  value === "image"
+                    ? ImageIcon
+                    : value === "video"
+                      ? Video
+                      : value === "audio"
+                        ? AudioLines
+                        : null;
+                return (
+                  <AppFilterToggle
+                    key={value}
+                    active={modality === value}
+                    aria-pressed={modality === value}
+                    onClick={() => setModality(value)}
+                    icon={Icon ? <Icon className="size-4" /> : undefined}
+                  >
+                    {t(value)}
+                  </AppFilterToggle>
+                );
+              })}
+            </AppFilterGroup>
+          </AppFilterSection>
+          <AppFilterSection label={tListControls("status")}>
+            <AppSortSelect
+              value={activity}
+              onValueChange={setActivity}
+              ariaLabel={t("active")}
+              className="w-full sm:w-[12rem]"
+              options={["all", "active", "inactive"].map((value) => ({
+                value,
+                label: t(value),
+              }))}
+            />
+          </AppFilterSection>
+        </>
+      }
+      search={
+        <AppSearchField
+          autoFocus
+          aria-label={t("search")}
+          placeholder={t("search")}
+          value={query}
+          onClear={() => setQuery("")}
+            onChange={(e) => setQuery(e.target.value)}
+          containerClassName={appFilterSearchLayoutClassName}
+        />
+      }
+      searchActive={Boolean(query.trim())}
+      filterChips={[...(modality !== "all" ? [{label: t(modality), onRemove: () => setModality("all")}] : []), ...(activity !== "all" ? [{label: t(activity), onRemove: () => setActivity("all")}] : [])]}
+      filterCount={Number(modality !== "all") + Number(activity !== "all")}
+      onResetFilters={() => {
+        setModality("all");
+        setActivity("all");
+      }}
+    >
+      <AppButton
+        type="button"
+        variant="brand"
+        size="md"
+        className="shrink-0 self-end"
+        disabled={busy}
+        onClick={() => open(emptyEditor())}
+      >
+        <Plus className="size-4" />
+        {t("new")}
+      </AppButton>
     </AppFilterToolbar>
     {catalog.isLoading ? <ResourceListLoading label={t("loading")} />
       : catalog.isError ? <AppCard variant="editorial-flat" radius="lg" className="p-8" role="alert"><StatePanel title={t("loadFailed")} tone="destructive" action={<AppButton variant="surface" onClick={() => { void catalog.refetch(); }}>{t("retry")}</AppButton>} /></AppCard>
-      : !filtered.length ? <AppCard variant="editorial-flat" radius="lg" className="flex min-h-[320px] items-center justify-center px-6 text-center"><StatePanel title={t("empty")} /></AppCard>
+      : !filtered.length ? <AppResourceEmpty icon={<LayoutTemplate />} title={t("empty")} description={query.trim() ? tListControls("noResults") : t("emptyDescription")} />
       : <AppResourceList aria-label={t("title")}>{filtered.map(p => {
         const Icon = p.modality === "image" ? ImageIcon : p.modality === "video" ? Video : AudioLines;
         return <div key={p.key} role="listitem"><article className={cn(appResourceRowLayoutClassName, !busy && resourceRowInteractiveClassName)}>

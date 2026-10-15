@@ -1,3 +1,4 @@
+import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
 import { requestSettings } from "./request-settings";
 import { parseImageVariants, type ImageVariants } from "@/shared/media-assets/image-variants";
 import { prisma } from "@/server/db/prisma";
@@ -125,7 +126,8 @@ async function getMonitoringRequestDetailUnobserved(
         images: {
           select: {
             url: true,
-            asset: {select: {imageVariants: true}},
+            assetId: true,
+            asset: { select: generationOutputAssetSelect },
             width: true,
             height: true,
           },
@@ -159,8 +161,8 @@ async function getMonitoringRequestDetailUnobserved(
       inputAudios: [],
       inputVideos: inputAssetUrls(inputAssets, "video"),
       referenceText: null,
-      assets: record.images.map((image) => ({
-        url: image.url,
+      assets: record.images.filter((output) => Boolean(generationOutputUrl(output))).map((image) => ({
+        url: generationOutputUrl(image)!,
         imageVariants: parseImageVariants(image.asset?.imageVariants),
         width: image.width ?? null,
         height: image.height ?? null,
@@ -184,6 +186,7 @@ async function getMonitoringRequestDetailUnobserved(
         errorMessage: true,
         audios: {
           select: {
+            assetId: true, asset: { select: generationOutputAssetSelect },
             url: true,
             durationSec: true,
           },
@@ -220,8 +223,8 @@ async function getMonitoringRequestDetailUnobserved(
       ],
       referenceText: extractReferenceText(record.requestParams),
       inputVideos: inputAssetUrls(inputAssets, "video"),
-      assets: record.audios.map((audio) => ({
-        url: audio.url,
+      assets: record.audios.filter((output) => Boolean(generationOutputUrl(output))).map((audio) => ({
+        url: generationOutputUrl(audio)!,
         width: null,
         height: null,
         durationSec: audio.durationSec ?? null,
@@ -243,6 +246,7 @@ async function getMonitoringRequestDetailUnobserved(
       errorMessage: true,
       videos: {
         select: {
+          assetId: true, asset: { select: generationOutputAssetSelect },
           url: true,
           width: true,
           height: true,
@@ -278,8 +282,8 @@ async function getMonitoringRequestDetailUnobserved(
     inputAudios: [],
     inputVideos: inputAssetUrls(inputAssets, "video"),
     referenceText: null,
-    assets: record.videos.map((video) => ({
-      url: video.url,
+    assets: record.videos.filter((output) => Boolean(generationOutputUrl(output))).map((video) => ({
+      url: generationOutputUrl(video)!,
       width: video.width ?? null,
       height: video.height ?? null,
       durationSec: video.durationSec ?? null,

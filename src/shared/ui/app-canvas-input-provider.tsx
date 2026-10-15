@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "./brand/tabs/tabs";
 import { AppButton } from "./app-button";
 import type {
+  CanvasFilterToolbarProps,
   CanvasButtonProps,
   CanvasDialogProps,
   CanvasTabBarProps,
@@ -35,6 +36,9 @@ import {
 } from "./app-select";
 import { AppTextarea } from "./app-form-control";
 import { NodeTextEditor, NodeTextEditorScope, useNodeTextEditorScope } from "./node-text-editor";
+import { AppFilterToolbar, AppSearchField } from "./app-filter-toolbar";
+import { AppCanvasModelList } from "./app-canvas-model-list";
+import { AppModalityTag } from "./app-modality-tag";
 import { AppInput } from "./app-input";
 import { AppRangeSlider } from "./app-range-slider";
 import { Switch } from "./brand/switch/switch";
@@ -237,11 +241,6 @@ function Dialog({
       <AppDialogContent
         data-node-banana-component={componentName}
         ref={contentRef}
-        initialFocus={componentName === "ModelSearchDialog"
-          ? () => document.querySelector<HTMLElement>(
-            '[data-node-banana-component="ModelSearchDialog"] input[type="text"]',
-          )
-          : undefined}
         surface="canvas"
         padding="none"
         showCloseButton={false}
@@ -281,7 +280,13 @@ function CanvasAction({ primary, className, ...props }: CanvasButtonProps) {
     />
   );
 }
+function FilterToolbar({ search, onSearchChange, searchLabel, filters, filterCount, onResetFilters, children }: CanvasFilterToolbarProps) {
+  return <AppFilterToolbar search={<AppSearchField autoFocus value={search} onClear={() => onSearchChange("")} onChange={event => onSearchChange(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} />} filters={filters} filterCount={filterCount} searchActive={!!search.trim()} onResetFilters={onResetFilters}>{children}</AppFilterToolbar>;
+}
 const components = {
+  ModelList: AppCanvasModelList,
+  FilterToolbar,
+  Badge: AppModalityTag,
   Button: CanvasAction,
   Select,
   Input,

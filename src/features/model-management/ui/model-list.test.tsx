@@ -51,7 +51,7 @@ describe("ModelList", () => {
     renderWithIntl(<ModelList items={[modelItemFixture]} />);
 
     expect(screen.getByText("Test Model")).toBeInTheDocument();
-    expect(screen.getByText("HUGGINGFACE")).toBeInTheDocument();
+    expect(screen.getByText("Hugging Face")).toBeInTheDocument();
     expect(screen.getByText("이미지")).toBeInTheDocument();
     expect(screen.getByText("T2I")).toBeInTheDocument();
     expect(screen.getByText("활성")).toBeInTheDocument();

@@ -146,7 +146,6 @@ export function VideoInputNode({ id, data, selected }: NodeProps<VideoInputNodeT
 
       {nodeData.video ? (
         <div className="relative group w-full h-full overflow-clip rounded-lg">
-          {!nodeData.hasConnectedVideo && <button ref={(element) => { triggerRef.current = element; }} type="button" className="absolute left-2 top-2 z-20 nodrag nopan rounded-md border border-neutral-600 bg-neutral-900/90 px-2 py-1.5 text-xs text-neutral-200" disabled={!writable} aria-label={tc("Choose video")} onClick={() => setChoosingVideo(true)}>{tc("Replace")}</button>}
           <video
             src={playbackUrl ?? undefined}
             controls

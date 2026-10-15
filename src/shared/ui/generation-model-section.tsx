@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { AppButton } from "@/shared/ui/app-button";
 import { AppPickerItem } from "@/shared/ui/app-picker-item";
+import { modelProviderLabel } from "@/shared/model-catalog/provider-display";
 import { AppModalityTag } from "@/shared/ui/app-modality-tag";
 import {
   AppPopover,
@@ -19,6 +20,7 @@ interface GenerationModelOption<T extends string> {
   id: T;
   name: string;
   vendor: string;
+  provider?: string;
   modalities?: string[];
   audioReference?: boolean;
 }
@@ -70,7 +72,7 @@ export function GenerationModelSection<T extends string>({
     if (!normalizedQuery) return items;
 
     return items.filter((model) => {
-      return [model.id, model.name, model.vendor, ...(model.modalities ?? [])]
+      return [model.id, model.name, model.vendor, model.provider ?? "", modelProviderLabel(model.provider ?? model.vendor), ...(model.modalities ?? [])]
         .join(" ")
         .toLowerCase()
         .includes(normalizedQuery);
@@ -111,8 +113,9 @@ export function GenerationModelSection<T extends string>({
             {renderDefaultBadge(model)}
           </span>
           {model.audioReference && <span className="mt-2 block text-xs text-muted-foreground">{ko ? "오디오 참조 지원" : "Audio reference supported"}</span>}
-          {!!model.modalities?.length && <span className="mt-2 flex flex-wrap gap-1.5">
-            {model.modalities.map(modality => <AppModalityTag key={modality} data-picker-secondary="">{modality}</AppModalityTag>)}
+          {<span className="mt-2 flex flex-wrap gap-1.5">
+            <AppModalityTag data-picker-secondary="">{modelProviderLabel(model.provider ?? model.vendor)}</AppModalityTag>
+            {(model.modalities ?? []).map(modality => <AppModalityTag key={modality} data-picker-secondary="">{modality}</AppModalityTag>)}
           </span>}
         </span>
         {isActive ? (

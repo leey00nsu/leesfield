@@ -1,3 +1,6 @@
+import { mappedReferenceImageModelFixture } from "@/test-utils/fixtures/runtime-model-catalog";
+import { generationPayload } from "@/shared/model-catalog/generation-payload";
+import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 import { createNodeExecutionService } from "./node-execution-service";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 const cinemaCatalogMock = vi.hoisted(() => vi.fn().mockResolvedValue([]));
@@ -795,3 +798,31 @@ describe("nodeExecutionService", () => {
     );
   });
 });
+
+ it.each(["primary","image-field-refs"])("snapshots the chained %s image for provider and worker hydration over an empty gallery",async port=>{
+   const state=setup(), model=mappedReferenceImageModelFixture;
+   cinemaCatalogMock.mockResolvedValue([model]);
+   const preset={key:"multi-camera-nine-grid",revision:1,builtinRevision:1,requiredInputs:{referenceImageCount:1},recommendedParameters:{imageCount:1}};
+   const relay={id:"relay",kind:"input.image",configVersion:1,config:{assetId:null},selectedOutputAssetId:null};
+   const target={...storedNode(),config:{prompt:"nine views",modelKey:model.key,parameters:{"hf:refs":[]},promptPreset:preset},incomingEdges:[
+     {id:"use",sourceNodeId:"relay",sourceNode:relay,sourcePortId:"image",targetPortId:port,sortOrder:0,createdAt:new Date()},
+   ]};
+   const upstream={...relay,graph:target.graph,incomingEdges:[{id:"pass",hasPause:false,sourceNodeId:"root",sourceNode:{id:"root",kind:"input.image",configVersion:1,config:{assetId:"root-asset"},selectedOutputAssetId:null},sourcePortId:"image",targetPortId:"reference",sortOrder:0,createdAt:new Date()}]};
+   vi.mocked(state.repository.getOwnedNode).mockImplementation(async(_o,_g,id)=>id==="relay"?upstream:target);
+   vi.mocked(state.repository.getAssets).mockResolvedValue([{id:"root-asset",ownerEmail:"owner@example.com",type:"image",status:"completed",mimeType:"image/png"}]);
+   state.resolveAsset.mockResolvedValue({url:"https://signed.example/root.png",type:"image",mimeType:"image/png"});
+   state.validateImage.mockImplementation(async payload=>{
+     const mapped=generationPayload(model,payload) as Record<string,unknown>;
+     expect(gradioInputValues(getGradioContract(model)!,mapped).refs).toEqual(["https://signed.example/root.png"]);
+     return {success:true,data:mapped};
+   });
+   await state.service.execute("owner@example.com","graph-1","node-1",{expectedGraphVersion:4});
+   expect(state.submitImage.mock.calls[0][0]).toMatchObject({payload:{dynamicParams:{refs:["https://signed.example/root.png"]}},
+     requestSnapshot:{inputAssets:[{assetId:"root-asset",portId:"image-field-refs",sortOrder:0}]},
+     inputAssetRefs:[{assetId:"root-asset",field:"image-field-refs",sortOrder:0,generationType:"image"}]});
+   expect(state.submitImage.mock.calls[0][0].requestSnapshot.nodeRepeat.payload.dynamicParams).not.toHaveProperty("refs");
+   expect(upstream.incomingEdges[0].targetPortId).toBe("reference");expect(target.incomingEdges[0].targetPortId).toBe(port);
+   upstream.incomingEdges[0].hasPause=true;
+   await expect(state.service.execute("owner@example.com","graph-1","node-1",{expectedGraphVersion:4})).rejects.toThrow("NODE_INPUT_SELECTION_REQUIRED");
+   expect(state.submitImage).toHaveBeenCalledTimes(1);
+ });

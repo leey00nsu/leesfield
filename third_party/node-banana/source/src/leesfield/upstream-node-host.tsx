@@ -101,9 +101,11 @@ export type ModelCapability =
   | "image-to-image"
   | "text-to-video"
   | "image-to-video"
+  | "video-to-video"
   | "text-to-3d"
   | "image-to-3d"
   | "text-to-audio"
+  | "audio-to-audio"
   | "audio-to-video";
 export type ModelInputDef = {
   name: string;

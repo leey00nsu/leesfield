@@ -35,8 +35,8 @@ type WorkerGlobal = typeof globalThis & {
 const inFlightCleanups = new Map<string, Promise<void>>();
 let activeCleanupPass: Promise<number> | null = null;
 
-function hasUsage(usage: { graphIds: string[]; operationIds: string[]; generationRequestIds: string[] }) {
-  return usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0;
+function hasUsage(usage: { graphIds: string[]; operationIds: string[]; generationRequestIds: string[]; projectCoverIds?: string[] }) {
+  return usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0 || Boolean(usage.projectCoverIds?.length);
 }
 
 function taskIdentity(task: ClaimedStorageCleanup, asset?: ClaimedStorageCleanup["asset"]) {
@@ -117,7 +117,7 @@ async function finalizeRemoteDeletion(
   asset: Awaited<ReturnType<typeof findCurrentAsset>>,
 ) {
   await prisma.$transaction(async (tx) => {
-    if (task.reason === "history_delete") {
+    if (task.reason === "history_delete" || task.reason === "asset_delete") {
       if (asset) {
         await tx.mediaAsset.updateMany({
           where: { id: asset.id },
@@ -126,6 +126,7 @@ async function finalizeRemoteDeletion(
             storageUrl: null,
             legacyUrl: null,
             imageVariants: Prisma.DbNull,
+            version: { increment: 1 },
           },
         });
       }
@@ -160,12 +161,6 @@ export async function processStorageCleanupTask(
   storage: MediaStorageAdapter = leemageMediaStorageAdapter,
 ) {
   const asset = await findCurrentAsset(task);
-
-  if (task.reason === "history_delete") {
-    await deleteRemote(task, storage);
-    await finalizeRemoteDeletion(task, asset);
-    return;
-  }
 
   if (asset) {
     const usage = await mediaAssetRepository.getAssetUsage(asset.ownerEmail, asset.id);

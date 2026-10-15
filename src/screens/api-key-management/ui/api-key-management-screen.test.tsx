@@ -1,5 +1,5 @@
 import { ApiKeyEditModal } from "@/features/api-key-management/ui/api-key-edit-modal";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +8,8 @@ import { ApiKeyManagementScreen } from "@/screens/api-key-management/ui/api-key-
 import { renderWithIntl } from "@/test-utils/intl";
 import { standardApiKeyPermissions } from "@/shared/api/platform-permissions";
 
+const toast21 = vi.hoisted(() => ({ copied: vi.fn(), error: vi.fn() }));
+vi.mock("@/shared/ui/app-toast", () => ({ appToast: toast21 }));
 const copyTextMock = vi.fn();
 vi.mock("@/shared/lib/clipboard", () => ({ copyTextToClipboard: (value: string) => copyTextMock(value) }));
 
@@ -39,6 +41,7 @@ describe("ApiKeyManagementScreen", () => {
     issueApiKeyMock.mockReset();
     revokeApiKeyMock.mockReset();
     copyTextMock.mockReset();
+    toast21.copied.mockReset(); toast21.error.mockReset();
   });
   it("발급 모달 취소는 요청하지 않고 성공한 키는 복사 후 닫을 때 지운다", async () => {
     fetchApiKeysMock.mockResolvedValue({ items: [] });
@@ -56,10 +59,13 @@ describe("ApiKeyManagementScreen", () => {
     expect(await screen.findByDisplayValue("lf_live_once")).toBeInTheDocument();
     expect(JSON.stringify(queryClient.getMutationCache().getAll().map(mutation => mutation.state.data))).not.toContain("lf_live_once");
     await user.click(screen.getByRole("button", { name: "키 복사" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("복사하지 못했습니다.");
+    await waitFor(() => expect(toast21.error).toHaveBeenCalledWith("복사하지 못했습니다. 키를 선택해 직접 복사해주세요."));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "키 복사" }));
     expect(copyTextMock).toHaveBeenLastCalledWith("lf_live_once");
-    expect(await screen.findByRole("status")).toHaveTextContent("복사됨");
+    await waitFor(() => expect(toast21.copied).toHaveBeenCalledWith("복사됨"));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "키 복사" })).toBeEnabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "완료" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -70,6 +76,23 @@ describe("ApiKeyManagementScreen", () => {
     expect(screen.queryByDisplayValue("lf_live_once")).not.toBeInTheDocument();
   });
 
+  it("ignores a copy completion after the one-time key modal was closed", async () => {
+    fetchApiKeysMock.mockResolvedValue({ items: [] });
+    issueApiKeyMock.mockResolvedValue({ apiKey: "lf_live_delayed", record: { id: "delayed", label: "Delayed", maskedKey: "lf_live_...delayed", status: "active", createdAt: "2026-01-10T00:00:00Z", permissions: [...standardApiKeyPermissions] } });
+    let finish!: (value: boolean) => void;
+    copyTextMock.mockImplementation(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    const user = userEvent.setup();
+    renderWithQueryClient(<ApiKeyManagementScreen />);
+    await user.click(screen.getByRole("button", {name: "새 키 발급"}));
+    await user.click(screen.getByRole("button", {name: "생성"}));
+    await screen.findByDisplayValue("lf_live_delayed");
+    await user.click(screen.getByRole("button", {name: "키 복사"}));
+    await user.click(screen.getByRole("button", {name: "닫기"}));
+    await act(async () => { finish(true); });
+    await waitFor(() => expect(screen.queryByDisplayValue("lf_live_delayed")).not.toBeInTheDocument());
+    expect(toast21.copied).not.toHaveBeenCalled();
+    expect(toast21.error).not.toHaveBeenCalled();
+  });
   it("생성 중에는 중복 제출과 모달 닫기를 막는다", async () => {
     fetchApiKeysMock.mockResolvedValue({ items: [] });
     let resolveIssue!: (value: unknown) => void;
@@ -112,6 +135,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
+    await user.click(screen.getByRole("button", { name: "검색" }));
     const input = await screen.findByPlaceholderText("검색…");
     await user.type(input, "Legacy");
 
@@ -177,6 +201,7 @@ describe("ApiKeyManagementScreen", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<ApiKeyManagementScreen />);
 
+    await user.click(screen.getByRole("button", { name: "필터" }));
     await user.click(await screen.findByRole("button", { name: "폐기됨" }));
 
     await waitFor(() => {

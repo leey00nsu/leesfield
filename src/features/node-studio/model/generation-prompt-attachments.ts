@@ -1,6 +1,6 @@
 import type { NodeBananaRuntimeGraph } from "@node-banana-runtime/runtime-entry";
 import { getGradioContract, fileFieldMaxItems, type GradioField } from "@/shared/model-catalog/gradio-contract";
-import { fileInputPort } from "@/shared/model-catalog/file-input-ports";
+import { fileFieldInputPorts } from "@/shared/model-catalog/file-input-ports";
 import { resolveRuntimeImageMaxInputImages, resolveRuntimeVideoSupportsInitImage,
   type RuntimeImageModel, type RuntimeVideoModel, type RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
 import { createCanonicalRuntimeNode } from "../runtime/node-banana/node-banana-runtime-adapter";
@@ -32,7 +32,7 @@ export function replaceRelatedGenerationAttachments(graph: NodeBananaRuntimeGrap
 export function generationAttachmentSlots(model: RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel): GenerationAttachmentSlot[] {
   const contract = getGradioContract(model);
   if (contract) return contract.inputs.filter(field => !field.hidden && ["file", "files", "gallery"].includes(field.kind) && field.media)
-    .map(field => ({ field, ports: [fileInputPort(field.media!, field.name)], limit: fileFieldMaxItems(field) }));
+    .map(field => ({ field, ports: fileFieldInputPorts(contract, field), limit: fileFieldMaxItems(field) }));
   const limit = model.type === "image" ? resolveRuntimeImageMaxInputImages(model)
     : model.type === "video" && resolveRuntimeVideoSupportsInitImage(model) ? 1 : 0;
   return limit ? [{ field: { name: "reference", label: "Reference", kind: limit > 1 ? "files" : "file",
@@ -57,7 +57,7 @@ export function replaceGenerationAttachments(graph: NodeBananaRuntimeGraph, node
     if(assetId===null){if(!positional)throw new Error("ATTACHMENT_MEDIA");return;}
     const found = unused.findIndex(edge => resolveNodeInputAssetIds({ ...graph, edges: [edge, ...graph.edges.filter(item => item.target !== nodeId)] },
       nodeId, String(edge.data?.targetPortId ?? edge.targetHandle))[0] === assetId);
-    const port = slot.ports.length === 2 ? (index === 0 ? slot.ports[0] : slot.ports[1]) : slot.ports[0];
+    const port = slot.ports.length === 2 && slot.ports[0] === "primary" ? (index === 0 ? slot.ports[0] : slot.ports[1]) : slot.ports[0];
     const handle = ["primary", "references", "initImage"].includes(port) ? "image" : port;
     if (found >= 0) {
       const [edge] = unused.splice(found, 1);

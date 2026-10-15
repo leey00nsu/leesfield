@@ -1,3 +1,4 @@
+import { getHistoryRecordItem } from "@/server/history/handlers/get-history";
 import { getOwnedHistoryRecord, deleteOwnedHistoryRecord } from "@/server/history/history-record";
 import { externalHistorySelectorSchema } from "@/shared/api/platform-contract";
 import { getSession } from "@/server/auth/session";
@@ -24,6 +25,10 @@ async function ownedRecord(request: Request, context: Context) {
 async function getObservedHandler(request: Request, context: Context) {
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
+  if (new URL(request.url).searchParams.get("view") === "item") {
+    const item = await getHistoryRecordItem(result.ownerEmail, (await context.params).historyId, {type:result.type,origin:result.origin});
+    return item ? jsonWithNoStore({ item }) : new Response(null,{status:404});
+  }
   if (new URL(request.url).searchParams.get("view") === "authoring") {
     if (!result.record || result.origin === "edit" || !("requestParams" in result.record)) return new Response(null, { status: 404 });
     const raw = result.record.requestParams;

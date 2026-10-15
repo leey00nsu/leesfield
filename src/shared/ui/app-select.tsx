@@ -30,5 +30,5 @@ export {
 } from "@/shared/ui/select";
 
 export function AppSelectContent(props: ComponentProps<typeof SelectContent>) {
- return <SelectContent positionerClassName="z-[11000]" {...props} />;
+ return <SelectContent position="popper" positionerClassName="z-[11000]" {...props} />;
 }

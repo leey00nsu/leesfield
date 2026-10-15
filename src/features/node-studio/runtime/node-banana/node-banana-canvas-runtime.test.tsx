@@ -124,7 +124,7 @@ function renderRuntime(
   writable = true,
   isNodeRunnable: (nodeId: string) => boolean = () => true,
   onRunNode?: (nodeId: string) => void | Promise<unknown>,
-  options: Partial<Pick<NodeBananaCanvasProps, "canvasSettings" | "onUndoRecorderChange" | "remapPastedNodes" | "onImportCanvasMedia" | "onInputError" | "renderAssetPicker" | "onCreateNode">> = {},
+  options: Partial<Pick<NodeBananaCanvasProps, "canvasSettings" | "onUndoRecorderChange" | "remapPastedNodes" | "onImportCanvasMedia" | "onInputError" | "onCopied" | "renderAssetPicker" | "onCreateNode">> = {},
 ) {
   let index = 0;
   render(
@@ -583,11 +583,13 @@ describe("NodeBananaCanvasRuntime", () => {
 
   it("remaps host clipboard metadata before assigning copied node IDs", () => {
     const node = { id: "split", type: "canonicalNode", position: { x: 10, y: 20 }, data: {} };
+    const copied = vi.fn();
     const remap = vi.fn((nodes) => nodes.map((entry: typeof node) => ({ ...entry, data: { remapped: true } })));
-    const changed = renderRuntime({ nodes: [node], edges: [] }, vi.fn(), true, undefined, undefined, { remapPastedNodes: remap });
+    const changed = renderRuntime({ nodes: [node], edges: [] }, vi.fn(), true, undefined, undefined, { remapPastedNodes: remap, onCopied: copied });
     fireEvent.click(screen.getByRole("button", { name: "select-first" }));
     fireEvent.keyDown(screen.getByRole("application"), { key: "c", ctrlKey: true });
     fireEvent.keyDown(screen.getByRole("application"), { key: "v", ctrlKey: true });
+    expect(copied).toHaveBeenCalledOnce();
     expect(remap).toHaveBeenCalledWith([expect.objectContaining({ id: "split" })], { split: "created_1" }, { x: 50, y: 50 }, {});
     expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({
       nodes: [node, expect.objectContaining({ id: "created_1", data: { remapped: true } })],

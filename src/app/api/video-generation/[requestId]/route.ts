@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/server/auth/session";
 import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { getVideoGeneration } from "@/server/video-generation/video-generation-store";
-import { prisma } from "@/server/db/prisma";
-import { deleteLeemageFilesByPrefix } from "@/server/shared/leemage-file-deleter";
+import { getOwnedHistoryRecord, deleteOwnedHistoryRecord } from "@/server/history/history-record";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,69 +62,20 @@ async function getObservedHandler(
   );
 }
 
-async function deleteObservedHandler(
-  request: Request,
-  { params }: RouteContext,
-) {
+async function deleteObservedHandler(request: Request, { params }: RouteContext) {
   const originError = assertSessionMutationOrigin(request);
   if (originError) return originError;
   const session = await getSession();
-
-  if (!session.isLoggedIn || !session.adminEmail) {
-    return NextResponse.json(
-      { message: "UNAUTHORIZED" },
-      { status: 401 },
-    );
-  }
-
+  if (!session.isLoggedIn || !session.adminEmail) return NextResponse.json({ message: "UNAUTHORIZED" }, { status: 401 });
   const { requestId } = await params;
-  const record = await prisma.videoGeneration.findFirst({
-    where: { requestId, ownerEmail: session.adminEmail },
-    select: {
-      id: true,
-      status: true,
-      requestId: true,
-    },
-  });
-
-  if (!record) {
-    return NextResponse.json(
-      { message: "NOT_FOUND" },
-      { status: 404 },
-    );
-  }
-
-  if (["pending", "processing", "uploading"].includes(record.status)) {
-    return NextResponse.json(
-      { message: "IN_PROGRESS" },
-      { status: 400 },
-    );
-  }
-
   try {
-    await deleteLeemageFilesByPrefix(`${record.requestId}-`);
-  } catch (error) {
-    logSafeError("video_generation.storage_delete_failed", error);
-    return NextResponse.json(
-      { message: "STORAGE_DELETE_FAILED" },
-      { status: 500 },
-    );
-  }
-
-  try {
-    await prisma.videoGeneration.delete({
-      where: { id: record.id },
-    });
-  } catch (error) {
-    logSafeError("video_generation.db_delete_failed", error);
-    return NextResponse.json(
-      { message: "DB_DELETE_FAILED" },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({ message: "DELETED" });
+    const owned = await getOwnedHistoryRecord(session.adminEmail, requestId, { type: "video", origin: "generation" });
+    if (owned.record && ["pending", "processing", "uploading"].includes(owned.record.status)) return NextResponse.json({ message: "IN_PROGRESS" }, { status: 400 });
+    const status = await deleteOwnedHistoryRecord(owned);
+    return status === 204 ? NextResponse.json({ message: "DELETED" }) : NextResponse.json({ message: status === 409 ? "HISTORY_IN_USE_OR_ACTIVE" : status === 404 ? "NOT_FOUND" : "STORAGE_DELETE_FAILED" }, { status: status === 502 ? 500 : status });
+  } catch (error) { logSafeError("history.delete_failed", error); return NextResponse.json({ message: "DB_DELETE_FAILED" }, { status: 500 }); }
 }
+
 import { logSafeError } from "@/server/observability/request-observability";
 
 import { withRequestObservability } from "@/server/observability/request-observability";

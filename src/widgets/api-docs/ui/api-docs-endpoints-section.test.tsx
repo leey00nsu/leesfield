@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiDocsEndpointsSection } from "@/widgets/api-docs/ui/api-docs-endpoints-section";
@@ -6,10 +6,12 @@ import type { ApiSection } from "@/features/api-docs/model/openapi-helpers";
 import { renderWithIntl } from "@/test-utils/intl";
 
 const appToastCopiedMock = vi.hoisted(() => vi.fn());
+const appToastErrorMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/shared/ui/app-toast", () => ({
   appToast: {
     copied: appToastCopiedMock,
+    error: appToastErrorMock,
   },
 }));
 
@@ -56,7 +58,7 @@ const apiSections: ApiSection[] = [
 
 describe("ApiDocsEndpointsSection", () => {
   afterEach(() => {
-    appToastCopiedMock.mockClear();
+    appToastCopiedMock.mockClear(); appToastErrorMock.mockClear();
     if (originalClipboard) {
       Object.defineProperty(window.navigator, "clipboard", {
         value: originalClipboard,
@@ -96,13 +98,31 @@ describe("ApiDocsEndpointsSection", () => {
         .closest("[data-slot=tabs]"),
     ).toHaveAttribute("data-horizontal");
 
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: {writeText} });
     const copyButton = screen.getByRole("button", { name: "코드 복사" });
     await user.click(copyButton);
 
-    expect(await screen.findByRole("button", { name: "복사됨" })).toBeTruthy();
+    await waitFor(() => expect(appToastCopiedMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: "복사됨" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "코드 복사" })).toBe(copyButton);
+    await user.click(copyButton);
+    await waitFor(() => expect(appToastCopiedMock).toHaveBeenCalledTimes(2));
     expect(appToastCopiedMock).toHaveBeenCalledWith("복사됨");
+    expect(writeText).toHaveBeenCalledTimes(2);
+    expect(writeText.mock.calls[0][0]).toBe(writeText.mock.calls[1][0]);
+    expect(writeText.mock.calls[0][0]).toContain("/api/external/generations");
   });
 
+  it("reports a rejected snippet copy through toast and leaves its label unchanged", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {configurable:true, value:{writeText:vi.fn().mockRejectedValue(new Error("denied"))}});
+    renderWithIntl(<ApiDocsEndpointsSection apiSections={apiSections} openApiDocument={null} />);
+    await user.click(screen.getByRole("button", {name:"코드 복사"}));
+    await waitFor(() => expect(appToastErrorMock).toHaveBeenCalledWith("복사하지 못했습니다."));
+    expect(screen.getByRole("button", {name:"코드 복사"})).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(appToastCopiedMock).not.toHaveBeenCalled();
+  });
   it("성공 예제를 기본으로 열고 오류 예제를 펼쳐 볼 수 있다", async () => {
     const user = userEvent.setup();
     renderWithIntl(

@@ -25,6 +25,9 @@ function intersect(observer = observers.at(-1)!, visible = true) {
 }
 
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
+  useAssetProjects: () => ({ data: [] }),
+  usePatchAssetMetadata: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useWriteAssetOrganization: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useMediaAssets: (...args: unknown[]) => {
     query.requested(...args);
     return query;
@@ -78,20 +81,24 @@ describe("NodeBananaInputHistoryControl", () => {
     const user = userEvent.setup();
     openHistory();
     expect(screen.getAllByRole("button", { name: /닫기/ })).toHaveLength(1);
-    expect(query.requested).toHaveBeenLastCalledWith("image", true, "uploads");
+    expect(query.requested).toHaveBeenLastCalledWith("image", true, undefined, { sort: "latest", query: "" });
     await user.click(screen.getByRole("tab", { name: "생성" }));
     expect(query.requested).toHaveBeenLastCalledWith(
       "image",
       true,
       "generated",
+      { sort: "latest", query: "" },
     );
     await user.click(screen.getByRole("tab", { name: "편집" }));
-    expect(query.requested).toHaveBeenLastCalledWith("image", true, "edited");
+    expect(query.requested).toHaveBeenLastCalledWith("image", true, "edited", { sort: "latest", query: "" });
     await user.keyboard("{Home}");
-    expect(screen.getByRole("tab", { name: "업로드" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "전체" })).toHaveFocus();
     expect(
-      screen.getByRole("tabpanel", { name: "업로드" }),
+      screen.getByRole("tabpanel", { name: "전체" }),
     ).toBeInTheDocument();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "업로드" })).toHaveFocus();
+    expect(query.requested).toHaveBeenLastCalledWith("image", true, "uploads", { sort: "latest", query: "" });
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "생성" })).toHaveFocus();
   });
@@ -102,7 +109,7 @@ describe("NodeBananaInputHistoryControl", () => {
         {
           items: [
             {
-              id: "asset",
+              id: "asset", name: "asset", version: 1, createdAt: "2026-10-13T00:00:00Z",
               type: "image",
               status: "completed",
               mimeType: "image/png",
@@ -127,7 +134,7 @@ describe("NodeBananaInputHistoryControl", () => {
       />,
     );
     expect(screen.queryByText("image/png")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "asset" })).toHaveAttribute("title", "asset");
+    expect(screen.getByRole("button", { name: "asset" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "asset" }));
     expect(onSelect).toHaveBeenCalledWith("asset");
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
@@ -169,7 +176,7 @@ describe("NodeBananaInputHistoryControl", () => {
 
   it("keeps previously loaded assets selectable after a refresh failure", () => {
     const asset: MediaAssetDto = {
-      id: "saved-image",
+      id: "saved-image", name: "Saved image",
       version: 1,
       type: "image",
       status: "completed",
@@ -190,7 +197,7 @@ describe("NodeBananaInputHistoryControl", () => {
     query.isError = true;
     view.rerender(control(onSelect));
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "saved-image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saved image" }));
     expect(onSelect).toHaveBeenCalledWith("saved-image");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -210,7 +217,7 @@ describe("NodeBananaInputHistoryControl", () => {
     query.hasNextPage = true;
     const view = openHistory();
     const observer = observers.at(-1)!;
-    expect(observer.root).toBe(screen.getByRole("tabpanel", { name: "업로드" }));
+    expect(observer.root).toBe(screen.getByRole("tabpanel", { name: "전체" }));
     expect(observer.target?.parentElement).toBe(observer.root);
     expect(screen.queryByRole("button", { name: "더 불러오기" })).not.toBeInTheDocument();
     intersect(observer, false);

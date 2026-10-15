@@ -122,7 +122,8 @@ export function ApiDocsSidebar({ apiVersion, apiSections }: ApiDocsSidebarProps)
   );
   const search = (id: string) => (
     <AppSearchField id={id} aria-label={t("searchPlaceholder")} value={searchQuery}
-      onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
+      onClear={() => setSearchQuery("")}
+            onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
   );
 
   return (

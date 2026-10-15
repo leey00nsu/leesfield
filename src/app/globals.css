@@ -8,6 +8,11 @@
   z-index: 2000;
 }
 
+/* Menus opened inside a dialog must stay above editor dialogs. */
+.isolate:has(> [data-app-overlay-scope="dialog"]) {
+  z-index: 20000;
+}
+
 /* Leesfield owns generation input layout; results live in connected inputs. */
 [data-space-input-only] [data-space-generation-prompt] ~ * {
   display: none;

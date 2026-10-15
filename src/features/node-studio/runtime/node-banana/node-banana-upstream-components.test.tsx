@@ -5,7 +5,10 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NodeBananaUpstreamHostProvider, useWorkflowStore, useVideoAutoplay } from "@node-banana-runtime/upstream-node-host";
 
-const render = (ui: Parameters<typeof baseRender>[0], options?: Parameters<typeof baseRender>[1]) => baseRender(ui, {wrapper:AppCanvasInputProvider,...options});
+import { IntlProvider } from "@/test-utils/intl";
+import enMessages from "@/shared/i18n/messages/en.json";
+
+const render = (ui: Parameters<typeof baseRender>[0], options?: Parameters<typeof baseRender>[1]) => baseRender(ui, {wrapper:({children}) => <IntlProvider locale="en" messages={enMessages}><AppCanvasInputProvider>{children}</AppCanvasInputProvider></IntlProvider>,...options});
 
 const panelSelection = vi.hoisted(() => ({ nodes: [] as Array<Record<string, unknown>> }));
 vi.mock("@xyflow/react", async (importOriginal) => ({
@@ -1367,7 +1370,9 @@ describe("Node Banana v1.9.0 hosted component bridge", () => {
       const browse = screen.getByRole("button", { name: "Browse models" });
       expect(browse).toBeEnabled();
       fireEvent.click(browse);
-      await waitFor(() => expect(screen.getByPlaceholderText("Search models...")).toBeVisible());
+      await waitFor(() => expect(screen.getByRole("button", { name: "Search" })).toBeVisible());
+      fireEvent.click(screen.getByRole("button", { name: "Search" }));
+      await waitFor(() => expect(screen.getByRole("searchbox", { name: "Search models" })).toBeVisible());
       const dialog = screen.getByRole("dialog", { name: "Browse Models" });
       expect(within(dialog).getByRole("button", { name: new RegExp(hostedModel.name) })).toBeVisible();
       fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(hostedModel.name) }));

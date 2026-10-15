@@ -193,11 +193,11 @@ describe("GenerationNode common presenter", () => {
       {name:"source",label:"Videos",kind:"files",media:"video",required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3}},
       {name:"tracks",label:"Tracks",kind:"files",media:"audio",required:false,nullable:false,default:[],schema:{type:"array",items:{type:["string","null"]},maxItems:3},attachment:{role:"paired_audio",pairedWith:"source",pairing:"index"}},
     ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
-    const item={id:"selected",type:"audio",status:"completed",mimeType:"audio/wav",url:"https://storage.example/selected.wav",origin:"upload"};
+    const item={name:"selected",version:1,createdAt:"2026-10-13T00:00:00Z",id:"selected",type:"audio",status:"completed",mimeType:"audio/wav",url:"https://storage.example/selected.wav",origin:"upload"};
     let resolve!: (response:Response)=>void;
     const delayed=new Promise<Response>(done=>{resolve=done;});
     const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>String(input).endsWith("/api/media-assets/selected")?delayed:
-      new Response(JSON.stringify(String(input).includes("/api/media-assets?")?{items:[item],nextCursor:null}:{asset:{id:"v1",url:"https://storage.example/v1.mp4"}}),{status:200}));
+      new Response(JSON.stringify(String(input).endsWith("/api/media-assets/projects")?{projects:[]}:String(input).includes("/api/media-assets?")?{items:[item],nextCursor:null}:{asset:{id:"v1",url:"https://storage.example/v1.mp4"}}),{status:200}));
     try {
       const user=userEvent.setup(),config={modelKey:"video-a",prompt:"Scene",parameters:{}};
       const view=render(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>,{wrapper:promptWrapper});
@@ -241,12 +241,12 @@ describe("GenerationNode common presenter", () => {
   });
 
   it("routes grouped reference asset selection to its typed Space port using the actual asset ID",async()=>{
-    const user=userEvent.setup(),item={id:"video-existing",type:"video",status:"completed",mimeType:"video/mp4",url:"https://storage.example/video.mp4",origin:"upload"};
+    const user=userEvent.setup(),item={name:"video-existing",version:1,createdAt:"2026-10-13T00:00:00Z",id:"video-existing",type:"video",status:"completed",mimeType:"video/mp4",url:"https://storage.example/video.mp4",origin:"upload"};
     mocks.videoContract={version:1,apiName:"/generate",inputs:[
       {name:"text",label:"Prompt",canonical:"prompt",kind:"string",required:true,nullable:false,schema:{type:"string"}},
       ...(["image","video","audio"] as const).map(media=>({name:media,label:media,kind:"files",media,default:[],required:false,nullable:false,schema:{type:"array",items:{type:"string"},maxItems:3}})),
     ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
-    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>new Response(JSON.stringify(String(input).includes("/api/media-assets?") ? {items:[item],nextCursor:null} : {asset:item}),{status:200}));
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>new Response(JSON.stringify(String(input).endsWith("/api/media-assets/projects") ? {projects:[]} : String(input).includes("/api/media-assets?") ? {items:[item],nextCursor:null} : {asset:item}),{status:200}));
     try {
       render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"video-a",prompt:"Keep",parameters:{}}} modality="video"/>,{wrapper:promptWrapper});
       expect(screen.getAllByRole("button",{name:"참조 자료 에셋 선택"})).toHaveLength(1);

@@ -14,7 +14,15 @@ describe("preset management", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ items: [builtin] }))));
     const user = userEvent.setup();
     renderWithIntl(<PromptPresetsScreen />);
+    await user.click(screen.getByRole("button", { name: "검색" }));
     const search = screen.getByRole("searchbox", { name: "프리셋 검색…" });
+    expect(screen.queryByRole("button", { name: "검색 지우기" })).not.toBeInTheDocument();
+    await user.type(search, "찾을수없는프리셋");
+    expect(screen.getByRole("heading", { name: "사용할 프리셋이 없습니다." })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /조건 해제:.*찾을수없는프리셋/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "입력 지우기" }));
+    expect(search).toHaveValue("");
+    expect(search).toHaveFocus();
     await user.type(search, "캐릭터");
     const row = await screen.findByRole("button", { name: "캐릭터 시트" });
     await user.click(row);

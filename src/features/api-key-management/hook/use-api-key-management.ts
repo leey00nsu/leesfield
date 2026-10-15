@@ -1,13 +1,13 @@
 "use client";
 import { logger } from "@/shared/logging/logger.mjs";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   useApiKeys,
   type ApiKeyView,
 } from "@/features/api-key-management/hook/use-api-keys";
-import { copyTextToClipboard } from "@/shared/lib/clipboard";
+import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import { standardApiKeyPermissions, type PlatformPermission } from "@/shared/api/platform-permissions";
 
 type ApiKeyStatusFilter = "all" | "active" | "revoked";
@@ -19,7 +19,6 @@ interface PendingKey {
 
 interface ApiKeyManagementState {
   pendingKey: PendingKey | null;
-  pendingCopied: boolean;
   editingKey: ApiKeyView | null;
   editLabel: string;
   editPermissions: PlatformPermission[];
@@ -29,8 +28,6 @@ interface ApiKeyManagementState {
 type ApiKeyManagementAction =
   | { type: "issue:success"; payload: PendingKey }
   | { type: "issue:clear" }
-  | { type: "copy:success" }
-  | { type: "copy:reset" }
   | { type: "edit:open"; payload: ApiKeyView }
   | { type: "edit:close" }
   | { type: "edit:label"; payload: string }
@@ -39,7 +36,6 @@ type ApiKeyManagementAction =
 
 const initialState: ApiKeyManagementState = {
   pendingKey: null,
-  pendingCopied: false,
   editingKey: null,
   editLabel: "",
   editPermissions: [],
@@ -55,14 +51,9 @@ function apiKeyManagementReducer(
       return {
         ...state,
         pendingKey: action.payload,
-        pendingCopied: false,
       };
     case "issue:clear":
-      return { ...state, pendingKey: null, pendingCopied: false };
-    case "copy:success":
-      return { ...state, pendingCopied: true };
-    case "copy:reset":
-      return { ...state, pendingCopied: false };
+      return { ...state, pendingKey: null };
     case "edit:open":
       return {
         ...state,
@@ -101,32 +92,12 @@ function buildDefaultLabel() {
 
 function useApiKeyManagementState() {
   const [state, dispatch] = useReducer(apiKeyManagementReducer, initialState);
-  const copyTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimerRef.current) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-    };
-  }, []);
-
   const setPendingKey = (payload: PendingKey) => {
     dispatch({ type: "issue:success", payload });
   };
 
   const clearPendingKey = () => {
     dispatch({ type: "issue:clear" });
-  };
-
-  const markCopied = () => {
-    if (copyTimerRef.current) {
-      window.clearTimeout(copyTimerRef.current);
-    }
-    dispatch({ type: "copy:success" });
-    copyTimerRef.current = window.setTimeout(() => {
-      dispatch({ type: "copy:reset" });
-    }, 1500);
   };
 
   const openEdit = (item: ApiKeyView) => {
@@ -150,7 +121,6 @@ function useApiKeyManagementState() {
     actions: {
       setPendingKey,
       clearPendingKey,
-      markCopied,
       openEdit,
       closeEdit,
       setEditLabel,
@@ -186,7 +156,7 @@ export function useApiKeyManagement() {
   const [newKeyLabel, setNewKeyLabel] = useState("");
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
+  const copy = useClipboardCopy();
   const issueInFlight = useRef(false);
   const issueCycle = useRef(0);
   const [newKeyPermissions, setNewKeyPermissions] = useState<PlatformPermission[]>([...standardApiKeyPermissions]);
@@ -230,18 +200,10 @@ export function useApiKeyManagement() {
   const handleCopyPendingKey = async () => {
     if (!state.pendingKey?.apiKey) return;
     const cycle = issueCycle.current;
-    setCopyError(null);
-    try {
-      const copied = await copyTextToClipboard(state.pendingKey.apiKey);
-      if (cycle !== issueCycle.current) return false;
-      if (copied) actions.markCopied();
-      else setCopyError(tErrors("copyFailed"));
-      return copied;
-    } catch {
-      if (cycle !== issueCycle.current) return false;
-      setCopyError(tErrors("copyFailed"));
-      return false;
-    }
+    return copy(state.pendingKey.apiKey, {
+      isCurrent: () => cycle === issueCycle.current,
+      errorMessage: tErrors("copyFailed"),
+    });
   };
 
   const dismissPendingKey = () => {
@@ -250,7 +212,6 @@ export function useApiKeyManagement() {
     actions.clearPendingKey();
     setIssueOpen(false);
     setIssueError(null);
-    setCopyError(null);
     setNewKeyLabel("");
     setNewKeyPermissions([...standardApiKeyPermissions]);
   };
@@ -304,9 +265,7 @@ export function useApiKeyManagement() {
       error: issueError,
     },
     pending: {
-      error: copyError,
       pendingKey: state.pendingKey,
-      pendingCopied: state.pendingCopied,
       copy: handleCopyPendingKey,
       dismiss: dismissPendingKey,
     },

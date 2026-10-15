@@ -1,8 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import { logger } from "@/shared/logging/logger.mjs";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { CheckIcon, CopyIcon, FileCodeIcon } from "lucide-react";
+import { CopyIcon, FileCodeIcon } from "lucide-react";
 import type {
   ComponentProps,
   HTMLAttributes,
@@ -235,37 +237,25 @@ export const CodeBlockFilename = ({
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
-  timeout?: number;
 };
 
 export const CodeBlockCopyButton = ({
   asChild,
   onCopy,
   onError,
-  timeout = 2000,
   children,
   className,
   ...props
 }: CodeBlockCopyButtonProps) => {
-  const [isCopied, setIsCopied] = useState(false);
+  const copy = useClipboardCopy();
+  const t = useTranslations("common.actions");
   const { data, value } = useContext(CodeBlockContext);
   const code = data.find((item) => item.language === value)?.code;
 
-  const copyToClipboard = () => {
-    if (
-      typeof window === "undefined" ||
-      !navigator.clipboard?.writeText ||
-      !code
-    ) {
-      return;
-    }
-
-    navigator.clipboard.writeText(code).then(() => {
-      setIsCopied(true);
-      onCopy?.();
-
-      setTimeout(() => setIsCopied(false), timeout);
-    }, onError);
+  const copyToClipboard = async () => {
+    if (!code) return;
+    if (await copy(code)) onCopy?.();
+    else onError?.(new Error("CLIPBOARD_COPY_FAILED"));
   };
 
   if (asChild) {
@@ -275,17 +265,16 @@ export const CodeBlockCopyButton = ({
     });
   }
 
-  const Icon = isCopied ? CheckIcon : CopyIcon;
-
   return (
     <Button
       className={cn("shrink-0", className)}
       onClick={copyToClipboard}
+      aria-label={t("copy")}
       size="icon"
       variant="ghost"
       {...props}
     >
-      {children ?? <Icon className="text-muted-foreground" size={14} />}
+      {children ?? <CopyIcon className="text-muted-foreground" size={14} />}
     </Button>
   );
 };

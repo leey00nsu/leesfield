@@ -10,6 +10,7 @@ export type GenerationHistoryStatus =
   | "cancelled";
 
 export interface GenerationHistoryItem {
+  hidden?: boolean;
   imageVariants?: ImageVariants | null;
   id: string;
   type: "image" | "video" | "audio";

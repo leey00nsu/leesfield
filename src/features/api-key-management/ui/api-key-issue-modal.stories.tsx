@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { AppToaster } from "@/shared/ui/app-toast";
+import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { standardApiKeyPermissions } from "@/shared/api/platform-permissions";
 import { ApiKeyIssueModal, type ApiKeyIssueModalProps } from "./api-key-issue-modal";
@@ -8,17 +10,17 @@ const meta = {
   component: ApiKeyIssueModal,
   args: {
     open: true, label: "Production", permissions: [...standardApiKeyPermissions], error: null,
-    isIssuing: false, pendingKey: null, copied: false, copyError: null,
+    isIssuing: false, pendingKey: null,
     onLabelChange: () => {}, onPermissionsChange: () => {}, onGenerate: () => {}, onClose: () => {}, onCopy: () => {},
   },
   render: function Preview(args: ApiKeyIssueModalProps) {
     const [label, setLabel] = useState(args.label);
     const [permissions, setPermissions] = useState(args.permissions);
     const [pendingKey, setPendingKey] = useState(args.pendingKey);
-    const [copied, setCopied] = useState(false);
-    return <ApiKeyIssueModal {...args} label={label} permissions={permissions} pendingKey={pendingKey}
-      onLabelChange={setLabel} onPermissionsChange={setPermissions} copied={copied}
-      onGenerate={() => setPendingKey({ label, apiKey: "lf_live_storybook_example_only" })} onCopy={() => setCopied(true)} />;
+    const copy = useClipboardCopy();
+    return <><AppToaster /><ApiKeyIssueModal {...args} label={label} permissions={permissions} pendingKey={pendingKey}
+      onLabelChange={setLabel} onPermissionsChange={setPermissions}
+      onGenerate={() => setPendingKey({ label, apiKey: "lf_live_storybook_example_only" })} onCopy={() => { if (pendingKey) void copy(pendingKey.apiKey); }} /></>;
   },
 } satisfies Meta<typeof ApiKeyIssueModal>;
 export default meta;

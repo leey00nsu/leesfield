@@ -80,7 +80,7 @@ it("projects completed edit input/output metadata", async () => {
     id: "request", status: "completed", createdAt: new Date(), updatedAt: new Date(), errorMessage: null,
     parameters: { scale: 2, token: "secret" },
     inputs: [{ asset: { type: "image", storageUrl: "https://example.com/input", legacyUrl: null } }],
-    outputs: [{ id: "output", storageUrl: "https://example.com/output", legacyUrl: null, width: 100, height: 100, durationMs: null, imageVariants: null }],
+    outputs: [{ id: "output", status: "completed", storageUrl: "https://example.com/output", legacyUrl: null, width: 100, height: 100, durationMs: null, imageVariants: null }],
   });
   const response = await GET(request("GET", "type=image&origin=edit"), context);
   expect(response.status).toBe(200);

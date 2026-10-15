@@ -167,6 +167,7 @@ export type NodeBananaCanvasProps = {
   onImportCanvasMedia?: (source: File | { assetId: string }, signal: AbortSignal) => Promise<{ assetId: string; mediaType: "image" | "audio" | "video" }>;
   renderAssetPicker?: (mediaType: "image" | "audio" | "video", onSelect: (assetId: string) => void, onClose: () => void) => ReactNode;
   onInputError?: (error: Error) => void;
+  onCopied?: () => void;
   graph: NodeBananaRuntimeGraph;
   nodeTypes: NodeTypes;
   edgeTypes?: EdgeTypes;
@@ -477,6 +478,7 @@ export function NodeBananaCanvasRuntime({
   canvasSettings = { panMode: "space", zoomMode: "altScroll", selectionMode: "click" },
   className,
   onGraphChange,
+  onCopied,
   onCreateNode,
   createId,
   isValidConnection,
@@ -895,7 +897,8 @@ export function NodeBananaCanvasRuntime({
       },
       pasteCount: 0,
     });
-  }, [graph, interaction.selectedNodeIds, store]);
+    onCopied?.();
+  }, [graph, interaction.selectedNodeIds, onCopied, store]);
 
   const paste = useCallback(() => {
     if (!writable || !interaction.clipboard) return;

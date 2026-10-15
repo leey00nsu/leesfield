@@ -1,4 +1,5 @@
 import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
+import { fileFieldInputPorts, normalizeFileInputAssets, fileInputsFromAssets } from "@/shared/model-catalog/file-input-ports";
 import { generationPayload } from "@/shared/model-catalog/generation-payload";
 import { cinemaAuthoringBlocked, cinemaAuthoringValidation } from "@/shared/cinema/cinema-authoring";
 import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
@@ -91,10 +92,10 @@ function sourceReady(
   visited: Set<string> = new Set(),
   assistantResults: AssistantResults = {},
   mediaOutputs: NodeRunReadinessCatalog["mediaOutputs"] = {},
-) {
+): number {
   const source = graph.nodes.find((node) => node.id === edge.sourceNodeId);
-  if (!source) return false;
-  if (visited.has(source.id)) return false;
+  if (!source) return 0;
+  if (visited.has(source.id)) return 0;
   const nextVisited = new Set(visited).add(source.id);
   const passThroughPort = source.kind === "input.image"
     ? "reference"
@@ -105,17 +106,23 @@ function sourceReady(
         : source.kind === "input.prompt"
           ? "text"
           : null;
-  const upstream = passThroughPort
-    ? graph.edges.find((candidate) => candidate.targetNodeId === source.id && candidate.targetPortId === passThroughPort)
+  const upstream = passThroughPort && !record(source.config).resultSource
+    ? graph.edges.find((candidate) => !candidate.hasPause && candidate.targetNodeId === source.id && candidate.targetPortId === passThroughPort && !(source.kind === "input.image" && graph.nodes.find(node=>node.id===candidate.sourceNodeId)?.kind === "edit.image.splitGrid"))
     : null;
-  if (upstream) return sourceReady(graph, upstream, nextVisited, assistantResults, mediaOutputs);
-  const sourcePort = findPortDefinition(source.kind, edge.sourcePortId, "output");
-  if (!sourcePort) return false;
-  if (sourcePort.valueType === "text") {
-    try { return Boolean(resolveGraphText(graph, source.id, new Set(), assistantResults, edge.sourcePortId).trim()); } catch { return false; }
+  if (upstream) {
+    const upstreamSource = graph.nodes.find(node=>node.id===upstream.sourceNodeId);
+    const upstreamPort = upstreamSource && findPortDefinition(upstreamSource.kind,upstream.sourcePortId,"output");
+    const passPort = findPortDefinition(source.kind,upstream.targetPortId,"input");
+    if (!upstreamPort || !passPort || upstreamPort.valueType !== passPort.valueType) return 0;
+    return Math.min(sourceReady(graph, upstream, nextVisited, assistantResults, mediaOutputs), 1);
   }
-  return Boolean(passThroughPort ? selectedAssetId(source) : mediaAssetIdsForPort(source.kind,
-    edge.sourcePortId, source.selectedOutputAssetId, mediaOutputs[source.id])[0]);
+  const sourcePort = findPortDefinition(source.kind, edge.sourcePortId, "output");
+  if (!sourcePort) return 0;
+  if (sourcePort.valueType === "text") {
+    try { return resolveGraphText(graph, source.id, new Set(), assistantResults, edge.sourcePortId).trim() ? 1 : 0; } catch { return 0; }
+  }
+  return passThroughPort ? (selectedAssetId(source) ? 1 : 0) : mediaAssetIdsForPort(source.kind,
+    edge.sourcePortId, source.selectedOutputAssetId, mediaOutputs[source.id]).length;
 }
 
 function uniqueReasons(reasons: NodeRunReadinessReason[]): NodeRunReadiness {
@@ -147,13 +154,24 @@ export function resolveNodeRunReadiness(
   const modelKey = typeof config.modelKey === "string" ? config.modelKey : "";
   const incoming = graph.edges.filter((edge) => edge.targetNodeId === nodeId && !edge.hasPause);
   const readyCounts = new Map<string, number>();
+  const readyAssets: {portId:string;sortOrder:number;url:string}[] = [];
 
   for (const edge of incoming) {
-    if (!sourceReady(graph, edge, new Set(), catalog.assistantResults, catalog.mediaOutputs)) {
+    const targetPort = findPortDefinition(node.kind,edge.targetPortId,"input");
+    const source = graph.nodes.find(n=>n.id===edge.sourceNodeId);
+    const sourcePort = source && findPortDefinition(source.kind,edge.sourcePortId,"output");
+    if (!targetPort || !sourcePort || targetPort.valueType !== sourcePort.valueType) { reasons.push("INPUT_UNSUPPORTED"); continue; }
+    const sourceCount = sourceReady(graph, edge, new Set(), catalog.assistantResults, catalog.mediaOutputs);
+    const count = targetPort.valueShape === "ordered-list" ? sourceCount : Math.min(sourceCount,1);
+    if (!count) {
       reasons.push("INPUT_NOT_READY");
       continue;
     }
-    readyCounts.set(edge.targetPortId, (readyCounts.get(edge.targetPortId) ?? 0) + 1);
+    if (["image","video","audio"].includes(targetPort.valueType)) for (let index=0;index<count;index++) readyAssets.push({
+      portId:edge.targetPortId,sortOrder:/^(image|video|audio)-field-/.test(edge.targetPortId) ? edge.sortOrder+index : (readyCounts.get(edge.targetPortId)??0)+index,
+      url:`https://connected.invalid/${edge.id}/${index}`,
+    });
+    readyCounts.set(edge.targetPortId, (readyCounts.get(edge.targetPortId) ?? 0) + count);
   }
 
   for (const port of definition.ports.filter((candidate) => candidate.direction === "input")) {
@@ -186,25 +204,15 @@ export function resolveNodeRunReadiness(
         node.kind === "generate.image" ? "image" : "video", selectedModel).prompt : undefined;
     const requiresPrompt = !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&!f.allowEmpty&&f.default===undefined);
     if (requiresPrompt && !promptFromConfig && !promptFromEdge && !authoringPrompt?.trim()) reasons.push("PROMPT_REQUIRED");
-    if(contract) for(const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
-      const port=`${field.media}-field-${field.name}`;
-      const count=readyCounts.get(port)??0;
-      const legacy=contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind)&&f.media===field.media).length===1
-        ? ["primary","references","initImage"].reduce((sum,p)=>sum+(readyCounts.get(p)??0),0):0;
-      const value=record(record(config.parameters).dynamicParams)[field.name]??record(config.parameters)[field.name]??field.default;
-      if(field.required && !count && !legacy && value===undefined)reasons.push("INPUT_REQUIRED");
-      if((field.kind==="file"&&count>1)||(typeof field.schema.maxItems==="number"&&count>field.schema.maxItems))reasons.push("INPUT_UNSUPPORTED");
-    }
-
     const parameters = record(config.parameters);
-    if (contract?.inputRules && selectedModel) {
-      const fileInputs: Record<string,string[]> = {};
-      for (const field of contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind))) {
-        const legacyCount=field.media === "image" && contract.inputs.filter(f=>["file","files","gallery"].includes(f.kind)&&f.media==="image").length===1
-          ? ["primary","references","initImage"].reduce((sum,port)=>sum+(readyCounts.get(port)??0),0) : 0;
-        const count=(readyCounts.get(`${field.media}-field-${field.name}`) ?? 0) + legacyCount;
-        if (count) fileInputs[field.name]=Array.from({length:count},(_,i)=>`https://connected.invalid/${field.name}/${i}`);
-      }
+    let fileInputs: Record<string,(string|null)[]> = {};
+    try { if (selectedModel) fileInputs = fileInputsFromAssets(normalizeFileInputAssets(selectedModel,readyAssets)); }
+    catch { reasons.push("INPUT_UNSUPPORTED"); }
+    if (contract) for (const field of contract.inputs.filter(f=>f.media && ["file","files","gallery"].includes(f.kind))) {
+      const count = fileFieldInputPorts(contract, field).reduce((sum,port)=>sum+(readyCounts.get(port)??0),0);
+      if ((field.kind === "file" && count > 1) || (typeof field.schema.maxItems === "number" && count > field.schema.maxItems)) reasons.push("INPUT_UNSUPPORTED");
+    }
+    if (contract && selectedModel) {
       let prompt=typeof config.prompt === "string" ? config.prompt : undefined;
       const promptEdge=incoming.find(e=>e.targetPortId==="prompt" && sourceReady(graph,e,new Set(),catalog.assistantResults,catalog.mediaOutputs));
       if (promptEdge) {
@@ -228,8 +236,6 @@ export function resolveNodeRunReadiness(
       reasons.push("INPUT_UNSUPPORTED");
     }
     if (selectedModel && preset.success) {
-      const fileInputs = Object.fromEntries([...readyCounts].filter(([port]) => /^(image|video|audio)-field-/.test(port))
-        .map(([port, count]) => [port.replace(/^(image|video|audio)-field-/, ""), Array(count).fill("connected:media")]));
       const images = (readyCounts.get("primary") ?? 0) + (readyCounts.get("references") ?? 0);
       const issue = promptPresetInputIssue(selectedModel, { ...parameters, fileInputs,
         initImages: Array(images).fill("connected:image"), initImage: readyCounts.get("initImage") ? "connected:image" : "" }, preset.data);
@@ -241,7 +247,7 @@ export function resolveNodeRunReadiness(
         reasons.push("MODEL_REQUIRED");
       } else {
         const imageInputs = incoming.filter((edge) => edge.targetPortId === "primary" || edge.targetPortId === "references");
-        if (imageInputs.length > resolveRuntimeImageMaxInputImages(model)) reasons.push("INPUT_UNSUPPORTED");
+        if (!contract && imageInputs.length > resolveRuntimeImageMaxInputImages(model)) reasons.push("INPUT_UNSUPPORTED");
         if (!areGenerationNodeParametersValid(model, parameters)) reasons.push("PARAMETERS_INVALID");
       }
     } else if (node.kind === "generate.video") {
@@ -250,7 +256,7 @@ export function resolveNodeRunReadiness(
         reasons.push("MODEL_REQUIRED");
       } else {
         const imageInputs = incoming.filter((edge) => edge.targetPortId === "initImage");
-        if (imageInputs.length > 0 && !resolveRuntimeVideoSupportsInitImage(model)) reasons.push("INPUT_UNSUPPORTED");
+        if (!contract && imageInputs.length > 0 && !resolveRuntimeVideoSupportsInitImage(model)) reasons.push("INPUT_UNSUPPORTED");
         if (!areGenerationNodeParametersValid(model, parameters)) reasons.push("PARAMETERS_INVALID");
       }
     } else if (node.kind === "generate.audio") {

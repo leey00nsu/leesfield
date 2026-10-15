@@ -17,6 +17,7 @@ export type HistoryQuery = {
   limit: number;
   offset: number;
   includeTotal: boolean;
+  hidden?: boolean;
 };
 
 export type HistoryResponse = GenerationHistoryResponse;
@@ -81,6 +82,7 @@ export function parseHistoryQuery(
     limit: clamp(limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT),
     offset: clamp(offset ?? 0, 0, MAX_HISTORY_OFFSET),
     includeTotal: resolveBoolean(searchParams.get("includeTotal"), true),
+    ...(searchParams.has("hidden") ? { hidden: resolveBoolean(searchParams.get("hidden"), false) } : {}),
   };
 }
 

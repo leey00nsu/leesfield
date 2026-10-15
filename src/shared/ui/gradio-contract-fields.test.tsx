@@ -7,8 +7,8 @@ import { GradioFileField } from "./gradio-file-field";
 import { GradioContractFields } from "./gradio-contract-fields";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
 const assetQuery = vi.hoisted(() => ({data:{pages:[{items:[] as MediaAssetDto[]}]},isLoading:false,isError:false,isFetching:false,hasNextPage:false,refetch:vi.fn(),fetchNextPage:vi.fn(),requested:vi.fn()}));
-vi.mock("@/features/media-assets/hook/use-media-assets",()=>({useMediaAssets:(...args:unknown[])=>{assetQuery.requested(...args);return assetQuery;}}));
-const asset = (id:string,type:MediaType="image",status:MediaAssetDto["status"]="completed") => ({id,type,status,url:"https://storage.example/"+id,mimeType:type === "image" ? "image/png" : type === "video" ? "video/mp4" : "audio/wav",origin:"upload"} as MediaAssetDto);
+vi.mock("@/features/media-assets/hook/use-media-assets",()=>({useAssetProjects:()=>({data:[]}),usePatchAssetMetadata:()=>({isPending:false,mutateAsync:vi.fn()}),useWriteAssetOrganization:()=>({isPending:false,mutateAsync:vi.fn()}),useMediaAssets:(...args:unknown[])=>{assetQuery.requested(...args);return assetQuery;}}));
+const asset = (id:string,type:MediaType="image",status:MediaAssetDto["status"]="completed") => ({id,name:id,version:1,createdAt:"2026-10-13T00:00:00Z",type,status,url:"https://storage.example/"+id,mimeType:type === "image" ? "image/png" : type === "video" ? "video/mp4" : "audio/wav",origin:"upload"} as MediaAssetDto);
 beforeEach(()=>{assetQuery.data={pages:[{items:[]}]};vi.clearAllMocks();});
 vi.mock("next-intl", () => ({
   useLocale: () => "ko",
@@ -217,7 +217,7 @@ describe("Gradio contract fields", () => {
     expect(screen.getAllByRole("button",{name:"참조 자료 에셋 선택"})).toHaveLength(1);
     expect(screen.getByText("참조 이미지")).toBeInTheDocument();
     await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));
-    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,"uploads");
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,undefined,{sort:"latest",query:""});
     expect(within(screen.getByRole("dialog")).getByRole("button",{name:image.id})).toBeDisabled();
     await user.click(screen.getByRole("tab",{name:"비디오"}));
     await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:video.id}));
@@ -256,7 +256,7 @@ describe("Gradio contract fields", () => {
     const gallery={...contract,inputs:[contract.inputs[0],{...contract.inputs[1],name:"frames",kind:"files" as const,media:"image" as const,schema:{type:"array",items:{type:"string"},maxItems:2}}]};
     const view=render(<GradioContractFields scope="attachments" contract={gallery} values={{duration:7,frames:[first.url]}} prompt="scene" onChange={onChange}/>);
     await user.click(screen.getByRole("button",{name:"시작 프레임: 에셋 선택"}));
-    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,"uploads");
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("image",true,undefined,{sort:"latest",query:""});
     const dialog=screen.getByRole("dialog",{name:"에셋"});
     const cards=[first,second,asset("failed")].map(item=>within(dialog).getByRole("button",{name:item.id}));
     expect(cards[0]).toBeDisabled();expect(cards[2]).toBeDisabled();
@@ -274,7 +274,7 @@ describe("Gradio contract fields", () => {
     const typed={...contract,inputs:[{...contract.inputs[1],media,label:"References"}]};
     render(<GradioContractFields scope="attachments" contract={typed} values={{frame:"https://old.example/ref"}} prompt="scene" onChange={onChange}/>);
     await user.click(screen.getByRole("button",{name:({image:"참조 이미지",video:"참조 영상",audio:"참조 오디오"}[media])+": 에셋 선택"}));
-    expect(assetQuery.requested).toHaveBeenLastCalledWith(media,true,"uploads");
+    expect(assetQuery.requested).toHaveBeenLastCalledWith(media,true,undefined,{sort:"latest",query:""});
     await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:item.id}));
     expect(onChange).toHaveBeenLastCalledWith({frame:item.url});
   });
@@ -283,7 +283,7 @@ describe("Gradio contract fields", () => {
     const view=render(<GradioContractFields scope="attachments" contract={contract} values={{}} prompt="scene" onChange={onChange}/>);
     await user.click(screen.getByRole("button",{name:"참조 파일 · First Frame: 에셋 선택"}));
     await user.click(screen.getByRole("tab",{name:"비디오"}));
-    expect(assetQuery.requested).toHaveBeenLastCalledWith("video",true,"uploads");
+    expect(assetQuery.requested).toHaveBeenLastCalledWith("video",true,undefined,{sort:"latest",query:""});
     view.rerender(<GradioContractFields disabled scope="attachments" contract={contract} values={{}} prompt="scene" onChange={onChange}/>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();

@@ -1,4 +1,6 @@
 import { getSession } from "@/server/auth/session";
+import { assetOrganizationService } from "@/server/media-assets/asset-organization-service";
+import { handleAssetOrganizationRequest } from "@/server/media-assets/asset-organization-http";
 import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { buildMediaAssetKnownErrorResponse } from "@/server/media-assets/media-asset-http";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
@@ -45,3 +47,7 @@ async function deleteObservedHandler(request: Request, context: RouteContext) {
 import { withRequestObservability } from "@/server/observability/request-observability";
 export const GET = withRequestObservability("/api/media-assets/[assetId]", getObservedHandler);
 export const DELETE = withRequestObservability("/api/media-assets/[assetId]", deleteObservedHandler);
+export const PATCH = withRequestObservability("/api/media-assets/[assetId]", async (request: Request, context: RouteContext) => {
+  const { assetId } = await context.params;
+  return handleAssetOrganizationRequest(request, async (owner, body) => ({ asset: await assetOrganizationService.patch(owner, assetId, body) }));
+});

@@ -191,8 +191,8 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     503: { ...error("Service temporarily unavailable"), headers: retryHeaders },
   };
   for (const [path, schema, description] of [
-    ["/api/external/history", externalHistoryResponseSchema, "Owner history including UI/API generation and completed edits. platform:read or higher. Cursor filters must match; limit <=100, offset <=1000, search <=200. includeTotal=false avoids counts."],
-    ["/api/external/history/status", externalHistoryStatusSchema, "Active owner generation count. platform:read or higher."],
+    ["/api/external/history", externalHistoryResponseSchema, "Owner history including UI/API generation and completed edits. platform:read or higher. Cursor filters must match; limit <=100, offset <=1000, search <=200. includeTotal=false avoids counts. Visible history is the default; hidden=true lists only hidden records."],
+    ["/api/external/history/status", externalHistoryStatusSchema, "Active owner generation count. platform:read or higher. Hidden records are excluded by default."],
   ] as const) registry.registerPath({
     method: "get", path, tags: ["History"], security, description,
     request: { query: externalHistoryQuerySchema },
@@ -206,7 +206,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   });
   registry.registerPath({
     method: "delete", path: "/api/external/history/{historyId}", tags: ["History"], security,
-    description: "Delete owner history with platform:write or higher. pending/processing/uploading are protected. File cleanup failure preserves the record.",
+    description: "Delete owner history with platform:write or higher. pending/processing/uploading and files used by other generations, Spaces or edits are protected with 409 HISTORY_ACTIVE. Unlike UI hide/restore, this permanently deletes history and unused files. File cleanup failure preserves the record.",
     request: { params: z.object({ historyId: z.string().min(1) }), query: externalHistorySelectorSchema },
     responses: { 204: { description: "Deleted", headers: responseHeaders }, ...platformErrors, 400: error("INVALID_QUERY"), 404: error("HISTORY_NOT_FOUND"), 409: error("HISTORY_ACTIVE"), 502: error("HISTORY_FILE_DELETE_FAILED") },
   });

@@ -1,6 +1,7 @@
 export const dashboardNavigation = [
   { key: "generate", href: "/generate" },
   { key: "nodeStudio", href: "/spaces" },
+  { key: "assets", href: "/assets" },
   { key: "history", href: "/history" },
   { key: "model", href: "/model" },
   { key: "promptPresets", href: "/prompt-presets" },
