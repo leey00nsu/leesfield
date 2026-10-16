@@ -1,5 +1,7 @@
 "use client";
 
+import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
+import { ReferenceUploadScope } from "@/shared/ui/reference-upload-scope";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,7 +42,10 @@ import { cinemaMovementToken, CINEMA_MOVEMENT_TOKEN } from "@/shared/ui/cinema/c
 import { parseCinemaSettings } from "@/shared/cinema/cinema-contract";
 import { cinemaPromptField } from "@/shared/cinema/cinema-model-support";
 
-export function SpaceGenerationPrompt({ nodeId, config, modality, connected: hostConnected = false, connectedValue: hostConnectedValue, progress }: {
+export function SpaceGenerationPrompt(props: Parameters<typeof SpaceGenerationPromptContent>[0]) {
+  return <ReferenceUploadScope scope={"space:" + props.nodeId}><SpaceGenerationPromptContent {...props}/></ReferenceUploadScope>;
+}
+function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hostConnected = false, connectedValue: hostConnectedValue, progress }: {
   nodeId: string; config: Record<string, unknown>; modality: PromptPresetModality;
   connected?: boolean; connectedValue?: string | null;
   progress?: { completed: number; failed: number; total: number; running: boolean };
@@ -175,7 +180,7 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
   useEffect(() => { live.current = { ids, disabled, modelKey, urls, slot, relatedAssetIds }; });
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
   useEffect(() => { if (disabled) controller.current?.abort(); }, [disabled]);
-  const mutate = async (requested: JsonValue | undefined, assetId?: string, requestedIndex?: number, order?: number[]) => {
+  const mutate = async (requested: JsonValue | undefined, assetId?: string, requestedIndex?: number, order?: number[], uploadedAssets?: MediaAssetDto[]) => {
     if (disabled || controller.current) return;
     const initial = live.current;
     const abort = new AbortController(); controller.current = abort;
@@ -197,6 +202,11 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
           if (typeof url !== "string") throw new Error("ATTACHMENT_MEDIA");
           const index = initial.urls.indexOf(url);
           if (index >= 0) { next.push(initial.ids[index]); continue; }
+          const uploaded = uploadedAssets?.find(asset => asset.url === url && asset.type === slot.field.media);
+          if (uploaded) {
+            client.setQueryData(mediaAssetKeys.detail(uploaded.id), uploaded); next.push(uploaded.id);
+            void client.invalidateQueries({queryKey: mediaAssetKeys.list(uploaded.type)}); continue;
+          }
           if (!url.startsWith("data:" + slot.field.media + "/")) throw new Error("ATTACHMENT_MEDIA");
           const blob = await (await fetch(url, { signal: abort.signal })).blob();
           const asset = await uploadMediaAsset(new File([blob], "reference", { type: blob.type }), slot.field.media!, undefined, abort.signal);
@@ -233,6 +243,7 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
     <Control index={slotIndex ?? 0} showAssetPicker={false} label={gradioFieldLabel(slot.field, ko ? "ko" : "en")} field={slot.field} value={slotIndex===undefined?value:urls[slotIndex]??null} maxItems={slot.limit}
       assetSelectable={asset=>!ids.includes(asset.id)}
       onSelectAsset={(asset,index)=>mutate(undefined,asset.id,index)}
+      onUpload={(assets,next)=>mutate(next,undefined,undefined,undefined,assets)}
       getPreviewUrl={(_value, index) => assets[ids.slice(0,slotIndex??index).filter(id=>id!==null).length]?.data?.url ?? ""}
       onChangeOrder={paired ? order=>mutate(order.map(index=>urls[index]),undefined,undefined,order) : undefined}
       disabled={disabled || busy} assetPickerTrigger={

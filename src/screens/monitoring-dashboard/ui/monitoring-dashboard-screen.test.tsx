@@ -75,7 +75,9 @@ function mockRequestPages() {
     urls,
     async complete() {
       await waitFor(() => expect(pending.length).toBeGreaterThan(0));
-      await act(async () => { pending.shift()!(); });
+      // A slow run can enqueue the real hook's polling request before the next
+      // page request. Flush all currently waiting responses, not an obsolete poll.
+      await act(async () => { for (const respond of pending.splice(0)) respond(); });
     },
   };
 }
@@ -119,7 +121,7 @@ describe("Monitoring request pagination with the real query", () => {
     expect(await screen.findByText("1-3 / 3")).toBeInTheDocument();
     expect(pages.urls.at(-1)?.searchParams.get("offset")).toBe("0");
     expect(pages.urls.every(u => u.searchParams.get("includeTotal") === "true")).toBe(true);
-  });
+  }, 30_000);
 
   it("첫 페이지 캐시 없이 이전 페이지를 조회해도 전체 건수를 확보한다", async () => {
     const useRequests = await useRealRequests();

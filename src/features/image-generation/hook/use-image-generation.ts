@@ -79,7 +79,7 @@ export function useImageGeneration(modelTimeoutMs?: number) {
           const key = createSubmissionIntent().take(JSON.stringify(snapshot));
           let response: ImageGenerationResponse;
           try { response = await requestImageGeneration(structuredClone(snapshot), { idempotencyKey: key, signal: call.signal }); }
-          catch { throw new Error(tErrors("requestFailed")); }
+          catch (error) { throw error instanceof Error ? error : new Error(tErrors("requestFailed")); }
           if (!valid()) return;
           if (timedOut) throw new Error(tErrors("timeout"));
           lastId = response.requestId;

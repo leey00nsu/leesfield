@@ -1,4 +1,5 @@
 "use client";
+import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
 import { historyOptionUpdates } from "@/shared/generation/history-options";
@@ -82,10 +83,14 @@ type ImageGenerationFormProps = {
   isAuthenticated: boolean;
 };
 
-export function ImageGenerationForm({
+export function ImageGenerationForm(props: ImageGenerationFormProps) {
+  return <ReferenceUploadScope><ImageGenerationFormContent {...props}/></ReferenceUploadScope>;
+}
+function ImageGenerationFormContent({
   isAuthenticated,
   embedded = false,
 }: ImageGenerationFormProps) {
+  const referenceUploads = useReferenceUploads();
   const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -479,7 +484,7 @@ export function ImageGenerationForm({
   const handleSelectModel = (modelId: string) => {
     if (modelId === activeModel) return;
     cinema.markEdited();
-    if (isGenerating) {
+    if (isGenerating || referenceUploads.isUploading()) {
       reset();
     }
     form.setValue("dynamicParams", {});
@@ -488,7 +493,7 @@ export function ImageGenerationForm({
   };
 
   const handleRandomizeSeed = () => {
-    if (isGenerating) return;
+    if (isGenerating || referenceUploads.isUploading()) return;
     let seedValue = Math.floor(Math.random() * 1_000_000_000);
     if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
       const buffer = new Uint32Array(1);
@@ -502,12 +507,13 @@ export function ImageGenerationForm({
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (referenceUploads.isUploading()) { event.preventDefault(); return; }
     if (!isAuthenticated) {
       event.preventDefault();
       handleLoginRedirect();
       return;
     }
-    if (isGenerating || isModelLoading || !hasModels) {
+    if (isGenerating || referenceUploads.isUploading() || isModelLoading || !hasModels) {
       event.preventDefault();
       return;
     }
@@ -858,7 +864,7 @@ footerRight={
                               type={isAuthenticated ? "submit" : "button"}
                               size="xl"
                               disabled={
-                                isGenerating ||
+                                referenceUploads.uploading || isGenerating ||
                                 (isAuthenticated &&
                                   (cinemaBlocked || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !effectivePrompt.trim())))
                               }

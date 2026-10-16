@@ -222,6 +222,30 @@ describe("GenerationNode common presenter", () => {
     expect(mocks.updateConfig).not.toHaveBeenCalled();
     expect(mocks.replaceAssets).not.toHaveBeenCalled();
   });
+  it("uploads Space reference files once and atomically binds their asset IDs in order",async()=>{
+    const user=userEvent.setup();
+    mocks.videoContract={version:1,apiName:"/generate",inputs:[
+      {name:"refs",label:"References",kind:"files",media:"image",default:[],required:false,nullable:false,schema:{type:"array",items:{type:"string"},maxItems:3}}
+    ],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:true};
+    let session=0;
+    const files=[new File(["a"],"a.png",{type:"image/png"}),new File(["b"],"b.png",{type:"image/png"})];
+    const fetcher=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>{
+      const path=String(input);
+      if(path.endsWith("/upload-policy"))return new Response(JSON.stringify({limits:{image:52428800}}));
+      if(path.endsWith("/uploads")){session++;return new Response(JSON.stringify({upload:{id:String(session),upload:{url:"/binary/"+session,method:"PUT"}}}));}
+      if(path.startsWith("/binary/"))return new Response(null,{status:204});
+      if(path.endsWith("/confirm"))return new Response(JSON.stringify({asset:{id:"asset-"+session,type:"image",status:"completed",mimeType:"image/png",url:"https://cdn/"+session+".png"}}));
+      throw new Error("unexpected fetch "+path);
+    });
+    try {
+      render(<SpaceGenerationPrompt nodeId="node" config={{modelKey:"video-a",prompt:"Keep",parameters:{}}} modality="video"/>,{wrapper:promptWrapper});
+      await user.upload(screen.getByLabelText("참조 이미지"),files);
+      await waitFor(()=>expect(mocks.replaceAssets).toHaveBeenCalledWith("node",expect.objectContaining({ports:expect.arrayContaining(["image-field-refs"])}),["asset-1","asset-2"],{modelKey:"video-a",assetIds:[]}));
+      expect(session).toBe(2);
+      expect(fetcher.mock.calls.filter(([url])=>String(url).startsWith("/binary/")).map(([,init])=>init?.body)).toEqual(files);
+      expect(mocks.replaceAssets).toHaveBeenCalledTimes(1);
+    }finally{fetcher.mockRestore();}
+  });
   it("clears a positional Space audio slot using asset IDs without moving its neighbors",async()=>{
     const user=userEvent.setup();
     mocks.slots=[null,"second"];

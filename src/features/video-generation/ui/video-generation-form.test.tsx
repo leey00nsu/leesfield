@@ -1,3 +1,12 @@
+const referenceUpload = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
+  ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
+  uploadReferenceFiles: (...args: unknown[]) => referenceUpload.run(...args),
+}));
+beforeEach(() => { referenceUpload.run.mockImplementation(async (files: File[]) => files.map(file => ({
+  id: file.name, type: file.type.split("/")[0], status: "completed", mimeType: file.type,
+  url: "https://storage.example/" + file.name,
+}))); });
 import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -116,16 +125,7 @@ describe("VideoGenerationForm", () => {
           ),
       ),
     );
-    class MockFileReader {
-      result: string | null = null;
-      onload: null | (() => void) = null;
 
-      readAsDataURL(file: File) {
-        this.result = "data:" + file.type + ";base64,AAAA";
-        this.onload?.();
-      }
-    }
-    vi.stubGlobal("FileReader", MockFileReader);
   });
 
   afterEach(() => {
@@ -168,7 +168,13 @@ describe("VideoGenerationForm", () => {
     await user.click(screen.getByRole("button",{name:/상세 옵션/}));
     expect(screen.getByRole("button",{name:/상세 옵션/})).toBeDisabled();
     expect(within(screen.getByRole("region", {name:"작업 입력"})).getByRole("alert")).not.toHaveTextContent("HF_CONTRACT");
+    let finish!: () => void;
+    referenceUpload.run.mockImplementationOnce(()=>new Promise(resolve=>{finish=()=>resolve([{id:"frame",url:"https://storage.example/frame.png"}]);}));
     await user.upload(screen.getByLabelText("참조 파일 · First Frame"),new File(["test"],"frame.png",{type:"image/png"}));
+    expect(submit).toBeDisabled();
+    fireEvent.submit(container.querySelector("form")!);
+    expect(startGenerationMock).not.toHaveBeenCalled();
+    await act(async()=>finish());
     await user.keyboard("{Escape}");
     expect(submit).toBeEnabled();
     await user.click(screen.getByRole("button",{name:"제거"}));
@@ -327,7 +333,7 @@ describe("VideoGenerationForm", () => {
       expect.objectContaining({
         prompt: "slow orbit camera move around a premium product",
         model: "wan2-2-hf",
-        initImage: "data:image/png;base64,AAAA",
+        initImage: "https://storage.example/sample.png",
       }),
     );
   });
@@ -395,7 +401,7 @@ describe("VideoGenerationForm", () => {
     expect(startGenerationMock).toHaveBeenCalledTimes(1);
     expect(startGenerationMock).toHaveBeenCalledWith({
       ...videoGenerationDefaults,
-      initImage: "data:image/png;base64,AAAA",
+      initImage: "https://storage.example/sample.png",
       prompt: "cinematic sunrise",
       inputPrompt: "cinematic sunrise",
     });
@@ -469,7 +475,7 @@ describe("VideoGenerationForm", () => {
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button",{name:"생성"}));
     await waitFor(()=>expect(startGenerationMock).toHaveBeenCalledWith(expect.objectContaining({
-      model:model.key,prompt:"transform reference",dynamicParams:{source:"data:"+media+"/test;base64,AAAA",strength:0.7},
+      model:model.key,prompt:"transform reference",dynamicParams:{source:"https://storage.example/source."+media,strength:0.7},
     })));
     await user.click(within(dock).getByRole("button",{name:"제거"}));
     expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();

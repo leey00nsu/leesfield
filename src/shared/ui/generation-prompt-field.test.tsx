@@ -1,3 +1,7 @@
+vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
+  ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
+  uploadReferenceFiles: async (files: File[]) => files.map(file=>({id:file.name,url:"https://storage.example/"+file.name})),
+}));
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
@@ -135,7 +139,7 @@ describe("Classic file drop", () => {
     fireEvent.paste(textarea, { clipboardData: { files: [new File(["png"], "clipboard.png", { type: "image/png" })],
       getData: () => "<img src=clipboard>" } });
     await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
-    expect(changed.mock.calls[0][0][0]).toMatch(/^data:image\/png;base64,/);
+    expect(changed.mock.calls[0][0][0]).toBe("https://storage.example/clipboard.png");
     expect(textarea).toHaveTextContent("original");
     expect(textarea.querySelector("img")).toBeNull();
   });
@@ -144,7 +148,7 @@ describe("Classic file drop", () => {
     const file = new File(["mp4"], "clipboard.mp4", { type: "video/mp4" });
     fireEvent.paste(textarea, { clipboardData: { files: [], items: [{ kind: "file", getAsFile: () => file }] } });
     await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
-    expect(changed.mock.calls[0][0][0]).toMatch(/^data:video\/mp4;base64,/);
+    expect(changed.mock.calls[0][0][0]).toBe("https://storage.example/clipboard.mp4");
     expect(textarea).toHaveValue("original");
   });
   it.each([true, false])("rejects disabled or incompatible clipboard files without changing the prompt (disabled: %s)", disabled => {
@@ -166,7 +170,7 @@ describe("Classic file drop", () => {
     const { changed, textarea } = fixture();
     drop(textarea, [new File(["png"], "reference.PNG", { type: "" })]);
     await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
-    expect(changed.mock.calls[0][0][0].startsWith("data:image/png;base64,")).toBe(true);
+    expect(changed.mock.calls[0][0][0]).toBe("https://storage.example/reference.PNG");
     expect(textarea).toHaveValue("original");
   });
   it.each([["notes.txt", "text/plain"], ["picture.svg", "image/svg+xml"], ["sound.mp3", "audio/mpeg"], ["fake.png", "video/mp4"]])("rejects unsupported or incompatible files without changing text or attachments: %s", (name, type) => {

@@ -3,7 +3,6 @@ import type {
   MediaAssetDto,
   MediaAssetListDto,
   MediaType,
-  MediaUploadSessionDto,
   ResolvedNodeAssetsDto,
   ListMediaAssetsInput,
 } from "@/shared/media-assets/media-asset-contract";
@@ -12,25 +11,8 @@ import type { AssetProjectDto } from "@/shared/media-assets/asset-project-contra
 
 export type AssetListFilters = Pick<ListMediaAssetsInput, "query" | "folderId" | "projectId" | "starred" | "tagIds" | "sort" | "classification" | "managementStatus" | "dateFrom" | "dateTo" | "model">;
 
-export class MediaAssetApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    readonly details: Record<string, unknown> = {},
-  ) {
-    super(code);
-    this.name = "MediaAssetApiError";
-  }
-}
-
-async function parseError(response: Response): Promise<never> {
-  const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-  throw new MediaAssetApiError(
-    response.status,
-    typeof payload?.message === "string" ? payload.message : "MEDIA_ASSET_REQUEST_FAILED",
-    payload ?? {},
-  );
-}
+import { parseMediaError as parseError } from "@/shared/api/media-upload";
+export { MediaAssetApiError } from "@/shared/api/media-upload";
 
 export async function listMediaAssets(
   type: MediaType | undefined,
@@ -77,51 +59,8 @@ export async function getMediaAsset(assetId: string, signal?: AbortSignal): Prom
   return payload.asset;
 }
 
-export type MediaOperationUploadBinding = {
-  operationId: string;
-  outputPortId: string;
-  sortOrder: number;
-};
-
-export async function uploadMediaAsset(
-  file: File,
-  intendedType: MediaType,
-  binding?: MediaOperationUploadBinding,
-  signal?: AbortSignal,
-): Promise<MediaAssetDto> {
-  const createResponse = await fetch("/api/media-assets/uploads", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      intendedType,
-      fileName: file.name,
-      declaredMimeType: file.type,
-      declaredBytes: file.size,
-      ...binding,
-    }),
-    signal,
-  });
-  if (!createResponse.ok) return parseError(createResponse);
-  const created = await createResponse.json() as { upload: MediaUploadSessionDto };
-  const uploadResponse = await fetch(created.upload.upload.url, {
-    method: created.upload.upload.method,
-    headers: created.upload.upload.headers,
-    body: file,
-    signal,
-  });
-  if (!uploadResponse.ok) {
-    throw new MediaAssetApiError(uploadResponse.status, "MEDIA_UPLOAD_FAILED");
-  }
-  const confirmResponse = await fetch(`/api/media-assets/uploads/${encodeURIComponent(created.upload.id)}/confirm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: "{}",
-    signal,
-  });
-  if (!confirmResponse.ok) return parseError(confirmResponse);
-  const confirmed = await confirmResponse.json() as { asset: MediaAssetDto };
-  return confirmed.asset;
-}
+export { uploadMediaFile as uploadMediaAsset } from "@/shared/api/media-upload";
+export type { MediaOperationUploadBinding } from "@/shared/api/media-upload";
 
 export async function deleteMediaAsset(assetId: string) {
   const response = await fetch(`/api/media-assets/${encodeURIComponent(assetId)}`, { method: "DELETE" });

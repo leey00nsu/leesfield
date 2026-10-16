@@ -16,7 +16,7 @@ export const modalExecutionLimitsSchema = z.object({
  max_assets:z.number().int().min(1).max(1000).default(16),
  max_input_files:z.number().int().min(1).max(1000).default(64),
  max_output_bytes:z.number().int().min(1024).max(2_147_483_647).default(268_435_456),
- max_input_bytes:z.number().int().min(1024).max(536_870_912).default(20_971_520),
+ max_input_bytes:z.number().int().min(1024).max(536_870_912).default(52_428_800),
 }).strict();
 export const modalWorkflowSchema = z.object({
  id:modalWorkflowIdSchema, name:z.string().min(1), version:z.string().optional(),

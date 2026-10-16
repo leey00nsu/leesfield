@@ -67,6 +67,15 @@ describe("/api/media-assets/:assetId/content", () => {
     expect(remote).not.toHaveBeenCalled();
   });
 
+  it("allows a stored 50 MiB input image without applying the smaller generation-output cap",async()=>{
+    service.get.mockResolvedValue({...asset,bytes:"52428800"});
+    remote.mockResolvedValue({status:200,headers:{},body:new Response(new Uint8Array([1])).body});
+    const response=await GET(new Request("http://localhost/api/media-assets/asset_1/content"),context);
+    expect(response.status).toBe(200);
+    expect(remote).toHaveBeenCalledWith(asset.url,expect.objectContaining({maxBytes:52428800}));
+    await response.arrayBuffer();
+  });
+
   it("returns an explicit gateway failure when storage content cannot be read", async () => {
     remote.mockResolvedValue({
       status: 404,

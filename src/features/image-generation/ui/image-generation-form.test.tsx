@@ -1,3 +1,12 @@
+const referenceUpload = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
+  ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
+  uploadReferenceFiles: (...args: unknown[]) => referenceUpload.run(...args),
+}));
+beforeEach(() => { referenceUpload.run.mockImplementation(async (files: File[]) => files.map(file => ({
+  id: file.name, type: file.type.split("/")[0], status: "completed", mimeType: file.type,
+  url: "https://storage.example/" + file.name,
+}))); });
 import { ImageGenerationResult } from "./image-generation-result";
 import type { ImageGenerationState } from "../hook/use-image-generation";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -578,7 +587,7 @@ describe("ImageGenerationForm", () => {
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button",{name:"생성"}));
     await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({
-      model:identityEditModel.key,prompt:"edit identity",dynamicParams:{image:expect.stringMatching(/^data:image/),advanced__batch_size:1},
+      model:identityEditModel.key,prompt:"edit identity",dynamicParams:{image:expect.stringMatching(/^https:\/\/storage.example\//),advanced__batch_size:1},
     }), 3));
     await user.click(within(dock).getByRole("button",{name:"제거"}));
     expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();
@@ -601,7 +610,7 @@ describe("ImageGenerationForm", () => {
     await user.click(trigger);
     await user.click(within(screen.getByRole("dialog",{name:"장수"})).getByRole("button",{name:"4장"}));
     await user.click(screen.getByRole("button",{name:"생성"}));
-    await waitFor(() => expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({prompt:"preserve this prompt",dynamicParams:{image:expect.stringMatching(/^data:image/),advanced__batch_size:1}}), 4));
+    await waitFor(() => expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({prompt:"preserve this prompt",dynamicParams:{image:expect.stringMatching(/^https:\/\/storage.example\//),advanced__batch_size:1}}), 4));
     await user.click(screen.getByRole("button",{name:"장수 · 4장"}));
     await user.click(screen.getByRole("button",{name:"직접입력"}));
     const input = screen.getByRole("spinbutton",{name:"직접입력"});

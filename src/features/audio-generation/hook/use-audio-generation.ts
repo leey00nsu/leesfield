@@ -38,8 +38,8 @@ export function useAudioGeneration() {
     async (values: AudioGenerationFormValues) => {
       try {
         return await requestAudioGeneration(values);
-      } catch {
-        throw new Error(tErrors("requestFailed"));
+      } catch (error) {
+        throw error instanceof Error ? error : new Error(tErrors("requestFailed"));
       }
     },
     [tErrors],
@@ -48,8 +48,8 @@ export function useAudioGeneration() {
     async (requestId: string) => {
       try {
         return await fetchAudioGenerationStatus(requestId);
-      } catch {
-        throw new Error(tErrors("pollFailed"));
+      } catch (error) {
+        throw error instanceof Error ? error : new Error(tErrors("pollFailed"));
       }
     },
     [tErrors],

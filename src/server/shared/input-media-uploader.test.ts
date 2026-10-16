@@ -176,6 +176,6 @@ it("reuses only an owned completed asset with the requested media type and origi
     OR: [{ storageUrl: "https://storage.example/original.webp" }, { legacyUrl: "https://storage.example/original.webp" }],
   }}));
   // No storage credentials are configured; a reused reference needs no upload.
-  assetLookup.mockResolvedValueOnce({ id: "large", bytes: BigInt(11 * 1024 * 1024), mimeType: "image/png" });
+  assetLookup.mockResolvedValueOnce({ id: "large", bytes: BigInt(50 * 1024 * 1024 + 1), mimeType: "image/png" });
   await expect(uploadGenerationInputAssets("request", "owner", [{ generationType: "image", field: "initImages", mediaType: "image", sources: ["https://storage.example/large.png"] }])).rejects.toThrow("INPUT_MEDIA_TOO_LARGE");
 });

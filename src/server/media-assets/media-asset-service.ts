@@ -1,4 +1,5 @@
 import { logSafeError } from "@/server/observability/request-observability";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
 import { encodeAssetCursor, usesAssetLibraryQuery } from "./asset-library-search";
@@ -51,11 +52,6 @@ import {
   type StorageCleanupIntent,
 } from "./media-cleanup-repository";
 
-const defaultFileLimits: Record<MediaType, number> = {
-  image: 25 * 1024 * 1024,
-  audio: 100 * 1024 * 1024,
-  video: 500 * 1024 * 1024,
-};
 const DEFAULT_OWNER_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
 export const MEDIA_CONFIRM_STEP_TIMEOUT_MS = 30_000;
 
@@ -78,10 +74,7 @@ function positiveEnvInteger(name: string, fallback: number) {
 }
 
 function maxBytes(type: MediaType) {
-  return positiveEnvInteger(
-    `MEDIA_ASSET_MAX_${type.toUpperCase()}_BYTES`,
-    defaultFileLimits[type],
-  );
+  return mediaUploadLimits()[type];
 }
 
 function ownerQuotaBytes() {
@@ -390,6 +383,9 @@ export function createMediaAssetService(
       requestSignal?: AbortSignal,
     ) {
       const session = await repository.getPendingUpload(ownerEmail, uploadId, clock());
+      if (Number(session.declaredBytes) > maxBytes(session.intendedType)) {
+        throw new MediaFileTooLargeError(maxBytes(session.intendedType));
+      }
       const normalizedContentType = normalizeMimeType(contentType ?? "");
       const parsedLength = Number(contentLength);
       if (
@@ -453,7 +449,7 @@ export function createMediaAssetService(
         if (error instanceof BoundedIoError) {
           throw new MediaVerificationError("MEDIA_SIZE_MISMATCH");
         }
-        if (error instanceof MediaVerificationError) throw error;
+        if (error instanceof MediaVerificationError || error instanceof MediaFileTooLargeError) throw error;
         throw new MediaStorageUnavailableError();
       } finally {
         timeout.clear();
@@ -498,6 +494,9 @@ export function createMediaAssetService(
         if (confirmed.bytes !== Number(session.declaredBytes)) {
           throw new MediaVerificationError("MEDIA_SIZE_MISMATCH");
         }
+        if (confirmed.bytes > maxBytes(session.intendedType)) {
+          throw new MediaFileTooLargeError(maxBytes(session.intendedType));
+        }
         const confirmedMime = normalizeMimeType(confirmed.mimeType);
         const declaredMime = normalizeMimeType(session.declaredMimeType);
         if (
@@ -525,7 +524,7 @@ export function createMediaAssetService(
       } catch (error) {
         logSafeError("storage.confirm.failed",error,{provider:storage.name,jobId:uploadId,phase});
         await queueFailedUpload(errorCode(error));
-        if (error instanceof MediaVerificationError) throw error;
+        if (error instanceof MediaVerificationError || error instanceof MediaFileTooLargeError) throw error;
         throw new MediaStorageUnavailableError();
       }
 

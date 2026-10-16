@@ -110,7 +110,7 @@ describe("public API protocol", () => {
       expect.objectContaining({ in: "header", name: "Idempotency-Key", required: false }),
       expect.objectContaining({ in: "header", name: "X-Idempotency-Key", required: false }),
     ]));
-    expect((post.requestBody as RequestBodyObject).description).toMatch(/67108864.*30000.*64.*10485760/);
+    expect((post.requestBody as RequestBodyObject).description).toMatch(/67108864.*30000.*64.*52428800/);
     expect(Object.keys(post.responses!)).toEqual(expect.arrayContaining(["408", "409", "413", "415", "429", "499", "503"]));
     for (const status of ["429", "503"]) {
       expect(post.responses![status]).toHaveProperty("headers.Retry-After");
@@ -177,7 +177,7 @@ describe("public API protocol", () => {
     expect(history.parameters!.find((p) => !("$ref" in p) && p.name === "hidden")).toHaveProperty("schema", { type: "boolean", default: false, "x-normalization": "boolean-aliases" });
     expect(parseHistoryQuery(new URLSearchParams({ hidden: "true" })).hidden).toBe(true);
     expect(parseHistoryQuery(new URLSearchParams({ limit: "500" })).limit).toBe(100);
-    expect(document.paths["/api/external/generations"]!.post!["x-request-limits"]).toMatchObject({ bodyBytes: 67108864, files: 64, fileBytes: 10485760 });
+    expect(document.paths["/api/external/generations"]!.post!["x-request-limits"]).toMatchObject({ bodyBytes: 67108864, files: 64, fileBytes: 52428800 });
     expect(document.paths["/api/external/monitoring/stats"]!.get!["x-query-limits"]).toMatchObject({ defaultDays: 30, rangeDays: 31 });
     expect(document.paths["/api/external/monitoring/stats"]!.get!["x-conditional-permissions"]).toEqual([
       { field: "scope", permission: "monitoring:read-all", condition: "all" },

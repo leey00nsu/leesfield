@@ -41,8 +41,8 @@ export function useVideoGeneration(modelTimeoutMs?: number) {
       setRequestTimeoutMs(modelTimeoutMs ? Math.max(pollTimeoutMs,modelTimeoutMs+120_000) : pollTimeoutMs);
       try {
         return await requestVideoGeneration(structuredClone(values));
-      } catch {
-        throw new Error(tErrors("requestFailed"));
+      } catch (error) {
+        throw error instanceof Error ? error : new Error(tErrors("requestFailed"));
       }
     },
     [tErrors,modelTimeoutMs],
@@ -51,8 +51,8 @@ export function useVideoGeneration(modelTimeoutMs?: number) {
     async (requestId: string) => {
       try {
         return await fetchVideoGenerationStatus(requestId);
-      } catch {
-        throw new Error(tErrors("pollFailed"));
+      } catch (error) {
+        throw error instanceof Error ? error : new Error(tErrors("pollFailed"));
       }
     },
     [tErrors],

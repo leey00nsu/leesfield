@@ -15,6 +15,9 @@ import { fileFieldAllowsNullItems } from "@/shared/model-catalog/gradio-file-sch
 import { fileFieldMaxItems, gradioInputValues, type GradioContract, type JsonValue } from "@/shared/model-catalog/gradio-contract";
 import { fileInputLabel } from "@/shared/model-catalog/file-input-presentation";
 
+import { uploadReferenceFiles, mediaUploadErrorMessage } from "@/shared/api/reference-file-upload";
+import { useReferenceUploads } from "./reference-upload-scope";
+
 type FileFieldProps = Parameters<typeof DenseGradioFileField>[0];
 export function PairedAudioSection({ field, children }: { field: GradioContract["inputs"][number]; children: ReactNode }) {
   const label = fileInputLabel(field, useLocale());
@@ -79,14 +82,16 @@ function NullableFileSlots(props: FileFieldProps) {
       showAssetPicker={props.showAssetPicker !== false || !!props.onSelectAsset}
       getPreviewUrl={props.getPreviewUrl?value=>props.getPreviewUrl!(value,index):undefined}
       onSelectAsset={props.onSelectAsset?asset=>props.onSelectAsset!(asset,index):undefined}
+      onUpload={props.onUpload ? (assets,value)=>{const next=[...items] as JsonValue[];while(next.length<=index)next.push(null);next[index]=value??null;return props.onUpload!(assets,next);} : undefined}
       onChange={value=>change(index,value)}/>)}</div>;
 }
 
-function DenseGradioFileField({ label, field, value, onChange, disabled = false, maxItems, previewLabel, getPreviewUrl, showAssetPicker = true, assetPickerTrigger, onSelectAsset, assetSelectable, independent, onChangeOrder }: {
+function DenseGradioFileField({ label, field, value, onChange, disabled = false, maxItems, previewLabel, getPreviewUrl, showAssetPicker = true, assetPickerTrigger, onSelectAsset, assetSelectable, independent, onChangeOrder, onUpload }: {
   label: string;
   field: GradioContract["inputs"][number];
   value: unknown;
   onChange: (value: JsonValue | undefined) => void | Promise<void>;
+  onUpload?: (assets: MediaAssetDto[], value: JsonValue | undefined) => void | Promise<void>;
   disabled?: boolean;
   maxItems?: number;
   previewLabel?: string;
@@ -105,9 +110,14 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
   const assetTrigger = useRef<HTMLButtonElement>(null);
   const [assetContext, setAssetContext] = useState<{name: string; kind: string; media: string | undefined} | null>(null);
   const active = useRef(false);
-  const context = useRef({disabled, onChange, value, field, maxItems});
-  useEffect(() => { context.current = {disabled, onChange, value, field, maxItems}; }, [disabled, onChange, value, field, maxItems]);
-  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const uploads = useReferenceUploads();
+  const uploadController = useRef<AbortController | null>(null);
+  const releaseUpload = useRef<(() => void) | null>(null);
+  const context = useRef({disabled, onChange, onUpload, value, field, maxItems});
+  useEffect(() => { context.current = {disabled, onChange, onUpload, value, field, maxItems}; }, [disabled, onChange, onUpload, value, field, maxItems]);
+  useEffect(() => { active.current = true; return () => { active.current = false; uploadController.current?.abort(); releaseUpload.current?.(); }; }, []);
+  useEffect(() => () => { uploadController.current?.abort(); }, [value, field.name, field.media, field.kind]);
+  useEffect(() => { if (disabled) uploadController.current?.abort(); }, [disabled]);
   const [busy, setBusy] = useState(false);
   const reading = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,21 +145,21 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
         const originalField = field.name;
         reading.current = true; setBusy(true); setError(null);
         try {
-          const loaded = await Promise.all(files.map(file => new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          })));
+          const abort = new AbortController(); uploadController.current = abort;
+          releaseUpload.current = uploads.begin();
+          const assets = await uploadReferenceFiles(files, field.media, abort.signal);
+          abort.signal.throwIfAborted();
+          const loaded = assets.map(asset => asset.url);
           const current = context.current;
           // Preserve independent option edits, discard replaced/reset attachment context.
           if (!active.current || current.disabled || current.value !== originalValue || current.field.name !== originalField) return;
           const currentLimit = current.maxItems ?? fileFieldMaxItems(current.field);
           if (loaded.length + (multiple ? items.length : 0) > currentLimit) { setError(countMessage); return; }
-          await current.onChange(multiple ? [...items, ...loaded] : loaded[0]);
+          const next = multiple ? [...items, ...loaded] : loaded[0];
+          if (current.onUpload) await current.onUpload(assets, next); else await current.onChange(next);
           setNames(previous => ({...previous, ...Object.fromEntries(loaded.map((url, index) => [url, files[index].name]))}));
-        } catch { if (active.current) setError(ko ? "파일을 읽지 못했습니다. 다시 선택해 주세요." : "Could not read the file. Please select it again."); }
-        finally { reading.current = false; if (active.current) setBusy(false); }
+        } catch (error) { if (active.current && !uploadController.current?.signal.aborted) setError(mediaUploadErrorMessage(error, ko)); }
+        finally { releaseUpload.current?.(); releaseUpload.current = null; uploadController.current = null; reading.current = false; if (active.current) setBusy(false); }
   };
 
   const selectAsset = (asset:MediaAssetDto) => {

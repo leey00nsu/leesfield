@@ -1,3 +1,4 @@
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 import { getSession } from "@/server/auth/session";
 import { buildMediaAssetKnownErrorResponse } from "@/server/media-assets/media-asset-http";
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
@@ -29,7 +30,7 @@ async function getObservedHandler(request: Request, context: RouteContext) {
       return buildErrorResponse("MEDIA_MIME_MISMATCH", 422);
     }
 
-    const maxBytes = GENERATION_OUTPUT_LIMITS[asset.type];
+    const maxBytes = Math.max(GENERATION_OUTPUT_LIMITS[asset.type], mediaUploadLimits()[asset.type]);
     const declaredBytes = asset.bytes === null ? null : Number(asset.bytes);
     if (declaredBytes !== null && (!Number.isSafeInteger(declaredBytes) || declaredBytes <= 0 || declaredBytes > maxBytes)) {
       return buildErrorResponse("MEDIA_ASSET_CONTENT_FETCH_FAILED", 502);

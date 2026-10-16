@@ -5,7 +5,8 @@ import {
   type UploadableFile,
 } from "leemage-sdk";
 
-import { decodeBase64DataUrl, GENERATION_OUTPUT_LIMITS } from "@/server/http/bounded-io";
+import { decodeBase64DataUrl } from "@/server/http/bounded-io";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 import { RemoteAccessError, requestRemote } from "@/server/http/safe-remote";
 import { prisma } from "@/server/db/prisma";
 import { uploadLeemageFile } from "@/server/shared/leemage-bounded-upload";
@@ -34,12 +35,7 @@ export const INPUT_MEDIA_INVALID = "INPUT_MEDIA_INVALID";
 export const INPUT_MEDIA_FETCH_FAILED = "INPUT_MEDIA_FETCH_FAILED";
 export const INPUT_MEDIA_TOO_LARGE = "INPUT_MEDIA_TOO_LARGE";
 
-const INPUT_MEDIA_LIMITS: Record<MediaType, number> = {
-  image: 10 * 1024 * 1024,
-  audio: GENERATION_OUTPUT_LIMITS.audio,
-  video: GENERATION_OUTPUT_LIMITS.video,
-};
-const INPUT_MEDIA_TIMEOUT_MS = 20_000;
+const INPUT_MEDIA_TIMEOUT_MS = 120_000;
 const INPUT_MEDIA_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 
 export type InputMediaUpload = {
@@ -307,7 +303,7 @@ async function resolveSource(
   type: MediaType,
   remainingBytes: number = INPUT_MEDIA_MAX_TOTAL_BYTES,
 ): Promise<ResolvedInputMedia> {
-  const maxBytes = Math.min(INPUT_MEDIA_LIMITS[type], remainingBytes);
+  const maxBytes = Math.min(mediaUploadLimits()[type], remainingBytes);
   if (source.startsWith("data:")) {
     try {
       const decoded = decodeBase64DataUrl(source, {
@@ -404,7 +400,7 @@ async function uploadOne(
     if (existing) {
       if (!isAllowedMediaMimeType(input.mediaType, existing.mimeType)) throw new InputMediaStorageError(INPUT_MEDIA_INVALID);
       const bytes = existing.bytes == null ? 0 : Number(existing.bytes);
-      if (bytes > Math.min(INPUT_MEDIA_LIMITS[input.mediaType], remainingBytes)) throw new InputMediaStorageError(INPUT_MEDIA_TOO_LARGE);
+      if (bytes > Math.min(mediaUploadLimits()[input.mediaType], remainingBytes)) throw new InputMediaStorageError(INPUT_MEDIA_TOO_LARGE);
       return {
         ref: { assetId: existing.id, field: input.field, sortOrder, generationType: input.generationType, multiple: input.multiple ?? false },
         url: existing.storageUrl ?? existing.legacyUrl ?? source,

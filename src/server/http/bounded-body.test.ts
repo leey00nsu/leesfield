@@ -119,10 +119,10 @@ describe("readBoundedJsonBody", () => {
 });
 
 describe("readRouteJsonBody", () => {
-  it("keeps the null-body contract for malformed json but blocks oversize", async () => {
+  it("reports malformed json separately from oversize", async () => {
     await expect(
       readRouteJsonBody(requestWithBody("{not json"), 1024),
-    ).resolves.toEqual({ ok: true, body: null });
+    ).resolves.toEqual({ ok: false, code: "BODY_INVALID", status: 400 });
 
     await expect(
       readRouteJsonBody(

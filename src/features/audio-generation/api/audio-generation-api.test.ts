@@ -128,6 +128,8 @@ describe("requestAudioGeneration", () => {
   it("실패 응답이면 에러를 그대로 노출한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
+      status: 400,
+      headers: new Headers(),
       json: async () => ({
         message: "REQUEST_FAILED",
       }),

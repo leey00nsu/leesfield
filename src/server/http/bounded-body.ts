@@ -8,6 +8,7 @@
  */
 
 import { generationBodyLimitBytes, bodyReadTimeoutMs } from "@/shared/api/request-limits";
+import { serverLogger } from "@/server/observability/logger";
 
 export type BodyLimitCode =
   | "BODY_TOO_LARGE"
@@ -215,9 +216,8 @@ export type BoundedRouteBody =
   | { ok: false; code: string; status: number };
 
 /**
- * Route-level JSON reader. A malformed body keeps the previous null-body
- * behaviour so validation still answers 400, while an oversized or busy
- * request fails with its own status instead of being parsed.
+ * Preserve parse/size errors before model validation; never turn transport
+ * failures into an unrelated null payload error.
  */
 export async function readRouteJsonBody(
   request: Request,
@@ -229,10 +229,11 @@ export async function readRouteJsonBody(
     const body = acquirePermit ? await withHeavyBodyPermit(read) : await read();
     return { ok: true, body };
   } catch (error) {
-    if (error instanceof BodyLimitError && error.code !== "BODY_INVALID") {
+    if (error instanceof BodyLimitError) {
+      serverLogger.warn("http.body.rejected", { errorCode: error.code, status: error.status, phase: "input.parse", maxBytes });
       return { ok: false, code: error.code, status: error.status };
     }
-    return { ok: true, body: null };
+    throw error;
   }
 }
 

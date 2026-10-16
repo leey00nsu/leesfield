@@ -1,4 +1,5 @@
 "use client";
+import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { useCinemaHistoryRestore } from "@/shared/cinema/use-cinema-history-restore";
 import { GradioFileField } from "@/shared/ui/gradio-file-field";
@@ -150,10 +151,14 @@ function RequiredFieldLabel({
   );
 }
 
-export function AudioGenerationForm({
+export function AudioGenerationForm(props: AudioGenerationFormProps) {
+  return <ReferenceUploadScope><AudioGenerationFormContent {...props}/></ReferenceUploadScope>;
+}
+function AudioGenerationFormContent({
   isAuthenticated,
   embedded = false,
 }: AudioGenerationFormProps) {
+  const referenceUploads = useReferenceUploads();
   const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -460,13 +465,14 @@ export function AudioGenerationForm({
   const handleSelectModel = (modelId: string) => {
     historyRevision.current++;
     if (modelId === activeModel) return;
-    if (isGenerating) {
+    if (isGenerating || referenceUploads.isUploading()) {
       reset();
     }
     form.setValue("dynamicParams", {});
     form.setValue("model", modelId, { shouldValidate: true });
   };
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (referenceUploads.isUploading()) { event.preventDefault(); return; }
     if (!isAuthenticated) {
       event.preventDefault();
       handleLoginRedirect();
@@ -927,26 +933,10 @@ export function AudioGenerationForm({
                 <RequiredFieldLabel label={label} required={isRequired} />
               </AppFormLabel>
               <AppFormControl>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  disabled={isGuest || isGenerating}
-                  aria-label={label}
-                  onChange={(event) => {
-                    historyRevision.current++;
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      if (typeof reader.result === "string") {
-                        field.onChange(reader.result);
-                      }
-                    };
-                    reader.readAsDataURL(file);
-                    event.target.value = "";
-                  }}
-                  className="block w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-                />
+                <GradioFileField key={activeModel} label={label}
+                  field={{name:key,label,kind:"file",media:"audio",schema:{},required:isRequired,nullable:false}}
+                  value={field.value} disabled={isGuest || isGenerating}
+                  onChange={value=>{historyRevision.current++;field.onChange(value);}}/>
               </AppFormControl>
               <AppPromptFormMessage />
             </AppFormItem>
@@ -1239,7 +1229,7 @@ footerRight={
                               type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
-                          isGenerating ||
+                          referenceUploads.uploading || isGenerating ||
                           (isAuthenticated &&
                             (generationHistory.loading || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }

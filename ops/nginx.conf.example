@@ -12,7 +12,8 @@ server {
     listen 80;
     server_name studio.example.com;
 
-    # Match the app's largest accepted generation request body.
+    # Allows the default 50 MiB binary upload and the 64 MiB legacy JSON budget.
+    # Raise alongside MEDIA_ASSET_MAX_{IMAGE,VIDEO,AUDIO}_BYTES when needed.
     client_max_body_size 64m;
 
     location / {

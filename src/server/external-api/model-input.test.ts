@@ -1,10 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import { getExternalModelInput } from "./model-input";
 import { mappedModel } from "./test-fixtures";
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 
 describe("authenticated model input contract", () => {
+  it("publishes a media-specific runtime upload cap for declared image fields",()=>{
+    vi.stubEnv("MEDIA_ASSET_MAX_IMAGE_BYTES", "1048576");
+    try {
+      const model=mappedModel("video");
+      model.parameters.frame.binding!.media="image";
+      expect(getExternalModelInput(model).files.find(field=>field.name==="frame")?.maxBytes).toBe(1048576);
+    }finally{vi.unstubAllEnvs();}
+  });
   it("publishes declared source-label limits consistently with multipart and JSON parsing",()=>{
     const model=mappedModel("image");
     model.parameters.frames.label="References (optional, up to 6)";
@@ -90,14 +98,14 @@ describe("authenticated model input contract", () => {
           name: "frame",
           multiple: false,
           multipartField: "file:frame",
-          maxBytes: 10485760,
+          maxBytes: 52428800,
           maxItems: 1,
         },
         {
           name: "frames",
           multiple: true,
           multipartField: "file:frames",
-          maxBytes: 10485760,
+          maxBytes: 52428800,
           maxItems: 8,
         },
       ]);

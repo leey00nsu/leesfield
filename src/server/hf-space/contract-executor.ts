@@ -8,12 +8,12 @@ import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 import {
   assertOutputCount,
   decodeBase64DataUrl,
-  GENERATION_OUTPUT_LIMITS,
   OUTBOUND_CONCURRENCY,
   OUTBOUND_FILE_TIMEOUT_MS,
 } from "@/server/http/bounded-io";
 import { mapWithConcurrency } from "@/server/http/bounded-body";
 import { measureProvider } from "@/server/observability/request-observability";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 
 type GradioEvent = {
   type?: string;
@@ -135,7 +135,7 @@ export async function buildGradioRequest(contract: GradioContract, payload: { pr
       if (/^data:(image|audio|video)\/[^;]+;base64,/.test(source)) {
         const media = field.media ?? "image";
         const { contentType, buffer } = decodeBase64DataUrl(source, {
-          maxBytes: GENERATION_OUTPUT_LIMITS[media],
+          maxBytes: mediaUploadLimits()[media],
           invalidCode: "HF_CONTRACT_FILE_URL",
           tooLargeCode: "HF_CONTRACT_FILE_TOO_LARGE",
         });
@@ -155,8 +155,9 @@ export async function buildGradioRequest(contract: GradioContract, payload: { pr
       const resolved = await resolveInputImageBuffer(url.href, {
         invalidErrorCode: "HF_CONTRACT_FILE_URL",
         fetchErrorCode: "HF_CONTRACT_FILE_FETCH_FAILED",
+        tooLargeErrorCode: "HF_CONTRACT_FILE_TOO_LARGE",
         timeoutMs: OUTBOUND_FILE_TIMEOUT_MS,
-        maxBytes: GENERATION_OUTPUT_LIMITS[media],
+        maxBytes: mediaUploadLimits()[media],
       });
       if (field.media && !resolved.mime.startsWith(field.media + "/")) {
         throw new Error("HF_CONTRACT_FILE_MEDIA");

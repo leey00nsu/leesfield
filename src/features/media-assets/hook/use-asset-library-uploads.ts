@@ -5,7 +5,7 @@ import { droppedMediaType, normalizeDroppedMediaFile } from "@/shared/media-asse
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { patchAssetMetadata, uploadMediaAsset } from "../api/media-asset-api";
 import { mediaAssetKeys } from "./use-media-assets";
-export type LibraryUpload = { id: string; file: File; preview: string; projectId: string | null; status: "uploading" | "failed" | "cancelled" | "completed"; asset?: MediaAssetDto; placementFailed?: boolean };
+export type LibraryUpload = { id: string; file: File; preview: string; projectId: string | null; status: "uploading" | "failed" | "cancelled" | "completed"; error?: unknown; asset?: MediaAssetDto; placementFailed?: boolean };
 export function useAssetLibraryUploads() {
   const client = useQueryClient();
   const [uploads, setUploads] = useState<LibraryUpload[]>([]);
@@ -44,8 +44,8 @@ export function useAssetLibraryUploads() {
           client.setQueryData(mediaAssetKeys.detail(asset.id), asset);
           await client.invalidateQueries({ queryKey: mediaAssetKeys.all });
           remove(id);
-        } catch {
-          if (controllers.current.get(id) === controller) update(id, { status: controller.signal.aborted ? "cancelled" : "failed" });
+        } catch (error) {
+          if (controllers.current.get(id) === controller) update(id, { status: controller.signal.aborted ? "cancelled" : "failed", error });
         } finally {
           if (controllers.current.get(id) === controller) controllers.current.delete(id);
           active.current--; drain.current();
@@ -66,7 +66,7 @@ export function useAssetLibraryUploads() {
   const cancel = (id: string) => { controllers.current.get(id)?.abort(); controllers.current.delete(id); update(id, { status: "cancelled" }); };
   const retry = (id: string) => {
     if (!items.current.has(id) || controllers.current.has(id)) return;
-    const controller = new AbortController(); controllers.current.set(id, controller); update(id, { status: "uploading" }); queue.current.push({ id, controller }); drain.current();
+    const controller = new AbortController(); controllers.current.set(id, controller); update(id, { status: "uploading", error: undefined }); queue.current.push({ id, controller }); drain.current();
   };
   useEffect(() => { mounted.current = true; const requests = controllers.current, entries = items.current; return () => { mounted.current = false; for (const item of requests.values()) item.abort(); for (const entry of entries.values()) URL.revokeObjectURL(entry.preview); }; }, []);
   return { uploads, add, cancel, retry, remove };

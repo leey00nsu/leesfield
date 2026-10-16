@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type RefObject,
 } from "react";
 
@@ -23,7 +22,6 @@ export interface UseImageInitPreviewsResult {
   canUpload: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
   openPicker: () => void;
-  handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   replaceImages: (sources: string[]) => void;
   removeImage: (id: string) => void;
   reset: () => void;
@@ -72,47 +70,6 @@ export function useImageInitPreviews({
     }
     inputRef.current?.click();
   }, [canUpload, maxInputImages, previews.length]);
-
-  const handleFileChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files ?? []);
-      if (!files.length || !canUpload) {
-        event.target.value = "";
-        return;
-      }
-
-      const remaining = Math.max(0, maxInputImages - previews.length);
-      const selected = files.slice(0, remaining);
-
-      const dataUrls = await Promise.all(
-        selected.map(
-          (file) =>
-            new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result));
-              reader.onerror = () =>
-                reject(new Error("이미지 업로드에 실패했습니다."));
-              reader.readAsDataURL(file);
-            }),
-        ),
-      );
-
-      const next = [
-        ...previews,
-        ...dataUrls.map((dataUrl) => ({
-          id: crypto.randomUUID(),
-          url: dataUrl,
-          dataUrl,
-        })),
-      ];
-
-      setPreviews(next);
-      syncFormValue(next);
-
-      event.target.value = "";
-    },
-    [canUpload, maxInputImages, previews, syncFormValue],
-  );
 
   const removeImage = useCallback(
     (id: string) => {
@@ -169,7 +126,6 @@ export function useImageInitPreviews({
     canUpload,
     inputRef,
     openPicker,
-    handleFileChange,
     replaceImages,
     removeImage,
     reset,

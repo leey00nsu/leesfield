@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fileTypeFromBuffer } from "file-type";
 import { resolveInputImageBuffer } from "@/server/shared/input-image-resolver";
 import { measureProvider } from "@/server/observability/request-observability";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 
 export class ModalApiError extends Error {
  constructor(public code:string,public retryable=false, options?: ErrorOptions) {super(code, options);this.name="ModalApiError";}
@@ -67,7 +68,7 @@ export function createModalClient(timeoutMs=30_000, options: Partial<z.infer<typ
  return {
   origin:connection.origin,json,
   async upload(source:string,media:"image"|"video"|"audio"="image",idempotencyKey?:string) {
-   const input=await resolveInputImageBuffer(source,{invalidErrorCode:"MODAL_IMAGE_INVALID",timeoutMs:Math.min(remaining(),limits.request_timeout_ms),maxBytes:limits.max_input_bytes});
+   const input=await resolveInputImageBuffer(source,{invalidErrorCode:"MODAL_INPUT_INVALID",tooLargeErrorCode:"MODAL_INPUT_TOO_LARGE",timeoutMs:Math.min(remaining(),limits.upload_timeout_ms),maxBytes:Math.min(limits.max_input_bytes,mediaUploadLimits()[media])});
    const file=await fileTypeFromBuffer(input.buffer);
    if(!file || !file.mime.startsWith(media+"/") || file.mime!==input.mime) throw new ModalApiError("MODAL_IMAGE_INVALID");
    const form=new FormData();

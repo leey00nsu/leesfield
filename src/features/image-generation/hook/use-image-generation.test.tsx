@@ -84,7 +84,7 @@ describe("useImageGeneration", () => {
     });
 
     expect(result.current.state.status).toBe("failed");
-    expect(result.current.state.errorMessage).toBe("요청에 실패했습니다.");
+    expect(result.current.state.errorMessage).toBe("boom");
     expect(mockFetchImageGenerationStatus).not.toHaveBeenCalled();
   });
 

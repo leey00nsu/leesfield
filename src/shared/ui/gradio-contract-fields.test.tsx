@@ -1,3 +1,12 @@
+const referenceUpload = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
+  ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
+  uploadReferenceFiles: (...args: unknown[]) => referenceUpload.run(...args),
+}));
+beforeEach(() => { referenceUpload.run.mockImplementation(async (files: File[]) => files.map(file => ({
+  id: file.name, type: file.type.split("/")[0], status: "completed", mimeType: file.type,
+  url: "https://storage.example/" + file.name,
+}))); });
 import userEvent from "@testing-library/user-event";
 
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
@@ -94,7 +103,7 @@ describe("Gradio contract fields", () => {
     const value=Array.from({length:8},(_,i)=>"https://files.example/"+i+".png");
     const view=render(<GradioFileField label="Images" field={field} value={value} onChange={onChange}/>);
     fireEvent.change(screen.getByLabelText("참조 이미지"),{target:{files:[new File(["i"],"ninth.png",{type:"image/png"})]}});
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith([...value,expect.stringMatching(/^data:image/)]));
+    await waitFor(()=>expect(onChange).toHaveBeenCalledWith([...value,expect.stringMatching(/^https:\/\/storage.example\//)]));
     view.rerender(<GradioFileField label="Images" field={field} value={onChange.mock.calls[0][0]} onChange={onChange}/>);
     fireEvent.change(screen.getByLabelText("참조 이미지"),{target:{files:[new File(["i"],"tenth.png",{type:"image/png"})]}});
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -109,7 +118,7 @@ describe("Gradio contract fields", () => {
     expect(onChange).toHaveBeenLastCalledWith([null,null,"https://cdn/c.wav"]);
     view.rerender(<GradioFileField label="Track" field={field} value={[null,null,"https://cdn/c.wav"]} onChange={onChange}/>);
     fireEvent.change(screen.getByLabelText("참조 오디오 · Track 2"),{target:{files:[new File(["b"],"b.wav",{type:"audio/wav"})]}});
-    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith([null,expect.stringMatching(/^data:audio/),"https://cdn/c.wav"]));
+    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith([null,expect.stringMatching(/^https:\/\/storage.example\//),"https://cdn/c.wav"]));
   });
   it("shows a required positional array once without requiring every empty slot",()=>{
     const field={...contract.inputs[1],name:"reference_video_audios",label:"reference_video_audios",kind:"files" as const,media:"audio" as const,required:true,nullable:false,
@@ -240,7 +249,7 @@ describe("Gradio contract fields", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("최대 2개");
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.change(input,{target:{files:[image,video]}});
-    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith({duration:7,reference_images:[expect.stringMatching(/^data:image\/png/)],reference_videos:[expect.stringMatching(/^data:video\/mp4/)]}));
+    await waitFor(()=>expect(onChange).toHaveBeenLastCalledWith({duration:7,reference_images:["https://storage.example/ref.png"],reference_videos:[expect.stringMatching(/^https:\/\/storage.example\//)]}));
   });
   it("keeps named first/end frame slots separate instead of routing both by media",()=>{
     const roles={...contract,inputs:[{...contract.inputs[1],name:"first",label:"First frame",media:"image" as const},{...contract.inputs[1],name:"end",label:"End frame",media:"image" as const}]};
@@ -327,26 +336,18 @@ describe("Gradio contract fields", () => {
 
   it("파일 읽기 중 다른 옵션 변경을 보존하며 모델 교체 뒤 이전 파일 결과는 버린다", async () => {
     let finish: (() => void) | undefined;
-    class Reader {
-      result="data:image/png;base64,YQ==";
-      onload: (()=>void) | null=null;
-      readAsDataURL(){finish=()=>this.onload?.();}
-    }
-    const OriginalReader=globalThis.FileReader;
-    globalThis.FileReader=Reader as unknown as typeof FileReader;
-    try {
-      const onChange=vi.fn();
-      const {rerender}=render(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:5}} prompt="demo" onChange={onChange}/>);
-      fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["a"],"a.png",{type:"image/png"})]}});
-      rerender(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:7}} prompt="demo" onChange={onChange}/>);
-      await act(async()=>finish?.());
-      expect(onChange).toHaveBeenLastCalledWith({duration:7,frame:"data:image/png;base64,YQ=="});
-      onChange.mockClear();
-      fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["b"],"b.png",{type:"image/png"})]}});
-      rerender(<GradioContractFields key="next-model" scope="attachments" contract={contract} values={{}} prompt="demo" onChange={onChange}/>);
-      await act(async()=>finish?.());
-      expect(onChange).not.toHaveBeenCalled();
-    } finally {globalThis.FileReader=OriginalReader;}
+    referenceUpload.run.mockImplementation(() => new Promise(resolve => { finish = () => resolve([asset("uploaded")]); }));
+    const onChange=vi.fn();
+    const {rerender}=render(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:5}} prompt="demo" onChange={onChange}/>);
+    fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["a"],"a.png",{type:"image/png"})]}});
+    rerender(<GradioContractFields key="first" scope="attachments" contract={contract} values={{duration:7}} prompt="demo" onChange={onChange}/>);
+    await act(async()=>finish?.());
+    expect(onChange).toHaveBeenLastCalledWith({duration:7,frame:"https://storage.example/uploaded"});
+    onChange.mockClear();
+    fireEvent.change(screen.getByLabelText("참조 파일 · First Frame"),{target:{files:[new File(["b"],"b.png",{type:"image/png"})]}});
+    rerender(<GradioContractFields key="next-model" scope="attachments" contract={contract} values={{}} prompt="demo" onChange={onChange}/>);
+    await act(async()=>finish?.());
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("첨부와 옵션을 분리해 범위 밖 값을 오류로 처리하지 않는다", () => {
@@ -376,7 +377,7 @@ describe("Gradio contract fields", () => {
     expect(screen.queryByLabelText("참조 파일 · First Frame")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     await user.upload(input,[new File(["a"],"a."+media,{type:media+"/test"}),new File(["b"],"b."+media,{type:media+"/test"})]);
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith({duration:7,refs:[expect.stringMatching("data:"+media+"/"),expect.stringMatching("data:"+media+"/")]}));
+    await waitFor(()=>expect(onChange).toHaveBeenCalledWith({duration:7,refs:[expect.stringMatching("https://storage.example/"),expect.stringMatching("https://storage.example/")]}));
     rerender(<GradioContractFields scope="attachments" contract={files} values={{duration:7,refs:["data:"+media+"/test;base64,YQ=="]}} prompt="demo" onChange={onChange}/>);
     await user.click(screen.getByRole("button",{name:"제거"}));
     expect(onChange).toHaveBeenLastCalledWith({duration:7,refs:null});
@@ -479,7 +480,7 @@ it("파일 첨부 후에만 삭제를 제공하며 nullable 파일 삭제는 nul
  const onChange=vi.fn(); const user=userEvent.setup();
  const {rerender}=render(<GradioContractFields contract={contract} values={{frame:null}} prompt="demo" onChange={onChange}/>);
  await user.upload(screen.getByLabelText("참조 파일 · First Frame"),new File(["image"],"frame.png",{type:"image/png"}));
- expect(onChange).toHaveBeenCalledWith({frame:expect.stringMatching(/^data:image/)});
+ expect(onChange).toHaveBeenCalledWith({frame:expect.stringMatching(/^https:\/\/storage.example\//)});
  rerender(<GradioContractFields contract={contract} values={{frame:"data:image/png;base64,aW1hZ2U="}} prompt="demo" onChange={onChange}/>);
  expect(screen.getByRole("img",{name:"참조 파일 · First Frame"})).toBeVisible();
  await user.click(screen.getByRole("button",{name:"제거"}));
@@ -493,11 +494,11 @@ it("복수 첨부는 순서대로 추가·개별 제거하고 초과 배치는 �
   const {rerender}=render(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
   expect(screen.getByText("업로드")).toBeVisible();
   await user.upload(screen.getByLabelText("참조 이미지"),new File(["b"],"b.png",{type:"image/png"}));
-  await waitFor(()=>expect(onChange).toHaveBeenCalledWith({refs:[first,"data:image/png;base64,Yg=="]}));
-  rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first,"data:image/png;base64,Yg=="]}} prompt="edit" onChange={onChange}/>);
+  await waitFor(()=>expect(onChange).toHaveBeenCalledWith({refs:[first,"https://storage.example/b.png"]}));
+  rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first,"https://storage.example/b.png"]}} prompt="edit" onChange={onChange}/>);
   expect(screen.getByRole("button",{name:"참조 이미지: 파일 업로드"})).toBeDisabled();
   await user.click(screen.getAllByRole("button",{name:"제거"})[0]);
-  expect(onChange).toHaveBeenLastCalledWith({refs:["data:image/png;base64,Yg=="]});
+  expect(onChange).toHaveBeenLastCalledWith({refs:["https://storage.example/b.png"]});
   onChange.mockClear();
   rerender(<GradioContractFields scope="attachments" contract={files} values={{refs:[first]}} prompt="edit" onChange={onChange}/>);
   await user.upload(screen.getByLabelText("참조 이미지"),[new File(["b"],"b.png",{type:"image/png"}),new File(["c"],"c.png",{type:"image/png"})]);

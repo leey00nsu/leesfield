@@ -1,3 +1,12 @@
+const referenceUpload = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
+  ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
+  uploadReferenceFiles: (...args: unknown[]) => referenceUpload.run(...args),
+}));
+beforeEach(() => { referenceUpload.run.mockImplementation(async (files: File[]) => files.map(file => ({
+  id: file.name, type: file.type.split("/")[0], status: "completed", mimeType: file.type,
+  url: "https://storage.example/" + file.name,
+}))); });
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -665,16 +674,7 @@ describe("AudioGenerationForm", () => {
       ),
     );
 
-    const fileReaderResult = "data:audio/wav;base64,UklGRg==";
-    class MockFileReader {
-      result: string | ArrayBuffer | null = null;
-      onload: null | (() => void) = null;
-      readAsDataURL() {
-        this.result = fileReaderResult;
-        this.onload?.();
-      }
-    }
-    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    const fileReaderResult = "https://storage.example/ref.wav";
 
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
@@ -733,16 +733,7 @@ describe("AudioGenerationForm", () => {
       ),
     );
 
-    const fileReaderResult = "data:audio/wav;base64,UklGRg==";
-    class MockFileReader {
-      result: string | ArrayBuffer | null = null;
-      onload: null | (() => void) = null;
-      readAsDataURL() {
-        this.result = fileReaderResult;
-        this.onload?.();
-      }
-    }
-    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    const fileReaderResult = "https://storage.example/ref.wav";
 
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
@@ -819,16 +810,7 @@ describe("AudioGenerationForm", () => {
       ),
     );
 
-    const fileReaderResult = "data:audio/wav;base64,ZHluYW1pYw==";
-    class MockFileReader {
-      result: string | ArrayBuffer | null = null;
-      onload: null | (() => void) = null;
-      readAsDataURL() {
-        this.result = fileReaderResult;
-        this.onload?.();
-      }
-    }
-    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    const fileReaderResult = "https://storage.example/ref.wav";
 
     const user = userEvent.setup();
     renderWithIntl(<AudioGenerationForm isAuthenticated />);
@@ -860,7 +842,7 @@ describe("AudioGenerationForm", () => {
       "TEXTAREA",
     );
     await user.upload(
-      screen.getByLabelText("Reference Sample"),
+      screen.getByLabelText("참조 오디오 · Reference Sample"),
       new File([Uint8Array.from([82, 73, 70, 70])], "ref.wav", {
         type: "audio/wav",
       }),
@@ -925,7 +907,7 @@ describe("AudioGenerationForm", () => {
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button",{name:"생성"}));
     await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining({
-      model:audioAttachmentModel.key,prompt:"refine voice",dynamicParams:{source:expect.stringMatching(/^data:audio/)},
+      model:audioAttachmentModel.key,prompt:"refine voice",dynamicParams:{source:expect.stringMatching(/^https:\/\/storage.example\//)},
     })));
     await user.click(within(dock).getByRole("button",{name:"제거"}));
     expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();

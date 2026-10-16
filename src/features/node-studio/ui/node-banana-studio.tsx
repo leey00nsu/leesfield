@@ -1,4 +1,6 @@
 "use client";
+import { hasPendingReferenceUploads, usePendingReferenceUploads } from "@/shared/ui/reference-upload-scope";
+import { mediaUploadErrorMessage } from "@/shared/api/reference-file-upload";
 import { ExecutionTime } from "@/shared/ui/execution-time";
 import { appToast } from "@/shared/ui/app-toast";
 import { logger } from "@/shared/logging/logger.mjs";
@@ -15,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import type { NodeProps, NodeTypes } from "@xyflow/react";
 import { promptPresetDisplayName } from "@/shared/prompt-presets/prompt-preset-display-name";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   NodeBananaCanvasErrorBoundary,
@@ -259,6 +261,7 @@ export function NodeBananaStudio({
   onExpandNode,
   resolveUpstreamNodeData,
 }: NodeBananaStudioProps) {
+  const locale = useLocale();
   const preferences = useSpacePreferences();
   const trackModel = preferences?.trackModel;
   const savedNodeDefaults = preferences?.data?.defaults;
@@ -656,7 +659,7 @@ export function NodeBananaStudio({
   }, [resolveHostedNodeData]);
 
   const runUpstreamNode = useCallback(async (nodeId: string) => {
-    if (!effectiveWritable || hasMissingInput(nodeId)) return undefined;
+    if (!effectiveWritable || hasMissingInput(nodeId) || hasPendingReferenceUploads("space:")) return undefined;
     const node = runtimeGraphRef.current.nodes.find((candidate) => candidate.id === nodeId);
     const kind = typeof node?.data.canonicalKind === "string" ? node.data.canonicalKind : "";
     if (isUnavailableEditNodeKind(kind)) return undefined;
@@ -1066,13 +1069,15 @@ export function NodeBananaStudio({
           : patch;
         current.updateUpstreamNodeData(nodeId, next);
       }, [current, projectHeaderData]);
+      const referenceUploading = usePendingReferenceUploads("space:");
       const getNodeRunReadiness = useCallback((nodeId: string) => {
         const readiness = current.getHostedNodeRunReadiness(nodeId);
         return {
           ...readiness,
-          reason: readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
+          ready: readiness.ready && !referenceUploading,
+          reason: referenceUploading ? "참조 파일을 업로드하고 있습니다." : readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
         };
-      }, [current]);
+      }, [current, referenceUploading]);
       const headerHost = useMemo(() => ({
         ...current.comments,
         recentModels: current.recentModels,
@@ -1170,13 +1175,15 @@ export function NodeBananaStudio({
           })(),
         };
       }, [current]);
+      const referenceUploading = usePendingReferenceUploads("space:");
       const getNodeRunReadiness = useCallback((nodeId: string) => {
         const readiness = current.getHostedNodeRunReadiness(nodeId);
         return {
           ...readiness,
-          reason: readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
+          ready: readiness.ready && !referenceUploading,
+          reason: referenceUploading ? "참조 파일을 업로드하고 있습니다." : readiness.ready ? null : runReadinessMessages[readiness.reasons[0] ?? ""] ?? "This node is not ready to run.",
         };
-      }, [current]);
+      }, [current, referenceUploading]);
       const uploadInput = useCallback<NonNullable<typeof current.onInputMediaUpload>>(async input => {
         const version = ++uploadVersion.current;
         setUploading(true);
@@ -1269,7 +1276,7 @@ export function NodeBananaStudio({
         </div> : null}
         {resolved?.missingMedia ? <div role="status" className="nodrag nopan absolute inset-x-2 top-8 z-40 rounded-lg bg-background/95 px-3 py-2 text-xs text-muted-foreground pointer-events-none">{tMedia("missingFile")}</div> : null}
         {(uploading || props.data.mediaUploading) ? <div role="status" aria-live="polite" aria-label={tMedia("uploading")} className="nodrag nopan absolute inset-0 z-50 flex items-center justify-center gap-2 rounded-2xl bg-black/55 text-sm text-white backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin" />{tMedia("uploading")}</div> : null}
-        {props.data.mediaUploadError ? <div role="alert" className="nodrag nopan absolute inset-x-2 bottom-2 rounded-lg bg-destructive/90 px-3 py-2 text-xs text-white">{tMedia("uploadError")}</div> : null}
+        {props.data.mediaUploadError ? <div role="alert" className="nodrag nopan absolute inset-x-2 bottom-2 rounded-lg bg-destructive/90 px-3 py-2 text-xs text-white">{typeof props.data.mediaUploadErrorMessage === "string" ? props.data.mediaUploadErrorMessage : tMedia("uploadError")}</div> : null}
         </>
       );
     }
@@ -1653,7 +1660,7 @@ export function NodeBananaStudio({
         if (!controller.signal.aborted && canvasDropSession.current === session) {
           onHostError?.(error instanceof Error ? error : new Error("CANVAS_IMPORT_FAILED"));
           setUpstreamTransientData(current => ({ ...current, ...Object.fromEntries([...session.ids].map(id =>
-            [id, { ...current[id], mediaUploading: false, mediaUploadError: true }])) }));
+            [id, { ...current[id], mediaUploading: false, mediaUploadError: true, mediaUploadErrorMessage: mediaUploadErrorMessage(error, locale === "ko") }])) }));
         }
       } finally {
         clearTimeout(timeout);
@@ -1665,7 +1672,7 @@ export function NodeBananaStudio({
         }
       }
     })();
-  }, [effectiveWritable, importCanvasMedia, onHostError, publishRuntimeGraph]);
+  }, [effectiveWritable, importCanvasMedia, onHostError, publishRuntimeGraph, locale]);
   const createNode = useCallback<NodeBananaCanvasProps["onCreateNode"]>(
     (item, position, pending) => {
       if (isUnavailableEditNodeKind(item.kind)) throw new Error("NODE_TYPE_UNAVAILABLE");

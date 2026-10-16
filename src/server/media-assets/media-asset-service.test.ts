@@ -155,7 +155,24 @@ describe("mediaAssetService", () => {
     repositoryMocks.listNodeOperations.mockResolvedValue([]);
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
+
+  it.each([
+    ["image", "image/png", "png"], ["video", "video/mp4", "mp4"], ["audio", "audio/mpeg", "mp3"],
+  ] as const)("allows exactly 50 MiB and rejects one extra byte for %s", async (intendedType, declaredMimeType, ext) => {
+    const input = { intendedType, declaredMimeType, fileName: "reference." + ext, declaredBytes: 52_428_800 };
+    await expect(service.createUpload("owner@example.com", input)).resolves.toMatchObject({ id: "upload_1" });
+    await expect(service.createUpload("owner@example.com", { ...input, declaredBytes: 52_428_801 }))
+      .rejects.toMatchObject({ maxBytes: 52_428_800 });
+  });
+
+  it("uses the operator's video limit before presigning", async () => {
+    vi.stubEnv("MEDIA_ASSET_MAX_VIDEO_BYTES", "1048576");
+    await expect(service.createUpload("owner@example.com", {
+      intendedType: "video", declaredMimeType: "video/mp4", fileName: "clip.mp4", declaredBytes: 1_048_577,
+    })).rejects.toMatchObject({ maxBytes: 1_048_576 });
+    expect(storageMocks.presign).not.toHaveBeenCalled();
+  });
 
   it.each([[401, "authentication"], [403, "permission"], [400, "validation"], [429, "rate_limit"], [503, "upstream"]])(
     "retains only safe presign diagnostics for status %s", async (status, reason) => {

@@ -8,6 +8,7 @@ import { gradioSchemaValidator } from "@/shared/model-catalog/gradio-json-schema
 import { GENERATION_OUTPUT_LIMITS, GENERATION_OUTPUT_MAX_TOTAL_BYTES } from "@/server/http/bounded-io";
 import { createModalClient, ModalApiError, type ModalClient } from "./client";
 import type { ModalJobRepository, ModalSubmission } from "./job-repository";
+import { modalInputUploadBudget } from "./input-upload-policy";
 
 const jobSchema=z.object({id:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(128),status:z.enum(["pending","in_progress","completed","failed","cancelled"]),error:z.string().optional()});
 const assetsSchema=z.object({
@@ -40,7 +41,7 @@ export async function executeModalWorkflow(
  const limits=modalExecutionLimits(config);
  const mediaOutputLimit=GENERATION_OUTPUT_LIMITS[config.workflow.category];
  const totalOutputLimit=Math.min(limits.max_output_bytes,GENERATION_OUTPUT_MAX_TOTAL_BYTES);
- const client=dependencies.client??createModalClient(config.timeout_ms,limits);
+ const client=dependencies.client??createModalClient(config.timeout_ms,{...limits,max_input_bytes:modalInputUploadBudget(config)});
  const now=dependencies.now??Date.now;
  const sleep=dependencies.sleep??(ms=>new Promise(resolve=>setTimeout(resolve,ms)));
  const random=dependencies.random??Math.random;

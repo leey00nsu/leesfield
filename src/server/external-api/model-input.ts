@@ -27,6 +27,8 @@ import { normalizeGradioSchema } from "@/shared/model-catalog/gradio-schema-norm
 import { normalizeRuntimeParameterOptions } from "@/shared/model-catalog/parameter-options";
 import type { PromptPresetRef } from "@/shared/prompt-presets/prompt-preset-contract";
 import { DEFAULT_FILE_INPUT_LIMIT, MAX_FILE_INPUT_LIMIT } from "@/shared/model-catalog/file-input-limits";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
+import type { MediaType } from "@/shared/media-assets/media-asset-contract";
 
 type FileInput = {
   name: string;
@@ -40,12 +42,12 @@ function object(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
-function fileInput(name: string, multiple: boolean, maxItems = DEFAULT_FILE_INPUT_LIMIT): FileInput {
+function fileInput(name: string, multiple: boolean, maxItems = DEFAULT_FILE_INPUT_LIMIT, media?: MediaType): FileInput {
   return {
     name,
     multiple,
     multipartField: externalFilePrefix + name,
-    maxBytes: maxExternalFileBytes,
+    maxBytes: media ? mediaUploadLimits()[media] : maxExternalFileBytes,
     maxItems: multiple ? Math.max(1, Math.min(MAX_FILE_INPUT_LIMIT, maxItems)) : 1,
   };
 }
@@ -71,6 +73,7 @@ export function getExternalModelInput(model: ModelCatalogItem) {
           field.name,
           multiple,
           effectiveMaxItems,
+          field.media,
         ));
         schema = normalizeGradioSchema(gradioFileAuthoringSchema(field)) as SchemaObject;
         if (multiple) schema.maxItems = effectiveMaxItems;
@@ -198,7 +201,9 @@ export function getExternalModelInput(model: ModelCatalogItem) {
         binding.valueType === "file" ||
         ["initImage", "initImages", "inputAudio"].includes(name)
       )
-        files.push(fileInput(name, name === "initImages"));
+        files.push(fileInput(name, name === "initImages", DEFAULT_FILE_INPUT_LIMIT,
+          name === "inputAudio" ? "audio" : ["initImage", "initImages"].includes(name) ? "image"
+            : ["image", "video", "audio"].includes(String(binding.media)) ? binding.media as MediaType : undefined));
     }
     inputSchema = {
       type: "object",

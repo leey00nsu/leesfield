@@ -1,3 +1,4 @@
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 import { getSession } from "@/server/auth/session";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
 import { RATE_LIMITS } from "@/server/rate-limit/policies";
@@ -19,7 +20,7 @@ export const GET = withRequestObservability("/api/media-assets/[assetId]/downloa
     const { assetId } = await context.params;
     const asset = await mediaAssetService.get(session.adminEmail, assetId);
     if (asset.status !== "completed" || !asset.url) return buildErrorResponse("MEDIA_ASSET_NOT_FOUND", 404);
-    const upstream = await requestRemoteStream(asset.url, { timeoutMs: 60_000, maxBytes: GENERATION_OUTPUT_LIMITS[asset.type], signal: request.signal });
+    const upstream = await requestRemoteStream(asset.url, { timeoutMs: 60_000, maxBytes: Math.max(GENERATION_OUTPUT_LIMITS[asset.type], mediaUploadLimits()[asset.type]), signal: request.signal });
     if (upstream.status < 200 || upstream.status >= 300) { await upstream.body.cancel().catch(() => undefined); return buildErrorResponse("MEDIA_ASSET_FETCH_FAILED", 502); }
     const name = encodeURIComponent(getMediaAssetDownloadName(asset)).replace(/['()*]/g, (char) => "%" + char.charCodeAt(0).toString(16).toUpperCase());
     return new Response(upstream.body, { headers: { "Content-Type": asset.mimeType, "Content-Disposition": `attachment; filename="${asset.id}"; filename*=UTF-8''${name}`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });

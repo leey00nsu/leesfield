@@ -37,7 +37,7 @@ describe("ApiDocsWidget", () => {
       for (const permission of ["generations:create", "history:delete", "models:manage", "monitoring:read-all"])
         expect(access.textContent).toContain(permission);
       expect(access.textContent).not.toMatch(/platform:|platform 권한|Legacy platform|access:custom/);
-      for (const condition of ["Idempotency-Key", "expectedRevision", "files.maxItems", "64 MiB", "10 MiB"])
+      for (const condition of ["Idempotency-Key", "expectedRevision", "files.maxItems", "64 MiB", "50 MiB"])
         expect(requests.textContent).toContain(condition);
       const sidebar = screen.getByRole("complementary");
       expect(within(sidebar).getByRole("link", { name: messages.apiDocs.access.title })).toHaveAttribute("href", "#access");

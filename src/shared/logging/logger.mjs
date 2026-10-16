@@ -4,7 +4,7 @@ const fields = new Set([
   "requestId", "jobId", "method", "route", "status", "durationMs", "errorType",
   "errorCode", "provider", "modelKey", "operation", "phase", "kind", "outcome",
   "worker", "state", "pending", "processing", "oldestPendingAgeSeconds",
-  "failedCleanup", "attempt",
+  "failedCleanup", "attempt", "maxBytes", "actualBytes",
 ]);
 const identifier = /^[A-Za-z0-9_$./:-]{1,96}$/;
 const codePattern = /^[A-Z][A-Z0-9_]{1,63}$/;

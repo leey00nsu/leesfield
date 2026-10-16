@@ -1,6 +1,7 @@
 import { fileTypeFromBuffer } from "file-type";
 import { mapWithConcurrency } from "@/server/http/bounded-body";
-import { GENERATION_OUTPUT_LIMITS, OUTBOUND_CONCURRENCY } from "@/server/http/bounded-io";
+import { OUTBOUND_CONCURRENCY } from "@/server/http/bounded-io";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 
 export type GradioFileUploadClient = {
   config?: { root?: string; root_url?: string } | null;
@@ -26,12 +27,13 @@ export async function uploadGradioInputFiles(client: GradioFileUploadClient, val
   if (!root || !client.upload_files) throw new Error("HF_CONTRACT_FILE_UPLOAD_UNAVAILABLE");
   const uploaded = new Map<Blob, Record<string, unknown>>();
   await mapWithConcurrency([...blobs], OUTBOUND_CONCURRENCY, async blob => {
-    if (blob.size > Math.max(...Object.values(GENERATION_OUTPUT_LIMITS))) throw new Error("HF_CONTRACT_FILE_TOO_LARGE");
+    const limits = mediaUploadLimits();
+    if (blob.size > Math.max(...Object.values(limits))) throw new Error("HF_CONTRACT_FILE_TOO_LARGE");
     const buffer = Buffer.from(await blob.arrayBuffer());
     const detected = await fileTypeFromBuffer(buffer);
     const media = detected?.mime.split("/")[0];
     if (!detected || !["image", "video", "audio"].includes(media!) || (blob.type && blob.type !== detected.mime)) throw new Error("HF_CONTRACT_FILE_MEDIA");
-    if (blob.size > GENERATION_OUTPUT_LIMITS[media as keyof typeof GENERATION_OUTPUT_LIMITS]) throw new Error("HF_CONTRACT_FILE_TOO_LARGE");
+    if (blob.size > limits[media as keyof typeof limits]) throw new Error("HF_CONTRACT_FILE_TOO_LARGE");
     const file = new File([new Uint8Array(buffer)], "reference." + detected.ext, { type: detected.mime });
     const response = await client.upload_files!(root, [file]);
     if (response.error || response.files?.length !== 1 || typeof response.files[0] !== "string" || !response.files[0].trim()) throw new Error("HF_CONTRACT_FILE_UPLOAD_FAILED");

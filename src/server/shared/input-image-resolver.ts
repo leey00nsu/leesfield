@@ -2,6 +2,7 @@ import {
   RemoteAccessError,
   requestRemote,
 } from "@/server/http/safe-remote";
+import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 
 export type ResolvedInputImageBuffer = {
   buffer: Buffer;
@@ -14,9 +15,9 @@ type ResolveInputImageOptions = {
   fetchErrorCode?: string;
   notBase64ErrorCode?: string;
   maxBytes?: number;
+  tooLargeErrorCode?: string;
 };
 
-const DEFAULT_MAX_INPUT_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 
 function fail(code: string): never {
@@ -39,6 +40,7 @@ function isKnownInputError(
       options.invalidErrorCode,
       options.fetchErrorCode,
       options.notBase64ErrorCode,
+      options.tooLargeErrorCode,
     ].includes(error.message)
   );
 }
@@ -52,9 +54,12 @@ export function decodeDataUrlToInputImageBuffer(
     fail(options.notBase64ErrorCode ?? options.invalidErrorCode);
   }
   const buffer = Buffer.from(match[2], "base64");
+  if (buffer.byteLength > (options.maxBytes ?? mediaUploadLimits().image)) {
+    fail(options.tooLargeErrorCode ?? options.invalidErrorCode);
+  }
   if (
     buffer.byteLength === 0 ||
-    buffer.byteLength > (options.maxBytes ?? DEFAULT_MAX_INPUT_IMAGE_BYTES)
+    buffer.byteLength > (options.maxBytes ?? mediaUploadLimits().image)
   ) {
     fail(options.invalidErrorCode);
   }
@@ -73,7 +78,7 @@ export async function fetchHttpInputImageBuffer(
   options: ResolveInputImageOptions,
 ): Promise<ResolvedInputImageBuffer> {
   const fetchErrorCode = options.fetchErrorCode ?? options.invalidErrorCode;
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_INPUT_IMAGE_BYTES;
+  const maxBytes = options.maxBytes ?? mediaUploadLimits().image;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs);
@@ -99,10 +104,10 @@ export async function fetchHttpInputImageBuffer(
     };
   } catch (error) {
     if (error instanceof RemoteAccessError) {
+      if (error.code === "REMOTE_TOO_LARGE") fail(options.tooLargeErrorCode ?? options.invalidErrorCode);
       // Validation failures keep the invalid-input code; transport failures
       // stay a fetch error, matching the previous contract.
       const validationFailure =
-        error.code === "REMOTE_TOO_LARGE" ||
         error.code === "REMOTE_URL_INVALID" ||
         error.code === "REMOTE_PROTOCOL_BLOCKED" ||
         error.code === "REMOTE_CREDENTIALS_BLOCKED" ||

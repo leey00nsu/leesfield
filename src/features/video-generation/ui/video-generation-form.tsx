@@ -1,4 +1,5 @@
 "use client";
+import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
 import { historyOptionUpdates } from "@/shared/generation/history-options";
@@ -87,10 +88,14 @@ const studioPreviewShellClass =
 const studioResultFrameClass =
   "mt-10 min-h-[18rem] w-full max-w-6xl rounded-[1.75rem] border border-white/10 bg-[#0b0d0c]/72 shadow-[0_24px_90px_rgba(0,0,0,0.46)] sm:min-h-[24rem]";
 
-export function VideoGenerationForm({
+export function VideoGenerationForm(props: VideoGenerationFormProps) {
+  return <ReferenceUploadScope><VideoGenerationFormContent {...props}/></ReferenceUploadScope>;
+}
+function VideoGenerationFormContent({
   isAuthenticated,
   embedded = false,
 }: VideoGenerationFormProps) {
+  const referenceUploads = useReferenceUploads();
   const searchParams = useGenerationSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -359,7 +364,7 @@ export function VideoGenerationForm({
   const handleSelectModel = (modelId: string) => {
     if (modelId === activeModel) return;
     cinema.markEdited();
-    if (isGenerating) {
+    if (isGenerating || referenceUploads.isUploading()) {
       reset();
     }
     form.setValue("dynamicParams", {});
@@ -367,12 +372,13 @@ export function VideoGenerationForm({
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (referenceUploads.isUploading()) { event.preventDefault(); return; }
     if (!isAuthenticated) {
       event.preventDefault();
       handleLoginRedirect();
       return;
     }
-    if (isGenerating || isModelLoading || !hasModels) {
+    if (isGenerating || referenceUploads.isUploading() || isModelLoading || !hasModels) {
       event.preventDefault();
       return;
     }
@@ -586,7 +592,7 @@ footerRight={
                               type={isAuthenticated ? "submit" : "button"}
                         size="xl"
                         disabled={
-                          isGenerating ||
+                          referenceUploads.uploading || isGenerating ||
                           (isAuthenticated &&
                                   (cinemaBlocked || isModelLoading || !hasModels || mappingInvalid || Boolean(presetInputIssue) || (!gradioContract && !form.formState.isValid) || (!gradioContract && !canSubmit)))
                         }
