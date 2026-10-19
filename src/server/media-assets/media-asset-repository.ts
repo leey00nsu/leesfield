@@ -506,9 +506,9 @@ async function markTerminalOperationOutputDeleting(ownerEmail: string, operation
   });
 }
 
-async function createOperation(ownerEmail: string, input: CreateMediaOperationInput) {
+async function createOperation(ownerEmail: string, input: CreateMediaOperationInput, options?: { transaction: Prisma.TransactionClient; executionId: string }) {
   try {
-    return await prisma.$transaction(async (tx) => {
+    const create = async (tx: Prisma.TransactionClient) => {
       const node = await tx.generationGraphNode.findFirst({
         where: { id: input.graphNodeId, graphId: input.graphId, graph: { ownerEmail } },
         select: { id: true, graphId: true, kind: true, configVersion: true },
@@ -581,6 +581,7 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
 
       return tx.mediaOperation.create({
         data: {
+          ...(options ? { id: options.executionId } : {}),
           ownerEmail,
           graphId: input.graphId,
           graphNodeId: input.graphNodeId,
@@ -598,7 +599,8 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
         },
         select: operationSelect,
       });
-    });
+    };
+    return await (options ? create(options.transaction) : prisma.$transaction(create));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new MediaOperationConflictError("MEDIA_OPERATION_ACTIVE");
@@ -1008,6 +1010,7 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
         },
       },
       generationInputAssets: { select: { requestId: true } },
+      assistantInputAssets: { where: { ownerEmail }, select: { executionId: true, execution: { select: { graphId: true } } } },
       imageGenerationImage: {
         select: { generation: { select: { requestId: true, ownerEmail: true } } },
       },
@@ -1036,13 +1039,14 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
         input.operation.graphNode?.graphId ?? null,
       ]),
       ...inputNodes.map((node) => node.graphId),
+      ...(asset.assistantInputAssets ?? []).map(({ execution }) => execution.graphId),
     ].filter((graphId): graphId is string => Boolean(graphId))),
   ).sort();
   const operationIds = Array.from(
     new Set(asset.operationInputs.map((input) => input.operation.id)),
   ).sort();
   const generationRequestIds = Array.from(new Set(asset.generationInputAssets.map((input) => input.requestId))).sort();
-  return { graphIds, operationIds, generationRequestIds, projectCoverIds: asset.coveringProjects?.map(({ id }) => id) ?? [] };
+  return { graphIds, operationIds, generationRequestIds, assistantExecutionIds: (asset.assistantInputAssets ?? []).map(({ executionId }) => executionId), projectCoverIds: asset.coveringProjects?.map(({ id }) => id) ?? [] };
 }
 
 async function markAssetDeleting(ownerEmail: string, assetId: string) {
@@ -1055,6 +1059,10 @@ async function markAssetDeleting(ownerEmail: string, assetId: string) {
       data: { status: "deleting" },
     });
     if (result.count !== 1) throw new MediaAssetNotFoundError();
+    const assistantInputs = await tx.assistantExecutionInputAsset.findMany({
+      where: { assetId, ownerEmail }, select: { execution: { select: { graphId: true } } },
+    });
+    if (assistantInputs.length) throw new MediaAssetInUseError([...new Set(assistantInputs.map(({ execution }) => execution.graphId))]);
     const asset = await tx.mediaAsset.findFirst({
       where: { id: assetId, ownerEmail },
       select: assetSelect,

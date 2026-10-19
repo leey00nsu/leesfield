@@ -20,7 +20,7 @@ const input = { type: "llm", key: "llm-test", label: "Assistant", vendor: "VENDO
   providerConfig: { base_url: "https://provider.example/v1", model_id: "model", supports_images: false }, parameters: {}, meta: {}, isActive: false, isDefault: false };
 const record = () => ({ ...input, id: "model", hasApiKey: true, createdAt: new Date(0), updatedAt: new Date(0), apiKey: "never-return", credential: { ciphertext: "never-return" } });
 const context = { params: Promise.resolve({ modelKey: "llm-test" }) };
-const request = (method = "GET", body?: unknown, query = "") => new Request("http://localhost/api/external/admin/models?" + query, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+const request = (method = "GET", body?: unknown, query = "") => new Request("http://localhost/api/external/admin/models?" + query, { method, ...(body === undefined ? {} : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }) });
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "key", permissions: ["platform:admin"] });
@@ -54,7 +54,7 @@ it("creates with a write-only credential and forwards partial activation and del
   expect((await DELETE(request("DELETE"), context)).status).toBe(200); expect(mocks.remove).toHaveBeenCalledWith("llm-test");
 });
 it("rejects oversized, invalid and unknown writes before mutation and maps safe service errors", async () => {
-  expect((await POST(new Request("http://localhost", { method: "POST", headers: { "Content-Length": "1048577" }, body: "{}" }))).status).toBe(413);
+  expect((await POST(new Request("http://localhost", { method: "POST", headers: { "Content-Length": "1048577", "Content-Type": "application/json" }, body: "{}" }))).status).toBe(413);
   expect((await PATCH(request("PATCH", { credential: "injected" }), context)).status).toBe(400);
   expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
   for (const [error, status, code] of [["MODEL_NOT_FOUND", 404, "NOT_FOUND"], ["MODEL_KEY_EXISTS", 409, "CONFLICT"], ["KEY_IMMUTABLE", 400, "IMMUTABLE_FIELD"], ["MODEL_CREDENTIAL_ENCRYPTION_KEY_INVALID", 503, "MODEL_CREDENTIAL_UNAVAILABLE"]] as const) {

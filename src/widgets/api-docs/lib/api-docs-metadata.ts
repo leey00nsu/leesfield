@@ -39,6 +39,8 @@ export const fallbackEndpointItems: ApiDocsNavDefinition[] = [
 export const tagIdMap: Record<string, string> = {
   Generations: "generations",
   Models: "models",
+  Spaces: "spaces",
+  Assets: "assets",
   History: "history",
   "Prompt presets": "promptPresets",
   Monitoring: "monitoring",

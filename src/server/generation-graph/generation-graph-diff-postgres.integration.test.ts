@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { generationGraphRepository } from "@/server/generation-graph/generation-graph-repository";
-import { GenerationGraphVersionConflictError } from "@/server/generation-graph/generation-graph-errors";
+import { GenerationGraphVersionConflictError, GenerationGraphActiveExecutionError } from "@/server/generation-graph/generation-graph-errors";
 import type { UpdateGenerationGraphInput } from "@/server/generation-graph/generation-graph-contract";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
@@ -49,6 +49,25 @@ integration("generation graph diff writes", () => {
     if (graphIds.length > 0) {
       await prisma.generationGraph.deleteMany({ where: { id: { in: graphIds } } });
     }
+  });
+
+  it("preserves retired nodes in copies and prevents deletion while an Assistant is running", async () => {
+    const graph = await generationGraphRepository.create(ownerEmail, "Preserved legacy node");
+    graphIds.push(graph.id);
+    const retiredId = randomUUID();
+    await prisma.generationGraphNode.create({ data: { id: retiredId, graphId: graph.id, kind: "edit.image.annotation", configVersion: 1, config: { parameters: {} }, x: 1, y: 2 } });
+    const copy = await generationGraphRepository.copy(ownerEmail, graph.id);
+    graphIds.push(copy.id);
+    expect(copy.nodes).toHaveLength(1);
+    expect(copy.nodes[0]).toMatchObject({ kind: "edit.image.annotation", config: { parameters: {} } });
+    expect(copy.nodes[0].id).not.toBe(retiredId);
+    const assistantNode = await prisma.generationGraphNode.create({ data: { id: randomUUID(), graphId: graph.id, kind: "generate.assistant", configVersion: 1, config: { prompt: "x", modelKey: "fixture" }, x: 0, y: 0 } });
+    const execution = await prisma.assistantExecution.create({ data: { ownerEmail, graphId: graph.id, graphNodeId: assistantNode.id, modelKey: "fixture", inputSnapshot: {} } });
+    await expect(generationGraphRepository.remove(ownerEmail, graph.id)).rejects.toBeInstanceOf(GenerationGraphActiveExecutionError);
+    expect(await prisma.generationGraph.count({ where: { id: graph.id } })).toBe(1);
+    await prisma.assistantExecution.update({ where: { id: execution.id }, data: { status: "cancelled", finishedAt: new Date() } });
+    await generationGraphRepository.remove(ownerEmail, graph.id);
+    expect(await prisma.generationGraph.count({ where: { id: graph.id } })).toBe(0);
   });
 
   it("keeps unchanged rows intact in a maximum-size Graph update", async () => {

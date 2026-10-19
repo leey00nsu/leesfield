@@ -687,6 +687,8 @@ describe("hfSpaceAudioAdapter", () => {
               url: "https://leey00nsu-qwen-3-5-tts-faster-gradio.hf.space/gradio_api/file=/tmp/gradio/job-1/audio.wav",
               path: "/tmp/gradio/job-1/audio.wav",
               name: "audio.wav",
+              size: 1585196,
+              sampleRate: 44100,
             },
           },
         ],

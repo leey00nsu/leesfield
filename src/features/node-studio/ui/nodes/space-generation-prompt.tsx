@@ -26,7 +26,8 @@ import { promptPresetDisplayName } from "@/shared/prompt-presets/prompt-preset-d
 import { type PromptPreset, type PromptPresetModality } from "@/shared/prompt-presets/prompt-preset-contract";
 import { type CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
 import { resolveGenerationCapabilities } from "@/shared/model-catalog/modality";
-import { type JsonValue } from "@/shared/model-catalog/gradio-contract";
+import { getGradioContract, type JsonValue } from "@/shared/model-catalog/gradio-contract";
+import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { mediaAssetKeys, useMediaAssetList } from "@/features/media-assets/hook/use-media-assets";
 import { getMediaAsset, uploadMediaAsset } from "@/features/media-assets/api/media-asset-api";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
@@ -57,6 +58,9 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
   const t = useTranslations("promptPresets"), ko = useLocale() === "ko";
   const models = modality === "image" ? authoring.imageModels : modality === "video" ? authoring.videoModels ?? [] : authoring.audioModels ?? [];
   const model = models.find(candidate => candidate.key === config.modelKey);
+  const contract = model ? getGradioContract(model) : null;
+  const primaryInput = contract?.inputs.find(field => field.canonical === "prompt");
+  const supportsPrompt = !contract || Boolean(primaryInput);
   const draft = hydrateNodePromptPreset(config, modality);
   const catalog = usePromptPresetCatalog(modality, false, authoring.writable !== false);
   const [pending, setPending] = useState<PromptPreset | null>(null);
@@ -69,6 +73,7 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
     if (typeof next.prompt === "string" && next.prompt.length > 20_000) {
       setError(ko ? "프롬프트는 20,000자 이하로 입력하세요." : "Use a prompt of at most 20,000 characters."); return;
     }
+    if (model && typeof next.prompt === "string") next = { ...next, parameters: syncPrimaryTextValue(model,record(next.parameters),next.prompt) };
     setError(null); authoring.updateCanonicalNodeConfig?.(nodeId, next as CanonicalJsonValue);
   };
   const apply = (preset: PromptPreset) => {
@@ -124,12 +129,12 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
           </PairedAudioSection>;
         })}
       </div> : undefined}
-      textarea={<NodeTextEditor label={ko ? "프롬프트 편집" : "Edit prompt"} disabled={disabled || connected}
+      textarea={supportsPrompt ? <NodeTextEditor label={ko ? "프롬프트 편집" : "Edit prompt"} disabled={disabled || connected}
         className="m-3 flex min-h-32 flex-1 flex-col">
         {editing => <AppPromptEditor aria-label={ko ? "프롬프트" : "Prompt"} className="min-h-32 px-3 py-3 text-sm leading-6"
         tabIndex={editing ? 0 : -1}
         value={connected ? connectedValue ?? "" : draft.text} disabled={disabled || connected || !editing}
-        placeholder={ko ? "무엇을 만들고 싶으세요?" : "What would you like to create?"}
+        placeholder={primaryInput?.label ?? (ko ? "무엇을 만들고 싶으세요?" : "What would you like to create?")}
         token={!connected && draft.preset ? { id: draft.preset.key, label: promptPresetDisplayName(draft.preset, t), offset: draft.offset,
           content: <GenerationPromptPresetChip controller={controller} disabled={disabled} /> } : undefined}
         tokens={modality === "video" ? cinemaMovementToken(config.cinema, disabled || Boolean(progress?.running) || Boolean(authoring.isNodeRunning?.(nodeId)), () => {
@@ -144,7 +149,7 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
             next.cinema = { ...parseCinemaSettings(next.cinema, "video"), movement: "auto" };
           publish(next);
         }} />}
-        </NodeTextEditor>}
+        </NodeTextEditor> : undefined}
       feedback={<>{progress && <p className="text-xs text-muted-foreground" role="status">{ko ? `${progress.completed}/${progress.total}회 · 성공 ${progress.completed - progress.failed} · 실패 ${progress.failed}${progress.running ? " · 생성 중" : ""}` : `${progress.completed}/${progress.total} runs · ${progress.completed - progress.failed} succeeded · ${progress.failed} failed${progress.running ? " · generating" : ""}`}</p>}{connected && <p className="text-xs text-muted-foreground">{ko ? "연결된 프롬프트를 사용합니다." : "Using the connected prompt."}</p>}
         {error && <AppPromptMessage>{error}</AppPromptMessage>}
         {inputIssue && <AppPromptMessage>{t(inputIssue === "referenceRequired" ? "referenceMissing" : inputIssue)}</AppPromptMessage>}</>}
@@ -153,7 +158,7 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
           activeId={model?.key ?? null} disabled={disabled} loading={authoring.isLoading} className="min-w-0 flex-[1_1_14rem]"
           onSelect={key => authoring.updateCanonicalNodeConfig?.(nodeId, projectGenerationModelSelectionDefaults(current.current.config,
             { ...current.current.config, modelKey: key, parameters: {} }, models) as CanonicalJsonValue)} />
-        <GenerationPromptPresetControls controller={controller} disabled={disabled || connected} />
+        <GenerationPromptPresetControls controller={controller} disabled={disabled || connected || !supportsPrompt} />
         {modality === "image" && <GenerationImageCountSelector value={typeof config.repeatCount === "number" ? config.repeatCount : 1} disabled={disabled}
           onChange={repeatCount => authoring.updateCanonicalNodeConfig?.(nodeId, { ...current.current.config, repeatCount } as CanonicalJsonValue)} />}
       </div></div>} />

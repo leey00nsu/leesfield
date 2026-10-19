@@ -5,6 +5,8 @@ export const apiOperationPermissions = [
   "history:read", "history:delete",
   "presets:read", "presets:create", "presets:update", "presets:delete",
   "monitoring:read", "models:manage", "monitoring:read-all",
+  "spaces:read", "spaces:create", "spaces:update", "spaces:delete", "spaces:execute",
+  "assets:read", "assets:upload",
 ] as const;
 export type ApiOperationPermission = (typeof apiOperationPermissions)[number];
 const legacyPermissions = ["platform:read", "platform:write", "platform:admin"] as const;
@@ -15,7 +17,8 @@ export const platformPermissionSchema = z.enum([
 export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
 export const standardApiKeyPermissions: PlatformPermission[] = [
   customAccessMarker, ...apiOperationPermissions.filter((permission) =>
-    permission !== "models:manage" && permission !== "monitoring:read-all"),
+    permission !== "models:manage" && permission !== "monitoring:read-all" &&
+    !permission.startsWith("spaces:") && !permission.startsWith("assets:")),
 ];
 export const apiKeyPermissionsSchema = z.array(platformPermissionSchema)
   .max(apiOperationPermissions.length + 1)
@@ -56,12 +59,32 @@ export function hasPlatformPermission(
   if (required === customAccessMarker) return false;
   if (required === "platform:read") return ["history:read", "presets:read", "monitoring:read"].every((p) => effective.includes(p as ApiOperationPermission));
   if (required === "platform:write") return standardApiKeyPermissions.slice(1).every((p) => effective.includes(p as ApiOperationPermission));
-  if (required === "platform:admin") return apiOperationPermissions.every((p) => effective.includes(p));
+  if (required === "platform:admin") return apiOperationPermissions.filter(p => !p.startsWith("spaces:") && !p.startsWith("assets:")).every((p) => effective.includes(p));
   return effective.includes(required);
 }
 
 /** Shared by HTTP authorization and the public specification. */
 export const externalOperationPermissions: Record<string, ApiOperationPermission> = {
+  "GET /api/external/spaces": "spaces:read",
+  "POST /api/external/spaces": "spaces:create",
+  "GET /api/external/spaces/capabilities": "spaces:read",
+  "GET /api/external/spaces/models": "spaces:read",
+  "GET /api/external/spaces/models/{modelId}/schema": "spaces:read",
+  "GET /api/external/spaces/{spaceId}": "spaces:read",
+  "PUT /api/external/spaces/{spaceId}": "spaces:update",
+  "DELETE /api/external/spaces/{spaceId}": "spaces:delete",
+  "POST /api/external/spaces/{spaceId}/copy": "spaces:create",
+  "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "spaces:read",
+  "POST /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "spaces:execute",
+  "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "spaces:read",
+  "DELETE /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "spaces:execute",
+  "PATCH /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "spaces:update",
+  "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/output": "spaces:read",
+  "GET /api/external/assets": "assets:read",
+  "GET /api/external/assets/{assetId}": "assets:read",
+  "POST /api/external/assets/uploads": "assets:upload",
+  "PUT /api/external/assets/uploads/{uploadId}/content": "assets:upload",
+  "POST /api/external/assets/uploads/{uploadId}/confirm": "assets:upload",
   "POST /api/external/generations": "generations:create",
   "GET /api/external/generations/{requestId}": "generations:read",
   "GET /api/external/models": "models:read",
@@ -85,11 +108,22 @@ export const externalOperationPermissions: Record<string, ApiOperationPermission
   "POST /api/external/admin/models/modal-comfyui": "models:manage",
 };
 
+/** Additional conditions are shared by authorization and public documentation. */
+export const externalOperationAdditionalPermissions: Record<string, ApiOperationPermission[]> = {
+  "POST /api/external/spaces/{spaceId}/copy": ["spaces:read"],
+};
+
+export function matchExternalOperation(method: string, pathname: string) {
+  const verb = method.toUpperCase();
+  const exact = verb + " " + pathname;
+  if (externalOperationPermissions[exact]) return exact;
+  return Object.keys(externalOperationPermissions).find((key) => {
+    const [operationMethod, path] = key.split(" ");
+    return operationMethod === verb && new RegExp("^" + path.replace(/\{[^}]+\}/g, "[^/]+") + "$").test(pathname);
+  });
+}
+
 export function getExternalOperationPermission(method: string, pathname: string) {
-  const exact = externalOperationPermissions[method.toUpperCase() + " " + pathname];
-  if (exact) return exact;
-  return Object.entries(externalOperationPermissions).find(([key]) => {
-    const [verb, path] = key.split(" ");
-    return verb === method.toUpperCase() && new RegExp("^" + path.replace(/\{[^}]+\}/g, "[^/]+") + "$").test(pathname);
-  })?.[1];
+  const operation = matchExternalOperation(method, pathname);
+  return operation ? externalOperationPermissions[operation] : undefined;
 }

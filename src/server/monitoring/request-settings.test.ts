@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { requestSettings } from "./request-settings";
 describe("persisted request settings", () => {
+  it("omits the model's frozen primary text role at any provider field name", () => {
+    expect(requestSettings({ promptFields: ["narration"], requestSettings: { narration: "script text", speed: 1, prompt: "script text" } })).toEqual({ speed: 1 });
+    expect(requestSettings({ promptProvenance: { localPrompt: "local" }, inputPrompt: "input", dynamicParams: { narration: "script text", speed: 1 } }, ["narration"]))
+      .toEqual({ dynamicParams: { speed: 1 } });
+  });
   it("preserves zero, false, null and nested model parameters while omitting credentials and file payloads", () => {
     expect(
       requestSettings({

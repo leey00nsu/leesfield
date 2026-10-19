@@ -7,7 +7,8 @@ import { HistoryRequestSettings } from "../ui/history-request-settings";
 import { Copy } from "lucide-react";
 import type { GenerationHistoryItem, GenerationHistoryStatus } from "@/entities/generation/model/types";
 import type { MonitoringRequestDetail } from "@/features/monitoring-dashboard/model/types";
-import { useMonitoringRequestDetail } from "@/features/monitoring-dashboard/hook/use-monitoring-dashboard";
+import { useGenerationHistoryDetail } from "../hook/use-generation-history-detail";
+import type { PromptSource } from "@/shared/generation-graph/prompt-provenance";
 import { useCinemaHistory } from "@/shared/cinema/use-cinema-history";
 import { CinemaHistoryDetails } from "@/shared/ui/cinema/cinema-history-details";
 import { AppPromptMessage } from "@/shared/ui/app-prompt-message";
@@ -54,6 +55,7 @@ function hydrateHistoryItem(
       detail.type === "image" ? resultUrl : (item.thumbnailUrl ?? resultUrl),
     inputImages: detail.inputImages,
     inputAudios: detail.inputAudios,
+    inputVideos: detail.inputVideos,
     referenceText: detail.referenceText,
     errorMessage: detail.errorMessage,
   };
@@ -67,14 +69,16 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
   const tActions = useTranslations("history.detailActions");
   const tCinema = useTranslations("cinema");
   const tPresets = useTranslations("promptPresets");
+  const tNodeKinds = useTranslations("nodeStudio.nodeKinds");
   const cinemaHistory = useCinemaHistory(item.id, item.type, Boolean(record) && item.origin !== "edit");
   const copy = useClipboardCopy();
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
-  const detailQuery = useMonitoringRequestDetail(
+  const detailQuery = useGenerationHistoryDetail(
     item.type,
     item.id,
-    Boolean(record) && item.origin !== "edit",
+    Boolean(record),
+    item.origin ?? "generation",
   );
   const detail = detailQuery.data ?? null;
   const hydrated = hydrateHistoryItem(item, detail);
@@ -100,24 +104,31 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       : "-";
   const inputImages = hydratedItem.inputImages ?? [];
   const inputAudios = hydratedItem.inputAudios ?? [];
+  const inputVideos = hydratedItem.inputVideos ?? [];
+  const inputMedia = [...(detail?.inputMedia ?? [])];
+  for (const [type, urls] of [["image", inputImages], ["audio", inputAudios], ["video", inputVideos]] as const) {
+    urls.forEach((url, sortOrder) => {
+      if (!inputMedia.some(input => input.type === type && input.url === url)) inputMedia.push({ assetId: null, type, role: type, sortOrder, url });
+    });
+  }
   const resultLabel =
     hydratedItem.type === "audio"
       ? tHistory("detail.resultAudio")
       : hydratedItem.type === "video"
         ? tHistory("detail.resultVideo")
         : tHistory("detail.resultImage");
-  const inputLabel =
-    hydratedItem.type === "audio"
-      ? tHistory("detail.inputAudio")
-      : tHistory("detail.inputImage");
   const formattedRequestedAt = formatDateTime(hydratedItem.createdAt);
   const formattedDuration = <ExecutionTime {...hydratedItem} />;
   const resultUrl = hydratedItem.resultUrl ?? null;
   const thumbnailUrl =
     hydratedItem.thumbnailUrl ?? hydratedItem.resultUrl ?? null;
   const warningMessage = detail?.warningMessage ?? null;
+  const operation = hydratedItem.operation ?? detail?.operation;
+  const operationKey = operation?.type.split(".").map((part, index) => index ? part[0].toUpperCase() + part.slice(1) : part).join("");
+  const operationName = operationKey ? (tNodeKinds.has(operationKey) ? tNodeKinds(operationKey) : operation?.type) : null;
 
   const settingsRows = [
+    ...(operationName ? [{ label: tHistory("detail.operation"), value: operationName }] : []),
     {
       label: tHistory("detail.model"),
       value: formatFallback(hydratedItem.model),
@@ -130,6 +141,7 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
     { label: tHistory("detail.status"), value: tStatuses(hydratedItem.status) },
   ];
   const metadataRows = [
+    { label: tHistory("detail.playbackDuration"), value: output?.durationMs != null ? `${output.durationMs / 1000} s` : detail?.assets[0]?.durationSec != null ? `${detail.assets[0].durationSec} s` : "-" },
     { label: tHistory("detail.requestId"), value: hydratedItem.id },
     { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
     { label: tHistory("detail.finishedAt"), value: finishedAtLabel },
@@ -155,9 +167,6 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       value: hydratedItem.sourceAssetIds?.join(", ") || "-",
     },
   ];
-
-  const primaryInputImage = inputImages[0] ?? null;
-  const primaryInputAudio = inputAudios[0] ?? null;
 
   const renderMediaPreview = ({
     label,
@@ -232,12 +241,13 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
 
   const appliedPreset = cinemaHistory.data?.promptPreset;
   const presetName = appliedPreset ? promptPresetDisplayName(appliedPreset, tPresets) : "";
-  const promptTab = (
+  const promptTab = item.origin === "edit" ? <AppPromptMessage>{tHistory("detail.promptNotUsed")}</AppPromptMessage> : (
     <div className="grid gap-5">
 
       {cinemaHistory.error && <AppPromptMessage>{tCinema("restoreFailed")}</AppPromptMessage>}
       {[
-        { label: tHistory("detail.inputPrompt"), text: cinemaHistory.data?.inputPrompt, preset: appliedPreset, unavailable: cinemaHistory.loading ? tHistory("detail.promptLoading") : tHistory("detail.inputPromptUnknown") },
+        ...(detail?.promptProvenance?.connectedPrompt != null ? [{ label: tHistory("detail.localPrompt"), text: detail.promptProvenance.localPrompt, preset: undefined, unavailable: undefined }] : []),
+        { label: tHistory("detail.inputPrompt"), text: cinemaHistory.data?.inputPrompt ?? detail?.inputPrompt, preset: appliedPreset, unavailable: cinemaHistory.loading ? tHistory("detail.promptLoading") : tHistory("detail.inputPromptUnknown") },
         { label: tHistory("detail.fullPrompt"), text: hydratedItem.prompt },
       ].map(({ label, text, preset, unavailable }) => {
         const copyText = preset ? (text ?? "").slice(0, preset.tokenOffset) + "[" + presetName + "] " + (text ?? "").slice(preset.tokenOffset) : text;
@@ -293,16 +303,28 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
     ...(record ? [{ label: tHistory("detail.sourceRecord"), value: item.operation?.id ?? item.id }, { label: tHistory("detail.graphId"), value: formatFallback(item.graphId) }, { label: tHistory("detail.sourceAssets"), value: item.sourceAssetIds?.join(", ") || "-" }] : []),
   ];
   const provenance = <AppDetailSection className="p-4">{renderRows(sourceRows)}</AppDetailSection>;
+  const renderPromptSources = (sources: PromptSource[]): import("react").ReactNode => <ul className="grid gap-2">
+    {sources.map((source, index) => <li key={source.nodeId + ":" + source.portId + ":" + index} className="break-all text-xs text-white/65">
+      <span>{source.nodeId} · {source.portId}</span>
+      {source.executionId && <p>{tHistory("detail.sourceRecord")}: {source.executionId}</p>}
+      {source.selectedItemId && <p>{tHistory("detail.selectedItem")}: {source.selectedItemId}</p>}
+      {source.sources?.length ? <div className="mt-2 border-l border-white/10 pl-3">{renderPromptSources(source.sources)}</div> : null}
+    </li>)}
+  </ul>;
   const historyTab = (
     <div className="grid gap-3">
       {provenance}
-      {renderMediaPreview({
-        label: inputLabel,
-        url:
-          hydratedItem.type === "audio" ? primaryInputAudio : primaryInputImage,
-        type: hydratedItem.type === "audio" ? "audio" : "image",
-        empty: tHistory("detail.noInputAsset"),
-      })}
+      {detail?.promptProvenance?.sources.length ? <AppDetailSection className="p-4">
+        <h3 className="mb-3 text-sm font-semibold">{tHistory("detail.promptSources")}</h3>
+        {renderPromptSources(detail.promptProvenance.sources)}
+      </AppDetailSection> : null}
+      {detail && hydratedItem.graphNodeId && item.origin !== "edit" && !detail.promptProvenance
+        ? <p className="text-xs text-white/45">{tHistory("detail.promptSourcesUnknown")}</p> : null}
+      {inputMedia.length ? inputMedia.map((input, index) => <div key={input.role + ":" + input.sortOrder + ":" + index}>
+        {renderMediaPreview({ label: `${tHistory(input.type === "video" ? "detail.inputVideo" : input.type === "audio" ? "detail.inputAudio" : "detail.inputImage")} · ${input.role} ${input.sortOrder + 1}`,
+          url: input.url, type: input.type, empty: tHistory("detail.noInputAsset") })}
+        {input.assetId && <p className="mt-1 break-all text-xs text-white/40">{tHistory("detail.assetId")}: {input.assetId}</p>}
+      </div>) : <p className="text-sm text-white/40">{tHistory("detail.noInputAsset")}</p>}
       {hydratedItem.errorMessage ? (
         <div className="grid gap-2">
           <div className="text-sm font-semibold text-red-100">

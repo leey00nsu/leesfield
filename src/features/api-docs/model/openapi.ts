@@ -3,6 +3,8 @@ import {
   OpenApiGeneratorV31,
 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
+import { registerSpacesApi } from "./openapi-spaces";
+import { applyErrorResponseExamples } from "./error-response-examples";
 import { getModelRegistrationDocumentationSchema } from "./model-registration-schema";
 import { applyApiReferenceMetadata, type ApiReferenceTranslations } from "./api-reference-metadata";
 import type { SecurityRequirementObject } from "openapi3-ts/oas31";
@@ -32,7 +34,7 @@ import {
 
 export type OpenApiTranslations = ApiReferenceTranslations & {
   infoDescription?: string;
-  tags?: { generations?: string; models?: string; history?: string; promptPresets?: string; monitoring?: string; modelAdministration?: string };
+  tags?: { generations?: string; models?: string; history?: string; promptPresets?: string; monitoring?: string; modelAdministration?: string; spaces?: string; assets?: string };
   platform?: Record<string, string>;
   paths?: {
     generation?: string;
@@ -100,7 +102,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       }),
       body: {
         required: true,
-        description: `JSON or multipart: at most ${generationBodyLimitBytes} bytes including the entire envelope; read timeout ${bodyReadTimeoutMs} ms. Multipart: up to ${maxExternalFiles} files, ${maxExternalFileBytes} bytes each, total file bytes at most ${maxExternalTotalFileBytes}. Follow model files.maxItems; file parts must be model-declared and must not duplicate dynamicParams values.`,
+        description: `JSON or multipart: at most ${generationBodyLimitBytes} bytes including the entire envelope; application body read timeout ${bodyReadTimeoutMs} ms, excluding upstream proxy buffering. Multipart: up to ${maxExternalFiles} files, ${maxExternalFileBytes} bytes each, total file bytes at most ${maxExternalTotalFileBytes}. Follow model files.maxItems; file parts must be model-declared and must not duplicate dynamicParams values.`,
         content: {
           "application/json": { schema: externalGenerationRequestSchema },
           "multipart/form-data": { schema: externalGenerationMultipartSchema },
@@ -117,7 +119,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       400: error("Invalid model input, PRESET_INACTIVE or PRESET_MODALITY_MISMATCH"),
       403: error("Invalid/revoked API key, or PLATFORM_PERMISSION_REQUIRED for a promptPreset reference"),
       404: error("Model unavailable or PRESET_NOT_FOUND"),
-      408: error("BODY_TIMEOUT: body read exceeded 30 seconds"),
+      408: error("BODY_TIMEOUT: application body reading exceeded 30 seconds; upstream buffering is excluded"),
       409: error("IDEMPOTENCY_CONFLICT: same key with a different normalized payload, or PRESET_CONFLICT: stale preset revision"),
       413: error("Body, file size or file count exceeds upload limit"),
       415: error("Use application/json or multipart/form-data"),
@@ -195,8 +197,8 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     ["/api/external/history/status", externalHistoryStatusSchema, "Active owner generation count. platform:read or higher. Hidden records are excluded by default."],
   ] as const) registry.registerPath({
     method: "get", path, tags: ["History"], security, description,
-    request: { query: externalHistoryQuerySchema },
-    responses: { 200: { description: "Owner history", headers: responseHeaders, content: json(schema) }, ...platformErrors, 400: error("INVALID_HISTORY_CURSOR") },
+    request: { query: path.endsWith("/status") ? externalHistoryQuerySchema.pick({ type: true, query: true, model: true, prompt: true, hidden: true }) : externalHistoryQuerySchema },
+    responses: { 200: { description: "Owner history", headers: responseHeaders, content: json(schema) }, ...platformErrors, ...(!path.endsWith("/status") ? { 400: error("INVALID_HISTORY_CURSOR") } : {}) },
   });
   registry.registerPath({
     method: "get", path: "/api/external/history/{historyId}", tags: ["History"], security,
@@ -211,8 +213,10 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     responses: { 204: { description: "Deleted", headers: responseHeaders }, ...platformErrors, 400: error("INVALID_QUERY"), 404: error("HISTORY_NOT_FOUND"), 409: error("HISTORY_ACTIVE"), 502: error("HISTORY_FILE_DELETE_FAILED") },
   });
   const presetResponses = {
-    ...platformErrors, 400: error("Invalid preset input or query"), 404: error("PRESET_NOT_FOUND"),
-    409: error("PRESET_CONFLICT or PRESET_LIMIT_REACHED"), 408: error("BODY_TIMEOUT"),
+    ...platformErrors, 400: error("Invalid preset input or query"),
+  };
+  const presetMutationResponses = {
+    ...presetResponses, 409: error("PRESET_CONFLICT or PRESET_LIMIT_REACHED"), 408: error("BODY_TIMEOUT: application body reading exceeded 30 seconds; upstream buffering is excluded"),
     413: error("Preset body exceeds 98304 bytes"), 415: error("Use application/json"), 499: error("BODY_ABORTED"),
   };
   const presetParams = z.object({ key: promptPresetKeySchema });
@@ -227,7 +231,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     method: "get", path: "/api/external/prompt-presets/{key}", tags: ["Prompt presets"], security,
     description: "Read owner preset before applying its prompt and recommendations to model input. platform:read or higher.",
     request: { params: presetParams },
-    responses: { 200: { description: "Preset", headers: responseHeaders, content: json(presetItem) }, ...presetResponses },
+    responses: { 200: { description: "Preset", headers: responseHeaders, content: json(presetItem) }, ...presetResponses, 404: error("PRESET_NOT_FOUND") },
   });
   for (const [method, path, schema, status, description] of [
     ["post", "/api/external/prompt-presets", createPromptPresetSchema, 201, "Create a personal preset"],
@@ -238,7 +242,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     method, path, tags: ["Prompt presets"], security,
     description: description + ". platform:write or higher. Mutations to an existing preset require expectedRevision; stale revisions return 409.",
     request: { ...(path.includes("{key}") ? { params: presetParams } : {}), body: { required: true, content: json(schema), description: "At most 98304 bytes; application/json." } },
-    responses: { [status]: { description: "Preset saved", headers: responseHeaders, content: json(method === "delete" ? z.object({ deleted: z.literal(true) }) : presetItem) }, ...presetResponses },
+    responses: { [status]: { description: "Preset saved", headers: responseHeaders, content: json(method === "delete" ? z.object({ deleted: z.literal(true) }) : presetItem) }, ...presetMutationResponses, ...(path.includes("{key}") ? { 404: error("PRESET_NOT_FOUND") } : {}) },
   });
   for (const [path, schema] of [
     ["overview", externalMonitoringOverviewSchema], ["stats", externalMonitoringStatsSchema],
@@ -252,10 +256,12 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       ...platformErrors, 400: error("Invalid scope or detail selector"), 404: error("API_KEY_NOT_FOUND or NOT_FOUND"),
     },
   });
-  const modelAdminErrors = { ...platformErrors, 400: error("Invalid model input, immutable field, missing credential, or invalid import"),
-    404: error("NOT_FOUND"), 409: error("CONFLICT"), 408: error("BODY_TIMEOUT"),
-    413: error("Body too large"), 415: error("Use application/json"), 499: error("BODY_ABORTED"),
+  const modelAdminErrors = { ...platformErrors, 400: error("Invalid model input or query"),
     503: { ...error("MODEL_CREDENTIAL_UNAVAILABLE or temporary service failure"), headers: retryHeaders },
+  };
+  const modelAdminBodyErrors = { ...modelAdminErrors,
+    408: error("BODY_TIMEOUT: application body reading exceeded 30 seconds; upstream buffering is excluded"),
+    413: error("Body too large"), 415: error("Use application/json"), 499: error("BODY_ABORTED: caller disconnected; this response may not be delivered"),
   };
   const modelKeyParams = z.object({ modelKey: z.string().min(1) });
   registry.registerPath({
@@ -281,14 +287,18 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       description: path.endsWith("/import") ? "JSON body up to 8388608 bytes." : "JSON body up to 1048576 bytes.",
       content: json(input),
     } },
-    responses: { [status]: { description: "Model or draft", headers: responseHeaders, content: json(output) }, ...modelAdminErrors },
+    responses: { [status]: { description: "Model or draft", headers: responseHeaders, content: json(output) }, ...modelAdminBodyErrors,
+      ...(method === "patch" ? { 404: error("NOT_FOUND") } : {}),
+      ...(path === "/api/external/admin/models" || method === "patch" ? { 409: error("CONFLICT") } : {}),
+    },
   });
   registry.registerPath({
     method: "delete", path: "/api/external/admin/models/{modelKey}", tags: ["Model administration"], security,
     description: "Delete a model with platform:admin; invalidate the catalog cache and preserve existing default replacement behavior.",
     request: { params: modelKeyParams },
-    responses: { 200: { description: "Deleted model", headers: responseHeaders, content: json(externalAdminModelSchema) }, ...modelAdminErrors },
+    responses: { 200: { description: "Deleted model", headers: responseHeaders, content: json(externalAdminModelSchema) }, ...platformErrors, 404: error("NOT_FOUND") },
   });
+  registerSpacesApi(registry, security);
   const document = new OpenApiGeneratorV31(
     registry.definitions,
   ).generateDocument({
@@ -301,6 +311,8 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     tags: [
       { name: "Generations", description: translations?.tags?.generations },
       { name: "Models", description: translations?.tags?.models },
+      { name: "Spaces", description: translations?.tags?.spaces ?? "Space authoring and single-node execution" },
+      { name: "Assets", description: translations?.tags?.assets ?? "Durable assets and uploads" },
       { name: "History", description: translations?.tags?.history ?? "Generation history" },
       { name: "Prompt presets", description: translations?.tags?.promptPresets ?? "Prompt presets" },
       { name: "Monitoring", description: translations?.tags?.monitoring ?? "Request metrics" },
@@ -308,11 +320,12 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
     ],
   });
   for (const [path, item] of Object.entries(document.paths ?? {})) {
-    for (const method of ["get", "post", "patch", "delete"] as const) {
+    for (const method of ["get", "post", "put", "patch", "delete"] as const) {
       const description = translations?.platform?.[method.toUpperCase() + " " + path];
       if (item[method] && description) item[method].description = description;
     }
   }
   applyApiReferenceMetadata(document, translations);
+  applyErrorResponseExamples(document);
   return { ...document, paths: document.paths ?? {} };
 }

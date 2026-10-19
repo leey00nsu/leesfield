@@ -12,6 +12,7 @@ import {
   mapWithConcurrency,
   readBoundedFormDataBody,
   readBoundedJsonBody,
+  requestMediaType,
 } from "@/server/http/bounded-body";
 
 export class ExternalRequestError extends Error {
@@ -23,10 +24,10 @@ export class ExternalRequestError extends Error {
   }
 }
 export async function readExternalGenerationRequest(request: Request) {
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  const contentType = requestMediaType(request);
   const uploads = new Map<string, File[]>();
   let body: unknown;
-  if (contentType.startsWith("application/json")) {
+  if (contentType === "application/json") {
     try {
       body = await readBoundedJsonBody(request, GENERATION_BODY_LIMIT_BYTES);
     } catch (error) {
@@ -35,7 +36,7 @@ export async function readExternalGenerationRequest(request: Request) {
       }
       throw new ExternalRequestError("INVALID_JSON");
     }
-  } else if (contentType.startsWith("multipart/form-data")) {
+  } else if (contentType === "multipart/form-data") {
     let form: FormData;
     try {
       form = await readBoundedFormDataBody(request, {

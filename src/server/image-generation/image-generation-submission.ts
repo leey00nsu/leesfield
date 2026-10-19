@@ -14,6 +14,7 @@ import { NodeExecutionActiveError } from "@/server/node-executions/node-executio
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 
 export type SubmitImageGenerationInput = {
+  transaction?: Prisma.TransactionClient;
   payload: ImageGenerationFormValues;
   cinema?: CinemaSnapshot;
   ownerEmail: string;
@@ -50,6 +51,7 @@ function isUniqueConstraintError(error: unknown) {
 }
 
 export async function submitImageGeneration({
+  transaction,
   payload,
   ownerEmail,
   apiKeyId = null,
@@ -95,7 +97,9 @@ export async function submitImageGeneration({
     const recordPayload = requestSnapshot
       ? { ...payload, initImages: [] }
       : applyUploadedGenerationInputAssets({ ...payload, initImages }, uploaded);
-    record = cinema
+    record = transaction
+      ? await createImageGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs, cinema, transaction)
+      : cinema
       ? await createImageGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs ?? (uploaded.length ? uploaded.map(({ ref }) => ref) : undefined), cinema)
       : requestSnapshot && inputAssetRefs?.length
       ? await createImageGenerationRecord(

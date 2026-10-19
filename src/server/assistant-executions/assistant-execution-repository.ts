@@ -1,10 +1,12 @@
 import { Prisma, type AssistantExecution } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/server/db/prisma";
+import type { PromptProvenance } from "@/shared/generation-graph/prompt-provenance";
 import { NodeExecutionActiveError, NodeExecutionNotFoundError, NodeExecutionInputError, NodeExecutionSelectionConflictError } from "@/server/node-executions/node-execution-errors";
 import { assistantItemsSchema, assistantSelectionSchema, assistantTextForPort, assistantTextResult, type AssistantItem, type AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
 
 export type AssistantInputSnapshot = {
+  promptProvenance?: PromptProvenance;
   instruction: string;
   outputMode?: AssistantOutputMode;
   text: string | null;
@@ -35,22 +37,41 @@ export async function createAssistantExecution(input: {
   graphNodeId: string;
   modelKey: string;
   snapshot: AssistantInputSnapshot;
-}) {
-  return prisma.$transaction(async (tx) => {
+}, options?: { transaction: Prisma.TransactionClient; executionId: string }) {
+  const create = async (tx: Prisma.TransactionClient) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
     const active = await tx.assistantExecution.count({ where: {
       graphNodeId: input.graphNodeId, ownerEmail: input.ownerEmail,
       status: { in: ["pending", "processing"] },
     } });
     if (active) throw new NodeExecutionActiveError();
-    return tx.assistantExecution.create({ data: {
+    if (input.snapshot.assets.length) {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MediaAsset"
+        WHERE "ownerEmail" = ${input.ownerEmail} AND "id" IN (${Prisma.join(input.snapshot.assets.map(({ assetId }) => assetId))})
+        ORDER BY "id" FOR SHARE`);
+      const assets = await tx.mediaAsset.findMany({ where: {
+        id: { in: input.snapshot.assets.map(({ assetId }) => assetId) }, ownerEmail: input.ownerEmail, status: "completed",
+      }, select: { id: true, type: true } });
+      if (input.snapshot.assets.some(ref => !assets.some(asset => asset.id === ref.assetId && asset.type === ref.type))) {
+        throw new NodeExecutionInputError({ assets: ["ASSISTANT_INPUT_ASSET_INVALID"] });
+      }
+    }
+    const execution = await tx.assistantExecution.create({ data: {
+      ...(options ? { id: options.executionId } : {}),
       ownerEmail: input.ownerEmail,
       graphId: input.graphId,
       graphNodeId: input.graphNodeId,
       modelKey: input.modelKey,
       inputSnapshot: input.snapshot as unknown as Prisma.InputJsonValue,
     } });
-  });
+    if (input.snapshot.assets.length) await tx.assistantExecutionInputAsset.createMany({
+      data: input.snapshot.assets.map(({ assetId, portId, sortOrder }) => ({
+        executionId: execution.id, ownerEmail: input.ownerEmail, assetId, portId, sortOrder,
+      })),
+    });
+    return execution;
+  };
+  return options ? create(options.transaction) : prisma.$transaction(create);
 }
 
 export async function listAssistantExecutions(ownerEmail: string, graphId: string, graphNodeId: string) {
@@ -67,12 +88,19 @@ export async function getAssistantExecution(ownerEmail: string, graphId: string,
 }
 
 export async function latestAssistantText(ownerEmail: string, graphId: string, graphNodeId: string, portId = "text") {
+  return (await latestAssistantTextSource(ownerEmail, graphId, graphNodeId, portId))?.text ?? null;
+}
+
+export async function latestAssistantTextSource(ownerEmail: string, graphId: string, graphNodeId: string, portId = "text") {
   const row = await prisma.assistantExecution.findFirst({
     where: { ownerEmail, graphId, graphNodeId, status: "completed", outputText: { not: null } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { outputText: true, outputListJson: true, selectedItemId: true },
+    select: { id: true, outputText: true, outputListJson: true, selectedItemId: true, selectionVersion: true },
   });
-  return row ? assistantTextForPort(assistantTextResult(row.outputText, row.outputListJson, row.selectedItemId), portId) : null;
+  if (!row) return null;
+  const text = assistantTextForPort(assistantTextResult(row.outputText, row.outputListJson, row.selectedItemId), portId);
+  return text === null ? null : { text, executionId: row.id,
+    selectedItemId: portId === "item" ? row.selectedItemId : null, selectionVersion: row.selectionVersion };
 }
 
 export async function selectAssistantItem(ownerEmail: string, graphId: string, graphNodeId: string, id: string, body: unknown) {

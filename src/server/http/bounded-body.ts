@@ -108,7 +108,9 @@ export async function readBoundedBytes(
       chunks.push(Buffer.from(value));
     }
   } catch (error) {
-    await reader.cancel().catch(() => undefined);
+    // A transport may not finish cancellation until the client sends again.
+    // Start cleanup without delaying the timeout response or holding a permit.
+    void reader.cancel().catch(() => undefined);
     throw error;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -214,6 +216,22 @@ export async function withHeavyBodyPermit<T>(action: () => Promise<T>): Promise<
 export type BoundedRouteBody =
   | { ok: true; body: unknown }
   | { ok: false; code: string; status: number };
+
+/** Compare the media type itself, allowing parameters such as charset. */
+export function requestMediaType(request: Request): string {
+  return request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
+/** Strict public JSON boundary; internal UI readers retain their existing policy. */
+export async function readExternalJsonBody(
+  request: Request,
+  maxBytes: number = JSON_BODY_LIMIT_BYTES,
+): Promise<BoundedRouteBody> {
+  if (requestMediaType(request) !== "application/json") {
+    return { ok: false, code: "UNSUPPORTED_MEDIA_TYPE", status: 415 };
+  }
+  return readRouteJsonBody(request, maxBytes);
+}
 
 /**
  * Preserve parse/size errors before model validation; never turn transport

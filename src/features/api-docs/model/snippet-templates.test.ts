@@ -6,8 +6,20 @@ import {
   buildPythonSnippet,
   buildGenerationMultipartSnippet,
 } from "@/features/api-docs/model/snippet-templates";
+import { spacesWorkflowExample } from "./spaces-workflow-example";
+import { mediaSelectionExample } from "./media-selection-example";
 
 describe("snippet-templates", () => {
+  it("generates raw binary transfer examples and a syntactically valid explicit node chain", () => {
+    const input = { baseUrl: "https://api.example.com", path: "/api/external/assets/uploads/u/content?target=issued", method: "PUT", contentType: "application/octet-stream", body: "sample" };
+    expect(buildCurlSnippet(input)).toContain("--data-binary @./input.bin");
+    expect(buildJavascriptSnippet(input)).toContain('body: await readFile("./input.bin")');
+    expect(buildPythonSnippet(input)).toContain("data=source");
+    for (const build of [buildCurlSnippet, buildJavascriptSnippet, buildPythonSnippet]) expect(build(input)).not.toContain("JSON.stringify");
+    execFileSync(process.execPath, ["--check", "--input-type=module"], { input: spacesWorkflowExample });
+    execFileSync(process.execPath, ["--check", "--input-type=module"], { input: mediaSelectionExample });
+    expect(spacesWorkflowExample).toContain('await run("next")');
+  });
   it.each([buildCurlSnippet, buildJavascriptSnippet, buildPythonSnippet])("keeps retries optional in default generation examples", (build) => {
     const context = { baseUrl: "https://api.example.com", path: "/api/external/generations", method: "POST", body: { type: "image", model: "selected-id", dynamicParams: {} } };
     expect(build(context)).not.toContain("Idempotency-Key");

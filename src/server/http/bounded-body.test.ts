@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   BodyLimitError,
@@ -10,6 +10,7 @@ import {
   readBoundedBytes,
   readBoundedJsonBody,
   readRouteJsonBody,
+  readExternalJsonBody,
   resetHeavyBodyGaugeForTests,
   withHeavyBodyPermit,
 } from "./bounded-body";
@@ -104,6 +105,25 @@ describe("readBoundedBytes", () => {
       status: 499,
     });
   });
+  it("returns a timeout even when transport cancellation is still pending", async () => {
+    vi.useFakeTimers();
+    let releaseCancel!: () => void;
+    const cancellation = new Promise<void>((resolve) => { releaseCancel = resolve; });
+    try {
+      const request = new Request("http://localhost/api/test", {
+        method: "POST", body: new ReadableStream({ pull() {}, cancel: () => cancellation }), duplex: "half",
+      } as RequestInit & { duplex: "half" });
+      let code: string | undefined;
+      const pending = readBoundedBytes(request, 1024, 5).catch((error: BodyLimitError) => { code = error.code; });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(code).toBe("BODY_TIMEOUT");
+      releaseCancel();
+      await pending;
+    } finally {
+      releaseCancel();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("readBoundedJsonBody", () => {
@@ -130,6 +150,27 @@ describe("readRouteJsonBody", () => {
         1024,
       ),
     ).resolves.toMatchObject({ ok: false, status: 413 });
+  });
+});
+
+describe("readExternalJsonBody", () => {
+  it.each(["text/plain", "application/jsonp", "application/json-invalid", "multipart/form-data"]) (
+    "rejects %s without reading the body", async (contentType) => {
+      const request = requestWithBody("{}", { "content-type": contentType });
+      await expect(readExternalJsonBody(request)).resolves.toEqual({ ok: false, code: "UNSUPPORTED_MEDIA_TYPE", status: 415 });
+      expect(request.bodyUsed).toBe(false);
+    },
+  );
+  it("rejects a missing media type while keeping the internal reader compatible", async () => {
+    const request = new Request("http://localhost/api/test", { method: "POST", body: new Uint8Array([123, 125]) });
+    await expect(readExternalJsonBody(request)).resolves.toMatchObject({ ok: false, status: 415 });
+    await expect(readRouteJsonBody(requestWithBody("{}"))).resolves.toEqual({ ok: true, body: {} });
+  });
+  it("accepts JSON with charset and preserves parse/size errors", async () => {
+    const headers = { "content-type": "Application/JSON; charset=utf-8" };
+    await expect(readExternalJsonBody(requestWithBody('{"a":1}', headers))).resolves.toEqual({ ok: true, body: { a: 1 } });
+    await expect(readExternalJsonBody(requestWithBody("{", headers))).resolves.toMatchObject({ ok: false, status: 400, code: "BODY_INVALID" });
+    await expect(readExternalJsonBody(requestWithBody("{}", { ...headers, "content-length": "1025" }), 1024)).resolves.toMatchObject({ ok: false, status: 413 });
   });
 });
 

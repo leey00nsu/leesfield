@@ -1,4 +1,4 @@
-import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
+import { generationOutputUrl, generationOutputAssetSelect, generationOutputDuration } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
@@ -28,6 +28,7 @@ export async function createAudioGenerationRecord(
   graphNodeId: string | null = null,
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
   inputAssetRefs?: readonly GenerationInputAssetRef[],
+  transaction?: Prisma.TransactionClient,
 ) {
   const requestParams: Record<string, Prisma.InputJsonValue | null> = {};
   Object.entries(payload).forEach(([key, value]) => {
@@ -58,8 +59,8 @@ export async function createAudioGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (refs.length === 0) return prisma.audioGeneration.create({ data });
-  return prisma.$transaction(async (tx) => {
+  if (!transaction && refs.length === 0) return prisma.audioGeneration.create({ data });
+  const create = async (tx: Prisma.TransactionClient) => {
     const record = await tx.audioGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -68,7 +69,8 @@ export async function createAudioGenerationRecord(
       refs,
     });
     return record;
-  });
+  };
+  return transaction ? create(transaction) : prisma.$transaction(create);
 }
 
 export async function saveAudioGenerationResult(
@@ -275,5 +277,5 @@ export async function getAudioGenerationByRequestId(
       },
     },
   });
-  return record ? { ...record, audios: record.audios.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "" })) } : null;
+  return record ? { ...record, audios: record.audios.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "", durationSec: generationOutputDuration(output) })) } : null;
 }

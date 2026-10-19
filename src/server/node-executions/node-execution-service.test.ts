@@ -37,6 +37,26 @@ function storedNode(kind = "generate.image") {
   };
 }
 
+it.each(["image", "video", "audio"])("submits external %s with its reserved ID and transaction", async media => {
+  const state = setup();
+  vi.mocked(state.repository.getOwnedNode).mockResolvedValue(storedNode("generate." + media));
+  const transaction = {} as import("@prisma/client").Prisma.TransactionClient;
+  const commit = vi.fn(async (_snapshot, _kind, _modelKey, run) => run(transaction, "reserved"));
+  await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, undefined, { apiKeyId: "external-key", commit });
+  const submit = media === "image" ? state.submitImage : media === "video" ? state.submitVideo : state.submitAudio;
+  expect(submit).toHaveBeenCalledTimes(1);
+  expect(submit.mock.calls[0][0]).toMatchObject({ transaction, apiKeyId: "external-key", requestId: "reserved", graphNodeId: "node-1" });
+  expect(commit).toHaveBeenCalledWith(expect.objectContaining({ inputAssets: [] }), "generate." + media, "model-a", expect.any(Function));
+});
+
+it("rejects external browser execution before creating an operation", async () => {
+  const state = setup();
+  vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("edit.image.resize"), config: { parameters: { mode: "exact", width: 128, height: 128, maxEdge: 128, scalePct: 100, fit: "contain", padColor: "#00000000", format: "png", quality: 0.9 } } });
+  const commit = vi.fn();
+  await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }, undefined, { apiKeyId: "external-key", commit })).rejects.toMatchObject({ details: { node: ["BROWSER_ONLY"] } });
+  expect(state.createOperation).not.toHaveBeenCalled(); expect(commit).not.toHaveBeenCalled();
+});
+
 function setup() {
   const repository = {
     getOwnedNode: vi.fn().mockResolvedValue(storedNode()),
@@ -318,7 +338,14 @@ describe("nodeExecutionService", () => {
       return target;
     });
     await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-    expect(state.validateImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: "@cat_long / fox / @missing" }));
+    expect(state.validateImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: "@cat_long / fox / @missing", inputPrompt: "@cat_long / fox / @missing" }));
+    expect(state.submitImage.mock.calls[0]?.[0]?.requestSnapshot).toMatchObject({
+      promptProvenance: { connectedPrompt: "@cat_long / fox / @missing", sources: [{
+        nodeId: "constructor", kind: "process.promptConstructor", sources: [
+          { nodeId: "named", text: "@cat_long" }, { nodeId: "inline", text: '<var="cat_long">fox</var>' },
+        ],
+      }] },
+    });
     expect(state.repository.getOwnedNode).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), "paused");
   });
   it("rejects client-supplied prompt, model, parameters and source URLs", async () => {
@@ -417,8 +444,11 @@ describe("nodeExecutionService", () => {
 
   it("uses the connected prompt Node instead of client or stale generation config", async () => {
     const { repository, validateAudio, service } = setup();
+    const model={type:"audio",key:"model-a",parameters:{"hf:dialogue":{required:true,binding:{source:"hf_space",parameterName:"dialogue",kind:"string",valueType:"string",schema:{type:"string"},order:0,canonicalKey:"prompt"}}},providerConfig:{api_name:"/speak",output:{media:"audio",path:[0],multiple:false}}};
+    cinemaCatalogMock.mockResolvedValue([model]);
     vi.mocked(repository.getOwnedNode).mockResolvedValue({
       ...storedNode("generate.audio"),
+      config:{...generationConfig,parameters:{dynamicParams:{"hf:dialogue":"stale script"}}},
       incomingEdges: [{
         id: "edge-prompt",
         sourcePortId: "text",
@@ -439,7 +469,9 @@ describe("nodeExecutionService", () => {
     await service.execute("owner@example.com", "graph-1", "node-1", {
       expectedGraphVersion: 4,
     });
-    expect(validateAudio).toHaveBeenCalledWith(expect.objectContaining({ prompt: "connected prompt" }));
+    expect(validateAudio).toHaveBeenCalledWith(expect.objectContaining({ prompt: "connected prompt",dynamicParams:{"hf:dialogue":"connected prompt"} }));
+    const payload=validateAudio.mock.calls[0][0];
+    expect(gradioInputValues(getGradioContract(model)!,generationPayload(model as Parameters<typeof generationPayload>[0],payload) as Record<string,unknown>)).toEqual({dialogue:"connected prompt"});
   });
 
   it.each(["input.image", "edit.image.splitGrid"])("resolves media references from %s and chained prompts", async (sourceKind) => {

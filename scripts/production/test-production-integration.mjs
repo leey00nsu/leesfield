@@ -12,6 +12,11 @@ const databaseUser = `leesfield_ci_${suffix.replace(/-/g, "")}`;
 const databasePassword = `ci-${randomUUID()}`;
 const postgresImage = process.env.PRODUCTION_TEST_POSTGRES_IMAGE ?? "postgres:16";
 const processTimeoutMs = Number(process.env.PRODUCTION_TEST_TIMEOUT_MS ?? 20 * 60_000);
+// Optional focused suites still receive a fresh, migrated disposable database.
+const testFiles = process.argv.slice(2);
+if (testFiles.some(file => !/^src\/[\w/.[\]-]+\.test\.tsx?$/.test(file) || file.includes(".."))) {
+  throw new Error("Only src/**/*.test.ts(x) file paths are accepted");
+}
 
 let containerStarted = false;
 let activeChild = null;
@@ -194,7 +199,7 @@ async function main() {
   // short-lived fixture while Vitest executes files in parallel.
   return runProcess(
     "pnpm",
-    ["exec", "vitest", "run", "--maxWorkers=1"],
+    ["exec", "vitest", "run", "--maxWorkers=1", ...testFiles],
     environment,
   );
 }

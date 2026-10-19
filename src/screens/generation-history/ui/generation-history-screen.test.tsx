@@ -34,8 +34,8 @@ vi.mock("@/features/generation-history/hook/use-generation-history-list", () => 
   useGenerationHistoryList: (...args: unknown[]) => useGenerationHistoryListMock(...args),
 }));
 
-vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => ({
-  useMonitoringRequestDetail: (...args: unknown[]) =>
+vi.mock("@/features/generation-history/hook/use-generation-history-detail", () => ({
+  useGenerationHistoryDetail: (...args: unknown[]) =>
     useMonitoringRequestDetailMock(...args),
 }));
 
@@ -55,6 +55,29 @@ const detailFixture = vi.hoisted(() => ({
   inputImages: ["https://example.com/input.png"],
   errorMessage: null,
 } as const));
+
+it("shows every typed edit input and its settings while explaining that no prompt is used", () => {
+  const item = { ...detailFixture, type: "video", origin: "edit", prompt: "", operation: { id: "edit", type: "edit.video.stitch", configVersion: 1, parameters: { transition: "cut" } } };
+  useGenerationHistoryListMock.mockReturnValue({ items: [item], total: 1, isLoading: false, sentinelRef: { current: null }, removeItem: vi.fn() });
+  useMonitoringRequestDetailMock.mockReturnValue({ data: { ...item, inputImages: [], inputAudios: ["/track.wav"],
+    inputVideos: ["/one.mp4", "/two.mp4", "/three.mp4"], requestParameters: { transition: "cut" },
+    inputMedia: ["/one.mp4", "/two.mp4", "/three.mp4"].map((url, sortOrder) => ({ assetId: "clip-" + sortOrder, type: "video", role: "clips", sortOrder, url })),
+    assets: [{ url: "/result.mp4", durationSec: 15.021 }],
+  } });
+  renderWithIntl(<GenerationHistoryScreen />);
+  fireEvent.click(screen.getByTestId("history-list"));
+  fireEvent.click(screen.getByRole("tab", { name: "프롬프트" }));
+  expect(screen.getByText(/프롬프트를 사용하지 않습니다/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "설정" }));
+  expect(screen.getByText("비디오 이어 붙이기")).toBeInTheDocument();
+  expect(screen.getByText("transition")).toBeInTheDocument();
+  expect(screen.queryByText("저장된 설정이 없습니다.")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
+  expect(screen.getAllByText(/입력 비디오 · clips/)).toHaveLength(3);
+  expect(screen.getByText(/입력 오디오 · audio/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "메타데이터" }));
+  expect(screen.getByText("15.021 s")).toBeInTheDocument();
+});
 
 vi.mock("@/features/generation-history/ui/history-list", () => ({
   HistoryList: ({
@@ -271,7 +294,7 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.getByText("2초 소요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "히스토리" }));
-    expect(screen.getByText("입력 이미지")).toBeInTheDocument();
+    expect(screen.getByText(/입력 이미지 · image 1/)).toBeInTheDocument();
     expect(screen.getByText("결과 이미지")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: /이미지/ })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
@@ -398,6 +421,7 @@ describe("GenerationHistoryScreen", () => {
       "image",
       "history-detail-1",
       true,
+      "generation",
     );
     fireEvent.click(screen.getByRole("tab", { name: "프롬프트" }));
     expect(screen.getByText("hydrated prompt")).toBeInTheDocument();

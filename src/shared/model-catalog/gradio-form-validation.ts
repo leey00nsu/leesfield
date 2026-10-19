@@ -11,10 +11,6 @@ export function gradioFieldLabel(field: GradioContract["inputs"][number], locale
 
 export function gradioFormError(contract: GradioContract, values: {prompt?: string; dynamicParams?: Record<string, unknown>}, scope: "form" | "options" = "form"): string | null {
   if (scope === "options") contract = {...contract, inputRules: undefined, inputGroups: undefined, inputs: contract.inputs.filter(field=>!field.canonical && !field.hidden)};
-  const prompt = contract.inputs.find(field => field.canonical === "prompt");
-  if (scope === "form" && prompt && !prompt.allowEmpty && !values.prompt?.trim()) {
-    return "HF_CONTRACT_REQUIRED:" + prompt.name;
-  }
   try {
     assertGradioExecutable(contract);
     const inputs = gradioInputValues(contract, values);

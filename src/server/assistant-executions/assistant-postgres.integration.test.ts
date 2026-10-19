@@ -9,6 +9,8 @@ import { nodeExecutionService } from "@/server/node-executions/node-execution-se
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { createAssistantExecution, claimAssistantExecution, latestAssistantText, settleAssistantExecution, selectAssistantItem } from "./assistant-execution-repository";
 import { processAssistantJobs, stopAssistantWorker } from "./assistant-worker";
+import { getAssetLibraryUsage } from "@/server/media-assets/asset-library-usage";
+import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
 
 const remote = vi.hoisted(() => ({ requestRemote: vi.fn() }));
 vi.mock("@/server/http/safe-remote", async (importOriginal) => ({
@@ -69,6 +71,7 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
   afterAll(async () => {
     await stopAssistantWorker();
     await prisma.generationGraph.deleteMany({ where: { id: graphId } });
+    await prisma.mediaAsset.deleteMany({ where: { ownerEmail: { in: [ownerEmail, "other-" + ownerEmail] } } });
     await prisma.modelCatalog.deleteMany({ where: { key: modelKey } });
     invalidateModelCatalogCache();
     if (oldKey === undefined) delete process.env.MODEL_CREDENTIAL_ENCRYPTION_KEY;
@@ -121,7 +124,10 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     await prisma.generationGraphEdge.update({ where: { id: `edge-a-${suffix}` }, data: { sourcePortId: "item" } });
     const next = await nodeExecutionService.execute(ownerEmail, graphId, secondId, { expectedGraphVersion: 1 });
     await selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, { ...update, itemId: list.outputItems![0].id, expectedSelectionVersion: 1 });
-    expect((await prisma.assistantExecution.findUniqueOrThrow({ where: { id: next.record.id } })).inputSnapshot).toMatchObject({ text: "scarf" });
+    expect((await prisma.assistantExecution.findUniqueOrThrow({ where: { id: next.record.id } })).inputSnapshot).toMatchObject({
+      text: "scarf", promptProvenance: { localPrompt: "refine", connectedPrompt: "scarf",
+        sources: [{ nodeId: firstId, executionId: list.executionId, portId: "item", selectedItemId: scarf, selectionVersion: 1 }] },
+    });
     await processAssistantJobs();
     expect(calls.some(content => content === "refine\n\nscarf")).toBe(true);
     await prisma.generationGraphEdge.update({ where: { id: `edge-b-${suffix}` }, data: { sourceNodeId: firstId, sourcePortId: "item" } });
@@ -138,6 +144,27 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     expect(await latestAssistantText(ownerEmail, graphId, firstId, "item")).toBeNull();
     await expect(selectAssistantItem(ownerEmail, graphId, firstId, list.executionId, { ...update, expectedSelectionVersion: 2 })).rejects.toThrow("ASSISTANT_SELECTION_CONFLICT");
     await expect(nodeExecutionService.execute(ownerEmail, graphId, secondId, { expectedGraphVersion: 1 })).rejects.toThrow("NODE_INPUT_INVALID");
+  });
+
+  it("records owned visual inputs for usage and restricts deletion without accepting another owner's asset", async () => {
+    const asset = await prisma.mediaAsset.create({ data: {
+      ownerEmail, type: "image", origin: "upload", storageProvider: "test", storageObjectId: randomUUID(), mimeType: "image/png",
+    } });
+    const other = await prisma.mediaAsset.create({ data: {
+      ownerEmail: "other-" + ownerEmail, type: "image", origin: "upload", storageProvider: "test", storageObjectId: randomUUID(), mimeType: "image/png",
+    } });
+    const snapshot = { instruction: "describe", text: null, assets: [{ assetId: asset.id, type: "image" as const, portId: "reference", sortOrder: 0 }] };
+    const row = await createAssistantExecution({ ownerEmail, graphId, graphNodeId: thirdId, modelKey, snapshot });
+    expect(await getAssetLibraryUsage(ownerEmail, asset.id)).toMatchObject({ inUse: true, graphIds: [graphId], assistantExecutionIds: [row.id] });
+    expect(await mediaAssetRepository.getAssetUsage(ownerEmail, asset.id)).toMatchObject({ graphIds: [graphId], assistantExecutionIds: [row.id] });
+    await expect(getAssetLibraryUsage("other-" + ownerEmail, asset.id)).rejects.toThrow("MEDIA_ASSET_NOT_FOUND");
+    await expect(prisma.mediaAsset.delete({ where: { id: asset.id } })).rejects.toMatchObject({ code: "P2003" });
+    await expect(mediaAssetRepository.markAssetDeleting(ownerEmail, asset.id)).rejects.toThrow("MEDIA_ASSET_IN_USE");
+    expect((await prisma.mediaAsset.findUniqueOrThrow({ where: { id: asset.id } })).status).toBe("completed");
+    await nodeExecutionService.cancel(ownerEmail, graphId, thirdId, row.id);
+    await expect(createAssistantExecution({ ownerEmail, graphId, graphNodeId: thirdId, modelKey,
+      snapshot: { ...snapshot, assets: [{ ...snapshot.assets[0], assetId: other.id }] },
+    })).rejects.toThrow("NODE_EXECUTION_INPUT_INVALID");
   });
 
   it("cancels pending runs and fences stale completions", async () => {

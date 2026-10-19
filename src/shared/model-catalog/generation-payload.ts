@@ -6,6 +6,16 @@ import { parameterKind, numericParameterValue } from "./parameter-contract";
 type Model = { type: "image" | "video" | "audio"; providerConfig?: unknown; parameters?: unknown };
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
+/** An edited or connected primary text updates any saved alias of that field. */
+export function syncPrimaryTextValue<T extends Record<string, unknown>>(model: {providerConfig?:unknown;parameters?:unknown}, values: T, prompt: string): T {
+  const primary = getGradioContract(model)?.inputs.find(field => field.canonical === "prompt");
+  if (!primary) return values;
+  const aliases = new Set([primary.name, ...Object.entries(record(model.parameters))
+    .filter(([,raw]) => record(record(raw).binding).parameterName === primary.name).map(([key]) => key)]);
+  return { ...values, dynamicParams: Object.fromEntries(Object.entries(record(values.dynamicParams))
+    .map(([key,value]) => [key, aliases.has(key) ? prompt : value])) } as T;
+}
+
 /** One authoring -> request boundary for every media/provider. Explicit provider
  * inputs take precedence and remain strictly typed by their source schema. */
 export function generationPayload(model: Model, payload: unknown) {

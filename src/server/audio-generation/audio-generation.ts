@@ -4,10 +4,8 @@ import type { AudioGenerationResponse } from "@/features/audio-generation/model/
 import { hfSpaceAudioAdapter } from "@/server/audio-generation/adapters/hf-space-adapter";
 import type { AudioGenerationAdapter } from "@/server/audio-generation/adapters/types";
 import { leemageAudioStorageAdapter } from "@/server/audio-generation/storage/adapters/leemage-storage-adapter";
-import type {
-  AudioStorageAdapter,
-  AudioStorageMeta,
-} from "@/server/audio-generation/storage/storage-adapter";
+import type { AudioStorageAdapter } from "@/server/audio-generation/storage/storage-adapter";
+import { audioOutputMetadata, audioOutputResult } from "@/server/media-assets/audio-output-metadata";
 import { resolveAudioStorageProvider } from "@/server/audio-generation/storage/storage-selector";
 import type { GeneratedMediaArtifact, GenerationUploadLifecycle } from "@/server/media-assets/generated-media-artifact";
 import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
@@ -37,28 +35,6 @@ function getStorageAdapter(): AudioStorageAdapter {
   const { provider } = resolveAudioStorageProvider();
   if (provider === "leemage") return leemageAudioStorageAdapter;
   throw new Error("AUDIO_STORAGE_PROVIDER_NOT_RESOLVED");
-}
-
-function resolveDurationSec(payload: AudioGenerationFormValues, meta?: AudioStorageMeta) {
-  if (typeof meta?.duration_sec === "number" && Number.isFinite(meta.duration_sec)) {
-    return meta.duration_sec;
-  }
-  const fallback = payload.speed && payload.speed > 0 ? 1 / payload.speed : 1;
-  return Number.isFinite(fallback) ? Math.max(0.1, Number(fallback.toFixed(2))) : 1;
-}
-
-function buildInlineResult(
-  payload: AudioGenerationFormValues,
-  dataUrls: string[],
-  meta?: AudioStorageMeta,
-): NonNullable<AudioGenerationResponse["result"]> {
-  const durationSec = resolveDurationSec(payload, meta);
-  return {
-    audios: dataUrls.map((url) => ({
-      url,
-      durationSec,
-    })),
-  };
 }
 
 function mapProviderError(adapter: AudioGenerationAdapter | null, error: unknown) {
@@ -109,7 +85,7 @@ export async function resolveAudioGenerationResult(
         });
         return {
           status: "completed",
-          result: buildInlineResult(payload, result.audios, result.meta),
+          result: audioOutputResult(result.audios, await audioOutputMetadata(result.audios, result.meta)),
           errorMessage: message,
           skipDbSave: true,
         };

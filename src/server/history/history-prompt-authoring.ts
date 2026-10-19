@@ -6,7 +6,11 @@ import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/pro
 export function historyPromptAuthoring(raw: unknown, finalPrompt: string) {
   const snapshot = recordObject(raw);
   const source = typeof recordObject(snapshot.cinema).sourcePrompt === "string" ? String(recordObject(snapshot.cinema).sourcePrompt) : finalPrompt;
-  let inputPrompt = typeof snapshot.inputPrompt === "string" ? snapshot.inputPrompt : null;
+  const connected = recordObject(snapshot.promptProvenance).connectedPrompt;
+  let inputPrompt = typeof connected === "string" ? connected : typeof snapshot.inputPrompt === "string" ? snapshot.inputPrompt : null;
+  // Legacy Spaces snapshots already preserved the resolved prompt and local empty
+  // input separately. Recover text only; an absent source execution stays absent.
+  if (!inputPrompt && snapshot.graphNodeId && !snapshot.promptPreset && source) inputPrompt = source;
   const ref = promptPresetRefSchema.safeParse(snapshot.promptPreset);
   if (!ref.success) return { inputPrompt: snapshot.promptPreset ? inputPrompt : inputPrompt ?? source, promptPreset: null };
   const state = promptPresetWorkStateSchema.safeParse(snapshot.promptPresetState);

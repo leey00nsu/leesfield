@@ -32,6 +32,48 @@ describe("ApiDocsWidget", () => {
       expect(auth.textContent).toContain("Authorization: Bearer");
       const access = document.getElementById("access")!;
       const requests = document.getElementById("request-options")!;
+      const spaces = document.getElementById("spaces")!;
+      for (const key of ["spacesDiscovery", "spacesAssets", "spacesAuthor", "spacesExecute", "spacesResults", "spacesExecutionScope"] as const) {
+        expect(spaces.textContent).toContain(messages.apiDocs.requestGuide[key]);
+        expect(requests.textContent).not.toContain(messages.apiDocs.requestGuide[key]);
+      }
+      expect(within(spaces).getByRole("list")).toHaveTextContent(messages.apiDocs.requestGuide.spacesResults);
+      expect(within(spaces).getByText(messages.apiDocs.requestGuide.spacesExample).closest("details")).not.toHaveAttribute("open");
+      expect(within(spaces).getByRole("link", { name: messages.apiDocs.requestGuide.spacesAssets })).toHaveAttribute("href", "#post-/api/external/assets/uploads");
+      const schema = document.getElementById("get-/api/external/spaces/models/{modelId}/schema")!;
+      expect(schema.textContent).toContain("x-node-config-path");
+      expect(schema.textContent).toContain("parameters.dynamicParams.FIELD");
+      const nodeExecute = document.getElementById("post-/api/external/spaces/{spaceId}/nodes/{nodeId}/executions")!;
+      expect(nodeExecute.textContent).toContain("expectedGraphVersion");
+      expect(nodeExecute.textContent).toContain(messages.apiDocs.openapi.parameters.spacesIdempotencyKey);
+      expect(nodeExecute.textContent).not.toContain(messages.apiDocs.openapi.parameters["Idempotency-Key"]);
+      expect(requests.textContent).toContain(messages.apiDocs.requestGuide.limitsDescription);
+      expect(nodeExecute.textContent).toContain(messages.apiDocs.endpoints.limits.bodyBytes);
+      const graphSave = document.getElementById("put-/api/external/spaces/{spaceId}")!;
+      expect(graphSave.querySelector("p")!.textContent).toBe(messages.apiDocs.openapi.platform["PUT /api/external/spaces/{spaceId}"]);
+      const selectionGuide = graphSave.querySelector("[data-usage-guide]")!;
+      expect(selectionGuide).not.toHaveAttribute("open");
+      expect(selectionGuide.querySelector("summary")).toHaveTextContent(messages.apiDocs.openapi.noteTitles["PUT /api/external/spaces/{spaceId}"]);
+      await user.click(selectionGuide.querySelector("summary")!);
+      expect(selectionGuide).toHaveAttribute("open");
+      expect(selectionGuide.querySelector("pre")!.textContent).toContain("selectedOutputAssetId: ASSET_ID");
+      expect(selectionGuide.querySelector("pre")!.textContent).toContain("expectedVersion: space.version");
+      const graphFields = within(graphSave).getByRole("table", { name: messages.apiDocs.endpoints.requestParams });
+      expect(graphFields.textContent).toContain(messages.apiDocs.openapi.parameters.expectedVersion);
+      expect(graphFields.textContent).toContain(messages.apiDocs.endpoints.maxItems.replace("{count}", "2000"));
+      expect(nodeExecute.querySelector("[data-usage-guide]")).not.toHaveAttribute("open");
+      const unauthorized = within(nodeExecute).getByText("401").closest("details")!;
+      await user.click(unauthorized.querySelector("summary")!);
+      expect(unauthorized.querySelector("pre")).toHaveTextContent('"message": "API_KEY_REQUIRED"');
+      expect(unauthorized.querySelector("pre")).not.toHaveTextContent("reason");
+      const limited = within(nodeExecute).getByText("429").closest("details")!;
+      await user.click(limited.querySelector("summary")!);
+      expect(limited.querySelector("pre")).toHaveTextContent("RATE_LIMITED");
+      expect(limited.querySelector("pre")).not.toHaveTextContent("reason");
+      await user.click(within(limited).getByRole("combobox", { name: `429 ${messages.apiDocs.endpoints.responseExample}` }));
+      await user.click(screen.getByRole("option", { name: "OWNER_LIMIT" }));
+      expect(limited.querySelector("pre")).toHaveTextContent('"reason": "OWNER_LIMIT"');
+      expect(limited.querySelector("pre")).toHaveTextContent('"message": "GENERATION_QUEUE_FULL"');
       expect(within(access).getByRole("heading", { name: messages.apiDocs.access.title })).toBeInTheDocument();
       expect(within(requests).getByRole("heading", { name: messages.apiDocs.requestGuide.title })).toBeInTheDocument();
       for (const permission of ["generations:create", "history:delete", "models:manage", "monitoring:read-all"])
@@ -117,7 +159,7 @@ describe("ApiDocsWidget", () => {
       expect(limitRow.textContent).toContain("24");
       expect(limitRow.textContent).toContain("1–100");
       expect(history.querySelector("p")!.textContent).not.toContain("1000");
-      expect(document.getElementById("introduction")!.textContent).toContain("2.1.0");
+      expect(document.getElementById("introduction")!.textContent).toContain("2.2.0");
       const errors = document.getElementById("errors")!;
       for (const status of ["404", "408", "409", "413", "415", "429", "499", "500", "503"])
         expect(within(errors).getByText(status)).toBeInTheDocument();

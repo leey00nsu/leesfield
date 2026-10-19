@@ -77,9 +77,9 @@ it("requires write permission before deleting and preserves records on storage f
 });
 it("projects completed edit input/output metadata", async () => {
   mocks.find.mockResolvedValue({
-    id: "request", status: "completed", createdAt: new Date(), updatedAt: new Date(), errorMessage: null,
+    id: "request", type: "edit.image.resize", configVersion: 1, status: "completed", createdAt: new Date(), updatedAt: new Date(), errorMessage: null,
     parameters: { scale: 2, token: "secret" },
-    inputs: [{ asset: { type: "image", storageUrl: "https://example.com/input", legacyUrl: null } }],
+    inputs: [{ portId: "image", sortOrder: 0, asset: { id: "input", status: "completed", type: "image", storageUrl: "https://example.com/input", legacyUrl: null } }],
     outputs: [{ id: "output", status: "completed", storageUrl: "https://example.com/output", legacyUrl: null, width: 100, height: 100, durationMs: null, imageVariants: null }],
   });
   const response = await GET(request("GET", "type=image&origin=edit"), context);

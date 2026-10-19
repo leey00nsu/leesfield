@@ -36,13 +36,36 @@ it("imports an explicit reference count without rewriting the source label or wi
  expect(fileFieldMaxItems(restored.inputs[0])).toBe(6);
  expect(restored.inputs[0].label).toBe(label);
 });
-it("keeps exact media output indices and rejects hidden State inputs",()=>{
+it("keeps public output indices while separating internal State inputs",()=>{
  const c=buildImportContract("/generate",{parameters:[{parameter_name:"session",component:"State",hidden:true,type:{type:"object"},parameter_has_default:true,parameter_default:{}}],returns:[{component:"Textbox"},{component:"Video"},{component:"Image"}]},{});
- expect(c.inputs[0].hidden).toBe(true);
- expect(assessGradioSupport(c).status).toBe("unsupported");
+ expect(c.inputs).toEqual([]);
+ expect(c.internalState).toEqual({inputs:[0],outputs:[]});
+ expect(assessGradioSupport(c).status).toBe("auto_mapped");
  expect(c.output).toEqual({media:"video",path:[1],multiple:false});
  expect(c.diagnostics).toContain("OUTPUT_SELECTION_REVIEW");
  expect(selectGradioOutput(["status",{url:"video.mp4"},{url:"image.png"}],c)).toEqual({url:"video.mp4"});
+});
+it("aligns raw and SDK metadata around internal input and output State",async()=>{
+ const {normalizeGradioModel}=await import("@/shared/model-catalog/gradio-contract");
+ const config={components:[{id:1,type:"textbox",api_info:{type:"string"}},{id:2,type:"state"},{id:3,type:"slider",api_info:{type:"number"}},{id:4,type:"audio"}],dependencies:[{api_name:"speak",inputs:[1,2,3],outputs:[2,4]}]};
+ const text={parameter_name:"dialogue",component:"Textbox",type:{type:"string"},parameter_has_default:false};
+ const number={parameter_name:"temperature",component:"Slider",type:{type:"number"},parameter_has_default:true,parameter_default:0.7};
+ const raw=buildImportContract("/speak",{parameters:[text,number],returns:[{component:"Audio"}]},config);
+ const sdk=buildImportContract("/speak",{parameters:[text,{parameter_name:null,component:"State",hidden:true,parameter_default:null},number],returns:[{component:"Audio"}]},config);
+ expect(sdk).toEqual(raw);
+ expect(raw.inputs.map(field=>field.name)).toEqual(["dialogue","temperature"]);
+ expect(raw.internalState).toEqual({inputs:[1],outputs:[0]});
+ expect(raw.output).toEqual({media:"audio",path:[0],multiple:false});
+ const model=normalizeGradioModel({parameters:{},providerConfig:{gradio_contract:sdk}});
+ expect(model.providerConfig).toMatchObject({gradio_state:{inputs:[1],outputs:[0]}});
+ expect(getGradioContract(model)?.inputs).toHaveLength(2);
+ expect(gradioInputValues(getGradioContract(model)!,{dynamicParams:{dialogue:"Original script"}})).toEqual({dialogue:"Original script",temperature:0.7});
+});
+it("leaves ambiguous text roles unset and does not infer script by name",()=>{
+ const field=(parameter_name:string)=>({parameter_name,component:"Textbox",type:{type:"string"}});
+ const contract=buildImportContract("/render",{parameters:[field("prompt"),field("text"),field("script")],returns:[{component:"Audio"}]},{});
+ expect(contract.inputs.every(input=>input.canonical===undefined)).toBe(true);
+ expect(contract.diagnostics).toContain("AMBIGUOUS_PROMPT:prompt");
 });
 it("File media는 입력 file_types 근거로만 정하고 불명확 Gallery는 관리자 검토로 남긴다",()=>{
  const endpoint={parameters:[{parameter_name:"source",component:"File",type:{type:"array",items:{title:"FileData",type:"object",properties:{path:{type:"string"}}}}}],returns:[{component:"Image"}]};

@@ -3,13 +3,23 @@
 import {describe,it,expect,vi} from "vitest";
 import {buildGradioRequest,executeGradioContract,predictWithDeadline} from "./contract-executor";
 import type {GradioContract} from "@/shared/model-catalog/gradio-contract";
-vi.mock("@gradio/client",()=>({handle_file:vi.fn(async v=>({uploaded:v}))}));
+const connect=vi.hoisted(()=>vi.fn());
+vi.mock("@gradio/client",()=>({Client:{connect},handle_file:vi.fn(async v=>({uploaded:v}))}));
 const contract:GradioContract={version:1,apiName:"/output_video",inputs:[
 {name:"in_0",label:"Prompt",kind:"string",schema:{type:"string"},canonical:"prompt",nullable:false,required:true},
 {name:"in_1",label:"Frame",kind:"file",schema:{},confirmed:true,nullable:true,required:true},
 {name:"in_7",label:"Upsample",kind:"boolean",schema:{type:"boolean"},confirmed:true,nullable:false,required:false,default:false}],
 output:{media:"video",path:[1],multiple:false},diagnostics:[],reviewed:true};
 describe("Gradio contract executor",()=>{
+ it("uses a fresh session for State and closes it after a prediction timeout",async()=>{
+  const cached={predict:vi.fn()};let release!:()=>void;
+  const pending=new Promise<void>(resolve=>{release=resolve;});
+  const cancel=vi.fn(()=>{release();});const close=vi.fn();
+  connect.mockResolvedValue({predict:vi.fn(),close,submit:()=>({async *[Symbol.asyncIterator](){await pending;},cancel})});
+  await expect(executeGradioContract(cached,{providerConfig:{gradio_contract:{...contract,internalState:{inputs:[2],outputs:[]}}}},
+    {prompt:"hello",dynamicParams:{in_1:null}},{timeoutMs:10,spaceUrl:"https://test.hf.space"},"video")).rejects.toThrow("HF_SPACE_REQUEST_TIMEOUT");
+  expect(cached.predict).not.toHaveBeenCalled();expect(cancel).toHaveBeenCalledOnce();expect(close).toHaveBeenCalledOnce();
+ });
  it("preuploads typed references while preserving order and null slots, and stops on upload failures", async () => {
   const bytes=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=","base64");
   const blob=new Blob([bytes],{type:"image/png"});

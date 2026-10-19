@@ -12,7 +12,9 @@ it("edits individual account permissions and explicitly enables administrative a
   }
   const user = userEvent.setup();
   renderWithIntl(<Editor />);
-  expect(screen.getAllByRole("checkbox")).toHaveLength(12);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(19);
+  expect(screen.getByRole("checkbox", { name: "스페이스 조회" })).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "자산 업로드" })).not.toBeChecked();
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
   const generation = screen.getByRole("checkbox", { name: "생성 요청" });
   expect(generation).toBeChecked();

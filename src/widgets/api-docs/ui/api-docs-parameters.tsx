@@ -23,6 +23,8 @@ export function ApiDocsParameters({ title, parameters }: {
                 constraints.push(`${schema.minimum ?? "—"}–${schema.maximum ?? "—"}`);
               if (schema?.maxLength !== undefined) constraints.push(t("maxCharacters", { count: schema.maxLength }));
               if (schema?.minLength !== undefined) constraints.push(t("minCharacters", { count: schema.minLength }));
+              if (schema?.maxItems !== undefined) constraints.push(t("maxItems", { count: schema.maxItems }));
+              if (schema?.const !== undefined) constraints.push(JSON.stringify(schema.const));
               if (schema?.enum) constraints.push(schema.enum.map(String).join(" / "));
               if (schema?.writeOnly) constraints.push(t("writeOnly"));
               if (schema?.pattern) constraints.push(schema.pattern);

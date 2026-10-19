@@ -453,6 +453,9 @@ async function assertRuntimeTransitionIsIdle(
     tx.mediaOperation.count({
       where: { graphNodeId: { in: graphNodeIds }, status: { in: ["pending", "processing", "uploading"] } },
     }),
+    tx.assistantExecution.count({
+      where: { graphNodeId: { in: graphNodeIds }, status: { in: ["pending", "processing"] } },
+    }),
   ]);
   if (activeCounts.some((count) => count > 0)) {
     throw new GenerationGraphActiveExecutionError();
@@ -465,6 +468,8 @@ async function update(
   input: UpdateGenerationGraphInput,
 ): Promise<GenerationGraphSnapshot> {
   return prisma.$transaction(async (tx) => {
+    // Serialize runtime transitions with external admission and deletion.
+    await tx.$queryRaw`SELECT id FROM "GenerationGraph" WHERE id = ${graphId} AND "ownerEmail" = ${ownerEmail} FOR UPDATE`;
     const existing = await tx.generationGraph.findFirst({
       where: { id: graphId, ownerEmail },
       select: {
@@ -628,8 +633,21 @@ async function update(
 }
 
 async function remove(ownerEmail: string, graphId: string) {
-  const result = await prisma.generationGraph.deleteMany({ where: { id: graphId, ownerEmail } });
-  if (result.count !== 1) throw new GenerationGraphNotFoundError();
+  return prisma.$transaction(async tx => {
+    const graphs = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM "GenerationGraph" WHERE id = ${graphId} AND "ownerEmail" = ${ownerEmail} FOR UPDATE`);
+    if (!graphs.length) throw new GenerationGraphNotFoundError();
+    const active = { in: ["pending", "processing", "uploading"] as Array<"pending" | "processing" | "uploading"> };
+    const counts = await Promise.all([
+      tx.imageGeneration.count({ where: { ownerEmail, graphNode: { graphId }, status: active } }),
+      tx.videoGeneration.count({ where: { ownerEmail, graphNode: { graphId }, status: active } }),
+      tx.audioGeneration.count({ where: { ownerEmail, graphNode: { graphId }, status: active } }),
+      tx.mediaOperation.count({ where: { ownerEmail, graphId, status: active } }),
+      tx.assistantExecution.count({ where: { ownerEmail, graphId, status: { in: ["pending", "processing"] } } }),
+    ]);
+    if (counts.some(count => count > 0)) throw new GenerationGraphActiveExecutionError();
+    const result = await tx.generationGraph.deleteMany({ where: { id: graphId, ownerEmail } });
+    if (result.count !== 1) throw new GenerationGraphNotFoundError();
+  });
 }
 
 async function copy(ownerEmail: string, graphId: string): Promise<GenerationGraphSnapshot> {
@@ -640,9 +658,6 @@ async function copy(ownerEmail: string, graphId: string): Promise<GenerationGrap
     if (!source) throw new GenerationGraphNotFoundError();
     const snapshot = mapGraph(source);
     if (!snapshot.writable) throw new GenerationGraphInputError({ graph: "UNSUPPORTED_SPACE" });
-    if (snapshot.nodes.some((node) => isUnavailableEditNodeKind(node.kind))) {
-      throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
-    }
     const input = updateGenerationGraphSchema.parse({ title: snapshot.title, nodes: snapshot.nodes, edges: snapshot.edges,
       schemaVersion: 3, groups: snapshot.groups, expectedVersion: source.version });
     await assertCanonicalAssets(tx, ownerEmail, input);

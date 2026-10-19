@@ -2,7 +2,7 @@ import { logSafeError } from "@/server/observability/request-observability";
 import { LeemageClient, type UploadableFile } from "leemage-sdk";
 import { leemageFileName } from "@/server/shared/leemage-file-name";
 import type { AudioGenerationFormValues } from "@/features/audio-generation/model/audio-generation-schema";
-import type { AudioGenerationResponse } from "@/features/audio-generation/model/audio-generation-types";
+import { audioOutputMetadata, audioOutputResult } from "@/server/media-assets/audio-output-metadata";
 import type {
   AudioStorageAdapter,
   AudioStorageAvailability,
@@ -110,31 +110,6 @@ function parseDataUrl(dataUrl: string) {
   });
 }
 
-function resolveDurationSec(
-  payload: AudioGenerationFormValues,
-  meta?: AudioStorageMeta,
-) {
-  if (typeof meta?.duration_sec === "number" && Number.isFinite(meta.duration_sec)) {
-    return meta.duration_sec;
-  }
-  const fallback = payload.speed && payload.speed > 0 ? 1 / payload.speed : 1;
-  return Number.isFinite(fallback) ? Math.max(0.1, Number(fallback.toFixed(2))) : 1;
-}
-
-function buildResultFromDataUrls(
-  payload: AudioGenerationFormValues,
-  dataUrls: string[],
-  meta?: AudioStorageMeta,
-): NonNullable<AudioGenerationResponse["result"]> {
-  const durationSec = resolveDurationSec(payload, meta);
-  return {
-    audios: dataUrls.map((url) => ({
-      url,
-      durationSec,
-    })),
-  };
-}
-
 function resolveFileUrl(file: { url: string | null }) {
   if (!file.url) {
     throw new Error("업로드된 오디오 URL을 찾을 수 없습니다.");
@@ -143,14 +118,14 @@ function resolveFileUrl(file: { url: string | null }) {
 }
 
 async function uploadGeneratedAudios(
-  payload: AudioGenerationFormValues,
+  _payload: AudioGenerationFormValues,
   requestId: string,
   dataUrls: string[],
   meta?: AudioStorageMeta,
 ): Promise<AudioStorageResult> {
   const client = getLeemageClient();
   const { projectId } = getLeemageConfig();
-  const durationSec = resolveDurationSec(payload, meta);
+  const durations = await audioOutputMetadata(dataUrls, meta);
 
   try {
     const boundedDataUrls = await mapBoundedMediaOutputs(
@@ -176,12 +151,12 @@ async function uploadGeneratedAudios(
     return {
       status: "completed",
       result: {
-        audios: uploads.map((file) => ({
+        audios: uploads.map((file, index) => ({
           url: resolveFileUrl(file),
-          durationSec,
+          ...(durations[index] !== undefined ? { durationSec: durations[index] } : {}),
         })),
       },
-      artifacts: uploads.map((file) => ({
+      artifacts: uploads.map((file, index) => ({
         type: "audio" as const,
         storageProvider: "leemage" as const,
         storageObjectId: file.id,
@@ -190,14 +165,14 @@ async function uploadGeneratedAudios(
         bytes: file.size,
         width: null,
         height: null,
-        durationMs: Math.round(durationSec * 1_000),
+        durationMs: durations[index] === undefined ? null : Math.round(durations[index]! * 1_000),
       })),
     };
   } catch (error) {
     logSafeError("storage.upload.failed", error, { requestId, kind: "audio", provider: "leemage", phase: "storage.upload" });
     return {
       status: "completed",
-      result: buildResultFromDataUrls(payload, dataUrls, meta),
+      result: audioOutputResult(dataUrls, durations),
       errorMessage:
         error instanceof Error ? error.message : "저장에 실패했습니다.",
     };

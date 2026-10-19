@@ -164,6 +164,20 @@ function renderNodes() {
 }
 
 describe("GenerationNode common presenter", () => {
+  it("hides the generic prompt for native-only models and synchronizes an existing primary alias when edited",async()=>{
+    mocks.videoContract={version:1,apiName:"/render",inputs:[{name:"dialogue",label:"Dialogue",kind:"string",schema:{type:"string"},required:true,nullable:false}],output:{media:"video",path:[0],multiple:false},diagnostics:[],reviewed:false};
+    const config={modelKey:"video-a",prompt:"",parameters:{dynamicParams:{dialogue:"Saved dialogue"}}};
+    const view=render(<SpaceGenerationPrompt nodeId="node" config={config} modality="video"/>,{wrapper:promptWrapper});
+    expect(screen.queryByRole("textbox",{name:"프롬프트"})).toBeNull();
+    view.unmount();
+    (mocks.videoContract.inputs as Array<Record<string,unknown>>)[0].canonical="prompt";
+    render(<SpaceGenerationPrompt nodeId="node" config={{...config,prompt:"Saved dialogue"}} modality="video"/>,{wrapper:promptWrapper});
+    const user=userEvent.setup();
+    await user.click(screen.getByRole("button",{name:"프롬프트 편집"}));
+    const editor=screen.getByRole("textbox",{name:"프롬프트"});
+    await user.click(editor);await user.keyboard("{End}!");
+    expect(mocks.updateConfig).toHaveBeenLastCalledWith("node",expect.objectContaining({prompt:"Saved dialogue!",parameters:expect.objectContaining({dynamicParams:{dialogue:"Saved dialogue!"}})}));
+  });
   it("opens a separate Space audio section for attached videos and sends related IDs with a joint reorder",async()=>{
     mocks.ids=["v1","v2"];mocks.slots=[null,"a2"];
     mocks.videoContract={version:1,apiName:"/generate",inputs:[

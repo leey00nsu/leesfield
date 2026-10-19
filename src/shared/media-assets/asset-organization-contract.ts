@@ -61,6 +61,7 @@ export type AssetFolderDto = { id: string; name: string; parentId: string | null
 export type AssetTagDto = { id: string; name: string; version: number };
 export type AssetOrganizationDto = { folders: AssetFolderDto[]; tags: AssetTagDto[] };
 export type AssetUsageDto = {
+  assistantExecutionIds?: string[];
   projectCoverIds?: string[];
   graphIds: string[];
   operationIds: string[];

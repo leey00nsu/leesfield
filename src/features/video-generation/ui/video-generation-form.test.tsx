@@ -183,7 +183,7 @@ describe("VideoGenerationForm", () => {
   });
 
 
-  it("API에서 선택 프롬프트여도 생성 화면은 빈 입력과 공백 제출을 차단한다",async()=>{
+  it("honors an optional provider prompt default without requiring dummy text",async()=>{
     const user=userEvent.setup();
     const model={...runtimeVideoModelsFixture[0],providerConfig:{...runtimeVideoModelsFixture[0].providerConfig,gradio_contract:{
       version:1,apiName:"/generate",inputs:[{name:"prompt",label:"Prompt",schema:{type:"string"},kind:"string",canonical:"prompt",required:false,nullable:false,default:""}],
@@ -193,15 +193,15 @@ describe("VideoGenerationForm", () => {
     await waitForModels();
     const submit=screen.getByRole("button",{name:"생성"});
     const prompt=screen.getByRole("textbox");
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
     await user.type(prompt,"   ");
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
     fireEvent.submit(container.querySelector("form")!);
-    expect(startGenerationMock).not.toHaveBeenCalled();
+    await waitFor(()=>expect(startGenerationMock).toHaveBeenCalled());
     await user.type(prompt,"moving lights");
     expect(submit).toBeEnabled();
     await user.clear(prompt);
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
   });
 
   it("쿼리 파라미터로 prompt/model/initImage를 초기화한다", async () => {

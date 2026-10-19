@@ -9,6 +9,20 @@ import { historyReferencesSchema, type HistoryReference } from "@/shared/generat
 import { jsonValueSchema } from "@/shared/model-catalog/gradio-contract";
 import { historyOptionsSchema, legacyHistoryOptionPath, legacyHistoryOptionNames, type HistoryOption } from "@/shared/generation/history-options";
 import { numericParameterValue } from "@/shared/model-catalog/parameter-contract";
+import { requestSettings } from "@/server/monitoring/request-settings";
+
+export async function historyRequestSettings(media: "image" | "video" | "audio", modelKey: string | null, snapshot: unknown) {
+  const raw = object(snapshot);
+  if (Array.isArray(raw.promptFields)) return requestSettings(raw);
+  const frozen = object(raw.executionModel);
+  const model = Object.keys(frozen).length ? frozen : (await getModelCatalog({ includeInactive: true })).find(m => m.key === modelKey && m.type === media);
+  const fields = model ? getGradioContract(model)?.inputs.filter(field => field.canonical === "prompt").map(field => field.name)
+    ?? Object.entries(object(model.parameters)).flatMap(([key, config]) => {
+      const binding = object(object(config).binding);
+      return binding.canonicalKey === "prompt" ? [key, String(binding.parameterName ?? key)] : [];
+    }) : [];
+  return requestSettings(snapshot, fields);
+}
 
 const object = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 const urls = (v: unknown) => typeof v === "string" && v.trim() ? [v] : Array.isArray(v) ? v.filter((s): s is string => typeof s === "string" && !!s.trim()) : [];

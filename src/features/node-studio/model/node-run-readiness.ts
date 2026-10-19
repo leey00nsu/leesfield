@@ -1,6 +1,6 @@
 import { getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";
 import { fileFieldInputPorts, normalizeFileInputAssets, fileInputsFromAssets } from "@/shared/model-catalog/file-input-ports";
-import { generationPayload } from "@/shared/model-catalog/generation-payload";
+import { generationPayload, syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { cinemaAuthoringBlocked, cinemaAuthoringValidation } from "@/shared/cinema/cinema-authoring";
 import { promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
@@ -219,7 +219,7 @@ export function resolveNodeRunReadiness(
         try {prompt=resolveGraphText(graph,promptEdge.sourceNodeId,new Set(),catalog.assistantResults,promptEdge.sourcePortId);} catch { /* INPUT_NOT_READY is recorded above. */ }
       }
       try {
-        const authored = { ...parameters, prompt, fileInputs };
+        const authored = { ...(promptEdge && prompt !== undefined ? syncPrimaryTextValue(selectedModel,parameters,prompt) : parameters), prompt, fileInputs };
         const validation = node.kind === "generate.image" || node.kind === "generate.video"
           ? cinemaAuthoringValidation(authored, config.cinema, node.kind === "generate.image" ? "image" : "video", selectedModel) : authored;
         const payload=generationPayload(selectedModel,validation) as {prompt?:string;dynamicParams?:Record<string,unknown>};

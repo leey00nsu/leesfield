@@ -29,6 +29,7 @@ export type ApiResponseInfo = {
   description?: string;
   schema: OpenApiSchema | null;
   example?: unknown;
+  examples?: Array<{ name: string; value: unknown }>;
 };
 
 export type ApiOperation = {
@@ -39,6 +40,7 @@ export type ApiOperation = {
   permissions?: string[];
   conditionalPermissions?: Array<{ field: string; permission: string; condition: string }>;
   usageNotes?: string[];
+  usageTitle?: string;
   requestLimits?: Record<string, number>;
   queryLimits?: { rangeDays: number; defaultDays: number };
   headerParameters?: ApiSchemaProperty[];
@@ -116,6 +118,7 @@ export function buildApiSections(document: OpenApiDocument): ApiSection[] {
         permissions: operation["x-required-permissions"],
         conditionalPermissions: operation["x-conditional-permissions"],
         usageNotes: operation["x-usage-notes"],
+        usageTitle: operation["x-usage-title"],
         requestLimits: operation["x-request-limits"],
         queryLimits: operation["x-query-limits"],
         headerParameters: (operation.parameters ?? []).flatMap((parameter) => {
@@ -422,6 +425,8 @@ function extractResponses(
         description: response.description,
         schema,
         example,
+        examples: Object.entries(content?.examples ?? {}).flatMap(([name, value]) =>
+          "value" in value ? [{ name, value: value.value }] : []),
       };
     },
   );

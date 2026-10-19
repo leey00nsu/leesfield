@@ -1,5 +1,10 @@
-import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
-import { requestSettings } from "./request-settings";
+import { generationOutputUrl, generationOutputAssetSelect, generationOutputDuration } from "@/server/history/generation-output-availability";
+import { historyRequestSettings } from "@/server/history/history-authoring-references";
+import type { HistoryInputMedia } from "@/shared/generation/history-detail";
+import { promptProvenanceSchema, type PromptProvenance } from "@/shared/generation-graph/prompt-provenance";
+import { recordObject } from "@/server/generation-request/request-snapshot";
+import { historyPromptAuthoring } from "@/server/history/history-prompt-authoring";
+import type { PromptSource } from "@/shared/generation-graph/prompt-provenance";
 import { parseImageVariants, type ImageVariants } from "@/shared/media-assets/image-variants";
 import { prisma } from "@/server/db/prisma";
 import { measureDatabase } from "@/server/observability/request-observability";
@@ -18,6 +23,12 @@ export type MonitoringRequestAsset = {
 };
 
 export type MonitoringRequestDetail = {
+  inputPrompt?: string | null;
+  localPrompt?: string | null;
+  connectedPrompt?: string | null;
+  promptSources?: Array<Omit<PromptSource, "sources">>;
+  inputMedia?: HistoryInputMedia[];
+  promptProvenance?: PromptProvenance | null;
   requestParameters?: Record<string, unknown> | null;
   id: string;
   type: "image" | "video" | "audio";
@@ -39,6 +50,7 @@ export type MonitoringRequestDetail = {
 };
 
 type InputAssetRow = {
+  assetId: string;
   field: string;
   sortOrder: number;
   asset: {
@@ -59,6 +71,7 @@ async function listInputAssets(
     orderBy: [{ field: "asc" }, { sortOrder: "asc" }],
     select: {
       field: true,
+      assetId: true,
       sortOrder: true,
       asset: { select: { type: true, storageUrl: true, legacyUrl: true } },
     },
@@ -106,6 +119,22 @@ function inputAssetUrls(
     });
 }
 
+function snapshotDetails(snapshot: unknown, rows: InputAssetRow[], finalPrompt: string) {
+  const parsed = promptProvenanceSchema.safeParse(recordObject(snapshot).promptProvenance);
+  const flatten = (sources: PromptSource[]): Array<Omit<PromptSource, "sources">> => sources.flatMap(({ sources: children, ...source }) => [source, ...flatten(children ?? [])]);
+  return {
+    inputPrompt: historyPromptAuthoring(snapshot, finalPrompt).inputPrompt,
+    localPrompt: parsed.success ? parsed.data.localPrompt : null,
+    connectedPrompt: parsed.success ? parsed.data.connectedPrompt : null,
+    promptSources: parsed.success ? flatten(parsed.data.sources) : [],
+    promptProvenance: parsed.success ? parsed.data : null,
+    inputMedia: rows.flatMap(row => {
+      const url = row.asset.storageUrl ?? row.asset.legacyUrl;
+      return url ? [{ assetId: row.assetId ?? null, type: row.asset.type, role: row.field, sortOrder: row.sortOrder, url }] : [];
+    }),
+  };
+}
+
 async function getMonitoringRequestDetailUnobserved(
   type: "image" | "video" | "audio",
   requestId: string,
@@ -145,10 +174,11 @@ async function getMonitoringRequestDetailUnobserved(
 
     return {
       id: record.requestId,
+      ...snapshotDetails(record.requestParams, inputAssets, record.prompt),
       type: "image",
       status: record.status,
       model: record.modelKey ?? null,
-      requestParameters: requestSettings(record.requestParams),
+      requestParameters: await historyRequestSettings(type, record.modelKey, record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
       finishedAt: record.finishedAt?.toISOString() ?? null,
@@ -161,7 +191,7 @@ async function getMonitoringRequestDetailUnobserved(
         ...inputAssetUrls(inputAssets, "image"),
         ...extractInputImages(record.requestParams),
       ],
-      inputAudios: [],
+      inputAudios: inputAssetUrls(inputAssets, "audio"),
       inputVideos: inputAssetUrls(inputAssets, "video"),
       referenceText: null,
       assets: record.images.filter((output) => Boolean(generationOutputUrl(output))).map((image) => ({
@@ -206,10 +236,11 @@ async function getMonitoringRequestDetailUnobserved(
 
     return {
       id: record.requestId,
+      ...snapshotDetails(record.requestParams, inputAssets, record.prompt),
       type: "audio",
       status: record.status,
       model: record.modelKey ?? null,
-      requestParameters: requestSettings(record.requestParams),
+      requestParameters: await historyRequestSettings(type, record.modelKey, record.requestParams),
       prompt: record.prompt,
       createdAt: record.createdAt.toISOString(),
       finishedAt: record.finishedAt?.toISOString() ?? null,
@@ -232,7 +263,7 @@ async function getMonitoringRequestDetailUnobserved(
         url: generationOutputUrl(audio)!,
         width: null,
         height: null,
-        durationSec: audio.durationSec ?? null,
+        durationSec: generationOutputDuration(audio),
       })),
     };
   }
@@ -270,10 +301,11 @@ async function getMonitoringRequestDetailUnobserved(
 
   return {
     id: record.requestId,
+    ...snapshotDetails(record.requestParams, inputAssets, record.prompt),
     type: "video",
     status: record.status,
     model: record.modelKey ?? null,
-      requestParameters: requestSettings(record.requestParams),
+      requestParameters: await historyRequestSettings(type, record.modelKey, record.requestParams),
     prompt: record.prompt,
     createdAt: record.createdAt.toISOString(),
       finishedAt: record.finishedAt?.toISOString() ?? null,
@@ -286,14 +318,14 @@ async function getMonitoringRequestDetailUnobserved(
       ...inputAssetUrls(inputAssets, "image"),
       ...extractInputImages(record.requestParams),
     ],
-    inputAudios: [],
+    inputAudios: inputAssetUrls(inputAssets, "audio"),
     inputVideos: inputAssetUrls(inputAssets, "video"),
     referenceText: null,
     assets: record.videos.filter((output) => Boolean(generationOutputUrl(output))).map((video) => ({
       url: generationOutputUrl(video)!,
       width: video.width ?? null,
       height: video.height ?? null,
-      durationSec: video.durationSec ?? null,
+      durationSec: generationOutputDuration(video),
     })),
   };
 }

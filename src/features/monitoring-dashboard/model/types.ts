@@ -1,4 +1,6 @@
 import type { ImageVariants } from "@/shared/media-assets/image-variants";
+import type { HistoryInputMedia } from "@/shared/generation/history-detail";
+import type { PromptProvenance } from "@/shared/generation-graph/prompt-provenance";
 export type MonitoringType = "all" | "image" | "video" | "audio";
 
 export type MonitoringStatusFilter =
@@ -61,6 +63,10 @@ export type MonitoringRequestAsset = {
 };
 
 export type MonitoringRequestDetail = {
+  inputPrompt?: string | null;
+  inputMedia?: HistoryInputMedia[];
+  promptProvenance?: PromptProvenance | null;
+  operation?: { type: string; configVersion: number };
   requestParameters?: Record<string, unknown> | null;
   id: string;
   type: "image" | "video" | "audio";
@@ -76,6 +82,7 @@ export type MonitoringRequestDetail = {
   warningMessage: string | null;
   inputImages: string[];
   inputAudios: string[];
+  inputVideos?: string[];
   referenceText: string | null;
   assets: MonitoringRequestAsset[];
 };

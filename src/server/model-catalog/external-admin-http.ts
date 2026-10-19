@@ -1,5 +1,5 @@
 import { withExternalApi } from "@/server/external-api/route-handler";
-import { readRouteJsonBody, JSON_BODY_LIMIT_BYTES } from "@/server/http/bounded-body";
+import { readExternalJsonBody, JSON_BODY_LIMIT_BYTES } from "@/server/http/bounded-body";
 import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
 import { RATE_LIMITS } from "@/server/rate-limit/policies";
@@ -14,7 +14,7 @@ export function withExternalModelAdmin(request: Request,
     if (limited) return limited;
     let body: unknown;
     if (options.body) {
-      const parsed = await readRouteJsonBody(request, options.maxBytes ?? JSON_BODY_LIMIT_BYTES);
+      const parsed = await readExternalJsonBody(request, options.maxBytes ?? JSON_BODY_LIMIT_BYTES);
       if (!parsed.ok) return buildErrorResponse(parsed.code, parsed.status);
       body = parsed.body;
     }

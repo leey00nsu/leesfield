@@ -15,6 +15,7 @@ import {
 import { createVideoGenerationRecord } from "./video-generation-repository";
 
 export type SubmitVideoGenerationInput = {
+  transaction?: Prisma.TransactionClient;
   payload: VideoGenerationFormValues;
   cinema?: CinemaSnapshot;
   ownerEmail: string;
@@ -38,6 +39,7 @@ function isUniqueConstraintError(error: unknown) {
 }
 
 export async function submitVideoGeneration({
+  transaction,
   payload,
   ownerEmail,
   apiKeyId = null,
@@ -78,7 +80,9 @@ export async function submitVideoGeneration({
     ? payload
     : applyUploadedGenerationInputAssets({ ...payload, initImage: trimmedInitImage }, uploaded);
   try {
-    const record = cinema
+    const record = transaction
+      ? await createVideoGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs, cinema, transaction)
+      : cinema
       ? await createVideoGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs ?? (uploaded.length ? uploaded.map(({ ref }) => ref) : undefined), cinema)
       : graphNodeId || requestSnapshot
       ? await createVideoGenerationRecord(

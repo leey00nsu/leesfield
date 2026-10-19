@@ -110,6 +110,14 @@ function buildFormEntries(
 }
 
 export function buildCurlSnippet(context: SnippetContext) {
+  if (context.contentType === "application/octet-stream") {
+    return [
+      'curl -X PUT "' + context.baseUrl + context.path + '"',
+      '  -H "X-API-Key: YOUR_API_KEY"',
+      '  -H "Content-Type: <DECLARED_MIME_TYPE>"',
+      '  --data-binary @./input.bin',
+    ].join(" \\\n");
+  }
   const { baseUrl, path, method, body, headers, contentType, fileFields } =
     context;
   if (isMultipartContentType(contentType)) {
@@ -146,6 +154,12 @@ export function buildCurlSnippet(context: SnippetContext) {
 }
 
 export function buildJavascriptSnippet(context: SnippetContext) {
+  if (context.contentType === "application/octet-stream") {
+    return 'import { readFile } from "node:fs/promises";\n' +
+      'const response = await fetch(' + JSON.stringify(context.baseUrl + context.path) + ', {\n' +
+      '  method: "PUT", headers: { "X-API-Key": "YOUR_API_KEY", "Content-Type": "<DECLARED_MIME_TYPE>" },\n' +
+      '  body: await readFile("./input.bin"),\n});\nconst data = await response.json();';
+  }
   const { baseUrl, path, method, body, headers, contentType, fileFields } =
     context;
   if (isMultipartContentType(contentType)) {
@@ -205,6 +219,12 @@ export function buildJavascriptSnippet(context: SnippetContext) {
 }
 
 export function buildPythonSnippet(context: SnippetContext) {
+  if (context.contentType === "application/octet-stream") {
+    return 'import requests\n\nwith open("./input.bin", "rb") as source:\n' +
+      '    response = requests.put(' + JSON.stringify(context.baseUrl + context.path) +
+      ', headers={"X-API-Key": "YOUR_API_KEY", "Content-Type": "<DECLARED_MIME_TYPE>"}, data=source)\n' +
+      'data = response.json()';
+  }
   const { baseUrl, path, method, body, headers, contentType, fileFields } =
     context;
   const combinedHeaders = getHeaders(headers, contentType);

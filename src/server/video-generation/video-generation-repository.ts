@@ -1,4 +1,4 @@
-import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
+import { generationOutputUrl, generationOutputAssetSelect, generationOutputDuration } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
 import { Prisma } from "@prisma/client";
@@ -30,6 +30,7 @@ export async function createVideoGenerationRecord(
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
   inputAssetRefs?: readonly GenerationInputAssetRef[],
   cinema?: CinemaSnapshot,
+  transaction?: Prisma.TransactionClient,
 ) {
   const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
     dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
@@ -64,8 +65,8 @@ export async function createVideoGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (refs.length === 0) return prisma.videoGeneration.create({ data });
-  return prisma.$transaction(async (tx) => {
+  if (!transaction && refs.length === 0) return prisma.videoGeneration.create({ data });
+  const create = async (tx: Prisma.TransactionClient) => {
     const record = await tx.videoGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -74,7 +75,8 @@ export async function createVideoGenerationRecord(
       refs,
     });
     return record;
-  });
+  };
+  return transaction ? create(transaction) : prisma.$transaction(create);
 }
 
 export async function saveVideoGenerationResult(
@@ -287,5 +289,5 @@ export async function getVideoGenerationByRequestId(
       },
     },
   });
-  return record ? { ...record, videos: record.videos.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "" })) } : null;
+  return record ? { ...record, videos: record.videos.map((output) => ({ ...output, url: generationOutputUrl(output) ?? "", durationSec: generationOutputDuration(output) })) } : null;
 }

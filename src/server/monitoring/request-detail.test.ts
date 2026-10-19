@@ -3,6 +3,7 @@ import { getMonitoringRequestDetail } from "@/server/monitoring/request-detail";
 import { prisma } from "@/server/db/prisma";
 
 const mockInputAssets = vi.hoisted(() => vi.fn());
+vi.mock("@/server/model-catalog/catalog-service", () => ({ getModelCatalog: vi.fn(async () => []) }));
 
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
@@ -48,7 +49,8 @@ describe("getMonitoringRequestDetail", () => {
       audios: [
         {
           url: "https://cdn.example.com/audio.mp3",
-          durationSec: 4,
+          durationSec: 1,
+          asset: { durationMs: 17972 },
         },
       ],
     });
@@ -67,7 +69,7 @@ describe("getMonitoringRequestDetail", () => {
       assets: [
         {
           url: "https://cdn.example.com/audio.mp3",
-          durationSec: 4,
+          durationSec: 17.972,
         },
       ],
     });
@@ -124,6 +126,7 @@ describe("getMonitoringRequestDetail", () => {
       images: [{ url: "https://cdn.example.com/output.png", asset: { imageVariants: null }, width: 512, height: 512 }],
     });
     mockInputAssets.mockResolvedValue([{
+      assetId: "input-asset",
       field: "initImages",
       sortOrder: 0,
       asset: {
@@ -136,6 +139,7 @@ describe("getMonitoringRequestDetail", () => {
     const result = await getMonitoringRequestDetail("image", "img-asset");
 
     expect(result?.inputImages).toEqual(["https://cdn.example.com/input.png"]);
+    expect(result?.inputMedia).toEqual([{ assetId: "input-asset", type: "image", role: "initImages", sortOrder: 0, url: "https://cdn.example.com/input.png" }]);
     expect(JSON.stringify(result)).not.toContain("[file]");
     expect(mockInputAssets).toHaveBeenCalledWith(expect.objectContaining({
       where: { requestId: "img-asset", generationType: "image" },

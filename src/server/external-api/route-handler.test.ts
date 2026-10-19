@@ -23,6 +23,9 @@ it.each([
   ["GET", "/api/external/monitoring/overview", "monitoring:read"],
   ["GET", "/api/external/admin/models", "models:manage"],
   ["POST", "/api/external/admin/models/import", "models:manage"],
+  ["GET", "/api/external/spaces/capabilities", "spaces:read"],
+  ["POST", "/api/external/spaces/space/nodes/node/executions", "spaces:execute"],
+  ["PUT", "/api/external/assets/uploads/upload/content", "assets:upload"],
 ] as const)("requires the action permission before %s %s", async (method, path, permission) => {
   db.updateMany.mockResolvedValue({ count: 1 });
   const handler = vi.fn(async () => Response.json({ ok: true }));
@@ -37,6 +40,15 @@ it.each([
 const record = { id: "key", ownerEmail: "owner@example.com", status: "active", permissions: [] };
 describe("platform API permission boundary", () => {
   beforeEach(() => { vi.clearAllMocks(); db.updateMany.mockResolvedValue({ count: 1 }); });
+  it("copy needs both read and create permissions before reaching a space", async () => {
+    const req = () => new Request("http://localhost/api/external/spaces/space/copy", { method: "POST", headers: { "X-API-Key": "lf_test" } });
+    const handler = vi.fn(async () => Response.json({ ok:true }));
+    db.findUnique.mockResolvedValue({ ...record, permissions: ["access:custom", "spaces:create"] });
+    expect((await withExternalApi(req(), handler)).status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+    db.findUnique.mockResolvedValue({ ...record, permissions: ["access:custom", "spaces:create", "spaces:read"] });
+    expect((await withExternalApi(req(), handler)).status).toBe(200);
+  });
   it("keeps legacy generation calls usable but rejects platform access before its handler", async () => {
     db.findUnique.mockResolvedValue(record);
     const handler = vi.fn(async () => Response.json({ ok: true }));

@@ -19,9 +19,9 @@ describe("public OpenAPI response", () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(body.info.version).toBe("2.1.0");
+    expect(body.info.version).toBe("2.2.0");
     expect(body.components.securitySchemes.BearerAuth.scheme).toBe("bearer");
-    expect(body.paths["/api/external/generations/{requestId}"].get["x-usage-notes"].join(" ")).toContain(lang === "ko" ? "같은 계정과 API 키" : "same account and API key");
+    expect(body.paths["/api/external/generations/{requestId}"].get["x-usage-notes"].join(" ")).toContain(lang === "ko" ? "생성 요청에 사용한 계정과 API 키" : "same account and API key");
     expect(body.paths["/api/external/models/{modelId}/schema"]).toBeDefined();
     expect(body.paths["/api/external/monitoring/overview"].get["x-conditional-permissions"]).toContainEqual({ field: "scope", condition: "all", permission: "monitoring:read-all" });
     expect(body.paths["/api/external/admin/models"].get["x-required-permissions"]).toEqual(["models:manage"]);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_FILE_INPUT_LIMIT } from "./file-input-limits";
-import { jsonValueSchema, gradioContractSchema } from "./gradio-contract";
+import { jsonValueSchema, gradioContractSchema, gradioStateSchema } from "./gradio-contract";
 import { attachmentRelationshipSchema } from "./attachment-relationships";
 
 const parameterUiOptions = [
@@ -127,6 +127,7 @@ export const hfSpaceConfigSchema = z
     space_id: z.string().min(1),
     input_rules: z.record(z.string(), z.unknown()).optional(),
     gradio_contract: gradioContractSchema.optional(),
+    gradio_state: gradioStateSchema.optional(),
     api_name: z.string().min(1),
     timeout_ms: z.number().int().positive().optional(),
     space_url: z.string().min(1).optional(),

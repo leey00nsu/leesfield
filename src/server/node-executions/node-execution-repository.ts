@@ -257,9 +257,10 @@ async function findExecution(
   graphId: string,
   graphNodeId: string,
   executionId: string,
+  sourceKind?: string,
 ): Promise<StoredExecutionRecord> {
   const node = await getOwnedNode(ownerEmail, graphId, graphNodeId);
-  const kind = node.kind;
+  const kind = sourceKind ?? node.kind;
   const mediaType = kind === "generate.image" ? "image" : kind === "generate.video" ? "video" : kind === "generate.audio" ? "audio" : null;
   if (!mediaType) throw new NodeExecutionNotFoundError();
   const where = { requestId: executionId, ownerEmail, graphNodeId };
@@ -352,8 +353,10 @@ async function cancelExecution(
   graphId: string,
   graphNodeId: string,
   executionId: string,
+  sourceKind?: string,
 ) {
-  const record = await findExecution(ownerEmail, graphId, graphNodeId, executionId);
+  const read = () => findExecution(ownerEmail, graphId, graphNodeId, executionId, sourceKind);
+  const record = await read();
   if (!(activeStatuses as readonly string[]).includes(record.status)) return record;
   const cancelRequestedAt = new Date();
   const where = { requestId: executionId, ownerEmail, graphNodeId };
@@ -364,7 +367,7 @@ async function cancelExecution(
         data: { status: "cancelled", progress: 0, cancelRequestedAt },
       });
       if (cancelled.count === 1) {
-        return findExecution(ownerEmail, graphId, graphNodeId, executionId);
+        return read();
       }
     }
     await prisma.imageGeneration.updateMany({
@@ -378,7 +381,7 @@ async function cancelExecution(
         data: { status: "cancelled", progress: 0, cancelRequestedAt },
       });
       if (cancelled.count === 1) {
-        return findExecution(ownerEmail, graphId, graphNodeId, executionId);
+        return read();
       }
     }
     await prisma.videoGeneration.updateMany({
@@ -392,7 +395,7 @@ async function cancelExecution(
         data: { status: "cancelled", progress: 0, cancelRequestedAt },
       });
       if (cancelled.count === 1) {
-        return findExecution(ownerEmail, graphId, graphNodeId, executionId);
+        return read();
       }
     }
     await prisma.audioGeneration.updateMany({
@@ -400,7 +403,7 @@ async function cancelExecution(
       data: { cancelRequestedAt },
     });
   }
-  return findExecution(ownerEmail, graphId, graphNodeId, executionId);
+  return read();
 }
 
 async function settleCancelledIfRequested(

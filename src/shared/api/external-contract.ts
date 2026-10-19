@@ -5,7 +5,7 @@ import { promptPresetKeySchema } from "@/shared/prompt-presets/prompt-preset-con
 export * from "./request-limits";
 extendZodWithOpenApi(z);
 
-export const externalApiVersion = "2.1.0";
+export const externalApiVersion = "2.2.0";
 export const mediaTypes = ["image", "video", "audio"] as const;
 export type GenerationMedia = (typeof mediaTypes)[number];
 export const generationStatusSchema = z.enum([

@@ -830,10 +830,6 @@ async function fetchAudioDataUrl(
 function extractDurationSec(value: unknown, depth = 0): number | undefined {
   if (depth > 4 || value === null || value === undefined) return undefined;
 
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return value;
-  }
-
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = extractDurationSec(item, depth + 1);

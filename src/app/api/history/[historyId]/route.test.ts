@@ -8,6 +8,35 @@ vi.mock("@/server/db/prisma",()=>({prisma:{imageGeneration:{findFirst:mocks.find
 vi.mock("@/server/history/delete-history-files",()=>({deleteHistoryFiles:mocks.files}));
 vi.mock("@/server/http/safe-remote",()=>({requestRemoteStream:mocks.remote}));
 import {GET, DELETE} from "./route";
+import { historyRequestSettings } from "@/server/history/history-authoring-references";
+
+it("reads edit inputs and settings from the common owned detail without projecting the operation kind into a prompt", async () => {
+  const asset = { id: "source", status: "completed", type: "video", storageUrl: "https://cdn.example/source.mp4", legacyUrl: null };
+  mocks.find.mockResolvedValue({ id: "edit", ownerEmail: "owner@example.com", type: "edit.video.trim", status: "completed",
+    configVersion: 1, parameters: { startMs: 0, endMs: 5000, stripAudio: false }, createdAt: new Date(0), updatedAt: new Date(2000), finishedAt: new Date(2000),
+    inputs: [{ assetId: "source", portId: "video", sortOrder: 0, asset }],
+    outputs: [{ ...asset, id: "output", width: 576, height: 768, durationMs: 5184, imageVariants: null }],
+  });
+  const response = await GET(new Request("http://localhost/api/history/edit?type=video&origin=edit&view=detail"), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ prompt: "", operation: { type: "edit.video.trim", configVersion: 1 },
+    requestParameters: { startMs: 0, endMs: 5000, stripAudio: false },
+    inputMedia: [{ assetId: "source", type: "video", role: "video", sortOrder: 0 }], inputVideos: [asset.storageUrl],
+    assets: [{ durationSec: 5.184 }],
+  });
+  expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ ownerEmail: "owner@example.com" }) }));
+  mocks.find.mockResolvedValue(null);
+  expect((await GET(new Request("http://localhost/api/history/edit?type=video&origin=edit&view=detail"), context)).status).toBe(404);
+  expect(mocks.remote).not.toHaveBeenCalled();
+});
+
+it("filters a legacy primary text alias through the model role instead of a field-name exception", async () => {
+  const providerConfig = { gradio_contract: { version: 1, apiName: "/generate", inputs: [{
+    name: "narration", label: "Narration", kind: "string", canonical: "prompt", schema: { type: "string" }, required: true, nullable: false,
+  }], output: { media: "audio", path: [0], multiple: false }, diagnostics: [], reviewed: true } };
+  expect(await historyRequestSettings("audio", "m", { executionModel: { parameters: {}, providerConfig },
+    requestSettings: { narration: "spoken script", speed: 1, api_key: "SECRET" } })).toEqual({ speed: 1 });
+});
 import { composeCinemaPrompt } from "@/shared/cinema/cinema-prompt";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";

@@ -394,7 +394,7 @@ export async function getHistory(
     parameters: previewHistoryValue(operation.parameters),
       },
       status: "completed",
-      prompt: operation.type,
+      prompt: "",
       model: null,
       createdAt: operation.createdAt.toISOString(),
       finishedAt: operation.finishedAt?.toISOString() ?? null,
@@ -451,7 +451,7 @@ export async function getHistoryRecordItem(owner: string, id: string, selector: 
     item = { id: record.id, type: output.type, origin: "edit", assetId: output.id, graphId: record.graphId,
       graphNodeId: record.graphNodeId, sourceAssetIds: record.inputs.map(input => input.assetId),
       operation: { id: record.id, type: record.type, configVersion: record.configVersion, parameters: previewHistoryValue(record.parameters) },
-      status: record.status, prompt: record.type, model: null, createdAt: record.createdAt.toISOString(),
+      status: record.status, prompt: "", model: null, createdAt: record.createdAt.toISOString(),
     finishedAt: record.finishedAt?.toISOString() ?? null, updatedAt: record.updatedAt.toISOString(),
       progress: record.progress, resultUrl: result.url, thumbnailUrl: output.type === "image" ? result.url : null, errorMessage: previewHistoryText(record.errorMessage) };
   }

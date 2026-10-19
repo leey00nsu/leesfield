@@ -196,6 +196,7 @@ model GenerationGraph {
   nodes                GenerationGraphNode[]
   edges                GenerationGraphEdge[]
   mediaOperations      MediaOperation[]
+  executionSubmissions NodeExecutionSubmission[]
 
   @@index([ownerEmail, updatedAt])
 }
@@ -220,6 +221,7 @@ model GenerationGraphNode {
   incomingEdges         GenerationGraphEdge[]       @relation("GraphEdgeTarget")
   mediaOperations       MediaOperation[]
   assistantExecutions   AssistantExecution[]
+  executionSubmissions  NodeExecutionSubmission[]
   outputs               GenerationGraphNodeOutput[]
 
   @@index([graphId])
@@ -248,10 +250,25 @@ model AssistantExecution {
   updatedAt             DateTime                 @updatedAt
   finishedAt            DateTime?
   graphNode             GenerationGraphNode      @relation(fields: [graphNodeId], references: [id], onDelete: Cascade)
+  inputAssets           AssistantExecutionInputAsset[]
 
+  @@unique([id, ownerEmail])
   @@index([ownerEmail, graphNodeId, createdAt])
   @@index([status, executionLeaseUntil])
   @@index([graphId, graphNodeId, createdAt])
+}
+
+model AssistantExecutionInputAsset {
+  executionId String
+  ownerEmail String
+  assetId String
+  portId String
+  sortOrder Int @default(0)
+  execution AssistantExecution @relation(fields: [executionId, ownerEmail], references: [id, ownerEmail], onDelete: Cascade, onUpdate: Restrict)
+  asset MediaAsset @relation(fields: [assetId, ownerEmail], references: [id, ownerEmail], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([executionId, portId, sortOrder])
+  @@index([ownerEmail, assetId])
 }
 
 model GenerationGraphEdge {
@@ -417,6 +434,7 @@ model MediaAsset {
   operationInputs      MediaOperationInput[]
   uploadSessions       MediaUploadSession[]
   generationInputAssets GenerationInputAsset[]
+  assistantInputAssets AssistantExecutionInputAsset[]
   imageGenerationImage ImageGenerationImage?       @relation("ImageGenerationAsset")
   videoGenerationVideo VideoGenerationVideo?       @relation("VideoGenerationAsset")
   audioGenerationAudio AudioGenerationAudio?       @relation("AudioGenerationAsset")
@@ -768,4 +786,25 @@ model GenerationSubmission {
   @@index([ownerEmail, state])
   @@index([providerKey, state])
   @@index([state, expiresAt])
+}
+
+/// Committed atomically with one external node execution. No raw API/idempotency keys.
+model NodeExecutionSubmission {
+  id              String @id @default(uuid())
+  ownerEmail      String
+  apiKeyId        String
+  graphId         String
+  nodeId          String
+  idempotencyHash String?
+  requestHash     String
+  executionId     String @unique
+  nodeKind        String
+  inputSnapshot   Json
+  createdAt       DateTime @default(now())
+  graph           GenerationGraph @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  node            GenerationGraphNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerEmail, apiKeyId, graphId, nodeId, idempotencyHash], map: "NodeExecutionSubmission_scope_key")
+  @@index([graphId, nodeId])
+  @@index([nodeId])
 }

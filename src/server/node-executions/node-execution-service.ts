@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { ExternalNodeSubmission } from "./external-node-submission";
 import { hydrateNodePromptPreset } from "@/features/node-studio/model/node-prompt-presets";
 import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
 import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, hasCinemaGuidance, parseCinemaSettings, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
@@ -14,7 +15,8 @@ import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-
 import { recordObject } from "@/server/generation-request/request-snapshot";
 import { ZodError } from "zod";
 import { constructPrompt } from "@/shared/generation-graph/prompt-constructor";
-import { createAssistantExecution, listAssistantExecutions, getAssistantExecution, cancelAssistantExecution, latestAssistantText, selectAssistantItem } from "@/server/assistant-executions/assistant-execution-repository";
+import { createAssistantExecution, listAssistantExecutions, getAssistantExecution, cancelAssistantExecution, latestAssistantTextSource, selectAssistantItem } from "@/server/assistant-executions/assistant-execution-repository";
+import type { PromptSource } from "@/shared/generation-graph/prompt-provenance";
 import { assistantItemsSchema, type AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
 import { startAssistantWorker } from "@/server/assistant-executions/assistant-worker";
 import { getLlmModelApiKey } from "@/server/model-catalog/model-credential";
@@ -29,6 +31,7 @@ import { mediaAssetService } from "@/server/media-assets/media-asset-service";
 import { startMediaOperationWorker } from "@/server/media-operations/media-operation-worker";
 import { hasFfmpegVideoProcessor } from "@/server/media-operations/ffmpeg-video-processor";
 import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import {
   validateAudioGenerationPayload,
   validateImageGenerationPayload,
@@ -242,27 +245,34 @@ async function effectiveAssetIdFromEdge(
 async function effectivePromptFromEdge(
   ownerEmail: string, graphId: string, edge: StoredNodeExecutionEdge,
   dependencies: NodeExecutionDependencies, visited: Set<string> = new Set(),
-): Promise<string | null> {
+): Promise<PromptSource | null> {
   if (sourceKind(edge) === "generate.assistant") {
-    return latestAssistantText(ownerEmail, graphId, edge.sourceNodeId, edge.sourcePortId);
+    const source = await latestAssistantTextSource(ownerEmail, graphId, edge.sourceNodeId, edge.sourcePortId);
+    return source ? { nodeId: edge.sourceNodeId, kind: "generate.assistant", portId: edge.sourcePortId, ...source } : null;
   }
   if (sourceKind(edge) === "process.promptConstructor") {
     if (visited.has(edge.sourceNodeId)) throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", { reason: "PROMPT_INPUT_CYCLE" });
     const nextVisited = new Set(visited).add(edge.sourceNodeId);
     const source = await dependencies.repository.getOwnedNode(ownerEmail, graphId, edge.sourceNodeId);
     const sources = [];
+    const provenance: PromptSource[] = [];
     for (const incoming of source.incomingEdges.filter((candidate) => candidate.targetPortId === "text" && !candidate.hasPause).sort((a, b) => a.sortOrder - b.sortOrder)) {
       const config = incoming.sourceNode.config as { variableName?: string } | null;
-      sources.push({ id: incoming.sourceNodeId, kind: sourceKind(incoming), variableName: config?.variableName,
-        text: await effectivePromptFromEdge(ownerEmail, graphId, incoming, dependencies, new Set(nextVisited)) ?? "" });
+      const resolved = await effectivePromptFromEdge(ownerEmail, graphId, incoming, dependencies, new Set(nextVisited));
+      if (resolved) provenance.push(resolved);
+      sources.push({ id: incoming.sourceNodeId, kind: sourceKind(incoming), variableName: config?.variableName, text: resolved?.text ?? "" });
     }
-    try { return constructPrompt(String((source.config as { template?: string })?.template ?? ""), sources); }
+    try { return { nodeId: source.id, kind: source.kind, portId: edge.sourcePortId,
+      text: constructPrompt(String((source.config as { template?: string })?.template ?? ""), sources), sources: provenance }; }
     catch { throw new NodeExecutionInputResolutionError("NODE_INPUT_INVALID", { reason: "PROMPT_OUTPUT_TOO_LARGE" }); }
   }
   const next = await loadPassThroughEdge(ownerEmail, graphId, edge, dependencies, visited);
-  if (next) return effectivePromptFromEdge(ownerEmail, graphId, next, dependencies, visited);
+  if (next) {
+    const source = await effectivePromptFromEdge(ownerEmail, graphId, next, dependencies, visited);
+    return source ? { nodeId: edge.sourceNodeId, kind: sourceKind(edge), portId: edge.sourcePortId, text: source.text, sources: [source] } : null;
+  }
   const text = (edge.sourceNode.config as { text?: unknown } | null)?.text;
-  return typeof text === "string" ? text : null;
+  return typeof text === "string" ? { nodeId: edge.sourceNodeId, kind: sourceKind(edge), portId: edge.sourcePortId, text } : null;
 }
 
 function portAcceptsMime(accepted: readonly string[] | undefined, mimeType: string) {
@@ -276,6 +286,7 @@ function portAcceptsMime(accepted: readonly string[] | undefined, mimeType: stri
 
 type ResolvedNodeInputs = {
   prompt: string | null;
+  promptSources: PromptSource[];
   settingsParameters: Record<string, unknown> | null;
   assets: Array<{
     assetId: string;
@@ -309,6 +320,7 @@ async function resolveInputs(
     type: MediaType;
   }> = [];
   let prompt: string | null = null;
+  const promptSources: PromptSource[] = [];
   let settingsParameters: Record<string, unknown> | null = null;
   const counts = new Map<string, number>();
   const orderedPort = kind === "edit.image.gif" ? "frames" : kind === "edit.video.stitch" ? "clips" : null;
@@ -374,7 +386,8 @@ async function resolveInputs(
           sourceNodeId: edge.sourceNodeId,
         });
       }
-      prompt = value;
+      prompt = value.text;
+      promptSources.push(value);
       counts.set(targetPortId, (counts.get(targetPortId) ?? 0) + 1);
       continue;
     }
@@ -462,7 +475,7 @@ async function resolveInputs(
       url: dto.url,
     };
   }));
-  return { prompt, settingsParameters, assets };
+  return { prompt, promptSources, settingsParameters, assets };
 }
 
 function inputSnapshot(inputs: ResolvedNodeInputs): NodeExecutionInputSnapshot[] {
@@ -526,6 +539,10 @@ function toDto(record: StoredExecutionRecord): NodeExecutionDto {
       : null,
     modelKey: record.modelKey,
     outputAssetIds: record.outputs.flatMap((output) => output.assetId ? [output.assetId] : []),
+    outputBindings: record.outputs.flatMap((output, sortOrder) => output.assetId ? [{
+      portId: mediaOutputPorts("generate." + record.mediaType)[0]?.id ?? record.mediaType,
+      sortOrder, assetId: output.assetId,
+    }] : []),
     createdAt: record.createdAt.toISOString(),
     finishedAt: record.finishedAt?.toISOString() ?? null,
   };
@@ -743,6 +760,7 @@ export function createNodeExecutionService(
       nodeId: string,
       body: unknown,
       idempotencyKey?: string | null,
+      external?: ExternalNodeSubmission,
     ) {
       const input = parseInput(body);
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
@@ -752,6 +770,9 @@ export function createNodeExecutionService(
       const kind = targetKind(node);
       const mediaType = mediaTypeForKind(kind);
       const definition = kind ? findNodeDefinition(kind) : null;
+      if (external && (!kind || !["generate.image", "generate.video", "generate.audio", "generate.assistant", "edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"].includes(kind))) {
+        throw new NodeExecutionConfigError({ node: [definition?.executionMode === "browser-operation" ? "BROWSER_ONLY" : "NODE_TYPE_UNSUPPORTED"] });
+      }
       if (kind && isUnavailableEditNodeKind(kind)) {
         throw new NodeExecutionConfigError({ node: ["NODE_TYPE_UNAVAILABLE"] });
       }
@@ -776,6 +797,9 @@ export function createNodeExecutionService(
         throw new NodeExecutionConfigError({ repeat: ["IMAGE_REPEAT_ONLY"] });
       }
       const resolved = await resolveInputs(ownerEmail, graphId, node, kind, dependencies, config.parameters ?? {});
+      // Receipt stores durable identities, not volatile storage URLs.
+      const promptProvenance = { localPrompt: config.prompt, connectedPrompt: resolved.prompt, sources: resolved.promptSources };
+      const externalSnapshot = { kind, config: node.config, inputAssets: inputSnapshot(resolved), prompt: resolved.prompt, promptProvenance };
       if (kind === "generate.assistant") {
         if (!config.modelKey) throw new NodeExecutionConfigError({ model: ["MODEL_REQUIRED"] });
         const model = (await getModelCatalog({ bypassCache: true })).find((candidate) => candidate.type === "llm" && candidate.key === config.modelKey && candidate.isActive);
@@ -793,15 +817,19 @@ export function createNodeExecutionService(
             throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { assetId: asset.assetId, reason: "ASSISTANT_INPUT_LIMIT_EXCEEDED" });
           }
         }
-        const record = await createAssistantExecution({
+        const assistantInput = {
           ownerEmail, graphId, graphNodeId: node.id, modelKey: config.modelKey,
           snapshot: {
             instruction: config.prompt,
             outputMode: config.outputMode ?? "text",
             text: resolved.prompt,
+            promptProvenance,
             assets: resolved.assets.map(({ assetId, type, portId, sortOrder }) => ({ assetId, type: type as "image" | "video", portId, sortOrder })),
           },
-        });
+        };
+        const record = external
+          ? await external.commit(externalSnapshot, kind, config.modelKey, (transaction, executionId) => createAssistantExecution(assistantInput, { transaction, executionId }))
+          : await createAssistantExecution(assistantInput);
         startAssistantWorker();
         return { record: { id: record.id, status: record.status, progress: 0, createdAt: record.createdAt.toISOString(), finishedAt: record.finishedAt?.toISOString() ?? null }, mediaType: "text" as const, executionKind: "assistant" as const };
       }
@@ -835,7 +863,7 @@ export function createNodeExecutionService(
         const expectedOutputCount = expectedOperationOutputs(kind, parameters);
         const outputPort = definition.ports.find((port) => port.direction === "output");
         if (!outputPort) throw new NodeExecutionConfigError({ node: ["NODE_OUTPUT_INVALID"] });
-        const operation = await dependencies.createOperation(ownerEmail, {
+        const operationInput = {
           graphId,
           graphNodeId: node.id,
           type: kind,
@@ -843,7 +871,10 @@ export function createNodeExecutionService(
           parameters,
           expectedOutputCount,
           inputs: inputSnapshot(resolved),
-        });
+        };
+        const operation = external
+          ? await external.commit(externalSnapshot, kind, null, (transaction, executionId) => dependencies.createOperation(ownerEmail, operationInput, { transaction, executionId }))
+          : await dependencies.createOperation(ownerEmail, operationInput);
         if (definition.executionMode === "server-operation") dependencies.startOperationWorker();
         return {
           operation,
@@ -877,8 +908,10 @@ export function createNodeExecutionService(
       const executionModel = (await getModelCatalog()).find(candidate => candidate.key === config.modelKey && candidate.type === mediaType);
       if (executionModel && executionModel.type !== "llm") resolved.assets = normalizeFileInputAssets(executionModel, resolved.assets);
       const prompt = resolved.prompt ?? config.prompt;
+      const executionParameters = resolved.prompt !== null && executionModel && executionModel.type !== "llm"
+        ? syncPrimaryTextValue(executionModel, config.parameters, prompt) : config.parameters;
       const presetAuthoring = hydrateNodePromptPreset(node.config as Record<string, unknown>, mediaType);
-      const inputPrompt = config.promptPreset ? (presetAuthoring.preset ? presetAuthoring.text : undefined) : config.prompt;
+      const inputPrompt = resolved.prompt ?? (config.promptPreset ? (presetAuthoring.preset ? presetAuthoring.text : undefined) : config.prompt);
       const fileInputs = fileInputsFromAssets(resolved.assets);
       if (config.promptPreset && !promptPresetReferenceImageCount(config.promptPreset) && resolved.assets.length) {
         throw new NodeExecutionInputResolutionError("NODE_INPUT_UNSUPPORTED", { reason: "PRESET_TEXT_INPUT_ONLY" });
@@ -898,9 +931,10 @@ export function createNodeExecutionService(
       // node executions cannot bypass the admission limits.
       const submitAdmitted = async <T>(
         payloadForHash: unknown,
-        run: (requestId: string) => Promise<T>,
+        run: (requestId: string, transaction?: Prisma.TransactionClient) => Promise<T>,
         reuse: (requestId: string) => T,
       ): Promise<T> => {
+        if (external) return external.commit(externalSnapshot, kind, config.modelKey, (tx, id) => run(id, tx));
         const begun = await beginSubmission({
           requestId: randomUUID(),
           ownerEmail,
@@ -940,7 +974,7 @@ export function createNodeExecutionService(
         const initImages = resolved.assets
           .filter((asset) => asset.type === "image" && !parseFileInputPort(asset.portId))
           .map((asset) => asset.url);
-        const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey, initImages, fileInputs,
+        const candidate = { ...executionParameters, prompt, inputPrompt, model: config.modelKey, initImages, fileInputs,
           ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
         // Persist normalized, file-free inputs. URLs are resolved afresh from
         // owner-scoped durable assets; neither client payload nor live defaults
@@ -961,8 +995,9 @@ export function createNodeExecutionService(
         const sourceHash = hashSubmissionPayload({ prompt, model: config.modelKey, parameters: config.parameters,
           promptPreset: config.promptPreset, assets: assetInputs, ...(config.cinema ? { cinema: config.cinema, cinemaMappingVersion: CINEMA_MAPPING_VERSION } : {}) });
         let frozen: Record<string, unknown> | null = null;
+        let frozenProvenance: unknown = promptProvenance;
         let cinema: CinemaSnapshot | undefined;
-        let repeatCount = (parsedConfig.data as { repeatCount?: number }).repeatCount ?? 1;
+        let repeatCount = external ? 1 : (parsedConfig.data as { repeatCount?: number }).repeatCount ?? 1;
         if (input.repeatOfExecutionId) {
           const root = await dependencies.repository.getRepeatSnapshot(ownerEmail, graphId, nodeId, input.repeatOfExecutionId);
           const snapshot = recordObject(recordObject(root.requestParams).nodeRepeat);
@@ -973,6 +1008,7 @@ export function createNodeExecutionService(
           }
           repeatCount = Number(snapshot.repeatCount);
           frozen = recordObject(snapshot.payload);
+          frozenProvenance = recordObject(root.requestParams).promptProvenance ?? null;
           if (!Object.keys(frozen).length) throw new NodeExecutionConfigError({ repeat: ["REPEAT_SNAPSHOT_MISSING"] });
           if (hasCinema) {
             const parsedCinema = cinemaSnapshotSchema.safeParse(recordObject(root.requestParams).cinema);
@@ -990,7 +1026,8 @@ export function createNodeExecutionService(
         }
         const submission = await submitAdmitted(
           { payload: normalized, assets: assetInputs, repeatOfExecutionId: input.repeatOfExecutionId, repeatIndex: input.repeatIndex, ...(cinema ? { cinema } : {}) },
-          (requestId) => dependencies.submitImage({
+          (requestId, transaction) => dependencies.submitImage({
+            ...(transaction ? { transaction, apiKeyId: external!.apiKeyId } : {}),
             payload: validated.data,
             ownerEmail,
             graphNodeId: node.id,
@@ -998,6 +1035,7 @@ export function createNodeExecutionService(
             requestSnapshot: jsonRecord({
               ...validated.data,
               initImages: [],
+              promptProvenance: frozenProvenance,
               nodeRepeat: { graphId, sourceHash, repeatCount, payload: normalized },
               ...(cinema ? { cinema } : {}),
               inputAssets: assetInputs,
@@ -1014,14 +1052,15 @@ export function createNodeExecutionService(
       }
       if (mediaType === "video") {
         const initImage = resolved.assets.find((asset) => asset.portId === "initImage")?.url ?? "";
-        const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey, initImage, fileInputs,
+        const candidate = { ...executionParameters, prompt, inputPrompt, model: config.modelKey, initImage, fileInputs,
           ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
         const prepared = await prepareCinema("video", candidate);
         const validated = await dependencies.validateVideo(prepared.payload);
         if (!validated.success) throw mapValidationError(validated.error, mediaType);
         const submission = await submitAdmitted(
           prepared.cinema ? { payload: validated.data, cinema: prepared.cinema } : validated.data,
-          (requestId) => dependencies.submitVideo({
+          (requestId, transaction) => dependencies.submitVideo({
+            ...(transaction ? { transaction, apiKeyId: external!.apiKeyId } : {}),
             payload: validated.data,
             ownerEmail,
             graphNodeId: node.id,
@@ -1029,6 +1068,7 @@ export function createNodeExecutionService(
             requestSnapshot: jsonRecord({
               ...validated.data,
               initImage: null,
+              promptProvenance,
               ...(prepared.cinema ? { cinema: prepared.cinema } : {}),
               inputAssets: assetInputs,
               graphId,
@@ -1042,13 +1082,14 @@ export function createNodeExecutionService(
         );
         return { ...submission, mediaType };
       }
-      const candidate = { ...config.parameters, prompt, inputPrompt, model: config.modelKey,
+      const candidate = { ...executionParameters, prompt, inputPrompt, model: config.modelKey,
         ...(config.promptPreset ? { promptPreset: config.promptPreset, promptPresetState: (node.config as Record<string, unknown>).promptPresetState } : {}) };
       const validated = await dependencies.validateAudio(candidate);
       if (!validated.success) throw mapValidationError(validated.error, mediaType);
       const submission = await submitAdmitted(
         validated.data,
-        (requestId) => dependencies.submitAudio({
+        (requestId, transaction) => dependencies.submitAudio({
+          ...(transaction ? { transaction, apiKeyId: external!.apiKeyId } : {}),
           payload: validated.data,
           ownerEmail,
           graphNodeId: node.id,
@@ -1056,6 +1097,7 @@ export function createNodeExecutionService(
             requestSnapshot: jsonRecord({
             ...validated.data,
             inputAudio: null,
+            promptProvenance,
             inputAssets: assetInputs,
             graphId,
               graphNodeId: node.id,
@@ -1084,10 +1126,10 @@ export function createNodeExecutionService(
       return executions.map((execution) => ({ ...execution, selectedOutputAssetId: current.selectedOutputAssetId }));
     },
 
-    async get(ownerEmail: string, graphId: string, nodeId: string, executionId: string) {
+    async get(ownerEmail: string, graphId: string, nodeId: string, executionId: string, sourceKind?: string) {
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
-      if (node.kind === "generate.assistant") return assistantToDto(await getAssistantExecution(ownerEmail, graphId, nodeId, executionId));
-      const definition = findNodeDefinition(targetKind(node) ?? "");
+      if ((sourceKind ?? node.kind) === "generate.assistant") return assistantToDto(await getAssistantExecution(ownerEmail, graphId, nodeId, executionId));
+      const definition = findNodeDefinition(sourceKind ?? targetKind(node) ?? "");
       if (definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation") {
         const operation = await dependencies.getOperation(ownerEmail, executionId);
         if (operation.graphId !== graphId || operation.graphNodeId !== nodeId) {
@@ -1095,13 +1137,13 @@ export function createNodeExecutionService(
         }
         return operationToDto(operation);
       }
-      return toDto(await dependencies.repository.findExecution(ownerEmail, graphId, nodeId, executionId));
+      return toDto(await dependencies.repository.findExecution(ownerEmail, graphId, nodeId, executionId, ...(sourceKind ? [sourceKind] : [])));
     },
 
-    async cancel(ownerEmail: string, graphId: string, nodeId: string, executionId: string) {
+    async cancel(ownerEmail: string, graphId: string, nodeId: string, executionId: string, sourceKind?: string) {
       const node = await dependencies.repository.getOwnedNode(ownerEmail, graphId, nodeId);
-      if (node.kind === "generate.assistant") return assistantToDto(await cancelAssistantExecution(ownerEmail, graphId, nodeId, executionId));
-      const definition = findNodeDefinition(targetKind(node) ?? "");
+      if ((sourceKind ?? node.kind) === "generate.assistant") return assistantToDto(await cancelAssistantExecution(ownerEmail, graphId, nodeId, executionId));
+      const definition = findNodeDefinition(sourceKind ?? targetKind(node) ?? "");
       if (definition?.executionMode === "browser-operation" || definition?.executionMode === "server-operation") {
         const operation = await dependencies.getOperation(ownerEmail, executionId);
         if (operation.graphId !== graphId || operation.graphNodeId !== nodeId) {
@@ -1109,7 +1151,7 @@ export function createNodeExecutionService(
         }
         return operationToDto(await dependencies.cancelOperation(ownerEmail, executionId));
       }
-      return toDto(await dependencies.repository.cancelExecution(ownerEmail, graphId, nodeId, executionId));
+      return toDto(await dependencies.repository.cancelExecution(ownerEmail, graphId, nodeId, executionId, ...(sourceKind ? [sourceKind] : [])));
     },
 
     async update(ownerEmail: string, graphId: string, nodeId: string, executionId: string, body: unknown) {

@@ -50,5 +50,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  // External routes set request IDs through their observability wrapper. Running
+  // middleware here makes Next clone the body before the bounded reader starts.
+  matcher: ["/((?!api/external(?:/|$)|_next|.*\\..*).*)"],
 };

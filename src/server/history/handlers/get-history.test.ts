@@ -27,6 +27,15 @@ vi.mock("@/server/media-assets/media-asset-service", () => ({
 }));
 
 import { getHistory } from "./get-history";
+import { historyPromptAuthoring } from "../history-prompt-authoring";
+
+it("preserves connected input authoring and recovers legacy Spaces text without inventing execution lineage", () => {
+  expect(historyPromptAuthoring({ graphNodeId: "node", inputPrompt: "",
+    promptProvenance: { localPrompt: "", connectedPrompt: "spoken script", sources: [] } }, "expanded final")).toMatchObject({ inputPrompt: "spoken script" });
+  expect(historyPromptAuthoring({ graphNodeId: "node", inputPrompt: "" }, "saved connected text")).toMatchObject({ inputPrompt: "saved connected text" });
+  expect(historyPromptAuthoring({ inputPrompt: "" }, "final")).toMatchObject({ inputPrompt: "" });
+  expect(historyPromptAuthoring({ promptPreset: { key: "unknown", revision: 1 } }, "opaque final")).toMatchObject({ inputPrompt: null });
+});
 
 describe("getHistory durable provenance", () => {
   beforeEach(() => {

@@ -11,6 +11,23 @@ import { gradioSchemaValidator } from "@/shared/model-catalog/gradio-json-schema
 import { contractInputPorts } from "@/shared/model-catalog/file-input-ports";
 
 describe("actual Gradio SDK upload transformation", () => {
+  it("inserts internal State without shifting scalar inputs and removes output State",async()=>{
+    const config={root:"https://test.hf.space",protocol:"sse_v3",enable_queue:false,components:[{id:1,type:"textbox"},{id:2,type:"state"},{id:3,type:"number"},{id:4,type:"audio"}],dependencies:[{id:0,api_name:"speak",inputs:[1,2,3],outputs:[2,4],queue:false}]};
+    const endpoint={parameters:[{parameter_name:"dialogue",component:"Textbox",type:{type:"string"}}, {parameter_name:null,component:"State",hidden:true,parameter_has_default:true,parameter_default:null}, {parameter_name:"count",component:"Number",type:{type:"number"}}],returns:[{component:"Audio"}]};
+    const contract=buildImportContract("/speak",endpoint,config);
+    const request=await buildGradioRequest(contract,{dynamicParams:{dialogue:"Brand narration",count:2}});
+    const sdk=new Client("https://test.hf.space",{with_null_state:false});
+    sdk.config=config as unknown as NonNullable<Client["config"]>;
+    sdk.api_info={named_endpoints:{"/speak":endpoint},unnamed_endpoints:{}} as unknown as NonNullable<Client["api_info"]>;
+    sdk.api_map={speak:0};
+    sdk.post_data=vi.fn(async()=>[{data:[null,{url:"https://test.hf.space/result.wav"}]},200]) as unknown as Client["post_data"];
+    try {
+      const {predictWithDeadline}=await import("./contract-executor");
+      const result=await predictWithDeadline(sdk,"/speak",request,1000);
+      expect(sdk.post_data).toHaveBeenCalledWith(expect.any(String),expect.objectContaining({data:["Brand narration",null,2],session_hash:sdk.session_hash}),expect.any(Object));
+      expect(result.data).toEqual([{url:"https://test.hf.space/result.wav"}]);
+    }finally{sdk.close();}
+  });
   it.each(["image", "video"] as const)("transforms nonempty %s Gallery to source-valid wire without treating Blob as FileData", async media => {
     const gallery = sources[0].parameters[0];
     const contract = buildImportContract("/generate", { parameters:[gallery], returns:[{component:"Image"}] }, {});

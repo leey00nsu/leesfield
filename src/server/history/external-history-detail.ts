@@ -19,6 +19,12 @@ export async function getExternalHistoryDetail(ownerEmail: string, historyId: st
     finishedAt: record.finishedAt?.toISOString() ?? null, durationMs: record.finishedAt ? Math.max(0, record.finishedAt.getTime() - record.createdAt.getTime()) : null, progress: null,
     errorMessage: null, warningMessage: record.errorMessage,
     requestParameters: requestSettings(record.parameters),
+    operation: { type: record.type, configVersion: record.configVersion },
+    promptProvenance: null,
+    inputMedia: record.inputs.flatMap(({ asset, portId, sortOrder }) => {
+      const url = asset.status === "completed" ? asset.storageUrl ?? asset.legacyUrl : null;
+      return url ? [{ assetId: asset.id, type: asset.type, role: portId, sortOrder, url }] : [];
+    }),
     inputImages: record.inputs.filter(({ asset }) => asset.type === "image").flatMap(({ asset }) => asset.storageUrl ?? asset.legacyUrl ?? []),
     inputAudios: record.inputs.filter(({ asset }) => asset.type === "audio").flatMap(({ asset }) => asset.storageUrl ?? asset.legacyUrl ?? []),
     inputVideos: record.inputs.filter(({ asset }) => asset.type === "video").flatMap(({ asset }) => asset.storageUrl ?? asset.legacyUrl ?? []),

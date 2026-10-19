@@ -18,11 +18,14 @@ import { useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import { AppBadge } from "@/shared/ui/app-badge";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
 import { ApiDocsSection } from "@/widgets/api-docs/ui/api-docs-section";
 import { cn } from "@/shared/lib/utils";
 import { ApiDocsParameters } from "./api-docs-parameters";
 import { ApiDocsPermissions } from "./api-docs-permissions";
 import { ApiDocsModelConfig } from "./api-docs-model-config";
+import { ApiDocsSpacesGuide } from "./api-docs-spaces-guide";
+import { mediaSelectionExample } from "@/features/api-docs/model/media-selection-example";
 import { useClipboardCopy } from "@/shared/ui/use-clipboard-copy";
 import { useTranslations } from "next-intl";
 import {
@@ -92,6 +95,7 @@ export function ApiDocsEndpointsSection({
     Record<string, SnippetLanguage>
   >({});
   const copy = useClipboardCopy();
+  const [responseExamplesById, setResponseExamplesById] = useState<Record<string, string>>({});
   const exampleStrings: ExampleStrings = {
     sample: tExamples("sample"),
     samplePrompt: tExamples("samplePrompt"),
@@ -112,6 +116,7 @@ export function ApiDocsEndpointsSection({
         return (
           <section key={section.id} id={section.id} className="scroll-mt-24">
             <ApiDocsSection title={sectionTitle}>
+              {section.id === "spaces" ? <ApiDocsSpacesGuide /> : null}
               <div className="divide-y divide-border">
                 {section.operations.map((operation) => {
                   const description = operation.description;
@@ -179,7 +184,6 @@ export function ApiDocsEndpointsSection({
                       </div>
 
                       <ApiDocsPermissions permissions={operation.permissions} conditionalPermissions={operation.conditionalPermissions} />
-                      {operation.usageNotes?.map((note, index) => <p key={index} className="max-w-3xl text-sm leading-7 text-muted-foreground">{note}</p>)}
                       {operation.requestLimits ? (
                         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
                           {Object.entries(operation.requestLimits).map(([key, value]) => (
@@ -218,9 +222,6 @@ export function ApiDocsEndpointsSection({
                               <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground">
                                 {tSnippets("title")}
                               </span>
-                              <p className="text-xs text-muted-foreground">
-                                {tSnippets("description")}
-                              </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground">
@@ -312,6 +313,20 @@ export function ApiDocsEndpointsSection({
                       {request?.properties?.length ? (
                         <ApiDocsParameters title={tEndpoints("requestParams")} parameters={request.properties} />
                       ) : null}
+                      {operation.usageNotes?.length ? (
+                        <details className="min-w-0 space-y-3" data-usage-guide>
+                          <summary className="cursor-pointer text-sm text-data-accent-foreground">{operation.usageTitle ?? tEndpoints("usageGuide")}</summary>
+                          {operation.usageNotes.map((note, index) => <p key={index} className="max-w-3xl text-sm leading-7 text-muted-foreground">{note}</p>)}
+                          {operation.method === "PUT" && operation.path === "/api/external/spaces/{spaceId}" ? (
+                            <>
+                              <AppButton size="pill-sm" variant="surface" onClick={() => handleCopySnippet(mediaSelectionExample)} aria-label={`${operation.usageTitle} ${tSnippets("copy")}`}>
+                                {tSnippets("copy")}
+                              </AppButton>
+                              <AppCodeSnippet code={mediaSelectionExample} language="javascript" />
+                            </>
+                          ) : null}
+                        </details>
+                      ) : null}
                       {operation.path === "/api/external/admin/models" && operation.method === "POST"
                         ? <ApiDocsModelConfig schema={request?.schema ?? null} /> : null}
 
@@ -331,7 +346,9 @@ export function ApiDocsEndpointsSection({
                           <h4 className="text-sm font-semibold">{tEndpoints("responseExample")}</h4>
                           <div className="divide-y divide-border border-y border-border">
                             {operation.responses.map((response) => {
-                              const responsePayload = getResponsePayload(
+                              const responseKey = `${operation.id}:${response.status}`;
+                              const selectedExample = response.examples?.find((example) => example.name === responseExamplesById[responseKey]) ?? response.examples?.[0];
+                              const responsePayload = selectedExample?.value ?? getResponsePayload(
                                 response,
                                 openApiDocument,
                                 exampleStrings,
@@ -355,6 +372,18 @@ export function ApiDocsEndpointsSection({
                                         tEndpoints("response")}
                                     </span>
                                   </summary>
+                                  {response.examples && response.examples.length > 1 ? (
+                                    <AppSelectRoot value={selectedExample?.name} onValueChange={(value) => {
+                                      if (value) setResponseExamplesById((previous) => ({ ...previous, [responseKey]: value }));
+                                    }}>
+                                      <AppSelectTrigger aria-label={`${response.status} ${tEndpoints("responseExample")}`} className="mt-3 w-fit max-w-full">
+                                        <AppSelectValue />
+                                      </AppSelectTrigger>
+                                      <AppSelectContent>
+                                        {response.examples.map((example) => <AppSelectItem key={example.name} value={example.name}>{example.name}</AppSelectItem>)}
+                                      </AppSelectContent>
+                                    </AppSelectRoot>
+                                  ) : null}
                                   {response.status !== "204" ? <AppCodeSnippet
                                     className="app-scrollbar mt-3 max-h-48 overflow-auto [&_pre]:text-xs"
                                     code={formatJson(

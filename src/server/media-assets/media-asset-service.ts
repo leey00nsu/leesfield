@@ -260,9 +260,9 @@ export function createMediaAssetService(
   }
 
   return {
-    async createOperation(ownerEmail: string, body: unknown) {
+    async createOperation(ownerEmail: string, body: unknown, options?: { transaction: import("@prisma/client").Prisma.TransactionClient; executionId: string }) {
       const input = parse(() => createMediaOperationSchema.parse(body));
-      const operation = await repository.createOperation(ownerEmail, input);
+      const operation = options ? await repository.createOperation(ownerEmail, input, options) : await repository.createOperation(ownerEmail, input);
       return toOperationDto(operation);
     },
 

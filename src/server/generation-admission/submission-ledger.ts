@@ -125,7 +125,7 @@ type AdmissionCounts = {
   provider_count: number;
 };
 
-async function countPending(
+export async function countPending(
   tx: Prisma.TransactionClient,
   ownerEmail: string,
   providerKey: string | null,
@@ -141,6 +141,12 @@ async function countPending(
       UNION ALL
       SELECT "ownerEmail", "modelKey"
         FROM "AudioGeneration" WHERE status IN (${PENDING_STATUSES[0]}, ${PENDING_STATUSES[1]}, ${PENDING_STATUSES[2]})
+      UNION ALL
+      SELECT "ownerEmail", "modelKey"
+        FROM "AssistantExecution" WHERE status IN ('pending', 'processing')
+      UNION ALL
+      SELECT "ownerEmail", NULL::text
+        FROM "MediaOperation" WHERE status IN ('pending', 'processing', 'uploading')
       UNION ALL
       SELECT "ownerEmail", "providerKey"
         FROM "GenerationSubmission"

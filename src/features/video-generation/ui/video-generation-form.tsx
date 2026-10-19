@@ -1,4 +1,5 @@
 "use client";
+import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { historyReferenceUpdates } from "@/shared/generation/history-references";
@@ -234,6 +235,7 @@ function VideoGenerationFormContent({
     },
   });
   const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
+  const primaryInput = gradioContract?.inputs.find(field => field.canonical === "prompt");
   const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
   const [promptWasEdited, setPromptWasEdited] = useState(false);
   const promptFeedbackSubmitted = form.formState.isSubmitted;
@@ -252,8 +254,7 @@ function VideoGenerationFormContent({
     onApply: (prompt, updates) => {
       cinema.markEdited();
       form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
-      const field = cinemaPromptField(activeRuntimeModel ?? {}).dynamicName;
-      if (field && Object.hasOwn(form.getValues("dynamicParams") ?? {}, field)) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [field]: prompt }, { shouldDirty: true, shouldValidate: true });
+      if (activeRuntimeModel) form.setValue("dynamicParams", syncPrimaryTextValue(activeRuntimeModel, { dynamicParams: form.getValues("dynamicParams") }, prompt).dynamicParams, { shouldDirty: true, shouldValidate: true });
       for (const [path, value] of Object.entries(updates)) {
         form.setValue(path as Path<VideoGenerationFormValues>, value as never, { shouldValidate: true });
       }
@@ -477,9 +478,10 @@ function VideoGenerationFormContent({
                       : "fixed inset-x-4 bottom-5 z-40 mx-auto max-w-6xl"
                   }
                   textarea={
+                          gradioContract && !primaryInput ? <div className="px-4 py-3"><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt="" onChange={values => { cinema.markEdited(); form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }}/></div> : (
                     <AppFormControl>
                       <AppPromptEditor
-                        placeholder={tVideo("promptPlaceholder")}
+                        placeholder={primaryInput?.label ?? tVideo("promptPlaceholder")}
                         {...field}
                         value={promptPreset.text}
                         disabled={isGuest || isGenerating}
@@ -491,10 +493,10 @@ function VideoGenerationFormContent({
                             cinema.change({ ...parseCinemaSettings(cinema.settings, "video"), movement: "auto" });
                         }}
                       />
-                    </AppFormControl>
+                    </AppFormControl>)
                   }
                   feedback={
-                    gradioContract && !effectivePrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
+                    gradioContract && primaryInput && !effectivePrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                       <AppPromptFormMessage />
                     ) : undefined
                   }
@@ -511,7 +513,7 @@ function VideoGenerationFormContent({
                   )}
 footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="video" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ cinema.markEdited(); promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
+{primaryInput && <GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ cinema.markEdited(); promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>}
 </> : (
                     <>
                       {!isGuest && hasModels ? (
@@ -581,7 +583,7 @@ footerLeft={<>{gradioContract ? <>
                       ) : null}
 </div></GenerationSettingsPopover>
                     </>
-                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating} inputIssue={presetInputIssue} /></>}
+                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating || Boolean(gradioContract && !primaryInput)} inputIssue={presetInputIssue} /></>}
 footerRight={
                     <>
                       <AppButton

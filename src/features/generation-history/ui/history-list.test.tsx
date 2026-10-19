@@ -10,8 +10,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-vi.mock("@/features/monitoring-dashboard/hook/use-monitoring-dashboard", () => ({
-  useMonitoringRequestDetail: () => ({
+vi.mock("@/features/generation-history/hook/use-generation-history-detail", () => ({
+  useGenerationHistoryDetail: () => ({
     data: null,
     isLoading: false,
     error: null,

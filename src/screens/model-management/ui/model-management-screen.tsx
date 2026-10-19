@@ -6,6 +6,7 @@ import { logger } from "@/shared/logging/logger.mjs";
 import { ModalWorkflowImport } from "@/features/model-management/ui/modal-workflow-import";
 import { parameterConfigurationIssues } from "@/shared/model-catalog/parameter-contract";
 import { ModelReferenceInputLimits } from "./model-image-input-limits";
+import { ModelPrimaryTextInput } from "./model-primary-text-input";
 import { getGradioContract, assertGradioExecutable } from "@/shared/model-catalog/gradio-contract";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
@@ -1146,6 +1147,7 @@ export function ModelManagementScreen() {
                 </p> : null}
               </AppFormField>
             </div> : <>
+            <ModelPrimaryTextInput providerConfigText={draft.providerConfigText} parametersText={draft.parametersText} onChange={updateDraft}/>
             <ModelReferenceInputLimits type={draft.type} providerConfigText={draft.providerConfigText}
               parametersText={draft.parametersText} metaText={draft.metaText} onChange={updateDraft}/>
             <AppFormField>

@@ -98,6 +98,11 @@ export async function snapshotRequest(
   const model = (await getModelCatalog()).find(model => model.type === type && model.key === payload.model);
   if (!model) throw new Error("MODEL_NOT_FOUND");
   const requestSettings = displayValue(requestInputs(model, payload));
+  const promptFields = getGradioContract(model)?.inputs.filter(field => field.canonical === "prompt").map(field => field.name)
+    ?? Object.entries(recordObject(model.parameters)).flatMap(([key, config]) => {
+      const binding = recordObject(recordObject(config).binding);
+      return binding.canonicalKey === "prompt" ? [typeof binding.parameterName === "string" ? binding.parameterName : key] : [];
+    });
   const request = getGradioContract(model) ? { ...payload, dynamicParams: requestInputs(model, payload) } : payload;
   const inputAssets = normalizeGenerationInputAssetRefs(
     type === "image" || type === "audio" || type === "video" ? type : "image",
@@ -119,6 +124,7 @@ export async function snapshotRequest(
       inputAssets: existingInputAssets?.length ? existingInputAssets : refsForSnapshot(inputAssets),
     } : {}),
     requestSettings,
+    promptFields,
     ...(model.provider==="modal_comfyui"?{executionModel:model}:{}),
   })) as Record<string, Prisma.InputJsonValue | null>;
 }

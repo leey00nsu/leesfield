@@ -736,6 +736,14 @@
       "sourceRecord": "Source execution",
       "sourceAssets": "Input assets",
       "operationParameters": "Edit parameters",
+      "operation": "Operation",
+      "playbackDuration": "Playback duration",
+      "localPrompt": "Local prompt",
+      "promptSources": "Prompt sources",
+      "promptSourcesUnknown": "Source text is available, but the exact upstream execution was not recorded.",
+      "selectedItem": "Selected item",
+      "promptNotUsed": "This edit uses media inputs and settings without a prompt.",
+      "inputVideo": "Input video",
       "assets": "ASSETS",
       "inputImage": "Input image",
       "inputAudio": "Input audio",
@@ -1127,6 +1135,13 @@
       "administration": "Administrative access",
       "actions": {
         "models_read": "Read models",
+        "spaces_read": "Read spaces",
+        "spaces_create": "Create and copy spaces",
+        "spaces_update": "Update spaces and result selections",
+        "spaces_delete": "Delete spaces",
+        "spaces_execute": "Run and cancel individual nodes",
+        "assets_read": "Read assets",
+        "assets_upload": "Upload assets",
         "generations_create": "Generate media",
         "generations_read": "Read generation results",
         "history_read": "Read history",
@@ -1218,7 +1233,7 @@
     "subtitle": "REST API Reference",
     "intro": {
       "titleFallback": "leesfield API",
-      "descriptionFallback": "Generate images, video and audio. Manage your jobs and prompt presets.",
+      "descriptionFallback": "APIs for media generation, spaces, assets, history, presets, monitoring and models.",
       "highlights": {
         "latency": {
           "title": "Discover models",
@@ -1254,7 +1269,9 @@
         "monitoring": "Monitoring",
         "modelAdministration": "Model administration",
         "access": "Access permissions",
-        "request-options": "Requests and retries"
+        "request-options": "Requests and retries",
+        "spaces": "Spaces",
+        "assets": "Assets"
       },
       "baseUrl": "Base URL",
       "version": "Version"
@@ -1282,7 +1299,7 @@
       "cards": {
         "badRequest": {
           "title": "Bad Request",
-          "description": "The request body is invalid."
+          "description": "The request inputs are invalid."
         },
         "unauthorized": {
           "title": "Unauthorized",
@@ -1298,27 +1315,27 @@
         },
         "notFound": {
           "title": "Not Found",
-          "description": "The model or job was not found, or the key cannot access it."
+          "description": "The requested resource was not found or is not accessible."
         },
         "timeout": {
           "title": "Request Timeout",
-          "description": "Body reading exceeded 30 seconds."
+          "description": "Application body reading exceeded 30 seconds. Time spent receiving the body at an upstream proxy is excluded."
         },
         "conflict": {
           "title": "Conflict",
-          "description": "Retry inputs differ, the preset version changed, or the record is still active."
+          "description": "The version changed, retry inputs differ, or the request conflicts with an active job."
         },
         "tooLarge": {
           "title": "Payload Too Large",
-          "description": "Body size, file size or file count exceeds a limit."
+          "description": "Request size, file size/count or storage quota was exceeded."
         },
         "mediaType": {
           "title": "Unsupported Media Type",
-          "description": "Use application/json or multipart/form-data."
+          "description": "Use the Content-Type specified by the endpoint."
         },
         "rateLimit": {
           "title": "Too Many Requests",
-          "description": "The key exceeded a request or queue limit."
+          "description": "The request rate, queue or concurrency limit was exceeded."
         },
         "aborted": {
           "title": "Upload Aborted",
@@ -1335,7 +1352,7 @@
       "retry": "If Retry-After is present, wait that many seconds before retrying."
     },
     "openapi": {
-      "infoDescription": "Generate images, video and audio, and manage history, prompt presets, monitoring and models.",
+      "infoDescription": "APIs for media generation, spaces, assets, history, presets, monitoring and models.",
       "tags": {
         "generations": "AI generation",
         "models": "Model discovery",
@@ -1351,9 +1368,29 @@
         "modelSchema": "Check a model's required inputs and file limits."
       },
       "platform": {
+        "GET /api/external/spaces": "List owned spaces.",
+        "POST /api/external/spaces": "Create a space.",
+        "GET /api/external/spaces/{spaceId}": "Get a space’s nodes, connections and selected results.",
+        "PUT /api/external/spaces/{spaceId}": "Save a space’s nodes, connections and title.",
+        "DELETE /api/external/spaces/{spaceId}": "Delete a space.",
+        "POST /api/external/spaces/{spaceId}/copy": "Copy a space.",
+        "GET /api/external/spaces/capabilities": "Discover available nodes and their input and execution requirements.",
+        "GET /api/external/spaces/models": "List models available in spaces.",
+        "GET /api/external/spaces/models/{modelId}/schema": "Get a model’s inputs and file connection requirements.",
+        "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "List a node’s executions.",
+        "POST /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "Execute one saved node.",
+        "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Get a node execution’s status and results.",
+        "DELETE /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Request cancellation of a node execution.",
+        "PATCH /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Select an item from an Assistant list.",
+        "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/output": "Get results for an output, gallery or image comparison node.",
+        "GET /api/external/assets": "Search completed assets.",
+        "GET /api/external/assets/{assetId}": "Get an asset and usable URL.",
+        "POST /api/external/assets/uploads": "Create a file upload URL.",
+        "PUT /api/external/assets/uploads/{uploadId}/content": "Transfer a file to the issued URL.",
+        "POST /api/external/assets/uploads/{uploadId}/confirm": "Confirm an upload and receive its asset ID.",
         "GET /api/external/history": "List generation history.",
         "GET /api/external/history/status": "Count active generation jobs.",
-        "GET /api/external/history/{historyId}": "Get a job's inputs and results.",
+        "GET /api/external/history/{historyId}": "Get a job’s inputs and results.",
         "DELETE /api/external/history/{historyId}": "Delete a history record and its files.",
         "GET /api/external/prompt-presets": "List prompt presets.",
         "GET /api/external/prompt-presets/{key}": "Get a preset's prompt and suggested settings.",
@@ -1418,19 +1455,97 @@
         "isDefault": "Use as the default model",
         "label": "Display name",
         "vendor": "Model vendor",
-        "provider": "Execution provider"
+        "provider": "Execution provider",
+        "spacesIdempotencyKey": "Retry identifier scoped to owner, API key, space and node. Use visible ASCII after trimming; invalid values return 400. The same key and original body return the first execution even after graph changes, failure or cancellation; a different body returns 409. Retained until node/space deletion. Use a new key or omit it for a new execution; concurrency limits still apply.",
+        "title": "Space title",
+        "schemaVersion": "Graph format version",
+        "expectedVersion": "The fetched space.version; conflicts return 409",
+        "nodes": "Complete node list; use the config schema from capabilities",
+        "edges": "Complete connection list",
+        "groups": "Complete group list",
+        "selectionChanges": "IDs of nodes whose selected result changed",
+        "expectedGraphVersion": "Current space.version to execute; conflicts return 409",
+        "action": "Action to perform",
+        "itemId": "Item ID to select from outputItems",
+        "expectedSelectionVersion": "selectionVersion from the execution response; conflicts return 409",
+        "intendedType": "Media type to upload",
+        "fileName": "Original filename; path characters are not allowed",
+        "declaredMimeType": "File MIME type; use the same value as Content-Type",
+        "declaredBytes": "File size in bytes; default 50 MiB limit, subject to media limits and storage quota",
+        "target": "target value from the issued upload URL",
+        "spaceId": "Space ID",
+        "nodeId": "Node ID",
+        "executionId": "Execution ID",
+        "assetId": "Asset ID",
+        "uploadId": "Upload ID"
       },
       "notes": {
-        "GET /api/external/generations/{requestId}": "Use the same account and API key that created the job.",
-        "GET /api/external/history": "Includes web jobs, jobs submitted with other keys and completed edits.",
-        "DELETE /api/external/history/{historyId}": "Active records cannot be deleted. A file cleanup failure preserves the record.",
-        "POST /api/external/generations": "Build dynamicParams from the model input schema.",
-        "GET /api/external/models": "Returns active media models only.",
+        "GET /api/external/generations/{requestId}": "Use the same account and API key that submitted the job.",
+        "GET /api/external/history": "Includes the account’s web jobs, jobs from other API keys and completed edits.",
+        "DELETE /api/external/history/{historyId}": "Active records cannot be deleted. If file cleanup fails, the record is preserved.",
         "GET /api/external/models/{modelId}/schema": "Send files as URLs, data URLs or multipart parts named file:parameterName.",
         "GET /api/external/admin/models": "Includes inactive models and LLMs.",
         "PATCH /api/external/admin/models/{modelKey}": "The type and key cannot be changed.",
-        "POST /api/external/admin/models/import": "Returns a draft. Save it through the model registration API.",
-        "POST /api/external/admin/models/modal-comfyui": "Returns an inactive draft. Save it through the model registration API."
+        "POST /api/external/admin/models/import": "Review the returned draft, then save it with the model registration API.",
+        "POST /api/external/admin/models/modal-comfyui": "Returns an inactive draft. Review it, then save it with the model registration API.",
+        "GET /api/external/spaces/models": "Returns active image, video, audio and LLM models. Use id to fetch the schema and key for modelKey in node configuration.",
+        "GET /api/external/spaces/models/{modelId}/schema": "Put text and options at the node.config location given by x-node-config-path: prompt, parameters.FIELD or parameters.dynamicParams.FIELD.\n\nConnect files using files.portId and the input asset.id. Run LLMs through generate.assistant nodes.",
+        "PUT /api/external/spaces/{spaceId}": "Use space from the space response and an asset ID from the execution result. Set API_BASE_URL, API_KEY, SPACE_ID, NODE_ID and ASSET_ID in the example below.\n\nChange the node’s selectedOutputAssetId and include its ID in selectionChanges when saving the complete graph. Select Assistant list items through the execution PATCH API.",
+        "DELETE /api/external/spaces/{spaceId}": "A space with an active execution cannot be deleted. Shared assets and history are preserved.",
+        "POST /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "Poll the execution details using the returned executionId, then select a result after completion. Missing upstream results produce an input error.\n\nCheck apiExecutable and reason in capabilities for support. Resize is browser-only.",
+        "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Find media assets in outputAssetIds and outputBindings and select them through the graph save API. Select Assistant list items through the execution PATCH API. Execute the next node separately.",
+        "DELETE /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Completed results are preserved. Remote provider interruption and refunds are not guaranteed.",
+        "POST /api/external/assets/uploads": "1. Request an upload URL with this API.\n\n2. PUT raw file bytes to upload.upload.url. Use the Content-Type from upload.upload.headers.\n\n3. POST an empty object {} to the confirmation API and use the returned asset.id in a space input.",
+        "PUT /api/external/assets/uploads/{uploadId}/content": "Keep target from the issued URL and send X-API-Key. Use the issued Content-Type and send raw file bytes in the body.",
+        "POST /api/external/assets/uploads/{uploadId}/confirm": "Send an empty object {}. Use the returned asset.id as the space’s file input.",
+        "GET /api/external/history/{historyId}": "Returns prompts, input files and edit operations/settings. Edits have no generation prompt; source details absent from older records remain unknown. Playback duration uses precise asset metadata."
+      },
+      "noteTitles": {
+        "GET /api/external/generations/{requestId}": "Which API key to use",
+        "GET /api/external/history": "Included records",
+        "DELETE /api/external/history/{historyId}": "Deletion conditions",
+        "GET /api/external/models/{modelId}/schema": "Sending file inputs",
+        "GET /api/external/admin/models": "Included models",
+        "PATCH /api/external/admin/models/{modelKey}": "Immutable fields",
+        "POST /api/external/admin/models/import": "Registering the imported model",
+        "POST /api/external/admin/models/modal-comfyui": "Registering the imported model",
+        "GET /api/external/spaces/models": "Using model IDs and keys",
+        "GET /api/external/spaces/models/{modelId}/schema": "Mapping inputs to a node",
+        "PUT /api/external/spaces/{spaceId}": "Selecting a generated result",
+        "DELETE /api/external/spaces/{spaceId}": "Deletion conditions",
+        "POST /api/external/spaces/{spaceId}/nodes/{nodeId}/executions": "Checking execution status",
+        "GET /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Using the results",
+        "DELETE /api/external/spaces/{spaceId}/nodes/{nodeId}/executions/{executionId}": "Cancellation behavior",
+        "POST /api/external/assets/uploads": "File upload steps",
+        "PUT /api/external/assets/uploads/{uploadId}/content": "File transfer requirements",
+        "POST /api/external/assets/uploads/{uploadId}/confirm": "Using the asset ID",
+        "GET /api/external/history/{historyId}": "Prompts, inputs and edit information"
+      },
+      "operationParameters": {
+        "GET /api/external/spaces/models": {
+          "type": "Model type, including LLMs"
+        },
+        "POST /api/external/admin/models": {
+          "type": "Model type to register"
+        },
+        "GET /api/external/history": {
+          "type": "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+          "sort": "Sort order: date_desc or date_asc. Case-insensitive; unrecognized values use date_desc.",
+          "limit": "Items per page. Parsed as an integer and clamped to 1–100; unparseable values use 24.",
+          "offset": "Items to skip. Parsed as an integer and clamped to 0–1000; unparseable values use 0.",
+          "query": "Search term. Whitespace is trimmed and only the first 200 characters are used.",
+          "model": "Model filter. Whitespace is trimmed and only the first 200 characters are used.",
+          "prompt": "Prompt filter. Whitespace is trimmed and only the first 200 characters are used.",
+          "hidden": "List hidden records. true/1/yes and false/0/no are case-insensitive; unrecognized values use false.",
+          "includeTotal": "Include counts. true/1/yes and false/0/no are case-insensitive; unrecognized values use true."
+        },
+        "GET /api/external/history/status": {
+          "type": "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+          "query": "Search term. Whitespace is trimmed and only the first 200 characters are used.",
+          "model": "Model filter. Whitespace is trimmed and only the first 200 characters are used.",
+          "prompt": "Prompt filter. Whitespace is trimmed and only the first 200 characters are used.",
+          "hidden": "List hidden records. true/1/yes and false/0/no are case-insensitive; unrecognized values use false."
+        }
       }
     },
     "endpoints": {
@@ -1468,12 +1583,14 @@
       "headers": "Request headers",
       "dateRange": "Date range: {defaultDays} days by default · up to {rangeDays} days",
       "limits": {
-        "bodyBytes": "Body",
-        "bodyTimeoutMs": "Upload time",
+        "bodyBytes": "Maximum request size",
+        "bodyTimeoutMs": "Body read time",
         "files": "Files",
         "fileBytes": "Each file",
         "totalFileBytes": "All files"
-      }
+      },
+      "usageGuide": "Usage guide",
+      "maxItems": "Up to {count} items"
     },
     "examples": {
       "sample": "sample",
@@ -1506,28 +1623,39 @@
       "description": "Choose allowed features using the checkboxes when creating or editing an API key.",
       "administration": "Model management and global metrics require explicit administrative access.",
       "settings": "Configure API key permissions",
-      "identifiers": "Permission identifiers"
+      "identifiers": "Permission identifiers",
+      "spaces": "Select Spaces and Assets permissions explicitly for the API key according to the features you need. New permissions are not added to existing keys automatically."
     },
     "requestGuide": {
+      "spacesTitle": "Using Spaces",
+      "spacesDiscovery": "Check the available nodes and model input requirements.",
+      "spacesAssets": "File upload steps",
+      "spacesAuthor": "Create a space and save its nodes and connections.",
+      "spacesExecute": "Execute one node and poll its status until it finishes.",
+      "spacesResults": "Select a result, then execute the next node.",
+      "spacesExample": "View the complete Node.js example",
       "title": "Requests and retries",
       "description": "Requirements for safe retries, file uploads and prompt presets.",
-      "retryTitle": "Safe retries (optional)",
+      "retryTitle": "Safe generation retries (optional)",
       "retry": "Retry with the same API key, Idempotency-Key and input to reuse the existing job. Different input returns 409. Use a new Idempotency-Key for a new generation.",
       "presetTitle": "Use a preset",
       "preset": "Apply the preset's prompt and suggested settings to the generation inputs.",
       "presetRef": "Send key and revision in promptPreset to save the reference. Requires preset read access. Use expectedRevision for updates, deletion and restoration.",
       "limitsTitle": "Request limits",
-      "body": "Complete generation body",
+      "body": "Generation API maximum request size",
       "files": "Uploaded files",
       "file": "Each file",
       "timeout": "Body upload time",
-      "presets": "Preset changes",
-      "models": "Model writes and Modal imports",
-      "hf": "Hugging Face imports",
+      "presets": "Preset changes maximum request size",
+      "models": "Model writes and Modal imports maximum request size",
+      "hf": "Hugging Face imports maximum request size",
       "fileCount": "Up to {count} files",
       "seconds": "{count} seconds",
-      "fileRules": "Check files.maxItems in the model schema. Send files as URLs, data URLs or multipart parts named file:parameterName. Do not provide the same input in both a file part and dynamicParams.",
-      "totalFiles": "All uploaded files"
+      "fileRules": "For generation API files, check files.maxItems in the model schema. Send URLs, data URLs or multipart parts named file:parameterName; do not provide the same input in a file part and dynamicParams. Spaces file inputs use asset.id after an asset upload.",
+      "totalFiles": "All uploaded files",
+      "spacesExecutionScope": "The entire space and upstream or downstream nodes are not executed automatically.",
+      "limitsDescription": "Maximum request size covers all data sent to the server, including JSON field names and whitespace. Response and generated file sizes are separate. Follow each endpoint’s limit. 1 MiB = 1,048,576 bytes.",
+      "spacesWeb": "Continue editing at /spaces/SPACE_ID in the web app."
     }
   },
   "nodeStudio": {

@@ -3,7 +3,7 @@ import {
   type ApiKeyAuthContext,
 } from "@/server/auth/api-key-guard";
 import { buildErrorResponse } from "@/server/http/response";
-import { getExternalOperationPermission, hasPlatformPermission, type PlatformPermission } from "@/shared/api/platform-permissions";
+import { externalOperationAdditionalPermissions, getExternalOperationPermission, matchExternalOperation, hasPlatformPermission, type PlatformPermission } from "@/shared/api/platform-permissions";
 import {
   logSafeError,
   withRequestObservability,
@@ -21,6 +21,10 @@ export async function withExternalApi(
       if (auth instanceof Response) return auth;
       const permission = getExternalOperationPermission(observedRequest.method, new URL(observedRequest.url).pathname) ?? requiredPermission;
       if (permission && !hasPlatformPermission(auth.permissions, permission)) {
+        return buildErrorResponse("PLATFORM_PERMISSION_REQUIRED", 403);
+      }
+      const operation = matchExternalOperation(observedRequest.method, new URL(observedRequest.url).pathname);
+      if (operation && externalOperationAdditionalPermissions[operation]?.some(p => !hasPlatformPermission(auth.permissions, p))) {
         return buildErrorResponse("PLATFORM_PERMISSION_REQUIRED", 403);
       }
       return await handler(auth);

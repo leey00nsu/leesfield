@@ -866,6 +866,27 @@ describe("AudioGenerationForm", () => {
     });
   });
 
+  it.each([false,true])("submits a native script without a dummy prompt (primary role: %s)",async primary=>{
+    const {normalizeGradioModel}=await import("@/shared/model-catalog/gradio-contract");
+    const model=normalizeGradioModel({...runtimeAudioModelsFixture[0],key:"native-voice",label:"Native voice",parameters:{},providerConfig:{gradio_contract:{
+      version:1,apiName:"/speak",inputs:[{name:"dialogue",label:"Dialogue",kind:"string",schema:{type:"string",minLength:1},required:true,nullable:false,...(primary?{canonical:"prompt"}:{})}],
+      output:{media:"audio",path:[0],multiple:false},diagnostics:[],reviewed:false,
+    }}});
+    const startGeneration=vi.fn();
+    mockUseAudioGeneration.mockReturnValue({state:{status:"idle",progress:0},startGeneration,reset:vi.fn()});
+    vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({items:[model]}))));
+    const user=userEvent.setup();renderWithIntl(<AudioGenerationForm isAuthenticated/>);
+    await screen.findByRole("button",{name:/Native voice/});
+    const dock=screen.getByRole("region",{name:"작업 입력"});
+    const editors=within(dock).getAllByRole("textbox");expect(editors).toHaveLength(1);
+    expect(screen.getByRole("button",{name:"생성"})).toBeDisabled();
+    await user.type(editors[0],"A new brand begins here.");
+    await user.click(screen.getByRole("button",{name:"생성"}));
+    await waitFor(()=>expect(startGeneration).toHaveBeenCalledWith(expect.objectContaining(primary
+      ?{prompt:"A new brand begins here."}
+      :{prompt:"",dynamicParams:expect.objectContaining({dialogue:"A new brand begins here."})})));
+  });
+
   it("오디오 프리셋 선택을 실제 폼에 적용하고 출처를 별도 제출한다", async () => {
     const preset = { key: "audio-demo", revision: 2, name: "오디오 프리셋", description: "", modality: "audio", prompt: "saved narration", requiredInputs: { referenceImageCount: 0 }, recommendedParameters: {}, builtinKey: null, builtinRevision: null, defaultPrompt: null, isActive: true, isModified: false };
     vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ items: url.startsWith("/api/prompt-presets") ? [preset] : runtimeAudioModelsFixture }))));

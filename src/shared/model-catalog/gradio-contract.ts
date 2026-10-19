@@ -38,7 +38,12 @@ export const gradioFieldSchema = z.object({
   allowEmpty: z.boolean().optional(),
   min: z.number().optional(), max: z.number().optional(), step: z.number().positive().optional(),
 }).strict();
+export const gradioStateSchema = z.object({
+  inputs: z.array(z.number().int().nonnegative()).max(1000),
+  outputs: z.array(z.number().int().nonnegative()).max(1000),
+}).strict();
 export const gradioContractSchema = z.object({
+  internalState: gradioStateSchema.optional(),
   inputRules: z.record(z.string(), z.unknown()).optional(),
   inputGroups: z.array(z.object({prefix:z.string(),schema:z.record(z.string(),z.unknown())})).optional(),
   requiresSession: z.boolean().optional(),
@@ -58,6 +63,8 @@ export const gradioContractSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Duplicate Gradio parameter names" });
   if (c.inputs.filter(p => p.canonical === "prompt").length > 1)
     ctx.addIssue({ code: "custom", message: "Duplicate prompt binding" });
+  if (c.inputs.some(p => p.canonical === "prompt" && (p.kind !== "string" || p.choices?.length || p.hidden)))
+    ctx.addIssue({ code: "custom", message: "Prompt binding must be a visible text input" });
   try { assertAttachmentRelationships(c.inputs); }
   catch (error) { ctx.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid attachment relationship" }); }
 });
@@ -99,18 +106,26 @@ function declaredParameters<T extends MappedModel>(model: T): T {
   const modal = config.workflow_id !== undefined ? modalInputContract(modalConfigSchema.parse(config).workflow) : null;
   if (!modal && !Object.hasOwn(config, "output")) return model;
   const fields = new Set(modal?.inputs.map(field => field.name));
-  const parameters = Object.fromEntries(Object.entries(object(model.parameters)).filter(([key, raw]) =>
-    modal ? fields.has(key) : object(object(raw).binding).source === "hf_space"));
+  const entries = Object.entries(object(model.parameters));
+  const stateInputs = entries.flatMap(([, raw]) => {
+    const binding = object(object(raw).binding);
+    return String(binding.component).toLowerCase() === "state" && Number.isInteger(binding.order) ? [Number(binding.order)] : [];
+  });
+  const parameters = Object.fromEntries(entries.filter(([key, raw]) =>
+    modal ? fields.has(key) : object(object(raw).binding).source === "hf_space" && String(object(object(raw).binding).component).toLowerCase() !== "state"));
   // Inferred legacy metadata is not evidence of a provider input default.
   const meta = Object.fromEntries(Object.entries(object(model.meta)).filter(([key]) => !key.startsWith("default_")));
-  return { ...model, parameters, ...(model.meta !== undefined ? { meta } : {}) };
+  return { ...model, parameters, ...(stateInputs.length && !config.gradio_state ? { providerConfig: { ...config, gradio_state: { inputs: stateInputs, outputs: [] } } } : {}), ...(model.meta !== undefined ? { meta } : {}) };
 }
 
 /** Convert old stored contracts once at the read/save boundary; no database writes. */
 export function normalizeGradioModel<T extends MappedModel>(model: T): T {
   const config = object(model.providerConfig);
   if (config.gradio_contract === undefined) return declaredParameters(model);
-  const contract = gradioContractSchema.parse(config.gradio_contract);
+  const source = gradioContractSchema.parse(config.gradio_contract);
+  const stateInputs = source.inputs.flatMap((field, index) => field.component?.toLowerCase() === "state" ? [index] : []);
+  const internalState = source.internalState ?? (stateInputs.length ? { inputs: stateInputs, outputs: [] } : undefined);
+  const contract = { ...source, inputs: source.inputs.filter(field => field.component?.toLowerCase() !== "state") };
   const parameters = { ...object(model.parameters) };
   for (const [order, field] of contract.inputs.entries()) {
     const existingKey = Object.keys(parameters).find(key => object(object(parameters[key]).binding).parameterName === field.name);
@@ -132,7 +147,7 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
         ...(field.choiceMode ? { choiceMode: field.choiceMode } : {}),
         ...(field.allowCustomValue !== undefined ? { allowCustomValue: field.allowCustomValue } : {}),
         ...(field.component ? { component: field.component } : {}),
-        ...(field.canonical ? { canonicalKey: field.canonical } : object(parameter.binding).canonicalKey ? { canonicalKey: object(parameter.binding).canonicalKey } : {}),
+        ...(field.canonical ? { canonicalKey: field.canonical } : object(parameter.binding).canonicalKey && object(parameter.binding).canonicalKey !== "prompt" ? { canonicalKey: object(parameter.binding).canonicalKey } : {}),
         ...(field.media ? { media: field.media } : {}),
         ...(field.fileLimit !== undefined ? { fileLimit: field.fileLimit } : {}),
       },
@@ -143,6 +158,7 @@ export function normalizeGradioModel<T extends MappedModel>(model: T): T {
     parameters[key] = parameter;
   }
   const providerConfig: Record<string, unknown> = { ...config, api_name: contract.apiName, output: contract.output, ...(contract.inputRules ? { input_rules: contract.inputRules } : {}) };
+  if (internalState) providerConfig.gradio_state = internalState;
   delete providerConfig.gradio_contract;
   return declaredParameters({ ...model, providerConfig, parameters });
 }
@@ -199,7 +215,7 @@ export function getGradioContract(model: MappedModel): GradioContract | null {
         ...(p.step !== undefined ? { step: p.step } : {}),
       };
     });
-  const contract = withFileLimits(gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [], ...(config.input_rules !== undefined ? { inputRules: config.input_rules } : {}) }), normalized.parameters);
+  const contract = withFileLimits(gradioContractSchema.parse({ version: 1, apiName: config.api_name, inputs, output: config.output, diagnostics: [], ...(config.gradio_state !== undefined ? { internalState: config.gradio_state } : {}), ...(config.input_rules !== undefined ? { inputRules: config.input_rules } : {}) }), normalized.parameters);
   if (contract.inputRules) assertGradioInputRules(contract.inputRules, contract.inputs.map(field => field.name), Object.fromEntries(contract.inputs.filter(field => field.default !== undefined).map(field => [field.name, field.default])));
   return contract;
 }
@@ -225,6 +241,8 @@ export function gradioInputValues(contract: GradioContract, values: { prompt?: s
         : field.kind === "json" ? jsonValueSchema.safeParse(value).success
         : typeof value === "string";
       if (!valid) throw new Error("HF_CONTRACT_TYPE:" + field.name);
+      if (field.required && !field.allowEmpty && typeof value === "string" && !value.trim())
+        throw new Error("HF_CONTRACT_REQUIRED:" + field.name);
       if ((field.kind === "files" || field.kind === "gallery") && (value as unknown[]).length > fileFieldMaxItems(field))
         throw new Error("HF_CONTRACT_FILE_COUNT_LIMIT:" + field.name);
       if (field.choiceMode === "multiple" && !Array.isArray(value)) throw new Error("HF_CONTRACT_TYPE:" + field.name);

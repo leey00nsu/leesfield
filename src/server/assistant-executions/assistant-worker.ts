@@ -13,6 +13,7 @@ import {
 } from "./assistant-execution-repository";
 
 const snapshotSchema = z.object({
+  promptProvenance: z.unknown().optional(),
   instruction: z.string().max(20_000), text: z.string().max(20_000).nullable(),
   outputMode: assistantOutputModeSchema.optional(),
   assets: z.array(z.object({ assetId: z.string(), type: z.enum(["image", "video"]), portId: z.string(), sortOrder: z.number().int() })).max(6),

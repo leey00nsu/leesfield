@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
+      deleteMany: vi.fn(),
     },
     generationGraphNode: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     generationGraphEdge: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), createMany: vi.fn() },
@@ -15,8 +16,10 @@ const mocks = vi.hoisted(() => {
     videoGeneration: { count: vi.fn() },
     audioGeneration: { count: vi.fn() },
     mediaOperation: { count: vi.fn() },
+    assistantExecution: { count: vi.fn() },
     mediaAsset: { findMany: vi.fn() },
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   };
   const prisma = {
     generationGraph: {
@@ -138,6 +141,9 @@ describe("generationGraphRepository", () => {
     mocks.tx.videoGeneration.count.mockResolvedValue(0);
     mocks.tx.audioGeneration.count.mockResolvedValue(0);
     mocks.tx.mediaOperation.count.mockResolvedValue(0);
+    mocks.tx.assistantExecution.count.mockResolvedValue(0);
+    mocks.tx.$queryRaw.mockResolvedValue([{ id: "graph_1" }]);
+    mocks.tx.generationGraph.deleteMany.mockResolvedValue({ count: 1 });
     mocks.tx.mediaAsset.findMany.mockResolvedValue([]);
     mocks.tx.generationGraph.updateMany.mockResolvedValue({ count: 1 });
     mocks.tx.generationGraphNode.deleteMany.mockResolvedValue({ count: 0 });
@@ -234,14 +240,18 @@ describe("generationGraphRepository", () => {
     });
   });
 
-  it("does not copy a Space containing a retired edit node into a new Space", async () => {
+  it("preserves a retired node when copying existing Spaces without enabling new authoring", async () => {
     mocks.tx.generationGraph.findFirst.mockResolvedValue({ ...graphRecord, nodes: [{
       id: "old_annotation", kind: "edit.image.annotation", x: 8, y: 9,
       configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: null,
     }] });
-    await expect(generationGraphRepository.copy("owner@example.com", "graph_1"))
-      .rejects.toBeInstanceOf(GenerationGraphInputError);
-    expect(mocks.tx.generationGraph.create).not.toHaveBeenCalled();
+    mocks.tx.generationGraph.create.mockResolvedValue({ id: "copy-space" });
+    mocks.tx.generationGraphNodeOutput.findMany.mockResolvedValue([]);
+    mocks.tx.generationGraph.findUniqueOrThrow.mockResolvedValue({ ...graphRecord, id: "copy-space" });
+    await generationGraphRepository.copy("owner@example.com", "graph_1");
+    expect(mocks.tx.generationGraphNode.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      graphId: "copy-space", kind: "edit.image.annotation", config: { parameters: {} },
+    }) }));
   });
 
   it("rejects future writers before any mutation", async () => {
@@ -411,9 +421,7 @@ describe("generationGraphRepository", () => {
 
   it("conceals foreign graphs and deletes only the owned Graph root", async () => {
     mocks.prisma.generationGraph.findFirst.mockResolvedValue(null);
-    mocks.prisma.generationGraph.deleteMany
-      .mockResolvedValueOnce({ count: 0 })
-      .mockResolvedValueOnce({ count: 1 });
+    mocks.tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "graph_1" }]);
 
     await expect(generationGraphRepository.get("owner@example.com", "graph_other"))
       .rejects.toBeInstanceOf(GenerationGraphNotFoundError);
@@ -421,8 +429,13 @@ describe("generationGraphRepository", () => {
       .rejects.toBeInstanceOf(GenerationGraphNotFoundError);
     await expect(generationGraphRepository.remove("owner@example.com", "graph_1"))
       .resolves.toBeUndefined();
-    expect(mocks.prisma.generationGraph.deleteMany).toHaveBeenLastCalledWith({
+    expect(mocks.tx.generationGraph.deleteMany).toHaveBeenLastCalledWith({
       where: { id: "graph_1", ownerEmail: "owner@example.com" },
     });
+  });
+  it("retains the owned space while an Assistant is active", async () => {
+    mocks.tx.assistantExecution.count.mockResolvedValue(1);
+    await expect(generationGraphRepository.remove("owner@example.com", "graph_1")).rejects.toBeInstanceOf(GenerationGraphActiveExecutionError);
+    expect(mocks.tx.generationGraph.deleteMany).not.toHaveBeenCalled();
   });
 });

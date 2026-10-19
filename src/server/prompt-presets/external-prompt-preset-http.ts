@@ -1,5 +1,5 @@
 import { withExternalApi } from "@/server/external-api/route-handler";
-import { readRouteJsonBody } from "@/server/http/bounded-body";
+import { readExternalJsonBody } from "@/server/http/bounded-body";
 import { buildErrorResponse, jsonWithNoStore } from "@/server/http/response";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
 import { RATE_LIMITS } from "@/server/rate-limit/policies";
@@ -14,7 +14,7 @@ export function withExternalPromptPresetRoute(request: Request,
     if (limited) return limited;
     let body: unknown;
     if (options.mutation) {
-      const parsed = await readRouteJsonBody(request, 96 * 1024);
+      const parsed = await readExternalJsonBody(request, 96 * 1024);
       if (!parsed.ok) return buildErrorResponse(parsed.code, parsed.status);
       body = parsed.body;
     }

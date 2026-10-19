@@ -31,6 +31,7 @@ export async function createImageGenerationRecord(
   requestSnapshot?: Record<string, Prisma.InputJsonValue | null>,
   inputAssetRefs?: readonly GenerationInputAssetRef[],
   cinema?: CinemaSnapshot,
+  transaction?: Prisma.TransactionClient,
 ) {
   const requestParams: Prisma.InputJsonValue = requestSnapshot ?? {
     dynamicParams: payload.dynamicParams ? JSON.parse(JSON.stringify(payload.dynamicParams)) : undefined,
@@ -71,8 +72,8 @@ export async function createImageGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (refs.length === 0) return prisma.imageGeneration.create({ data });
-  return prisma.$transaction(async (tx) => {
+  if (!transaction && refs.length === 0) return prisma.imageGeneration.create({ data });
+  const create = async (tx: Prisma.TransactionClient) => {
     const record = await tx.imageGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -81,7 +82,8 @@ export async function createImageGenerationRecord(
       refs,
     });
     return record;
-  });
+  };
+  return transaction ? create(transaction) : prisma.$transaction(create);
 }
 
 export async function saveImageGenerationResult(

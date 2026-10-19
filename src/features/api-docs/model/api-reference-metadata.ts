@@ -1,5 +1,5 @@
 import type { OpenApiDocument, OpenApiSchema } from "./openapi-types";
-import { externalOperationPermissions } from "@/shared/api/platform-permissions";
+import { externalOperationPermissions, externalOperationAdditionalPermissions } from "@/shared/api/platform-permissions";
 import { generationBodyLimitBytes, bodyReadTimeoutMs, maxExternalFiles, maxExternalFileBytes, maxExternalTotalFileBytes } from "@/shared/api/request-limits";
 
 const defaultActions: Record<string, string> = {
@@ -31,32 +31,47 @@ const defaultActions: Record<string, string> = {
   "GET /api/external/models": "List available image, video and audio models.",
   "GET /api/external/models/{modelId}/schema": "Get a model's input schema and file requirements."
 };
+const historyParameterDescriptions: Record<string, string> = {
+  type: "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+  sort: "Sort order: date_desc or date_asc. Case-insensitive; unrecognized values use date_desc.",
+  limit: "Items per page. Parsed as an integer and clamped to 1–100; unparseable values use 24.",
+  offset: "Items to skip. Parsed as an integer and clamped to 0–1000; unparseable values use 0.",
+  query: "Search term. Whitespace is trimmed and only the first 200 characters are used.",
+  model: "Model filter. Whitespace is trimmed and only the first 200 characters are used.",
+  prompt: "Prompt filter. Whitespace is trimmed and only the first 200 characters are used.",
+  hidden: "List hidden records. true/1/yes and false/0/no are case-insensitive; unrecognized values use false.",
+  includeTotal: "Include counts. true/1/yes and false/0/no are case-insensitive; unrecognized values use true.",
+};
 export interface ApiReferenceTranslations {
   parameters?: Record<string, string>;
   notes?: Record<string, string>;
+  noteTitles?: Record<string, string>;
+  operationParameters?: Record<string, Record<string, string>>;
 }
 export function applyApiReferenceMetadata(document: OpenApiDocument, translations?: ApiReferenceTranslations) {
   for (const [path, item] of Object.entries(document.paths ?? {})) {
-    for (const method of ["get", "post", "patch", "delete"] as const) {
+    for (const method of ["get", "post", "put", "patch", "delete"] as const) {
       const operation = item[method];
       if (!operation) continue;
+      const historyList = path === "/api/external/history" || path === "/api/external/history/status";
       const key = method.toUpperCase() + " " + path;
       operation.description = operation.description?.split(/\n\s*\n/)[0] ?? defaultActions[key];
       // Default registry prose is replaced too; localized prose already starts with the action.
       if (!operation.description?.includes("\n") && !translations?.parameters) operation.description = defaultActions[key] ?? operation.description;
-      operation["x-required-permissions"] = [externalOperationPermissions[key]];
+      operation["x-required-permissions"] = [externalOperationPermissions[key], ...(externalOperationAdditionalPermissions[key] ?? [])];
       operation["x-resource-scope"] = path.startsWith("/api/external/admin/") ? "global"
         : path === "/api/external/generations/{requestId}" ? "account-and-api-key"
         : path.startsWith("/api/external/models") ? "catalog" : "owner";
       const note = translations?.notes?.[key];
       operation["x-usage-notes"] = note ? note.split(/\n\s*\n/) : [];
+      operation["x-usage-title"] = translations?.noteTitles?.[key];
       if (path === "/api/external/generations" && method === "post") {
         operation["x-conditional-permissions"] = [{ field: "promptPreset", permission: "presets:read", condition: "present" }];
         operation["x-request-limits"] = {
           bodyBytes: generationBodyLimitBytes, bodyTimeoutMs: bodyReadTimeoutMs,
           files: maxExternalFiles, fileBytes: maxExternalFileBytes, totalFileBytes: maxExternalTotalFileBytes,
         };
-        if (!note) operation["x-usage-notes"] = ["Use the model input schema to build dynamicParams."];
+        if (!translations) operation["x-usage-notes"] = ["Use the model input schema to build dynamicParams."];
       }
       if (path === "/api/external/generations/{requestId}" && !note)
         operation["x-usage-notes"] = ["Use the same account and API key that created the job."];
@@ -67,13 +82,20 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
       }
       if (operation.requestBody && !("$ref" in operation.requestBody) && path !== "/api/external/generations")
         operation["x-request-limits"] = { bodyBytes: path.startsWith("/api/external/prompt-presets") ? 96 * 1024 : path.endsWith("/import") ? 8 * 1024 * 1024 : 1024 * 1024 };
+      if (path.startsWith("/api/external/spaces/") && method === "put") operation["x-request-limits"] = { bodyBytes: 8 * 1024 * 1024 };
+      if (path.endsWith("/content") && method === "put") delete operation["x-request-limits"];
       for (const parameter of operation.parameters ?? []) {
         if ("$ref" in parameter) continue;
-        if (translations?.parameters?.[parameter.name]) parameter.description = translations.parameters[parameter.name];
+        const descriptionKey = path.startsWith("/api/external/spaces/") && parameter.name === "Idempotency-Key"
+          ? "spacesIdempotencyKey" : parameter.name;
+        parameter.description = translations?.operationParameters?.[key]?.[parameter.name]
+          ?? (historyList && parameter.in === "query" ? historyParameterDescriptions[parameter.name] : undefined)
+          ?? translations?.parameters?.[descriptionKey] ?? parameter.description;
         const schema = parameter.schema as OpenApiSchema | undefined;
         if (!schema) continue;
         if (parameter.in === "header" && parameter.name.includes("Idempotency")) {
-          Object.assign(schema, { minLength: 1, maxLength: 200, pattern: "^[!-~]+$", "x-normalization": "trim", "x-invalid-behavior": "ignored" });
+          const spaces = path.startsWith("/api/external/spaces/");
+          Object.assign(schema, { minLength: 1, maxLength: spaces ? 128 : 200, pattern: "^[!-~]+$", "x-normalization": "trim", "x-invalid-behavior": spaces ? "rejected" : "ignored" });
         }
         if (parameter.in === "query") {
           const history = path.startsWith("/api/external/history");
@@ -94,6 +116,8 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
           if (parameter.name === "includeInactive") schema.default = path.includes("/admin/") ? "true" : "false";
           if (parameter.name === "type" && (history || monitoring) && schema.enum?.includes("all")) schema.default = "all";
           if (parameter.name === "sort" && history) schema.default = "date_desc";
+          if (historyList && ["type", "sort"].includes(parameter.name))
+            Object.assign(schema, { "x-normalization": "lowercase-fallback", "x-invalid-behavior": "default" });
           if (parameter.name === "metric") schema.default = "requests";
           if (parameter.name === "tz") schema.default = "UTC";
         }
@@ -105,7 +129,8 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
           for (const [name, property] of Object.entries(schema.properties ?? {})) {
             if ("$ref" in property) continue;
             const label = name === "model" ? "modelId" : name;
-            if (translations?.parameters?.[label]) property.description = translations.parameters[label];
+            property.description = translations?.operationParameters?.[key]?.[name]
+              ?? translations?.parameters?.[label] ?? property.description;
           }
         }
       }

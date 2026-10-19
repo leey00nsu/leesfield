@@ -54,8 +54,25 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
   const inputIds = Array.isArray(dep?.inputs) ? dep.inputs : [];
   const outputIds = Array.isArray(dep?.outputs) ? dep.outputs : [];
   const diagnostics: string[] = [];
-  const inputs: GradioField[] = (Array.isArray(endpoint.parameters) ? endpoint.parameters : []).map((raw, i) => {
-    const p = record(raw), c = components.find(c => c.id === inputIds[i]) ?? {};
+  // Raw /info omits State; the JS SDK inserts hidden placeholders. Align both
+  // forms against component IDs before excluding internal inputs.
+  const align = (items: unknown[], ids: unknown[]) => {
+    const slots = ids.map(id => components.find(c => c.id === id) ?? {});
+    const publicSlots = slots.filter(c => String(c.type).toLowerCase() !== "state");
+    const selected = items.length === publicSlots.length && items.length !== slots.length ? publicSlots : slots;
+    return items.map((raw, index) => ({ p: record(raw), c: selected[index] ?? {}, index }));
+  };
+  const inputEntries = align(Array.isArray(endpoint.parameters) ? endpoint.parameters : [], inputIds);
+  const inputStates = [...new Set([
+    ...inputIds.flatMap((id, index) => components.find(c => c.id === id)?.type === "state" ? [index] : []),
+    ...inputEntries.flatMap(({p,c,index}) => String(c.type ?? p.component ?? "").toLowerCase() === "state" ? [index] : []),
+  ])];
+  const outputEntries = align(Array.isArray(endpoint.returns) ? endpoint.returns : outputIds.map(() => ({})), outputIds);
+  const outputStates = [...new Set([
+    ...outputIds.flatMap((id, index) => components.find(c => c.id === id)?.type === "state" ? [index] : []),
+    ...outputEntries.flatMap(({p,c,index}) => String(c.type ?? p.component ?? "").toLowerCase() === "state" ? [index] : []),
+  ])];
+  const inputs: GradioField[] = inputEntries.filter(({ p, c }) => String(c.type ?? p.component ?? "").toLowerCase() !== "state").map(({ p, c, index: i }) => {
     const props = record(c.props);
     const name = typeof p.parameter_name === "string" ? p.parameter_name : "param_" + i;
     const label = gradioLabel(props.label, gradioLabel(p.label, name));
@@ -81,7 +98,6 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
       /^(prompt|text|target_text|gen_text|input_text)$/i.test(name) ? "prompt" as const : undefined;
     const inferredPrompt = kind === "string" && !choices?.length && /^prompt$/i.test(label) ? "prompt" as const : undefined;
     if (!Object.keys(schema).length) diagnostics.push("SCHEMA_MISSING:" + name);
-    if (component === "state") diagnostics.push("SESSION_STATE_INPUT:" + name);
 
     if (/optional/i.test(label) && !nullable && !hasDefault) diagnostics.push("OPTIONAL_LABEL_REVIEW:" + name);
     let allowEmpty = false;
@@ -111,13 +127,15 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
       ...(typeof props.step === "number" && props.step > 0 ? { step: props.step } : {}),
     };
   });
-  let seenPrompt = false;
-  for (const input of inputs) if (input.canonical) {
-    if (seenPrompt) { delete input.canonical; diagnostics.push("AMBIGUOUS_PROMPT:" + input.name); }
-    seenPrompt = true;
+  const promptCandidates = inputs.filter(input => input.canonical);
+  if (promptCandidates.length > 1) for (const input of promptCandidates) {
+    delete input.canonical;
+    diagnostics.push("AMBIGUOUS_PROMPT:" + input.name);
   }
-  const outputs = (Array.isArray(endpoint.returns) ? endpoint.returns : outputIds.map(() => ({}))).map((raw, i) => {
-    const p = record(raw), c = components.find(c => c.id === outputIds[i]);
+  const seenPrompt = inputs.some(input => input.canonical);
+  const outputs = outputEntries
+  .filter(({ p, c }) => String(c.type ?? p.component ?? "").toLowerCase() !== "state")
+  .map(({ p, c }, i) => {
     const component = String(c?.type ?? p.component ?? "").toLowerCase();
     const outputSchema=resolveGradioSchema(sourceSchema(p, c ?? {}, "output"));
     const mime=outputSchema.contentMediaType ?? record(record(outputSchema.properties).mime_type).const;
@@ -131,7 +149,8 @@ export function buildImportContract(apiName: string, endpointValue: unknown, con
   if (!seenPrompt) diagnostics.push("PROMPT_BINDING_REVIEW");
   if (/train|profile|toggle|prepare|depthmap|scene[s]?$/.test(apiName)) diagnostics.push("ENDPOINT_PURPOSE_REVIEW");
   return {
-    requiresSession: inputs.some(f=>f.component === "state"),
+    requiresSession: inputStates.length > 0 || outputStates.length > 0,
+    ...((inputStates.length || outputStates.length) ? { internalState: { inputs: inputStates, outputs: outputStates } } : {}),
     version: 1, apiName, inputs,
     output: selected ? { media: selected.component === "gallery" ? "image" : selected.component as "image" | "audio" | "video", path: [selected.index], multiple: selected.component === "gallery" } : null,
     diagnostics: [...new Set(diagnostics)], reviewed: false,

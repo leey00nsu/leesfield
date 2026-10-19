@@ -1,4 +1,5 @@
 "use client";
+import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
 import { useCinemaHistoryRestore } from "@/shared/cinema/use-cinema-history-restore";
@@ -305,6 +306,7 @@ function AudioGenerationFormContent({
     },
   });
   const gradioContract = activeRuntimeModel ? getGradioContract(activeRuntimeModel) : null;
+  const primaryInput = gradioContract?.inputs.find(field => field.canonical === "prompt");
   const contractValues = useWatch({control: form.control, name:"dynamicParams"}) ?? {};
   const [promptWasEdited, setPromptWasEdited] = useState(false);
   const promptFeedbackSubmitted = form.formState.isSubmitted;
@@ -320,8 +322,7 @@ function AudioGenerationFormContent({
     onApply: (prompt, updates) => {
       historyRevision.current++;
       form.setValue("prompt", prompt, { shouldDirty: true, shouldValidate: true });
-      const field = gradioContract?.inputs.find(item => item.canonical === "prompt");
-      if (field && Object.hasOwn(form.getValues("dynamicParams") ?? {}, field.name)) form.setValue("dynamicParams", { ...form.getValues("dynamicParams"), [field.name]: prompt }, { shouldDirty: true, shouldValidate: true });
+      if (activeRuntimeModel) form.setValue("dynamicParams", syncPrimaryTextValue(activeRuntimeModel, { dynamicParams: form.getValues("dynamicParams") }, prompt).dynamicParams, { shouldDirty: true, shouldValidate: true });
       for (const [path, value] of Object.entries(updates)) {
         form.setValue(path as Path<AudioGenerationFormValues>, value as never, { shouldValidate: true });
       }
@@ -1161,25 +1162,26 @@ function AudioGenerationFormContent({
                     </div>
                   )}
                   textarea={
+                          gradioContract && !primaryInput ? <div className="px-4 py-3"><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt="" onChange={values => { historyRevision.current++; form.setValue("dynamicParams", values, { shouldDirty: true, shouldValidate: true }); }}/></div> : (
                     <AppFormControl>
                       <AppPromptEditor
-                        placeholder={tAudio("promptPlaceholder")}
+                        placeholder={primaryInput?.label ?? tAudio("promptPlaceholder")}
                         {...field}
                         value={promptPreset.text}
                         disabled={isGuest || isGenerating}
                         token={promptPreset.preset ? { id: promptPreset.preset.key, offset: promptPreset.tokenOffset, label: promptPreset.preset.name, content: <GenerationPromptPresetChip controller={promptPreset} disabled={isGuest || isGenerating} /> } : undefined}
                         onChange={(text, present, offset) => { historyRevision.current++; setPromptWasEdited(true); promptPreset.editText(text, present, offset); }}
                       />
-                    </AppFormControl>
+                    </AppFormControl>)
                   }
                   feedback={
-                    gradioContract && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
+                    gradioContract && primaryInput && !mappingPrompt.trim() && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? <GradioPromptFeedback contract={gradioContract}/> : fieldState.error && ((fieldState.isTouched && promptWasEdited) || promptFeedbackSubmitted) ? (
                       <AppPromptFormMessage />
                     ) : undefined
                   }
                   footerLeft={<>{gradioContract ? <>
 <GenerationModelSection modality="audio" items={modelCards} activeId={activeModel} onSelect={handleSelectModel} />
-<GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ historyRevision.current++; promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>
+{primaryInput && <GenerationSettingsPopover onBlockedOpen={isGuest ? handleLoginRedirect : undefined} disabled={isGenerating || !contractOptionFields(gradioContract).length} label={tLabels("advancedOptions")} summary={tLabels("advancedOptions")} icon={<SlidersHorizontal className="h-4 w-4" />}><GradioContractFields key={activeModel} scope="options" disabled={isGuest || isGenerating} contract={gradioContract} values={contractValues} prompt={mappingPrompt} onChange={values=>{ historyRevision.current++; promptPreset.markProviderEdits(contractValues, values); form.setValue("dynamicParams",values,{shouldDirty:true,shouldValidate:true}); }}/></GenerationSettingsPopover>}
 </> : (
                     <>
                       {!isGuest && hasModels ? (
@@ -1218,7 +1220,7 @@ function AudioGenerationFormContent({
                         </div>
                       </GenerationSettingsPopover>
                     </>
-                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating} inputIssue={presetInputIssue} /></>}
+                  )}<GenerationPromptPresetControls controller={promptPreset} disabled={isGuest || isGenerating || Boolean(gradioContract && !primaryInput)} inputIssue={presetInputIssue} /></>}
 footerRight={
                     <>
                       <AppButton

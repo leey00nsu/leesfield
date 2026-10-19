@@ -36,6 +36,7 @@ export function ApiDocsRequestGuideSection() {
         </div>
         <div className="space-y-4">
           <h3 className="text-base font-semibold">{t("limitsTitle")}</h3>
+          <p className="max-w-3xl text-sm leading-7 text-muted-foreground">{t("limitsDescription")}</p>
           <dl className="divide-y divide-border border-y border-border">
             {limits.map(({ key, value }) => (
               <div key={key} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:gap-6">

@@ -11,6 +11,7 @@ export function ApiDocsAccessSection() {
       <ApiDocsSection title={t("title")} description={t("description")}>
         <div className="max-w-3xl space-y-3 text-sm leading-7 text-muted-foreground">
           <p>{t("administration")}</p>
+          <p>{t("spaces")}</p>
           <a href="/api-key" className="text-data-accent-foreground hover:underline">{t("settings")}</a>
         </div>
         {/* A direct fragment can make the browser open this ancestor before hydration. */}

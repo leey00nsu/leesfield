@@ -11,6 +11,14 @@ const metadata = new Set([
   "initImages",
   "inputAudio",
   "inputAudios",
+  "inputVideos",
+  "inputPrompt",
+  "promptProvenance",
+  "promptFields",
+  "promptPreset",
+  "promptPresetState",
+  "cinema",
+  "nodeRepeat",
 ]);
 const sensitive =
   /(?:api[_-]?key|authorization|password|secret|^(?:token|access[_-]?token|refresh[_-]?token|auth[_-]?token|hf[_-]?token)$|credential|providerConfig|__proto__|constructor|prototype)/i;
@@ -42,12 +50,18 @@ function clean(value: unknown, depth = 0): Value {
 /** Display the persisted submission, never current catalog defaults or provider credentials. */
 export function requestSettings(
   snapshot: unknown,
+  excludedFields: readonly string[] = [],
 ): Record<string, Value> | null {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot))
     return null;
   const stored = snapshot as Record<string, unknown>;
+  const omitted = new Set([...excludedFields, ...(Array.isArray(stored.promptFields) ? stored.promptFields.filter((field): field is string => typeof field === "string") : [])]);
+  const sanitized = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !metadata.has(key) && !omitted.has(key))
+    .map(([key, value]) => [key, key === "dynamicParams" && value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).filter(([name]) => !omitted.has(name))) : value]));
   if (stored.requestSettings && typeof stored.requestSettings === "object" && !Array.isArray(stored.requestSettings)) {
-    return clean(Object.fromEntries(Object.entries(stored.requestSettings).filter(([key]) => !metadata.has(key)))) as Record<string, Value>;
+    return clean(sanitized(stored.requestSettings as Record<string, unknown>)) as Record<string, Value>;
   }
   if (stored.requestVersion === 2) {
     const values = stored.dynamicParams && typeof stored.dynamicParams === "object" ? stored.dynamicParams as Record<string, unknown> : {};
@@ -55,13 +69,13 @@ export function requestSettings(
     for (const item of Array.isArray(stored.parameterDefinitions) ? stored.parameterDefinitions : []) {
       if (!item || typeof item !== "object") continue;
       const def = item as Record<string, unknown>;
-      if (typeof def.key !== "string" || typeof def.name !== "string" || sensitive.test(def.key) || sensitive.test(def.name) || metadata.has(def.name) || def.name === "initImagesCount" || !Object.hasOwn(values,def.key)) continue;
+      if (typeof def.key !== "string" || typeof def.name !== "string" || sensitive.test(def.key) || sensitive.test(def.name) || metadata.has(def.name) || omitted.has(def.name) || def.name === "initImagesCount" || !Object.hasOwn(values,def.key)) continue;
       result[Object.hasOwn(result,def.name) ? def.key : def.name] = clean(values[def.key]);
     }
     return result;
   }
   const result = Object.fromEntries(
-    Object.entries(snapshot)
+    Object.entries(sanitized(stored))
       .filter(
         ([key, value]) =>
           !metadata.has(key) && !sensitive.test(key) && value !== undefined,

@@ -14,6 +14,7 @@ import {
 import { mapWithConcurrency } from "@/server/http/bounded-body";
 import { measureProvider } from "@/server/observability/request-observability";
 import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
+import { withGradioSession } from "./isolated-session";
 
 type GradioEvent = {
   type?: string;
@@ -27,6 +28,9 @@ type GradioSubmission = AsyncIterable<GradioEvent> & {
 };
 
 type GradioPredictionClient = GradioFileUploadClient & {
+  app_reference?: string;
+  options?: { token?: `hf_${string}` };
+  config?: { components?: Array<{ type?: string }> };
   predict: (api: string, values: Record<string, unknown>) => Promise<{ data: unknown }>;
   submit?: (
     api: string,
@@ -185,7 +189,8 @@ export async function executeGradioContract(
   const contract = getGradioContract(model);
   if (!contract || contract.output?.media !== media) throw new Error("HF_CONTRACT_MEDIA");
   const request = await buildGradioRequest(contract, payload);
-  const result = await predictWithDeadline(client, contract.apiName, request, config.timeoutMs, config.spaceUrl);
+  const result = await withGradioSession(client, Boolean(contract.internalState?.inputs.length || contract.internalState?.outputs.length), config,
+    session => predictWithDeadline(session, contract.apiName, request, config.timeoutMs, config.spaceUrl));
   const selected = selectGradioOutput(result.data, contract);
   const items = contract.output.multiple && Array.isArray(selected) ? selected : [selected];
   if (!items.length) throw new Error("HF_CONTRACT_OUTPUT_MISSING");

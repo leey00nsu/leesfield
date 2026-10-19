@@ -14,6 +14,7 @@ import {
 import { createAudioGenerationRecord } from "./audio-generation-repository";
 
 export type SubmitAudioGenerationInput = {
+  transaction?: Prisma.TransactionClient;
   payload: AudioGenerationFormValues;
   ownerEmail: string;
   apiKeyId?: string | null;
@@ -37,6 +38,7 @@ function isUniqueConstraintError(error: unknown) {
 }
 
 export async function submitAudioGeneration({
+  transaction,
   payload,
   ownerEmail,
   apiKeyId = null,
@@ -77,7 +79,9 @@ export async function submitAudioGeneration({
     ? payload
     : applyUploadedGenerationInputAssets({ ...payload, inputAudio: trimmedInputAudio }, uploaded);
   try {
-    const record = graphNodeId || requestSnapshot
+    const record = transaction
+      ? await createAudioGenerationRecord(requestId, recordPayload, ownerEmail, apiKeyId, graphNodeId, requestSnapshot, inputAssetRefs, transaction)
+      : graphNodeId || requestSnapshot
       ? await createAudioGenerationRecord(
           requestId,
           recordPayload,

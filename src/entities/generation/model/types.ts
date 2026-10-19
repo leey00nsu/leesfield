@@ -37,6 +37,7 @@ export interface GenerationHistoryItem {
   thumbnailUrl: string | null;
   inputImages?: string[];
   inputAudios?: string[];
+  inputVideos?: string[];
   referenceText?: string | null;
   errorMessage: string | null;
 }

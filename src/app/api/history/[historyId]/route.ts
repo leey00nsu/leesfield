@@ -11,6 +11,7 @@ import {
 import { requestRemoteStream } from "@/server/http/safe-remote";
 import { historyPromptAuthoring } from "@/server/history/history-prompt-authoring";
 import { historyAuthoringReferences, historyAuthoringOptions } from "@/server/history/history-authoring-references";
+import { getExternalHistoryDetail } from "@/server/history/external-history-detail";
 
 export const dynamic = "force-dynamic";
 type Context = {params: Promise<{historyId: string}>};
@@ -26,6 +27,10 @@ async function ownedRecord(request: Request, context: Context) {
 async function getObservedHandler(request: Request, context: Context) {
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
+  if (new URL(request.url).searchParams.get("view") === "detail") {
+    const detail = await getExternalHistoryDetail(result.ownerEmail, (await context.params).historyId, { type: result.type, origin: result.origin });
+    return detail ? jsonWithNoStore(detail) : new Response(null, { status: 404 });
+  }
   if (new URL(request.url).searchParams.get("view") === "item") {
     const item = await getHistoryRecordItem(result.ownerEmail, (await context.params).historyId, {type:result.type,origin:result.origin});
     return item ? jsonWithNoStore({ item }) : new Response(null,{status:404});

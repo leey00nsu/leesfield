@@ -47,6 +47,17 @@ export const externalHistoryDetailSchema = z.object({
   errorMessage: z.string().nullable(),
   warningMessage: z.string().nullable(),
   requestParameters: z.record(z.string(), z.unknown()).nullable().optional(),
+  inputPrompt: z.string().nullable().optional(),
+  localPrompt: z.string().nullable().optional(),
+  connectedPrompt: z.string().nullable().optional(),
+  promptSources: z.array(z.object({
+    nodeId: z.string(), kind: z.string(), portId: z.string(), text: z.string(),
+    executionId: z.string().optional(), selectedItemId: z.string().nullable().optional(), selectionVersion: z.number().int().optional(),
+  })).optional(),
+  inputMedia: z.array(z.object({
+    assetId: z.string().nullable(), type: z.enum(["image", "video", "audio"]), role: z.string(), sortOrder: z.number().int(), url: z.string(),
+  })).optional(),
+  operation: z.object({ type: z.string(), configVersion: z.number() }).optional(),
   inputImages: z.array(z.string()),
   inputAudios: z.array(z.string()),
   inputVideos: z.array(z.string()).default([]),

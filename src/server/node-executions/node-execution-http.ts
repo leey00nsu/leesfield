@@ -60,7 +60,7 @@ export function nodeExecutionErrorResponse(error: unknown) {
   if (error instanceof NodeExecutionQueueFullError) {
     return jsonWithNoStore(
       { message: error.code, reason: error.reason },
-      { status: 429, headers: { "Retry-After": "30" } },
+      { status: error.reason === "GLOBAL_LIMIT" ? 503 : 429, headers: { "Retry-After": "30" } },
     );
   }
   return null;
