@@ -1767,6 +1767,7 @@
       }
     },
     "mediaNodes": {
+      "viewDetails": "View details",
       "generating": "Generating…",
       "resultFailed": "The result could not be generated.",
       "resultCancelled": "Generation was cancelled.",

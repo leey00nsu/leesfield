@@ -225,9 +225,9 @@ describe("nodeExecutionService", () => {
     expect(state.submitImage).not.toHaveBeenCalled();
     expect(state.submitVideo).not.toHaveBeenCalled();
   });
-  it("admits frame extraction as a two-image server operation without a browser plan", async () => {
+  it.each([{}, { timestampMs: 0 }, { timestampMs: 1250 }, { timestampMs: 600_000 }])("admits frame extraction with its frozen output mode %j without a browser plan", async parameters => {
     const state = setup();
-    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("edit.video.extractFrames"), config: { parameters: {} }, incomingEdges: [{
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("edit.video.extractFrames"), config: { parameters }, incomingEdges: [{
       id: "video-reference", sourcePortId: "video", targetPortId: "video", sortOrder: 0, createdAt: new Date(), sourceNodeId: "input", sourceNode: {
         id: "input", kind: "input.video", configVersion: 1, config: { assetId: "video-reference" }, selectedOutputAssetId: null,
       },
@@ -236,7 +236,8 @@ describe("nodeExecutionService", () => {
     state.resolveAsset.mockResolvedValue({ type: "video", url: "https://signed.example/reference", mimeType: "video/mp4" });
     const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
     expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      type: "edit.video.extractFrames", expectedOutputCount: 2, parameters: {}, inputs: [{ assetId: "video-reference", portId: "video", sortOrder: 0 }],
+      type: "edit.video.extractFrames", expectedOutputCount: "timestampMs" in parameters ? 1 : 2, parameters,
+      inputs: [{ assetId: "video-reference", portId: "video", sortOrder: 0 }],
     }));
     expect(result.plan).toBeUndefined();
     expect(state.startOperationWorker).toHaveBeenCalledOnce();
@@ -244,15 +245,24 @@ describe("nodeExecutionService", () => {
     await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 })).rejects.toThrow("PROCESSOR_UNAVAILABLE");
     expect(state.createOperation).toHaveBeenCalledOnce();
   });
-  it.each(["startFrame", "endFrame"])("freezes the exact %s reference from a multi-port node", async sourcePortId => {
+  it.each([-1, 600_001, 1.25, NaN, Infinity, -Infinity, null, "1250"])("rejects invalid frame timestamp %s before admission", async timestampMs => {
+    const state = setup();
+    vi.mocked(state.repository.getOwnedNode).mockResolvedValue({ ...storedNode("edit.video.extractFrames"), config: { parameters: { timestampMs } } });
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }))
+      .rejects.toMatchObject({ code: "NODE_CONFIG_INVALID" });
+    expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.startOperationWorker).not.toHaveBeenCalled();
+  });
+  it.each(["startFrame", "endFrame", "frame"])("freezes the exact %s reference from a multi-port node", async sourcePortId => {
     const state = setup();
     vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
       ...storedNode(), incomingEdges: [{
         id: "reference", sourcePortId, targetPortId: "primary", sortOrder: 0, createdAt: new Date(),
         sourceNodeId: "frames", sourceNode: { id: "frames", kind: "edit.video.extractFrames", configVersion: 1,
-          config: { parameters: {} }, selectedOutputAssetId: "startFrame", outputs: [
+          config: { parameters: sourcePortId === "frame" ? { timestampMs: 1250 } : {} }, selectedOutputAssetId: "startFrame", outputs: [
             { portId: "startFrame", sortOrder: 0, assetId: "startFrame" },
             { portId: "endFrame", sortOrder: 0, assetId: "endFrame" },
+            { portId: "frame", sortOrder: 0, assetId: "frame" },
           ] },
       }],
     });
@@ -533,7 +543,7 @@ describe("nodeExecutionService", () => {
     expect(state.repository.getOwnedNode).toHaveBeenCalledTimes(1);
     expect(state.validateImage).toHaveBeenCalledWith(expect.objectContaining({initImages:["https://signed.example/fixed.png"]}));
   });
-  it("snapshots the cell slice for media operations despite its visual Split reference", async () => {
+  it("rejects hidden Resize even with a preserved cell slice and visual Split reference", async () => {
     const state = setup();
     const cell = {
       id: "cell", kind: "input.image", configVersion: 1, config: { assetId: "slice-2" }, selectedOutputAssetId: null,
@@ -556,12 +566,12 @@ describe("nodeExecutionService", () => {
     ]);
     state.resolveAsset.mockResolvedValue({ url: "https://signed.example/slice-2.png", bytes: "1024", width: 512, height: 512 });
 
-    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-
-    expect(result.plan?.inputs).toEqual([expect.objectContaining({ assetId: "slice-2" })]);
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      inputs: [expect.objectContaining({ assetId: "slice-2" })],
-    }));
+    const original = structuredClone(target);
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }))
+      .rejects.toMatchObject({ code: "NODE_CONFIG_INVALID", details: { node: ["NODE_TYPE_UNAVAILABLE"] } });
+    expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.repository.getAssets).not.toHaveBeenCalled();
+    expect(target).toEqual(original);
   });
 
   it("rejects a cyclic Input chain instead of falling back to a local asset", async () => {
@@ -608,7 +618,7 @@ describe("nodeExecutionService", () => {
     expect(submitImage).not.toHaveBeenCalled();
   });
 
-  it("rejects browser image operations whose verified input exceeds canvas limits", async () => {
+  it("rejects hidden Resize before inspecting image or canvas limits", async () => {
     const state = setup();
     vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
       ...storedNode("edit.image.resize"),
@@ -632,13 +642,14 @@ describe("nodeExecutionService", () => {
     await expect(state.service.execute("owner@example.com", "graph-1", "node-1", {
       expectedGraphVersion: 4,
     })).rejects.toMatchObject({
-      code: "NODE_INPUT_UNSUPPORTED",
-      details: { reason: "IMAGE_OPERATION_OUTPUT_LIMIT_EXCEEDED" },
+      code: "NODE_CONFIG_INVALID",
+      details: { node: ["NODE_TYPE_UNAVAILABLE"] },
     });
     expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.resolveAsset).not.toHaveBeenCalled();
   });
 
-  it("creates a server video Stitch operation from typed clip order and optional soundtrack", async () => {
+  it("rejects hidden Stitch despite valid typed clips and an optional soundtrack", async () => {
     const state = setup();
     const sourceNode = (id: string, kind: "input.video" | "input.audio", assetId: string) => ({
       id,
@@ -681,27 +692,18 @@ describe("nodeExecutionService", () => {
       url: `https://signed.example/${assetId}`,
     }));
 
-    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", {
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", {
       expectedGraphVersion: 4,
-    });
-
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({
-      type: "edit.video.stitch",
-      parameters: { repeat: 2, stripAudio: false, clipOrder: [] },
-      inputs: [
-        { assetId: "video-a", portId: "clips", sortOrder: 0 },
-        { assetId: "video-b", portId: "clips", sortOrder: 1 },
-        { assetId: "audio-1", portId: "soundtrack", sortOrder: 0 },
-      ],
-    }));
-    expect(result).toMatchObject({ mediaType: "video", plan: undefined });
-    expect(state.startOperationWorker).toHaveBeenCalledOnce();
+    })).rejects.toMatchObject({ code: "NODE_CONFIG_INVALID", details: { node: ["NODE_TYPE_UNAVAILABLE"] } });
+    expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.startOperationWorker).not.toHaveBeenCalled();
+    expect(state.repository.getAssets).not.toHaveBeenCalled();
   });
 
   it.each([
     ["edit.video.stitch", ["edge-b", "edge-a"]],
     ["edit.video.stitch", ["edge-soundtrack", "stale-edge", "asset-a", "input-a", "edge-b", "edge-b"]],
-  ] as const)("uses persisted filmstrip edge order for %s in server snapshots (%j)", async (kind, clipOrder) => {
+  ] as const)("rejects hidden %s before traversing saved filmstrip order (%j)", async (kind, clipOrder) => {
     const state = setup();
     const type = "video";
     const portId = "clips";
@@ -735,15 +737,14 @@ describe("nodeExecutionService", () => {
       url: `https://signed.example/${assetId}`, mimeType: assetId === "audio-1" ? "audio/mpeg" : mimeType,
       bytes: "256", width: 16, height: 16, durationMs: 1_000,
     }));
-    const result = await state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 });
-    const inputs: Array<{ assetId: string; portId: string; sortOrder: number }> = ["b", "a", "c"].map((suffix, sortOrder) => ({ assetId: `asset-${suffix}`, portId, sortOrder }));
-    inputs.push({ assetId: "audio-1", portId: "soundtrack", sortOrder: 0 });
-    expect(state.createOperation).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ inputs }));
-    expect(result.plan).toBeUndefined();
-    expect(state.startOperationWorker).toHaveBeenCalledOnce();
+    await expect(state.service.execute("owner@example.com", "graph-1", "node-1", { expectedGraphVersion: 4 }))
+      .rejects.toMatchObject({ code: "NODE_CONFIG_INVALID", details: { node: ["NODE_TYPE_UNAVAILABLE"] } });
+    expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.startOperationWorker).not.toHaveBeenCalled();
+    expect(state.repository.getAssets).not.toHaveBeenCalled();
   });
 
-  it("rejects a video Trim interval beyond the verified source duration", async () => {
+  it("rejects hidden Trim before verifying its saved interval against the source", async () => {
     const state = setup();
     vi.mocked(state.repository.getOwnedNode).mockResolvedValue({
       ...storedNode("edit.video.trim"),
@@ -768,10 +769,11 @@ describe("nodeExecutionService", () => {
     await expect(state.service.execute("owner@example.com", "graph-1", "node-1", {
       expectedGraphVersion: 4,
     })).rejects.toMatchObject({
-      code: "NODE_INPUT_UNSUPPORTED",
-      details: { reason: "VIDEO_OPERATION_INTERVAL_INVALID" },
+      code: "NODE_CONFIG_INVALID",
+      details: { node: ["NODE_TYPE_UNAVAILABLE"] },
     });
     expect(state.createOperation).not.toHaveBeenCalled();
+    expect(state.resolveAsset).not.toHaveBeenCalled();
   });
 
   it("rejects execution of a saved Audio Edit node without creating an operation", async () => {

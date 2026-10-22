@@ -17,9 +17,10 @@ export interface ReferenceAttachmentControl {
   limit: number;
   busy: boolean;
   canAdd: boolean;
-  attachFiles: (files: File[]) => Promise<void>;
+  attachFiles: (files: File[], guard?: () => boolean) => Promise<void>;
   canSelectAsset: (asset: MediaAssetDto) => boolean;
-  selectAsset: (asset: MediaAssetDto) => void | Promise<void>;
+  selectAsset: (asset: MediaAssetDto, guard?: () => boolean) => void | Promise<void>;
+  captureEditGuard?: () => () => boolean;
 }
 
 const ReferenceContext = createContext<{
@@ -44,6 +45,8 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null), trigger = useRef<HTMLButtonElement>(null);
+  const fileIntents = useRef<Map<string, (() => boolean) | undefined>>(new Map()), assetIntents = useRef<Map<string, (() => boolean) | undefined>>(new Map());
+  const capture = () => new Map([...controls.current.values()].map(control => [control.field.name, control.captureEditGuard?.()]));
   const notify = useCallback(() => {
     // Retain URL references; never serialize potentially large data URLs during rendering.
     const next = [...controls.current.values()].map(control=>({name:control.field.name,busy:control.busy,canAdd:control.canAdd,limit:control.limit,items:control.items}));
@@ -69,8 +72,10 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
       <input ref={input} type="file" className="sr-only" tabIndex={-1} multiple
         aria-label={ko ? "참조 자료 업로드" : "Upload references"}
         accept={fields.map(field=>field.media+"/*").join(",")} disabled={!canAdd}
+        onClick={() => { fileIntents.current = capture(); }}
         onChange={async event=>{
           const original=Array.from(event.target.files??[]);event.target.value="";
+          const guards=fileIntents.current;fileIntents.current=new Map();
           if (!canAdd || !original.length) return;
           const batch=new Map<ReferenceAttachmentControl,File[]>();
           for (const file of original) {
@@ -85,7 +90,7 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
             }
           }
           setError(null);
-          await Promise.all([...batch].map(([control,files])=>control.attachFiles(files)));
+          await Promise.all([...batch].map(([control,files])=>control.attachFiles(files,guards.get(control.field.name))));
         }}/>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <AppMediaActionButton disabled={!canAdd}
@@ -93,7 +98,7 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
           {busy ? <Loader2 className="size-4 animate-spin"/> : <Plus className="size-4"/>}{ko ? "업로드" : "Upload"}
         </AppMediaActionButton>
         <AppMediaActionButton ref={trigger} disabled={!canAdd}
-          aria-label={ko ? "참조 자료 에셋 선택" : "Choose reference assets"} onClick={()=>setOpenKey(key)}>
+          aria-label={ko ? "참조 자료 에셋 선택" : "Choose reference assets"} onClick={()=>{assetIntents.current=capture();setOpenKey(key);}}>
           <FolderOpen className="size-4"/>{ko ? "에셋" : "Assets"}
         </AppMediaActionButton>
         <span className="text-xs text-muted-foreground">{ko ? "참조 자료" : "References"}</span>
@@ -104,7 +109,7 @@ export function GenerationReferenceAttachments({fields, disabled = false, requir
     </div>
     {openKey === key && canAdd && <MediaAssetPicker open writable selectedUrls={snapshot.flatMap(control=>control.items)}
       canSelectAsset={asset=>!!controlFor(asset)} onOpenChange={open=>{if(!open)close();}}
-      onSelect={asset=>{const control=controlFor(asset);if(disabled||!control)return;void control.selectAsset(asset);close();}}/>}
+      onSelect={asset=>{const control=controlFor(asset);if(disabled||!control)return;const guard=assetIntents.current.get(control.field.name);if(!guard||guard())void control.selectAsset(asset,guard);close();}}/>}
   </ReferenceContext.Provider>;
 }
 

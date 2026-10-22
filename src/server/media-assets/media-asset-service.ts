@@ -2,6 +2,10 @@ import { logSafeError } from "@/server/observability/request-observability";
 import { mediaUploadLimits } from "@/shared/media-assets/media-upload-limits.mjs";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
+import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
+import { recordObject } from "@/server/generation-request/request-snapshot";
+import { historyPromptAuthoring } from "@/server/history/history-prompt-authoring";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
 import { encodeAssetCursor, usesAssetLibraryQuery } from "./asset-library-search";
 import { ZodError } from "zod";
 
@@ -157,6 +161,7 @@ async function toAssetDto(
   asset: MediaAssetRecord,
   storage: MediaStorageAdapter,
   resolvedUrl?: string,
+  inputPrompt?: string | null,
 ): Promise<MediaAssetDto> {
   let url: string;
   if (resolvedUrl) {
@@ -178,6 +183,7 @@ async function toAssetDto(
   return {
     imageVariants: parseImageVariants(asset.imageVariants),
     name: getMediaAssetName(asset),
+    ...(inputPrompt !== undefined ? { inputPrompt } : {}),
     displayName: asset.displayName ?? null,
     classification: asset.classification as MediaAssetDto["classification"] ?? null,
     referenceId: asset.referenceId ?? null,
@@ -238,12 +244,71 @@ const cleanupLifecycle = {
     queueStorageCleanup(undefined, input),
 };
 
+function needsAudioTextAlias(snapshot: Record<string, unknown>) {
+  return typeof recordObject(snapshot.promptProvenance).connectedPrompt !== "string" && !snapshot.promptPreset
+    && !(typeof snapshot.inputPrompt === "string" && snapshot.inputPrompt.length > 0)
+    && typeof recordObject(snapshot.cinema).sourcePrompt !== "string";
+}
+
+function audioInputPrompt(raw: unknown, finalPrompt: string, model?: Parameters<typeof getGradioContract>[0]): string | null {
+  const snapshot = recordObject(raw);
+  const connected = recordObject(snapshot.promptProvenance).connectedPrompt;
+  const authoring = historyPromptAuthoring(snapshot, finalPrompt).inputPrompt;
+  if (typeof connected === "string") return connected;
+  if (!needsAudioTextAlias(snapshot)) return authoring;
+
+  // Native audio workflows can have one Script/Dialogue input and no canonical
+  // prompt. Prefer the frozen contract and saved prompt aliases to identify that
+  // input. Older snapshots use the existing model contract when it is available.
+  const frozen = recordObject(snapshot.executionModel);
+  let contract: ReturnType<typeof getGradioContract>;
+  try { contract = getGradioContract(Object.keys(frozen).length ? frozen : model ?? {}); }
+  catch { return null; }
+  const canonical = contract?.inputs.find(field => field.canonical === "prompt");
+  const nativeText = contract?.inputs.filter(field => field.kind === "string" && !field.hidden && !field.choices?.length && !field.name.startsWith("advanced__"));
+  const aliasNames = Array.isArray(snapshot.promptFields)
+    ? snapshot.promptFields.filter((name): name is string => typeof name === "string") : [];
+  const aliases = canonical ? [canonical.name] : nativeText?.length === 1 ? [nativeText[0].name] : aliasNames;
+  const dynamic = recordObject(snapshot.dynamicParams);
+  for (const name of aliases) {
+    if (typeof dynamic[name] === "string") return dynamic[name];
+  }
+  if (contract && !canonical) return null;
+  if (!contract && Array.isArray(snapshot.promptFields) && !aliasNames.length
+    && Object.values(dynamic).some(value => typeof value === "string" && value.trim())) {
+    return typeof snapshot.inputPrompt === "string" ? snapshot.inputPrompt : null;
+  }
+  return authoring;
+}
+
 export function createMediaAssetService(
   repository: MediaAssetRepository = mediaAssetRepository,
   storage: MediaStorageAdapter = leemageMediaStorageAdapter,
   clock: () => Date = () => new Date(),
   cleanup: Pick<typeof cleanupLifecycle, "register" | "queue"> = cleanupLifecycle,
 ) {
+  async function audioInputPrompts(ownerEmail: string, assets: readonly MediaAssetRecord[]) {
+    const prompts = new Map(assets.filter(asset => asset.ownerEmail === ownerEmail && asset.type === "audio" && asset.status === "completed"
+      && (asset.origin === "generation" || asset.origin === "legacy_generation")).map(asset => [asset.id, null as string | null]));
+    if (!prompts.size) return prompts;
+    const sources = await repository.listAudioGenerationInputs(ownerEmail, [...prompts.keys()]);
+    const owned = sources.filter(source => source.assetId && prompts.has(source.assetId) && source.generation.ownerEmail === ownerEmail);
+    const needsCatalog = owned.some(({ generation }) => {
+      const snapshot = recordObject(generation.requestParams);
+      return needsAudioTextAlias(snapshot) && generation.modelKey && !Object.keys(recordObject(snapshot.executionModel)).length
+        && !(Array.isArray(snapshot.promptFields) && snapshot.promptFields.length)
+        && Object.values(recordObject(snapshot.dynamicParams)).some(value => typeof value === "string");
+    });
+    const models = needsCatalog ? await getModelCatalog({ includeInactive: true }) : [];
+    for (const source of owned) {
+      if (source.assetId) {
+        prompts.set(source.assetId, audioInputPrompt(source.generation.requestParams, source.generation.prompt,
+          models.find(model => model.type === "audio" && model.key === source.generation.modelKey)));
+      }
+    }
+    return prompts;
+  }
+
   async function cleanupTerminalOperationOutputs(ownerEmail: string, operationId: string) {
     const outputs = await repository.listTerminalOperationOutputs(ownerEmail, operationId);
     await Promise.all(outputs.map(async (asset) => {
@@ -514,6 +579,10 @@ export function createMediaAssetService(
         if (!isAllowedMediaMimeType(session.intendedType, inspected.detectedMimeType)) {
           throw new MediaVerificationError("MEDIA_MIME_MISMATCH");
         }
+        if (session.operation?.type === "edit.video.frameGrab" && !session.operation.graphNodeId
+          && (inspected.detectedMimeType !== "image/png" || inspected.isAnimated)) {
+          throw new MediaVerificationError("MEDIA_MIME_MISMATCH");
+        }
         if (
           (inspected.width !== null && inspected.width <= 0) ||
           (inspected.height !== null && inspected.height <= 0) ||
@@ -546,15 +615,17 @@ export function createMediaAssetService(
 
     async get(ownerEmail: string, assetId: string) {
       const asset = await repository.getAsset(ownerEmail, assetId);
-      return toAssetDto(asset, storage);
+      const prompts = await audioInputPrompts(ownerEmail, [asset]);
+      return toAssetDto(asset, storage, undefined, prompts.get(asset.id));
     },
 
     async list(ownerEmail: string, query: unknown): Promise<MediaAssetListDto> {
       const input = parse(() => listMediaAssetsSchema.parse(query));
       const records = await repository.listAssets(ownerEmail, input);
       const page = records.slice(0, input.limit);
+      const prompts = await audioInputPrompts(ownerEmail, page);
       return {
-        items: await Promise.all(page.map((asset) => toAssetDto(asset, storage))),
+        items: await Promise.all(page.map((asset) => toAssetDto(asset, storage, undefined, prompts.get(asset.id)))),
         nextCursor: records.length > input.limit && page.at(-1)
           ? usesAssetLibraryQuery(input) ? encodeAssetCursor(ownerEmail, input, page.at(-1)!) : page.at(-1)!.id
           : null,

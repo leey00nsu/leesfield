@@ -3,7 +3,7 @@ vi.mock("@/shared/api/reference-file-upload", async importOriginal => ({
   ...await importOriginal<typeof import("@/shared/api/reference-file-upload")>(),
   uploadReferenceFiles: (...args: unknown[]) => referenceUpload.run(...args),
 }));
-beforeEach(() => { referenceUpload.run.mockImplementation(async (files: File[]) => files.map(file => ({
+beforeEach(() => { referenceUpload.run.mockReset().mockImplementation(async (files: File[]) => files.map(file => ({
   id: file.name, type: file.type.split("/")[0], status: "completed", mimeType: file.type,
   url: "https://storage.example/" + file.name,
 }))); });
@@ -13,6 +13,7 @@ import { render, screen, fireEvent, waitFor, within, act } from "@testing-librar
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import type { MediaAssetDto, MediaType } from "@/shared/media-assets/media-asset-contract";
 import { GradioFileField } from "./gradio-file-field";
+import { GenerationReferenceAttachments } from "./generation-reference-attachments";
 import { GradioContractFields } from "./gradio-contract-fields";
 import type { GradioContract } from "@/shared/model-catalog/gradio-contract";
 const assetQuery = vi.hoisted(() => ({data:{pages:[{items:[] as MediaAssetDto[]}]},isLoading:false,isError:false,isFetching:false,hasNextPage:false,refetch:vi.fn(),fetchNextPage:vi.fn(),requested:vi.fn()}));
@@ -50,6 +51,39 @@ const contract: GradioContract = {
   reviewed: true,
 };
 describe("Gradio contract fields", () => {
+  it("rejects a file returned from an obsolete native chooser before uploading any bytes", () => {
+    let revision=0;
+    const captureEditGuard=()=>{const captured=revision;return()=>captured===revision;};
+    const onChange=vi.fn();
+    render(<GradioFileField label="Image" field={{...contract.inputs[1],media:"image"}} value={undefined} onChange={onChange} captureEditGuard={captureEditGuard}/>);
+    const input=screen.getByLabelText("시작 프레임") as HTMLInputElement;
+    fireEvent.click(input);revision++;revision++;
+    fireEvent.change(input,{target:{files:[new File(["png"],"old.png",{type:"image/png"})]}});
+    expect(referenceUpload.run).not.toHaveBeenCalled();expect(onChange).not.toHaveBeenCalled();
+  });
+  it.each([false,true])("keeps the chooser intent through binary confirmation (stale=%s)",async stale=>{
+    let revision=0,resolve!:(assets:MediaAssetDto[])=>void;
+    referenceUpload.run.mockReturnValueOnce(new Promise<MediaAssetDto[]>(done=>{resolve=done;}));
+    const captureEditGuard=()=>{const captured=revision;return()=>captured===revision;};
+    const onChange=vi.fn();
+    const view=render(<GradioFileField label="Image" field={{...contract.inputs[1],media:"image"}} value={undefined} onChange={onChange} captureEditGuard={captureEditGuard}/>);
+    const input=screen.getByLabelText("시작 프레임");fireEvent.click(input);
+    fireEvent.change(input,{target:{files:[new File(["png"],"file.png",{type:"image/png"})]}});
+    if(stale){revision++;revision++;}
+    else view.rerender(<GradioFileField label="Image" field={{...contract.inputs[1],media:"image"}} value={undefined} onChange={onChange} captureEditGuard={captureEditGuard}/>);
+    await act(async()=>{resolve([asset("uploaded")]);});
+    expect(onChange).toHaveBeenCalledTimes(stale?0:1);
+  });
+  it("guards a grouped Assets dialog from an A→B→A reference change",async()=>{
+    const user=userEvent.setup(),onChange=vi.fn(),image=asset("group-asset");let revision=0;
+    const captureEditGuard=()=>{const captured=revision;return()=>captured===revision;};
+    const fields=(["image","video"] as const).map(media=>({name:media,label:media,kind:"files" as const,media,required:false,nullable:false,schema:{maxItems:2}}));
+    assetQuery.data={pages:[{items:[image]}]};
+    render(<GenerationReferenceAttachments fields={fields}>{fields.map(field=><GradioFileField key={field.name} label={field.label} field={field} value={[]} onChange={onChange} captureEditGuard={captureEditGuard}/>)}</GenerationReferenceAttachments>);
+    await user.click(screen.getByRole("button",{name:"참조 자료 에셋 선택"}));revision++;revision++;
+    await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:image.id}));
+    expect(onChange).not.toHaveBeenCalled();expect(referenceUpload.run).not.toHaveBeenCalled();
+  });
   it("opens a separate declared audio section for videos and atomically moves/removes both arrays",async()=>{
     const user=userEvent.setup(),onChange=vi.fn();
     const fields:GradioContract["inputs"]=[{name:"clips",label:"Videos",kind:"files",media:"video",required:false,nullable:false,default:[],schema:{type:"array",items:{type:"string"},maxItems:3}},

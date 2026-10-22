@@ -5,10 +5,46 @@ import {
   canonicalNodeKinds,
   canonicalNodeRegistry,
   findPortDefinition,
+  generatedResultGalleryItemSchema,
+  resultSourceSchema,
   validateNodeConfig,
+  type GeneratedResultGalleryItem,
+  type ResultSourceSnapshot,
 } from "./node-registry";
 
 describe("canonical node registry", () => {
+  it("accepts an optional bounded integer frame timestamp without upgrading old configs", () => {
+    const legacy = { parameters: {} };
+    expect(validateNodeConfig("edit.video.extractFrames", 1, legacy)).toEqual({ supported: true, config: legacy });
+    for (const timestampMs of [0, 1, 1250, 600_000]) {
+      const config = { parameters: { timestampMs } };
+      expect(validateNodeConfig("edit.video.extractFrames", 1, config)).toEqual({ supported: true, config });
+    }
+    for (const timestampMs of [-1, 600_001, 0.5, NaN, Infinity, -Infinity, null, "1000", false]) {
+      expect(validateNodeConfig("edit.video.extractFrames", 1, { parameters: { timestampMs } }))
+        .toMatchObject({ supported: false, reason: "INVALID_NODE_CONFIG" });
+    }
+    expect(validateNodeConfig("edit.video.extractFrames", 1, { parameters: { at: 1 } }).supported).toBe(false);
+    expect(findPortDefinition("edit.video.extractFrames", "frame", "output"))
+      .toMatchObject({ valueType: "image", valueShape: "single", acceptedMimeTypes: ["image/png"] });
+    for (const port of ["startFrame", "endFrame"]) expect(findPortDefinition("edit.video.extractFrames", port, "output"))
+      .toMatchObject({ valueType: "image", valueShape: "single", acceptedMimeTypes: ["image/png", "image/webp"] });
+  });
+
+  it("preserves legacy Memo configs and accepts only an optional six-digit hex background color", () => {
+    const legacy = { text: "Saved note", size: { width: 510, height: 350 }, presentation: { customTitle: "My notes" } };
+    expect(validateNodeConfig("note.memo", 1, legacy)).toEqual({ supported: true, config: legacy });
+    for (const backgroundColor of ["#000000", "#ffffff", "#A1b2C3"]) {
+      expect(validateNodeConfig("note.memo", 1, { ...legacy, backgroundColor }))
+        .toEqual({ supported: true, config: { ...legacy, backgroundColor } });
+    }
+    for (const backgroundColor of [null, 123, "", "red", "#abc", "#12345678", "#gg1234", "#123456\n", "#123456; color: red", "url(https://example.test/image)", "#" + "f".repeat(20_000)]) {
+      expect(validateNodeConfig("note.memo", 1, { ...legacy, backgroundColor })).toMatchObject({ supported: false, reason: "INVALID_NODE_CONFIG" });
+    }
+    expect(validateNodeConfig("input.prompt", 1, { text: "Prompt", backgroundColor: "#123456" }).supported).toBe(false);
+    expect(validateNodeConfig("note.memo", 1, { ...legacy, color: "#123456" }).supported).toBe(false);
+  });
+
   it("accepts additive Cinema for image/video while preserving legacy and rejecting unknown/media-specific values", () => {
     const config = { prompt: "source", modelKey: "model", parameters: {} };
     const cinema = { ...defaultCinemaSettings(), lighting: "window" };
@@ -140,6 +176,91 @@ describe("canonical node registry", () => {
       mediaType: null,
       excludedAssetIds: [""],
     })).toMatchObject({ supported: false, reason: "INVALID_NODE_CONFIG" });
+  });
+
+  it("validates optional Gallery occurrence exclusions without changing old configs or single Outputs", () => {
+    const entry = { edgeId: "edge", assetId: "same", occurrence: 1 };
+    const config = { mediaType: null, excludedAssetIds: ["legacy"], excludedOccurrences: [entry], legacyExcludedEdgeIds: ["old-edge"] };
+    expect(validateNodeConfig("output.gallery", 1, config)).toEqual({ supported: true, config });
+    expect(validateNodeConfig("output.single", 1, config).supported).toBe(false);
+    for (const item of [{ ...entry, edgeId: "" }, { ...entry, assetId: "" }, { ...entry, occurrence: -1 },
+      { ...entry, occurrence: 0.5 }, { ...entry, occurrence: 2_000 }, { ...entry, extra: true }]) {
+      expect(validateNodeConfig("output.gallery", 1, { ...config, excludedOccurrences: [item] }).supported).toBe(false);
+    }
+    expect(validateNodeConfig("output.gallery", 1, { ...config, excludedOccurrences: Array(2_000).fill(entry) }).supported).toBe(true);
+    expect(validateNodeConfig("output.gallery", 1, { ...config, excludedOccurrences: Array(2_001).fill(entry) }).supported).toBe(false);
+    expect(validateNodeConfig("output.gallery", 1, { ...config, excludedOccurrences: null }).supported).toBe(false);
+    for (const legacyExcludedEdgeIds of [null, [""], Array(2_001).fill("edge")]) {
+      expect(validateNodeConfig("output.gallery", 1, { ...config, legacyExcludedEdgeIds }).supported).toBe(false);
+    }
+  });
+
+  it("preserves manual Galleries without adding a result snapshot or changing single Outputs", () => {
+    const legacy = { mediaType: "image", excludedAssetIds: ["hidden"], presentation: { customTitle: "References" } };
+    expect(validateNodeConfig("output.gallery", 1, legacy)).toEqual({ supported: true, config: legacy });
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: null }))
+      .toEqual({ supported: true, config: { mediaType: null, excludedAssetIds: [] } });
+    expect(validateNodeConfig("output.gallery", 1, { ...legacy, resultItems: [] }))
+      .toEqual({ supported: true, config: { ...legacy, resultItems: [] } });
+    expect(validateNodeConfig("output.single", 1, legacy)).toEqual({ supported: true, config: legacy });
+    expect(validateNodeConfig("output.single", 1, { ...legacy, resultItems: [] }).supported).toBe(false);
+  });
+
+  it("round-trips ordered frozen Gallery slots with pending, completed and terminal results", () => {
+    const source: ResultSourceSnapshot = { nodeId: "producer", executionId: "run", portId: "image", index: 0, state: "pending" };
+    const resultItems: GeneratedResultGalleryItem[] = [
+      { ...source, id: "slot-1", mediaType: "image", assetId: null },
+      { ...source, id: "slot-2", index: 1, outputCount: 2, state: "completed", mediaType: "image", assetId: "first-asset" },
+      { ...source, id: "slot-3", executionId: "later-run", portId: "video", state: "failed", mediaType: "video", assetId: null },
+      { ...source, id: "slot-4", executionId: null, portId: "audio", state: "cancelled", mediaType: "audio", assetId: null },
+    ];
+    const config = { mediaType: null, excludedAssetIds: ["first-asset"], resultItems };
+    expect(validateNodeConfig("output.gallery", 1, JSON.parse(JSON.stringify(config))))
+      .toEqual({ supported: true, config });
+    expect(generatedResultGalleryItemSchema.parse(resultItems[0])).toEqual(resultItems[0]);
+    expect(resultSourceSchema.parse(source)).toEqual(source);
+    expect(validateNodeConfig("input.image", 1, { assetId: null, resultSource: source }))
+      .toEqual({ supported: true, config: { assetId: null, resultSource: source } });
+  });
+
+  it.each([
+    ["empty slot ID", { id: "" }],
+    ["missing slot ID", { id: undefined }],
+    ["oversized slot ID", { id: "x".repeat(129) }],
+    ["empty source ID", { nodeId: " " }],
+    ["non-string execution ID", { executionId: 123 }],
+    ["missing execution ID", { executionId: undefined }],
+    ["empty port ID", { portId: "" }],
+    ["negative index", { index: -1 }],
+    ["out-of-range index", { index: 500 }],
+    ["fractional index", { index: 0.5 }],
+    ["negative output count", { outputCount: -1 }],
+    ["out-of-range output count", { outputCount: 501 }],
+    ["unknown state", { state: "processing" }],
+    ["unknown media type", { mediaType: "text" }],
+    ["empty asset ID", { assetId: "" }],
+    ["missing asset ID", { assetId: undefined }],
+    ["unknown field", { url: "https://example.test/asset" }],
+  ])("rejects a Gallery snapshot with %s", (_label, patch) => {
+    const item = { id: "slot", nodeId: "producer", executionId: null, portId: "image", index: 0,
+      state: "pending", mediaType: "image", assetId: null, ...patch };
+    expect(generatedResultGalleryItemSchema.safeParse(item).success).toBe(false);
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: "image", resultItems: [item] }).supported).toBe(false);
+  });
+
+  it("bounds result snapshots at 500 unique slots while retaining optional source output counts", () => {
+    const source: ResultSourceSnapshot = { nodeId: "producer", executionId: null, portId: "image", index: 0, state: "pending" };
+    expect(resultSourceSchema.parse({ ...source, outputCount: 0 })).toEqual({ ...source, outputCount: 0 });
+    expect(resultSourceSchema.parse({ ...source, index: 499, outputCount: 500 })).toEqual({ ...source, index: 499, outputCount: 500 });
+    expect(resultSourceSchema.safeParse({ ...source, id: "slot" }).success).toBe(false);
+    const resultItems = Array.from({ length: 500 }, (_, index) => ({ ...source,
+      id: `slot-${index}`, index, mediaType: "image", assetId: null }));
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: "image", resultItems }).supported).toBe(true);
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: "image",
+      resultItems: [...resultItems, { ...resultItems[0], id: "overflow-slot" }] }).supported).toBe(false);
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: "image",
+      resultItems: [resultItems[0], { ...resultItems[1], id: resultItems[0].id }] }).supported).toBe(false);
+    expect(validateNodeConfig("output.gallery", 1, { mediaType: "image", resultItems: null }).supported).toBe(false);
   });
 
   it("normalizes versioned video-operation parameters and keeps audio stripping explicit", () => {

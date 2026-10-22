@@ -81,7 +81,9 @@ describe.skipIf(!postgresIntegrationEnabled)("platform monitoring owner SQL boun
     await prisma.generationGraphNode.create({data:{id:nodeId,graphId,kind:"generate.assistant",x:0,y:0,configVersion:1,config:{}}});
     try {
       for (const status of ["completed","failed","cancelled"] as const) {
-        const data={requestId:randomUUID(),ownerEmail:owner,modelKey:"timing-test",prompt:"timing",status:"pending" as const,progress:0};
+        // Compare creation and trigger completion in the same database clock domain.
+        const [{createdAt}]=await prisma.$queryRaw<Array<{createdAt:Date}>>`SELECT clock_timestamp()::timestamp(3) AS "createdAt"`;
+        const data={requestId:randomUUID(),ownerEmail:owner,modelKey:"timing-test",prompt:"timing",status:"pending" as const,progress:0,createdAt};
         for (const table of ["ImageGeneration","VideoGeneration","AudioGeneration"] as const) {
           const delegate=table==="ImageGeneration"?prisma.imageGeneration:table==="VideoGeneration"?prisma.videoGeneration:prisma.audioGeneration;
           const row=await (delegate.create as typeof prisma.imageGeneration.create)({data});

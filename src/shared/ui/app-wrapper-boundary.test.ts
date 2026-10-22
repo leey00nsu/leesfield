@@ -182,9 +182,14 @@ describe("app-* design wrapper boundaries", () => {
     const allowedDirectRoleDialogs = [
       "src/shared/ui/generation-model-section.tsx",
       "src/screens/generation-history/ui/generation-history-screen.tsx",
+      // Nonmodal anchored editors/search keep the canvas available. Their own
+      // focus, IME, dismissal and keyboard behavior is covered by native tests.
+      "src/features/node-studio/ui/nodes/space-node-header.tsx",
+      "src/features/node-studio/ui/space-node-menu.tsx",
     ];
     const directRoleDialogOffenders = sourceFiles.flatMap((filePath) => {
       const relativePath = relative(process.cwd(), filePath);
+      if (/\.test\.tsx?$/.test(relativePath)) return []; // Mock dialog boundaries are not product surfaces.
       if (relativePath.endsWith("src/shared/ui/app-wrapper-boundary.test.ts")) {
         return [];
       }

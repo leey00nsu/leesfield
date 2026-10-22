@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { canonicalNodeRegistry } from "@/shared/generation-graph/node-registry";
 import { defaultConfigForKind } from "@/shared/generation-graph/node-default-config";
-import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
+import { isTemporarilyHiddenEditNodeKind, isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { externalSpaceUpdateSchema, nodeCapabilitySchema, spaceCapabilitiesResponseSchema, spaceModelInputResponseSchema } from "@/shared/api/spaces-contract";
 import { hasFfmpegVideoProcessor } from "@/server/media-operations/ffmpeg-video-processor";
 import { getExternalModelInput } from "./model-input";
@@ -15,7 +15,7 @@ export async function getSpaceCapabilities(hasVideoProcessor = hasFfmpegVideoPro
   return spaceCapabilitiesResponseSchema.parse({
     schemaVersion: 3, limits: { nodes: 500, edges: 2000, groups: 500 },
     graphSchema: z.toJSONSchema(externalSpaceUpdateSchema, { unrepresentable: "any" }),
-    nodes: Object.values(canonicalNodeRegistry).map(definition => {
+    nodes: Object.values(canonicalNodeRegistry).filter(definition => !isTemporarilyHiddenEditNodeKind(definition.kind)).map(definition => {
       const retired = isUnavailableEditNodeKind(definition.kind);
       const reason: z.infer<typeof nodeCapabilitySchema>["reason"] = retired ? "RETIRED"
         : definition.executionMode === "browser-operation" ? "BROWSER_ONLY"

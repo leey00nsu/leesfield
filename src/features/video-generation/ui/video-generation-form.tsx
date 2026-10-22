@@ -1,4 +1,5 @@
 "use client";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
@@ -424,7 +425,7 @@ function VideoGenerationFormContent({
               }
             >
               {hasResults && primaryVideo ? (
-                <video
+                <AppVideoPlayer
                   src={primaryVideo.url}
                   controls
                   className="relative z-10 h-full w-full object-contain"

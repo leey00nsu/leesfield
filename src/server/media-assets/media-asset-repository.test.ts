@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => {
     generationGraphNodeOutput: { deleteMany: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     generationGraphNode: { updateMany: vi.fn(), findFirst: vi.fn() },
   };
-  const prisma = { $transaction: vi.fn(), mediaAsset: { findFirst: vi.fn(), findMany: vi.fn() } };
+  const prisma = { $transaction: vi.fn(), mediaAsset: { findFirst: vi.fn(), findMany: vi.fn() }, audioGenerationAudio: { findMany: vi.fn() } };
   return { tx, prisma };
 });
 
@@ -33,6 +33,22 @@ import { mediaAssetRepository } from "./media-asset-repository";
 const now = new Date("2026-09-03T10:00:00.000Z");
 
 describe("asset source pagination", () => {
+  it("batches audio authoring while independently scoping the asset and parent generation owner", async () => {
+    mocks.prisma.audioGenerationAudio.findMany.mockResolvedValue([]);
+    await mediaAssetRepository.listAudioGenerationInputs("owner@example.com", ["audio_1", "audio_2", "audio_1"]);
+    expect(mocks.prisma.audioGenerationAudio.findMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        assetId: { in: ["audio_1", "audio_2"] },
+        asset: { ownerEmail: "owner@example.com", type: "audio", status: "completed", origin: { in: ["generation", "legacy_generation"] } },
+        generation: { ownerEmail: "owner@example.com" },
+      },
+      select: { assetId: true, generation: { select: { ownerEmail: true, prompt: true, requestParams: true, modelKey: true } } },
+    });
+    mocks.prisma.audioGenerationAudio.findMany.mockClear();
+    expect(await mediaAssetRepository.listAudioGenerationInputs("owner@example.com", [])).toEqual([]);
+    expect(mocks.prisma.audioGenerationAudio.findMany).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["uploads", { origin: "upload" }],
     ["generated", { origin: { in: ["generation", "legacy_generation"] } }],
@@ -285,8 +301,8 @@ describe("mediaAssetRepository", () => {
       type: "edit.image.removeBackground",
       graphNode: { id: "node_1", kind: "edit.image.removeBackground", configVersion: 1 },
       configVersion: 1,
-      parametersJson: {},
-      inputAssetIdsJson: ["source_1"],
+      parameters: {},
+      inputs: [{ assetId: "source_1", portId: "image", sortOrder: 0 }],
       expectedOutputCount: 1,
       status: "processing",
       progress: 10,
@@ -313,5 +329,43 @@ describe("mediaAssetRepository", () => {
       where: { id: "node_1" },
       data: { selectedOutputAssetId: "asset_1" },
     });
+  });
+
+  it("completes the frozen point mode into frame only and leaves legacy port bindings intact", async () => {
+    const operation = {
+      id: "op_1", ownerEmail: "owner@example.com", graphNodeId: "node_1", type: "edit.video.extractFrames",
+      configVersion: 1, parameters: { timestampMs: 1250 }, expectedOutputCount: 1, status: "processing",
+      graphNode: { id: "node_1", kind: "edit.video.extractFrames", configVersion: 1 },
+    };
+    mocks.tx.mediaOperation.findFirst.mockResolvedValue(operation);
+    expect(await mediaAssetRepository.completeServerOperation("owner@example.com", "op_1", [{
+      type: "image", outputPortId: "frame", sortOrder: 0, storageProvider: "leemage", storageObjectId: "file_1",
+      storageUrl: "https://storage.example/file_1", mimeType: "image/png", bytes: 33, width: 640, height: 360, durationMs: null,
+    }], now)).toEqual(["asset_1"]);
+    expect(mocks.tx.generationGraphNodeOutput.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: { graphNodeId: "node_1", portId: { in: ["frame"] } },
+    });
+    expect(mocks.tx.mediaOperationOutput.createMany).toHaveBeenCalledExactlyOnceWith({
+      data: [{ operationId: "op_1", portId: "frame", sortOrder: 0, assetId: "asset_1" }],
+    });
+    expect(mocks.tx.mediaAsset.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ ownerEmail: "owner@example.com", sourceOperationId: "op_1", mimeType: "image/png" }),
+    }));
+    expect(operation.parameters).toEqual({ timestampMs: 1250 });
+  });
+
+  it.each([{ timestampMs: 600_001 }, { timestampMs: null }, { unexpected: true }])("rejects an invalid frozen frame snapshot %j before publishing assets", async parameters => {
+    mocks.tx.mediaOperation.findFirst.mockResolvedValue({
+      id: "op_1", ownerEmail: "owner@example.com", graphNodeId: "node_1", type: "edit.video.extractFrames",
+      configVersion: 1, parameters, expectedOutputCount: 1, status: "processing",
+      graphNode: { id: "node_1", kind: "edit.video.extractFrames", configVersion: 1 },
+    });
+    await expect(mediaAssetRepository.completeServerOperation("owner@example.com", "op_1", [{
+      type: "image", outputPortId: "frame", sortOrder: 0, storageProvider: "leemage", storageObjectId: "file_1",
+      storageUrl: "https://storage.example/file_1", mimeType: "image/png", bytes: 33, width: 640, height: 360, durationMs: null,
+    }], now)).rejects.toBeInstanceOf(MediaOperationConflictError);
+    expect(mocks.tx.mediaAsset.create).not.toHaveBeenCalled();
+    expect(mocks.tx.mediaOperation.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphNodeOutput.deleteMany).not.toHaveBeenCalled();
   });
 });

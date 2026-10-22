@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { assetOrganizationRepository as repository } from "./asset-organization-repository";
-import { mediaAssetService } from "./media-asset-service";
+import { createMediaAssetService, mediaAssetService } from "./media-asset-service";
+import { mediaAssetRepository } from "./media-asset-repository";
 import { findAssetModelOptions } from "./asset-library-search";
 import { getAssetLibraryUsage } from "./asset-library-usage";
 
@@ -13,6 +14,8 @@ describe.skipIf(!postgresIntegrationEnabled)("asset organization operations and 
   const owner = `library-${suffix}@example.com`;
   const other = `foreign-library-${suffix}@example.com`;
   afterAll(async () => {
+    await prisma.generationGraph.deleteMany({ where: { ownerEmail: { in: [owner, other] } } });
+    await prisma.mediaCleanupTask.deleteMany({ where: { ownerEmail: { in: [owner, other] } } });
     await prisma.generationInputAsset.deleteMany({ where: { ownerEmail: owner } });
     await prisma.imageGeneration.deleteMany({ where: { ownerEmail: { in: [owner, other] } } });
     await prisma.videoGeneration.deleteMany({ where: { ownerEmail: { in: [owner, other] } } });
@@ -26,6 +29,22 @@ describe.skipIf(!postgresIntegrationEnabled)("asset organization operations and 
   });
   async function asset(name: string, createdAt: Date = new Date()) {
     return prisma.mediaAsset.create({ data: { ownerEmail: owner, type: "image", origin: "upload", displayName: name, originalFileName: "source.png", storageProvider: "leemage", storageObjectId: randomUUID(), storageUrl: "https://storage.example/source.png", mimeType: "image/png", createdAt } });
+  }
+  async function frozenGallery(assetId: string, graphOwner = owner) {
+    return prisma.generationGraph.create({
+      data: {
+        ownerEmail: graphOwner,
+        title: "Frozen Gallery reference",
+        nodes: { create: {
+          id: randomUUID(), kind: "output.gallery", x: 0, y: 0, configVersion: 1,
+          config: { mediaType: "image", excludedAssetIds: [], resultItems: [{
+            id: randomUUID(), nodeId: randomUUID(), executionId: randomUUID(),
+            portId: "image", index: 0, mediaType: "image", assetId, state: "completed",
+          }] },
+        } },
+      },
+      include: { nodes: true, edges: true },
+    });
   }
 
   it("filters null metadata and local-day UTC boundaries across pages and binds every new condition to cursors", async () => {
@@ -139,6 +158,59 @@ describe.skipIf(!postgresIntegrationEnabled)("asset organization operations and 
     expect(await getAssetLibraryUsage(owner, output.id)).toMatchObject({ inUse: true, generationRequestIds: ["subsequent-" + suffix] });
     await expect(getAssetLibraryUsage(other, output.id)).rejects.toThrow("MEDIA_ASSET_NOT_FOUND");
   });
+
+  it("counts frozen Gallery-only references for both usage queries within the asset owner", async () => {
+    const file = await asset("Frozen Gallery output");
+    // The producer ID in the snapshot has no remaining node, output binding or edge.
+    const graph = await frozenGallery(file.id);
+    await frozenGallery(file.id, other);
+    expect(graph.nodes.map(node => node.kind)).toEqual(["output.gallery"]);
+    expect(graph.edges).toEqual([]);
+
+    await expect(getAssetLibraryUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [graph.id], inUse: true });
+    await expect(mediaAssetRepository.getAssetUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [graph.id] });
+    await expect(getAssetLibraryUsage(other, file.id)).rejects.toThrow("MEDIA_ASSET_NOT_FOUND");
+    await expect(mediaAssetRepository.getAssetUsage(other, file.id)).rejects.toThrow("MEDIA_ASSET_NOT_FOUND");
+
+    await prisma.generationGraphNode.update({
+      where: { id: graph.nodes[0].id },
+      data: { config: { mediaType: "image", excludedAssetIds: [], resultItems: [] } },
+    });
+    // The other owner's matching snapshot remains, but cannot keep this asset in use.
+    await expect(getAssetLibraryUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [], inUse: false });
+    await expect(mediaAssetRepository.getAssetUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [] });
+
+    const input = await prisma.generationGraphNode.create({
+      data: { id: randomUUID(), graphId: graph.id, kind: "input.image", x: 0, y: 0, configVersion: 1, config: { assetId: file.id } },
+    });
+    await expect(getAssetLibraryUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [graph.id], inUse: true });
+    await expect(mediaAssetRepository.getAssetUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [graph.id] });
+    await prisma.generationGraphNode.delete({ where: { id: input.id } });
+  });
+
+  it("blocks removal before storage deletion until the sole Gallery reference is removed", async () => {
+    const file = await asset("Protected Gallery output");
+    const graph = await frozenGallery(file.id);
+    const storage = {
+      name: "leemage" as const,
+      assertAvailable: vi.fn(), presign: vi.fn(), confirm: vi.fn(),
+      inspect: vi.fn(), resolveReadUrl: vi.fn(), delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = createMediaAssetService(mediaAssetRepository, storage);
+
+    await expect(service.remove(owner, file.id)).rejects.toMatchObject({ name: "MediaAssetInUseError", graphIds: [graph.id] });
+    expect(storage.delete).not.toHaveBeenCalled();
+    await expect(prisma.mediaAsset.findUnique({ where: { id: file.id } })).resolves.toMatchObject({ status: "completed", storageUrl: file.storageUrl });
+    await expect(prisma.mediaCleanupTask.count({ where: { assetId: file.id } })).resolves.toBe(0);
+
+    await prisma.generationGraphNode.delete({ where: { id: graph.nodes[0].id } });
+    await expect(getAssetLibraryUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [], inUse: false });
+    await expect(mediaAssetRepository.getAssetUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [] });
+    await expect(service.remove(owner, file.id)).resolves.toBeUndefined();
+    expect(storage.delete).toHaveBeenCalledExactlyOnceWith(file.storageObjectId);
+    await expect(prisma.mediaAsset.findUnique({ where: { id: file.id } })).resolves.toMatchObject({ status: "failed", storageUrl: null });
+  });
+
   it("serializes competing folder and asset writes and keeps one winning version", async () => {
     const folder = await repository.createFolder(owner, { name: "Concurrent", parentId: null });
     const folders = await Promise.allSettled([

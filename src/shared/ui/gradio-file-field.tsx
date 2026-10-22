@@ -1,4 +1,6 @@
 "use client";
+import { AppAudioPlayer } from "./app-audio-player";
+import { AppVideoPlayer } from "./app-video-player";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocale } from "next-intl";
 import { FileUp, FolderOpen, Loader2, Plus, X, AudioLines, ChevronLeft, ChevronRight } from "lucide-react";
@@ -86,12 +88,13 @@ function NullableFileSlots(props: FileFieldProps) {
       onChange={value=>change(index,value)}/>)}</div>;
 }
 
-function DenseGradioFileField({ label, field, value, onChange, disabled = false, maxItems, previewLabel, getPreviewUrl, showAssetPicker = true, assetPickerTrigger, onSelectAsset, assetSelectable, independent, onChangeOrder, onUpload }: {
+function DenseGradioFileField({ label, field, value, onChange, disabled = false, maxItems, previewLabel, getPreviewUrl, showAssetPicker = true, assetPickerTrigger, onSelectAsset, assetSelectable, independent, onChangeOrder, onUpload, captureEditGuard }: {
   label: string;
   field: GradioContract["inputs"][number];
   value: unknown;
   onChange: (value: JsonValue | undefined) => void | Promise<void>;
   onUpload?: (assets: MediaAssetDto[], value: JsonValue | undefined) => void | Promise<void>;
+  captureEditGuard?: () => () => boolean;
   disabled?: boolean;
   maxItems?: number;
   previewLabel?: string;
@@ -113,6 +116,7 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
   const uploads = useReferenceUploads();
   const uploadController = useRef<AbortController | null>(null);
   const releaseUpload = useRef<(() => void) | null>(null);
+  const fileIntent = useRef<(() => boolean) | undefined>(undefined), assetIntent = useRef<(() => boolean) | undefined>(undefined);
   const context = useRef({disabled, onChange, onUpload, value, field, maxItems});
   useEffect(() => { context.current = {disabled, onChange, onUpload, value, field, maxItems}; }, [disabled, onChange, onUpload, value, field, maxItems]);
   useEffect(() => { active.current = true; return () => { active.current = false; uploadController.current?.abort(); releaseUpload.current?.(); }; }, []);
@@ -138,7 +142,8 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
     } catch { return false; }
   };
   const closeAssets = () => { setAssetContext(null); requestAnimationFrame(() => assetTrigger.current?.focus()); };
-  const attachFiles = async (files: File[]) => {
+  const attachFiles = async (files: File[], guard = captureEditGuard?.()) => {
+        if (guard && !guard()) return;
         if (!files.length || disabled || reading.current || limit === 0) return;
         if (files.length + (multiple ? items.length : 0) > limit) { setError(countMessage); return; }
         const originalValue = value;
@@ -152,7 +157,7 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
           const loaded = assets.map(asset => asset.url);
           const current = context.current;
           // Preserve independent option edits, discard replaced/reset attachment context.
-          if (!active.current || current.disabled || current.value !== originalValue || current.field.name !== originalField) return;
+          if (!active.current || current.disabled || current.value !== originalValue || current.field.name !== originalField || (guard && !guard())) return;
           const currentLimit = current.maxItems ?? fileFieldMaxItems(current.field);
           if (loaded.length + (multiple ? items.length : 0) > currentLimit) { setError(countMessage); return; }
           const next = multiple ? [...items, ...loaded] : loaded[0];
@@ -162,12 +167,12 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
         finally { releaseUpload.current?.(); releaseUpload.current = null; uploadController.current = null; reading.current = false; if (active.current) setBusy(false); }
   };
 
-  const selectAsset = (asset:MediaAssetDto) => {
-    if (!active.current || !canSelectAsset(asset)) return;
+  const selectAsset = (asset:MediaAssetDto, guard = assetIntent.current) => {
+    if (!active.current || !canSelectAsset(asset) || (guard && !guard())) return;
     setError(null);
     return onSelectAsset ? onSelectAsset(asset) : onChange(multiple ? [...items,asset.url] : asset.url);
   };
-  useEffect(()=>{group?.register({field,items,limit,busy,canAdd,attachFiles,canSelectAsset,selectAsset});});
+  useEffect(()=>{group?.register({field,items,limit,busy,canAdd,attachFiles,canSelectAsset,selectAsset,captureEditGuard});});
   useEffect(()=>()=>{group?.unregister(field.name);},[group,field.name]);
   return <div className="flex min-w-0 flex-col gap-3" data-attachment-field="">
     <input ref={input} type="file" className="sr-only" tabIndex={-1}
@@ -175,7 +180,8 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
       aria-label={label} aria-required={field.required}
       multiple={multiple && limit > 1} accept={field.media ? field.media + "/*" : "image/*,audio/*,video/*"}
       disabled={busy || disabled || limit === 0}
-      onChange={event=>{const files=Array.from(event.target.files??[]);event.target.value="";void attachFiles(files);}} />
+      onClick={() => { fileIntent.current = captureEditGuard?.(); }}
+      onChange={event=>{const files=Array.from(event.target.files??[]);event.target.value="";const guard=fileIntent.current;fileIntent.current=undefined;void attachFiles(files,guard);}} />
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       {!group && <AppMediaActionButton
         disabled={busy || disabled || limit === 0 || (multiple && items.length >= limit)}
@@ -188,7 +194,7 @@ function DenseGradioFileField({ label, field, value, onChange, disabled = false,
       {!group && showAssetPicker && <AppMediaActionButton ref={assetTrigger}
         disabled={!canAdd}
         aria-label={label + ": " + (ko ? "에셋 선택" : "Choose asset")}
-        onClick={() => setAssetContext({name:field.name,kind:field.kind,media:field.media})}>
+        onClick={() => { assetIntent.current=captureEditGuard?.(); setAssetContext({name:field.name,kind:field.kind,media:field.media}); }}>
         <FolderOpen className="size-4"/>{ko ? "에셋" : "Assets"}
       </AppMediaActionButton>}
       {!group && assetPickerTrigger}
@@ -281,7 +287,7 @@ function AttachmentMediaPreview({src,media,label}:{src:string;media:"video"|"aud
   return <AppAttachmentPreviewLink src={src} label={label} className="flex size-full items-center justify-center"
     onPointerEnter={event => { if (event.pointerType !== "touch") void start(); }} onPointerLeave={stop}
     onFocus={() => { void start(); }} onBlur={stop} onClick={stop}>
-    {media === "video" ? <video {...props} ref={element as React.RefObject<HTMLVideoElement>} muted loop playsInline className="size-full object-cover"/>
-      : <><audio {...props} ref={element as React.RefObject<HTMLAudioElement>} className="hidden"/><AudioLines data-playing={playing} className="size-6 text-muted-foreground data-[playing=true]:text-foreground"/></>}
+    {media === "video" ? <AppVideoPlayer {...props} src={src ?? ""} controls={false} ref={element as React.RefObject<HTMLVideoElement>} muted loop playsInline className="size-full object-cover"/>
+      : <><AppAudioPlayer {...props} src={src ?? ""} controls={false} ref={element as React.RefObject<HTMLAudioElement>} className="hidden"/><AudioLines data-playing={playing} className="size-6 text-muted-foreground data-[playing=true]:text-foreground"/></>}
   </AppAttachmentPreviewLink>;
 }

@@ -44,6 +44,7 @@ import {
 } from "./generation-graph-errors";
 import type { UpdateGenerationGraphInput } from "./generation-graph-contract";
 import { generationGraphRepository } from "./generation-graph-repository";
+import { temporarilyHiddenEditNodeKinds, unavailableEditNodeKinds } from "@/shared/generation-graph/node-availability";
 
 const now = new Date("2026-09-04T00:00:00.000Z");
 const graphRecord = {
@@ -91,7 +92,77 @@ const input: UpdateGenerationGraphInput = {
   }],
 };
 
+const frameOutputModes: { mode: string; parameters: Record<string, number>; activePort: string; inactivePort: string }[] = [
+  { mode: "timestamp start", parameters: { timestampMs: 0 }, activePort: "frame", inactivePort: "startFrame" },
+  { mode: "timestamp end", parameters: { timestampMs: 1500 }, activePort: "frame", inactivePort: "endFrame" },
+  { mode: "legacy", parameters: {}, activePort: "startFrame", inactivePort: "frame" },
+];
+
+function frameWrite(parameters: Record<string, number>): UpdateGenerationGraphInput {
+  const node = input.nodes[0];
+  return { ...input, nodes: [
+    ...["frames", "other-frames"].map(id => ({ ...node, id, kind: "edit.video.extractFrames", config: { parameters } })),
+    ...["compare", "other-compare"].map(id => ({ ...node, id, kind: "inspect.imageCompare", config: {} })),
+    { ...node, id: "gallery", kind: "output.gallery", config: { mediaType: "image" } },
+  ], edges: [] };
+}
+
+function storedFrameWrite(write: UpdateGenerationGraphInput) {
+  return { ...graphRecord, version: write.expectedVersion,
+    nodes: write.nodes.map(node => ({ ...node, x: node.position.x, y: node.position.y })),
+    edges: write.edges.map(edge => ({ ...edge, hasPause: edge.hasPause ?? false })),
+  };
+}
+
 describe("generationGraphRepository", () => {
+  it.each(frameOutputModes)("rejects a new $mode inactive output before any writes while allowing its active output", async ({ parameters, activePort, inactivePort }) => {
+    const draft = frameWrite(parameters);
+    const edge = { id: "new-frame-wire", sourceNodeId: "frames", sourcePortId: inactivePort, targetNodeId: "compare", targetPortId: "before", sortOrder: 0 };
+    mocks.tx.generationGraph.findFirst.mockResolvedValue({ ...graphRecord, version: 1 });
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", { ...draft, edges: [edge] }))
+      .rejects.toMatchObject({ name: "GenerationGraphInputError", details: { graph: "NODE_TYPE_UNAVAILABLE" } });
+    expect(mocks.tx.generationGraph.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphNode.createMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphEdge.createMany).not.toHaveBeenCalled();
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", { ...draft, edges: [{ ...edge, sourcePortId: activePort }] })).resolves.toBeDefined();
+    expect(mocks.tx.generationGraphEdge.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ sourcePortId: activePort })] });
+  });
+
+  it.each(frameOutputModes)("rejects every changed endpoint and a replacement ID for a $mode inactive output", async ({ parameters, activePort, inactivePort }) => {
+    const draft = frameWrite(parameters);
+    const edge = { id: "saved-frame-wire", sourceNodeId: "frames", sourcePortId: inactivePort, targetNodeId: "compare", targetPortId: "before", sortOrder: 0 };
+    for (const patch of [
+      { id: "replacement-wire" }, { sourceNodeId: "other-frames" }, { targetNodeId: "other-compare" }, { targetPortId: "after" },
+    ]) {
+      mocks.tx.generationGraph.findFirst.mockResolvedValue(storedFrameWrite({ ...draft, edges: [edge] }));
+      await expect(generationGraphRepository.update("owner@example.com", "graph_1", { ...draft, edges: [{ ...edge, ...patch }] }))
+        .rejects.toMatchObject({ details: { graph: "NODE_TYPE_UNAVAILABLE" } });
+    }
+    mocks.tx.generationGraph.findFirst.mockResolvedValue(storedFrameWrite({ ...draft, edges: [{ ...edge, sourcePortId: activePort }] }));
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", { ...draft, edges: [edge] }))
+      .rejects.toMatchObject({ details: { graph: "NODE_TYPE_UNAVAILABLE" } });
+    expect(mocks.tx.generationGraph.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it.each(frameOutputModes)("retains $mode inactive endpoints through mode, position, order and pause edits", async ({ parameters, inactivePort }) => {
+    const draft = frameWrite(parameters);
+    const edge = { id: "saved-frame-wire", sourceNodeId: "frames", sourcePortId: inactivePort, targetNodeId: "gallery", targetPortId: "image", sortOrder: 0, hasPause: false };
+    const previousParameters: Record<string, number> = inactivePort === "frame" ? { timestampMs: 250 } : {};
+    const previous = frameWrite(previousParameters);
+    mocks.tx.generationGraph.findFirst.mockResolvedValue(storedFrameWrite({ ...previous, edges: [edge] }));
+    mocks.tx.$executeRaw.mockResolvedValue(1);
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", {
+      ...draft, nodes: draft.nodes.map(node => node.id === "frames" ? { ...node, position: { x: 500, y: 100 } } : previous.nodes.find(old => old.id === node.id)!),
+      edges: [{ ...edge, sortOrder: 7, hasPause: true }],
+    })).resolves.toBeDefined();
+    expect(mocks.tx.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.tx.generationGraphNode.createMany).not.toHaveBeenCalled();
+    expect(mocks.tx.generationGraphEdge.createMany).not.toHaveBeenCalled();
+    mocks.tx.generationGraph.findFirst.mockResolvedValue(storedFrameWrite({ ...draft, edges: [edge] }));
+    await expect(generationGraphRepository.update("owner@example.com", "graph_1", { ...draft, title: "Unrelated save", edges: [edge] })).resolves.toBeDefined();
+  });
+
   it("preserves unsupported v2 Split payloads as read-only instead of interpreting their materialization", async () => {
     const config = { materialization: { opaqueFutureStructure: ["keep", 9] }, future: true };
     const source = { ...graphRecord, schemaVersion: 2, minimumWriterVersion: 2,
@@ -210,8 +281,8 @@ describe("generationGraphRepository", () => {
     });
   });
 
-  it("rejects new or edited retired nodes while allowing old nodes to remain or be deleted", async () => {
-    const legacy = { id: "old_annotation", kind: "edit.image.annotation", position: { x: 8, y: 9 },
+  it.each(unavailableEditNodeKinds)("rejects new or edited %s while allowing old nodes to remain or be deleted", async kind => {
+    const legacy = { id: "old_annotation", kind, position: { x: 8, y: 9 },
       configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: null };
     const stored = { ...legacy, x: legacy.position.x, y: legacy.position.y };
     mocks.tx.generationGraph.findFirst.mockResolvedValue({ version: 1, nodes: [stored], edges: [] });
@@ -240,9 +311,9 @@ describe("generationGraphRepository", () => {
     });
   });
 
-  it("preserves a retired node when copying existing Spaces without enabling new authoring", async () => {
+  it.each(unavailableEditNodeKinds)("preserves %s when copying existing Spaces without enabling new authoring", async kind => {
     mocks.tx.generationGraph.findFirst.mockResolvedValue({ ...graphRecord, nodes: [{
-      id: "old_annotation", kind: "edit.image.annotation", x: 8, y: 9,
+      id: "old_annotation", kind, x: 8, y: 9,
       configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: null,
     }] });
     mocks.tx.generationGraph.create.mockResolvedValue({ id: "copy-space" });
@@ -250,8 +321,28 @@ describe("generationGraphRepository", () => {
     mocks.tx.generationGraph.findUniqueOrThrow.mockResolvedValue({ ...graphRecord, id: "copy-space" });
     await generationGraphRepository.copy("owner@example.com", "graph_1");
     expect(mocks.tx.generationGraphNode.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
-      graphId: "copy-space", kind: "edit.image.annotation", config: { parameters: {} },
+      graphId: "copy-space", kind, config: { parameters: {} },
     }) }));
+  });
+
+  it.each(temporarilyHiddenEditNodeKinds)("returns stored %s data, wires and representative results without changing canonical rows", async kind => {
+    const source = { ...graphRecord, nodes: [{ id: "hidden", kind, x: 8, y: 9, configVersion: 1, config: { parameters: {} }, selectedOutputAssetId: "saved-result" },
+      { id: "result", kind: "input.video", x: 400, y: 9, configVersion: 1, config: { assetId: "saved-result" }, selectedOutputAssetId: "saved-result" }],
+      edges: [{ id: "saved-wire", sourceNodeId: "hidden", targetNodeId: "result", sourcePortId: kind === "edit.image.resize" ? "image" : "video", targetPortId: "video", sortOrder: 0, hasPause: true }] };
+    if (kind === "edit.image.resize") {
+      source.nodes[1].kind = "input.image";
+      source.edges[0].targetPortId = "reference";
+    }
+    const original = structuredClone(source);
+    mocks.prisma.generationGraph.findFirst.mockResolvedValue(source);
+    await expect(generationGraphRepository.get("owner@example.com", "graph_1")).resolves.toMatchObject({
+      writable: true, readOnlyReason: null, nodes: [
+        { id: "hidden", kind, config: { parameters: {} }, selectedOutputAssetId: "saved-result" },
+        { id: "result", config: { assetId: "saved-result" } },
+      ], edges: source.edges,
+    });
+    expect(source).toEqual(original);
+    expect(mocks.tx.generationGraph.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects future writers before any mutation", async () => {

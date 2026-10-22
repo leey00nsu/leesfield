@@ -1,0 +1,40 @@
+/* Prompt/Constructor geometry adapted from Node Banana. Copyright (c) 2026
+ * William Falloon. MIT License; full permission and warranty notice is retained
+ * in space-node-text.tsx alongside this stylesheet. */
+
+.body { position: relative; display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; min-height: 0; }
+.surface { min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.textEditor { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
+.textarea { display: block; flex: 1; width: 100%; height: 100%; min-height: 0; padding: 12px; resize: none; border: 0; border-radius: inherit; background: transparent; color: var(--foreground); font-size: 14px; line-height: 1.7142857; box-shadow: none; outline: none; }
+.textarea:focus-visible { border: 0; box-shadow: none; outline: none; }
+.textarea::placeholder { color: var(--muted-foreground); }
+.textarea:disabled { cursor: not-allowed; color: var(--muted-foreground); }
+.memo .textEditor { background: var(--memo-background-color, rgb(23 23 23 / 0.6)); }
+.memo .textarea { color: var(--memo-foreground, var(--foreground)); }
+.memo .textarea::placeholder { color: color-mix(in srgb, var(--memo-foreground, var(--muted-foreground)) 65%, transparent); }
+.footer { display: flex; flex: none; align-items: center; min-height: 27px; padding: 6px 12px; color: var(--muted-foreground); font-size: 10px; line-height: 15px; }
+.variableButton { height: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: rgb(96 165 250); font-size: 10px; line-height: 15px; box-shadow: none; }
+.variableButton:hover { background: transparent; color: rgb(147 197 253); }
+.variablePreview { color: rgb(96 165 250); font-size: 12px; }
+.variablePreview span { font-family: monospace; }
+.constructorEditor { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; height: 100%; border-radius: inherit; }
+.templateSurface { position: relative; display: flex; flex: 1; min-height: 0; border-radius: inherit; }
+.highlight { position: absolute; inset: 0; overflow: hidden; padding: 12px; border-radius: inherit; color: transparent; font-size: 14px; line-height: 1.7142857; white-space: pre-wrap; overflow-wrap: break-word; pointer-events: none; }
+.highlight mark { margin: 0 -2px; padding: 2px; border-radius: 2px; background: rgb(248 113 113 / 0.5); color: transparent; }
+.highlight mark[data-resolved="true"] { background: rgb(96 165 250 / 0.3); }
+.templateText { position: relative; }
+.constructorFooter { justify-content: space-between; gap: 8px; pointer-events: none; }
+.constructorFooter > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.missing { flex: none; color: rgb(248 113 113); white-space: nowrap; }
+.autocomplete { position: absolute; left: 10px; z-index: 20; max-width: calc(100% - 20px); max-height: 160px; overflow-y: auto; border: 1px solid rgb(82 82 82); border-radius: 4px; background: rgb(38 38 38); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); }
+.suggestion { display: flex; align-items: stretch; flex-direction: column; gap: 2px; width: 100%; height: auto; padding: 8px 12px; border-radius: 0; color: rgb(212 212 212); text-align: left; font-size: 11px; line-height: 16px; }
+.suggestion[aria-selected="true"], .suggestion:hover { background: rgb(64 64 64); color: rgb(245 245 245); }
+.suggestion span:first-child { color: rgb(96 165 250); font-weight: 500; }
+.suggestion span:last-child { overflow: hidden; max-width: 200px; color: rgb(115 115 115); text-overflow: ellipsis; white-space: nowrap; }
+.expandedDialog { display: flex; flex-direction: column; height: 85vh; max-height: 85vh; gap: 0; }
+.dialogHeader { padding: 24px 24px 16px; }
+.expandedSurface { display: flex; flex: 1; flex-direction: column; min-height: 0; margin: 0 24px 16px; overflow: hidden; border: 1px solid rgb(64 64 64); border-radius: 4px; background: rgb(23 23 23 / 0.3); }
+.fontToolbar { display: flex; flex: none; align-items: center; height: 48px; gap: 12px; padding: 0 16px; border-bottom: 1px solid rgb(64 64 64); background: rgb(23 23 23); }
+.expandedText, .expandedPadding { padding: 24px; }
+.expandedPadding { padding-bottom: 32px; }
+.dialogFooter { margin: 0; padding: 0 24px 24px; }

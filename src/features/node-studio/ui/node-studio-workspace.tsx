@@ -1,53 +1,41 @@
 "use client";
-import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
-import {contractInputPorts} from "@/shared/model-catalog/file-input-ports";
-import { projectNodePromptPresetInputs } from "../model/node-prompt-presets";
-import { imageUrlsFor } from "@/shared/media-assets/image-variants";
 
 import { useTranslations } from "next-intl";
-
-import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
-import { assistantTextForPort, assistantTextResult } from "@/shared/generation-graph/assistant-output";
-import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { useShallow } from "zustand/shallow";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { NodeBananaHostedHeader, CommentsNavigationIcon, clearThumbnailCache, ModelSearchDialog, NodeBananaUpstreamHostProvider, type NodeBananaCanvasSettings } from "@node-banana-runtime/runtime-entry";
-import { HostedQuickstart, HostedTutorial, type HostedPresetWorkflow } from "@node-banana-runtime/runtime-entry";
-import { nodeBananaLegacyTypeByCanonicalKind } from "../runtime/node-banana/node-banana-host-adapter";
 import { ChevronLeft } from "lucide-react";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { SpacePreferencesContext, useSpacePreferencesSession } from "../hook/use-space-preferences";
 import { SpaceCommentsContext, useSpaceCommentsSession } from "../hook/use-space-comments";
-import { nodeBananaCatalogModels } from "../runtime/node-banana/node-banana-model-catalog";
-
 import { cancelNodeExecution, listNodeExecutions } from "../api/node-execution-api";
 import { nodeExecutionKeys, nodeExecutionRefetchInterval, useStartNodeExecution } from "../hook/use-node-executions";
-import {
-  runBrowserImageOperation,
-  runPreparedAnnotationOperation,
-} from "../lib/browser-image-operation-runner";
-import { runBrowserVideoOperation } from "../lib/browser-video-operation-runner";
+import { runBrowserImageOperation } from "../lib/browser-image-operation-runner";
 import { getMediaAsset } from "@/features/media-assets/api/media-asset-api";
+import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import type { NodeExecutionDto } from "../model/node-execution-types";
-import { mediaAssetKeys, useMediaAssetList, useUploadMediaAsset } from "@/features/media-assets/hook/use-media-assets";
-import type { MediaAssetDto, MediaType } from "@/shared/media-assets/media-asset-contract";
-import { getMediaAssetContentUrl } from "@/shared/media-assets/media-asset-content";
 import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
+import { assistantTextResult } from "@/shared/generation-graph/assistant-output";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
-import {
-  resolveRuntimeImageMaxInputImages,
-  resolveRuntimeVideoSupportsInitImage,
-} from "@/shared/model-catalog/runtime-utils";
-
 import { useGraphAutosave, type GraphDraft, type GraphAutosaveStatus } from "../hook/use-graph-autosave";
 import { observeServerExecution, ExecutionSelectionTracker, generationInputIdentity } from "../model/server-execution-tracking";
 import { useGenerationEventChannelState } from "../model/generation-event-channel-context";
 import { GenerationEventChannelProvider } from "../hook/use-generation-event-channel";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
-import { canonicalDocumentToV3Draft, graphSnapshotToCanonicalDocument } from "../runtime/node-banana/node-banana-runtime-adapter";
-import { NodeBananaConfirmDialog } from "./node-banana-confirm-dialog";
+import { createSpaceEditorSession } from "../model/space-editor-store";
+import type { SpaceCanvasSettings } from "../model/space-editor-types";
+import { NodeExecutionReadContext } from "../model/node-execution-read-context";
+import type { SpacePresetWorkflow } from "../model/space-quickstart-types";
+import { SpaceWorkspaceHeader, SpaceCommentsNavigationIcon } from "./space-workspace-header";
+import { SpaceQuickstart } from "./space-quickstart";
+import { SpaceTutorial } from "./space-tutorial";
+import { SpaceModelBrowser } from "./space-model-browser";
+import { SpaceConfirmDialog } from "./space-confirm-dialog";
 import { NodeStudio } from "./node-studio";
-import { appendResultNodes, automaticResultPorts, bindResultNodes, reconcileResultNodes, resultSource } from "../model/generation-result-nodes";
+import type { SpaceEditorServices } from "./space-editor-provider";
+import { bindResultNodes, reconcileResultNodes, reserveResultNodes, unsubmittedResultIds } from "../model/generation-result-nodes";
 
 type NodeStudioWorkspaceProps = {
   graph: GenerationGraphSnapshotDto;
@@ -60,17 +48,11 @@ type NodeStudioWorkspaceProps = {
   onStatusChange?: (status: GraphAutosaveStatus) => void;
   onSelectGraph?: (graphId: string) => void;
   onCreateGraph?: (title: string) => void;
-  onCreatePreset?: (workflow: HostedPresetWorkflow | null, tutorial?: boolean) => Promise<void>;
+  onCreatePreset?: (workflow: SpacePresetWorkflow | null, tutorial?: boolean) => Promise<void>;
   tutorialActive?: boolean;
   onTutorialClose?: () => void;
   creating?: boolean;
   deleting?: boolean;
-};
-
-type ResolvedMediaAsset = {
-  assetId: string;
-  url: string;
-  asset: MediaAssetDto | null;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -79,43 +61,24 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function outputGalleryExcludedAssetIds(config: unknown) {
-  const excludedAssetIds = record(config).excludedAssetIds;
-  return Array.isArray(excludedAssetIds)
-    ? excludedAssetIds.filter((assetId): assetId is string => typeof assetId === "string" && assetId.length > 0)
-    : [];
-}
-
 function activeExecution(execution: NodeExecutionDto) {
   return execution.status === "pending" || execution.status === "processing" || execution.status === "uploading";
 }
+const noExecutions: NodeExecutionDto[] = [];
+function executionData(queries: Array<{ data?: NodeExecutionDto[] }>) { return queries.map(query => query.data ?? noExecutions); }
 
-async function dataUrlToFile(
-  dataUrl: string,
-  fileName: string,
-  mimeType: string | null,
-) {
-  if (!dataUrl.startsWith("data:")) throw new Error("UPSTREAM_MEDIA_DATA_URL_REQUIRED");
-  const response = await fetch(dataUrl);
-  if (!response.ok) throw new Error("UPSTREAM_MEDIA_DATA_URL_READ_FAILED");
-  const blob = await response.blob();
-  const type = mimeType || blob.type;
-  if (!type) throw new Error("UPSTREAM_MEDIA_MIME_TYPE_MISSING");
-  return new File([blob], fileName, { type });
-}
-
-const defaultCanvasSettings: NodeBananaCanvasSettings = {
+const defaultCanvasSettings: SpaceCanvasSettings = {
   panMode: "space",
   zoomMode: "altScroll",
   selectionMode: "click",
 };
 
-function loadCanvasSettings(): NodeBananaCanvasSettings {
+function loadCanvasSettings(): SpaceCanvasSettings {
   if (typeof window === "undefined") return defaultCanvasSettings;
   try {
     const saved = window.localStorage.getItem("node-studio.canvas-settings");
     if (!saved) return defaultCanvasSettings;
-    const value = JSON.parse(saved) as Partial<NodeBananaCanvasSettings>;
+    const value = JSON.parse(saved) as Partial<SpaceCanvasSettings>;
     return {
       panMode: value.panMode === "middleMouse" || value.panMode === "always" ? value.panMode : "space",
       zoomMode: value.zoomMode === "scroll" || value.zoomMode === "ctrlScroll" ? value.zoomMode : "altScroll",
@@ -131,61 +94,37 @@ export function NodeStudioWorkspace(props: NodeStudioWorkspaceProps) {
   return <GenerationEventChannelProvider graphId={props.graph.id}><NodeStudioWorkspaceContent key={props.graph.id} {...props} /></GenerationEventChannelProvider>;
 }
 
-function NodeStudioWorkspaceContent({
-  graph,
-  graphs,
-  activeGraphId,
-  onSaved,
-  onBack,
-  onDelete,
-  onReloadLatest,
-  onStatusChange,
-  onSelectGraph,
-  onCreateGraph,
-  onCreatePreset,
-  tutorialActive,
-  onTutorialClose,
-  creating,
-  deleting,
-}: NodeStudioWorkspaceProps) {
+function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onBack, onDelete, onReloadLatest, onStatusChange,
+  onSelectGraph, onCreateGraph, onCreatePreset, tutorialActive, onTutorialClose, creating, deleting }: NodeStudioWorkspaceProps) {
+  const [session] = useState(() => createSpaceEditorSession(graph));
+  const [initialDraft] = useState<GraphDraft>(() => session.getDocument());
+  const draft = useStore(session.store, state => state.document);
+  const writable = useStore(session.store, state => state.writable);
+  const writableRef = useRef(writable); writableRef.current = writable;
   const preferences = useSpacePreferencesSession(graph.id);
-  const writableRef = useRef(graph.writable !== false);
-  writableRef.current = graph.writable !== false;
-  useEffect(() => () => clearThumbnailCache(), [graph.id]);
-  const initialDraft = useMemo<GraphDraft>(
-    () => canonicalDocumentToV3Draft(graphSnapshotToCanonicalDocument(graph)),
-    [graph],
-  );
-  const [title, setTitle] = useState(graph.title);
-  const [quickstartOpen, setQuickstartOpen] = useState(false);
-  const draftRef = useRef(initialDraft);
-  const [draftRevision, setDraftRevision] = useState(0);
-  const titleRef = useRef(graph.title);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [reloadOpen, setReloadOpen] = useState(false);
-  const [leaveOpen, setLeaveOpen] = useState(false);
-  const pendingLeaveAction = useRef<(() => void) | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const [annotationNodeId, setAnnotationNodeId] = useState<string | null>(null);
-  const [hostError, setHostError] = useState<string | null>(null);
-  const operationControllers = useMemo(() => {
-    // A graph switch must dispose the previous graph's browser-owned work.
-    void graph.id;
-    return new Map<string, AbortController>();
-  }, [graph.id]);
+  const [title, setTitle] = useState(graph.title), [quickstartOpen, setQuickstartOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false), [reloadOpen, setReloadOpen] = useState(false), [leaveOpen, setLeaveOpen] = useState(false);
+  const pendingLeaveAction = useRef<(() => void) | null>(null), [leaving, setLeaving] = useState(false);
+  const [hostError, setHostError] = useState<string | null>(null), [canvasSettings, setCanvasSettings] = useState<SpaceCanvasSettings>(loadCanvasSettings);
+  const operationControllers = useMemo(() => new Map<string, AbortController>(), []);
+  const acceptedExecutionIds = useMemo(() => new Map<string, string>(), []);
+  const cancelledSubmissions = useMemo(() => new WeakSet<AbortController>(), []);
+  const observingRef = useRef(true), lifecycle = useRef<object | null>(null), onSavedRef = useRef(onSaved); onSavedRef.current = onSaved;
   useEffect(() => {
-    const abortOwnedOperations = () => {
-      operationControllers.forEach((controller) => controller.abort());
-      operationControllers.clear();
-    };
+    const token = {}; lifecycle.current = token; observingRef.current = true;
+    const abortOwnedOperations = () => { for (const controller of operationControllers.values()) controller.abort(); operationControllers.clear(); };
     window.addEventListener("pagehide", abortOwnedOperations);
     return () => {
-      window.removeEventListener("pagehide", abortOwnedOperations);
-      abortOwnedOperations();
+      observingRef.current = false; window.removeEventListener("pagehide", abortOwnedOperations); abortOwnedOperations();
+      queueMicrotask(() => { if (lifecycle.current === token) session.dispose(); });
     };
-  }, [operationControllers]);
-  const [assetOverrides, setAssetOverrides] = useState<Record<string, MediaAssetDto>>({});
-  const [canvasSettings, setCanvasSettings] = useState<NodeBananaCanvasSettings>(loadCanvasSettings);
+  }, [session, operationControllers]);
+  useLayoutEffect(() => { session.setAccess(graph.writable !== false, graph.readOnlyReason ?? null); }, [session, graph.writable, graph.readOnlyReason]);
+  const acknowledgeSaved = useCallback((saved: GenerationGraphSnapshotDto) => {
+    if (!observingRef.current || saved.id !== session.getSnapshot().id) return;
+    session.ack({ id: saved.id, version: saved.version, persistedNodeIds: saved.nodes.map(node => node.id), persistedEdgeIds: saved.edges.map(edge => edge.id), persistedGroupIds: saved.groups.map(group => group.id) });
+    onSavedRef.current(saved);
+  }, [session]);
   const runtimeCatalog = useRuntimeModelCatalog();
   const e2eBackgroundRemovalAvailable = process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_NODE_STUDIO_E2E_MOCK_BACKGROUND_REMOVAL === "1";
@@ -232,80 +171,60 @@ function NodeStudioWorkspaceContent({
       videoModels,
     ],
   );
-  const autosave = useGraphAutosave({
-    graphId: graph.id,
-    initialVersion: graph.version,
-    initialDraft,
-    onSaved,
-  });
-  const autosaveUpdateRef = useRef(autosave.update);
-  const autosaveSaveNowRef = useRef(autosave.saveNow);
-  const queryClient = useQueryClient();
-  const uploadMedia = useUploadMediaAsset();
-  const startExecution = useStartNodeExecution();
-  const eventChannelState = useGenerationEventChannelState();
-  const selectionTracker = useRef(new ExecutionSelectionTracker());
-  const repeatInputs = useRef(new Map<string, string>());
+  const autosave = useGraphAutosave({ graphId: graph.id, initialVersion: graph.version, initialDraft, onSaved: acknowledgeSaved });
+  const autosaveUpdateRef = useRef(autosave.update), autosaveSaveNowRef = useRef(autosave.saveNow), preserveSelectionRef = useRef(autosave.preserveSelection);
+  autosaveUpdateRef.current = autosave.update; autosaveSaveNowRef.current = autosave.saveNow; preserveSelectionRef.current = autosave.preserveSelection;
+  const queryClient = useQueryClient(), startExecution = useStartNodeExecution(), eventChannelState = useGenerationEventChannelState();
+  const selectionTracker = useRef(new ExecutionSelectionTracker()), repeatInputs = useRef(new Map<string, string>());
   const [repeatProgress, setRepeatProgress] = useState<Record<string, { completed: number; failed: number; total: number; running: boolean }>>({});
-  useEffect(() => {
-    for (const [id, identity] of repeatInputs.current) {
-      if (generationInputIdentity(draftRef.current, id) !== identity) operationControllers.get(id)?.abort();
-    }
-  }, [draftRevision, operationControllers]);
   const reconcileReadRef = useRef<(nodeId: string, executions: NodeExecutionDto[], read: ReturnType<ExecutionSelectionTracker["beginRead"]>) => void>(() => {});
-  const observingRef = useRef(true);
+  useLayoutEffect(() => session.subscribeDurable(event => {
+    if (event.origin === "user") for (const id of event.selectionNodeIds) selectionTracker.current.changed(id);
+    if (session.getSnapshot().writable) {
+      autosaveUpdateRef.current(event.document);
+      if (event.origin === "user") for (const id of event.selectionNodeIds) preserveSelectionRef.current?.(id);
+    }
+  }), [session]);
   useEffect(() => {
-    observingRef.current = true;
-    return () => { observingRef.current = false; };
-  }, []);
-  const preserveSelectionRef = useRef(autosave.preserveSelection);
-  preserveSelectionRef.current = autosave.preserveSelection;
-
-  const draftNodeIds = useMemo(
-    () => {
-      void draftRevision;
-      const persistedIds = new Set(graph.nodes.map(node => node.id));
-      return draftRef.current.nodes
-      .filter((node) => persistedIds.has(node.id) && findNodeDefinition(node.kind)?.executionMode !== "none")
-      .map((node) => node.id);
-    },
-    [draftRevision, graph.nodes],
-  );
-  const inputAssetIds = useMemo(
-    () => {
-      // `draftRef` is the single-writer snapshot; the revision and graph id
-      // deliberately invalidate this derived list without copying the draft
-      // into a second React state owner.
-      void draftRevision;
-      void graph.id;
-      return Array.from(new Set(
-        draftRef.current.nodes
-        .filter((node) => node.kind === "input.image" || node.kind === "input.audio" || node.kind === "input.video")
-        .map((node) => record(node.config).assetId)
-        .filter((assetId): assetId is string => typeof assetId === "string" && Boolean(assetId)),
-      ));
-    },
-    [draftRevision, graph.id],
-  );
+    for (const [id, identity] of repeatInputs.current) if (generationInputIdentity(draft, id) !== identity) operationControllers.get(id)?.abort();
+  }, [draft, operationControllers]);
+  useEffect(() => { onStatusChange?.(autosave.status); }, [autosave.status, onStatusChange]);
+  const updateDraft = useCallback((next: GraphDraft) => {
+    const result = session.applySystemTransaction(() => next);
+    if (!result.ok && !session.getSnapshot().disposed) setHostError(result.message);
+  }, [session]);
+  const prepareExecution = useCallback(async () => (await autosaveSaveNowRef.current()).version, []);
+  const readExecutions = useCallback(async (nodeId: string, signal: AbortSignal) => {
+    const read = selectionTracker.current.beginRead(nodeId), executions = await listNodeExecutions(graph.id, nodeId, signal);
+    signal.throwIfAborted();
+    if (observingRef.current) reconcileReadRef.current(nodeId, executions, read);
+    return executions;
+  }, [graph.id]);
+  const executionReader = useMemo(() => ({ graphId: graph.id, read: readExecutions }), [graph.id, readExecutions]);
+  const updateCanvasSettings = (next: SpaceCanvasSettings) => { setCanvasSettings(next); window.localStorage.setItem("node-studio.canvas-settings", JSON.stringify(next)); };
+  useEffect(() => {
+    const ids = unsubmittedResultIds(graph);
+    if (session.getSnapshot().writable && ids.length) updateDraft(bindResultNodes(session.getDocument(), ids, null, "cancelled"));
+    // Only the mount snapshot can contain an abandoned, unreceipted reservation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph.id]);
+  const draftNodeIds = useStore(session.store, useShallow(state => state.document.nodes
+    .filter(node => { const mode = findNodeDefinition(node.kind)?.executionMode; return state.persistedNodeIds.has(node.id) && mode && mode !== "none"; })
+    .map(node => node.id)));
   const executionQueries = useQueries({
     queries: draftNodeIds.map((nodeId) => ({
       queryKey: nodeExecutionKeys.list(graph.id, nodeId),
-      queryFn: async ({ signal }: { signal: AbortSignal }) => {
-        const read = selectionTracker.current.beginRead(nodeId);
-        const executions = await listNodeExecutions(graph.id, nodeId, signal);
-        signal.throwIfAborted();
-        if (observingRef.current) reconcileReadRef.current(nodeId, executions, read);
-        return executions;
-      },
+      queryFn: ({ signal }: { signal: AbortSignal }) => readExecutions(nodeId, signal),
       refetchInterval: (query: { state: { data?: NodeExecutionDto[]; status: string } }) =>
         query.state.data?.some((execution) => execution.executionKind === "assistant" && activeExecution(execution))
           ? 2_000 : nodeExecutionRefetchInterval(query.state.status === "error" ? undefined : query.state.data, eventChannelState),
       staleTime: 0,
     })),
+    combine: executionData,
   });
   const executionByNodeId = useMemo(
     () => new Map<string, NodeExecutionDto[]>(
-      draftNodeIds.map((nodeId, index) => [nodeId, executionQueries[index]?.data ?? []]),
+      draftNodeIds.map((nodeId, index) => [nodeId, executionQueries[index] ?? noExecutions]),
     ),
     [draftNodeIds, executionQueries],
   );
@@ -315,791 +234,79 @@ function NodeStudioWorkspaceContent({
       return completed?.outputText ? [[nodeId, assistantTextResult(completed.outputText, completed.outputItems, completed.selectedItemId ?? null)]] : [];
     }),
   ), [executionByNodeId]);
-  const mediaOutputs = useMemo(() => Object.fromEntries(draftRef.current.nodes.map(node => {
-    void draftRevision;
+  const mediaOutputs = useMemo(() => Object.fromEntries(draft.nodes.map(node => {
     const selected = (executionByNodeId.get(node.id) ?? []).find(execution =>
       execution.status === "completed" && node.selectedOutputAssetId &&
       execution.outputAssetIds.includes(node.selectedOutputAssetId));
     const explicitlyCleared = node.selectedOutputAssetId === null &&
       graph.nodes.find(original => original.id === node.id)?.selectedOutputAssetId != null;
     return [node.id, explicitlyCleared ? [] : selected?.outputBindings?.length ? selected.outputBindings :
-      (graph.outputBindings ?? []).filter(binding => binding.graphNodeId === node.id)];
-  })), [draftRevision, executionByNodeId, graph.nodes, graph.outputBindings]);
-  const executionOutputAssetIds = useMemo(
-    () => Array.from(new Set(
-      Array.from(executionByNodeId.values()).flatMap((executions) =>
-        executions.flatMap((execution) => execution.outputAssetIds),
-      ),
-    )),
-    [executionByNodeId],
-  );
+      (graph.outputBindings ?? []).filter(binding => binding.graphNodeId === node.id).map(({ portId, sortOrder, assetId }) => ({ portId, sortOrder, assetId }))];
+  })), [draft.nodes, executionByNodeId, graph.nodes, graph.outputBindings]);
+  const inputRuntime = useMemo(() => ({ assistantResults, mediaOutputs: new Map(Object.entries(mediaOutputs)) }), [assistantResults, mediaOutputs]);
+  useEffect(() => {
+    for (const [nodeId, executions] of executionByNodeId) {
+      const execution = executions[0];
+      if (execution) session.patchRuntime(nodeId, { execution });
+    }
+    for (const [nodeId, progress] of Object.entries(repeatProgress)) session.patchRuntime(nodeId, { repeatProgress: progress });
+  }, [session, executionByNodeId, repeatProgress]);
   const handleCancelNode = useCallback(async (nodeId: string) => {
-    if (graph.writable === false) return;
+    if (!session.getSnapshot().writable) return;
     try {
       // Explicit user recovery also works after a reload. Never infer that a
       // discovered active record is abandoned; another tab may still own it.
-      operationControllers.get(nodeId)?.abort();
-      const executions = await listNodeExecutions(graph.id, nodeId);
-      const active = executions.find((item) => activeExecution(item));
-      if (active) await cancelNodeExecution(graph.id, nodeId, active.executionId);
+      const owned = operationControllers.get(nodeId);
+      if (owned) cancelledSubmissions.add(owned);
+      owned?.abort();
+      // A just-accepted receipt is authoritative even while history is offline.
+      // After re-entry, recover the active ID from cache or a fresh server read.
+      const known = acceptedExecutionIds.get(nodeId) ?? queryClient.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, nodeId))?.find(activeExecution)?.executionId;
+      if (owned && !known) return; // A late admission cancels itself once its receipt arrives.
+      const executionId = known ?? (await listNodeExecutions(graph.id, nodeId)).find(activeExecution)?.executionId;
+      if (executionId) await cancelNodeExecution(graph.id, nodeId, executionId);
       operationControllers.get(nodeId)?.abort();
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     } catch (error) {
       setHostError(error instanceof Error ? error.message : "Could not cancel operation.");
     }
-  }, [graph.id, graph.writable, operationControllers, queryClient]);
-  const selectedOutputAssetIds = useMemo(
-    () => {
-      void draftRevision;
-      void graph.id;
-      return draftRef.current.nodes
-        .map((node) => node.selectedOutputAssetId)
-        .filter((assetId): assetId is string => typeof assetId === "string" && Boolean(assetId));
-    },
-    [draftRevision, graph.id],
-  );
-  const allAssetIds = useMemo(
-    () => Array.from(new Set([...inputAssetIds, ...executionOutputAssetIds, ...selectedOutputAssetIds,
-      ...Object.values(mediaOutputs).flatMap(bindings => bindings.flatMap(binding => binding.assetId ? [binding.assetId] : []))])),
-    [executionOutputAssetIds, inputAssetIds, selectedOutputAssetIds, mediaOutputs],
-  );
-  const assetQueries = useMediaAssetList(allAssetIds);
-  const missingAssetIds = useMemo(() => new Set(allAssetIds.filter((_, index) => { const error = assetQueries[index]?.error; return error && typeof error === "object" && "status" in error && error.status === 404; })), [allAssetIds, assetQueries]);
-  const resolvedAssets = useMemo(
-    () => new Map<string, MediaAssetDto>([
-      ...assetQueries.flatMap((query, index) => query.data && !missingAssetIds.has(allAssetIds[index]) ? [[allAssetIds[index], query.data] as const] : []),
-      ...Object.entries(assetOverrides).filter(([id]) => !missingAssetIds.has(id)),
-    ]),
-    [allAssetIds, assetOverrides, assetQueries, missingAssetIds],
-  );
-
-  useEffect(() => {
-    autosaveUpdateRef.current = autosave.update;
-    autosaveSaveNowRef.current = autosave.saveNow;
-  }, [autosave.saveNow, autosave.update]);
-
-  useEffect(() => {
-    onStatusChange?.(autosave.status);
-  }, [autosave.status, onStatusChange]);
-
-  const updateCanvasSettings = (next: NodeBananaCanvasSettings) => {
-    setCanvasSettings(next);
-    window.localStorage.setItem("node-studio.canvas-settings", JSON.stringify(next));
-  };
-
-  const updateDraft = useCallback((next: GraphDraft) => {
-    if (JSON.stringify(next) === JSON.stringify(draftRef.current)) return;
-    draftRef.current = next;
-    if (observingRef.current) setDraftRevision((revision) => revision + 1);
-    autosaveUpdateRef.current(next);
-  }, []);
-
-  useEffect(() => {
-    // A reservation without a server receipt cannot resume after a reload.
-    const ids = graph.nodes.filter(node => {
-      const source = resultSource(node.config);
-      return source?.state === "pending" && !source.executionId;
-    }).map(node => node.id);
-    if (graph.writable !== false && ids.length) updateDraft(bindResultNodes(draftRef.current, ids, null, "cancelled"));
-    // Only inspect the snapshot used at mount, never a live batch reservation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph.id]);
-
+  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, queryClient]);
   reconcileReadRef.current = (nodeId, executions, read) => {
-    const node = draftRef.current.nodes.find(candidate => candidate.id === nodeId);
+    const accepted = acceptedExecutionIds.get(nodeId);
+    if (executions.some(execution => execution.executionId === accepted && !activeExecution(execution))) acceptedExecutionIds.delete(nodeId);
+    const node = session.getDocument().nodes.find(candidate => candidate.id === nodeId);
     if (!node) return;
     try {
       for (const execution of executions) {
-        const next = reconcileResultNodes(draftRef.current, nodeId, execution);
-        if (next !== draftRef.current) updateDraft(next);
+        const next = reconcileResultNodes(session.getDocument(), nodeId, execution);
+        if (next !== session.getDocument()) updateDraft(next);
       }
     } catch (error) { setHostError(error instanceof Error ? error.message : "RESULT_NODE_LIMIT_EXCEEDED"); }
     const decision = selectionTracker.current.observe(nodeId, executions, read, node.selectedOutputAssetId);
     if (decision.preserve) preserveSelectionRef.current?.(nodeId);
     if (decision.selection !== undefined && decision.selection !== node.selectedOutputAssetId) {
-      updateDraft({ ...draftRef.current, nodes: draftRef.current.nodes.map(candidate => candidate.id === nodeId
+      updateDraft({ ...session.getDocument(), nodes: session.getDocument().nodes.map(candidate => candidate.id === nodeId
         ? { ...candidate, selectedOutputAssetId: decision.selection! } : candidate) });
     }
   };
 
-  const updateDraftNode = useCallback((nodeId: string, update: (node: GraphDraft["nodes"][number]) => GraphDraft["nodes"][number]) => {
-    const current = draftRef.current;
-    const node = current.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) throw new Error("UPSTREAM_NODE_NOT_FOUND");
-    updateDraft({
-      ...current,
-      nodes: current.nodes.map((candidate) => candidate.id === nodeId ? update(candidate) : candidate),
-    });
-  }, [updateDraft]);
-
-  const handleCanvasDraft = useCallback((next: GraphDraft) => {
-    next = { ...next, nodes: next.nodes.map(node => {
-      const previous = draftRef.current.nodes.find(item => item.id === node.id);
-      const source = resultSource(previous?.config);
-      const config = record(node.config);
-      if (!source) return node;
-      const incoming = (draft: GraphDraft) => draft.edges.filter(edge => edge.targetNodeId === node.id).map(edge => [edge.id, edge.sourceNodeId, edge.sourcePortId]);
-      if (JSON.stringify(incoming(draftRef.current)) !== JSON.stringify(incoming(next))) {
-        const ordinaryConfig = { ...config };
-        delete ordinaryConfig.resultSource;
-        return { ...node, config: ordinaryConfig };
-      }
-      if (record(previous?.config).assetId !== config.assetId) {
-        return { ...node, config: { ...config, resultSource: { ...source, executionId: null,
-          state: typeof config.assetId === "string" ? "completed" : "cancelled" } } };
-      }
-      return node;
-    }) } as GraphDraft;
-    for (const node of next.nodes) {
-      const previous = draftRef.current.nodes.find(candidate => candidate.id === node.id);
-      if (previous && previous.selectedOutputAssetId !== node.selectedOutputAssetId) {
-        selectionTracker.current.changed(node.id);
-      }
-    }
-    updateDraft({ ...next, title: titleRef.current });
-  }, [updateDraft]);
-  const prepareExecution = useCallback(async () => {
-    const saved = await autosaveSaveNowRef.current();
-    return saved.version;
-  }, []);
-
-  const latestOutputAssetsForNode = useCallback((nodeId: string) => {
-    const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
-    // The canonical selection is the only output projected as the node's
-    // current value. Execution history remains available through
-    // outputHistoryAssetsForNode for history/carousel UI, but must not leak
-    // back into downstream inputs after the user clears the selection.
-    const selectedId = node?.selectedOutputAssetId;
-    if (!selectedId) return [];
-    return [selectedId].flatMap((assetId) => {
-      const asset = resolvedAssets.get(assetId);
-      return asset ? [asset] : [];
-    });
-  }, [resolvedAssets]);
-
-  const outputHistoryAssetsForNode = useCallback((nodeId: string) => {
-    const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
-    const executions = executionByNodeId.get(nodeId) ?? [];
-    const historyIds = executions
-      .filter((execution) => execution.status === "completed")
-      .flatMap((execution) => execution.outputAssetIds);
-    const selectedId = node?.selectedOutputAssetId;
-    const ids = selectedId && !historyIds.includes(selectedId)
-      ? [selectedId, ...historyIds]
-      : historyIds;
-    return Array.from(new Set(ids)).flatMap((assetId) => {
-      const asset = resolvedAssets.get(assetId);
-      return asset ? [asset] : [];
-    });
-  }, [executionByNodeId, resolvedAssets]);
-
-  const currentOutputAssetsForPort = useCallback((nodeId: string, portId: string) => {
-    const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
-    if (node && mediaOutputPorts(node.kind).length > 1) {
-      return mediaAssetIdsForPort(node.kind, portId, node.selectedOutputAssetId, mediaOutputs[nodeId])
-        .flatMap(id => resolvedAssets.get(id) ? [resolvedAssets.get(id)!] : []);
-    }
-    const outputPort = node
-      ? findNodeDefinition(node.kind)?.ports.find((port) => port.direction === "output" && port.id === portId)
-      : null;
-    if (node?.selectedOutputAssetId && outputPort?.valueShape === "ordered-list") {
-      const selectedExecution = (executionByNodeId.get(nodeId) ?? []).find((execution) =>
-        execution.status === "completed" &&
-        execution.outputAssetIds.includes(node.selectedOutputAssetId as string),
-      );
-      const collection = selectedExecution?.outputAssetIds.flatMap((assetId) => {
-        const asset = resolvedAssets.get(assetId);
-        return asset ? [asset] : [];
-      }) ?? [];
-      if (collection.length > 0) return collection;
-    }
-    return latestOutputAssetsForNode(nodeId);
-  }, [executionByNodeId, latestOutputAssetsForNode, resolvedAssets, mediaOutputs]);
-
-  const resolveUpstreamMediaValues = useCallback((nodeId: string, portId: string): string[] => {
-    const resolve = (currentNodeId: string, currentPortId: string, visited: Set<string>): string[] => {
-      const visitKey = `${currentNodeId}:${currentPortId}`;
-      if (visited.has(visitKey)) return [];
-      const nextVisited = new Set(visited).add(visitKey);
-      const node = draftRef.current.nodes.find((candidate) => candidate.id === currentNodeId);
-      if (!node) return [];
-      const config = record(node.config);
-      const incomingEdges = (targetPortId = currentPortId) => draftRef.current.edges
-        .filter((edge) => edge.targetNodeId === currentNodeId && edge.targetPortId === targetPortId)
-        .sort((left, right) => left.sortOrder - right.sortOrder);
-      const incoming = (targetPortId = currentPortId) => incomingEdges(targetPortId)
-        .flatMap((edge) => resolve(edge.sourceNodeId, edge.sourcePortId, nextVisited));
-      if (node.kind === "input.image" && (currentPortId === "image" || currentPortId === "reference")) {
-        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
-        if (incomingEdges("reference").length > 0) return incoming("reference");
-        const assetId = typeof config.assetId === "string" ? config.assetId : null;
-        const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
-        return direct ? [direct] : [];
-      }
-      if (node.kind === "input.audio" && currentPortId === "audio") {
-        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
-        if (incomingEdges("audio").length > 0) return incoming("audio");
-        const assetId = typeof config.assetId === "string" ? config.assetId : null;
-        const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
-        return direct ? [direct] : [];
-      }
-      if (node.kind === "input.video" && currentPortId === "video") {
-        if (resultSource(config)) return typeof config.assetId === "string" && resolvedAssets.has(config.assetId) ? [getMediaAssetContentUrl(config.assetId)] : [];
-        if (incomingEdges("video").length > 0) return incoming("video");
-        const assetId = typeof config.assetId === "string" ? config.assetId : null;
-        const direct = assetId && resolvedAssets.has(assetId) ? getMediaAssetContentUrl(assetId) : null;
-        return direct ? [direct] : [];
-      }
-      if (node.kind === "process.promptConstructor" && currentPortId === "text") {
-        try { const text = resolveGraphText(draftRef.current, currentNodeId, new Set(), assistantResults); return text ? [text] : []; } catch { return []; }
-      }
-      if (node.kind === "generate.assistant" && ["text", "item"].includes(currentPortId)) {
-        const text = assistantTextForPort(assistantResults[currentNodeId], currentPortId);
-        return text ? [text] : [];
-      }
-      if (node.kind === "input.prompt" && (currentPortId === "text" || currentPortId === "prompt")) {
-        if (incomingEdges("text").length > 0) return incoming("text");
-        const text = config.text;
-        return typeof text === "string" && text ? [text] : [];
-      }
-      if (node.kind === "output.single" || node.kind === "output.gallery") return incoming();
-      const outputAssets = currentOutputAssetsForPort(currentNodeId, currentPortId);
-      if (outputAssets.length > 0) return outputAssets.map((asset) => getMediaAssetContentUrl(asset.id));
-      return [];
-    };
-    return resolve(nodeId, portId, new Set());
-  }, [assistantResults, currentOutputAssetsForPort, resolvedAssets]);
-
-  const resolveUpstreamMediaAssets = useCallback((nodeId: string, portId: string): ResolvedMediaAsset[] => {
-    const resolve = (currentNodeId: string, currentPortId: string, visited: Set<string>): ResolvedMediaAsset[] => {
-      const visitKey = `${currentNodeId}:${currentPortId}`;
-      if (visited.has(visitKey)) return [];
-      const nextVisited = new Set(visited).add(visitKey);
-      const node = draftRef.current.nodes.find((candidate) => candidate.id === currentNodeId);
-      if (!node) return [];
-      const config = record(node.config);
-      const incomingEdges = (targetPortId = currentPortId) => draftRef.current.edges
-        .filter((edge) => edge.targetNodeId === currentNodeId && edge.targetPortId === targetPortId)
-        .sort((left, right) => left.sortOrder - right.sortOrder);
-      const incoming = (targetPortId = currentPortId) => incomingEdges(targetPortId)
-        .flatMap((edge) => resolve(edge.sourceNodeId, edge.sourcePortId, nextVisited));
-      const inputAsset = (targetPortId: string) => {
-        if (!resultSource(config) && incomingEdges(targetPortId).length > 0) return incoming(targetPortId);
-        const assetId = typeof config.assetId === "string" ? config.assetId : null;
-        return assetId ? [{
-          assetId,
-          url: getMediaAssetContentUrl(assetId),
-          asset: resolvedAssets.get(assetId) ?? null,
-        }] : [];
-      };
-      if (node.kind === "input.image" && (currentPortId === "image" || currentPortId === "reference")) {
-        return inputAsset("reference");
-      }
-      if (node.kind === "input.audio" && currentPortId === "audio") return inputAsset("audio");
-      if (node.kind === "input.video" && currentPortId === "video") return inputAsset("video");
-      if (node.kind === "input.prompt" && (currentPortId === "text" || currentPortId === "prompt")) return [];
-      if (node.kind === "output.single" || node.kind === "output.gallery") return incoming();
-      const outputAssets = currentOutputAssetsForPort(currentNodeId, currentPortId);
-      if (outputAssets.length > 0) {
-        return outputAssets.map((asset) => ({
-          assetId: asset.id,
-          url: getMediaAssetContentUrl(asset.id),
-          asset,
-        }));
-      }
-      return [];
-    };
-    return resolve(nodeId, portId, new Set());
-  }, [currentOutputAssetsForPort, resolvedAssets]);
-
-  const imagePresentations = useMemo(() => Object.fromEntries([...resolvedAssets.values()].filter(asset => asset.type === "image" && asset.imageVariants).flatMap(asset => {
-    const roles = {list: imageUrlsFor(asset, "list"), display: imageUrlsFor(asset, "display")};
-    return [[asset.url, roles], [getMediaAssetContentUrl(asset.id), roles]];
-  })), [resolvedAssets]);
-
-  const resolveUpstreamNodeData = useCallback((nodeId: string, runtimeData: Record<string, unknown>) => {
-    const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) return null;
-    const config = record(node.config);
-    const executions = executionByNodeId.get(nodeId) ?? [];
-    const latest = executions[0];
-    const outputAssets = latestOutputAssetsForNode(nodeId);
-    const outputHistoryAssets = outputHistoryAssetsForNode(nodeId);
-    const selectedOutputAsset = node.selectedOutputAssetId
-      ? resolvedAssets.get(node.selectedOutputAssetId)
-      : null;
-    const outputUrls = outputAssets.map((asset) => getMediaAssetContentUrl(asset.id));
-    const primaryOutputAsset = selectedOutputAsset ?? outputAssets[0] ?? null;
-    const selectedOutputUrl = selectedOutputAsset ? getMediaAssetContentUrl(selectedOutputAsset.id) : null;
-    const selectedHistoryIndex = selectedOutputAsset
-      ? outputHistoryAssets.findIndex((asset) => asset.id === selectedOutputAsset.id)
-      : -1;
-    const inputAssetId = typeof config.assetId === "string" ? config.assetId : null;
-    const inputAsset = inputAssetId ? resolvedAssets.get(inputAssetId) : null;
-    const result = resultSource(config);
-    const resultExecution = result?.executionId ? executionByNodeId.get(result.nodeId)?.find(item => item.executionId === result.executionId) : null;
-    const resultQuery = result?.executionId ? queryClient.getQueryState(nodeExecutionKeys.list(graph.id, result.nodeId)) : null;
-    const resultStatus = result?.state === "pending" ? resultExecution?.status ??
-      (operationControllers.has(result.nodeId) || resultQuery?.status === "pending" || resultQuery?.fetchStatus === "fetching" ? "pending" : "failed") : result?.state;
-    const repetition = repeatProgress[nodeId];
-    const executionPatch = latest
-      ? {
-          executionStatus: repetition?.running ? "processing" : latest.status,
-          executionProgress: 0,
-          executionCreatedAt: latest.createdAt,
-          executionFinishedAt: latest.finishedAt ?? null,
-          error: latest.errorCode,
-        }
-      : {};
-    const incomingValues = (targetNodeId: string, targetPortId: string) => draftRef.current.edges
-      .filter((edge) => edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId)
-      .sort((left, right) => left.sortOrder - right.sortOrder)
-      .flatMap((edge) => resolveUpstreamMediaValues(edge.sourceNodeId, edge.sourcePortId));
-    const incomingMediaAssets = (targetNodeId: string, targetPortId: string) => draftRef.current.edges
-      .filter((edge) => edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId)
-      .sort((left, right) => left.sortOrder - right.sortOrder)
-      .flatMap((edge) => resolveUpstreamMediaAssets(edge.sourceNodeId, edge.sourcePortId));
-
-    // A canonical `modelKey: null` is an explicit cleared placeholder. Only
-    // consult legacy runtime data when the canonical config never had a model
-    // key; otherwise a stale upstream selection can be resurrected here.
-    const modelKey = Object.hasOwn(config, "modelKey")
-      ? typeof config.modelKey === "string" && config.modelKey.length > 0
-        ? config.modelKey
-        : null
-      : typeof runtimeData.modelKey === "string" && runtimeData.modelKey.length > 0
-        ? runtimeData.modelKey
-        : null;
-    const modelCatalogEntry = node.kind === "generate.image"
-      ? imageModels.find((model) => model.key === modelKey)
-      : node.kind === "generate.video"
-        ? videoModels.find((model) => model.key === modelKey)
-        : node.kind === "generate.audio"
-          ? audioModels.find((model) => model.key === modelKey)
-          : undefined;
-    const currentSelectedModel = record(runtimeData.selectedModel);
-    const selectedModel = modelKey
-      ? {
-          ...currentSelectedModel,
-          provider: modelCatalogEntry?.provider
-            ?? (currentSelectedModel.modelId === modelKey && typeof currentSelectedModel.provider === "string"
-              ? currentSelectedModel.provider
-              : node.kind === "generate.image" ? "gemini" : "fal"),
-          // The canonical key is authoritative. A runtime selected model can
-          // lag one render behind a model/provider switch and must not leak its
-          // old ID into the upstream component.
-          modelId: modelKey,
-          displayName: modelCatalogEntry?.label
-            ?? (currentSelectedModel.modelId === modelKey && typeof currentSelectedModel.displayName === "string" && currentSelectedModel.displayName.length > 0
-              ? currentSelectedModel.displayName
-              : modelKey),
-        }
-      : undefined;
-    const configuredParameters = record(config.parameters);
-    const contract = modelCatalogEntry ? getGradioContract(modelCatalogEntry) : null;
-    const declaredPorts = modelCatalogEntry ? contractInputPorts(modelCatalogEntry) : undefined;
-    const hasLegacyImage = draftRef.current.edges.some(e=>e.targetNodeId===nodeId&&["primary","references","initImage"].includes(e.targetPortId));
-    const singleImage = declaredPorts?.filter(p=>p.type==="image").length===1;
-    let providerInputSchema = declaredPorts?.map(p=>singleImage&&p.type==="image"?{...p,name:"image"}:p);
-    if(providerInputSchema && hasLegacyImage && !singleImage)providerInputSchema.push({name:"image",type:"image",label:"이미지 입력 (대상 선택 필요)",required:false,multiple:true,maxItems:undefined});
-    const presetInputs = projectNodePromptPresetInputs(config, node.kind, modelCatalogEntry);
-    const presetRequiresImage = presetInputs.supportsImageInput;
-    if (presetInputs.providerInputSchema) providerInputSchema = presetInputs.providerInputSchema;
-    const existingInputSchema = Array.isArray(configuredParameters.inputSchema)
-      ? configuredParameters.inputSchema
-      : Array.isArray(record(modelCatalogEntry?.meta).inputSchema)
-        ? record(modelCatalogEntry?.meta).inputSchema
-        : Array.isArray(record(modelCatalogEntry?.meta).input_schema)
-          ? record(modelCatalogEntry?.meta).input_schema
-          : node.kind === "generate.video" && modelKey?.startsWith("veo-")
-            ? [
-                ...(modelKey.includes("image-to-video")
-                  ? [{ name: "image", type: "image", required: true, label: "Image" }]
-                  : []),
-                { name: "prompt", type: "text", required: true, label: "Prompt" },
-                { name: "negative_prompt", type: "text", required: false, label: "Neg. Prompt" },
-              ]
-            : undefined;
-    const modelProjection = node.kind.startsWith("generate.")
-      ? {
-          // Always project the canonical selection, including an explicit null
-          // placeholder, so stale runtime model fields cannot survive a clear.
-          modelKey,
-          model: modelKey,
-          selectedModel,
-          provider: selectedModel?.provider,
-          parameters: existingInputSchema
-            ? { ...configuredParameters, inputSchema: existingInputSchema }
-            : configuredParameters,
-          ...(modelCatalogEntry ? {
-            modelCatalogEntry,
-            parameterSchema: modelCatalogEntry.parameters,
-          } : {}),
-          // Include an explicit undefined to overwrite stale legacy runtime
-          // fields while the canonical model has no dynamic schema.
-          inputSchema: existingInputSchema,
-          providerInputSchema,
-          requiresPrompt: !contract || contract.inputs.some(f=>f.canonical==="prompt"&&f.required&&f.default===undefined),
-        }
-      : {};
-    const imageInputAssets = incomingMediaAssets(nodeId, "image");
-    const videoInputAssets = incomingMediaAssets(nodeId, "video");
-    const audioInputAssets = incomingMediaAssets(nodeId, "audio");
-    const imageInputs = imageInputAssets.map((asset) => asset.url);
-    const primaryImageInputs = incomingValues(nodeId, "primary");
-    const referenceImageInputs = incomingValues(nodeId, "references");
-    const initImageInputs = incomingValues(nodeId, "initImage");
-    const clipInputs = incomingValues(nodeId, "clips");
-    const soundtrackInputs = incomingValues(nodeId, "soundtrack");
-    const videoInputs = videoInputAssets.map((asset) => asset.url);
-    const audioInputs = audioInputAssets.map((asset) => asset.url);
-    const promptInputs = incomingValues(nodeId, "prompt");
-    const promptConnected = draftRef.current.edges.some((edge) =>
-      edge.targetNodeId === nodeId && edge.targetPortId === "prompt",
-    );
-    const imageInput = imageInputs[0] ?? null;
-    const videoInput = videoInputs[0] ?? null;
-    const audioInput = audioInputs[0] ?? null;
-    const internalPrompt = typeof config.prompt === "string" ? config.prompt : "";
-    const promptInput = promptConnected ? (promptInputs[0] ?? "") : internalPrompt;
-    const primaryImage = primaryImageInputs[0] ?? null;
-    const presentation = record(config.presentation);
-    const outputDimensions = primaryOutputAsset?.width !== null && primaryOutputAsset?.width !== undefined
-      && primaryOutputAsset?.height !== null && primaryOutputAsset?.height !== undefined
-      ? { width: primaryOutputAsset.width, height: primaryOutputAsset.height }
-      : null;
-    const outputBytes = primaryOutputAsset?.bytes ? Number(primaryOutputAsset.bytes) : null;
-    const base = {
-      outputBindings: mediaOutputs[nodeId] ?? [],
-      outputAssetsByPort: Object.fromEntries(mediaOutputPorts(node.kind).map(port =>
-        [port.id, currentOutputAssetsForPort(nodeId, port.id).map(asset => ({
-          id: asset.id, type: asset.type, url: getMediaAssetContentUrl(asset.id),
-        }))])),
-      missingMedia: [inputAssetId, node.selectedOutputAssetId, ...(latest?.outputAssetIds ?? [])].some(id => id && missingAssetIds.has(id)),
-      imagePresentations,
-      ...modelProjection,
-      ...executionPatch,
-      repeatProgress: repetition,
-      ...(result ? { resultStatus, resultCreatedAt: resultExecution?.createdAt ?? null, resultFinishedAt: resultExecution?.finishedAt ?? null,
-        resultError: resultExecution?.errorCode ?? (resultStatus === "failed" ? "RESULT_UNAVAILABLE" : null) } : {}),
-      outputDimensions,
-      outputBytes: Number.isFinite(outputBytes) ? outputBytes : null,
-      customTitle: presentation.customTitle,
-      comment: presentation.comment,
-      isOptional: presentation.isOptional,
-    };
-    switch (node.kind) {
-      case "input.image":
-        return {
-          ...base,
-          image: inputAsset ? getMediaAssetContentUrl(inputAsset.id) : null,
-          imageRef: inputAssetId,
-          filename: typeof config.filename === "string" ? config.filename : null,
-          dimensions: inputAsset?.width !== null && inputAsset?.width !== undefined
-            && inputAsset?.height !== null && inputAsset?.height !== undefined
-            ? { width: inputAsset.width, height: inputAsset.height }
-            : null,
-        };
-      case "input.audio":
-        return {
-          ...base,
-          audioFile: inputAsset ? getMediaAssetContentUrl(inputAsset.id) : null,
-          filename: typeof config.filename === "string" ? config.filename : null,
-          duration: inputAsset?.durationMs !== null && inputAsset?.durationMs !== undefined
-            ? inputAsset.durationMs / 1_000
-            : null,
-          format: inputAsset?.mimeType ?? null,
-        };
-      case "input.video": {
-        // The connected output is authoritative, including an empty pending
-        // result. Keep config.assetId untouched so disconnect restores uploads.
-        const connected = draftRef.current.edges.some((edge) => edge.targetNodeId === nodeId && edge.targetPortId === "video");
-        const video = resolveUpstreamMediaAssets(nodeId, "video")[0];
-        const asset = video?.asset;
-        return {
-          ...base,
-          video: video?.url ?? null,
-          videoRef: video?.assetId ?? null,
-          // Vendored video operation presenters read source clips through the
-          // upstream outputVideo field. Keep the canonical video field too so
-          // input uploads remain round-trippable at the host boundary.
-          outputVideo: video?.url ?? null,
-          outputVideoRef: video?.assetId ?? null,
-          hasConnectedVideo: connected,
-          filename: connected ? null : typeof config.filename === "string" ? config.filename : null,
-          duration: asset?.durationMs !== null && asset?.durationMs !== undefined
-            ? asset.durationMs / 1_000
-            : null,
-          dimensions: asset?.width !== null && asset?.width !== undefined
-            && asset?.height !== null && asset?.height !== undefined
-            ? { width: asset.width, height: asset.height }
-            : null,
-          format: asset?.mimeType ?? null,
-        };
-      }
-      case "process.promptConstructor": {
-        let outputText: string | null = null;
-        try { outputText = resolveGraphText(draftRef.current, nodeId, new Set(), assistantResults) || null; } catch { /* Invalid graphs show unresolved text. */ }
-        return { ...base, template: typeof config.template === "string" ? config.template : "", outputText };
-      }
-      case "input.prompt": {
-        let prompt = "";
-        try { prompt = resolveGraphText(draftRef.current, nodeId, new Set(), assistantResults); } catch { /* Invalid graphs have no resolved prompt. */ }
-        return {
-          ...base,
-          prompt: typeof config.text === "string" ? config.text : "",
-          resolvedPrompt: prompt,
-          variableName: typeof config.variableName === "string" ? config.variableName : "",
-        };
-      }
-      case "generate.assistant":
-        return { ...base, outputText: assistantTextForPort(assistantResults[nodeId]), outputItemText: assistantTextForPort(assistantResults[nodeId], "item") };
-      case "generate.image":
-        return {
-          ...base,
-          prompt: promptInput,
-          inputPrompt: promptInput,
-          internalPrompt,
-          promptConnected,
-          supportsImageInput: presetRequiresImage ?? (modelKey
-            ? resolveRuntimeImageMaxInputImages(imageModels.find((model) => model.key === modelKey)) > 0
-            : false),
-          primary: primaryImage,
-          references: referenceImageInputs,
-          inputImages: [...(primaryImage ? [primaryImage] : []), ...referenceImageInputs],
-          outputImage: selectedOutputUrl,
-          imageHistory: outputHistoryAssets.map((asset) => ({ id: asset.id })),
-          selectedHistoryIndex: selectedHistoryIndex >= 0 ? selectedHistoryIndex : undefined,
-        };
-      case "generate.audio":
-        return {
-          ...base,
-          prompt: promptInput,
-          inputPrompt: promptInput,
-          internalPrompt,
-          promptConnected,
-          outputAudio: selectedOutputUrl,
-          audioHistory: outputHistoryAssets.map((asset) => ({ id: asset.id })),
-          selectedAudioHistoryIndex: selectedHistoryIndex >= 0 ? selectedHistoryIndex : undefined,
-        };
-      case "generate.video":
-        return {
-          ...base,
-          prompt: promptInput,
-          inputPrompt: promptInput,
-          internalPrompt,
-          promptConnected,
-          supportsImageInput: presetRequiresImage ?? (modelKey
-            ? resolveRuntimeVideoSupportsInitImage(videoModels.find((model) => model.key === modelKey))
-            : false),
-          initImage: initImageInputs[0] ?? null,
-          inputImages: initImageInputs,
-          outputVideo: selectedOutputUrl,
-          videoHistory: outputHistoryAssets.map((asset) => ({ id: asset.id })),
-          selectedVideoHistoryIndex: selectedHistoryIndex >= 0 ? selectedHistoryIndex : undefined,
-        };
-      case "edit.image.annotation":
-        return {
-          ...base,
-          sourceImage: imageInput,
-          annotations: Array.isArray(record(config.parameters).shapes) ? record(config.parameters).shapes : [],
-          outputImage: selectedOutputUrl ?? outputUrls[0] ?? null,
-        };
-      case "edit.image.resize":
-        return { ...base, sourceImage: imageInput, outputImage: outputUrls[0] ?? null };
-      case "edit.image.removeBackground":
-        return { ...base, sourceImage: imageInput, outputImage: outputUrls[0] ?? null };
-      case "edit.image.splitGrid":
-        return { ...base, sourceImage: imageInput, outputImages: currentOutputAssetsForPort(nodeId, "images").map((asset) => getMediaAssetContentUrl(asset.id)) };
-      case "edit.image.gif": {
-        const clipOrder = Array.isArray(configuredParameters.clipOrder) ? [...new Set(configuredParameters.clipOrder)] : [];
-        const frameEdges = draftRef.current.edges
-          .filter((edge) => edge.targetNodeId === nodeId && (edge.targetPortId === "frames" || edge.targetPortId === "image"))
-          .sort((left, right) => left.sortOrder - right.sortOrder);
-        const orderedEdges = [
-          ...clipOrder.flatMap((id) => frameEdges.filter((edge) => edge.id === id)),
-          ...frameEdges.filter((edge) => !clipOrder.includes(edge.id)),
-        ];
-        const frameGroups = orderedEdges.map((edge) => ({
-          sourceEdgeId: edge.id,
-          frames: resolveUpstreamMediaValues(edge.sourceNodeId, edge.sourcePortId),
-        }));
-        return { ...base, frameGroups, frames: frameGroups.flatMap((group) => group.frames), outputGif: outputUrls[0] ?? null };
-      }
-      case "edit.video.stitch":
-        return {
-          ...base,
-          clips: clipInputs,
-          clipUrls: clipInputs,
-          videos: clipInputs,
-          soundtrack: soundtrackInputs[0] ?? null,
-          audio: soundtrackInputs[0] ?? null,
-          outputVideo: outputUrls[0] ?? null,
-        };
-      case "edit.video.trim":
-        return {
-          ...base,
-          sourceVideo: videoInput,
-          duration: videoInputAssets[0]?.asset?.durationMs !== null
-            && videoInputAssets[0]?.asset?.durationMs !== undefined
-            ? videoInputAssets[0].asset.durationMs / 1_000
-            : null,
-          outputVideo: outputUrls[0] ?? null,
-        };
-      case "edit.video.frameGrab":
-        return { ...base, sourceVideo: videoInput, outputImage: outputUrls[0] ?? null };
-      case "edit.video.easeCurve":
-        return { ...base, sourceVideo: videoInput, outputVideo: outputUrls[0] ?? null };
-      case "output.single":
-        return { ...base, image: imageInput, video: videoInput, audio: audioInput };
-      case "output.gallery": {
-        const excluded = new Set(outputGalleryExcludedAssetIds(config));
-        const visible = (assets: ResolvedMediaAsset[]) => assets.filter((asset) => !excluded.has(asset.assetId));
-        const images = visible(imageInputAssets);
-        const videos = visible(videoInputAssets);
-        const audios = visible(audioInputAssets);
-        return {
-          ...base,
-          images: images.map((asset) => asset.url),
-          imageRefs: images.map((asset) => asset.assetId),
-          videos: videos.map((asset) => asset.url),
-          videoRefs: videos.map((asset) => asset.assetId),
-          audios: audios.map((asset) => asset.url),
-          audioRefs: audios.map((asset) => asset.assetId),
-        };
-      }
-      case "inspect.imageCompare":
-        return {
-          ...base,
-          imageA: incomingValues(nodeId, "before")[0] ?? null,
-          imageB: incomingValues(nodeId, "after")[0] ?? null,
-        };
-      default:
-        return { ...runtimeData, ...base };
-    }
-  }, [graph.id, queryClient, repeatProgress, operationControllers, assistantResults, mediaOutputs, missingAssetIds, imagePresentations, audioModels, currentOutputAssetsForPort, executionByNodeId, imageModels, latestOutputAssetsForNode, outputHistoryAssetsForNode, resolveUpstreamMediaAssets, resolveUpstreamMediaValues, resolvedAssets, videoModels]);
-
-  const handleHostError = useCallback((error: Error) => {
-    setHostError(error.message);
-  }, []);
-
-  const handleInputMediaUpload = useCallback(async (input: {
-    nodeId: string;
-    mediaType: MediaType;
-    dataUrl: string;
-    filename: string | null;
-    mimeType: string | null;
-  }) => {
-    if (graph.writable === false) throw new Error("WORKFLOW_READ_ONLY");
-    setHostError(null);
-    const originalNode = draftRef.current.nodes.find((node) => node.id === input.nodeId);
-    if (!originalNode) throw new DOMException("Input removed", "AbortError");
-    const originalConfig = JSON.stringify(originalNode.config);
-    operationControllers.get(input.nodeId)?.abort();
-    const controller = new AbortController();
-    operationControllers.set(input.nodeId, controller);
-    const extension = input.mediaType === "image" ? "png" : input.mediaType === "audio" ? "mp3" : "mp4";
-    const fileName = input.filename?.trim() || `${input.nodeId}.${extension}`;
-    try {
-      const file = await dataUrlToFile(input.dataUrl, fileName, input.mimeType);
-      controller.signal.throwIfAborted();
-      const asset = await uploadMedia.mutateAsync({ file, type: input.mediaType });
-      controller.signal.throwIfAborted();
-      const currentNode = draftRef.current.nodes.find((node) => node.id === input.nodeId);
-      if (!writableRef.current || !currentNode || JSON.stringify(currentNode.config) !== originalConfig) {
-        throw new DOMException("Input changed while uploading", "AbortError");
-      }
-      setAssetOverrides((current) => ({ ...current, [asset.id]: asset }));
-      // The caller publishes this through the Canvas canonical writer once.
-      return { assetId: asset.id };
-    } finally {
-      if (operationControllers.get(input.nodeId) === controller) operationControllers.delete(input.nodeId);
-    }
-  }, [graph.writable, operationControllers, uploadMedia]);
-
-  const handleAnnotationOutput = useCallback(async (input: {
-    nodeId: string;
-    dataUrl: string;
-    annotations: Record<string, unknown>[];
-  }) => {
-    if (graph.writable === false) throw new Error("WORKFLOW_READ_ONLY");
-    if (operationControllers.has(input.nodeId)) throw new Error("NODE_GENERATION_ACTIVE");
-    setHostError(null);
-    if (!input.dataUrl.startsWith("data:image/")) {
-      throw new Error("ANNOTATION_OUTPUT_INVALID");
-    }
-    updateDraftNode(input.nodeId, (node) => ({
-      ...node,
-      config: {
-        ...record(node.config),
-        parameters: {
-          ...record(record(node.config).parameters),
-          shapes: input.annotations,
-        },
-      } as typeof node.config,
-    }));
-    const controller = new AbortController();
-    operationControllers.set(input.nodeId, controller);
-    let resultIds: string[] = [];
-    try {
-      const appended = appendResultNodes(draftRef.current, input.nodeId);
-      resultIds = appended.ids;
-      if (resultIds.length) updateDraft(appended.draft);
-      const expectedGraphVersion = await prepareExecution();
-      controller.signal.throwIfAborted();
-      const execution = await startExecution.mutateAsync({
-        graphId: graph.id,
-        nodeId: input.nodeId,
-        expectedGraphVersion,
-      });
-      if (appended.ids.length) { updateDraft(bindResultNodes(draftRef.current, appended.ids, execution.executionId)); await autosaveSaveNowRef.current(); }
-      if (!execution.plan || execution.plan.kind !== "edit.image.annotation") {
-        throw new Error("ANNOTATION_EXECUTION_PLAN_INVALID");
-      }
-      const assets = await runPreparedAnnotationOperation({
-        graphId: graph.id,
-        nodeId: input.nodeId,
-        execution,
-        signal: controller.signal,
-        dataUrl: input.dataUrl,
-      });
-      const asset = assets[0];
-      if (!asset) throw new Error("ANNOTATION_OUTPUT_MISSING");
-      setAssetOverrides((current) => ({ ...current, [asset.id]: asset }));
-      updateDraft(reconcileResultNodes(draftRef.current, input.nodeId, { executionId: execution.executionId, status: "completed", outputAssetIds: assets.map(item => item.id) }));
-      updateDraftNode(input.nodeId, (node) => ({
-        ...node,
-        selectedOutputAssetId: asset.id,
-      }));
-      await queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
-      await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, input.nodeId) });
-      await autosaveSaveNowRef.current();
-      return { assetId: asset.id };
-    } catch (error) {
-      const source = resultSource(draftRef.current.nodes.find(node => node.id === resultIds[0])?.config);
-      if (source && !source.executionId) updateDraft(bindResultNodes(draftRef.current, resultIds, null, controller.signal.aborted ? "cancelled" : "failed"));
-      throw error;
-    } finally {
-      controller.abort();
-      if (operationControllers.get(input.nodeId) === controller) operationControllers.delete(input.nodeId);
-    }
-  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution, updateDraftNode, updateDraft]);
-
   const handleRegenerateNode = useCallback(async (nodeId: string) => {
-    if (graph.writable === false) throw new Error("WORKFLOW_READ_ONLY");
+    if (!session.getSnapshot().writable) throw new Error("WORKFLOW_READ_ONLY");
     setHostError(null);
-    const node = draftRef.current.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) throw new Error("UPSTREAM_NODE_NOT_FOUND");
+    const node = session.getDocument().nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) throw new Error("SPACE_NODE_NOT_FOUND");
+    if (isUnavailableEditNodeKind(node.kind) || !findNodeDefinition(node.kind) || findNodeDefinition(node.kind)?.executionMode === "none") throw new Error("NODE_NOT_EXECUTABLE");
     if (operationControllers.has(nodeId)) throw new Error("NODE_GENERATION_ACTIVE");
     const repeatCount = node.kind === "generate.image" ? Number(record(node.config).repeatCount ?? 1) : 1;
     if (!Number.isInteger(repeatCount) || repeatCount < 1 || repeatCount > 100) throw new Error("INVALID_REPEAT_COUNT");
-    const identity = generationInputIdentity(draftRef.current, nodeId);
+    const identity = generationInputIdentity(session.getDocument(), nodeId);
     const assertCurrent = () => {
       controller.signal.throwIfAborted();
-      if (!writableRef.current || generationInputIdentity(draftRef.current, nodeId) !== identity) throw new DOMException("Inputs changed", "AbortError");
+      if (!writableRef.current || generationInputIdentity(session.getDocument(), nodeId) !== identity) throw new DOMException("Inputs changed", "AbortError");
     };
     const controller = new AbortController();
     operationControllers.set(nodeId, controller);
+    session.patchRuntime(nodeId, { submissionPending: true });
     if (repeatCount > 1) repeatInputs.current.set(nodeId, identity);
     const selectionRevision = selectionTracker.current.selectionRevision(nodeId);
     selectionTracker.current.beginSubmission(nodeId, selectionRevision);
@@ -1107,23 +314,15 @@ function NodeStudioWorkspaceContent({
     let resultIds: string[] = [];
     const resultGroups: string[][] = [];
     const stopUnsubmitted = (state: "failed" | "cancelled") => {
-      const ids = resultGroups.flat().filter(id => {
-        const source = resultSource(draftRef.current.nodes.find(node => node.id === id)?.config);
-        return source?.state === "pending" && !source.executionId;
-      });
-      if (ids.length) updateDraft(bindResultNodes(draftRef.current, ids, null, state));
+      const ids = unsubmittedResultIds(session.getDocument(), resultGroups.flat());
+      if (ids.length) updateDraft(bindResultNodes(session.getDocument(), ids, null, state));
     };
     try {
-      const ports = automaticResultPorts(node.kind);
-      if (draftRef.current.nodes.length + ports.length * repeatCount > 500 || draftRef.current.edges.length + ports.length * repeatCount > 2000) throw new Error("RESULT_NODE_LIMIT_EXCEEDED");
-      let reserved = draftRef.current;
-      for (let index = 0; index < repeatCount; index++) {
-        const appended = appendResultNodes(reserved, nodeId);
-        resultGroups.push(appended.ids);
-        reserved = appended.draft;
-      }
-      resultIds = resultGroups[0];
-      if (reserved !== draftRef.current) updateDraft(reserved);
+      const reserved = reserveResultNodes(session.getDocument(), nodeId, repeatCount);
+      resultGroups.push(...reserved.groups);
+      resultIds = resultGroups[0] ?? [];
+      session.patchRuntime(nodeId, { resultReservationIds: resultGroups.flat() });
+      if (reserved.draft !== session.getDocument()) updateDraft(reserved.draft);
       const expectedGraphVersion = await prepareExecution();
       assertCurrent();
       const execution = await startExecution.mutateAsync({
@@ -1131,7 +330,12 @@ function NodeStudioWorkspaceContent({
         nodeId,
         expectedGraphVersion,
       });
-      if (resultIds.length) { updateDraft(bindResultNodes(draftRef.current, resultIds, execution.executionId)); await autosaveSaveNowRef.current(); }
+      acceptedExecutionIds.set(nodeId, execution.executionId);
+      if (resultIds.length) { updateDraft(bindResultNodes(session.getDocument(), resultIds, execution.executionId)); await autosaveSaveNowRef.current(); }
+      if (cancelledSubmissions.has(controller)) {
+        await cancelNodeExecution(graph.id, nodeId, execution.executionId);
+        controller.signal.throwIfAborted();
+      }
       selectionTracker.current.submitted(nodeId, execution.executionId);
       const plan = execution.plan;
       if (!plan) {
@@ -1156,19 +360,24 @@ function NodeStudioWorkspaceContent({
                 selectionTracker.current.beginSubmission(nodeId, selectionRevision);
                 currentExecution = await startExecution.mutateAsync({ graphId: graph.id, nodeId,
                   expectedGraphVersion: version, repeat: { repeatOfExecutionId: execution.executionId, repeatIndex: index } });
-                if (resultIds.length) { updateDraft(bindResultNodes(draftRef.current, resultIds, currentExecution.executionId)); await autosaveSaveNowRef.current(); }
+                acceptedExecutionIds.set(nodeId, currentExecution.executionId);
+                if (resultIds.length) { updateDraft(bindResultNodes(session.getDocument(), resultIds, currentExecution.executionId)); await autosaveSaveNowRef.current(); }
+                if (cancelledSubmissions.has(controller)) {
+                  await cancelNodeExecution(graph.id, nodeId, currentExecution.executionId);
+                  controller.signal.throwIfAborted();
+                }
                 selectionTracker.current.submitted(nodeId, currentExecution.executionId);
               }
               try {
                 const completed = await observeServerExecution(queryClient, graph.id, nodeId, currentExecution.executionId, controller.signal);
                 assertCurrent();
-                updateDraft(reconcileResultNodes(draftRef.current, nodeId, completed));
+                updateDraft(reconcileResultNodes(session.getDocument(), nodeId, completed));
                 const assets = await Promise.all(completed.outputAssetIds.map(assetId => queryClient.fetchQuery({
                   queryKey: mediaAssetKeys.detail(assetId),
                   queryFn: ({ signal }) => getMediaAsset(assetId, AbortSignal.any([signal, controller.signal])), retry: 3,
                 })));
                 assertCurrent();
-                setAssetOverrides(previous => ({ ...previous, ...Object.fromEntries(assets.map(asset => [asset.id, asset])) }));
+                for (const asset of assets) queryClient.setQueryData(mediaAssetKeys.detail(asset.id), asset);
                 void queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
                 await autosaveSaveNowRef.current();
               } catch (error) {
@@ -1176,7 +385,7 @@ function NodeStudioWorkspaceContent({
                 const terminal = queryClient.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, nodeId))?.find(item => item.executionId === currentExecution.executionId);
                 // Unknown outcomes cannot be treated as a failed iteration.
                 if (terminal?.status !== "failed") throw error;
-                updateDraft(reconcileResultNodes(draftRef.current, nodeId, terminal));
+                updateDraft(reconcileResultNodes(session.getDocument(), nodeId, terminal));
                 failed++; firstError ??= error;
               }
               completedCount++;
@@ -1194,6 +403,7 @@ function NodeStudioWorkspaceContent({
             repeatInputs.current.delete(nodeId);
             selectionTracker.current.endSubmission(nodeId);
             if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
+            if (observingRef.current) session.patchRuntime(nodeId, { submissionPending: false, resultReservationIds: undefined });
           }
         })();
         // Observation can outlive a detached UI callback. Always consume errors.
@@ -1205,33 +415,19 @@ function NodeStudioWorkspaceContent({
       }
 
       const input = { graphId: graph.id, nodeId, execution, signal: controller.signal };
-      const assets = plan.kind.startsWith("edit.image.")
-        ? await runBrowserImageOperation(input)
-        : plan.kind.startsWith("edit.video.")
-          ? await runBrowserVideoOperation(input)
-          : (() => { throw new Error("UPSTREAM_EXECUTION_PLAN_UNSUPPORTED"); })();
-      setAssetOverrides((current) => {
-        if (assets.length === 0) return current;
-        return Object.fromEntries([
-          ...Object.entries(current),
-          ...assets.map((asset) => [asset.id, asset] as const),
-        ]);
-      });
+      if (plan.kind !== "edit.image.resize") throw new Error("BROWSER_EXECUTION_PLAN_UNSUPPORTED");
+      const assets = await runBrowserImageOperation(input);
+      for (const asset of assets) queryClient.setQueryData(mediaAssetKeys.detail(asset.id), asset);
       await queryClient.invalidateQueries({ queryKey: mediaAssetKeys.all });
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
       const completed = queryClient.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, nodeId))?.find(item => item.executionId === execution.executionId);
-      updateDraft(reconcileResultNodes(draftRef.current, nodeId, completed ?? { executionId: execution.executionId, status: "completed", outputAssetIds: assets.map(asset => asset.id) }));
+      updateDraft(reconcileResultNodes(session.getDocument(), nodeId, completed ?? { executionId: execution.executionId, status: "completed", outputAssetIds: assets.map(asset => asset.id) }));
       await autosaveSaveNowRef.current();
       const selectedOutputAssetId = assets[0]?.id;
-      return selectedOutputAssetId ? { selectedOutputAssetId,
-        ...(plan.kind === "edit.image.splitGrid" ? {
-          outputAssetIds: assets.map((asset) => asset.id),
-          outputGrid: { rows: Number(plan.parameters.rows), cols: Number(plan.parameters.cols) },
-        } : {}),
-      } : undefined;
+      return selectedOutputAssetId ? { selectedOutputAssetId } : undefined;
     } catch (error) {
       stopUnsubmitted(controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError") ? "cancelled" : "failed");
-      void autosaveSaveNowRef.current().catch(() => {});
+      if (resultGroups.length) void autosaveSaveNowRef.current().catch(() => {});
       throw error;
     } finally {
       selectionTracker.current.endSubmission(nodeId);
@@ -1239,28 +435,14 @@ function NodeStudioWorkspaceContent({
         repeatInputs.current.delete(nodeId);
         controller.abort();
         if (operationControllers.get(nodeId) === controller) operationControllers.delete(nodeId);
+        if (observingRef.current) session.patchRuntime(nodeId, { submissionPending: false, resultReservationIds: undefined });
       }
       void queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     }
-  }, [graph.id, graph.writable, operationControllers, prepareExecution, queryClient, startExecution, updateDraft]);
+  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, prepareExecution, queryClient, startExecution, updateDraft]);
 
-  const handleOpenAnnotation = useCallback((nodeId: string) => {
-    if (graph.writable === false) return;
-    setHostError(null);
-    setAnnotationNodeId(nodeId);
-  }, [graph.writable]);
-  const handleCloseAnnotation = useCallback((nodeId: string) => {
-    setAnnotationNodeId((current) => current === nodeId ? null : current);
-  }, []);
-  const handleExpandNode = useCallback((nodeId: string, nodeType: string) => {
-    if (graph.writable === false) return;
-    if (nodeType === "annotation") {
-      setAnnotationNodeId(nodeId);
-      return;
-    }
-    setHostError(`UPSTREAM_EXPAND_HANDLER_UNAVAILABLE:${nodeType}`);
-  }, [graph.writable]);
-
+  const services = useMemo<SpaceEditorServices>(() => ({ runNode: handleRegenerateNode, cancelNode: handleCancelNode,
+    prepareNodeExecution: prepareExecution, onError: error => { if (observingRef.current) setHostError(error.message); } }), [handleRegenerateNode, handleCancelNode, prepareExecution]);
   const busy = autosave.status === "dirty" || autosave.status === "saving";
   const tHost = useTranslations("nodeStudio.host");
   const saveLabel = {
@@ -1270,15 +452,12 @@ function NodeStudioWorkspaceContent({
     error: tHost("saveError"),
     conflict: tHost("conflict"),
   }[autosave.status];
-  const hostedGraph = useMemo(() => { void draftRevision; return { ...graph, ...draftRef.current, title }; }, [graph, title, draftRevision]);
-  const persistedNodeIds = useMemo(() => new Set(graph.nodes.map((node) => node.id)), [graph.nodes]);
   const commentNodes = useMemo(() => {
-    void draftRevision;
-    return draftRef.current.nodes.map((node) => ({
+    return draft.nodes.map((node) => ({
       id: node.id, position: node.position,
       data: { comment: typeof record(record(node.config).presentation).comment === "string" ? record(record(node.config).presentation).comment as string : undefined },
     }));
-  }, [draftRevision]);
+  }, [draft.nodes]);
   const comments = useSpaceCommentsSession(graph.id, commentNodes);
   const headerModels = useMemo(() => [
     ...nodeCatalog.imageModels.map((model) => ({ id: model.key, name: model.label, provider: model.provider, mediaKind: "image" as const })),
@@ -1286,11 +465,6 @@ function NodeStudioWorkspaceContent({
     ...nodeCatalog.audioModels.map((model) => ({ id: model.key, name: model.label, provider: model.provider, mediaKind: "audio" as const })),
   ], [nodeCatalog]);
   const nodeDefaults = useMemo(() => Object.fromEntries(Object.entries(preferences.data?.defaults ?? {}).map(([kind, value]) => [kind, value.modelKey])), [preferences.data?.defaults]);
-  const pickerModels = useMemo(() => nodeBananaCatalogModels(nodeCatalog), [nodeCatalog]);
-  const recentModels = useMemo(() => (preferences.data?.recentModelKeys ?? []).flatMap((key, index) => {
-    const model = pickerModels.find((entry) => entry.id === key);
-    return model ? [{ provider: model.provider, modelId: model.id, displayName: model.name, timestamp: -index }] : [];
-  }), [preferences.data?.recentModelKeys, pickerModels]);
   const leaveAfterSaving = async (action: () => void) => {
     if (leaving) return;
     setLeaving(true);
@@ -1304,27 +478,22 @@ function NodeStudioWorkspaceContent({
     <SpaceCommentsContext.Provider value={comments}>
     <div
       className="flex h-full min-h-0 flex-col overflow-hidden bg-neutral-900"
-      data-node-banana-component="Home"
-      data-node-banana-annotation-node={annotationNodeId ?? undefined}
+      data-space-workspace=""
       onPointerDownCapture={(event) => {
         const target = event.target;
         if (target instanceof Element && !target.closest('[data-canvas-action="comments"], [data-canvas-action="next-comment"], [data-canvas-action="previous-comment"]')) comments.clearFocus();
       }}
     >
-      <NodeBananaHostedHeader
-        commentsNavigation={<CommentsNavigationIcon count={comments.count} unreadCount={comments.unreadCount} onNavigate={comments.navigateFirst} />}
+      <SpaceWorkspaceHeader
+        commentsNavigation={<SpaceCommentsNavigationIcon count={comments.count} unreadCount={comments.unreadCount} onNavigate={comments.navigateFirst} />}
         hasUnsavedChanges={autosave.status !== "saved"}
         models={headerModels}
-        renderModelPicker={(kind, select, close) => <NodeBananaUpstreamHostProvider value={{
-          hostedModels: pickerModels, recentModels,
-          trackModelUsage: (model: { modelId: string }) => preferences.trackModel(model.modelId),
-        }}>
-          <ModelSearchDialog isOpen onClose={close} title={`Default ${kind[0].toUpperCase()}${kind.slice(1)} Model`} initialCapabilityFilter={kind}
-            hosted={{ hostedModels: pickerModels.filter((model) => headerModels.some((entry) => entry.id === model.id && entry.mediaKind === kind)), isLoading: nodeCatalog.isLoading, error: nodeCatalog.error,
-              onRefresh: async () => { const result = await refetchCatalog(); if (result.error) throw result.error; },
-              onHostedModelSelected: (model) => { select(model.id); close(); },
-            }} />
-        </NodeBananaUpstreamHostProvider>}
+        renderModelPicker={(kind, select, close) => <SpaceModelBrowser open onOpenChange={open => { if (!open) close(); }}
+          title={`Default ${kind[0].toUpperCase()}${kind.slice(1)} Model`} initialType={kind}
+          models={kind === "image" ? nodeCatalog.imageModels : kind === "video" ? nodeCatalog.videoModels : nodeCatalog.audioModels}
+          loading={nodeCatalog.isLoading} error={nodeCatalog.error} recentKeys={preferences.data?.recentModelKeys}
+          selectedKey={nodeDefaults[kind]} onRefresh={nodeCatalog.refresh}
+          onSelect={key => { preferences.trackModel(key); select(key); close(); }} />}
         nodeDefaults={nodeDefaults}
         nodeDefaultsLoading={!preferences.data || preferences.saving || nodeCatalog.isLoading}
         nodeDefaultsError={preferences.error ?? nodeCatalog.error}
@@ -1357,15 +526,14 @@ function NodeStudioWorkspaceContent({
         activeGraphId={activeGraphId ?? graph.id}
         saveLabel={saveLabel}
         saving={autosave.status === "saving"}
-        writable={graph.writable !== false}
+        writable={writable}
         creating={creating || leaving}
         deleting={busy || deleting}
         canvasSettings={canvasSettings}
         onCanvasSettingsChange={updateCanvasSettings}
         onTitleChange={(nextTitle) => {
           setTitle(nextTitle);
-          titleRef.current = nextTitle;
-          if (nextTitle.trim()) updateDraft({ ...draftRef.current, title: nextTitle.trim() });
+          if (nextTitle.trim()) session.dispatch({ type: "title.set", title: nextTitle.trim() });
         }}
         onSelectGraph={(graphId) => void leaveAfterSaving(() => onSelectGraph?.(graphId))}
         onCreateGraph={(name) => { if (onCreateGraph) void leaveAfterSaving(() => onCreateGraph(name)); }}
@@ -1381,23 +549,9 @@ function NodeStudioWorkspaceContent({
         onDelete={() => setDeleteOpen(true)}
       />
 
-        <NodeStudio
-          graph={hostedGraph}
-          persistedNodeIds={persistedNodeIds}
-          onDraftChange={handleCanvasDraft}
-          prepareImageNodeExecution={prepareExecution}
-          catalog={{ ...nodeCatalog, assistantResults, mediaOutputs }}
-          canvasSettings={canvasSettings}
-          onRegenerateNode={handleRegenerateNode}
-          onCancelNode={handleCancelNode}
-          onOpenAnnotation={handleOpenAnnotation}
-          onCloseAnnotation={handleCloseAnnotation}
-          onExpandNode={handleExpandNode}
-          onInputMediaUpload={handleInputMediaUpload}
-          onAnnotationOutput={handleAnnotationOutput}
-          onHostError={handleHostError}
-          resolveUpstreamNodeData={resolveUpstreamNodeData}
-        />
+        <NodeExecutionReadContext.Provider value={executionReader}>
+          <NodeStudio session={session} catalog={nodeCatalog} inputRuntime={inputRuntime} canvasSettings={canvasSettings} services={services} />
+        </NodeExecutionReadContext.Provider>
 
       {hostError ? (
         <div role="alert" className="shrink-0 border-t border-red-300/20 bg-red-950/80 px-4 py-2 text-xs text-red-100">
@@ -1405,15 +559,12 @@ function NodeStudioWorkspaceContent({
         </div>
       ) : null}
 
-      {quickstartOpen && onCreatePreset && <HostedQuickstart onClose={() => setQuickstartOpen(false)}
+      {quickstartOpen && onCreatePreset && <SpaceQuickstart onClose={() => setQuickstartOpen(false)}
         onCreate={async (workflow, tutorial) => { await autosave.saveNow(); await onCreatePreset(workflow, tutorial); }}
         onBrowse={() => { setQuickstartOpen(false); if (onBack) void leaveAfterSaving(onBack); }} />}
-      {tutorialActive && onTutorialClose && <HostedTutorial onClose={onTutorialClose}
-        nodes={draftRef.current.nodes.map((node) => ({ id: node.id,
-          type: nodeBananaLegacyTypeByCanonicalKind[node.kind as keyof typeof nodeBananaLegacyTypeByCanonicalKind] ?? node.kind,
-          data: resolveUpstreamNodeData(node.id, { canonicalKind: node.kind, config: node.config }) ?? {} }))}
-        edges={draftRef.current.edges.map((edge) => ({ source: edge.sourceNodeId, target: edge.targetNodeId }))} />}
-      <NodeBananaConfirmDialog
+      {tutorialActive && onTutorialClose && <SpaceTutorial onClose={onTutorialClose}
+        nodes={draft.nodes} edges={draft.edges} />}
+      <SpaceConfirmDialog
         open={leaveOpen}
         title={tHost("leaveTitle")}
         description={tHost("leaveDescription")}
@@ -1422,7 +573,7 @@ function NodeStudioWorkspaceContent({
         onCancel={() => { setLeaveOpen(false); pendingLeaveAction.current = null; }}
         onConfirm={() => { setLeaveOpen(false); const action = pendingLeaveAction.current; pendingLeaveAction.current = null; action?.(); }}
       />
-      <NodeBananaConfirmDialog
+      <SpaceConfirmDialog
         open={deleteOpen}
         title={tHost("deleteTitle")}
         description={tHost("deleteDescription", { title })}
@@ -1435,7 +586,7 @@ function NodeStudioWorkspaceContent({
         }}
       />
 
-      <NodeBananaConfirmDialog
+      <SpaceConfirmDialog
         open={reloadOpen}
         title={tHost("reloadTitle")}
         description={tHost("reloadDescription")}

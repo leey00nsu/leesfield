@@ -1,358 +1,454 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { nodeExecutionKeys } from "../hook/use-node-executions";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GenerationGraphSnapshotDto } from "@/features/node-studio/model/graph-types";
+import { defaultConfigForKind } from "@/shared/generation-graph/node-default-config";
+import { validateNodeConfig, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";
 import { IntlProvider, renderWithIntl } from "@/test-utils/intl";
 
+import type { GraphDraft, GraphAutosaveSnapshot } from "../hook/use-graph-autosave";
+import { nodeExecutionKeys } from "../hook/use-node-executions";
+import { appendResultNodes, bindResultNodes, reconcileResultNodes, reserveResultNodes, resultGalleryItems, resultSource, unsubmittedResultIds } from "../model/generation-result-nodes";
+import type { GenerationGraphSnapshotDto } from "../model/graph-types";
+import type { NodeExecutionDto } from "../model/node-execution-types";
+import type { NodeExecutionReceipt } from "../model/server-execution-tracking";
+import { SpaceInputResolver, type SpaceInputRuntime } from "../model/space-editor-inputs";
+import type { SpaceEditorSession } from "../model/space-editor-store";
+import type { SpaceCanvasSettings } from "../model/space-editor-types";
+import type { SpaceEditorCatalog, SpaceEditorServices } from "./space-editor-provider";
 import { NodeStudioWorkspace } from "./node-studio-workspace";
-import { appendResultNodes, bindResultNodes, reconcileResultNodes } from "../model/generation-result-nodes";
-import { validateNodeConfig } from "@/shared/generation-graph/node-registry";
 
 const mocks = vi.hoisted(() => ({
-  useAutosave: vi.fn(),
-  update: vi.fn(),
-  retry: vi.fn(),
-  preserveSelection: vi.fn(),
-  saveNow: vi.fn(),
-  nodeStudio: vi.fn(),
-  usePreferences: vi.fn(),
-  saveDefaults: vi.fn(),
-  saveSettings: vi.fn(),
-  upload: vi.fn(),
+  useAutosave: vi.fn(), update: vi.fn(), retry: vi.fn(), preserveSelection: vi.fn(), saveNow: vi.fn(),
+  nodeStudio: vi.fn(), header: vi.fn(), comments: vi.fn(), quickstart: vi.fn(),
+  usePreferences: vi.fn(), saveDefaults: vi.fn(), saveSettings: vi.fn(), upload: vi.fn(),
 }));
-
 const outputMocks = vi.hoisted(() => ({
-  listExecutions: vi.fn(),
-  listAssets: vi.fn(),
-  startExecution: vi.fn(),
-  runImage: vi.fn(),
-  cancelExecution: vi.fn(),
+  listExecutions: vi.fn(), listAssets: vi.fn(), startExecution: vi.fn(), runImage: vi.fn(), cancelExecution: vi.fn(),
 }));
+const mediaApiMocks = vi.hoisted(() => ({ getMediaAsset: vi.fn() }));
 
-vi.mock("../lib/browser-image-operation-runner", () => ({
-  runBrowserImageOperation: outputMocks.runImage,
-  runPreparedAnnotationOperation: vi.fn(),
-}));
+// Exercise retained Resize/Trim/Stitch pipeline and teardown independently of product availability.
+// Actual hidden-kind availability, Flow projection and server guards have separate unmocked suites.
+vi.mock("@/shared/generation-graph/node-availability", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/shared/generation-graph/node-availability")>();
+  return { ...actual, isUnavailableEditNodeKind: (kind: string) => actual.isUnavailableEditNodeKind(kind) && !actual.isTemporarilyHiddenEditNodeKind(kind) };
+});
 
-const mediaApiMocks = vi.hoisted(() => ({
-  getMediaAsset: vi.fn(),
-}));
-
-vi.mock("../hook/use-graph-autosave", () => ({
-  useGraphAutosave: mocks.useAutosave,
-}));
-
-vi.mock("../hook/use-space-preferences", async (importOriginal) => ({
+vi.mock("../lib/browser-image-operation-runner", () => ({ runBrowserImageOperation: outputMocks.runImage }));
+vi.mock("../hook/use-graph-autosave", () => ({ useGraphAutosave: mocks.useAutosave }));
+vi.mock("../hook/use-space-preferences", async importOriginal => ({
   ...await importOriginal<typeof import("../hook/use-space-preferences")>(),
   useSpacePreferencesSession: mocks.usePreferences,
 }));
-
-const loadedPreferences = {
-  data: { schemaVersion: 1 as const, revision: 1, recentModelKeys: [], defaults: {} },
-  error: null, saving: false, trackModel: vi.fn(), saveDefaults: mocks.saveDefaults, saveSettings: mocks.saveSettings,
-  retry: vi.fn(),
-  preserveSelection: vi.fn(), inlineParametersEnabled: false, setInlineParametersEnabled: vi.fn(),
-};
-
-vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => ({
-  useRuntimeModelCatalog: () => ({
-    imageModels: [],
-    audioModels: [],
-    videoModels: [],
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-  }),
-}));
-
-vi.mock("../api/node-execution-api", () => ({
-  listNodeExecutions: outputMocks.listExecutions,
-  startNodeExecution: outputMocks.startExecution,
+vi.mock("@/shared/lib/hooks/use-runtime-model-catalog", () => {
+  const catalog = { imageModels: [], audioModels: [], videoModels: [], llmModels: [], isLoading: false, error: null, refetch: vi.fn() };
+  return { useRuntimeModelCatalog: () => catalog };
+});
+vi.mock("../api/node-execution-api", async importOriginal => ({
+  ...await importOriginal<typeof import("../api/node-execution-api")>(),
+  listNodeExecutions: outputMocks.listExecutions, startNodeExecution: outputMocks.startExecution,
   cancelNodeExecution: outputMocks.cancelExecution,
 }));
-
-vi.mock("@/features/media-assets/api/media-asset-api", () => ({
-  getMediaAsset: mediaApiMocks.getMediaAsset,
-}));
-
+vi.mock("@/features/media-assets/api/media-asset-api", () => ({ getMediaAsset: mediaApiMocks.getMediaAsset }));
 vi.mock("@/features/media-assets/hook/use-media-assets", () => ({
   mediaAssetKeys: { all: ["media-assets"], detail: (id: string) => ["media-assets", "detail", id] },
   useMediaAssetList: outputMocks.listAssets,
   useUploadMediaAsset: () => ({ mutateAsync: mocks.upload, isPending: false }),
 }));
-
 vi.mock("./node-studio", () => ({
-  NodeStudio: (props: unknown) => {
-    mocks.nodeStudio(props);
-    return <div>canvas</div>;
-  },
+  NodeStudio: (props: unknown) => { mocks.nodeStudio(props); return <div>canvas</div>; },
 }));
 
-const graph: GenerationGraphSnapshotDto = {
-  id: "graph-a",
-  title: "Graph A",
-  version: 3,
-  schemaVersion: 3, groups: [],
-  minimumWriterVersion: 3,
-  nodes: [],
-  edges: [],
-  createdAt: "2026-08-24T00:00:00.000Z",
-  updatedAt: "2026-08-24T00:00:00.000Z",
+interface HeaderProps {
+  brand: ReactNode;
+  commentsNavigation: ReactNode;
+  title: string;
+  graphs: readonly { id: string; title: string }[];
+  saveLabel: string;
+  saving: boolean;
+  writable: boolean;
+  creating: boolean;
+  nodeDefaults: Record<string, string>;
+  canvasSettings: SpaceCanvasSettings;
+  onTitleChange: (title: string) => void;
+  onCanvasSettingsChange: (settings: SpaceCanvasSettings) => void;
+  onSaveSettings: (changes: { defaults?: Record<string, string>; inlineParametersEnabled?: boolean }) => Promise<void>;
+  onSelectGraph: (id: string) => void;
+  onCreateGraph: (title: string) => void;
+  onSave: () => void;
+  onDelete: () => void;
+}
+// Header controls/dialogs have their own UI tests. This boundary exposes only the
+// real header actions needed to exercise the workspace's save/leave decisions.
+vi.mock("./space-workspace-header", () => ({
+  SpaceWorkspaceHeader: (props: HeaderProps) => {
+    mocks.header(props);
+    return <header>
+      {props.brand}{props.commentsNavigation}
+      <span role="status">{props.saveLabel}</span>
+      <button type="button" aria-label="Save space" disabled={!props.writable || props.saving} onClick={props.onSave}>Save</button>
+      <button type="button" onClick={props.onDelete}>Delete space</button>
+      {props.graphs.map(item => <button key={item.id} type="button" disabled={props.creating} onClick={() => props.onSelectGraph(item.id)}>{item.title}</button>)}
+      <button type="button" disabled={props.creating} onClick={() => props.onCreateGraph("Untitled Space")}>New space</button>
+    </header>;
+  },
+  SpaceCommentsNavigationIcon: (props: { count: number; unreadCount: number; onNavigate: () => void }) => {
+    mocks.comments(props);
+    return <button type="button" aria-label="Navigate comments" onClick={props.onNavigate}>Comments</button>;
+  },
+}));
+vi.mock("./space-quickstart", () => ({
+  SpaceQuickstart: (props: unknown) => { mocks.quickstart(props); return <div>Quickstart</div>; },
+}));
+vi.mock("./space-tutorial", () => ({ SpaceTutorial: () => null }));
+
+const loadedPreferences = {
+  data: { schemaVersion: 1 as const, revision: 1, recentModelKeys: [], defaults: {} },
+  error: null, saving: false, trackModel: vi.fn(), saveDefaults: mocks.saveDefaults, saveSettings: mocks.saveSettings,
+  retry: vi.fn(), inlineParametersEnabled: false, setInlineParametersEnabled: vi.fn(),
 };
+const graph: GenerationGraphSnapshotDto = {
+  id: "graph-a", title: "Graph A", version: 3, schemaVersion: 3, minimumWriterVersion: 3,
+  groups: [], nodes: [], edges: [], createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z",
+};
+function node(id: string, kind: CanonicalNodeKind, overrides: Partial<GenerationGraphSnapshotDto["nodes"][number]> = {}): GenerationGraphSnapshotDto["nodes"][number] {
+  return { id, kind, configVersion: 1, position: { x: 0, y: 0 }, config: defaultConfigForKind(kind), selectedOutputAssetId: null, ...overrides };
+}
+function repeatGraph(repeatCount = 4): GenerationGraphSnapshotDto & GraphDraft {
+  return { ...graph, schemaVersion: 3, nodes: [node("repeat", "generate.image", {
+    config: { ...defaultConfigForKind("generate.image"), prompt: "frozen", modelKey: "m", parameters: { imageCount: 1 }, repeatCount },
+  })] };
+}
+function execution(executionId: string, overrides: Partial<NodeExecutionDto> = {}): NodeExecutionDto {
+  return { executionId, graphNodeId: "repeat", executionKind: "generation", mediaType: "image", status: "pending", progress: 0,
+    errorCode: null, modelKey: "m", outputAssetIds: [], createdAt: "2026-09-13T00:00:00Z", ...overrides };
+}
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+interface StudioProps {
+  session: SpaceEditorSession;
+  catalog: SpaceEditorCatalog;
+  inputRuntime: SpaceInputRuntime;
+  services: SpaceEditorServices;
+  canvasSettings: SpaceCanvasSettings;
+}
+const studio = (): StudioProps => mocks.nodeStudio.mock.lastCall![0];
+const header = (): HeaderProps => mocks.header.mock.lastCall![0];
+const document = () => studio().session.getDocument();
+const currentNode = (id: string) => document().nodes.find(item => item.id === id);
+function resultGallery(draft: GraphDraft = document()) {
+  const galleries = draft.nodes.filter(item => item.kind === "output.gallery");
+  expect(galleries).toHaveLength(1);
+  const gallery = galleries[0], items = resultGalleryItems(gallery.config);
+  expect(items).not.toBeNull();
+  return { gallery, items: items! };
+}
+const inputs = () => new SpaceInputResolver(document(), studio().inputRuntime);
+function edit(command: Parameters<SpaceEditorSession["dispatch"]>[0]) {
+  act(() => { expect(studio().session.dispatch(command)).toMatchObject({ ok: true }); });
+}
+async function run(nodeId: string): Promise<NodeExecutionReceipt> {
+  const receipt = await studio().services.runNode!(nodeId);
+  expect(receipt).toMatchObject({ executionId: expect.any(String), completion: expect.any(Promise) });
+  return receipt as NodeExecutionReceipt;
+}
+function mount(snapshot = graph, props: Partial<Omit<ComponentProps<typeof NodeStudioWorkspace>, "graph">> = {}, client?: QueryClient) {
+  const ui = <NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} {...props} />;
+  return renderWithIntl(ui, client ? {
+    wrapper: ({ children }) => <QueryClientProvider client={client}><IntlProvider>{children}</IntlProvider></QueryClientProvider>,
+  } : undefined);
+}
+function newClient() { return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); }
+const selectionGraph = (selection: string | null): GenerationGraphSnapshotDto => ({
+  ...graph, nodes: [node("selection-node", "generate.image", { selectedOutputAssetId: selection })],
+});
+const selectionExecution = (id: string, selection: string | null, status: NodeExecutionDto["status"] = "completed") => execution(id, {
+  graphNodeId: "selection-node", status, progress: status === "completed" ? 100 : 50,
+  selectedOutputAssetId: selection, outputAssetIds: selection ? [selection] : [],
+});
+const selectionKey = nodeExecutionKeys.list(graph.id, "selection-node");
+const currentSelection = () => currentNode("selection-node")?.selectedOutputAssetId;
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  window.localStorage.clear();
+  mocks.usePreferences.mockReturnValue(loadedPreferences);
+  mocks.saveDefaults.mockResolvedValue(undefined);
+  mocks.saveSettings.mockResolvedValue(undefined);
+  mocks.useAutosave.mockReturnValue({ status: "saved", version: 3, update: mocks.update, retry: mocks.retry,
+    preserveSelection: mocks.preserveSelection, saveNow: mocks.saveNow });
+  mocks.saveNow.mockResolvedValue({ status: "saved", version: 3 });
+  outputMocks.listExecutions.mockResolvedValue([]);
+  outputMocks.cancelExecution.mockResolvedValue(undefined);
+  mediaApiMocks.getMediaAsset.mockImplementation(async (id: string) => ({ id, type: "image", url: `/api/media-assets/${id}/content` }));
+  outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map(id => ({
+    data: { id, type: "image", url: `/api/media-assets/${id}/content` }, isLoading: false, isError: false,
+  })));
+});
 
 describe("NodeStudioWorkspace", () => {
-  it.each(["upload", "reconnect", "delete"] as const)("does not overwrite a result after the user chooses to %s", async action => {
-    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
-    const snapshot = repeatGraph(1);
-    const appended = appendResultNodes(snapshot, "repeat", "old");
-    const view = renderWithIntl(<NodeStudioWorkspace graph={{ ...snapshot, ...appended.draft }} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    const updated = action === "delete" ? { ...appended.draft, nodes: snapshot.nodes, edges: [] }
-      : action === "reconnect" ? { ...appended.draft, edges: [] }
-      : { ...appended.draft, nodes: appended.draft.nodes.map(node => node.id === appended.ids[0] ? { ...node, config: { ...node.config as object, assetId: "manual" } } : node) };
-    await act(async () => mocks.nodeStudio.mock.lastCall![0].onDraftChange(updated));
-    const draft = mocks.update.mock.lastCall![0];
-    if (action === "upload") expect(draft.nodes[1].config).toMatchObject({ assetId: "manual", resultSource: { executionId: null, state: "completed" } });
-    if (action === "reconnect") expect(draft.nodes[1].config.resultSource).toBeUndefined();
-    const reconciled = reconcileResultNodes(draft, "repeat", { executionId: "old", status: "completed", outputAssetIds: ["late"] });
-    expect(reconciled).toBe(draft);
+  it("keeps Assistant runtime inputs stable when only canvas geometry changes", async () => {
+    outputMocks.listExecutions.mockResolvedValue([execution("assistant-result", { graphNodeId: "assistant", executionKind: "assistant",
+      mediaType: "text", status: "completed", outputText: "Result", outputItems: [{ id: "item", text: "Selected result" }], selectedItemId: "item" })]);
+    mount({ ...graph, nodes: [node("assistant", "generate.assistant")] });
+    await waitFor(() => expect(studio().inputRuntime.assistantResults?.assistant).toMatchObject({ text: "Result" }));
+    const previous = studio().inputRuntime.assistantResults;
+    edit({ type: "node.move", nodeId: "assistant", position: { x: 120, y: 160 } });
+    expect(studio().inputRuntime.assistantResults).toBe(previous);
+    expect(studio().inputRuntime.assistantResults?.assistant).toBe(previous?.assistant);
+  });
+  it("keeps newer native edits through a real autosave acknowledgement and sends their next version", async () => {
+    const actual = await vi.importActual<typeof import("../hook/use-graph-autosave")>("../hook/use-graph-autosave");
+    const first = deferred<GenerationGraphSnapshotDto>(), second = deferred<GenerationGraphSnapshotDto>();
+    const save = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    mocks.useAutosave.mockImplementation(options => actual.useGraphAutosave({ ...options, save }));
+    const snapshot = { ...graph, nodes: [node("memo", "note.memo")] };
+    const view = mount(snapshot);
+    edit({ type: "node.move", nodeId: "memo", position: { x: 30, y: 40 } });
+    let prepared!: Promise<number>;
+    act(() => { prepared = studio().services.prepareNodeExecution!(); });
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    const captured = save.mock.calls[0][1];
+    edit({ type: "node.move", nodeId: "memo", position: { x: 90, y: 100 } });
+    edit({ type: "node.add", node: node("local", "note.memo") });
+    await act(async () => { first.resolve({ ...snapshot, ...captured, version: 4 }); });
+    expect(studio().session.getSnapshot().version).toBe(4);
+    expect(currentNode("memo")?.position).toEqual({ x: 90, y: 100 });
+    expect([...studio().session.getSnapshot().persistedNodeIds]).toEqual(["memo"]);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls.map(call => call[1].expectedVersion)).toEqual([3, 4]);
+    expect(save.mock.calls[1][1].nodes.map((item: { id: string }) => item.id)).toEqual(["memo", "local"]);
+    await act(async () => { second.resolve({ ...snapshot, ...save.mock.calls[1][1], version: 5 }); await expect(prepared).resolves.toBe(5); });
+    expect([...studio().session.getSnapshot().persistedNodeIds]).toEqual(["memo", "local"]);
     view.unmount();
   });
-  it.each(["image", "video", "audio"] as const)("creates a connected %s input before submitting and pins it to its execution", async type => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  it("cancels an explicitly stopped submission once its delayed receipt arrives", async () => {
+    const admission = deferred<NodeExecutionDto>();
     outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockReturnValue(admission.promise);
+    mount(repeatGraph(1));
+    let pending!: Promise<unknown>;
+    act(() => { pending = studio().services.runNode!("repeat") as Promise<unknown>; });
+    const rejected = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(outputMocks.startExecution).toHaveBeenCalledOnce());
+    expect(studio().session.getSnapshot().runtimeByNode.get("repeat")?.submissionPending).toBe(true);
+    await act(async () => { await studio().services.cancelNode!("repeat"); });
+    expect(outputMocks.cancelExecution).not.toHaveBeenCalled();
+    await act(async () => { admission.resolve(execution("late-receipt")); await rejected; });
+    expect(outputMocks.cancelExecution).toHaveBeenCalledExactlyOnceWith(graph.id, "repeat", "late-receipt");
+    expect(resultSource(document().nodes[1].config)).toMatchObject({ executionId: "late-receipt", state: "pending" });
+    expect(studio().session.getSnapshot().runtimeByNode.get("repeat")?.submissionPending).toBe(false);
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
+  });
+  it.each(["upload", "reconnect", "delete"] as const)("does not overwrite a result after the user chooses to %s", async action => {
+    const history = deferred<NodeExecutionDto[]>();
+    outputMocks.listExecutions.mockReturnValue(history.promise);
+    const snapshot = repeatGraph(1), appended = appendResultNodes(snapshot, "repeat", "old");
+    const view = mount({ ...snapshot, ...appended.draft });
+    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
+    const id = appended.ids[0];
+    if (action === "delete") edit({ type: "node.remove", nodeId: id });
+    else if (action === "reconnect") edit({ type: "edge.disconnect", edgeId: appended.draft.edges[0].id });
+    else edit({ type: "node.config.patch", nodeId: id, patch: { assetId: "manual" } });
+    await act(async () => { history.resolve([execution("old", { status: "completed", outputAssetIds: ["late"] })]); });
+    await waitFor(() => expect(studio().session.getSnapshot().runtimeByNode.get("repeat")?.execution?.status).toBe("completed"));
+    if (action === "upload") expect(currentNode(id)?.config).toMatchObject({ assetId: "manual", resultSource: { executionId: null, state: "completed" } });
+    else if (action === "reconnect") expect(currentNode(id)?.config).toEqual({ assetId: null });
+    else expect(currentNode(id)).toBeUndefined();
+    expect(document().nodes).toHaveLength(action === "delete" ? 1 : 2);
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it.each(["image", "video", "audio"] as const)("reserves a connected %s result before saving and pins it to its execution", async type => {
+    const client = newClient(), saved = deferred<GraphAutosaveSnapshot>();
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    mocks.saveNow.mockReturnValueOnce(saved.promise);
     outputMocks.startExecution.mockImplementation(async () => {
-      const draft = mocks.update.mock.lastCall![0];
-      expect(draft.nodes).toHaveLength(2);
-      expect(draft.nodes[1]).toMatchObject({ kind: `input.${type}`, config: { assetId: null, resultSource: { nodeId: "repeat", executionId: null, state: "pending" } } });
-      expect(draft.edges[0]).toMatchObject({ sourceNodeId: "repeat", sourcePortId: type, targetNodeId: draft.nodes[1].id, targetPortId: type === "image" ? "reference" : type });
-      return { executionId: "accepted", status: "pending", executionKind: "generation", mediaType: type, graphNodeId: "repeat", outputAssetIds: [] };
+      expect(document().nodes).toHaveLength(2);
+      expect(document().nodes[1]).toMatchObject({ kind: `input.${type}`, config: {
+        assetId: null, resultSource: { nodeId: "repeat", executionId: null, state: "pending" },
+      } });
+      expect(document().edges[0]).toMatchObject({ sourceNodeId: "repeat", sourcePortId: type,
+        targetNodeId: document().nodes[1].id, targetPortId: type === "image" ? "reference" : type });
+      return execution("accepted", { mediaType: type });
     });
-    mediaApiMocks.getMediaAsset.mockResolvedValue({ id: "fixed", type, url: "https://cdn.test/fixed" });
-    const snapshot = repeatGraph(1); snapshot.nodes[0].kind = `generate.${type}`;
-    const view = renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />,
-      { wrapper: ({ children }) => <QueryClientProvider client={client}><IntlProvider>{children}</IntlProvider></QueryClientProvider> });
-    let receipt!: import("../model/server-execution-tracking").NodeExecutionReceipt;
-    await act(async () => { receipt = await mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat"); });
-    const resultId = mocks.update.mock.lastCall![0].nodes[1].id;
-    expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData(resultId, {})).toMatchObject({ resultStatus: "pending" });
-    await act(async () => { client.setQueryData(nodeExecutionKeys.list(graph.id, "repeat"), [{ executionId: "accepted", status: "completed", outputAssetIds: ["fixed"] }]); await receipt.completion; });
-    expect(mocks.update.mock.lastCall![0].nodes.find((node: {id:string}) => node.id === resultId)).toMatchObject({ config: { assetId: "fixed", resultSource: { executionId: "accepted", state: "completed" } } });
+    mediaApiMocks.getMediaAsset.mockResolvedValue({ id: "fixed", type, url: "/api/media-assets/fixed/content" });
+    const snapshot = { ...repeatGraph(1), nodes: [node("repeat", `generate.${type}`, {
+      config: { ...defaultConfigForKind(`generate.${type}`), modelKey: "m" },
+    })] };
+    const view = mount(snapshot, {}, client);
+    let pending!: Promise<NodeExecutionReceipt>;
+    act(() => { pending = run("repeat"); });
+    await waitFor(() => expect(mocks.saveNow).toHaveBeenCalledOnce());
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+    expect(resultSource(document().nodes[1].config)?.executionId).toBeNull();
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { saved.resolve({ status: "saved", version: 9 }); receipt = await pending; });
+    expect(outputMocks.startExecution).toHaveBeenCalledExactlyOnceWith(graph.id, "repeat", 9, undefined);
+    const id = document().nodes[1].id;
+    expect(currentNode(id)?.config).toMatchObject({ resultSource: { executionId: "accepted", state: "pending" } });
+    await act(async () => {
+      client.setQueryData(nodeExecutionKeys.list(graph.id, "repeat"), [execution("accepted", { mediaType: type, status: "completed", outputAssetIds: ["fixed"] })]);
+      await receipt.completion;
+    });
+    expect(currentNode(id)?.config).toMatchObject({ assetId: "fixed", resultSource: { executionId: "accepted", state: "completed" } });
+    expect(mocks.update.mock.lastCall![0]).toEqual(document());
     view.unmount(); client.clear();
   });
+
   it("preserves earlier results, expands native outputs once and never recreates deleted results", () => {
     let draft = repeatGraph(1);
     const first = appendResultNodes(draft, "repeat");
     draft = { ...draft, ...bindResultNodes(first.draft, first.ids, "old") };
     const completed = { executionId: "old", status: "completed" as const, outputAssetIds: ["one", "two", "three"] };
     draft = { ...draft, ...reconcileResultNodes(draft, "repeat", completed) };
-    expect(draft.nodes.filter(node => node.kind === "input.image").map(node => (node.config as {assetId:string}).assetId)).toEqual(["one", "two", "three"]);
-    for (const node of draft.nodes.filter(node => node.kind === "input.image")) expect(() => validateNodeConfig(node.kind, node.configVersion, node.config)).not.toThrow();
-    const deleted = draft.nodes[3].id;
-    draft = { ...draft, nodes: draft.nodes.filter(node => node.id !== deleted), edges: draft.edges.filter(edge => edge.targetNodeId !== deleted) };
-    expect(reconcileResultNodes(draft, "repeat", completed).nodes).toHaveLength(3);
+    const { gallery, items } = resultGallery(draft);
+    expect(draft.nodes).toHaveLength(2);
+    expect(gallery.id).toBe(first.ids[0]);
+    expect(items.map(item => item.assetId)).toEqual(["one", "two", "three"]);
+    for (const item of draft.nodes.slice(1)) expect(validateNodeConfig(item.kind, item.configVersion, item.config).supported).toBe(true);
+    const retained = items.slice(0, 2);
+    draft = { ...draft, nodes: draft.nodes.map(item => item.id === gallery.id ? { ...item,
+      config: { mediaType: "image", excludedAssetIds: [], resultItems: retained } } : item) };
+    expect(reconcileResultNodes(draft, "repeat", completed)).toBe(draft);
+    expect(resultGallery(draft).items.map(item => item.id)).toEqual(retained.map(item => item.id));
     const second = appendResultNodes(draft, "repeat", "new");
     const next = reconcileResultNodes(second.draft, "repeat", { executionId: "new", status: "completed", outputAssetIds: ["latest"] });
-    expect(next.nodes.filter(node => node.kind === "input.image").map(node => (node.config as {assetId:string}).assetId)).toEqual(["one", "two", "latest"]);
-    expect(reconcileResultNodes(next, "repeat", { ...completed, status: "pending", outputAssetIds: [] }).nodes[1].config).toMatchObject({assetId:"one"});
+    expect(resultGallery(next).items.map(item => item.assetId)).toEqual(["one", "two"]);
+    expect(next.nodes.find(item => item.id === second.ids[0])?.config).toMatchObject({ assetId: "latest" });
+    expect(reconcileResultNodes(next, "repeat", { ...completed, status: "pending", outputAssetIds: [] })).toBe(next);
     expect(reconcileResultNodes({ ...draft, nodes: [draft.nodes[0]], edges: [] }, "repeat", completed).nodes).toHaveLength(1);
-    expect(reconcileResultNodes({ ...draft, nodes: draft.nodes.slice(1), edges: [] }, "repeat", completed).nodes).toHaveLength(2);
+    const withoutProducer = { ...draft, nodes: draft.nodes.slice(1), edges: [] };
+    expect(reconcileResultNodes(withoutProducer, "repeat", completed)).toBe(withoutProducer);
+    expect(resultGallery(withoutProducer).items).toEqual(retained);
   });
-  it("creates distinct frame-port results and rejects the node limit before execution", () => {
-    const draft = { ...repeatGraph(1), nodes: [{ ...repeatGraph(1).nodes[0], kind: "edit.video.extractFrames", config: {} }] };
+
+  it("creates distinct legacy frame-port results and rejects the node limit before execution", () => {
+    const draft = { ...repeatGraph(1), nodes: [node("repeat", "edit.video.extractFrames", { config: { parameters: {} } })] };
     const appended = appendResultNodes(draft, "repeat", "frames");
-    const completed = reconcileResultNodes(appended.draft, "repeat", { executionId:"frames", status:"completed", outputAssetIds:["end","start"],
-      outputBindings:[{portId:"endFrame",sortOrder:0,assetId:"end"},{portId:"startFrame",sortOrder:0,assetId:"start"}] });
-    expect(completed.nodes.slice(1).map(node => node.config)).toMatchObject([{assetId:"start",resultSource:{portId:"startFrame"}},{assetId:"end",resultSource:{portId:"endFrame"}}]);
-    expect(() => appendResultNodes({...draft,nodes:Array.from({length:500},(_,index)=>({...draft.nodes[0],id:index===0?"repeat":`n-${index}`}))},"repeat")).toThrow("RESULT_NODE_LIMIT_EXCEEDED");
-  });
-  it("keeps a visible failed result node when admission fails without an execution receipt", async () => {
-    outputMocks.startExecution.mockRejectedValue(new Error("QUEUE_FULL"));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph(4)} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    await act(async () => { await expect(mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat")).rejects.toThrow("QUEUE_FULL"); });
-    expect(mocks.update.mock.lastCall![0].nodes.slice(1)).toHaveLength(4);
-    expect(mocks.update.mock.lastCall![0].nodes.slice(1).every((n: { config: { resultSource: { state: string } } }) => n.config.resultSource.state === "failed")).toBe(true);
-    const result = mocks.update.mock.lastCall![0].nodes[1];
-    expect(result.config).toMatchObject({assetId:null,resultSource:{executionId:null,state:"failed"}});
-    expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData(result.id,{})).toMatchObject({resultStatus:"failed"});
-    view.unmount();
-  });
-  it("recovers the exact pending result on reload while ignoring newer successful history", async () => {
-    const appended = appendResultNodes(repeatGraph(1),"repeat","old");
-    outputMocks.listExecutions.mockResolvedValue([
-      {executionId:"new",status:"completed",outputAssetIds:["latest"],selectedOutputAssetId:"latest"},
-      {executionId:"old",status:"completed",outputAssetIds:["fixed"]},
+    const completed = reconcileResultNodes(appended.draft, "repeat", { executionId: "frames", status: "completed", outputAssetIds: ["end", "start"],
+      outputBindings: [{ portId: "endFrame", sortOrder: 0, assetId: "end" }, { portId: "startFrame", sortOrder: 0, assetId: "start" }] });
+    const { gallery, items } = resultGallery(completed);
+    expect(completed.nodes).toHaveLength(2);
+    expect(items).toMatchObject([
+      { assetId: "start", executionId: "frames", portId: "startFrame", state: "completed" },
+      { assetId: "end", executionId: "frames", portId: "endFrame", state: "completed" },
     ]);
-    outputMocks.listAssets.mockImplementation((ids:string[])=>ids.map(id=>({data:{id,type:"image",url:`/api/media-assets/${id}/content`}})));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={{...repeatGraph(1),...appended.draft}} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    await waitFor(()=>expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData(appended.ids[0],{})).toMatchObject({image:"/api/media-assets/fixed/content",resultStatus:"completed"}));
-    expect(mocks.update.mock.lastCall![0].nodes[1].config).toMatchObject({assetId:"fixed",resultSource:{executionId:"old"}});
-    view.unmount();
-  });
-  it.each([
-    ["generate.image", 0], ["generate.image", 1], ["generate.video", 0], ["generate.video", 1], ["generate.audio", 0],
-  ] as const)("projects %s preset reference requirement %s before model selection", (kind, count) => {
-    const snapshot: GenerationGraphSnapshotDto = { ...graph, edges: [], nodes: [{
-      id: "preset-node", kind, configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: null,
-      config: { prompt: "draft", modelKey: null, parameters: {}, promptPreset: {
-        key: "personal", revision: 1, requiredInputs: { referenceImageCount: count }, recommendedParameters: {},
-      } },
-    }] };
-    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const props = mocks.nodeStudio.mock.lastCall![0];
-    const projected = props.resolveUpstreamNodeData("preset-node", {});
-    expect(projected.providerInputSchema.map((port: { name: string }) => port.name)).toEqual(count ? ["image"] : []);
-    if (kind !== "generate.audio") expect(projected.supportsImageInput).toBe(Boolean(count));
-    const output = kind === "generate.image" ? "outputImage" : kind === "generate.video" ? "outputVideo" : "outputAudio";
-    expect(projected).toHaveProperty(output, null);
-  });
-  it.each([404, 503])("distinguishes missing files from network errors (%s)", async (status) => {
-    outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map(() => ({error: {status}, isError: true})));
-    const snapshot: GenerationGraphSnapshotDto = {...graph, nodes: [{id: "input", kind: "input.image", configVersion: 1, position: {x: 0, y: 0}, config: {assetId: "deleted"}, selectedOutputAssetId: null}]};
-    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const props = mocks.nodeStudio.mock.lastCall?.[0] as {resolveUpstreamNodeData: (id: string, data: Record<string, unknown>) => Record<string, unknown>};
-    expect(props.resolveUpstreamNodeData("input", {})).toMatchObject({missingMedia: status === 404, image: null});
+    expect(items.map(item => item.id)).toEqual(appended.ids);
+    expect(completed.edges.map(edge => [edge.sourcePortId, edge.targetNodeId, edge.targetPortId])).toEqual([
+      ["startFrame", gallery.id, "image"], ["endFrame", gallery.id, "image"],
+    ]);
+    expect(validateNodeConfig(gallery.kind, gallery.configVersion, gallery.config).supported).toBe(true);
+    expect(() => appendResultNodes({ ...draft, nodes: Array.from({ length: 500 }, (_, index) => node(index === 0 ? "repeat" : `n-${index}`, "edit.video.extractFrames")) }, "repeat"))
+      .toThrow("RESULT_NODE_LIMIT_EXCEEDED");
   });
 
-  it.each(["newer upload", "history", "unmount"])("does not replace an input after %s supersedes an upload", async (scenario) => {
-    const inputGraph: GenerationGraphSnapshotDto = { ...graph, nodes: [{ id: "input", kind: "input.image", configVersion: 1, position: { x: 0, y: 0 }, config: { assetId: null }, selectedOutputAssetId: null }] };
-    const pending: Array<(value: unknown) => void> = [];
-    mocks.upload.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={inputGraph} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
-      onInputMediaUpload: (input: { nodeId: string; mediaType: string; dataUrl: string; filename: string; mimeType: string }) => Promise<unknown>;
-      onDraftChange: (draft: unknown) => void;
-    };
-    const input = { nodeId: "input", mediaType: "image", dataUrl: "data:image/png;base64,YQ==", filename: "first.png", mimeType: "image/png" };
-    const first = studio().onInputMediaUpload(input).catch((error: Error) => error);
-    await waitFor(() => expect(pending).toHaveLength(1));
-    if (scenario === "newer upload") {
-      const second = studio().onInputMediaUpload({ ...input, filename: "second.png" });
-      await waitFor(() => expect(pending).toHaveLength(2));
-      await act(async () => { pending[1]({ id: "second", type: "image", url: "https://cdn.test/second.png" }); expect(await second).toEqual({ assetId: "second" }); });
-      // The Canvas owns publishing the returned asset into its current draft.
-      act(() => studio().onDraftChange({ ...inputGraph, nodes: inputGraph.nodes.map((node) => ({ ...node, config: { assetId: "second" } })) }));
-    } else if (scenario === "history") {
-      act(() => studio().onDraftChange({ ...inputGraph, nodes: inputGraph.nodes.map((node) => ({ ...node, config: { assetId: "history" } })) }));
-    } else view.unmount();
-    const count = mocks.update.mock.calls.length;
-    await act(async () => { pending[0]({ id: "first", type: "image", url: "https://cdn.test/first.png" }); expect(await first).toMatchObject({ name: "AbortError" }); });
-    expect(mocks.update).toHaveBeenCalledTimes(count);
-    if (scenario !== "unmount") expect(mocks.update.mock.lastCall?.[0].nodes[0].config.assetId).toBe(scenario === "history" ? "history" : "second");
-  });
-  beforeEach(() => {
-    vi.clearAllMocks();
-    window.localStorage.clear();
-    mocks.usePreferences.mockReturnValue(loadedPreferences);
-    mocks.saveDefaults.mockResolvedValue(undefined);
-    mocks.saveSettings.mockResolvedValue(undefined);
-    mocks.useAutosave.mockReturnValue({
-      status: "saved",
-      version: 3,
-      update: mocks.update,
-      retry: mocks.retry,
-      preserveSelection: mocks.preserveSelection,
-      saveNow: mocks.saveNow,
-    });
-    mocks.saveNow.mockResolvedValue({ status: "saved", version: 3 });
-    outputMocks.listExecutions.mockResolvedValue([]);
-    outputMocks.startExecution.mockReset();
-    outputMocks.runImage.mockReset();
-    mediaApiMocks.getMediaAsset.mockReset();
-    outputMocks.listAssets.mockImplementation((assetIds: readonly string[]) =>
-      assetIds.map((id) => ({
-        data: { id, type: "video", url: `https://cdn.test/${id}.mp4`, durationMs: 2_000 },
-        isLoading: false,
-        isError: false,
-      })),
-    );
+  it("keeps failed result reservations visible when admission fails without a receipt", async () => {
+    outputMocks.startExecution.mockRejectedValue(new Error("QUEUE_FULL"));
+    mount(repeatGraph());
+    await act(async () => { await expect(studio().services.runNode!("repeat")).rejects.toThrow("QUEUE_FULL"); });
+    const { items } = resultGallery();
+    expect(document().nodes).toHaveLength(2);
+    expect(items).toEqual(Array.from({ length: 4 }, () => expect.objectContaining({
+      assetId: null, executionId: null, state: "failed", nodeId: "repeat", portId: "image",
+    })));
+    expect(unsubmittedResultIds(document())).toEqual([]);
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
   });
 
-  const selectionGraph = (selection: string | null): GenerationGraphSnapshotDto => ({ ...graph, nodes: [{
-    id: "selection-node", kind: "generate.image", configVersion: 1, config: { prompt: "", modelKey: null, parameters: {} },
-    position: { x: 0, y: 0 }, selectedOutputAssetId: selection,
-  }] });
+  it("does not submit when reserving results exceeds the graph limit", async () => {
+    const snapshot = repeatGraph();
+    snapshot.nodes.push(...Array.from({ length: 499 }, (_, index) => node(`memo-${index}`, "note.memo")));
+    mount(snapshot);
+    await act(async () => { await expect(studio().services.runNode!("repeat")).rejects.toThrow("RESULT_NODE_LIMIT_EXCEEDED"); });
+    expect(document().nodes).toHaveLength(500);
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+  });
 
-  it("projects both durable frame bindings without copied History and clears them together", async () => {
-    outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map(id =>
-      ({ data: { id, type: "image", url: `https://cdn.test/${id}.png` }, isLoading: false, isError: false })));
-    const frames: GenerationGraphSnapshotDto = { ...graph, nodes: [{
-      id: "frames", kind: "edit.video.extractFrames", position: { x: 0, y: 0 }, configVersion: 1,
-      config: { parameters: {} }, selectedOutputAssetId: "start",
-    }], outputBindings: [
+  it("recovers the exact pending result on reload while ignoring newer successful history", async () => {
+    const snapshot = repeatGraph(1), appended = appendResultNodes(snapshot, "repeat", "old");
+    outputMocks.listExecutions.mockResolvedValue([
+      execution("new", { status: "completed", outputAssetIds: ["latest"], selectedOutputAssetId: "latest" }),
+      execution("old", { status: "completed", outputAssetIds: ["fixed"] }),
+    ]);
+    mount({ ...snapshot, ...appended.draft });
+    await waitFor(() => expect(currentNode(appended.ids[0])?.config).toMatchObject({
+      assetId: "fixed", resultSource: { executionId: "old", state: "completed" },
+    }));
+    expect(inputs().sourceAssetIds(appended.ids[0], "image")).toEqual(["fixed"]);
+    expect(currentNode("repeat")?.selectedOutputAssetId).toBe("latest");
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+  });
+
+  it("preserves both durable frame bindings without copied history and clears them together", async () => {
+    mount({ ...graph, nodes: [node("frames", "edit.video.extractFrames", { selectedOutputAssetId: "start" })], outputBindings: [
       { graphNodeId: "frames", portId: "startFrame", sortOrder: 0, assetId: "start" },
       { graphNodeId: "frames", portId: "endFrame", sortOrder: 0, assetId: "end" },
-    ] };
-    renderWithIntl(<NodeStudioWorkspace graph={frames} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    const studio = () => mocks.nodeStudio.mock.lastCall![0];
-    await waitFor(() => expect(studio().resolveUpstreamNodeData("frames", {}).outputAssetsByPort).toMatchObject({
-      startFrame: [{ id: "start", url: "/api/media-assets/start/content" }],
-      endFrame: [{ id: "end", url: "/api/media-assets/end/content" }],
-    }));
-    expect(studio().catalog.mediaOutputs.frames).toHaveLength(2);
-    act(() => studio().onDraftChange({ ...frames, nodes: frames.nodes.map(node => ({ ...node, selectedOutputAssetId: null })) }));
-    await waitFor(() => expect(studio().resolveUpstreamNodeData("frames", {}).outputAssetsByPort)
-      .toEqual({ startFrame: [], endFrame: [] }));
+    ] });
+    await waitFor(() => expect(studio().inputRuntime.mediaOutputs?.get("frames")).toEqual([
+      { portId: "startFrame", sortOrder: 0, assetId: "start" }, { portId: "endFrame", sortOrder: 0, assetId: "end" },
+    ]));
+    expect(inputs().sourceAssetIds("frames", "startFrame")).toEqual(["start"]);
+    expect(inputs().sourceAssetIds("frames", "endFrame")).toEqual(["end"]);
+    edit({ type: "output.clear", nodeId: "frames" });
+    expect(currentNode("frames")?.selectedOutputAssetId).toBeNull();
+    await waitFor(() => expect(studio().inputRuntime.mediaOutputs?.get("frames") ?? []).toEqual([]));
+    expect(inputs().sourceAssetIds("frames", "startFrame")).toEqual([]);
+    expect(inputs().sourceAssetIds("frames", "endFrame")).toEqual([]);
   });
-  const selectionExecution = (id: string, selection: string | null, status = "completed") => ({
-    executionId: id, graphNodeId: "selection-node", executionKind: "generation", mediaType: "image",
-    status, progress: status === "completed" ? 100 : 50, selectedOutputAssetId: selection,
-    outputAssetIds: selection ? [selection] : [], createdAt: "2026-09-13T00:00:00Z", modelKey: null, errorCode: null,
-  });
-  const currentSelection = () => mocks.nodeStudio.mock.lastCall?.[0].graph.nodes[0].selectedOutputAssetId;
-  const renderSelectionGraph = (client: QueryClient, selection: string | null) => renderWithIntl(
-    <NodeStudioWorkspace graph={selectionGraph(selection)} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />,
-    { wrapper: ({ children }) => <QueryClientProvider client={client}><IntlProvider>{children}</IntlProvider></QueryClientProvider> },
-  );
-  const selectionKey = nodeExecutionKeys.list(graph.id, "selection-node");
 
   it("ignores cached selection on re-entry and accepts a fresh changed selection for the same execution", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = newClient(), history = deferred<NodeExecutionDto[]>();
     client.setQueryData(selectionKey, [selectionExecution("e1", "stale-result")]);
-    let finish!: (value: unknown) => void;
-    outputMocks.listExecutions.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    const view = renderSelectionGraph(client, null);
+    outputMocks.listExecutions.mockReturnValueOnce(history.promise);
+    const view = mount(selectionGraph(null), {}, client);
     await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
     expect(currentSelection()).toBeNull();
-    await act(async () => { finish([selectionExecution("e1", null)]); });
+    await act(async () => { history.resolve([selectionExecution("e1", null)]); });
     expect(currentSelection()).toBeNull();
     expect(mocks.update).not.toHaveBeenCalled();
     outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "fresh-selection")]);
     await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
     expect(currentSelection()).toBe("fresh-selection");
+    expect(mocks.preserveSelection).not.toHaveBeenCalled();
     view.unmount(); client.clear();
   });
 
   it("preserves A→B→A intent during the first delayed execution read", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    let finish!: (value: unknown) => void;
-    outputMocks.listExecutions.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    const view = renderSelectionGraph(client, "A");
+    const client = newClient(), history = deferred<NodeExecutionDto[]>();
+    outputMocks.listExecutions.mockReturnValueOnce(history.promise);
+    const view = mount(selectionGraph("A"), {}, client);
     await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
-    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("B")));
-    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("A")));
-    await act(async () => { finish([selectionExecution("e1", "C")]); });
-    await waitFor(() => expect(mocks.nodeStudio.mock.lastCall![0].resolveUpstreamNodeData("selection-node", {}).executionStatus).toBe("completed"));
+    edit({ type: "output.select", nodeId: "selection-node", assetId: "B" });
+    edit({ type: "output.select", nodeId: "selection-node", assetId: "A" });
+    await act(async () => { history.resolve([selectionExecution("e1", "C")]); });
+    await waitFor(() => expect(studio().session.getSnapshot().runtimeByNode.get("selection-node")?.execution?.status).toBe("completed"));
     expect(currentSelection()).toBe("A");
     expect(mocks.preserveSelection).toHaveBeenCalledWith("selection-node");
     outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "C")]);
     await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
     expect(currentSelection()).toBe("A");
-    expect(mocks.preserveSelection).toHaveBeenCalledTimes(1);
     view.unmount(); client.clear();
   });
 
   it("retains user intent when the initial history read fails and is retried", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    let fail!: (error: Error) => void;
-    outputMocks.listExecutions.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
-    const view = renderSelectionGraph(client, "A");
+    const client = newClient(), history = deferred<NodeExecutionDto[]>();
+    outputMocks.listExecutions.mockReturnValueOnce(history.promise);
+    const view = mount(selectionGraph("A"), {}, client);
     await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
-    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("B")));
-    act(() => mocks.nodeStudio.mock.lastCall![0].onDraftChange(selectionGraph("A")));
-    await act(async () => { fail(new Error("network interrupted")); });
+    edit({ type: "output.select", nodeId: "selection-node", assetId: "B" });
+    edit({ type: "output.select", nodeId: "selection-node", assetId: "A" });
+    await act(async () => { history.reject(new Error("network interrupted")); });
     await waitFor(() => expect(client.getQueryState(selectionKey)?.status).toBe("error"));
     outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "C")]);
     await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
@@ -361,913 +457,466 @@ describe("NodeStudioWorkspace", () => {
     view.unmount(); client.clear();
   });
 
-  it("projects successive external executions without a local submission", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  it("ignores a late cancelled history read after a newer read has selected another result", async () => {
+    const client = newClient(), oldRead = deferred<NodeExecutionDto[]>();
+    outputMocks.listExecutions.mockReturnValueOnce(oldRead.promise);
+    const view = mount(selectionGraph("A"), {}, client);
+    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalledOnce());
+    await act(async () => { await client.cancelQueries({ queryKey: selectionKey }); });
+    outputMocks.listExecutions.mockResolvedValue([selectionExecution("new", "B")]);
+    await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
+    expect(currentSelection()).toBe("B");
+    await act(async () => { oldRead.resolve([selectionExecution("old", "C")]); });
+    expect(currentSelection()).toBe("B");
+    await waitFor(() => expect(studio().session.getSnapshot().runtimeByNode.get("selection-node")?.execution?.executionId).toBe("new"));
+    view.unmount(); client.clear();
+  });
+
+  it("observes successive external executions without submitting them locally", async () => {
+    const client = newClient();
     outputMocks.listExecutions.mockResolvedValue([selectionExecution("e1", "A", "processing")]);
-    const view = renderSelectionGraph(client, "A");
+    const view = mount(selectionGraph("A"), {}, client);
     await waitFor(() => expect(client.getQueryData(selectionKey)).toBeDefined());
-    for (const [id, selection, status] of [["e1", "B", "completed"], ["e2", "B", "processing"], ["e2", "C", "completed"]]) {
+    const changes = [["e1", "B", "completed"], ["e2", "B", "processing"], ["e2", "C", "completed"]] as const;
+    for (const [id, selection, status] of changes) {
       outputMocks.listExecutions.mockResolvedValue([selectionExecution(id, selection, status)]);
       await act(async () => { await client.invalidateQueries({ queryKey: selectionKey }); });
       await waitFor(() => expect(currentSelection()).toBe(selection));
     }
     expect(outputMocks.startExecution).not.toHaveBeenCalled();
+    expect(mocks.preserveSelection).not.toHaveBeenCalled();
     view.unmount(); client.clear();
   });
 
-  it("waits for saving before the brand back button leaves", async () => {
-    const user = userEvent.setup(); const onBack = vi.fn();
-    let finish!: () => void;
-    mocks.saveNow.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
-    const { container } = renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()}
-      onReloadLatest={vi.fn()} onStatusChange={vi.fn()} onBack={onBack} />);
-    const back = screen.getByRole("button", { name: "스페이스 목록으로" });
-    expect(back.nextElementSibling).toBe(container.querySelector('[data-app-brand-logo]'));
-    await user.click(back); expect(onBack).not.toHaveBeenCalled(); expect(back).toBeDisabled();
-    await act(async () => { finish(); }); expect(onBack).toHaveBeenCalledOnce();
-  });
-  it.each(["dirty", "saving"])("saves before selecting another Space while %s", async (status) => {
-    const user = userEvent.setup(); const select = vi.fn();
-    let finish!: () => void;
-    mocks.useAutosave.mockReturnValue({ status, update: mocks.update, retry: mocks.retry, saveNow: mocks.saveNow });
-    mocks.saveNow.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
-    renderWithIntl(<NodeStudioWorkspace graph={graph} graphs={[graph, { ...graph, id: "graph-b", title: "Graph B" }]}
-      onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onSelectGraph={select} />);
-    await user.click(screen.getByRole("button", { name: "Open space" }));
-    await user.click(screen.getByRole("button", { name: "Graph B" }));
-    expect(select).not.toHaveBeenCalled();
-    await act(async () => { finish(); });
-    expect(select).toHaveBeenCalledExactlyOnceWith("graph-b");
-  });
-  it("retains the selected Space after failed save until explicit discard", async () => {
-    const user = userEvent.setup(); const select = vi.fn();
-    mocks.saveNow.mockRejectedValue(new Error("conflict"));
-    renderWithIntl(<NodeStudioWorkspace graph={graph} graphs={[graph, { ...graph, id: "graph-b", title: "Graph B" }]}
-      onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onSelectGraph={select} />);
-    await user.click(screen.getByRole("button", { name: "Open space" }));
-    await user.click(screen.getByRole("button", { name: "Graph B" }));
-    expect(select).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
-    expect(select).toHaveBeenCalledExactlyOnceWith("graph-b");
-  });
-  it("does not discard failed saves without explicit confirmation", async () => {
-    const user = userEvent.setup(); const onBack = vi.fn(); mocks.saveNow.mockRejectedValue(new Error("conflict"));
-    renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()}
-      onReloadLatest={vi.fn()} onStatusChange={vi.fn()} onBack={onBack} />);
-    await user.click(screen.getByRole("button", { name: "스페이스 목록으로" }));
-    expect(onBack).not.toHaveBeenCalled();
-    const dialog = screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" });
-    const footer = dialog.querySelector('[data-app-dialog-footer]')!;
-    expect(Array.from(footer.querySelectorAll("button")).map(button => button.textContent)).toEqual(["취소", "변경 사항을 버리고 나가기"]);
-    expect(within(dialog).getByRole("button", { name: "변경 사항을 버리고 나가기" })).toHaveAttribute("data-app-dialog-danger-button");
-    await user.click(within(dialog).getByRole("button", { name: "취소" }));
-    expect(onBack).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "스페이스 목록으로" }));
-    const confirmedDialog = screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" });
-    await user.click(within(confirmedDialog).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
-    expect(onBack).toHaveBeenCalledOnce();
-  });
-  it("requires explicit discard before creating another space after a save conflict", async () => {
-    const user = userEvent.setup(); const create = vi.fn();
-    mocks.saveNow.mockRejectedValue(new Error("conflict"));
-    renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()}
-      onReloadLatest={vi.fn()} onStatusChange={vi.fn()} onCreateGraph={create} />);
-    await user.click(screen.getByRole("button", { name: "Open space" }));
-    await user.click(screen.getByRole("button", { name: "New space" }));
-    await user.click(within(screen.getByRole("dialog", { name: "New space" })).getByRole("button", { name: "Create" }));
-    expect(create).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
-    expect(create).toHaveBeenCalledWith("Untitled Space");
-  });
-  it.each(["unmount", "pagehide"])("aborts only this workspace's browser operation on %s", async (event) => {
-    const snapshot: GenerationGraphSnapshotDto = { ...graph, nodes: [{
-      id: "resize", kind: "edit.image.resize", position: { x: 0, y: 0 }, configVersion: 1,
-      config: {}, selectedOutputAssetId: null,
-    }] };
-    outputMocks.startExecution.mockResolvedValue({ executionId: "owned-operation", plan: { kind: "edit.image.resize" } });
-    let operationSignal: AbortSignal | undefined;
-    outputMocks.runImage.mockImplementation(({ signal }: { signal: AbortSignal }) => {
-      operationSignal = signal;
-      return new Promise((_resolve, reject) => signal.addEventListener("abort", () => {
-        reject(new DOMException("cancelled", "AbortError"));
-      }, { once: true }));
-    });
-    const rendered = renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()}
-      onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const studio = mocks.nodeStudio.mock.lastCall?.[0] as { onRegenerateNode: (nodeId: string) => Promise<unknown> };
-    const running = studio.onRegenerateNode("resize");
-    const rejected = expect(running).rejects.toMatchObject({ name: "AbortError" });
-    await waitFor(() => expect(operationSignal).toBeDefined());
-    await act(async () => {
-      if (event === "unmount") rendered.unmount();
-      else window.dispatchEvent(new Event("pagehide"));
-      await rejected;
-    });
-    expect(operationSignal?.aborted).toBe(true);
-  });
-
-  it("does not restart or cancel a restored active browser operation on mount", async () => {
-    outputMocks.listExecutions.mockResolvedValue([{ executionId: "other-tab-operation", status: "processing",
-      progress: 1, outputAssetIds: [] }]);
-    renderWithIntl(<NodeStudioWorkspace graph={{ ...graph, nodes: [{
-      id: "resize", kind: "edit.image.resize", position: { x: 0, y: 0 }, configVersion: 1,
-      config: {}, selectedOutputAssetId: null,
-    }] }} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    await waitFor(() => expect(outputMocks.listExecutions).toHaveBeenCalled());
-    expect(outputMocks.startExecution).not.toHaveBeenCalled();
-    expect(outputMocks.runImage).not.toHaveBeenCalled();
-    expect(outputMocks.cancelExecution).not.toHaveBeenCalled();
-  });
-
-  it("Graph 이름 변경을 autosave draft에 반영한다", async () => {
-    const user = userEvent.setup();
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Space settings" }));
-    const title = screen.getByRole("textbox", { name: "Space name" });
-    await user.clear(title);
-    await user.type(title, "Renamed");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => expect(mocks.update).toHaveBeenLastCalledWith({
-      schemaVersion: 3, groups: [],
-      title: "Renamed",
-      nodes: [],
-      edges: [],
-    }));
-  });
-
-  it("v2 Graph를 Node Banana runtime과 writer v2 autosave에 연결한다", () => {
-    const { container } = renderWithIntl(
-      <NodeStudioWorkspace
-        graph={{ ...graph, schemaVersion: 3, groups: [], minimumWriterVersion: 3 }}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    expect(mocks.useAutosave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        initialDraft: expect.objectContaining({ schemaVersion: 3, groups: [] }),
-      }),
-    );
-    expect(mocks.nodeStudio).toHaveBeenCalledWith(expect.objectContaining({
-      graph: expect.objectContaining({ schemaVersion: 3, groups: [], minimumWriterVersion: 3 }),
-    }));
-    expect(container.querySelector('[data-app-brand-logo]')).toHaveTextContent("leesfield");
-    expect(screen.queryByRole("heading", { name: "Node Banana" })).not.toBeInTheDocument();
-    expect(container.querySelector('[data-node-banana-component="Home"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-node-banana-component="Header"]')).toBeInTheDocument();
-  });
-
-  it("동일한 드래그 draft가 반복 유입되어도 workspace와 autosave가 한 번만 갱신된다", () => {
-    const graphWithNode: GenerationGraphSnapshotDto = {
-      ...graph,
-      nodes: [{
-        id: "node-1",
-        kind: "input.image",
-        position: { x: 10, y: 20 },
-        configVersion: 1,
-        config: { assetId: null },
-        selectedOutputAssetId: null,
-      }],
-    };
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graphWithNode}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-    const studio = mocks.nodeStudio.mock.lastCall?.[0] as {
-      onDraftChange: (draft: {
-        schemaVersion: 3; groups: GenerationGraphSnapshotDto["groups"];
-        title: string;
-        nodes: GenerationGraphSnapshotDto["nodes"];
-        edges: GenerationGraphSnapshotDto["edges"];
-      }) => void;
-    };
-    const movedDraft = {
-      schemaVersion: 3 as const, groups: [],
-      title: graph.title,
-      nodes: graphWithNode.nodes.map((node) => ({
-        ...node,
-        position: { x: 180, y: 240 },
-      })),
-      edges: graphWithNode.edges,
-    };
-
-    act(() => {
-      for (let index = 0; index < 64; index += 1) studio.onDraftChange(movedDraft);
-    });
-
-    expect(mocks.update).toHaveBeenCalledOnce();
-    expect(mocks.update).toHaveBeenCalledWith(movedDraft);
-  });
-
-  it("clearing a selected operation output removes the current projection even when history remains", async () => {
-    const operationId = "trim-output";
-    outputMocks.listExecutions.mockResolvedValue([{
-      executionId: "execution-1",
-      graphId: graph.id,
-      nodeId: operationId,
-      executionKind: "media_operation",
-      status: "completed",
-      progress: 100,
-      outputAssetIds: ["latest-output"],
-    }]);
-    const graphWithOutput: GenerationGraphSnapshotDto = {
-      ...graph,
-      nodes: [{
-        id: operationId,
-        kind: "edit.video.trim",
-        position: { x: 0, y: 0 },
-        configVersion: 1,
-        config: { parameters: { startMs: 0, endMs: 2_000 } },
-        selectedOutputAssetId: "selected-output",
-      }],
-    };
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graphWithOutput}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => expect(mocks.nodeStudio).toHaveBeenCalled());
-    const initialProps = mocks.nodeStudio.mock.lastCall?.[0] as {
-      resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown> | null;
-      onDraftChange: (draft: unknown) => void;
-    };
-    await waitFor(() => expect(initialProps.resolveUpstreamNodeData(operationId, {})).toMatchObject({
-      outputVideo: "/api/media-assets/selected-output/content",
-    }));
-
-    act(() => {
-      initialProps.onDraftChange({
-        schemaVersion: 3, groups: [],
-        title: graphWithOutput.title,
-        nodes: graphWithOutput.nodes.map((node) => ({ ...node, selectedOutputAssetId: null })),
-        edges: [],
-      });
-    });
-
-    await waitFor(() => {
-      const clearedProps = mocks.nodeStudio.mock.lastCall?.[0] as typeof initialProps;
-      expect(clearedProps.resolveUpstreamNodeData(operationId, {})).toMatchObject({ outputVideo: null });
-    });
-  });
-
-
-  const repeatGraph = (repeatCount = 4): GenerationGraphSnapshotDto & import("../hook/use-graph-autosave").GraphDraft => ({ ...graph, schemaVersion:3,minimumWriterVersion:3,groups:[],nodes: [{
-    id: "repeat", kind: "generate.image", configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: null,
-    config: { prompt: "frozen", modelKey: "m", parameters: { imageCount: 1 }, repeatCount },
-  }] });
-  it("waits for all sequential repetitions, preserves partial results and blocks duplicate Run", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const rows: import("../model/node-execution-types").NodeExecutionDto[] = [];
+  it("waits for every sequential repetition, preserves partial results and blocks duplicate Run", async () => {
+    const client = newClient(), rows: NodeExecutionDto[] = [];
     outputMocks.listExecutions.mockImplementation(async () => [...rows]);
-    outputMocks.startExecution.mockImplementation(async (_g, _n, _v, repeat) => {
-      const reserved = mocks.update.mock.lastCall![0];
-      expect(reserved.nodes.slice(1)).toHaveLength(4);
-      expect(reserved.edges).toHaveLength(4);
+    outputMocks.startExecution.mockImplementation(async (_graphId, _nodeId, _version, repeat) => {
+      const { gallery, items } = resultGallery();
+      expect(document().nodes).toHaveLength(2);
+      expect(items).toHaveLength(4);
+      expect(document().edges).toHaveLength(1);
+      expect(document().edges[0]).toMatchObject({ sourceNodeId: "repeat", sourcePortId: "image", targetNodeId: gallery.id, targetPortId: "image" });
       const index = rows.length;
-      expect(index === 0 ? repeat : repeat.repeatIndex).toBe(index === 0 ? undefined : index);
+      expect(repeat).toEqual(index === 0 ? undefined : { repeatOfExecutionId: "run-0", repeatIndex: index });
       if (index > 0) expect(rows[0].status).not.toBe("pending");
-      const row = { executionId: `run-${index}`, executionKind: "generation" as const, mediaType: "image" as const,
-        graphNodeId: "repeat", status: "pending" as const, progress: 0, errorCode: null, modelKey: "m", outputAssetIds: [], createdAt: new Date().toISOString() };
-      rows.unshift(row); return row;
+      const row = execution(`run-${index}`);
+      rows.unshift(row);
+      return row;
     });
-    mediaApiMocks.getMediaAsset.mockImplementation(async id => ({ id, type: "image", url: `/api/media-assets/${id}/content` }));
-    outputMocks.listAssets.mockImplementation((ids: string[]) => ids.map(id => ({ data: { id, type: "image", url: `/api/media-assets/${id}/content` } })));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph()} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />,
-      { wrapper: ({ children }) => <QueryClientProvider client={client}><IntlProvider>{children}</IntlProvider></QueryClientProvider> });
-    const studio = () => mocks.nodeStudio.mock.lastCall![0];
-    let receipt!: import("../model/server-execution-tracking").NodeExecutionReceipt;
-    await act(async () => { receipt = await studio().onRegenerateNode("repeat"); });
-    const reserved = mocks.update.mock.lastCall![0].nodes.slice(1);
-    const reservedIds = reserved.map((n: {id: string}) => n.id);
-    const positions = reserved.map((n: {position: unknown}) => n.position);
-    expect(reserved.map((n: {id:string}) => studio().resolveUpstreamNodeData(n.id, {}).resultStatus)).toEqual(["pending", "pending", "pending", "pending"]);
+    const view = mount(repeatGraph(), {}, client);
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("repeat"); });
+    const { gallery: reserved, items: reservations } = resultGallery();
+    const reservedIds = reservations.map(item => item.id), position = reserved.position, edges = document().edges;
+    expect(reservations.map(item => item.state)).toEqual(["pending", "pending", "pending", "pending"]);
+    expect(reservations.map(item => item.executionId)).toEqual(["run-0", null, null, null]);
     const complete = vi.fn(); void receipt.completion.then(complete);
-    await act(async () => { await expect(studio().onRegenerateNode("repeat")).rejects.toThrow("NODE_GENERATION_ACTIVE"); });
-    for (let i = 0; i < 4; i++) {
-      await waitFor(() => expect(outputMocks.startExecution).toHaveBeenCalledTimes(i + 1));
+    await act(async () => { await expect(studio().services.runNode!("repeat")).rejects.toThrow("NODE_GENERATION_ACTIVE"); });
+    for (let index = 0; index < 4; index++) {
+      await waitFor(() => expect(outputMocks.startExecution).toHaveBeenCalledTimes(index + 1));
       expect(complete).not.toHaveBeenCalled();
       await act(async () => {
-        rows[0] = { ...rows[0], status: i === 1 ? "failed" : "completed", outputAssetIds: i === 1 ? [] : [`asset-${i}`], errorCode: i === 1 ? "GENERATION_FAILED" : null };
+        rows[0] = { ...rows[0], status: index === 1 ? "failed" : "completed",
+          outputAssetIds: index === 1 ? [] : [`asset-${index}`], errorCode: index === 1 ? "GENERATION_FAILED" : null };
         client.setQueryData(nodeExecutionKeys.list(graph.id, "repeat"), [...rows]);
       });
     }
     await act(async () => { await receipt.completion; });
     expect(complete).toHaveBeenCalledOnce();
-    expect(studio().resolveUpstreamNodeData("repeat", {}).repeatProgress).toEqual({ completed: 4, failed: 1, total: 4, running: false });
-    expect(studio().resolveUpstreamNodeData("repeat", {}).imageHistory.map((x: { id: string }) => x.id)).toEqual(["asset-3", "asset-2", "asset-0"]);
+    expect(studio().session.getSnapshot().runtimeByNode.get("repeat")?.repeatProgress).toEqual({ completed: 4, failed: 1, total: 4, running: false });
+    const { gallery, items: outputs } = resultGallery();
+    expect(document().nodes).toHaveLength(2);
+    expect(gallery.id).toBe(reserved.id);
+    expect(gallery.position).toEqual(position);
+    expect(document().edges).toEqual(edges);
+    expect(outputs.map(item => item.id)).toEqual(reservedIds);
+    expect(outputs.map(item => item.assetId)).toEqual(["asset-0", null, "asset-2", "asset-3"]);
+    expect(outputs.map(item => item.executionId)).toEqual(["run-0", "run-1", "run-2", "run-3"]);
+    expect(outputs.map(item => item.state)).toEqual(["completed", "failed", "completed", "completed"]);
+    expect(outputs[1]).toMatchObject({ executionId: "run-1", state: "failed" });
+    expect(unsubmittedResultIds(document())).toEqual([]);
     expect(outputMocks.startExecution.mock.calls.slice(1).map(call => call[3])).toEqual([1, 2, 3].map(repeatIndex => ({ repeatOfExecutionId: "run-0", repeatIndex })));
-    const outputs = mocks.update.mock.lastCall![0].nodes.filter((node: {kind:string}) => node.kind === "input.image");
-    expect(outputs).toHaveLength(4);
-    expect(outputs.map((n: {id:string}) => n.id)).toEqual(reservedIds);
-    expect(outputs.map((n: {position:unknown}) => n.position)).toEqual(positions);
-    expect(outputs.map((node: {config:{assetId:string|null}}) => node.config.assetId)).toEqual(["asset-0", null, "asset-2", "asset-3"]);
-    expect(outputs[1].config.resultSource).toMatchObject({executionId:"run-1",state:"failed"});
     view.unmount(); client.clear();
   });
-  it.each(["input", "delete", "unmount"])("stops unsubmitted repetitions on %s", async scenario => {
+
+  it.each(["input", "delete", "unmount"] as const)("stops unsubmitted repetitions on %s", async scenario => {
     outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
-    outputMocks.startExecution.mockResolvedValue({ executionId: "root", executionKind: "generation", mediaType: "image", graphNodeId: "repeat", status: "pending", progress: 0 });
-    const snapshot = repeatGraph();
-    const view = renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    let receipt!: import("../model/server-execution-tracking").NodeExecutionReceipt;
-    await act(async () => { receipt = await mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat"); });
+    outputMocks.startExecution.mockResolvedValue(execution("root"));
+    const view = mount(repeatGraph());
+    const session = studio().session;
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("repeat"); });
+    const { gallery: reserved, items: reservations } = resultGallery();
     if (scenario === "unmount") view.unmount();
-    else act(() => {
-      const draft = mocks.update.mock.lastCall![0];
-      mocks.nodeStudio.mock.lastCall![0].onDraftChange({ ...draft, nodes: scenario === "delete"
-        ? draft.nodes.filter((node: {id:string}) => node.id !== "repeat")
-        : draft.nodes.map((node: {id:string;config:object}) => node.id === "repeat" ? { ...node, config: { ...node.config, prompt: "changed" } } : node) });
-    });
+    else if (scenario === "delete") edit({ type: "node.remove", nodeId: "repeat" });
+    else edit({ type: "node.config.patch", nodeId: "repeat", patch: { prompt: "changed" } });
     await act(async () => { await expect(receipt.completion).rejects.toMatchObject({ name: "AbortError" }); });
     expect(outputMocks.startExecution).toHaveBeenCalledOnce();
-    const stopped = mocks.update.mock.lastCall![0].nodes.filter((node: {kind:string}) => node.kind === "input.image");
-    expect(stopped.map((node: {config:{resultSource:unknown}}) => node.config.resultSource)).toMatchObject([
-      {executionId:"root",state:"pending"},{executionId:null,state:"cancelled"},{executionId:null,state:"cancelled"},{executionId:null,state:"cancelled"},
+    const { gallery, items: stopped } = resultGallery(session.getDocument());
+    expect(gallery.id).toBe(reserved.id);
+    expect(stopped.map(item => item.id)).toEqual(reservations.map(item => item.id));
+    expect(stopped).toHaveLength(4);
+    expect(stopped.map(item => item.assetId)).toEqual([null, null, null, null]);
+    if (scenario === "delete") {
+      expect(session.getDocument().nodes.map(item => item.id)).toEqual([reserved.id]);
+      expect(session.getDocument().edges).toEqual([]);
+      expect(stopped.map(item => ({ executionId: item.executionId, state: item.state }))).toEqual(Array.from({ length: 4 }, () => ({ executionId: null, state: "cancelled" })));
+    } else {
+      expect(stopped).toMatchObject([
+        { executionId: "root", state: "pending" }, { executionId: null, state: "cancelled" },
+        { executionId: null, state: "cancelled" }, { executionId: null, state: "cancelled" },
+      ]);
+    }
+    expect(unsubmittedResultIds(session.getDocument())).toEqual([]);
+    view.unmount();
+  });
+
+  it("cancels the accepted run and stops the remaining repetitions without submitting them", async () => {
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockResolvedValue(execution("root"));
+    mount(repeatGraph());
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("repeat"); });
+    const aborted = expect(receipt.completion).rejects.toMatchObject({ name: "AbortError" });
+    outputMocks.listExecutions.mockResolvedValue([execution("root", { status: "cancelled" })]);
+    await act(async () => { await studio().services.cancelNode!("repeat"); });
+    await aborted;
+    expect(outputMocks.cancelExecution).toHaveBeenCalledExactlyOnceWith(graph.id, "repeat", "root");
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
+    const { items } = resultGallery();
+    expect(items).toHaveLength(4);
+    expect(items[0].executionId).toBe("root");
+    expect(items.slice(1).map(item => ({ executionId: item.executionId, state: item.state }))).toEqual([
+      { executionId: null, state: "cancelled" }, { executionId: null, state: "cancelled" }, { executionId: null, state: "cancelled" },
     ]);
-    view.unmount();
+    expect(unsubmittedResultIds(document())).toEqual([]);
   });
+
   it("stops reservations without receipts on reload and keeps accepted execution identity", () => {
-    const reserved = appendResultNodes(repeatGraph(1), "repeat");
-    const accepted = appendResultNodes(reserved.draft, "repeat", "accepted");
+    const reserved = appendResultNodes(repeatGraph(1), "repeat"), accepted = appendResultNodes(reserved.draft, "repeat", "accepted");
     outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={{...repeatGraph(1),...accepted.draft}} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    const nodes = mocks.update.mock.lastCall![0].nodes;
-    expect(nodes[1].config.resultSource).toMatchObject({executionId:null,state:"cancelled"});
-    expect(nodes[2].config.resultSource).toMatchObject({executionId:"accepted",state:"pending"});
-    view.unmount();
+    mount({ ...repeatGraph(1), ...accepted.draft });
+    expect(resultSource(document().nodes[1].config)).toMatchObject({ executionId: null, state: "cancelled" });
+    expect(resultSource(document().nodes[2].config)).toMatchObject({ executionId: "accepted", state: "pending" });
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
   });
+
+  it("cancels only unreceipted Gallery slots on reload while retaining the accepted slot", () => {
+    const reserved = reserveResultNodes(repeatGraph(), "repeat", 4);
+    const accepted = bindResultNodes(reserved.draft, reserved.groups[0], "accepted");
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    mount({ ...repeatGraph(), ...accepted });
+    const { items } = resultGallery();
+    expect(items.map(item => item.id)).toEqual(reserved.groups.flat());
+    expect(items).toMatchObject([
+      { executionId: "accepted", state: "pending" }, { executionId: null, state: "cancelled" },
+      { executionId: null, state: "cancelled" }, { executionId: null, state: "cancelled" },
+    ]);
+    expect(unsubmittedResultIds(document())).toEqual([]);
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+  });
+
   it("preserves an accepted receipt when saving its binding fails and stops the other reservations", async () => {
-    mocks.saveNow.mockResolvedValueOnce({version:4}).mockRejectedValueOnce(new Error("SAVE_FAILED")).mockResolvedValue({version:5});
-    outputMocks.startExecution.mockResolvedValue({executionId:"accepted",status:"pending",outputAssetIds:[]});
+    mocks.saveNow.mockResolvedValueOnce({ status: "saved", version: 4 }).mockRejectedValueOnce(new Error("SAVE_FAILED"))
+      .mockResolvedValue({ status: "saved", version: 5 });
+    outputMocks.startExecution.mockResolvedValue(execution("accepted"));
     outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
-    const view = renderWithIntl(<NodeStudioWorkspace graph={repeatGraph()} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    await act(async () => {await expect(mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("repeat")).rejects.toThrow("SAVE_FAILED");});
-    const sources = mocks.update.mock.lastCall![0].nodes.slice(1).map((node:{config:{resultSource:unknown}})=>node.config.resultSource);
-    expect(sources).toMatchObject([{executionId:"accepted",state:"pending"},{executionId:null,state:"failed"},{executionId:null,state:"failed"},{executionId:null,state:"failed"}]);
+    mount(repeatGraph());
+    await act(async () => { await expect(studio().services.runNode!("repeat")).rejects.toThrow("SAVE_FAILED"); });
+    expect(resultGallery().items).toMatchObject([
+      { executionId: "accepted", state: "pending" }, { executionId: null, state: "failed" },
+      { executionId: null, state: "failed" }, { executionId: null, state: "failed" },
+    ]);
     expect(outputMocks.startExecution).toHaveBeenCalledOnce();
-    view.unmount();
-  });
-  it("returns server acceptance even when the subsequent history read is stalled", async () => {
-    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
-    outputMocks.startExecution.mockResolvedValue({ executionId: "accepted", graphNodeId: "remote", executionKind: "generation", mediaType: "video", status: "pending", progress: 0 });
-    const view = renderWithIntl(<NodeStudioWorkspace graph={{ ...graph, nodes: [{
-      id: "remote", kind: "generate.video", config: { prompt: "x", modelKey: "m", parameters: {} },
-      configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: null,
-    }] }} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} />);
-    let receipt: import("../model/server-execution-tracking").NodeExecutionReceipt;
-    await act(async () => { receipt = await mocks.nodeStudio.mock.lastCall![0].onRegenerateNode("remote"); });
-    expect(receipt!.executionId).toBe("accepted");
-    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
-    view.unmount();
-    await expect(receipt!.completion).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("returns a receipt and reconciles durable output independently of submission", async () => {
-    const serverAsset = {
-      id: "server-output",
-      version: 1,
-      type: "image",
-      status: "completed",
-      origin: "media_operation",
-      mimeType: "image/png",
-      bytes: "4",
-      width: 1,
-      height: 1,
-      durationMs: null,
-      sourceOperationId: "server-operation",
-      url: "/api/media-assets/server-output/content",
-      createdAt: "2026-09-05T00:00:00.000Z",
-      updatedAt: "2026-09-05T00:00:00.000Z",
-    } as const;
-    let operationStarted = false;
-    let operationPolls = 0;
-    const pending = {
-      executionId: "server-operation",
-      executionKind: "media_operation" as const,
-      mediaType: "image" as const,
-      graphNodeId: "remove-server",
-      status: "pending" as const,
-      progress: 0,
-      errorCode: null,
-      modelKey: null,
-      outputAssetIds: [],
-      createdAt: "2026-09-05T00:00:00.000Z",
-    };
-    const completed = {
-      ...pending,
-      status: "completed" as const,
-      progress: 100,
-      outputAssetIds: [serverAsset.id],
-      selectedOutputAssetId: serverAsset.id,
-    };
-    outputMocks.startExecution.mockImplementation(async () => {
-      operationStarted = true;
-      return pending;
-    });
-    outputMocks.listExecutions.mockImplementation(async (_graphId: string, nodeId: string) => {
-      if (nodeId !== "remove-server" || !operationStarted) return [];
-      operationPolls += 1;
-      return [completed];
-    });
-    mediaApiMocks.getMediaAsset.mockResolvedValue(serverAsset);
+  it("returns server acceptance while history is stalled and stops observing on unmount", async () => {
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockResolvedValue(execution("accepted", { graphNodeId: "remote", mediaType: "video" }));
+    const view = mount({ ...graph, nodes: [node("remote", "generate.video")] });
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("remote"); });
+    expect(receipt.executionId).toBe("accepted");
+    expect(outputMocks.startExecution).toHaveBeenCalledOnce();
+    view.unmount();
+    await expect(receipt.completion).rejects.toMatchObject({ name: "AbortError" });
+  });
 
-    const graphWithServerOperation: GenerationGraphSnapshotDto = {
-      ...graph,
-      nodes: [
-        {
-          id: "source-server",
-          kind: "input.image",
-          position: { x: 0, y: 0 },
-          configVersion: 1,
-          config: { assetId: "source-asset" },
-          selectedOutputAssetId: null,
-        },
-        {
-          id: "remove-server",
-          kind: "edit.image.removeBackground",
-          position: { x: 300, y: 0 },
-          configVersion: 1,
-          config: { parameters: { model: "isnet_fp16" } },
-          selectedOutputAssetId: null,
-        },
-      ],
-      edges: [{
-        id: "server-edge",
-        sourceNodeId: "source-server",
-        sourcePortId: "image",
-        targetNodeId: "remove-server",
-        targetPortId: "image",
-        sortOrder: 0,
-      }],
-    };
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graphWithServerOperation}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    const studio = mocks.nodeStudio.mock.lastCall?.[0] as {
-      onRegenerateNode: (nodeId: string) => Promise<import("../model/server-execution-tracking").NodeExecutionReceipt>;
-    };
-    let result: import("../model/server-execution-tracking").NodeExecutionReceipt;
-    await act(async () => {
-      result = await studio.onRegenerateNode("remove-server");
-    });
-    expect(result!).toEqual({ executionId: "server-operation", completion: expect.any(Promise) });
-    await act(async () => { await result.completion; });
-    expect(operationPolls).toBeGreaterThanOrEqual(1);
+  it("reconciles a supported server operation independently of its submission receipt", async () => {
+    let started = false;
+    const pending = execution("server-operation", { graphNodeId: "trim", executionKind: "media_operation", mediaType: "video" });
+    const completed = { ...pending, status: "completed" as const, progress: 100, outputAssetIds: ["server-output"], selectedOutputAssetId: "server-output" };
+    outputMocks.startExecution.mockImplementation(async () => { started = true; return pending; });
+    outputMocks.listExecutions.mockImplementation(async () => started ? [completed] : []);
+    mediaApiMocks.getMediaAsset.mockResolvedValue({ id: "server-output", type: "video", url: "/api/media-assets/server-output/content" });
+    mount({ ...graph, nodes: [node("source", "input.video", { config: { assetId: "source-asset" } }), node("trim", "edit.video.trim", { position: { x: 300, y: 0 } })],
+      edges: [{ id: "input", sourceNodeId: "source", sourcePortId: "video", targetNodeId: "trim", targetPortId: "video", sortOrder: 0 }] });
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("trim"); });
+    expect(receipt.executionId).toBe("server-operation");
+    await act(async () => { await receipt.completion; });
     expect(mediaApiMocks.getMediaAsset).toHaveBeenCalledWith("server-output", expect.any(AbortSignal));
-    expect(mocks.update.mock.lastCall?.[0].nodes.find((node: { id: string }) => node.id === "remove-server").selectedOutputAssetId).toBe("server-output");
+    expect(currentNode("trim")?.selectedOutputAssetId).toBe("server-output");
+    expect(document().nodes[2].config).toMatchObject({ assetId: "server-output", resultSource: { nodeId: "trim", executionId: "server-operation", state: "completed" } });
+    expect(outputMocks.runImage).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["edit.image.resize", "image", "image"],
-    ["edit.video.trim", "video", "video"],
-    ["generate.audio", "audio", "audio"],
-    ["edit.image.splitGrid", "images", "image"],
-  ])("clearing %s empties downstream values and asset references", async (kind, outputPort, mediaType) => {
-    outputMocks.listExecutions.mockImplementation(async (_graphId: string, nodeId: string) => nodeId === "operation"
-      ? [{ executionId: "past-execution", graphId: graph.id, nodeId, executionKind: "media_operation",
-          status: "completed", progress: 100, outputAssetIds: ["result", "other-result"] }]
-      : []);
-    const snapshot: GenerationGraphSnapshotDto = {
-      ...graph,
-      nodes: [
-        { id: "input", kind: `input.${mediaType}`, position: { x: 0, y: 0 }, configVersion: 1,
-          config: { assetId: "original" }, selectedOutputAssetId: null },
-        { id: "operation", kind, position: { x: 200, y: 0 }, configVersion: 1,
-          config: {}, selectedOutputAssetId: "result" },
-        { id: "single", kind: "output.single", position: { x: 400, y: 0 }, configVersion: 1,
-          config: {}, selectedOutputAssetId: null },
-        { id: "gallery", kind: "output.gallery", position: { x: 400, y: 200 }, configVersion: 1,
-          config: {}, selectedOutputAssetId: null },
-      ],
-      edges: [
-        { id: "original-input", sourceNodeId: "input", sourcePortId: mediaType, targetNodeId: "operation", targetPortId: mediaType, sortOrder: 0 },
-        { id: "single-input", sourceNodeId: "operation", sourcePortId: outputPort, targetNodeId: "single", targetPortId: mediaType, sortOrder: 0 },
-        { id: "gallery-input", sourceNodeId: "operation", sourcePortId: outputPort, targetNodeId: "gallery", targetPortId: mediaType, sortOrder: 0 },
-      ],
-    };
-    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()}
-      onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    type StudioProps = {
-      resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown> | null;
-      onDraftChange: (draft: unknown) => void;
-    };
-    await waitFor(() => {
-      const props = mocks.nodeStudio.mock.lastCall?.[0] as StudioProps;
-      expect(props.resolveUpstreamNodeData("single", {})).toMatchObject({
-        [mediaType]: "/api/media-assets/result/content",
-      });
+  it("keeps a user's representative selection while completing the exact result input", async () => {
+    const client = newClient();
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockResolvedValue(execution("accepted"));
+    const view = mount(repeatGraph(1), {}, client);
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("repeat"); });
+    const resultId = document().nodes[1].id;
+    edit({ type: "output.select", nodeId: "repeat", assetId: "manual" });
+    await act(async () => {
+      client.setQueryData(nodeExecutionKeys.list(graph.id, "repeat"), [execution("accepted", { status: "completed", outputAssetIds: ["fixed"], selectedOutputAssetId: "fixed" })]);
+      await receipt.completion;
     });
-    act(() => (mocks.nodeStudio.mock.lastCall?.[0] as StudioProps).onDraftChange({
-      title: snapshot.title, schemaVersion: 3, groups: [], edges: snapshot.edges,
-      nodes: snapshot.nodes.map((node) => ({ ...node, selectedOutputAssetId: null })),
-    }));
-    await waitFor(() => {
-      const props = mocks.nodeStudio.mock.lastCall?.[0] as StudioProps;
-      expect(props.resolveUpstreamNodeData("single", {})).toMatchObject({ [mediaType]: null });
-      expect(props.resolveUpstreamNodeData("gallery", {})).toMatchObject({
-        [`${mediaType}s`]: [], [`${mediaType}Refs`]: [],
-      });
+    expect(currentNode("repeat")?.selectedOutputAssetId).toBe("manual");
+    expect(currentNode(resultId)?.config).toMatchObject({ assetId: "fixed", resultSource: { executionId: "accepted", state: "completed" } });
+    view.unmount(); client.clear();
+  });
+
+  it("never recreates a result input deleted after server acceptance", async () => {
+    const client = newClient();
+    outputMocks.listExecutions.mockImplementation(() => new Promise(() => {}));
+    outputMocks.startExecution.mockResolvedValue(execution("accepted"));
+    const view = mount(repeatGraph(1), {}, client);
+    let receipt!: NodeExecutionReceipt;
+    await act(async () => { receipt = await run("repeat"); });
+    edit({ type: "node.remove", nodeId: document().nodes[1].id });
+    await act(async () => {
+      client.setQueryData(nodeExecutionKeys.list(graph.id, "repeat"), [execution("accepted", { status: "completed", outputAssetIds: ["one", "two"] })]);
+      await receipt.completion;
     });
+    expect(document().nodes.map(item => item.id)).toEqual(["repeat"]);
+    expect(document().edges).toEqual([]);
+    view.unmount(); client.clear();
   });
 
-  it("projects every selected ordered-list output into a downstream GIF node", async () => {
-    outputMocks.listExecutions.mockImplementation(async (_graphId: string, nodeId: string) => nodeId === "split"
-      ? [{
-          executionId: "split-execution",
-          graphId: graph.id,
-          nodeId: "split",
-          executionKind: "media_operation",
-          status: "completed",
-          progress: 100,
-          outputAssetIds: ["cell-0", "cell-1"],
-        }, {
-          executionId: "older-split-execution",
-          graphId: graph.id,
-          nodeId: "split",
-          executionKind: "media_operation",
-          status: "completed",
-          progress: 100,
-          outputAssetIds: ["older-cell-0", "older-cell-1"],
-        }]
-      : []);
-    const graphWithCollection: GenerationGraphSnapshotDto = {
-      ...graph,
-      nodes: [
-        {
-          id: "split",
-          kind: "edit.image.splitGrid",
-          position: { x: 0, y: 0 },
-          configVersion: 1,
-          config: { parameters: { rows: 1, cols: 2, rowOffsets: [], colOffsets: [] } },
-          selectedOutputAssetId: "cell-0",
-        },
-        {
-          id: "gif",
-          kind: "edit.image.gif",
-          position: { x: 400, y: 0 },
-          configVersion: 1,
-          config: { parameters: { fps: 8, loopCount: 0, colorCount: 128, dither: false, targetMaxBytes: 131_072, clipOrder: [] } },
-          selectedOutputAssetId: null,
-        },
-      ],
-      edges: [{
-        id: "split-to-gif",
-        sourceNodeId: "split",
-        sourcePortId: "images",
-        targetNodeId: "gif",
-        targetPortId: "frames",
-        sortOrder: 0,
-      }],
-    };
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graphWithCollection}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      const studio = mocks.nodeStudio.mock.lastCall?.[0] as {
-        resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown> | null;
-      };
-      expect(studio.resolveUpstreamNodeData("gif", {})).toMatchObject({
-        frames: [
-          "/api/media-assets/cell-0/content",
-          "/api/media-assets/cell-1/content",
-        ],
-      });
-      expect(studio.resolveUpstreamNodeData("split", {})).toMatchObject({
-        outputImages: ["/api/media-assets/cell-0/content", "/api/media-assets/cell-1/content"],
-      });
+  it.each(["unmount", "pagehide"] as const)("aborts only this workspace's browser operation on %s", async event => {
+    outputMocks.startExecution.mockResolvedValue({ ...execution("owned-operation", { graphNodeId: "resize", executionKind: "media_operation" }), plan: { kind: "edit.image.resize" } });
+    let operationSignal: AbortSignal | undefined;
+    outputMocks.runImage.mockImplementation(({ signal }: { signal: AbortSignal }) => {
+      operationSignal = signal;
+      return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError")), { once: true }));
     });
-    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
-      resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown>;
-      onDraftChange: (draft: unknown) => void;
-    };
-    await act(async () => studio().onDraftChange({
-      ...graphWithCollection,
-      nodes: graphWithCollection.nodes.map((node) => node.id === "split" ? { ...node, selectedOutputAssetId: "older-cell-1" } : node),
-    }));
-    const olderUrls = ["/api/media-assets/older-cell-0/content", "/api/media-assets/older-cell-1/content"];
-    expect(studio().resolveUpstreamNodeData("split", {})).toMatchObject({ outputImages: olderUrls });
-    expect(studio().resolveUpstreamNodeData("gif", {})).toMatchObject({ frames: olderUrls });
-    const singleNode = {
-      id: "single", kind: "input.image", position: { x: 0, y: 200 }, configVersion: 1,
-      config: { assetId: "single-image" }, selectedOutputAssetId: null,
-    };
-    const singleEdge = {
-      id: "single-to-gif", sourceNodeId: "single", sourcePortId: "image",
-      targetNodeId: "gif", targetPortId: "frames", sortOrder: 1,
-    };
-    const mixed = { ...graphWithCollection, nodes: [...graphWithCollection.nodes, singleNode], edges: [...graphWithCollection.edges, singleEdge] };
-    await act(async () => studio().onDraftChange(mixed));
-    const cellUrls = ["/api/media-assets/cell-0/content", "/api/media-assets/cell-1/content"];
-    expect(studio().resolveUpstreamNodeData("gif", {})).toMatchObject({
-      frames: [...cellUrls, "/api/media-assets/single-image/content"],
-      frameGroups: [
-        { sourceEdgeId: "split-to-gif", frames: cellUrls },
-        { sourceEdgeId: "single-to-gif", frames: ["/api/media-assets/single-image/content"] },
-      ],
+    const view = mount({ ...graph, nodes: [node("resize", "edit.image.resize")] });
+    let running!: Promise<unknown>;
+    act(() => { running = studio().services.runNode!("resize") as Promise<unknown>; });
+    const rejected = expect(running).rejects.toMatchObject({ name: "AbortError" });
+    await waitFor(() => expect(operationSignal).toBeDefined());
+    await act(async () => {
+      if (event === "unmount") view.unmount();
+      else window.dispatchEvent(new Event("pagehide"));
+      await rejected;
     });
-    await act(async () => studio().onDraftChange({
-      ...mixed,
-      nodes: mixed.nodes.map((node) => node.id === "gif" ? {
-        ...node, config: { parameters: { clipOrder: ["missing-edge", "single-to-gif", "single-to-gif", "split-to-gif"] } },
-      } : node),
-    }));
-    expect(studio().resolveUpstreamNodeData("gif", {})).toMatchObject({
-      frames: ["/api/media-assets/single-image/content", ...cellUrls],
-      frameGroups: [
-        { sourceEdgeId: "single-to-gif", frames: ["/api/media-assets/single-image/content"] },
-        { sourceEdgeId: "split-to-gif", frames: cellUrls },
-      ],
-    });
-    await act(async () => studio().onDraftChange({ ...mixed, edges: graphWithCollection.edges }));
-    expect(studio().resolveUpstreamNodeData("gif", {})).toMatchObject({
-      frames: cellUrls, frameGroups: [{ sourceEdgeId: "split-to-gif", frames: cellUrls }],
-    });
-    await act(async () => studio().onDraftChange({
-      ...graphWithCollection,
-      nodes: graphWithCollection.nodes.map((node) => ({ ...node, selectedOutputAssetId: null })),
-    }));
-    expect(studio().resolveUpstreamNodeData("split", {})).toMatchObject({ outputImages: [] });
-    expect(studio().resolveUpstreamNodeData("gif", {})).toMatchObject({ frames: [] });
+    expect(operationSignal?.aborted).toBe(true);
+    expect(outputMocks.cancelExecution).not.toHaveBeenCalled();
   });
 
-  it.each(["image", "audio", "video"] as const)("keeps an empty connected %s input empty for values and assets until disconnect", async (type) => {
-    const passPort = type === "image" ? "reference" : type;
-    const valuePort = type === "image" ? "primary" : type === "audio" ? "soundtrack" : "clips";
-    const nodes: GenerationGraphSnapshotDto["nodes"] = [
-      { id: "empty", kind: `input.${type}`, position: { x: 0, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
-      { id: "local", kind: `input.${type}`, position: { x: 200, y: 0 }, configVersion: 1, config: { assetId: "local-asset" }, selectedOutputAssetId: null },
-      { id: "single", kind: "output.single", position: { x: 400, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
-      { id: "gallery", kind: "output.gallery", position: { x: 400, y: 200 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
-      { id: "values", kind: type === "image" ? "generate.image" : "edit.video.stitch", position: { x: 400, y: 400 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
-    ];
-    const consumerEdges: GenerationGraphSnapshotDto["edges"] = ["single", "gallery"].map((targetNodeId) => ({
-      id: targetNodeId, sourceNodeId: "local", sourcePortId: type, targetNodeId, targetPortId: type, sortOrder: 0,
-    }));
-    consumerEdges.push({ id: "values", sourceNodeId: "local", sourcePortId: type, targetNodeId: "values", targetPortId: valuePort, sortOrder: 0 });
-    const connectedGraph = { ...graph, nodes, edges: [
-      ...consumerEdges,
-      { id: "upstream", sourceNodeId: "empty", sourcePortId: type, targetNodeId: "local", targetPortId: passPort, sortOrder: 0 },
-    ] };
-    renderWithIntl(<NodeStudioWorkspace graph={connectedGraph} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
-      resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown>;
-      onDraftChange: (draft: unknown) => void;
-    };
-    await waitFor(() => expect(mocks.nodeStudio).toHaveBeenCalled());
-    expect(studio().resolveUpstreamNodeData("local", {})[type === "audio" ? "audioFile" : type]).toBe(type === "video" ? null : "/api/media-assets/local-asset/content");
-    expect(studio().resolveUpstreamNodeData("single", {})[type]).toBeNull();
-    expect(studio().resolveUpstreamNodeData("gallery", {})[`${type}s`]).toEqual([]);
-    expect(studio().resolveUpstreamNodeData("values", {})[valuePort]).toEqual(type === "video" ? [] : null);
-    await act(async () => studio().onDraftChange({ ...connectedGraph, edges: consumerEdges }));
-    expect(studio().resolveUpstreamNodeData("local", {})[type === "audio" ? "audioFile" : type]).toBe("/api/media-assets/local-asset/content");
-    expect(studio().resolveUpstreamNodeData("single", {})[type]).toBe("/api/media-assets/local-asset/content");
-    expect(studio().resolveUpstreamNodeData("gallery", {})[`${type}s`]).toEqual(["/api/media-assets/local-asset/content"]);
-    expect(studio().resolveUpstreamNodeData("values", {})[valuePort]).toEqual(type === "video" ? ["/api/media-assets/local-asset/content"] : "/api/media-assets/local-asset/content");
+  it("does not restart or cancel a restored active browser operation on mount", async () => {
+    outputMocks.listExecutions.mockResolvedValue([execution("other-tab-operation", { graphNodeId: "resize", executionKind: "media_operation", status: "processing" })]);
+    const view = mount({ ...graph, nodes: [node("resize", "edit.image.resize")] });
+    await waitFor(() => expect(studio().session.getSnapshot().runtimeByNode.get("resize")?.execution?.executionId).toBe("other-tab-operation"));
+    view.unmount();
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+    expect(outputMocks.runImage).not.toHaveBeenCalled();
+    expect(outputMocks.cancelExecution).not.toHaveBeenCalled();
   });
 
-  it.each(["edit.video.trim", "edit.video.stitch"])("previews %s through Video Input without replacing its upload", async (kind) => {
-    outputMocks.listAssets.mockImplementation((ids: readonly string[]) => ids.map((id) => ({
-      data: { id, type: "video", url: `https://cdn.test/${id}.mp4`, durationMs: id === "result" ? 700 : 2000,
-        mimeType: "video/mp4", width: 640, height: 360 },
-    })));
-    const snapshot: GenerationGraphSnapshotDto = { ...graph, nodes: [
-      { id: "operation", kind, position: { x: 0, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: "result" },
-      { id: "relay", kind: "input.video", position: { x: 300, y: 0 }, configVersion: 1,
-        config: { assetId: "local", filename: "local.mp4" }, selectedOutputAssetId: null },
-      { id: "gallery", kind: "output.gallery", position: { x: 600, y: 0 }, configVersion: 1, config: {}, selectedOutputAssetId: null },
-    ], edges: [
-      { id: "in", sourceNodeId: "operation", sourcePortId: "video", targetNodeId: "relay", targetPortId: "video", sortOrder: 0 },
-      { id: "out", sourceNodeId: "relay", sourcePortId: "video", targetNodeId: "gallery", targetPortId: "video", sortOrder: 0 },
-    ] };
-    renderWithIntl(<NodeStudioWorkspace graph={snapshot} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
-      resolveUpstreamNodeData: (id: string, data: Record<string, unknown>) => Record<string, unknown>;
-      onDraftChange: (draft: unknown) => void;
-    };
-    await waitFor(() => expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({
-      video: "/api/media-assets/result/content", videoRef: "result",
-      outputVideo: "/api/media-assets/result/content", outputVideoRef: "result",
-      duration: 0.7, dimensions: { width: 640, height: 360 }, format: "video/mp4",
-      filename: null, hasConnectedVideo: true,
-    }));
-    expect(studio().resolveUpstreamNodeData("gallery", {})).toMatchObject({ videoRefs: ["result"] });
-    const pending = { ...snapshot, nodes: snapshot.nodes.map((node) => node.id === "operation" ? { ...node, selectedOutputAssetId: null } : node) };
-    await act(async () => studio().onDraftChange(pending));
-    expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({ video: null, videoRef: null, duration: null, hasConnectedVideo: true });
-    expect(mocks.update.mock.lastCall?.[0].nodes.find((node: { id: string }) => node.id === "relay").config).toEqual({ assetId: "local", filename: "local.mp4" });
-    await act(async () => studio().onDraftChange({ ...pending, edges: snapshot.edges.filter((edge) => edge.id !== "in") }));
-    expect(studio().resolveUpstreamNodeData("relay", {})).toMatchObject({
-      video: "/api/media-assets/local/content", videoRef: "local", duration: 2, filename: "local.mp4", hasConnectedVideo: false,
-    });
-    expect(studio().resolveUpstreamNodeData("gallery", {})).toMatchObject({ videoRefs: ["local"] });
+  it("keeps a cleared output empty while its successful history remains available", async () => {
+    const client = newClient();
+    outputMocks.listExecutions.mockResolvedValue([execution("execution-1", { graphNodeId: "trim", executionKind: "media_operation", mediaType: "video", status: "completed", outputAssetIds: ["latest-output"] })]);
+    const view = mount({ ...graph, nodes: [node("trim", "edit.video.trim", { selectedOutputAssetId: "selected-output" })] }, {}, client);
+    await waitFor(() => expect(studio().session.getSnapshot().runtimeByNode.get("trim")?.execution?.status).toBe("completed"));
+    expect(inputs().sourceAssetIds("trim", "video")).toEqual(["selected-output"]);
+    edit({ type: "output.clear", nodeId: "trim" });
+    await act(async () => { await client.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, "trim") }); });
+    expect(currentNode("trim")?.selectedOutputAssetId).toBeNull();
+    expect(inputs().sourceAssetIds("trim", "video")).toEqual([]);
+    expect(client.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graph.id, "trim"))?.[0].outputAssetIds).toEqual(["latest-output"]);
+    view.unmount(); client.clear();
   });
 
-  it.each(["image", "audio", "video"] as const)("keeps an empty connected %s prompt authoritative until disconnect", async (type) => {
-    const nodes: GenerationGraphSnapshotDto["nodes"] = [
-      { id: "empty", kind: "input.prompt", position: { x: 0, y: 0 }, configVersion: 1, config: { text: "" }, selectedOutputAssetId: null },
-      { id: "local", kind: "input.prompt", position: { x: 200, y: 0 }, configVersion: 1, config: { text: "local text" }, selectedOutputAssetId: null },
-      { id: "consumer", kind: `generate.${type}`, position: { x: 400, y: 0 }, configVersion: 1, config: { prompt: "saved generator prompt" }, selectedOutputAssetId: null },
-    ];
-    const consumerEdges = [{ id: "consumer", sourceNodeId: "local", sourcePortId: "text", targetNodeId: "consumer", targetPortId: "prompt", sortOrder: 0 }];
-    const connectedGraph = { ...graph, nodes, edges: [
-      ...consumerEdges,
-      { id: "upstream", sourceNodeId: "empty", sourcePortId: "text", targetNodeId: "local", targetPortId: "text", sortOrder: 0 },
-    ] };
-    renderWithIntl(<NodeStudioWorkspace graph={connectedGraph} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const studio = () => mocks.nodeStudio.mock.lastCall?.[0] as {
-      resolveUpstreamNodeData: (nodeId: string, data: Record<string, unknown>) => Record<string, unknown>;
-      onDraftChange: (draft: unknown) => void;
-    };
-    expect(studio().resolveUpstreamNodeData("consumer", {})).toMatchObject({ prompt: "", inputPrompt: "", internalPrompt: "saved generator prompt", promptConnected: true });
-    expect(studio().resolveUpstreamNodeData("local", {})).toMatchObject({ prompt: "local text" });
-    await act(async () => studio().onDraftChange({ ...connectedGraph, edges: consumerEdges }));
-    expect(studio().resolveUpstreamNodeData("consumer", {})).toMatchObject({ prompt: "local text", inputPrompt: "local text", internalPrompt: "saved generator prompt", promptConnected: true });
-    await act(async () => studio().onDraftChange({ ...connectedGraph, edges: [] }));
-    expect(studio().resolveUpstreamNodeData("consumer", {})).toMatchObject({ prompt: "saved generator prompt", inputPrompt: "saved generator prompt", internalPrompt: "saved generator prompt", promptConnected: false });
-  });
-
-  it("브라우저 prompt 대신 Node Banana 새 workflow dialog를 사용한다", async () => {
-    const user = userEvent.setup();
-    const create = vi.fn();
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-        onCreateGraph={create}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open space" }));
-    await user.click(screen.getByRole("button", { name: "New space" }));
-    const dialog = screen.getByRole("dialog", { name: "New space" });
-    const name = within(dialog).getByRole("textbox", { name: "Space name" });
-    await user.clear(name);
-    await user.type(name, "Storyboard");
-    await user.click(within(dialog).getByRole("button", { name: "Create" }));
-
-    expect(create).toHaveBeenCalledWith("Storyboard");
-  });
-
-  it("Space Settings에서 바꾼 Canvas 동작을 runtime과 localStorage에 반영한다", async () => {
-    const user = userEvent.setup();
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Space settings" }));
-    await user.click(screen.getByRole("tab", { name: "Canvas" }));
-    await user.click(screen.getByRole("button", { name: "Space + Drag" }));
-    await user.click(screen.getByRole("button", { name: "Alt + Scroll" }));
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    expect(mocks.nodeStudio).toHaveBeenLastCalledWith(expect.objectContaining({
-      canvasSettings: expect.objectContaining({ panMode: "space", zoomMode: "altScroll" }),
-    }));
-    expect(window.localStorage.getItem("node-studio.canvas-settings")).toBe(
-      JSON.stringify({ panMode: "space", zoomMode: "altScroll", selectionMode: "click" }),
-    );
-  });
-
-  it("Header Settings의 default reset을 owner preference 저장으로 연결한다", async () => {
-    const user = userEvent.setup();
-    mocks.usePreferences.mockReturnValue({ ...loadedPreferences, data: {
-      ...loadedPreferences.data, defaults: { image: { modelKey: "previous-image", parameters: { steps: 8 } } },
-    } });
-    renderWithIntl(<NodeStudioWorkspace graph={graph} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Space settings" }));
-    await user.click(screen.getByRole("tab", { name: "Node Defaults" }));
-    expect(screen.getByText("previous-image")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Reset defaults" }));
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(mocks.saveSettings).toHaveBeenCalledWith({ defaults: {} }));
-    expect(screen.queryByRole("dialog", { name: "Space Settings" })).not.toBeInTheDocument();
-  });
-
-  it("canonical comment를 Header badge에 표시하고 읽음 상태를 graph write 없이 갱신한다", async () => {
-    const user = userEvent.setup();
-    const commented: GenerationGraphSnapshotDto = { ...graph, nodes: [{
-      id: "commented", kind: "input.image", configVersion: 1, position: { x: 0, y: 0 },
-      config: { assetId: null, presentation: { comment: "Review this image" } }, selectedOutputAssetId: null,
-    }] };
-    renderWithIntl(<NodeStudioWorkspace graph={commented} onSaved={vi.fn()} onDelete={vi.fn()} onReloadLatest={vi.fn()} onStatusChange={vi.fn()} />);
-    const navigation = screen.getByRole("button", { name: "Navigate comments" });
-    expect(navigation).toHaveAttribute("title", "1 unviewed comment (1 total)");
-    await user.click(navigation);
-    expect(navigation).toHaveAttribute("title", "0 unviewed comments (1 total)");
+  it("opens a v2 graph as a canonical v3 document without writing on mount", () => {
+    mount({ ...graph, schemaVersion: 2, minimumWriterVersion: 2, nodes: [node("image", "input.image", { config: { assetId: "existing" } })] });
+    expect(document()).toMatchObject({ schemaVersion: 3, groups: [], nodes: [{ id: "image", config: { assetId: "existing" } }] });
+    expect(mocks.useAutosave).toHaveBeenCalledWith(expect.objectContaining({ initialDraft: document(), initialVersion: graph.version }));
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
-  it("Node 실행 전에 autosave 완료 version을 제공한다", async () => {
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
+  it("publishes a repeated move once and keeps transient interactions out of autosave", () => {
+    mount({ ...graph, nodes: [node("image", "input.image")] });
+    const session = studio().session;
+    act(() => {
+      session.select(["image"]); session.hover("image"); session.setViewport({ x: 100, y: 200, zoom: 0.7 });
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+    act(() => {
+      for (let index = 0; index < 64; index++) expect(session.dispatch({ type: "node.move", nodeId: "image", position: { x: 180, y: 240 } }).ok).toBe(true);
+    });
+    expect(studio().session).toBe(session);
+    expect(currentNode("image")?.position).toEqual({ x: 180, y: 240 });
+    expect(mocks.update).toHaveBeenCalledExactlyOnceWith(session.getDocument());
+  });
 
-    const props = mocks.nodeStudio.mock.lastCall?.[0] as {
-      prepareImageNodeExecution: () => Promise<number>;
-    };
-    await expect(props.prepareImageNodeExecution()).resolves.toBe(3);
+  it("acknowledges saved version and persisted IDs while retaining newer local edits", () => {
+    const saved = vi.fn();
+    mount({ ...graph, nodes: [node("image", "input.image")] }, { onSaved: saved });
+    edit({ type: "node.move", nodeId: "image", position: { x: 30, y: 40 } });
+    const captured = document();
+    edit({ type: "node.move", nodeId: "image", position: { x: 90, y: 100 } });
+    edit({ type: "node.add", node: node("new-local", "note.memo") });
+    const options = mocks.useAutosave.mock.lastCall![0] as { onSaved: (snapshot: GenerationGraphSnapshotDto) => void };
+    const response: GenerationGraphSnapshotDto = { ...graph, ...captured, version: 8 };
+    act(() => options.onSaved(response));
+    expect(studio().session.getSnapshot().version).toBe(8);
+    expect([...studio().session.getSnapshot().persistedNodeIds]).toEqual(["image"]);
+    expect(currentNode("image")?.position).toEqual({ x: 90, y: 100 });
+    expect(currentNode("new-local")).toBeDefined();
+    expect(saved).toHaveBeenCalledExactlyOnceWith(response);
+  });
+
+  it("rejects edits and execution in a read-only workspace", async () => {
+    mount({ ...repeatGraph(1), writable: false, readOnlyReason: "READ_ONLY" });
+    expect(studio().session.getSnapshot().writable).toBe(false);
+    act(() => { expect(studio().session.dispatch({ type: "title.set", title: "changed" })).toMatchObject({ ok: false, code: "READ_ONLY" }); });
+    await act(async () => { await expect(studio().services.runNode!("repeat")).rejects.toThrow(); });
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+    expect(outputMocks.startExecution).not.toHaveBeenCalled();
+  });
+
+  it("supplies the latest completed save version before node execution", async () => {
+    mocks.saveNow.mockResolvedValue({ status: "saved", version: 12 });
+    mount();
+    await expect(studio().services.prepareNodeExecution!()).resolves.toBe(12);
     expect(mocks.saveNow).toHaveBeenCalledOnce();
   });
 
-  it("충돌 안내를 유지하고 확인 후 최신 snapshot을 다시 불러온다", async () => {
-    const user = userEvent.setup();
-    const reload = vi.fn();
-    mocks.useAutosave.mockReturnValue({
-      status: "conflict",
-      version: 3,
-      update: mocks.update,
-      retry: mocks.retry,
-      preserveSelection: mocks.preserveSelection,
-      saveNow: mocks.saveNow,
-    });
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={vi.fn()}
-        onReloadLatest={reload}
-        onStatusChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole("status")).toHaveTextContent("새 버전이 있습니다");
-    await user.click(screen.getByRole("button", { name: "Save space" }));
-    const dialog = screen.getByRole("alertdialog");
-    await user.click(within(dialog).getByRole("button", { name: "다시 불러오기" }));
-    expect(reload).toHaveBeenCalledOnce();
+  it("writes title and canvas settings through the workspace's header actions", async () => {
+    mount();
+    act(() => header().onTitleChange("Renamed"));
+    expect(document().title).toBe("Renamed");
+    expect(mocks.update.mock.lastCall![0].title).toBe("Renamed");
+    const settings: SpaceCanvasSettings = { panMode: "middleMouse", zoomMode: "ctrlScroll", selectionMode: "shiftDrag" };
+    act(() => header().onCanvasSettingsChange(settings));
+    expect(studio().canvasSettings).toEqual(settings);
+    expect(window.localStorage.getItem("node-studio.canvas-settings")).toBe(JSON.stringify(settings));
   });
 
-  it("삭제 확인 전에는 Graph를 삭제하지 않는다", async () => {
-    const user = userEvent.setup();
-    const remove = vi.fn();
-    renderWithIntl(
-      <NodeStudioWorkspace
-        graph={graph}
-        onSaved={vi.fn()}
-        onDelete={remove}
-        onReloadLatest={vi.fn()}
-        onStatusChange={vi.fn()}
-      />,
-    );
+  it("persists a header defaults reset through the owner's preferences", async () => {
+    mocks.usePreferences.mockReturnValue({ ...loadedPreferences, data: { ...loadedPreferences.data,
+      defaults: { image: { modelKey: "previous-image", parameters: { steps: 8 } } },
+    } });
+    mount();
+    expect(header().nodeDefaults).toEqual({ image: "previous-image" });
+    await act(async () => { await header().onSaveSettings({ defaults: {} }); });
+    expect(mocks.saveSettings).toHaveBeenCalledExactlyOnceWith({ defaults: {} });
+  });
 
-    await user.click(screen.getByRole("button", { name: "Open space" }));
+  it("updates canonical comment read state without a graph write", async () => {
+    const user = userEvent.setup();
+    mount({ ...graph, nodes: [node("commented", "input.image", { config: {
+      assetId: null, presentation: { comment: "Review this image" },
+    } })] });
+    expect(mocks.comments.mock.lastCall![0]).toMatchObject({ count: 1, unreadCount: 1 });
+    await user.click(screen.getByRole("button", { name: "Navigate comments" }));
+    expect(mocks.comments.mock.lastCall![0]).toMatchObject({ count: 1, unreadCount: 0 });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("waits for saving before the brand back button leaves", async () => {
+    const user = userEvent.setup(), onBack = vi.fn(), saved = deferred<GraphAutosaveSnapshot>();
+    mocks.saveNow.mockReturnValue(saved.promise);
+    mount(graph, { onBack });
+    const back = screen.getByRole("button", { name: "스페이스 목록으로" });
+    await user.click(back);
+    expect(onBack).not.toHaveBeenCalled();
+    expect(back).toBeDisabled();
+    await act(async () => { saved.resolve({ status: "saved", version: 4 }); });
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it.each(["dirty", "saving"] as const)("saves before selecting another Space while %s", async status => {
+    const user = userEvent.setup(), select = vi.fn(), saved = deferred<GraphAutosaveSnapshot>();
+    mocks.useAutosave.mockReturnValue({ status, version: 3, update: mocks.update, retry: mocks.retry, preserveSelection: mocks.preserveSelection, saveNow: mocks.saveNow });
+    mocks.saveNow.mockReturnValue(saved.promise);
+    mount(graph, { graphs: [graph, { ...graph, id: "graph-b", title: "Graph B" }], onSelectGraph: select });
+    await user.click(screen.getByRole("button", { name: "Graph B" }));
+    expect(select).not.toHaveBeenCalled();
+    await act(async () => { saved.resolve({ status: "saved", version: 4 }); });
+    expect(select).toHaveBeenCalledExactlyOnceWith("graph-b");
+  });
+
+  it("retains the selected Space after failed save until explicit discard", async () => {
+    const user = userEvent.setup(), select = vi.fn();
+    mocks.saveNow.mockRejectedValue(new Error("conflict"));
+    mount(graph, { graphs: [graph, { ...graph, id: "graph-b", title: "Graph B" }], onSelectGraph: select });
+    await user.click(screen.getByRole("button", { name: "Graph B" }));
+    expect(select).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
+    expect(select).toHaveBeenCalledExactlyOnceWith("graph-b");
+  });
+
+  it("does not discard failed saves without explicit confirmation", async () => {
+    const user = userEvent.setup(), onBack = vi.fn();
+    mocks.saveNow.mockRejectedValue(new Error("conflict"));
+    mount(graph, { onBack });
+    await user.click(screen.getByRole("button", { name: "스페이스 목록으로" }));
+    expect(onBack).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" });
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    expect(onBack).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "스페이스 목록으로" }));
+    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("requires explicit discard before creating a space after a save conflict", async () => {
+    const user = userEvent.setup(), create = vi.fn();
+    mocks.saveNow.mockRejectedValue(new Error("conflict"));
+    mount(graph, { onCreateGraph: create });
+    await user.click(screen.getByRole("button", { name: "New space" }));
+    expect(create).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("alertdialog", { name: "스페이스에서 나갈까요?" })).getByRole("button", { name: "변경 사항을 버리고 나가기" }));
+    expect(create).toHaveBeenCalledExactlyOnceWith("Untitled Space");
+  });
+
+  it("shows a save conflict and reloads the latest snapshot only after confirmation", async () => {
+    const user = userEvent.setup(), reload = vi.fn();
+    mocks.useAutosave.mockReturnValue({ status: "conflict", version: 3, update: mocks.update, retry: mocks.retry,
+      preserveSelection: mocks.preserveSelection, saveNow: mocks.saveNow });
+    mount(graph, { onReloadLatest: reload });
+    expect(screen.getByRole("status")).toHaveTextContent("새 버전이 있습니다");
+    await user.click(screen.getByRole("button", { name: "Save space" }));
+    expect(reload).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "다시 불러오기" }));
+    expect(reload).toHaveBeenCalledOnce();
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed save from the header without discarding the current document", async () => {
+    const user = userEvent.setup();
+    mocks.useAutosave.mockReturnValue({ status: "error", version: 3, update: mocks.update, retry: mocks.retry,
+      preserveSelection: mocks.preserveSelection, saveNow: mocks.saveNow });
+    mount({ ...graph, nodes: [node("local", "note.memo")] });
+    await user.click(screen.getByRole("button", { name: "Save space" }));
+    expect(mocks.retry).toHaveBeenCalledOnce();
+    expect(currentNode("local")).toBeDefined();
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a Space before confirmation", async () => {
+    const user = userEvent.setup(), remove = vi.fn();
+    mount(graph, { onDelete: remove });
     await user.click(screen.getByRole("button", { name: "Delete space" }));
     expect(remove).not.toHaveBeenCalled();
-    await user.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "삭제" }),
-    );
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "삭제" }));
     expect(remove).toHaveBeenCalledOnce();
   });
 });

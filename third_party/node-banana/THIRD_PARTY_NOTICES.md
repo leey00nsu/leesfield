@@ -1,39 +1,16 @@
 # Third-Party Notices — Node Banana
 
-## Node Banana
+Leesfield's own Spaces editor includes portions adapted from Node Banana.
 
-- Project: Node Banana
-- Version: 1.9.0
-- Source: https://github.com/shrimbly/node-banana/tree/v1.9.0
-- Commit: `5c0e0ae6150f29a6de819f8d6f1dedba15151f7c`
-- Leesfield fork: https://github.com/leey00nsu/node-banana/tree/leesfield/v1.9.0
-- Pinned local fork candidate: `d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b`
-- Last observed published branch revision: `5a52b8c2d249cd48406789bde288b58d0289f3e5`
-- License: MIT
-- Copyright: Node Banana contributors
+- Original project: [Node Banana v1.9.0](https://github.com/shrimbly/node-banana/tree/v1.9.0)
+- Original revision: `5c0e0ae6150f29a6de819f8d6f1dedba15151f7c`
+- Leesfield adaptation lineage: [Leesfield fork](https://github.com/leey00nsu/node-banana/tree/leesfield/v1.9.0), including local revision `d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b`.
+- License: MIT; Copyright (c) 2026 William Falloon.
 
-The complete upstream MIT license is preserved in `LICENSE` and `source/LICENSE`. The immutable `source/` directory contains the pinned Leesfield fork snapshot identified by `SOURCE.json`. Its commit descends from the upstream commit above. The production build copies this verified source into a generated work directory without fetching the fork.
+The complete MIT license remains in `LICENSE` and `source/LICENSE`. Adapted prompt editors, canvas controls/styles, resize processing, template layouts/copy, and tutorial copy also retain notices in their product source files. The application runs the Leesfield editor and does not contain an executable Node Banana snapshot, generated runtime, or fork preparation step.
 
-## Runtime dependencies
+The original README files are retained as archival documentation. Their former build instructions do not describe the current application runtime.
 
-Leesfield does not install the upstream application package graph. Only the versions listed in `dependency-policy.json.runtimeDependencies` may be added to the host pnpm production graph for reachable runtime code. Host React, React DOM, React Flow, Zod and icon packages are reused instead of duplicated.
+JSZip 3.10.1 is used under its MIT license option. Copyright (c) 2009–2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso. Its full MIT license is distributed in the package's `LICENSE.markdown`. JSZip's pako 1.0.11 dependency carries MIT AND Zlib terms, retained in its distributed license files. General production dependency checks validate the installed dependency graph and package-scoped license exceptions; `pnpm-lock.yaml` pins versions.
 
-`pnpm license:check` validates installed production dependencies against the license allowlist and explicit pre-existing exceptions. Dependency versions are pinned by `pnpm-lock.yaml`.
-
-## Explicit exclusions
-
-JSZip 3.10.1 is used under its MIT license option (not GPL). Copyright
-(c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso.
-Its complete MIT license is distributed in the package's `LICENSE.markdown`.
-The dependency policy's package-scoped dual-license exceptions select MIT;
-they do not allow GPL-only dependencies.
-
-JSZip's pako 1.0.11 dependency carries MIT AND Zlib terms. Both notices are
-preserved in pako's `LICENSE` and `lib/zlib/README`; its package-scoped policy
-entry accepts this verified expression without granting a general copyleft exception.
-
-The production runtime must not include Node Banana provider SDKs/routes, browser API-key storage, local workflow/media persistence, ComfyUI, AI authoring, 3D, project-directory access, or the upstream `@imgly/background-removal` implementation. The latter is AGPL-licensed and is replaced by a Leesfield server-side, license-compatible media-operation adapter.
-
-Sample images and template thumbnails remain only in the immutable provenance snapshot. They are not runtime entrypoints, are not copied into Leesfield public assets, and must not be included in the production bundle.
-
-This snapshot includes local candidate commit d4cba45b4b2e5f25b86fd3d2b03967af41c6a25b (parent 41fe90b03bc9a3d70193104d716db78f6da24671), adding an optional host generation-prompt render slot. Remote publication is pending; this SHA is not represented as a published remote revision.
+No Node Banana provider SDK/routes, browser API-key store, local workflow/media database, upstream AI authoring/3D, sample images/thumbnails, project-directory access, or AGPL background-removal implementation is included. Media execution uses Leesfield's existing server/API and durable asset contracts.

@@ -3,20 +3,29 @@ import { getSpaceCapabilities, getSpaceModelInput } from "./spaces-discovery";
 import { mappedModel } from "./test-fixtures";
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import { canonicalNodeRegistry } from "@/shared/generation-graph/node-registry";
+import { temporarilyHiddenEditNodeKinds } from "@/shared/generation-graph/node-availability";
 
 describe("Spaces discovery", () => {
-  it("separates authoring, browser operations, retired nodes and processor availability", async () => {
+  it("omits temporarily hidden edits while preserving retired discovery and processor availability", async () => {
     const data = await getSpaceCapabilities(async () => false);
     const byKind = Object.fromEntries(data.nodes.map(n => [n.kind,n]));
-    expect(byKind["edit.image.resize"]).toMatchObject({ authorable: true, apiExecutable: false, reason: "BROWSER_ONLY" });
+    expect(data.nodes).toHaveLength(20);
+    expect(data.nodes.filter(node => node.authorable)).toHaveLength(14);
+    for (const kind of temporarilyHiddenEditNodeKinds) expect(byKind).not.toHaveProperty(kind);
     expect(byKind["edit.image.splitGrid"]).toMatchObject({ authorable: false, apiExecutable: false, reason: "RETIRED" });
-    expect(byKind["edit.video.trim"].reason).toBe("PROCESSOR_UNAVAILABLE");
+    expect(byKind["edit.video.extractFrames"].reason).toBe("PROCESSOR_UNAVAILABLE");
+    expect(byKind["edit.video.extractFrames"].defaultConfig).toEqual({ parameters: { timestampMs: 0 } });
+    expect(byKind["edit.video.extractFrames"].ports.filter(port => port.direction === "output").map(port => port.id)).toEqual(["startFrame", "endFrame", "frame"]);
     expect(byKind["generate.assistant"].apiExecutable).toBe(true);
     expect(byKind["input.image"].reason).toBe("NOT_EXECUTABLE");
     for (const node of data.nodes.filter(n => n.authorable)) {
       expect(canonicalNodeRegistry[node.kind as keyof typeof canonicalNodeRegistry].configSchema.safeParse(node.defaultConfig).success, node.kind).toBe(true);
     }
-    expect((await getSpaceCapabilities(async () => true)).nodes.find(n=>n.kind==="edit.video.trim")?.apiExecutable).toBe(true);
+    const available = await getSpaceCapabilities(async () => true);
+    expect(available.nodes.filter(node => node.apiExecutable).map(node => node.kind)).toEqual([
+      "generate.image", "generate.audio", "generate.video", "generate.assistant", "edit.video.extractFrames",
+    ]);
+    for (const kind of temporarilyHiddenEditNodeKinds) expect(available.nodes.some(node => node.kind === kind)).toBe(false);
   });
   it("projects media and LLM contracts without provider credentials or connection settings", () => {
     const media = getSpaceModelInput(mappedModel());

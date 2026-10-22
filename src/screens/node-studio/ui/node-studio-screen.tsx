@@ -17,8 +17,8 @@ import dynamic from "next/dynamic";
 const NodeStudioWorkspace = dynamic(() => import("@/features/node-studio/ui/node-studio-workspace").then(m => m.NodeStudioWorkspace), { loading: () => <WorkspaceLoading /> });
 import { attachSpaceReturnEntry, hasSpaceListReturnEntry } from "@/features/node-studio/model/space-navigation";
 import { updateGenerationGraph } from "@/features/node-studio/api/generation-graph-api";
-import { quickstartSpaceTemplate } from "@/features/node-studio/model/quickstart-space-template";
-import type { HostedPresetWorkflow } from "@node-banana-runtime/runtime-entry";
+import { createQuickstartSpaceDraft } from "@/features/node-studio/model/quickstart-space-template";
+import type { SpacePresetWorkflow } from "@/features/node-studio/model/space-quickstart-types";
 
 export function NodeStudioScreen({ spaceId }: { spaceId?: string }) {
   return <CanvasProviders><NodeStudioScreenContent spaceId={spaceId} /></CanvasProviders>;
@@ -66,9 +66,9 @@ function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
     }
   };
 
-  const createPreset = async (workflow: HostedPresetWorkflow | null, tutorial = false) => {
-    const draft = workflow ? quickstartSpaceTemplate(workflow) : null;
-    const created = await createMutation.mutateAsync(workflow?.name ?? (tutorial ? t("host.tutorial") : t("host.untitled")));
+  const createPreset = async (workflow: SpacePresetWorkflow | null, tutorial = false) => {
+    const draft = workflow ? createQuickstartSpaceDraft(workflow) : null;
+    const created = await createMutation.mutateAsync(workflow?.title ?? (tutorial ? t("host.tutorial") : t("host.untitled")));
     try {
       const saved = draft ? await updateGenerationGraph(created.id, { expectedVersion: created.version, schemaVersion: 3, title: created.title, ...draft }) : created;
       syncCache(saved);
@@ -90,7 +90,7 @@ function NodeStudioScreenContent({ spaceId }: { spaceId?: string }) {
     <section
       className="fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-neutral-900 text-white"
       aria-label={t("host.editor")}
-      data-testid="node-banana-home"
+      data-testid="space-editor-home"
     >
       {lifecycleError ? (
         <div className="absolute left-1/2 top-14 z-[140] -translate-x-1/2 rounded-md border border-red-400/30 bg-red-950/90 px-3 py-2 text-xs text-red-100 shadow-xl" role="alert">

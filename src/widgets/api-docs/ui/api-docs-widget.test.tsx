@@ -33,6 +33,9 @@ describe("ApiDocsWidget", () => {
       const access = document.getElementById("access")!;
       const requests = document.getElementById("request-options")!;
       const spaces = document.getElementById("spaces")!;
+      for (const hidden of ["edit.video.trim", "edit.video.stitch", "edit.image.resize", "Video Trim", "Video Stitch", "Image Resize"]) {
+        expect(spaces.textContent).not.toContain(hidden);
+      }
       for (const key of ["spacesDiscovery", "spacesAssets", "spacesAuthor", "spacesExecute", "spacesResults", "spacesExecutionScope"] as const) {
         expect(spaces.textContent).toContain(messages.apiDocs.requestGuide[key]);
         expect(requests.textContent).not.toContain(messages.apiDocs.requestGuide[key]);
@@ -50,6 +53,8 @@ describe("ApiDocsWidget", () => {
       expect(requests.textContent).toContain(messages.apiDocs.requestGuide.limitsDescription);
       expect(nodeExecute.textContent).toContain(messages.apiDocs.endpoints.limits.bodyBytes);
       const graphSave = document.getElementById("put-/api/external/spaces/{spaceId}")!;
+      expect(graphSave.textContent).toContain("timestampMs");
+      expect(graphSave.textContent).toContain('"sourcePortId": "frame"');
       expect(graphSave.querySelector("p")!.textContent).toBe(messages.apiDocs.openapi.platform["PUT /api/external/spaces/{spaceId}"]);
       const selectionGuide = graphSave.querySelector("[data-usage-guide]")!;
       expect(selectionGuide).not.toHaveAttribute("open");
@@ -71,7 +76,7 @@ describe("ApiDocsWidget", () => {
       expect(limited.querySelector("pre")).toHaveTextContent("RATE_LIMITED");
       expect(limited.querySelector("pre")).not.toHaveTextContent("reason");
       await user.click(within(limited).getByRole("combobox", { name: `429 ${messages.apiDocs.endpoints.responseExample}` }));
-      await user.click(screen.getByRole("option", { name: "OWNER_LIMIT" }));
+      await user.click(await screen.findByRole("option", { name: "OWNER_LIMIT" }));
       expect(limited.querySelector("pre")).toHaveTextContent('"reason": "OWNER_LIMIT"');
       expect(limited.querySelector("pre")).toHaveTextContent('"message": "GENERATION_QUEUE_FULL"');
       expect(within(access).getByRole("heading", { name: messages.apiDocs.access.title })).toBeInTheDocument();

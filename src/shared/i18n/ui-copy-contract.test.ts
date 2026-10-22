@@ -49,7 +49,7 @@ describe("UI copy contract", () => {
   });
   it("has Korean translations for literal canvas translation calls", () => {
     const missing: string[] = [];
-    for (const path of [...sources(resolve("src")), ...sources(resolve(".generated/node-banana-runtime/src"))]) {
+    for (const path of sources(resolve("src"))) {
       const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
       const visit = (node: ts.Node) => {
         if (ts.isCallExpression(node) && ["tc", "translate"].includes(node.expression.getText(source)) && node.arguments[0] && ts.isStringLiteral(node.arguments[0]) && !Object.hasOwn(canvas, node.arguments[0].text)) missing.push(path + ": " + node.arguments[0].text);

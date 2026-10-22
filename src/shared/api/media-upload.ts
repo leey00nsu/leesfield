@@ -1,4 +1,6 @@
-import type { MediaAssetDto, MediaType, MediaUploadSessionDto } from "@/shared/media-assets/media-asset-contract";
+import type { CreateMediaUploadInput, MediaAssetDto, MediaType, MediaUploadSessionDto } from "@/shared/media-assets/media-asset-contract";
+
+export type VideoCaptureUploadContext = NonNullable<CreateMediaUploadInput["videoCapture"]>;
 
 export class MediaAssetApiError extends Error {
   constructor(
@@ -31,6 +33,7 @@ export async function uploadMediaFile(
   intendedType: MediaType,
   binding?: MediaOperationUploadBinding,
   signal?: AbortSignal,
+  videoCapture?: VideoCaptureUploadContext,
 ): Promise<MediaAssetDto> {
   const createResponse = await fetch("/api/media-assets/uploads", {
     method: "POST",
@@ -41,6 +44,7 @@ export async function uploadMediaFile(
       declaredMimeType: file.type,
       declaredBytes: file.size,
       ...binding,
+      ...(videoCapture ? { videoCapture } : {}),
     }),
     signal,
   });

@@ -2,6 +2,11 @@ import { logger } from "../../src/shared/logging/logger.mjs";
 import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
+import {
+  getTestSuiteSelection,
+  productionTestTargetsEnv,
+  validateTestFiles,
+} from "./test-suite-groups.mjs";
 
 const execFileAsync = promisify(execFile);
 const host = "127.0.0.1";
@@ -13,10 +18,13 @@ const databasePassword = `ci-${randomUUID()}`;
 const postgresImage = process.env.PRODUCTION_TEST_POSTGRES_IMAGE ?? "postgres:16";
 const processTimeoutMs = Number(process.env.PRODUCTION_TEST_TIMEOUT_MS ?? 20 * 60_000);
 // Optional focused suites still receive a fresh, migrated disposable database.
-const testFiles = process.argv.slice(2);
-if (testFiles.some(file => !/^src\/[\w/.[\]-]+\.test\.tsx?$/.test(file) || file.includes(".."))) {
-  throw new Error("Only src/**/*.test.ts(x) file paths are accepted");
-}
+const testFiles = validateTestFiles(process.argv.slice(2));
+const testSelectionEnvironment = {
+  PRODUCTION_INTEGRATION_TEST: "1",
+  [productionTestTargetsEnv]: testFiles.length ? JSON.stringify(testFiles) : "",
+};
+// Validate every requested file and the shared DB exceptions before Docker starts.
+getTestSuiteSelection(testSelectionEnvironment);
 
 let containerStarted = false;
 let activeChild = null;
@@ -180,7 +188,7 @@ async function main() {
     ...process.env,
     CI: "1",
     NODE_ENV: "test",
-    PRODUCTION_INTEGRATION_TEST: "1",
+    ...testSelectionEnvironment,
     DATABASE_URL: databaseUrl,
     SESSION_PASSWORD: "production-integration-test-session-password",
   };
@@ -191,15 +199,12 @@ async function main() {
   const indexCode = await runProcess("pnpm", ["db:indexes:history"], environment);
   if (indexCode !== 0) return indexCode;
 
-  const vendorCode = await runProcess("pnpm", ["vendor:node-banana:prepare"], environment);
-  if (vendorCode !== 0) return vendorCode;
-
   // PostgreSQL suites share global worker and queue tables by design. Keep the
   // disposable-database run serial so one suite cannot claim another suite's
   // short-lived fixture while Vitest executes files in parallel.
   return runProcess(
     "pnpm",
-    ["exec", "vitest", "run", "--maxWorkers=1", ...testFiles],
+    ["exec", "vitest", "run", "--maxWorkers=1"],
     environment,
   );
 }

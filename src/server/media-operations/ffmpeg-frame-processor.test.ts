@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { execFile, execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { hasFfmpegVideoProcessor } from "./ffmpeg-video-processor";
+import { hasFfmpegVideoProcessor, videoProcessorLimits } from "./ffmpeg-video-processor";
+import * as videoProcessor from "./ffmpeg-video-processor";
 import { renderVideoFrames } from "./ffmpeg-frame-processor";
 
 const run = promisify(execFile);
@@ -34,6 +35,50 @@ describe.runIf(available)("first and final decoded video frames", () => {
     expect(pixel(end.buffer)[2]).toBeGreaterThan(200);
     expect(start).toMatchObject({ width: 160, height: 90 });
     expect(end).toMatchObject({ width: 160, height: 90 });
+    const metadata = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "json", file]);
+    const durationMs = Math.round(Number(JSON.parse(metadata.stdout).format.duration) * 1000);
+    for (const timestampMs of [0, durationMs - 1, durationMs]) {
+      const frames = await renderVideoFrames(file, directory, new AbortController().signal, timestampMs);
+      expect(frames).toHaveLength(1);
+      expect(frames[0]).toMatchObject({ outputPortId: "frame", width: 160, height: 90 });
+      expect(pixel(frames[0].buffer)[timestampMs === 0 ? 0 : 2]).toBeGreaterThan(200);
+    }
+    await expect(renderVideoFrames(file, directory, new AbortController().signal, durationMs + 1))
+      .rejects.toMatchObject({ code: "VIDEO_INPUT_UNSUPPORTED" });
+  }, 30000);
+
+  it("returns the displayed red/green/blue frame at multiple independently known times, boundaries and EOF", async () => {
+    const file = join(directory, "three-colors.mp4");
+    await ffmpeg(["-f", "lavfi", "-i", "color=red:s=160x90:r=4:d=1", "-f", "lavfi", "-i", "color=lime:s=160x90:r=4:d=1",
+      "-f", "lavfi", "-i", "color=blue:s=160x90:r=4:d=1", "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+      "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", file]);
+    for (const [timestampMs, channel] of [[0, 0], [500, 0], [999, 0], [1000, 1], [1250, 1], [1999, 1], [2000, 2], [2999, 2], [3000, 2]]) {
+      const frames = await renderVideoFrames(file, directory, new AbortController().signal, timestampMs);
+      expect(frames).toHaveLength(1);
+      expect(frames[0].outputPortId).toBe("frame");
+      const rgb = pixel(frames[0].buffer);
+      expect([...rgb].map((value, index) => index === channel ? value > 200 : value < 50), `timestamp ${timestampMs}: ${[...rgb]}`).toEqual([true, true, true]);
+    }
+    const legacy = await renderVideoFrames(file, directory, new AbortController().signal);
+    expect(legacy.map(frame => frame.outputPortId)).toEqual(["startFrame", "endFrame"]);
+    expect(pixel(legacy[0].buffer)[0]).toBeGreaterThan(200);
+    expect(pixel(legacy[1].buffer)[2]).toBeGreaterThan(200);
+    for (const timestampMs of [-1, 0.5, 3001, 600_001, NaN, Infinity, -Infinity]) {
+      await expect(renderVideoFrames(file, directory, new AbortController().signal, timestampMs))
+        .rejects.toMatchObject({ code: "VIDEO_INPUT_UNSUPPORTED" });
+    }
+  }, 30000);
+
+  it("retains a VFR frame held across a seek window instead of selecting the next color", async () => {
+    const file = join(directory, "held-vfr.mp4");
+    await ffmpeg(["-f", "lavfi", "-i", "color=red:s=160x90:r=1:d=1", "-f", "lavfi", "-i", "color=blue:s=160x90:r=1:d=1",
+      "-f", "lavfi", "-i", "color=lime:s=160x90:r=1:d=1", "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0,setpts=N*5/TB[v]",
+      "-map", "[v]", "-fps_mode", "vfr", "-c:v", "libx264", "-pix_fmt", "yuv420p", file]);
+    for (const [timestampMs, channel] of [[4500, 0], [5000, 2], [9500, 2], [10_000, 1]]) {
+      const frames = await renderVideoFrames(file, directory, new AbortController().signal, timestampMs);
+      expect(frames).toHaveLength(1);
+      expect(pixel(frames[0].buffer)[channel], `timestamp ${timestampMs}`).toBeGreaterThan(200);
+    }
   }, 30000);
 
   it("accepts a short single-frame video and applies rotation and display aspect", async () => {
@@ -50,6 +95,9 @@ describe.runIf(available)("first and final decoded video frames", () => {
     expect(frames[0]).toMatchObject({ width: 90, height: 320 });
     expect(frames[1]).toMatchObject({ width: 90, height: 320 });
     expect(pixel(frames[1].buffer)[0]).toBeGreaterThan(200);
+    const [point] = await renderVideoFrames(rotated, directory, new AbortController().signal, 0);
+    expect(point).toMatchObject({ outputPortId: "frame", width: 90, height: 320 });
+    expect(pixel(point.buffer)[0]).toBeGreaterThan(200);
   }, 30000);
 
   it("rejects audio-only input and cancellation without publishing a frame", async () => {
@@ -58,6 +106,8 @@ describe.runIf(available)("first and final decoded video frames", () => {
     await expect(renderVideoFrames(audio, directory, new AbortController().signal)).rejects.toMatchObject({ code: "VIDEO_INPUT_UNSUPPORTED" });
     const controller = new AbortController(); controller.abort();
     await expect(renderVideoFrames(audio, directory, controller.signal)).rejects.toMatchObject({ code: "MEDIA_OPERATION_CANCELLED" });
+    const timedOut = new AbortController(); timedOut.abort(new DOMException("Time budget exhausted", "TimeoutError"));
+    await expect(renderVideoFrames(audio, directory, timedOut.signal, 0)).rejects.toMatchObject({ code: "VIDEO_PROCESSOR_TIMEOUT" });
   });
 
   it("enforces duration and display-dimension limits before image decoding", async () => {
@@ -68,5 +118,21 @@ describe.runIf(available)("first and final decoded video frames", () => {
     await ffmpeg(["-f", "lavfi", "-i", "color=red:s=4200x2:r=24:d=0.1", "-vf", "setsar=2", "-c:v", "libx264", wide]);
     for (const file of [long, wide]) await expect(renderVideoFrames(file, directory, new AbortController().signal))
       .rejects.toMatchObject({ code: "VIDEO_INPUT_UNSUPPORTED" });
+  });
+
+  it("rejects oversized input bytes and decoded pixels before starting image decoding", async () => {
+    const file = join(directory, "oversized-input");
+    await writeFile(file, "small");
+    await truncate(file, videoProcessorLimits.inputBytes + 1);
+    await expect(renderVideoFrames(file, directory, new AbortController().signal, 0)).rejects.toMatchObject({ code: "VIDEO_INPUT_TOO_LARGE" });
+    await truncate(file, 5);
+    const probe = vi.spyOn(videoProcessor, "runVideoProcess").mockResolvedValue({ stdout: JSON.stringify({
+      streams: [{ width: 8192, height: 4097, duration: "1" }], format: { duration: "1" },
+    }), stderr: "" });
+    try {
+      await expect(renderVideoFrames(file, directory, new AbortController().signal, 0)).rejects.toMatchObject({ code: "VIDEO_INPUT_UNSUPPORTED" });
+      expect(probe).toHaveBeenCalledOnce();
+      expect(probe.mock.calls[0][0]).toBe("ffprobe");
+    } finally { probe.mockRestore(); }
   });
 });

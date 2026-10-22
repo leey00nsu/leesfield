@@ -1,0 +1,60 @@
+.audio { position: relative; display: flex; flex: 1; flex-direction: column; gap: 10px; min-width: 0; min-height: 124px; padding: 12px; border: 1px solid rgb(63 63 70 / 0.75); border-radius: 12px; background: rgb(28 28 30); }
+.audio audio { display: none; }
+.audio.embedded { width: 100%; height: 100%; min-height: 0; padding-top: 32px; border: 0; border-radius: 0; }
+.embedded .filename { display: none; }
+.filename { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgb(163 163 163); font-size: 10px; }
+.waveform { position: relative; flex: 1; min-height: 60px; overflow: hidden; border-radius: 4px; }
+.waveform svg { display: block; width: 100%; height: 100%; min-height: 60px; }
+.wavePeaks { stroke: rgb(163 163 163 / 0.65); stroke-width: 1.5; stroke-linecap: round; fill: none; }
+.wavePlayed, .wavePlayhead { stroke: rgb(245 245 245); stroke-width: 1.5; stroke-linecap: round; fill: none; }
+.waveformSeek { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.waveformSeek:disabled { cursor: default; }
+.waveform:focus-within { outline: 1px solid rgb(212 212 212); outline-offset: -1px; }
+.waveformStatus { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgb(115 115 115); font-size: 12px; pointer-events: none; }
+.audioControls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; flex: none; gap: 8px; }
+.playbackControls, .settingsControls { display: flex; flex-wrap: wrap; align-items: center; flex: none; min-width: 0; max-width: 100%; gap: 6px; }
+.settingsControls { gap: 1px; margin-left: auto; }
+.play { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; flex: none; border: 1px solid rgb(63 63 70); border-radius: 7px; background: rgb(20 20 22); color: rgb(245 245 245); cursor: pointer; }
+.play:hover { background: rgb(45 45 48); }
+.control { width: 26px; height: 28px; padding: 0; border-radius: 6px; color: rgb(212 212 212); cursor: pointer; }
+.control:hover, .control[aria-expanded="true"] { background: rgb(63 63 70 / 0.6); color: white; }
+.play svg, .control svg { width: 13px; height: 13px; }
+.speedControl { width: auto; gap: 3px; padding: 0 3px; font-size: 10px; font-variant-numeric: tabular-nums; }
+.time { flex: none; min-width: 76px; color: rgb(163 163 163); font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.settingsPopover { width: 168px; max-width: calc(100vw - 24px); padding: 10px; font-size: 12px; }
+.settingLabel { margin: 0; font-weight: 500; }
+.speedOptions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
+.speedOption { height: 28px; padding: 0 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.speedOption[aria-checked="true"] { background: var(--muted); color: var(--foreground); box-shadow: inset 0 0 0 1px var(--border); }
+.volumePopover { width: 184px; }
+.settingHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.volumeValue { color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+@container (max-width: 270px) or (max-height: 150px) {
+  .audio { gap: 4px; min-height: 0; padding: 6px; }
+  .audio.embedded { padding-top: 28px; }
+  .filename { display: none; }
+  .waveform, .waveform svg { min-height: 20px; }
+  .audioControls { row-gap: 4px; }
+}
+.error { position: absolute; z-index: 21; bottom: 4px; left: 4px; right: 4px; padding: 6px; border-radius: 4px; color: rgb(252 165 165); background: rgb(23 23 23 / 0.9); font-size: 11px; }
+.error button { margin-left: 6px; text-decoration: underline; cursor: pointer; }
+.video { position: relative; display: flex; flex-direction: column; width: 100%; min-width: 0; overflow: hidden; border: 1px solid rgb(63 63 70 / 0.75); border-radius: 12px; background: rgb(28 28 30); }
+.videoMedia { display: block; width: 100%; min-height: 0; flex: 1; object-fit: contain; background: rgb(10 10 10); }
+.video.embedded { height: 100%; border: 0; border-radius: 0; }
+.video .audioControls { padding: 0 10px 10px; }
+.timeline { display: block; appearance: none; -webkit-appearance: none; width: calc(100% - 20px); height: 20px; flex: none; margin: 2px 10px; border: 0; background: transparent; cursor: pointer; }
+.timeline::-webkit-slider-runnable-track { height: 4px; border: 0; border-radius: 999px; background: linear-gradient(to right, rgb(230 230 230) 0 var(--media-progress, 0%), rgb(70 70 74) var(--media-progress, 0%) 100%); }
+.timeline::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border: 1px solid rgb(120 120 124); border-radius: 50%; background: rgb(28 28 30); }
+.timeline::-moz-range-track { height: 4px; border: 0; border-radius: 999px; background: rgb(70 70 74); }
+.timeline::-moz-range-progress { height: 4px; border-radius: 999px; background: rgb(230 230 230); }
+.timeline::-moz-range-thumb { width: 12px; height: 12px; border: 1px solid rgb(120 120 124); border-radius: 50%; background: rgb(28 28 30); }
+.timeline:hover::-webkit-slider-thumb, .timeline:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgb(230 230 230 / 0.2); }
+.timeline:hover::-moz-range-thumb, .timeline:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgb(230 230 230 / 0.2); }
+.timeline:disabled { opacity: 0.4; cursor: default; }
+.timeline:focus-visible { outline: 1px solid white; outline-offset: 3px; }
+.video:fullscreen { width: 100%; height: 100%; border: 0; border-radius: 0; }
+.video:fullscreen .videoMedia { flex: 1; max-height: calc(100dvh - 96px); }
+.status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; background: rgb(10 10 10 / 0.8); color: rgb(212 212 212); font-size: 11px; pointer-events: none; }
+.spinner { width: 14px; height: 14px; animation: media-spin 1s linear infinite; }
+@keyframes media-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

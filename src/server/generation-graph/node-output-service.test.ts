@@ -238,6 +238,13 @@ describe("nodeOutputService", () => {
     expect(getOwnedDisplayNode).toHaveBeenCalledTimes(1);
     expect(resolveAsset).toHaveBeenCalledWith("owner@example.com","fixed");
   });
+  it.each(["input.video", "output.single"])("does not resolve %s's capturedFrame provenance as its original video", async kind => {
+    const output = target("output.single", [edge({ sourcePortId: "capturedFrame", sourceNode: source({ kind, config: { assetId: "original-video" }, selectedOutputAssetId: "original-video" }) })]);
+    const resolveAsset = vi.fn(), getOwnedDisplayNode = vi.fn().mockResolvedValue(output);
+    const service = createNodeOutputService({ repository: { getOwnedDisplayNode } as NodeOutputRepository, resolveAsset });
+    await expect(service.resolve("owner@example.com", "graph", "target")).resolves.toMatchObject({ groups: [{ portId: "image", assets: [] }] });
+    expect(resolveAsset).not.toHaveBeenCalled();
+  });
   it("rejects a cyclic Input chain instead of displaying a local fallback", async () => {
     const output = target("output.single", [edge({
       sourceNode: source({ id: "relay", kind: "input.image", config: { assetId: "local-preserved" } }),

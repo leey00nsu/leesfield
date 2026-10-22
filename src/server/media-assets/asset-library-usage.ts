@@ -19,7 +19,14 @@ export async function getAssetLibraryUsage(ownerEmail: string, assetId: string) 
   });
   if (!asset) throw new MediaAssetNotFoundError();
   const configNodes = await prisma.generationGraphNode.findMany({
-    where: { graph: { ownerEmail }, config: { path: ["assetId"], equals: assetId } }, select: { graphId: true },
+    where: {
+      graph: { ownerEmail },
+      OR: [
+        { config: { path: ["assetId"], equals: assetId } },
+        { kind: "output.gallery", config: { path: ["resultItems"], array_contains: [{ assetId }] } },
+      ],
+    },
+    select: { graphId: true },
   });
   const graphIds = [...new Set([
     ...asset.selectedByGraphNodes.map(({ graphId }) => graphId),

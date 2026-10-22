@@ -1,0 +1,7 @@
+.content { display: flex; min-width: 0; min-height: 0; }
+.body { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: color-mix(in srgb, var(--card) 40%, transparent); }
+.body[data-space-video="edit.video.trim"] { gap: 8px; overflow: auto; background: transparent; }
+.media { position: absolute; inset: 0; overflow: hidden; }
+.media video { object-fit: contain; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; color: var(--muted-foreground); font-size: 12px; text-align: center; }
+.feedback { position: relative; z-index: 2; display: flex; flex-shrink: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 8px; padding: 6px; background: var(--card); color: var(--destructive); font-size: 11px; }

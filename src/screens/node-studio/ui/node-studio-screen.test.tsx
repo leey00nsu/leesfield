@@ -107,7 +107,7 @@ describe("NodeStudioScreen", () => {
 
   it("inherits English from the application locale", () => {
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />, { locale: "en", messages: enMessages });
-    expect(screen.getByTestId("node-banana-home")).toHaveAttribute("aria-label", "Space editor");
+    expect(screen.getByTestId("space-editor-home")).toHaveAttribute("aria-label", "Space editor");
   });
 
   it("uses a safe list fallback for a direct editor URL", async () => {
@@ -122,7 +122,8 @@ describe("NodeStudioScreen", () => {
     mocks.update.mockRejectedValueOnce(new Error("save failed"));
     renderWithIntl(<NodeStudioScreen spaceId="graph-a" />);
     await screen.findByTestId("workspace");
-    const preset = { name: "Failed preset", nodes: [{ id: "p", type: "prompt", position: { x: 0, y: 0 }, data: { prompt: "example" } }], edges: [] };
+    const preset = { id: "failed-preset", title: "Failed preset", schemaVersion: 3, groups: [],
+      nodes: [{ id: "p", kind: "input.prompt", configVersion: 1, position: { x: 0, y: 0 }, config: { text: "example" }, selectedOutputAssetId: null }], edges: [] };
     await act(async () => { await expect(mocks.workspace.mock.lastCall?.[0].onCreatePreset(preset)).rejects.toThrow("save failed"); });
     expect(mocks.remove).toHaveBeenCalledWith(graphB.id);
     expect(mocks.push).not.toHaveBeenCalled();
@@ -160,7 +161,7 @@ describe("NodeStudioScreen", () => {
   it("기존 creative studio intro 없이 full-bleed Node Banana Home을 구성한다", () => {
     renderWithIntl(<NodeStudioScreen />);
 
-    expect(screen.getByTestId("node-banana-home")).toHaveAttribute(
+    expect(screen.getByTestId("space-editor-home")).toHaveAttribute(
       "aria-label",
       "스페이스 편집기",
     );

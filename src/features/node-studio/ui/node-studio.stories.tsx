@@ -2,9 +2,11 @@ import { storybookImage } from "@/test-utils/fixtures/storybook-media";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { userEvent } from "storybook/test";
 import { useEffect, useState } from "react";
-import { NodeBananaConfirmDialog } from "./node-banana-confirm-dialog";
+import { SpaceConfirmDialog } from "./space-confirm-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { NodeBananaHostedHeader } from "@node-banana-runtime/runtime-entry";
+import { SpaceWorkspaceHeader } from "./space-workspace-header";
+import { createSpaceEditorSession } from "../model/space-editor-store";
+import type { SpaceEditorCatalog } from "./space-editor-provider";
 import { CanvasProviders } from "@/shared/ui/canvas-providers";
 
 import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
@@ -321,7 +323,6 @@ type NodeStudioShowcaseProps = {
   catalogError?: boolean;
   executionStatus?: NodeExecutionStatus;
   inputReady?: boolean;
-  nodeBanana?: boolean;
   readOnly?: boolean;
   unsupported?: boolean;
   multiMedia?: boolean;
@@ -445,7 +446,7 @@ function NodeStudioShowcase({
 
   return (
     <main className={`flex h-screen flex-col overflow-hidden bg-neutral-900 text-white ${narrow ? "w-[390px]" : "min-w-[960px]"}`}>
-      <NodeBananaHostedHeader
+      <SpaceWorkspaceHeader
         title={displayedGraph.title}
         graphs={[{ id: displayedGraph.id, title: displayedGraph.title }]}
         activeGraphId={displayedGraph.id}
@@ -458,9 +459,8 @@ function NodeStudioShowcase({
         onSave={() => undefined}
         onDelete={() => undefined}
       />
-      <NodeStudio
+      <StoryCanvas key={JSON.stringify([displayedGraph, catalogError])}
         graph={displayedGraph}
-        onDraftChange={() => undefined}
         catalog={{
           imageModels: catalogError ? [] : runtimeImageModelsFixture,
           videoModels: catalogError ? [] : runtimeVideoModelsFixture,
@@ -473,6 +473,11 @@ function NodeStudioShowcase({
       />
     </main>
   );
+}
+
+function StoryCanvas({ graph, catalog }: { graph: GenerationGraphSnapshotDto; catalog: SpaceEditorCatalog }) {
+  const [session] = useState(() => createSpaceEditorSession(graph));
+  return <NodeStudio session={session} catalog={catalog} />;
 }
 
 const meta = {
@@ -494,7 +499,7 @@ export const ConfirmReload: Story = {
   args: { populated: false, status: "saved" },
   render: function ConfirmReloadPreview() {
     const [open, setOpen] = useState(true);
-    return <NodeBananaConfirmDialog open={open} title="최신 저장본을 불러올까요?" description="현재 초안을 최신 저장본으로 교체합니다." confirmLabel="불러오기" onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
+    return <SpaceConfirmDialog open={open} title="최신 저장본을 불러올까요?" description="현재 초안을 최신 저장본으로 교체합니다." confirmLabel="불러오기" onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
   },
 };
 
@@ -502,7 +507,7 @@ export const ConfirmDelete: Story = {
   args: { populated: false, status: "saved" },
   render: function ConfirmDeletePreview() {
     const [open, setOpen] = useState(true);
-    return <NodeBananaConfirmDialog open={open} title="스페이스를 삭제할까요?" description="이 스페이스를 삭제합니다." confirmLabel="삭제" danger onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
+    return <SpaceConfirmDialog open={open} title="스페이스를 삭제할까요?" description="이 스페이스를 삭제합니다." confirmLabel="삭제" danger onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />;
   },
 };
 
@@ -573,56 +578,52 @@ export const ConflictNarrow: Story = {
   args: { populated: true, status: "conflict", narrow: true },
 };
 
-export const NodeBananaEmpty: Story = {
-  args: { populated: false, status: "saved", nodeBanana: true },
+export const SpaceEmpty: Story = {
+  args: { populated: false, status: "saved" },
 };
 
-export const NodeBananaDesktop: Story = {
-  args: { populated: true, status: "saved", nodeBanana: true },
+export const SpaceDesktop: Story = {
+  args: { populated: true, status: "saved" },
 };
 
-export const NodeBananaNodeMenu: Story = {
-  args: { populated: true, status: "saved", nodeBanana: true },
+export const SpaceNodeMenu: Story = {
+  args: { populated: true, status: "saved" },
   play: async ({ canvasElement }) => {
-    const add = canvasElement.querySelector<HTMLElement>(
-      ".node-banana-runtime__toolbar button:first-child",
+    const add = canvasElement.ownerDocument.querySelector<HTMLElement>(
+      '[data-space-floating-bar] [data-canvas-action="all-nodes"]',
     );
     if (add) await userEvent.click(add);
   },
 };
 
-export const NodeBananaReadOnly: Story = {
+export const SpaceReadOnly: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     readOnly: true,
   },
 };
 
-export const NodeBananaUnsupportedNode: Story = {
+export const SpaceUnsupportedNode: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     unsupported: true,
   },
 };
 
-export const NodeBananaNarrow390: Story = {
+export const SpaceNarrow390: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     narrow: true,
   },
 };
 
-export const NodeBananaGenerationNodes: Story = {
+export const SpaceGenerationNodes: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     multiMedia: true,
   },
   play: async ({ canvasElement }) => {
@@ -633,11 +634,10 @@ export const NodeBananaGenerationNodes: Story = {
   },
 };
 
-export const NodeBananaGenerationNodesNarrow390: Story = {
+export const SpaceGenerationNodesNarrow390: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     multiMedia: true,
     narrow: true,
   },
@@ -649,49 +649,44 @@ export const NodeBananaGenerationNodesNarrow390: Story = {
   },
 };
 
-export const NodeBananaMediaAssets: Story = {
+export const SpaceMediaAssets: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     mediaAssets: true,
   },
 };
 
-export const NodeBananaAudioGalleryNarrow390: Story = {
+export const SpaceAudioGalleryNarrow390: Story = {
   args: {
     populated: true,
     status: "saved",
-    nodeBanana: true,
     mediaAssets: true,
     narrow: true,
   },
 };
 
-export const NodeBananaImageOperations: Story = {
+export const SpaceImageOperations: Story = {
   args: {
     populated: false,
     status: "saved",
-    nodeBanana: true,
     imageEdits: true,
   },
 };
 
-export const NodeBananaImageOperationsNarrow390: Story = {
+export const SpaceImageOperationsNarrow390: Story = {
   args: {
     populated: false,
     status: "saved",
-    nodeBanana: true,
     imageEdits: true,
     narrow: true,
   },
 };
 
-export const NodeBananaPromptAndPausedEdge: Story = {
+export const SpacePromptAndPausedEdge: Story = {
   args: {
     populated: false,
     status: "saved",
-    nodeBanana: true,
     promptParity: true,
   },
   play: async ({ canvasElement }) => {
@@ -700,10 +695,10 @@ export const NodeBananaPromptAndPausedEdge: Story = {
   },
 };
 
-export const NodeBananaPromptAndPausedEdgeNarrow390: Story = {
-  ...NodeBananaPromptAndPausedEdge,
+export const SpacePromptAndPausedEdgeNarrow390: Story = {
+  ...SpacePromptAndPausedEdge,
   args: {
-    ...NodeBananaPromptAndPausedEdge.args,
+    ...SpacePromptAndPausedEdge.args,
     narrow: true,
   },
 };

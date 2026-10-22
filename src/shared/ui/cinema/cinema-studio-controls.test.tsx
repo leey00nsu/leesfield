@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import ko from "@/shared/i18n/messages/ko.json";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import { CinemaStudioControls } from "./cinema-studio-controls";
+import { updateSpaceNodeAuthoringConfig } from "@/features/node-studio/model/space-editor-authoring";
+import { canonicalGraphToEditorDocument } from "@/features/node-studio/model/space-editor-document";
+import type { SpaceEditorDocument } from "@/features/node-studio/model/space-editor-types";
+import { validateCanonicalGraph } from "@/shared/generation-graph/canonical-graph";
+import { updateGenerationGraphSchema } from "@/server/generation-graph/generation-graph-contract";
 
 const motionPreference = vi.hoisted(() => ({ reduced: false }));
 vi.mock("framer-motion", async importOriginal => ({
@@ -132,8 +137,8 @@ describe("Cinema authoring interactions", () => {
     expect(screen.getByRole("button", { name: /^카메라:/ })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "전체 초기화" })).not.toBeInTheDocument();
   });
-  it("keeps camera selection always available and drops the old enable property", () => {
-    const change = mount({ initialGroup: "shooting" });
+  it.each(["image", "video"] as const)("keeps %s camera selections available and saves the emitted settings through the native canonical writer", media => {
+    const change = mount({ media, initialGroup: "shooting" });
     const camera = screen.getByRole("spinbutton", { name: "카메라" });
     fireEvent.keyDown(camera, { key: "ArrowDown" });
     expect(camera).toHaveAttribute("aria-valuetext", "RED V-RAPTOR XL 8K S35");
@@ -141,6 +146,16 @@ describe("Cinema authoring interactions", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     fireEvent.keyDown(camera, { key: "ArrowDown" });
     expect(change).toHaveBeenCalledTimes(2);
+    const config = { modelKey: "cinema-contract", prompt: "Keep the authored prompt", parameters: { seed: 0, enabled: false, dynamicParams: { nullable: null } } };
+    const draft: SpaceEditorDocument = { schemaVersion: 3, title: "Cinema authoring", groups: [], edges: [], nodes: [{
+      id: "generation", kind: `generate.${media}`, configVersion: 1, config, position: { x: 10, y: 20 }, selectedOutputAssetId: null,
+    }] };
+    const requested = { ...config, cinema: change.mock.calls.at(-1)![0] };
+    const next = updateSpaceNodeAuthoringConfig(draft, "generation", config, requested, { imageModels: [], videoModels: [] });
+    const saved = updateGenerationGraphSchema.parse({ ...next, expectedVersion: 1 });
+    expect(validateCanonicalGraph(saved)).toEqual([]);
+    const reloaded = canonicalGraphToEditorDocument({ ...saved, minimumWriterVersion: 3, id: "cinema-space", version: 2 });
+    expect(reloaded.nodes[0].config).toEqual(requested);
   });
   it("selects a palette card and resets all settings", () => {
     const change = mount({ initialGroup: "visual" });

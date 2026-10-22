@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
 import type { MediaOperationWorkerRecord } from "@/server/media-assets/media-asset-repository";
+import { validateNodeConfig } from "@/shared/generation-graph/node-registry";
+import { VIDEO_FRAME_TIMESTAMP_MAX_MS, videoFrameOutputPortIds } from "@/shared/generation-graph/video-frame-extraction";
 import { runVideoProcess, downloadVideoInput, assertVideoTempBudget, assertVideoOperationActive,
   videoProcessorLimits as limits, VideoOperationError } from "./ffmpeg-video-processor";
 
@@ -30,8 +32,12 @@ async function png(path: string) {
   return { buffer, width, height };
 }
 
-/** Overwrite one PNG to retain the final decoded display frame without a reverse buffer. */
-export async function renderVideoFrames(file: string, directory: string, signal: AbortSignal) {
+/** Overwrite one PNG to retain the selected decoded display frame without a reverse buffer. */
+export async function renderVideoFrames(file: string, directory: string, signal: AbortSignal, timestampMs?: number) {
+  assertVideoOperationActive(signal);
+  if (timestampMs !== undefined && (!Number.isInteger(timestampMs) || timestampMs < 0 || timestampMs > VIDEO_FRAME_TIMESTAMP_MAX_MS))
+    throw new VideoOperationError("VIDEO_INPUT_UNSUPPORTED");
+  if ((await stat(file)).size > limits.inputBytes) throw new VideoOperationError("VIDEO_INPUT_TOO_LARGE");
   const { stdout } = await runVideoProcess("ffprobe", [
     "-v", "error", "-select_streams", "v:0", "-show_entries",
     "format=duration:stream=width,height,duration,sample_aspect_ratio:stream_tags=rotate:stream_side_data=rotation",
@@ -52,21 +58,43 @@ export async function renderVideoFrames(file: string, directory: string, signal:
   const rotation = Math.abs(Number(stream.side_data_list?.[0]?.rotation ?? stream.tags?.rotate ?? 0)) % 180;
   const displayWidth = Math.round(Number(stream.width) * sar), displayHeight = Number(stream.height);
   dimensions(rotation === 90 ? displayHeight : displayWidth, rotation === 90 ? displayWidth : displayHeight);
-  const first = join(directory, "start.png"), last = join(directory, "end.png");
-  const decode = async (output: string, seek: number | null, firstOnly: boolean) => {
+  const first = join(directory, "start.png"), last = join(directory, "end.png"), point = join(directory, "frame.png");
+  const decode = async (output: string, seek: number | null, firstOnly: boolean, cutoff?: number) => {
     await rm(output, { force: true });
+    const scale = rotation === 90 ? `scale=${displayHeight}:${displayWidth},setsar=1` : "scale=round(iw*sar):ih,setsar=1";
     await runVideoProcess("ffmpeg", [
       "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-      ...(seek !== null ? ["-ss", String(seek)] : []), "-i", file,
+      ...(seek !== null ? ["-ss", String(seek)] : []),
+      // Bound demux/decode while allowing reordered frames to reach the display timeline.
+      ...(cutoff !== undefined ? ["-t", String(cutoff + 3)] : []), "-i", file,
       "-map", "0:v:0", "-an", "-sn", "-dn",
       // Autorotation inverts SAR for quarter turns; preserve the original display resolution.
-      "-vf", rotation === 90 ? `scale=${displayHeight}:${displayWidth},setsar=1` : "scale=round(iw*sar):ih,setsar=1", "-fps_mode", "passthrough",
+      "-vf", cutoff === undefined ? scale : `select=lte(t\\,${cutoff.toFixed(6)}),${scale}`, "-fps_mode", "passthrough",
       ...(firstOnly ? ["-frames:v", "1"] : []),
       "-c:v", "png", "-f", "image2", "-update", "1", "-atomic_writing", "1", output,
     ], signal);
     await assertVideoTempBudget([file, ...(output === last ? [first] : []), output]);
     return png(output);
   };
+  if (timestampMs !== undefined) {
+    // HTML media duration includes longer audio. Hold the final video frame through
+    // that valid container interval, including its exact rounded millisecond boundary.
+    const videoSeconds = Number.isFinite(streamSeconds) && streamSeconds > 0 ? streamSeconds : inputSeconds;
+    if (timestampMs > Math.round(inputSeconds * 1000)) throw new VideoOperationError("VIDEO_INPUT_UNSUPPORTED");
+    const seconds = Math.min(timestampMs / 1000, videoSeconds), seek = Math.max(0, seconds - 3);
+    let frame;
+    try { frame = await decode(point, seek, false, seconds - seek); }
+    catch (error) {
+      assertVideoOperationActive(signal);
+      // A VFR frame may begin before the seek window and still be on screen here.
+      if (seek === 0) throw error;
+      if (!(error instanceof VideoOperationError) && (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      if (error instanceof VideoOperationError && error.code !== "VIDEO_PROCESSOR_FAILED") throw error;
+    }
+    frame ??= await decode(point, null, false, seconds);
+    assertVideoOperationActive(signal);
+    return [{ ...frame, outputPortId: "frame" as const }];
+  }
   const start = await decode(first, null, true);
   let end;
   if (Number.isFinite(streamSeconds) && streamSeconds > 0) {
@@ -89,11 +117,15 @@ export async function processVideoFrameOperation(operation: MediaOperationWorker
     const boundedSignal = AbortSignal.any([signal, AbortSignal.timeout(limits.jobTimeoutMs)]);
     if (operation.type !== "edit.video.extractFrames" || operation.inputs.length !== 1 ||
       operation.inputs[0].portId !== "video") throw new VideoOperationError("VIDEO_INPUT_UNSUPPORTED");
+    const config = validateNodeConfig(operation.type, operation.configVersion, { parameters: operation.parameters });
+    if (!config.supported || operation.expectedOutputCount !== videoFrameOutputPortIds(config.config).length)
+      throw new VideoOperationError("VIDEO_INPUT_UNSUPPORTED");
+    const timestampMs = (config.config.parameters as { timestampMs?: number }).timestampMs;
     const asset = await mediaAssetService.get(operation.ownerEmail, operation.inputs[0].assetId);
     if (asset.type !== "video") throw new VideoOperationError("VIDEO_INPUT_UNSUPPORTED");
     const file = join(directory, "input");
     await downloadVideoInput(asset.url, file, limits.inputBytes, boundedSignal);
-    return await renderVideoFrames(file, directory, boundedSignal);
+    return await renderVideoFrames(file, directory, boundedSignal, timestampMs);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

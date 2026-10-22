@@ -1,5 +1,6 @@
 "use client";
 
+import { AppVideoPlayer } from "../app-video-player";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useReducedMotion } from "framer-motion";
 import { useTranslations } from "next-intl";
@@ -14,7 +15,6 @@ function MovementVideo({ item, active, root }: {
   const reduced = useReducedMotion();
   const element = useRef<HTMLVideoElement>(null);
   const playing = useRef(false);
-  const loaded = useRef(false);
   const [visible, setVisible] = useState(false);
   const [foreground, setForeground] = useState(() => typeof document === "undefined" || !document.hidden);
   const [failed, setFailed] = useState(false);
@@ -38,10 +38,6 @@ function MovementVideo({ item, active, root }: {
     playing.current = shouldPlay;
     if (!video) return;
     if (shouldPlay) {
-      if (!loaded.current) {
-        video.src = item.video;
-        loaded.current = true;
-      }
       // A delayed autoplay promise must not restart a hidden or closing card.
       void video.play().then(() => { if (!playing.current) video.pause(); }).catch(() => {});
     } else video.pause();
@@ -55,7 +51,7 @@ function MovementVideo({ item, active, root }: {
     };
   }, []);
   return <>
-    <video ref={element} poster={item.image} muted loop playsInline preload="none"
+    <AppVideoPlayer src={item.video} active={shouldPlay} controls={false} ref={element} poster={item.image} muted loop playsInline preload="none"
       style={{ backgroundImage: `url("${item.image}")`, backgroundSize: "cover", backgroundPosition: "center" }}
       aria-hidden="true" onError={() => setFailed(true)} />
     {failed && <span className={styles.fallback}>{t("movementPreviewUnavailable")}</span>}

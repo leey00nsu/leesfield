@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cinemaAuthoringSettingsSchema, cinemaImageAuthoringSettingsSchema } from "@/shared/cinema/cinema-contract";
 import { promptPresetRefSchema, promptPresetWorkStateSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { splitTemplateSchema } from "./split-grid-template";
+import { VIDEO_FRAME_TIMESTAMP_MAX_MS } from "./video-frame-extraction";
 
 export const canonicalNodeKinds = [
   "note.memo",
@@ -52,6 +53,10 @@ export type PortDefinition = {
 
 export type NodeExecutionMode = "none" | "server-generation" | "server-operation" | "browser-operation";
 
+/** Provenance handle for frozen stills; never relays the original video asset. */
+export const videoCaptureOutputPortId = "capturedFrame";
+export function supportsVideoCaptureOutput(kind: string) { return kind === "input.video" || kind === "output.single"; }
+
 export type NodeDefinition = {
   kind: CanonicalNodeKind;
   configVersion: 1;
@@ -62,6 +67,8 @@ export type NodeDefinition = {
 
 const idSchema = z.string().trim().min(1).max(128);
 const parametersSchema = z.record(z.string(), z.json());
+export const memoBackgroundColorSchema = z.string().length(7).regex(/^#[0-9a-fA-F]{6}$/);
+
 export const nodePresentationSchema = z.object({
   customTitle: z.string().trim().max(120).optional(),
   comment: z.string().trim().max(4_000).optional(),
@@ -72,16 +79,26 @@ export type NodePresentation = z.infer<typeof nodePresentationSchema>;
 const presentationField = { presentation: nodePresentationSchema.optional(),
   templateSource: z.object({ nodeId: idSchema, localNodeId: idSchema, index: z.number().int().min(0).max(399) }).strict().optional() };
 const emptyConfigSchema = z.object(presentationField).strict();
+export const resultSourceSchema = z.object({
+  nodeId: idSchema,
+  executionId: idSchema.nullable(),
+  portId: idSchema,
+  index: z.number().int().min(0).max(499),
+  outputCount: z.number().int().min(0).max(500).optional(),
+  state: z.enum(["pending", "completed", "failed", "cancelled"]),
+}).strict();
+export type ResultSourceSnapshot = z.infer<typeof resultSourceSchema>;
+
+export const generatedResultGalleryItemSchema = resultSourceSchema.extend({
+  id: idSchema,
+  mediaType: z.enum(["image", "video", "audio"]),
+  assetId: idSchema.nullable(),
+}).strict();
+export type GeneratedResultGalleryItem = z.infer<typeof generatedResultGalleryItemSchema>;
+
 const assetInputConfigSchema = z.object({
   assetId: idSchema.nullable(),
-  resultSource: z.object({
-    nodeId: idSchema,
-    executionId: idSchema.nullable(),
-    portId: idSchema,
-    index: z.number().int().min(0).max(499),
-    outputCount: z.number().int().min(0).max(500).optional(),
-    state: z.enum(["pending", "completed", "failed", "cancelled"]),
-  }).strict().optional(),
+  resultSource: resultSourceSchema.optional(),
   filename: z.string().trim().min(1).max(255).optional(),
   splitSource: z.object({ nodeId: idSchema, index: z.number().int().min(0).max(399) }).strict().optional(),
   ...presentationField,
@@ -261,6 +278,27 @@ const outputConfigSchema = z
     ...presentationField,
   })
   .strict();
+const galleryConfigSchema = outputConfigSchema.extend({
+  resultItems: z.array(generatedResultGalleryItemSchema).max(500).optional(),
+  // Once a user explicitly reconnects, legacy asset-wide bans cover old edges only.
+  // Snapshot slots continue to honor excludedAssetIds independently of these edges.
+  legacyExcludedEdgeIds: z.array(idSchema).max(2_000).optional(),
+  excludedOccurrences: z.array(z.object({
+    edgeId: idSchema,
+    assetId: idSchema,
+    occurrence: z.number().int().min(0).max(1_999),
+  }).strict()).max(2_000).optional(),
+}).superRefine((config, ctx) => {
+  const ids = new Set<string>();
+  config.resultItems?.forEach((item, index) => {
+    if (ids.has(item.id)) {
+      ctx.addIssue({ code: "custom", path: ["resultItems", index, "id"], message: "Duplicate result item ID." });
+    }
+    ids.add(item.id);
+  });
+});
+
+export type GalleryExcludedOccurrence = { edgeId: string; assetId: string; occurrence: number };
 
 const input = (
   id: string,
@@ -312,6 +350,7 @@ function definition(
 export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefinition>> = {
   "note.memo": definition("note.memo", z.object({
     text: z.string().max(20_000),
+    backgroundColor: memoBackgroundColorSchema.optional(),
     size: z.object({
       width: z.number().int().min(220).max(2000),
       height: z.number().int().min(140).max(1600),
@@ -329,6 +368,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
   "input.video": definition("input.video", assetInputConfigSchema, [
     input("video", "video", { acceptedMimeTypes: videoMime }),
     output("video", "video", { acceptedMimeTypes: videoMime }),
+    output(videoCaptureOutputPortId, "image", { acceptedMimeTypes: ["image/png"] }),
   ]),
   "input.prompt": definition("input.prompt", promptInputConfigSchema, [
     input("text", "text"),
@@ -496,11 +536,14 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
   ),
   "edit.video.extractFrames": definition(
     "edit.video.extractFrames",
-    z.object({ parameters: z.object({}).strict(), ...presentationField }).strict(),
+    z.object({ parameters: z.object({
+      timestampMs: z.number().finite().int().min(0).max(VIDEO_FRAME_TIMESTAMP_MAX_MS).optional(),
+    }).strict(), ...presentationField }).strict(),
     [
       input("video", "video", { required: true, minConnections: 1, acceptedMimeTypes: videoMime }),
       output("startFrame", "image", { acceptedMimeTypes: ["image/png", "image/webp"] }),
       output("endFrame", "image", { acceptedMimeTypes: ["image/png", "image/webp"] }),
+      output("frame", "image", { acceptedMimeTypes: ["image/png"] }),
     ],
     "server-operation",
   ),
@@ -524,8 +567,9 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
     input("image", "image", { acceptedMimeTypes: imageMime }),
     input("video", "video", { acceptedMimeTypes: videoMime }),
     input("audio", "audio", { acceptedMimeTypes: audioMime }),
+    output(videoCaptureOutputPortId, "image", { acceptedMimeTypes: ["image/png"] }),
   ]),
-  "output.gallery": definition("output.gallery", outputConfigSchema, [
+  "output.gallery": definition("output.gallery", galleryConfigSchema, [
     input("image", "image", {
       edgeCardinality: "many", valueShape: "ordered-list", ordered: true,
       maxConnections: null, acceptedMimeTypes: imageMime, homogeneous: true,

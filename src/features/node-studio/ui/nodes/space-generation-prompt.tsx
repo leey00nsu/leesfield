@@ -30,14 +30,14 @@ import { getGradioContract, type JsonValue } from "@/shared/model-catalog/gradio
 import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { mediaAssetKeys, useMediaAssetList } from "@/features/media-assets/hook/use-media-assets";
 import { getMediaAsset, uploadMediaAsset } from "@/features/media-assets/api/media-asset-api";
+import { MediaAssetPicker } from "@/features/media-assets/ui/media-asset-picker";
 import { useNodeAuthoring } from "../../model/node-authoring-context";
 import { hydrateNodePromptPreset, writeNodePromptPreset, applyNodePromptPreset, record } from "../../model/node-prompt-presets";
 import { promptPresetInputIssue } from "@/shared/prompt-presets/prompt-preset-application";
 import { promptPresetReference, promptPresetRefSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { promptPresetReferenceImageCount } from "@/shared/prompt-presets/prompt-preset-input-mode";
-import { generationAttachmentSlots, type GenerationAttachmentSlot } from "../../model/generation-prompt-attachments";
+import { spaceGenerationAttachmentSlots as generationAttachmentSlots, type SpaceAttachmentSlot as GenerationAttachmentSlot } from "../../model/space-editor-attachments";
 import { projectGenerationModelSelectionDefaults } from "../../model/generation-model-selection-defaults";
-import { NodeBananaInputHistoryControl } from "./node-banana-input-history-control";
 import { CinemaStudioControls } from "@/shared/ui/cinema/cinema-studio-controls";
 import { cinemaMovementToken, CINEMA_MOVEMENT_TOKEN } from "@/shared/ui/cinema/cinema-movement-chip";
 import { parseCinemaSettings } from "@/shared/cinema/cinema-contract";
@@ -109,7 +109,7 @@ function SpaceGenerationPromptContent({ nodeId, config, modality, connected: hos
   const inputIssue = reference ? model ? promptPresetInputIssue(model, { ...record(config.parameters),
     initImages: modality === "image" ? legacyImages : [], initImage: modality === "video" ? legacyImages[0] ?? "" : "", fileInputs }, reference)
     : promptPresetReferenceImageCount(reference) ? "referenceRequired" : null : null;
-  return <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-space-generation-prompt={modality}>
+  return <div className="nowheel min-h-0 min-w-0 flex-1 overflow-y-auto" data-space-generation-prompt={modality}>
     <GenerationPromptSurface
       className="rounded-none border-0 bg-transparent"
       header={modality !== "audio" ? <div className="px-3 pt-3"><CinemaStudioControls media={modality} settings={config.cinema} supportsPrompt={cinemaPromptField(model ?? {}).supported} presetKey={reference?.key}
@@ -180,6 +180,7 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
   const value = slot.field.kind === "file" && urls.length <= 1 ? urls[0] : urls;
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null), [open, setOpen] = useState(false);
   const controller = useRef<AbortController | null>(null);
+  const pickerGuard = useRef<(() => boolean) | undefined>(undefined);
   const mounted = useRef(true);
   const live = useRef({ ids, disabled, modelKey, urls, slot, relatedAssetIds });
   useEffect(() => { live.current = { ids, disabled, modelKey, urls, slot, relatedAssetIds }; });
@@ -188,6 +189,8 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
   const mutate = async (requested: JsonValue | undefined, assetId?: string, requestedIndex?: number, order?: number[], uploadedAssets?: MediaAssetDto[]) => {
     if (disabled || controller.current) return;
     const initial = live.current;
+    const expected = authoring.captureNodeInputAssets?.(nodeId,slot,slots) ?? { modelKey, assetIds: initial.ids,
+      ...(Object.keys(initial.relatedAssetIds).length ? { relatedAssetIds: initial.relatedAssetIds } : {}) };
     const abort = new AbortController(); controller.current = abort;
     setBusy(true); setError(null);
     try {
@@ -223,7 +226,6 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
       if (live.current.disabled || live.current.modelKey !== initial.modelKey || JSON.stringify(live.current.ids) !== JSON.stringify(initial.ids) || JSON.stringify(live.current.relatedAssetIds)!==JSON.stringify(initial.relatedAssetIds)) return;
       const removing = next.length < initial.ids.length && next.every(id => initial.ids.includes(id));
       if (next.length > slot.limit && !removing) throw new Error("ATTACHMENT_LIMIT");
-      const expected = { modelKey, assetIds: initial.ids, ...(Object.keys(initial.relatedAssetIds).length?{relatedAssetIds:initial.relatedAssetIds}:{}) };
       const changed=order ? authoring.replaceNodeInputAssets?.(nodeId,slot,next,expected,order) : authoring.replaceNodeInputAssets?.(nodeId,slot,next,expected);
       if (!changed) return;
       setOpen(false);
@@ -246,6 +248,7 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
         {ko?"연결할 영상이 없는 오디오 제거":"Remove audio without a matching video"}
       </AppButton>}
     <Control index={slotIndex ?? 0} showAssetPicker={false} label={gradioFieldLabel(slot.field, ko ? "ko" : "en")} field={slot.field} value={slotIndex===undefined?value:urls[slotIndex]??null} maxItems={slot.limit}
+      captureEditGuard={() => authoring.captureNodeInputGuard?.(nodeId,slot) ?? (() => true)}
       assetSelectable={asset=>!ids.includes(asset.id)}
       onSelectAsset={(asset,index)=>mutate(undefined,asset.id,index)}
       onUpload={(assets,next)=>mutate(next,undefined,undefined,undefined,assets)}
@@ -253,11 +256,14 @@ function SpaceGenerationAttachment({ nodeId, modelKey, slot, slots, disabled, sl
       onChangeOrder={paired ? order=>mutate(order.map(index=>urls[index]),undefined,undefined,order) : undefined}
       disabled={disabled || busy} assetPickerTrigger={
         <AppMediaActionButton disabled={disabled || busy}
-          onClick={() => setOpen(true)}><FolderOpen className="size-4" />{ko ? "에셋" : "Assets"}</AppMediaActionButton>
+          onClick={() => { pickerGuard.current=authoring.captureNodeInputGuard?.(nodeId,slot); setOpen(true); }}><FolderOpen className="size-4" />{ko ? "에셋" : "Assets"}</AppMediaActionButton>
       } onChange={next => mutate(next)} />
     {error && <AppPromptMessage>{error}</AppPromptMessage>}
     {ids.length > slot.limit && <AppPromptMessage>{ko ? `최대 ${slot.limit}개까지 첨부할 수 있습니다.` : `Attach up to ${slot.limit} files.`}</AppPromptMessage>}
-    <NodeBananaInputHistoryControl nodeId={nodeId} mediaType={slot.field.media!} selectedAssetId={ids[0] ?? null}
-      writable={!disabled && !busy} open={open} onOpenChange={setOpen} onSelect={id => { void mutate(undefined, id); }} />
+    <MediaAssetPicker mediaType={slot.field.media!} selectedAssetId={ids[0] ?? null}
+      writable={!disabled && !busy} open={open} onOpenChange={setOpen} onSelect={asset => {
+        if (!pickerGuard.current || pickerGuard.current()) void mutate(undefined, asset.id);
+        else setOpen(false);
+      }} />
   </div>;
 }

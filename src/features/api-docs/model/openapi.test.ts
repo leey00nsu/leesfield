@@ -12,6 +12,9 @@ import { modelCatalogInputSchema } from "@/server/model-catalog/catalog-schema";
 import { buildQueueFullResponse } from "@/server/http/response";
 import { nodeExecutionErrorResponse } from "@/server/node-executions/node-execution-http";
 import { NodeExecutionQueueFullError } from "@/server/node-executions/node-execution-errors";
+import { externalSpaceUpdateSchema } from "@/shared/api/spaces-contract";
+import { validateCanonicalGraph } from "@/shared/generation-graph/canonical-graph";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 const catalog = vi.hoisted(() =>
   vi.fn(() => {
     throw new Error("Public document accessed private catalog");
@@ -21,6 +24,17 @@ vi.mock("@/server/model-catalog/catalog-service", () => ({
   getModelCatalog: catalog,
 }));
 describe("public API protocol", () => {
+  it("documents a valid timestamp Frames graph with its single frame output and no unavailable edits", () => {
+    const document = getOpenApiDocument();
+    const operation = buildApiSections(document).flatMap(section => section.operations)
+      .find(operation => operation.method === "PUT" && operation.path === "/api/external/spaces/{spaceId}")!;
+    const example = externalSpaceUpdateSchema.parse(buildExampleFromSchema(operation.request!.schema, document));
+    expect(validateCanonicalGraph(example)).toEqual([]);
+    expect(example.nodes.find(node => node.kind === "edit.video.extractFrames")?.config).toEqual({ parameters: { timestampMs: 1500 } });
+    expect(example.edges.find(edge => edge.sourceNodeId === "frames")).toMatchObject({ sourcePortId: "frame", targetPortId: "image" });
+    expect(example.nodes.some(node => isUnavailableEditNodeKind(node.kind))).toBe(false);
+  });
+
   it("only declares errors applicable to each operation", () => {
     const paths = getOpenApiDocument().paths;
     for (const [path, item] of Object.entries(paths)) {

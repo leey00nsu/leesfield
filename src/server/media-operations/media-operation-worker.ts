@@ -13,6 +13,7 @@ import {
 import { removeImageBackground } from "./hf-background-removal-adapter";
 import { processVideoOperation, VideoOperationError } from "./ffmpeg-video-processor";
 import { processVideoFrameOperation } from "./ffmpeg-frame-processor";
+import { videoFrameOutputPortIds } from "@/shared/generation-graph/video-frame-extraction";
 import { recordWorkerFailure } from "@/server/observability/metrics";
 import { logSafeError } from "@/server/observability/request-observability";
 
@@ -79,6 +80,10 @@ async function handleOperation(operationId: string) {
       }]);
     } else if (operation.type === "edit.video.extractFrames") {
       const frames = await processVideoFrameOperation(operation, monitor.signal);
+      const outputPorts = videoFrameOutputPortIds({ parameters: operation.parameters });
+      if (frames.length !== outputPorts.length ||
+        outputPorts.some(port => frames.filter(frame => frame.outputPortId === port).length !== 1))
+        throw new VideoOperationError("VIDEO_OUTPUT_INVALID");
       monitor.assertOwned();
       const current = await mediaAssetRepository.getOperation(operation.ownerEmail, operation.id);
       if (current.status !== "processing") return;
@@ -86,6 +91,7 @@ async function handleOperation(operationId: string) {
         dataUrl: `data:image/png;base64,${frame.buffer.toString("base64")}`,
         width: frame.width, height: frame.height,
       })));
+      if (uploaded.length !== frames.length) throw new VideoOperationError("VIDEO_OUTPUT_INVALID");
       artifacts = uploaded.map((artifact, index) => ({ ...artifact, outputPortId: frames[index].outputPortId, sortOrder: 0 }));
     } else {
       const video = await processVideoOperation(operation, monitor.signal);

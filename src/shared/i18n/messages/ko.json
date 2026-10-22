@@ -1767,6 +1767,7 @@
       }
     },
     "mediaNodes": {
+      "viewDetails": "상세 보기",
       "generating": "생성 중…",
       "resultFailed": "결과를 생성하지 못했습니다.",
       "resultCancelled": "생성이 취소되었습니다.",

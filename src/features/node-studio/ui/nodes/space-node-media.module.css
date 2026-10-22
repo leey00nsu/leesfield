@@ -1,0 +1,25 @@
+/* Let the X participate in the shell's stacking order above resize handles. */
+.content { flex: 1; min-height: 0; contain: style; }
+.body { position: relative; display: flex; flex: 1; flex-direction: column; width: 100%; min-height: 0; overflow: clip; border-radius: inherit; }
+.empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 100px; padding: 16px 12px; border-radius: inherit; color: rgb(115 115 115); background: rgb(23 23 23 / 0.4); }
+.empty[data-disabled="true"] { opacity: 0.6; }
+.empty > svg { width: 32px; height: 32px; }
+.empty > span { max-width: 90%; font-size: 12px; text-align: center; }
+.emptyActions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.clear { position: absolute; z-index: 50; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 0; border-radius: 4px; background: rgb(0 0 0 / 0.6); color: white; opacity: 0; transition: opacity 150ms, background 150ms; cursor: pointer; }
+.clear svg { width: 14px; height: 14px; }
+.clear:hover:enabled { background: rgb(220 38 38 / 0.8); }
+.clear:disabled { cursor: not-allowed; }
+.clear:focus-visible { outline: 1px solid rgb(248 113 113); outline-offset: 2px; }
+.body:hover .clear, .body:focus-within .clear,
+:global([data-space-node]:hover) .clear,
+:global([data-space-node]:focus-within) .clear { opacity: 1; }
+.badge { position: absolute; bottom: 8px; left: 8px; max-width: calc(100% - 16px); padding: 2px 6px; border-radius: 4px; background: rgb(0 0 0 / 0.6); color: rgb(212 212 212); font-size: 9px; pointer-events: none; }
+.pending { position: absolute; z-index: 22; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.status, .error { position: absolute; z-index: 22; right: 4px; bottom: 4px; left: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border-radius: 4px; background: rgb(23 23 23 / 0.9); color: rgb(163 163 163); font-size: 11px; }
+.error { color: rgb(252 165 165); }
+.status button, .error button { margin-left: 4px; text-decoration: underline; cursor: pointer; }
+.error button:disabled { cursor: not-allowed; opacity: 0.5; }
+.spinner { width: 14px; height: 14px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

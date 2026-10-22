@@ -1,0 +1,82 @@
+.header { display:flex; align-items:center; justify-content:space-between; gap:12px; height:44px; min-height:44px; padding:0 16px; background:#171717; border-bottom:1px solid #262626; color:#d4d4d4; }
+.left,.workspace,.right,.actions,.brand { display:flex; align-items:center; min-width:0; }
+.left { gap:8px; flex:1; }
+.brand { flex-shrink:0; }
+.brandLabel { font-size:24px; font-weight:600; letter-spacing:-.025em; }
+.workspace { gap:8px; margin-left:16px; padding-left:16px; border-left:1px solid #404040; }
+.title { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:36vw; font-size:14px; }
+.actions { gap:2px; margin-left:4px; padding-left:4px; border-left:1px solid #40404080; flex-shrink:0; }
+.right { gap:8px; flex-shrink:0; font-size:12px; }
+.icon { position:relative; display:grid; place-items:center; width:28px; height:28px; padding:6px; border:0; border-radius:4px; color:#a3a3a3; background:transparent; cursor:pointer; flex-shrink:0; }
+.icon svg { width:16px; height:16px; }
+.icon:hover { background:#262626; color:#e5e5e5; }
+.icon:focus-visible,.button:focus-visible,.primary:focus-visible,.textButton:focus-visible,.danger:focus-visible,.spaceList button:focus-visible { outline:2px solid #60a5fa; outline-offset:2px; }
+.icon:disabled,.button:disabled,.primary:disabled,.textButton:disabled,.danger:disabled { opacity:.45; cursor:default; }
+.dirty { position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:#ef4444; box-shadow:0 0 0 2px #171717; }
+.unread { position:absolute; top:-3px; right:-4px; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#3b82f6; color:white; font-size:10px; line-height:15px; }
+.saveStatus { color:#a3a3a3; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.separator { color:#737373; }
+.settingsDialog,.browserDialog,.shortcutsDialog { display:flex; flex-direction:column; gap:0; background:#262626; color:#e5e5e5; border:1px solid #404040; border-radius:12px; }
+.settingsDialog { width:calc(100% - 2rem); max-width:672px; height:min(760px,calc(100dvh - 2rem)); overflow:hidden; }
+.browserDialog { max-width:560px; max-height:85dvh; overflow:hidden; }
+.shortcutsDialog { max-width:520px; max-height:80dvh; overflow:hidden; }
+.modalHeader { padding:20px 24px 12px; }
+.settingsForm { display:flex; flex-direction:column; flex:1; min-height:0; }
+.tabs { display:flex; flex-direction:column; flex:1; min-height:0; }
+.tabList { flex-shrink:0; align-self:flex-start; min-height:40px; height:auto; margin:0 24px 8px; background:#171717; color:#a3a3a3; max-width:calc(100% - 48px); overflow-x:auto; overflow-y:hidden; }
+.settingsTab { height:auto; min-height:30px; flex-shrink:0; }
+.panel { flex:1; min-height:0; overflow:auto; padding:20px 32px; }
+.stack { display:flex; flex-direction:column; gap:12px; }
+.stack p { font-size:12px; color:#a3a3a3; }
+.field { display:flex; flex-direction:column; gap:6px; color:#a3a3a3; font-size:14px; }
+.field input { width:100%; min-width:0; padding:8px 12px; background:#171717; color:#f5f5f5; border:1px solid #525252; border-radius:8px; outline-color:#737373; }
+.field input:disabled { opacity:.5; }
+.inlineSetting { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid #404040; padding-top:16px; font-size:14px; }
+.inlineSetting small { display:block; color:#a3a3a3; font-size:12px; margin-top:4px; }
+.switch { width:36px; height:20px; padding:3px; flex-shrink:0; border:0; border-radius:12px; background:#525252; cursor:pointer; }
+.switch span { display:block; width:14px; height:14px; border-radius:50%; background:white; transition:transform .15s; }
+.switch[aria-checked="true"] { background:#3b82f6; }
+.switch[aria-checked="true"] span { transform:translateX(16px); }
+.switch:disabled { opacity:.5; }
+.defaultRow { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:12px; border:1px solid #404040; background:#171717; border-radius:8px; font-size:14px; }
+.defaultActions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
+.modelName { max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#d4d4d4; font-size:12px; }
+.button,.primary,.textButton,.danger { border:0; border-radius:5px; padding:6px 10px; font-size:12px; cursor:pointer; }
+.button { background:#404040; color:#e5e5e5; }
+.button:hover { background:#525252; }
+.primary { background:#2563eb; color:white; }
+.primary:hover { background:#3b82f6; }
+.textButton { color:#a3a3a3; background:transparent; align-self:flex-start; }
+.danger { color:#fca5a5; background:#7f1d1d55; }
+.footer { display:flex; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; gap:8px; padding:20px 32px; border-top:1px solid #40404080; }
+.error { color:#f87171; font-size:14px; padding:8px 24px; overflow-wrap:anywhere; }
+.canvasChoice { padding:12px; background:#171717; border:1px solid #404040; border-radius:8px; font-size:14px; }
+.choiceTabs { min-width:0; margin-top:12px; }
+.choiceList { width:100%; max-width:100%; min-height:36px; height:auto; justify-content:flex-start; overflow-x:auto; overflow-y:hidden; }
+.choiceTab { height:auto; min-height:30px; flex-shrink:0; padding:6px 8px; font-size:12px; }
+.newSpace { display:flex; flex-direction:column; gap:20px; }
+.newSpace>.field { margin:8px 24px; }
+.spaceList { overflow:auto; padding:8px 24px 20px; }
+.spaceList button { display:block; width:100%; text-align:left; background:transparent; padding:12px; border:0; border-radius:8px; color:inherit; cursor:pointer; overflow-wrap:anywhere; }
+.spaceList button:hover,.spaceList button[aria-current="page"] { background:#404040; }
+.shortcutGroups { overflow:auto; padding:12px 24px; }
+.shortcutGroups section { margin-bottom:20px; }
+.shortcutGroups h3 { color:#a3a3a3; font-size:11px; text-transform:uppercase; margin-bottom:8px; }
+.shortcutGroups dl>div { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:6px 0; font-size:14px; }
+.shortcutGroups dd { flex-shrink:0; }
+.shortcutGroups kbd { background:#404040; border:1px solid #525252; border-radius:4px; padding:4px 6px; font-size:11px; }
+@media(max-width:640px) {
+  .brand :global(.font-brand) { display:none; }
+  .header { gap:4px; padding:0 8px; }
+  .workspace { margin-left:2px; padding-left:8px; gap:4px; }
+  .title { max-width:18vw; }
+  .right { gap:2px; }
+  .saveStatus { width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); position:absolute; }
+  .separator { display:none; }
+  .modalHeader { padding:16px 16px 12px; }
+  .panel { padding:16px; }
+  .tabList { margin-left:16px; margin-right:16px; max-width:calc(100% - 32px); }
+  .footer { padding:16px; }
+  .defaultActions { width:100%; }
+  .shortcutsDialog { max-height:85dvh; }
+}

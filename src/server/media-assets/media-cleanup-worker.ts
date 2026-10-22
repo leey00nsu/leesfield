@@ -213,6 +213,9 @@ export async function processMediaCleanupJobs({ awaitCompletion = true } = {}) {
   if ((globalThis as WorkerGlobal).__mediaCleanupWorkerStopping) return 0;
   const pass = (async () => {
     await expireStaleSubmissions(new Date(), 100);
+    // Browser edits have no node polling loop after tab close or cancellation.
+    // Expire their upload reservations before reconciling leftover objects.
+    await mediaAssetRepository.expireUploads(new Date(), 100);
     const tasks = await claimStorageCleanups(new Date(), CLEANUP_CONCURRENCY);
     if ((globalThis as WorkerGlobal).__mediaCleanupWorkerStopping) return 0;
     const executions = tasks.map(scheduleCleanup);

@@ -13,9 +13,15 @@ export function registerSpacesApi(registry: OpenAPIRegistry, security: RouteConf
   const spaceResponse = z.object({ space: z.object({ ...externalSpaceSchema.shape, nodes }) });
   const graphInput = externalSpaceUpdateSchema.extend({ nodes }).openapi({ example: {
     schemaVersion: 3, expectedVersion: 1, title: "API space",
-    nodes: [{ id: "image-node", kind: "generate.image", position: { x: 0, y: 0 }, configVersion: 1, selectedOutputAssetId: null,
-      config: { prompt: "A quiet forest", modelKey: "<MODEL_KEY>", parameters: {} } }],
-    edges: [], groups: [], selectionChanges: [],
+    nodes: [
+      { id: "source-video", kind: "input.video", position: { x: 0, y: 0 }, configVersion: 1, selectedOutputAssetId: null, config: { assetId: "<VIDEO_ASSET_ID>" } },
+      { id: "frames", kind: "edit.video.extractFrames", position: { x: 400, y: 0 }, configVersion: 1, selectedOutputAssetId: null, config: { parameters: { timestampMs: 1500 } } },
+      { id: "frame-output", kind: "output.single", position: { x: 800, y: 0 }, configVersion: 1, selectedOutputAssetId: null, config: { mediaType: "image" } },
+    ],
+    edges: [
+      { id: "video-input", sourceNodeId: "source-video", sourcePortId: "video", targetNodeId: "frames", targetPortId: "video", sortOrder: 0 },
+      { id: "frame-result", sourceNodeId: "frames", sourcePortId: "frame", targetNodeId: "frame-output", targetPortId: "image", sortOrder: 0 },
+    ], groups: [], selectionChanges: [],
   } });
   const headers = { "X-Request-ID": { description: "Request trace ID", schema: { type: "string" as const } } };
   const retryHeaders = { ...headers, "Retry-After": { description: "Seconds before retry", schema: { type: "integer" as const } } };

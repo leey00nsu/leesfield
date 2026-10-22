@@ -44,3 +44,14 @@ export function useSpaceCommentsSession(scope: string, nodes: readonly CommentNo
 
 export const SpaceCommentsContext = createContext<ReturnType<typeof useSpaceCommentsSession> | null>(null);
 export function useSpaceComments() { return useContext(SpaceCommentsContext); }
+
+export function spaceCommentNavigation(nodeId: string, session: ReturnType<typeof useSpaceCommentsSession> | null) {
+  const nodes = session?.getNodesWithComments() ?? [], index = nodes.findIndex(node => node.id === nodeId);
+  if (!session || index < 0) return null;
+  const navigate = (offset: number) => {
+    const target = nodes[(index + offset + nodes.length) % nodes.length];
+    session.markCommentViewed(target.id);
+    session.setNavigationTarget(target.id);
+  };
+  return { currentIndex: index + 1, totalCount: nodes.length, onPrevious: () => navigate(-1), onNext: () => navigate(1) };
+}

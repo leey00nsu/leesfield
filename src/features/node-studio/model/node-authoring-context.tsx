@@ -15,7 +15,7 @@ import type { ImageNodeInputReadiness } from "./node-input-readiness";
 import type { NodeRunReadiness } from "./node-run-readiness";
 import type { AssistantResults } from "@/shared/generation-graph/assistant-output";
 import type { MediaOutputBinding } from "@/shared/generation-graph/media-output";
-import type { GenerationAttachmentSlot } from "./generation-prompt-attachments";
+import type { SpaceAttachmentSlot as GenerationAttachmentSlot, SpaceAttachmentExpectation } from "./space-editor-attachments";
 
 export type NodeAuthoringCatalogState = {
   imageModels: readonly RuntimeImageModel[];
@@ -53,7 +53,10 @@ type NodeAuthoringContextValue = NodeAuthoringCatalogState & {
   getNodeInputAssetSlots?: (nodeId: string, targetPortId: string) => (string|null)[];
   getNodeInputAssetIds?: (nodeId: string, targetPortId: string) => string[];
   replaceNodeInputAssets?: (nodeId: string, slot: GenerationAttachmentSlot, assetIds: readonly (string|null)[],
-    expected: { modelKey: unknown; assetIds: readonly (string|null)[]; relatedAssetIds?: Record<string, readonly (string|null)[]> }, order?: readonly number[]) => boolean;
+    expected: SpaceAttachmentExpectation, order?: readonly number[]) => boolean;
+  captureNodeInputAssets?: (nodeId: string, slot: GenerationAttachmentSlot, slots: readonly GenerationAttachmentSlot[]) => SpaceAttachmentExpectation;
+  /** Captured before a chooser/upload; independent component consumers may omit it. */
+  captureNodeInputGuard?: (nodeId: string, slot?: GenerationAttachmentSlot) => () => boolean;
   isNodePortConnected?: (nodeId: string, targetPortId: string) => boolean;
   isNodePersisted?: (nodeId: string) => boolean;
   selectNodeOutputAsset?: (nodeId: string, assetId: string | null) => void;

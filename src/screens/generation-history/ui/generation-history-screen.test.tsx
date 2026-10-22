@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, screen, within, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationHistoryScreen } from "@/screens/generation-history/ui/generation-history-screen";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -579,6 +579,56 @@ it("edits the result asset through the same form and Save action used by the ass
   await waitFor(() => expect(patchAssetMetadata).toHaveBeenCalledWith(asset.id, expect.objectContaining({ expectedVersion: 7, displayName: "Saved from history" })));
   expect(screen.queryByRole("button", { name: "다시 생성" })).not.toBeInTheDocument();
   await screen.findByText("저장했습니다.");
+});
+
+it.each([true, false])("decodes the short result once for both the preview and history RESULT (owned asset: %s)", async owned => {
+  const asset: MediaAssetDto = {
+    id: "owned-audio-result", version: 3, type: "audio", status: "completed", origin: "generation",
+    url: "https://audio-without-cors.example/original.wav", mimeType: "audio/wav", bytes: "28844",
+    width: null, height: null, durationMs: 1800, sourceOperationId: null,
+    createdAt: detailFixture.createdAt, updatedAt: detailFixture.updatedAt,
+  };
+  const item = { ...detailFixture, id: "short-audio-history", type: "audio", assetId: owned ? asset.id : null,
+    resultUrl: asset.url, thumbnailUrl: "https://audio-without-cors.example/poster.png", durationMs: 120_000 };
+  const decode = vi.fn().mockResolvedValue({ duration: 1.8, numberOfChannels: 1,
+    getChannelData: () => Float32Array.from({ length: 14_400 }, (_, index) => Math.sin(index / 12) * 0.8) });
+  const close = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("AudioContext", class { state = "running"; decodeAudioData = decode; close = close; });
+  const contentUrl = owned ? `/api/media-assets/${asset.id}/content` : asset.url;
+  const fetcher = vi.fn(async (url: unknown) => {
+    if (url !== contentUrl) throw new TypeError("Cross-origin audio bytes unavailable");
+    return { ok: true, headers: new Headers(), body: null, arrayBuffer: async () => new ArrayBuffer(16) } as Response;
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  vi.mocked(getMediaAsset).mockResolvedValue(asset);
+  vi.mocked(getAssetProjects).mockResolvedValue([]);
+  useGenerationHistoryListMock.mockReturnValue({ items: [item], isLoading: false, sentinelRef: { current: null }, removeItem: vi.fn() });
+  useMonitoringRequestDetailMock.mockReturnValue({ data: { ...item, inputAudios: [], assets: [{ url: asset.url, durationSec: 1.8 }] } });
+  try {
+    renderWithIntl(<GenerationHistoryScreen />);
+    await userEvent.click(screen.getByTestId("history-list"));
+    const dialog = screen.getByRole("dialog", { name: "결과 상세" });
+    if (owned) await screen.findByRole("textbox", { name: "이름" });
+    await userEvent.click(screen.getByRole("tab", { name: "히스토리" }));
+    await waitFor(() => expect(dialog.querySelectorAll('[data-app-audio-waveform="ready"]')).toHaveLength(2));
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(contentUrl, expect.objectContaining({ credentials: "same-origin", signal: expect.any(AbortSignal) }));
+    expect(decode).toHaveBeenCalledOnce();
+    expect(dialog.querySelector('path[d="M0 32H512"]')).not.toBeInTheDocument();
+    expect([...dialog.querySelectorAll("audio")].map(audio => audio.getAttribute("src"))).toEqual([asset.url, asset.url]);
+    expect(screen.getAllByRole("slider", { name: "재생 위치" }).map(slider => slider.getAttribute("max"))).toEqual(["1.8", "1.8"]);
+    const audio = dialog.querySelector("audio")!;
+    Object.defineProperty(audio, "duration", { configurable: true, value: 2 });
+    fireEvent.loadedMetadata(audio);
+    expect(screen.getAllByRole("slider", { name: "재생 위치" })[0]).toHaveAttribute("max", "2");
+    expect(play).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledOnce();
+  } finally {
+    cleanup(); await act(async () => {});
+    play.mockRestore(); pause.mockRestore(); load.mockRestore(); vi.unstubAllGlobals();
+  }
 });
 
 it("requires confirmation, preserves detail on cancellation/failure, and removes after success", async () => {

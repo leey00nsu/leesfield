@@ -14,6 +14,7 @@ export function defaultConfigForKind(kind: CanonicalNodeKind): Record<string, Ca
   if (kind === "edit.video.stitch") return { parameters: { repeat: 1, stripAudio: false, clipOrder: [] } };
   if (kind === "edit.video.trim") return { parameters: { startMs: 0, endMs: 5000, stripAudio: false } };
   if (kind === "edit.video.frameGrab") return { parameters: { position: "first" } };
+  if (kind === "edit.video.extractFrames") return { parameters: { timestampMs: 0 } };
   if (kind === "edit.video.easeCurve") return { parameters: { outputDurationMs: 1500, easingPreset: "easeInOutSine", bezier: [0.42, 0, 0.58, 1] } };
   if (kind.startsWith("edit.")) return { parameters: {} };
   if (kind.startsWith("output.")) return { mediaType: null };

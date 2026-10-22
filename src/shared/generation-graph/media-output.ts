@@ -1,11 +1,20 @@
-import { findNodeDefinition } from "./node-registry";
+import { findNodeDefinition, videoCaptureOutputPortId } from "./node-registry";
+import { videoFrameOutputPortIds } from "./video-frame-extraction";
 
 export type MediaOutputBinding = { portId: string; sortOrder: number; assetId: string | null };
 
 export function mediaOutputPorts(kind: string) {
   return findNodeDefinition(kind)?.ports.filter(port =>
-    port.direction === "output" && ["image", "video", "audio"].includes(port.valueType),
+    port.direction === "output" && port.id !== videoCaptureOutputPortId && ["image", "video", "audio"].includes(port.valueType),
   ) ?? [];
+}
+
+/** Execution ports only; canonical ports remain available for saved bindings and wires. */
+export function activeMediaOutputPorts(kind: string, config?: unknown) {
+  const ports = mediaOutputPorts(kind);
+  if (kind !== "edit.video.extractFrames") return ports;
+  const activeIds = videoFrameOutputPortIds(config);
+  return ports.filter(port => activeIds.some(id => id === port.id));
 }
 
 /** Multi-port slots never fall back to another port's representative asset. */

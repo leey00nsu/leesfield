@@ -4,7 +4,7 @@ import {
   NodeExecutionConfigError,
   NodeExecutionInputResolutionError,
 } from "@/server/node-executions/node-execution-errors";
-import { findNodeDefinition, findPortDefinition } from "@/shared/generation-graph/node-registry";
+import { findNodeDefinition, findPortDefinition, videoCaptureOutputPortId } from "@/shared/generation-graph/node-registry";
 import type {
   MediaAssetDto,
   ResolvedNodeAssetsDto,
@@ -65,6 +65,7 @@ async function resolveSourceAssetIds(
   targetValueShape: "single" | "ordered-list",
   visited: Set<string> = new Set(),
 ): Promise<string[]> {
+  if (sourcePortId === videoCaptureOutputPortId) return [];
   const passThroughPort = inputPassThroughPort(sourceKind);
   if (passThroughPort && (edge.sourceNode.config as { resultSource?: unknown } | null)?.resultSource) {
     const assetId = configuredInputAssetId(edge.sourceNode);

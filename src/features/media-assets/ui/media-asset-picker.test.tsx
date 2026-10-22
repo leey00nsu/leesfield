@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl } from "@/test-utils/intl";
 import { describe, expect, it, vi, afterEach } from "vitest";
@@ -18,6 +18,27 @@ function renderPicker(props: Partial<Parameters<typeof MediaAssetPicker>[0]> = {
   return { select, client };
 }
 describe("common asset picker", () => {
+  it("shows original generated audio text from the list DTO without per-card history requests", async () => {
+    const text = "원래 생성한 TTS 대본입니다.\nOriginal narration from the authoring snapshot.";
+    const audio = { ...asset, id: "generated-audio", type: "audio" as const, origin: "generation" as const,
+      name: "Audio label", inputPrompt: text, durationMs: 17972, mimeType: "audio/wav" };
+    const fetch = vi.spyOn(globalThis, "fetch");
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    try {
+      vi.mocked(listMediaAssets).mockResolvedValueOnce({ items: [audio, { ...audio, id: "second-audio", name: "Second audio" }], nextCursor: null });
+      const { client, select } = renderPicker({ mediaType: "audio" });
+      const card = await screen.findByRole("button", { name: "Audio label" });
+      expect(screen.getAllByTitle(text, { normalizer: value => value })).toHaveLength(2);
+      expect(fetch.mock.calls.some(([url]) => String(url).includes("/api/history"))).toBe(false);
+      expect(play).not.toHaveBeenCalled();
+      fireEvent.click(card);
+      expect(select).toHaveBeenCalledWith(audio);
+      cleanup(); client.clear();
+    } finally { cleanup(); fetch.mockRestore(); play.mockRestore(); pause.mockRestore(); load.mockRestore(); }
+  });
+
   it("uses the shared loading gallery and loads the next cursor when the modal sentinel intersects", async () => {
     let finish!: (value: Awaited<ReturnType<typeof listMediaAssets>>) => void;
     vi.mocked(listMediaAssets).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));

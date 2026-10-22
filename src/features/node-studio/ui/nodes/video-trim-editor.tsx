@@ -1,11 +1,13 @@
 "use client";
 
 import { Slider } from "@base-ui/react/slider";
-import { Pause, Play, Scissors, Volume2, VolumeX, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
+import { useSpaceFilmstrip } from "../../hook/use-space-filmstrip";
 import { NodeViewTabs } from "./node-view-tabs";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -15,103 +17,10 @@ function time(seconds: number) {
   return `${Math.floor(hundredths / 6000).toString().padStart(2, "0")}:${(Math.floor(hundredths / 100) % 60).toString().padStart(2, "0")}.${(hundredths % 100).toString().padStart(2, "0")}`;
 }
 
-/** One bounded decoder, local frames only. CORS/codec failures leave a usable track. */
-function useFilmstrip(asset: MediaAssetDto | null | undefined) {
-  const assetId = asset?.id;
-  const bytes = asset?.bytes;
-  const [frames, setFrames] = useState<{ assetId: string; images: string[] } | null>(null);
-  useEffect(() => {
-    const maxBytes = 32 * 1024 * 1024;
-    if (!assetId || (bytes && Number(bytes) > maxBytes)) return;
-    const controller = new AbortController();
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.preload = "auto";
-    const timeout = setTimeout(() => controller.abort(), 12_000);
-    let objectUrl: string | undefined;
-    const wait = (event: string) => new Promise<void>((resolve, reject) => {
-      const cleanup = () => {
-        video.removeEventListener(event, done);
-        video.removeEventListener("error", fail);
-        controller.signal.removeEventListener("abort", fail);
-      };
-      const done = () => { cleanup(); resolve(); };
-      const fail = () => { cleanup(); reject(new Error("FRAME_UNAVAILABLE")); };
-      if (controller.signal.aborted) { reject(new Error("ABORTED")); return; }
-      video.addEventListener(event, done, { once: true });
-      video.addEventListener("error", fail, { once: true });
-      controller.signal.addEventListener("abort", fail, { once: true });
-    });
-    let released = false;
-    const release = () => {
-      if (released) return;
-      released = true;
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-    void (async () => {
-      try {
-        // This existing owner-scoped proxy avoids storage CORS and keeps keys on the server.
-        const response = await fetch(`/api/media-assets/${encodeURIComponent(assetId)}/content`, {
-          credentials: "same-origin", signal: controller.signal,
-        });
-        if (!response.ok || !response.body) return;
-        if (Number(response.headers.get("content-length")) > maxBytes) {
-          await response.body.cancel();
-          return;
-        }
-        const reader = response.body.getReader();
-        const chunks: ArrayBuffer[] = [];
-        let size = 0;
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            size += value.byteLength;
-            if (size > maxBytes) throw new Error("FRAME_SOURCE_TOO_LARGE");
-            chunks.push(value.slice().buffer);
-          }
-        } finally { await reader.cancel().catch(() => undefined); }
-        if (controller.signal.aborted || !size) return;
-        objectUrl = URL.createObjectURL(new Blob(chunks, { type: response.headers.get("content-type") ?? "video/mp4" }));
-        const metadata = wait("loadeddata");
-        video.src = objectUrl;
-        await metadata;
-        const duration = validDuration(video.duration);
-        if (!duration || !video.videoWidth) return;
-        const canvas = document.createElement("canvas");
-        canvas.width = 120;
-        canvas.height = 68;
-        const context = canvas.getContext("2d");
-        if (!context) return;
-        const images: string[] = [];
-        for (let index = 0; index < 8; index++) {
-          const position = Math.min(duration - 0.001, duration * (index + 0.5) / 8);
-          const seeked = wait("seeked");
-          video.currentTime = position;
-          await seeked;
-          if (controller.signal.aborted) return;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          images.push(canvas.toDataURL("image/jpeg", 0.6));
-        }
-        if (!controller.signal.aborted) setFrames({ assetId, images });
-      } catch { /* A thumbnail failure never blocks trimming or playback. */ }
-      finally { clearTimeout(timeout); release(); }
-    })();
-    return () => {
-      controller.abort();
-      clearTimeout(timeout);
-      release();
-    };
-  }, [assetId, bytes]);
-  return frames && frames.assetId === assetId ? frames.images : [];
-}
+export type VideoFrameCapture = { timestampMs: () => number };
 
 export function VideoTrimEditor({
-  source, output, startMs, endMs, stripAudio, writable, onChange, onClearOutput, externalResults = false,
+  source, output, startMs, endMs, stripAudio, writable, onChange, onClearOutput, externalResults = false, active = false, frame, frameCaptureRef,
 }: {
   source: MediaAssetDto | null | undefined;
   output: MediaAssetDto | null | undefined;
@@ -122,16 +31,24 @@ export function VideoTrimEditor({
   onChange: (patch: Record<string, unknown>) => void;
   onClearOutput?: () => void;
   externalResults?: boolean;
+  active?: boolean;
+  frame?: { timestampMs: number; onChange: (timestampMs: number) => void };
+  frameCaptureRef?: Ref<VideoFrameCapture>;
 }) {
   const tc = useCanvasTranslation();
   const video = useRef<HTMLVideoElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
+  const [seenUrl, setSeenUrl] = useState<string | undefined>();
+  const playbackIntent = useRef<string | undefined>(undefined);
   const [preview, setPreview] = useState<{ tab: "source" | "output"; outputId: string | undefined }>({
     tab: output ? "output" : "source", outputId: output?.id,
   });
   const tab = preview.outputId === output?.id ? preview.tab : output ? "output" : "source";
   const [metadata, setMetadata] = useState<{ url: string; duration: number } | null>(null);
-  const [position, setPosition] = useState(0);
+  const [position, setPosition] = useState(() => (frame?.timestampMs ?? 0) / 1000);
+  const framePosition = useRef((frame?.timestampMs ?? 0) / 1000);
   const [playing, setPlaying] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [playError, setPlayError] = useState(false);
@@ -142,14 +59,55 @@ export function VideoTrimEditor({
   const step = Math.min(0.1, duration || 0.1);
   const gap = Math.min(0.001, duration || 0.001);
   const start = clamp(startMs / 1000, 0, Math.max(0, duration - gap));
-  const end = clamp(endMs / 1000, start + gap, duration || gap);
+  const end = frame ? duration : clamp(endMs / 1000, start + gap, duration || gap);
   const selectedDuration = duration ? Math.max(0, end - start) : 0;
-  const frames = useFilmstrip(source?.type === "video" ? source : undefined);
+  const filmstrip = useSpaceFilmstrip(source?.type === "video" ? source : undefined, active && visible && !result);
+  const frames = filmstrip.images;
+  const mediaLoaded = visible || seenUrl === asset?.url;
   const editable = writable && source?.type === "video" && duration > 0 && !result;
   const playbackDuration = result
     ? validDuration(metadata && metadata.url === asset?.url ? metadata.duration : (output?.durationMs ?? 0) / 1000)
     : duration;
   const invalidRange = duration > 0 && (startMs < 0 || endMs <= startMs || endMs > Math.round(duration * 1000));
+  const frameMode = Boolean(frame), frameTimestamp = frame?.timestampMs;
+  const [frameView, setFrameView] = useState({ timestamp: frameTimestamp, duration });
+  if (frameMode && (frameView.timestamp !== frameTimestamp || frameView.duration !== duration)) {
+    setFrameView({ timestamp: frameTimestamp, duration });
+    setPosition(clamp((frameTimestamp ?? 0) / 1000, 0, duration || Math.max(0, (frameTimestamp ?? 0) / 1000)));
+  }
+  useImperativeHandle(frameCaptureRef, () => ({ timestampMs: () => {
+    const element = video.current;
+    const value = element && element.readyState >= 1 ? element.currentTime : framePosition.current;
+    element?.pause();
+    return Math.round(clamp(value, 0, duration || Math.max(0, value)) * 1000);
+  } }), [duration]);
+  useEffect(() => {
+    if (!frameMode || frameTimestamp === undefined) return;
+    const next = clamp(frameTimestamp / 1000, 0, duration || Math.max(0, frameTimestamp / 1000));
+    framePosition.current = next;
+    const element = video.current;
+    if (element && element.readyState >= 1 && Math.abs(element.currentTime - next) > 0.001) { element.pause(); element.currentTime = next; }
+  }, [frameMode, frameTimestamp, duration]);
+
+  useEffect(() => {
+    if (!root || typeof IntersectionObserver === "undefined") return;
+    let disposed = false;
+    const observer = new IntersectionObserver(entries => {
+      if (disposed || !entries[0]) return;
+      const intersects = entries[0].isIntersecting;
+      setVisible(intersects);
+      if (intersects) setSeenUrl(asset?.url);
+    }, { rootMargin: "0px" });
+    observer.observe(root);
+    return () => { disposed = true; observer.disconnect(); };
+  }, [root, asset?.url]);
+
+  const loadForInteraction = (element: HTMLVideoElement) => {
+    if (!asset) return;
+    playbackIntent.current = asset.url;
+    setSeenUrl(asset.url);
+    if (!element.getAttribute("src")) element.src = asset.url;
+  };
 
   useEffect(() => {
     if (!playing) return;
@@ -170,12 +128,15 @@ export function VideoTrimEditor({
     return () => cancelAnimationFrame(frame);
   }, [playing, result, end]);
 
-  const seek = (next: number) => {
+  const seek = (next: number, commit = true) => {
     if (!video.current || !duration || result) return;
     const value = clamp(next, 0, duration);
+    loadForInteraction(video.current);
     video.current.pause();
     video.current.currentTime = value;
+    framePosition.current = value;
     setPosition(value);
+    if (commit && frame && writable) frame.onChange(Math.round(value * 1000));
   };
   const changeRange = (values: readonly number[]) => {
     const [nextStart, nextEnd] = values;
@@ -196,6 +157,7 @@ export function VideoTrimEditor({
     const element = video.current;
     if (!element || !playbackDuration || mediaError) return;
     if (!element.paused) { element.pause(); return; }
+    loadForInteraction(element);
     if (!result && (element.currentTime < start || element.currentTime >= end - 0.01)) element.currentTime = start;
     else if (result && element.currentTime >= playbackDuration - 0.01) element.currentTime = 0;
     setPlayError(false);
@@ -203,12 +165,12 @@ export function VideoTrimEditor({
   };
   const scrub = (clientX: number) => {
     const bounds = ruler.current?.getBoundingClientRect();
-    if (bounds?.width) seek(((clientX - bounds.left) / bounds.width) * duration);
+    if (bounds?.width) seek(((clientX - bounds.left) / bounds.width) * duration, false);
   };
 
   return (
-    <div className="grid gap-2" data-leesfield-component="VideoTrimEditor">
-      <div className="flex items-center justify-between">
+    <div ref={setRoot} className={`nodrag nowheel grid gap-2${frame ? " h-full min-h-0 grid-rows-[minmax(0,1fr)_auto_auto]" : ""}`} data-leesfield-component={frame ? "VideoFrameEditor" : "VideoTrimEditor"} data-trim-active={active && visible} data-filmstrip-status={filmstrip.status}>
+      {(!externalResults || result && onClearOutput) && <div className="flex items-center justify-between">
         {!externalResults && <NodeViewTabs id={tabsId} label={tc("Video preview")} value={tab}
           tabs={[{ value: "source", label: tc("Source") }, { value: "output", label: tc("Result"), disabled: !output }]}
           onChange={changeTab} />}
@@ -216,21 +178,25 @@ export function VideoTrimEditor({
           disabled={!writable} onClick={() => { changeTab("source"); onClearOutput(); }}
           className="grid h-6 w-6 place-items-center rounded text-neutral-400 hover:bg-white/10 disabled:opacity-30">
           <X size={14} />
-        </button> : <Scissors size={14} className="text-neutral-500" aria-hidden="true" />}
-      </div>
-      <div className="relative aspect-video min-h-36 overflow-hidden rounded-md bg-black/60"
+        </button> : null}
+      </div>}
+      <div className={frame ? "relative min-h-0 overflow-hidden bg-black/60" : "relative aspect-video min-h-36 overflow-hidden rounded-md bg-black/60"}
         role={externalResults ? "region" : "tabpanel"} id={`${tabsId}-${tab}-panel`} aria-label={externalResults ? tc("Operation source") : undefined} aria-labelledby={externalResults ? undefined : `${tabsId}-${tab}-tab`}
-        data-node-banana-component="OperationPreview" data-preview-state={result ? "output" : source ? "input" : "empty"}>
+        data-space-operation-preview="" data-preview-state={result ? "output" : source ? "input" : "empty"}>
         {asset?.type === "video" ? (
-          <video key={asset.url} ref={video} src={asset.url} playsInline preload="metadata"
+          <AppVideoPlayer key={asset.url} ref={video} src={asset.url} active={mediaLoaded} controls={false} inlineOnly playsInline preload={mediaLoaded ? "metadata" : "none"}
             aria-label={tc(result ? "Operation result" : "Operation source")}
             className="absolute inset-0 h-full w-full object-contain" muted={stripAudio}
             onLoadedMetadata={(event) => {
               const element = event.currentTarget;
               setMetadata({ url: asset.url, duration: validDuration(element.duration) });
               setMediaError(false);
-              element.currentTime = result ? 0 : Math.min(startMs / 1000, Math.max(0, element.duration - 0.01));
+              if (frame || (active && visible) || playbackIntent.current === asset.url) {
+                const target = result ? 0 : Math.min(frame ? framePosition.current : startMs / 1000, Math.max(0, element.duration - (frame ? 0 : 0.01)));
+                if (Math.abs(element.currentTime - target) > 0.001) element.currentTime = target;
+              }
               setPosition(element.currentTime);
+              framePosition.current = element.currentTime;
             }}
             onTimeUpdate={(event) => {
               const element = event.currentTarget;
@@ -239,26 +205,27 @@ export function VideoTrimEditor({
                 element.currentTime = end;
               }
               setPosition(element.currentTime);
+              framePosition.current = element.currentTime;
             }}
             onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
             onEnded={() => setPlaying(false)} onError={() => { setMediaError(true); setPlaying(false); }}
           />
-        ) : <div className="absolute inset-0 flex items-center justify-center border border-dashed border-neutral-700 text-xs text-neutral-500">{tc("Connect a video")}</div>}
+        ) : <div className="absolute inset-0 flex items-center justify-center text-xs text-neutral-500">{tc("Connect a video")}</div>}
       </div>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <button type="button" aria-label={tc(playing ? "Pause" : "Play selection")}
+          <button type="button" aria-label={tc(playing ? "Pause" : frame ? "Play" : "Play selection")}
             disabled={!asset || !playbackDuration || mediaError} onClick={() => void togglePlayback()}
             className="grid h-7 w-7 place-items-center rounded text-neutral-200 hover:bg-white/10 disabled:opacity-30">
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <span className="font-mono text-[11px] tabular-nums text-neutral-400">{time(position)} / {time(playbackDuration)}</span>
         </div>
-        <button type="button" aria-label={tc("Remove embedded audio")} title={tc("Remove embedded audio")}
+        {!frame && <button type="button" aria-label={tc("Remove embedded audio")} title={tc("Remove embedded audio")}
           aria-pressed={stripAudio} disabled={!writable} onClick={() => onChange({ stripAudio: !stripAudio })}
           className={`grid h-7 w-7 place-items-center rounded hover:bg-white/10 disabled:opacity-30 ${stripAudio ? "text-blue-400" : "text-neutral-400"}`}>
           {stripAudio ? <VolumeX size={14} /> : <Volume2 size={14} />}
-        </button>
+        </button>}
       </div>
       <div className={`rounded-md border border-neutral-700/70 bg-neutral-900/60 px-2 pb-2 ${result ? "opacity-45" : ""}`}
         data-leesfield-component="TrimTimeline">
@@ -271,7 +238,11 @@ export function VideoTrimEditor({
             scrub(event.clientX);
           }}
           onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) scrub(event.clientX); }}
-          onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+          onPointerUp={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            if (frame && writable) frame.onChange(Math.round(framePosition.current * 1000));
+          }}
           onKeyDown={(event) => {
             if (!duration || result) return;
             const next = event.key === "Home" ? 0 : event.key === "End" ? duration
@@ -288,7 +259,22 @@ export function VideoTrimEditor({
             <span className="absolute -left-1 top-0 h-2 w-2 rounded-sm bg-red-400" />
           </span> : null}
         </div>
-        <Slider.Root value={[start, end]} min={0} max={duration || 1} step={step}
+        {frame ? <div className="relative h-12 w-full overflow-hidden rounded bg-neutral-800" data-frame-filmstrip
+          onPointerDown={event => {
+            if (event.button !== 0 || !duration) return;
+            event.currentTarget.setPointerCapture(event.pointerId); scrub(event.clientX);
+          }} onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) scrub(event.clientX); }}
+          onPointerUp={event => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            if (writable) frame.onChange(Math.round(framePosition.current * 1000));
+          }}>
+          <div className="pointer-events-none absolute inset-0 flex" aria-hidden="true">{frames.map((image, index) => (
+            // Decoded local frame thumbnails share the bounded Trim scheduler.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={index} src={image} alt="" className="h-full min-w-0 flex-1 object-cover" />
+          ))}{!frames.length && <span className="m-auto text-[10px] text-neutral-500">{tc("Video")}</span>}</div>
+        </div> : <Slider.Root value={[start, end]} min={0} max={duration || 1} step={step}
           minStepsBetweenValues={0} disabled={!editable}
           onValueChange={(values) => changeRange(values)}
           className="nodrag">
@@ -300,7 +286,7 @@ export function VideoTrimEditor({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img key={index} src={frame} alt="" className="h-full min-w-0 flex-1 object-cover" />
                 ))}
-                {!frames.length ? <span className="m-auto flex items-center gap-1 text-[10px] text-neutral-500"><Scissors size={12} />{tc("Video")}</span> : null}
+                {!frames.length ? <span className="m-auto text-[10px] text-neutral-500">{tc("Video")}</span> : null}
               </div>
               <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 bg-black/65" style={{ width: `${duration ? start / duration * 100 : 0}%` }} />
               <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 bg-black/65" style={{ width: `${duration ? (1 - end / duration) * 100 : 0}%` }} />
@@ -313,9 +299,9 @@ export function VideoTrimEditor({
               ))}
             </Slider.Track>
           </Slider.Control>
-        </Slider.Root>
+        </Slider.Root>}
       </div>
-      <div className="flex items-center justify-between gap-2 text-[10px] text-neutral-400">
+      {!frame && <div className="flex items-center justify-between gap-2 text-[10px] text-neutral-400">
         {[{ label: "Trim start time", value: start, max: end - gap, min: 0, index: 0 },
           { label: "Trim end time", value: end, max: duration, min: start + gap, index: 1 }].map((field) => (
           <label key={field.label} className="flex items-center gap-1">
@@ -333,8 +319,8 @@ export function VideoTrimEditor({
           </label>
         ))}
         <span className="order-none whitespace-nowrap font-mono text-blue-300" title={tc("Selected duration")}>{time(selectedDuration)}</span>
-      </div>
-      {invalidRange && !result ? <p role="alert" className="text-[10px] text-amber-300">{tc("Adjust the trim range to fit the video.")}</p> : null}
+      </div>}
+      {invalidRange && !result && !frame ? <p role="alert" className="text-[10px] text-amber-300">{tc("Adjust the trim range to fit the video.")}</p> : null}
       {mediaError || playError ? <p role="alert" className="text-[10px] text-red-200">{tc("Could not play the video. Try again.")}</p> : null}
     </div>
   );

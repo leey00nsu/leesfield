@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
 const Scope = createContext(false);
@@ -15,7 +15,13 @@ export function NodeTextEditor({ children, label, disabled = false, className }:
 }) {
   const [editing, setEditing] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const restoreDisplayFocus = useRef(false);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  useLayoutEffect(() => {
+    if (editing || !restoreDisplayFocus.current) return;
+    restoreDisplayFocus.current = false;
+    root.current?.querySelector<HTMLElement>("[data-node-text-display]")?.focus({ preventScroll: true });
+  }, [editing]);
   const activate = () => {
     if (disabled) return;
     setEditing(true);
@@ -27,7 +33,7 @@ export function NodeTextEditor({ children, label, disabled = false, className }:
     className={cn("relative min-h-0 min-w-0 rounded-lg border border-neutral-700 bg-neutral-900/60 text-neutral-100 focus-within:border-blue-500/60", className,
       editing && !disabled && "nodrag nopan nowheel")}
     onFocusCapture={event => {
-      if (!event.currentTarget.contains(event.target)) return;
+      if (event.target === event.currentTarget || !event.currentTarget.contains(event.target)) return;
       if (event.target !== event.currentTarget.querySelector("[data-node-text-display]") && !disabled) setEditing(true);
     }}
     onBlurCapture={event => {
@@ -36,9 +42,11 @@ export function NodeTextEditor({ children, label, disabled = false, className }:
     onKeyDownCapture={event => {
       // Portalled preset dialogs keep their own Escape/focus handling.
       if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
-      if (event.key !== "Escape" || event.nativeEvent.isComposing || event.keyCode === 229) return;
-      event.preventDefault(); event.stopPropagation(); setEditing(false);
-      requestAnimationFrame(() => root.current?.querySelector<HTMLElement>("[data-node-text-display]")?.focus());
+      if (!editing || event.key !== "Escape" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+      event.preventDefault(); event.stopPropagation();
+      // Restore focus as soon as the display mounts, before the next key event.
+      restoreDisplayFocus.current = true;
+      setEditing(false);
     }}>
     {children(editing && !disabled)}
     {!editing || disabled ? <div data-node-text-display="" role="button" aria-label={label} aria-disabled={disabled || undefined}
@@ -49,6 +57,7 @@ export function NodeTextEditor({ children, label, disabled = false, className }:
         event.stopPropagation(); activate();
       }}
       onKeyDown={event => {
+        if (event.nativeEvent.isComposing || event.keyCode === 229 || event.repeat) return;
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); activate(); }
       }} /> : null}
   </div>;

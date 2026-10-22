@@ -15,6 +15,11 @@ import type {
 } from "./media-asset-repository";
 import { createMediaAssetService, MEDIA_CONFIRM_STEP_TIMEOUT_MS } from "./media-asset-service";
 import type { MediaStorageAdapter } from "./media-storage";
+import { getModelCatalog } from "@/server/model-catalog/catalog-service";
+import { externalAssetSchema } from "@/shared/api/assets-contract";
+import { modelCatalogSchema } from "@/server/model-catalog/catalog-schema";
+
+vi.mock("@/server/model-catalog/catalog-service", () => ({ getModelCatalog: vi.fn() }));
 
 const now = new Date("2026-09-03T10:00:00.000Z");
 
@@ -113,6 +118,7 @@ describe("mediaAssetService", () => {
     completeUpload: vi.fn(),
     getAsset: vi.fn(),
     listAssets: vi.fn(),
+    listAudioGenerationInputs: vi.fn(),
     getAssetUsage: vi.fn(),
     markAssetDeleting: vi.fn(),
     restoreAsset: vi.fn(),
@@ -153,6 +159,9 @@ describe("mediaAssetService", () => {
     storageMocks.delete.mockResolvedValue(undefined);
     repositoryMocks.expireUploads.mockResolvedValue([]);
     repositoryMocks.listNodeOperations.mockResolvedValue([]);
+    repositoryMocks.listAudioGenerationInputs.mockReset();
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue([]);
+    vi.mocked(getModelCatalog).mockResolvedValue([]);
   });
 
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
@@ -419,6 +428,123 @@ describe("mediaAssetService", () => {
       type: "image",
       limit: 2,
     });
+  });
+
+  it("loads generated audio authoring once per page and returns the same original text in detail", async () => {
+    const first = { ...asset, id: "audio_1", type: "audio" as const, origin: "generation" as const };
+    const second = { ...first, id: "audio_2", origin: "legacy_generation" as const };
+    const script = "[Speaker 1] Original nativeDrama script.\n[Speaker 2] 그대로 읽어 주세요.";
+    const sources = [
+      { assetId: first.id, generation: { ownerEmail: asset.ownerEmail, prompt: "Processed provider instructions", requestParams: {
+        inputPrompt: script, dynamicParams: { Script: script }, promptFields: ["Script"],
+      } } },
+      { assetId: second.id, generation: { ownerEmail: asset.ownerEmail, prompt: "expanded final", requestParams: {
+        inputPrompt: "", graphNodeId: "audio-node", promptProvenance: { connectedPrompt: "connected narration" },
+      } } },
+    ];
+    repositoryMocks.listAssets.mockResolvedValue([first, second, { ...first, id: "lookahead" }]);
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue(sources);
+    const page = await service.list(asset.ownerEmail, { type: "audio", limit: 2 });
+    expect(page.items.map(item => item.inputPrompt)).toEqual([script, "connected narration"]);
+    expect(externalAssetSchema.parse(page.items[0])).not.toHaveProperty("inputPrompt");
+    expect(page.items.every(item => item.name !== item.inputPrompt)).toBe(true);
+    expect(page.nextCursor).toBe(second.id);
+    expect(repositoryMocks.listAudioGenerationInputs).toHaveBeenCalledExactlyOnceWith(asset.ownerEmail, [first.id, second.id]);
+    repositoryMocks.getAsset.mockResolvedValue(first);
+    expect(await service.get(asset.ownerEmail, first.id)).toEqual(page.items[0]);
+  });
+
+  it("uses the frozen native Script alias when a promptless audio workflow has a processed generic prompt", async () => {
+    const script = "한국어 대본을 그대로 보존합니다.\nOriginal spoken text.";
+    const generated = { ...asset, type: "audio" as const, origin: "generation" as const };
+    repositoryMocks.getAsset.mockResolvedValue(generated);
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue([{ assetId: asset.id, generation: {
+      ownerEmail: asset.ownerEmail, prompt: "Processed full instructions", requestParams: {
+        inputPrompt: "", promptFields: [], dynamicParams: { Script: script, voice: "speaker" }, executionModel: {
+          providerConfig: { gradio_contract: { version: 1, apiName: "/speak", inputs: [
+            { name: "Script", label: "Script", kind: "string", schema: { type: "string" }, required: true, nullable: false },
+            { name: "voice", label: "Voice", kind: "string", schema: { type: "string" }, choices: ["speaker"], required: false, nullable: false },
+          ], output: { media: "audio", path: [0], multiple: false }, diagnostics: [], reviewed: true } },
+        },
+      },
+    } }]);
+    expect(await service.get(asset.ownerEmail, asset.id)).toMatchObject({ inputPrompt: script });
+    expect(getModelCatalog).not.toHaveBeenCalled();
+  });
+
+  it("resolves native Drama Script from the shared model contract once for a legacy page", async () => {
+    const model = modelCatalogSchema.parse([{
+      id: "native-drama", key: "native-drama", label: "Native drama", vendor: "unit", type: "audio", provider: "hf_space",
+      providerConfig: { space_id: "unit/native", api_name: "/speak", gradio_contract: {
+        version: 1, apiName: "/speak", inputs: [
+          { name: "script", label: "Drama Script", kind: "string", schema: { type: "string" }, required: true, nullable: false },
+        ], output: { media: "audio", path: [0], multiple: false }, diagnostics: [], reviewed: true,
+      } }, parameters: {}, meta: {}, isActive: false, isDefault: false, createdAt: now, updatedAt: now,
+    }])[0];
+    vi.mocked(getModelCatalog).mockResolvedValue([model]);
+    const records = ["native-a", "native-b"].map(id => ({ ...asset, id, type: "audio" as const, origin: "generation" as const }));
+    repositoryMocks.listAssets.mockResolvedValue(records);
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue(records.map(record => ({ assetId: record.id, generation: {
+      ownerEmail: asset.ownerEmail, modelKey: model.key, prompt: "Processed instructions", requestParams: {
+        inputPrompt: "", promptFields: [], graphNodeId: "drama", dynamicParams: { script: "Original " + record.id },
+      },
+    } })));
+    const page = await service.list(asset.ownerEmail, { type: "audio" });
+    expect(page.items.map(item => item.inputPrompt)).toEqual(["Original native-a", "Original native-b"]);
+    expect(getModelCatalog).toHaveBeenCalledExactlyOnceWith({ includeInactive: true });
+    expect(repositoryMocks.listAudioGenerationInputs).toHaveBeenCalledOnce();
+  });
+
+  it("does not disclose a foreign parent generation or query uploaded/edited audio and non-audio sources", async () => {
+    const records = [
+      { ...asset, id: "foreign", type: "audio" as const, origin: "generation" as const },
+      { ...asset, id: "unknown", type: "audio" as const, origin: "legacy_generation" as const },
+      { ...asset, id: "uploaded", type: "audio" as const },
+      { ...asset, id: "edited", type: "audio" as const, origin: "media_operation" as const },
+      { ...asset, id: "image", origin: "generation" as const },
+    ];
+    repositoryMocks.listAssets.mockResolvedValue(records);
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue([{ assetId: "foreign", generation: {
+      ownerEmail: "another@example.com", prompt: "foreign private prompt", requestParams: { inputPrompt: "foreign private script" },
+    } }]);
+    const page = await service.list(asset.ownerEmail, { limit: 5 });
+    expect(repositoryMocks.listAudioGenerationInputs).toHaveBeenCalledExactlyOnceWith(asset.ownerEmail, ["foreign", "unknown"]);
+    expect(page.items.slice(0, 2).map(item => item.inputPrompt)).toEqual([null, null]);
+    for (const item of page.items.slice(2)) expect(item).not.toHaveProperty("inputPrompt");
+    expect(JSON.stringify(page)).not.toContain("private");
+    repositoryMocks.listAudioGenerationInputs.mockClear();
+    for (const record of records.slice(2)) {
+      repositoryMocks.getAsset.mockResolvedValueOnce(record);
+      expect(await service.get(asset.ownerEmail, record.id)).not.toHaveProperty("inputPrompt");
+    }
+    expect(repositoryMocks.listAudioGenerationInputs).not.toHaveBeenCalled();
+  });
+
+  it.each(["", null])("keeps explicit empty and unknown preset authoring distinct from the full prompt (%s)", async inputPrompt => {
+    repositoryMocks.getAsset.mockResolvedValue({ ...asset, type: "audio", origin: "generation" });
+    repositoryMocks.listAudioGenerationInputs.mockResolvedValue([{ assetId: asset.id, generation: {
+      ownerEmail: asset.ownerEmail, prompt: "Preset and provider instructions", requestParams: {
+        ...(inputPrompt !== null ? { inputPrompt } : {}), promptPreset: { key: "unknown-preset", revision: 1 },
+      },
+    } }]);
+    expect(await service.get(asset.ownerEmail, asset.id)).toMatchObject({ inputPrompt });
+  });
+
+  it("does not label ambiguous native settings or an unknown alias as the original spoken text", async () => {
+    const generated = { ...asset, type: "audio" as const, origin: "generation" as const };
+    repositoryMocks.getAsset.mockResolvedValue(generated);
+    for (const executionModel of [undefined, { providerConfig: { gradio_contract: {
+      version: 1, apiName: "/speak", inputs: ["text", "instructions"].map(name => ({
+        name, label: name, kind: "string", schema: { type: "string" }, required: true, nullable: false,
+      })), output: { media: "audio", path: [0], multiple: false }, diagnostics: [], reviewed: true,
+    } } }]) {
+      repositoryMocks.listAudioGenerationInputs.mockResolvedValue([{ assetId: asset.id, generation: {
+        ownerEmail: asset.ownerEmail, prompt: "Full processed prompt", requestParams: {
+          graphNodeId: "native", promptFields: [], dynamicParams: { text: "Spoken input", instructions: "Style instruction" }, executionModel,
+        },
+      } }]);
+      expect(await service.get(asset.ownerEmail, asset.id)).toMatchObject({ inputPrompt: null });
+    }
   });
 
   it("fails the session and removes a mismatched storage object", async () => {

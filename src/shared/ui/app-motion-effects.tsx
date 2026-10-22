@@ -2,8 +2,8 @@
 import { useEffect } from "react";
 import { animate } from "motion";
 
-// Covers host and vendored canvas buttons without changing their DOM/ref contracts.
-const generation = '[data-generation-action], .node-banana-runtime__run-group > button:first-child, .spaces-canvas button[data-canvas-action="run"]';
+// Covers application and native canvas generation actions.
+const generation = '[data-generation-action], [data-space-run-group] > button:first-child, .spaces-canvas button[data-canvas-action="run"]';
 const glass = '.landing-composer .generation-media-shell, .landing-composer [data-app-prompt-field][data-surface="hero"]';
 const selector = generation + ', [data-app-skeleton], .lf-brand-gradient-text, [data-preview-gradient], ' + glass;
 export function installAppMotionEffects(root: HTMLElement, reduced: boolean) {

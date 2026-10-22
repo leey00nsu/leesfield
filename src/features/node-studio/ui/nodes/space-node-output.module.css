@@ -1,0 +1,15 @@
+.content { flex: 1; min-height: 0; contain: style; }
+.body { position: relative; display: flex; flex: 1; min-height: 0; width: 100%; overflow: hidden; border-radius: 8px; }
+.empty { display: flex; flex: 1; align-items: center; justify-content: center; min-height: 100px; color: rgb(115 115 115); background: rgb(23 23 23 / 0.4); font-size: 12px; }
+.clear { position: absolute; z-index: 50; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 0; border-radius: 4px; background: rgb(0 0 0 / 0.6); color: white; opacity: 0; transition: opacity 150ms, background 150ms; cursor: pointer; }
+.clear svg { width: 14px; height: 14px; }
+.clear:hover:enabled { background: rgb(220 38 38 / 0.8); }
+.clear:disabled { cursor: not-allowed; }
+.clear:focus-visible { outline: 1px solid rgb(248 113 113); outline-offset: 2px; }
+.body:hover .clear, .body:focus-within .clear,
+:global([data-space-node]:hover) .clear,
+:global([data-space-node]:focus-within) .clear { opacity: 1; }
+.body[data-output-type="audio"] .clear { top: 4px; right: 4px; width: 20px; height: 20px; }
+.body[data-output-type="audio"] .clear svg { width: 12px; height: 12px; }
+.error { position: absolute; z-index: 25; bottom: 4px; left: 4px; right: 4px; padding: 8px; border-radius: 4px; background: rgb(23 23 23 / 0.95); color: rgb(252 165 165); font-size: 11px; }
+.error button { margin-left: 8px; cursor: pointer; text-decoration: underline; }

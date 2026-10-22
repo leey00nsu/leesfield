@@ -11,6 +11,7 @@ import {
   updateNodeExecution,
 } from "../api/node-execution-api";
 import type { NodeExecutionDto } from "../model/node-execution-types";
+import { useNodeExecutionReader } from "../model/node-execution-read-context";
 import {
   useGenerationEventChannelState,
   type GenerationEventChannelState,
@@ -45,9 +46,10 @@ export function nodeExecutionRefetchInterval(
 
 export function useNodeExecutions(graphId: string, nodeId: string, enabled = true, activePollMs?: number) {
   const eventChannelState = useGenerationEventChannelState();
+  const reader = useNodeExecutionReader();
   return useQuery({
     queryKey: nodeExecutionKeys.list(graphId, nodeId),
-    queryFn: ({ signal }) => listNodeExecutions(graphId, nodeId, signal),
+    queryFn: ({ signal }) => reader?.graphId === graphId ? reader.read(nodeId, signal) : listNodeExecutions(graphId, nodeId, signal),
     enabled,
     refetchInterval: (query) =>
       activePollMs && hasActiveNodeExecution(query.state.data) ? activePollMs

@@ -11,6 +11,7 @@ import { createAudioGenerationRecord } from "@/server/audio-generation/audio-gen
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
 import { findNodeDefinition, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";
 import { defaultConfigForKind } from "@/shared/generation-graph/node-default-config";
+import { activeMediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { generationGraphRepository } from "@/server/generation-graph/generation-graph-repository";
 import type { Prisma } from "@prisma/client";
 import { executeExternalNode, listExternalNodeExecutions, readExternalNodeExecution } from "@/server/external-api/space-executions";
@@ -24,6 +25,11 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
   const ownerEmail = "external-nodes-" + randomUUID() + "@example.com";
   const apiKeyId = randomUUID();
   const kinds: CanonicalNodeKind[] = ["generate.image", "generate.video", "generate.audio", "generate.assistant", "edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"];
+  const executionCases = [
+    ...kinds.map(kind => ({ kind, legacyFrames: false,
+      label: kind === "edit.video.stitch" || kind === "edit.video.trim" ? `${kind} (accepted before hiding)` : kind })),
+    { kind: "edit.video.extractFrames" as const, legacyFrames: true, label: "edit.video.extractFrames (legacy two outputs)" },
+  ];
   const graphs: string[] = [], modelKeys: string[] = [];
   let assetId: string;
   beforeAll(async () => {
@@ -41,14 +47,14 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     await prisma.modelCatalog.deleteMany({ where: { key: { in: modelKeys } } });
     await prisma.apiKey.deleteMany({ where: { id: apiKeyId } });
   });
-  async function fixture(kind: CanonicalNodeKind) {
+  async function fixture(kind: CanonicalNodeKind, legacyFrames = false) {
     const modelKey = kind.startsWith("generate.") ? "external-model-" + randomUUID() : null;
     if (modelKey) {
       modelKeys.push(modelKey);
       await prisma.modelCatalog.create({ data: { key: modelKey, label: "Atomic test", type: kind === "generate.assistant" ? "llm" : kind === "generate.image" ? "image" : kind === "generate.video" ? "video" : "audio", vendor: "OPENAI", provider: "openai_compatible", providerConfig: {}, parameters: {}, meta: {}, isActive: true } });
     }
     const nodeId = randomUUID();
-    const config = defaultConfigForKind(kind);
+    const config = kind === "edit.video.extractFrames" && legacyFrames ? { parameters: {} } : defaultConfigForKind(kind);
     const graph = await prisma.generationGraph.create({ data: { ownerEmail, title: "Atomic", nodes: { create: { id: nodeId, kind, configVersion: 1, config: config as Prisma.InputJsonValue, x: 0, y: 0 } } } });
     graphs.push(graph.id);
     const input = { ownerEmail, apiKeyId, graphId: graph.id, nodeId, expectedGraphVersion: 1, idempotencyKey: "once" };
@@ -63,18 +69,27 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
         const definition = findNodeDefinition(kind)!;
         const parsed = definition.configSchema.parse(config) as { parameters: Record<string, unknown> };
         const port = definition.ports.find(port => port.direction === "input" && port.valueType === "video")!;
-        await mediaAssetRepository.createOperation(ownerEmail, {
+        const parameters = parsed.parameters as Prisma.InputJsonValue;
+        const expectedOutputCount = activeMediaOutputPorts(kind, config).length;
+        const inputs = Array.from({ length: Math.max(1, port.minConnections) }, (_, sortOrder) => ({ assetId, portId: port.id, sortOrder }));
+        if (kind === "edit.video.stitch" || kind === "edit.video.trim") {
+          // Seed a job accepted before hiding inside the real atomic receipt transaction.
+          // Current admission guards are exercised independently below without overrides.
+          await tx.mediaOperation.create({ data: {
+            id, ownerEmail, graphId: graph.id, graphNodeId: nodeId, type: kind, configVersion: 1,
+            parameters, expectedOutputCount, inputs: { create: inputs }, createdAt: new Date("2026-10-21T00:00:00.000Z"),
+          } });
+        } else await mediaAssetRepository.createOperation(ownerEmail, {
           graphId: graph.id, graphNodeId: nodeId, type: kind as never, configVersion: 1,
-          parameters: parsed.parameters as never, expectedOutputCount: kind === "edit.video.extractFrames" ? 2 : 1,
-          inputs: Array.from({ length: Math.max(1, port.minConnections) }, (_, sortOrder) => ({ assetId, portId: port.id, sortOrder })),
+          parameters: parsed.parameters as never, expectedOutputCount, inputs,
         }, { transaction: tx, executionId: id });
       }
       return id;
     };
     return { input, graph, nodeId, modelKey, snapshot, create, submit: () => externalNodeSubmission(input).context.commit(snapshot, kind, modelKey, create) };
   }
-  it.each(kinds)("commits one %s job for simultaneous retries and replays after graph changes", async kind => {
-    const f = await fixture(kind);
+  it.each(executionCases)("commits one $label job for simultaneous retries and replays after graph changes", async ({ kind, legacyFrames }) => {
+    const f = await fixture(kind, legacyFrames);
     const results = await Promise.all(Array.from({ length: 6 }, async () => {
       try { return { created: true, id: await f.submit() }; }
       catch (error) { if (!(error instanceof ExternalExecutionReplay)) throw error; return { created: false, id: error.executionId }; }
@@ -83,6 +98,11 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     expect(new Set(results.map(row => row.id)).size).toBe(1);
     expect(await prisma.nodeExecutionSubmission.count({ where: { graphId: f.graph.id } })).toBe(1);
     const id = results[0].id;
+    if (kind.startsWith("edit.")) {
+      expect(await prisma.mediaOperation.count({ where: { graphId: f.graph.id } })).toBe(1);
+      if (kind === "edit.video.extractFrames") expect(await prisma.mediaOperation.findUnique({ where: { id } }))
+        .toMatchObject({ expectedOutputCount: legacyFrames ? 2 : 1, parameters: legacyFrames ? {} : { timestampMs: 0 } });
+    }
     // Durable receipt survives terminal execution and authoring changes.
     if (kind === "generate.image") await prisma.imageGeneration.update({ where: { requestId: id }, data: { status: "cancelled" } });
     else if (kind === "generate.video") await prisma.videoGeneration.update({ where: { requestId: id }, data: { status: "failed" } });
@@ -109,8 +129,8 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     expect(await externalNodeSubmission(f.input).lookup()).toBe(accepted);
     await cancelAssistantExecution(ownerEmail, f.graph.id, f.nodeId, accepted);
   });
-  it.each(kinds)("preserves %s replay, history, cancellation and owner boundaries after kind changes", async kind => {
-    const f = await fixture(kind);
+  it.each(executionCases)("preserves $label replay, history, cancellation and owner boundaries after kind changes", async ({ kind, legacyFrames }) => {
+    const f = await fixture(kind, legacyFrames);
     const id = await f.submit();
     // Simulate a persisted authoring change independently of normal active-edit protection.
     await prisma.generationGraphNode.update({ where: { id: f.nodeId }, data: { kind: "note.memo", config: defaultConfigForKind("note.memo") as Prisma.InputJsonValue } });
@@ -125,6 +145,25 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     await expect(readExternalNodeExecution("another-owner", f.graph.id, f.nodeId, id)).rejects.toThrow();
     await expect(executeExternalNode(ownerEmail, apiKeyId, f.graph.id, f.nodeId, 2, "once")).rejects.toThrow("IDEMPOTENCY_CONFLICT");
     expect(await prisma.nodeExecutionSubmission.count({ where: { graphId: f.graph.id } })).toBe(1);
+  });
+  it.each(["edit.video.trim", "edit.video.stitch", "edit.image.resize"] as const)("blocks new %s jobs and receipts through real repository and external API guards", async kind => {
+    const f = await fixture(kind);
+    const definition = findNodeDefinition(kind)!;
+    const config = definition.configSchema.parse(defaultConfigForKind(kind)) as { parameters: Record<string, unknown> };
+    const port = definition.ports.find(port => port.direction === "input" && port.required)!;
+    const inputAssetId = kind === "edit.image.resize" ? (await prisma.mediaAsset.create({ data: {
+      ownerEmail, type: "image", origin: "upload", mimeType: "image/png", storageProvider: "s3",
+      storageObjectId: randomUUID(), storageUrl: "https://storage.example/image.png", bytes: 200, width: 128, height: 128,
+    } })).id : assetId;
+    await expect(mediaAssetRepository.createOperation(ownerEmail, {
+      graphId: f.graph.id, graphNodeId: f.nodeId, type: kind, configVersion: 1, parameters: config.parameters as never,
+      expectedOutputCount: 1, inputs: Array.from({ length: Math.max(1, port.minConnections) }, (_, sortOrder) =>
+        ({ assetId: inputAssetId, portId: port.id, sortOrder })),
+    })).rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
+    await expect(executeExternalNode(ownerEmail, apiKeyId, f.graph.id, f.nodeId, 1, "new-hidden-run"))
+      .rejects.toMatchObject({ code: "NODE_CONFIG_INVALID", details: { node: [kind === "edit.image.resize" ? "BROWSER_ONLY" : "NODE_TYPE_UNAVAILABLE"] } });
+    expect(await prisma.mediaOperation.count({ where: { graphId: f.graph.id } })).toBe(0);
+    expect(await prisma.nodeExecutionSubmission.count({ where: { graphId: f.graph.id } })).toBe(0);
   });
   it("merges different source kinds with stable keyset pagination", async () => {
     const f = await fixture("generate.image");

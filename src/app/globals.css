@@ -305,12 +305,12 @@
 
 .generation-result > :first-child { margin-bottom: 0; }
 
-/* Consistent keyboard focus, including legacy Spaces portals. */
+/* Consistent keyboard focus, including Spaces portals. */
 :root { --ring: var(--data-accent); }
 
 /* Shared generation motion: selected button study 02. */
 [data-generation-action],
-.node-banana-runtime__run-group > button:first-child,
+[data-space-run-group] > button:first-child,
 .spaces-canvas button[data-canvas-action="run"] {
   background-image: linear-gradient(#061b3b24, #061b3b24), linear-gradient(90deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
   background-size: 100% 100%, max(1080px, 300%) 100%;
@@ -319,19 +319,19 @@
   text-shadow: 0 1px 5px #001a4d66;
 }
 [data-generation-action]:hover,
-.node-banana-runtime__run-group > button:first-child:not(:disabled):hover,
+[data-space-run-group] > button:first-child:not(:disabled):hover,
 .spaces-canvas button[data-canvas-action="run"]:not(:disabled):hover {
   background-image: linear-gradient(#061b3b10, #061b3b10), linear-gradient(90deg, #1949a8 0%, #347ff4 30%, #8ac8fa 50%, #347ff4 70%, #1949a8 100%);
 }
 [data-generation-action]:is(:disabled, [aria-disabled="true"], [aria-busy="true"]),
-.node-banana-runtime__run-group > button:first-child:disabled,
+[data-space-run-group] > button:first-child:disabled,
 .spaces-canvas button[data-canvas-action="run"]:disabled {
   /* Playback is controlled by AppMotionEffects. */
 }
 
 @media (prefers-reduced-motion: reduce) {
   [data-generation-action],
-  .node-banana-runtime__run-group > button:first-child,
+  [data-space-run-group] > button:first-child,
   .spaces-canvas button[data-canvas-action="run"] {
     animation: none;
     background-position: 0% 50%, 50% 50%;

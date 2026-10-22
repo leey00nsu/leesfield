@@ -10,8 +10,9 @@ import {
   type CanonicalEdge,
   type CanonicalNode,
 } from "@/shared/generation-graph/canonical-graph";
-import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
+import { findNodeDefinition, type GeneratedResultGalleryItem } from "@/shared/generation-graph/node-registry";
 import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
+import { activeMediaOutputPorts } from "@/shared/generation-graph/media-output";
 
 import { updateGenerationGraphSchema, type UpdateGenerationGraphInput } from "./generation-graph-contract";
 import {
@@ -224,6 +225,15 @@ function assertUnavailableNodesPreserved(
   }
 }
 
+type EdgeEndpoints = Pick<CanonicalEdge, "sourceNodeId" | "sourcePortId" | "targetNodeId" | "targetPortId">;
+
+function edgeEndpointsChanged(existing: EdgeEndpoints, input: EdgeEndpoints) {
+  return existing.sourceNodeId !== input.sourceNodeId
+    || existing.targetNodeId !== input.targetNodeId
+    || existing.sourcePortId !== input.sourcePortId
+    || existing.targetPortId !== input.targetPortId;
+}
+
 function edgeChanged(
   existing: {
     sourceNodeId: string;
@@ -235,10 +245,7 @@ function edgeChanged(
   },
   input: UpdateGenerationGraphInput["edges"][number],
 ) {
-  return existing.sourceNodeId !== input.sourceNodeId
-    || existing.targetNodeId !== input.targetNodeId
-    || existing.sourcePortId !== input.sourcePortId
-    || existing.targetPortId !== input.targetPortId
+  return edgeEndpointsChanged(existing, input)
     || existing.sortOrder !== input.sortOrder
     || existing.hasPause !== (input.hasPause ?? false);
 }
@@ -257,6 +264,24 @@ function assertUnavailableEdgesPreserved(
     return (unavailableIds.has(edge.sourceNodeId) || unavailableIds.has(edge.targetNodeId)
       || (previous && (unavailableIds.has(previous.sourceNodeId) || unavailableIds.has(previous.targetNodeId))))
       && (!previous || edgeChanged(previous, edge));
+  })) {
+    throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
+  }
+}
+
+/** Existing canonical wires survive mode changes; new endpoints require an active output. */
+function assertActiveFrameOutputEdges(
+  existing: { edges?: readonly (EdgeEndpoints & { id: string })[] },
+  input: UpdateGenerationGraphInput,
+) {
+  const activeOutputs = new Map(input.nodes.filter(node => node.kind === "edit.video.extractFrames")
+    .map(node => [node.id, new Set(activeMediaOutputPorts(node.kind, node.config).map(port => port.id))]));
+  const previousEdges = new Map((existing.edges ?? []).map(edge => [edge.id, edge]));
+  if (input.edges.some(edge => {
+    const ports = activeOutputs.get(edge.sourceNodeId);
+    if (!ports || ports.has(edge.sourcePortId)) return false;
+    const previous = previousEdges.get(edge.id);
+    return !previous || edgeEndpointsChanged(previous, edge);
   })) {
     throw new GenerationGraphInputError({ graph: "NODE_TYPE_UNAVAILABLE" });
   }
@@ -351,6 +376,12 @@ async function assertCanonicalAssets(
       : [],
   );
   const inputSelections = input.nodes.flatMap((node) => {
+    if (node.kind === "output.gallery") {
+      const config = node.config as { resultItems?: GeneratedResultGalleryItem[] };
+      return (config.resultItems ?? []).flatMap((item) => typeof item.assetId === "string"
+        ? [{ assetId: item.assetId, type: item.mediaType }]
+        : []);
+    }
     if (!node.kind.startsWith("input.")) return [];
     const assetId = (node.config as Record<string, unknown>).assetId;
     if (typeof assetId !== "string") return [];
@@ -509,6 +540,7 @@ async function update(
     }
     assertUnavailableNodesPreserved(existing.nodes, input.nodes);
     assertUnavailableEdgesPreserved(existing, input);
+    assertActiveFrameOutputEdges(existing, input);
     await assertIdsBelongToGraph(tx, graphId, existing, input);
     await assertCanonicalAssets(tx, ownerEmail, input);
     await assertRuntimeTransitionIsIdle(tx, existing, input);

@@ -16,8 +16,8 @@ import {
   MediaOperationLeaseLostError,
   type MediaOperationLease,
 } from "@/server/media-operations/media-operation-lease";
-import { findNodeDefinition } from "@/shared/generation-graph/node-registry";
-import { mediaOutputPorts } from "@/shared/generation-graph/media-output";
+import { findNodeDefinition, validateNodeConfig } from "@/shared/generation-graph/node-registry";
+import { activeMediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import type {
   CreateMediaOperationInput,
@@ -309,13 +309,16 @@ async function completeServerOperation(
     if (artifacts.length !== operation.expectedOutputCount) {
       throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
     }
-    const ports = mediaOutputPorts(operation.type);
-    if (!ports.length || !operation.graphNode || operation.graphNode.kind !== operation.type ||
+    const config = validateNodeConfig(operation.type, operation.configVersion, { parameters: operation.parameters });
+    if (!config.supported) throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+    const ports = activeMediaOutputPorts(operation.type, config.config);
+    if (!ports.length || (ports.every(port => port.valueShape === "single") && operation.expectedOutputCount !== ports.length) ||
+      !operation.graphNode || operation.graphNode.kind !== operation.type ||
       operation.graphNode.configVersion !== operation.configVersion) {
       throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
     }
     const slots = artifacts.map((artifact, index) => ({
-      portId: artifact.outputPortId ?? (ports.length === 1 ? ports[0].id : ""),
+      portId: artifact.outputPortId ?? (ports.length === 1 && operation.type !== "edit.video.extractFrames" ? ports[0].id : ""),
       sortOrder: artifact.sortOrder ?? (ports.length === 1 ? index : 0),
     }));
     if (new Set(slots.map(slot => `${slot.portId}:${slot.sortOrder}`)).size !== slots.length ||
@@ -571,7 +574,7 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
       ) {
         throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
       }
-      const outputPorts = mediaOutputPorts(node.kind);
+      const outputPorts = activeMediaOutputPorts(node.kind, { parameters: input.parameters });
       if (
         !outputPorts.length ||
         (outputPorts.every(port => port.valueShape === "single") && input.expectedOutputCount !== outputPorts.length)
@@ -667,6 +670,28 @@ async function createUploadSession(
       });
     }
 
+    let operationId = input.operationId, outputPortId = input.outputPortId;
+    if (input.videoCapture) {
+      const capture = input.videoCapture;
+      const [graph, source] = await Promise.all([
+        tx.generationGraph.findFirst({ where: { id: capture.graphId, ownerEmail }, select: { id: true } }),
+        tx.mediaAsset.findFirst({ where: { id: capture.sourceAssetId, ownerEmail, type: "video", status: "completed" },
+          select: { id: true, durationMs: true } }),
+      ]);
+      if (!graph || !source || (source.durationMs !== null && capture.timestampMs >= source.durationMs)) {
+        throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+      }
+      // The browser already decoded the PNG. Record its provenance without
+      // scheduling FFmpeg or binding an image as the source node's video output.
+      const operation = await tx.mediaOperation.create({ data: {
+        ownerEmail, graphId: graph.id, type: "edit.video.frameGrab", configVersion: 1,
+        parameters: { timestampMs: capture.timestampMs },
+        status: "uploading", progress: 90, expectedOutputCount: 1,
+        inputs: { create: { assetId: source.id, portId: "video", sortOrder: 0 } },
+      }, select: { id: true } });
+      operationId = operation.id;
+      outputPortId = "image";
+    }
     return tx.mediaUploadSession.create({
       data: {
         ownerEmail,
@@ -679,8 +704,8 @@ async function createUploadSession(
         storageObjectName: presign.objectName,
         storageFileName: presign.fileName ?? null,
         storageUrl: presign.objectUrl,
-        operationId: input.operationId,
-        outputPortId: input.outputPortId,
+        operationId,
+        outputPortId,
         sortOrder: input.sortOrder,
         expiresAt: presign.expiresAt,
       },
@@ -884,7 +909,7 @@ async function completeUpload(input: {
       data: { status: "completed", assetId: asset.id, errorCode: null },
     });
 
-    if (session.operationId && session.operation?.graphNodeId) {
+    if (session.operationId && session.operation) {
       const completedUploads = await tx.mediaUploadSession.findMany({
         where: { operationId: session.operationId, status: "completed", assetId: { not: null } },
         orderBy: [{ outputPortId: "asc" }, { sortOrder: "asc" }],
@@ -897,6 +922,16 @@ async function completeUpload(input: {
         });
         if (completed.count !== 1) {
           throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+        }
+        if (!session.operation.graphNodeId) {
+          if (session.operation.type !== "edit.video.frameGrab" || completedUploads.length !== 1
+            || completedUploads[0].outputPortId !== "image" || asset.mimeType !== "image/png") {
+            throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
+          }
+          await tx.mediaOperationOutput.create({ data: {
+            operationId: session.operationId, portId: "image", sortOrder: 0, assetId: asset.id,
+          } });
+          return asset;
         }
         const outputPortIds = Array.from(
           new Set(
@@ -995,6 +1030,18 @@ async function listAssets(ownerEmail: string, input: ListMediaAssetsInput) {
   });
 }
 
+async function listAudioGenerationInputs(ownerEmail: string, assetIds: readonly string[]) {
+  if (!assetIds.length) return [];
+  return prisma.audioGenerationAudio.findMany({
+    where: {
+      assetId: { in: [...new Set(assetIds)] },
+      asset: { ownerEmail, type: "audio", status: "completed", origin: { in: ["generation", "legacy_generation"] } },
+      generation: { ownerEmail },
+    },
+    select: { assetId: true, generation: { select: { ownerEmail: true, prompt: true, requestParams: true, modelKey: true } } },
+  });
+}
+
 async function getAssetUsage(ownerEmail: string, assetId: string) {
   const asset = await prisma.mediaAsset.findFirst({
     where: { id: assetId, ownerEmail },
@@ -1026,7 +1073,10 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
   const inputNodes = await prisma.generationGraphNode.findMany({
     where: {
       graph: { ownerEmail },
-      config: { path: ["assetId"], equals: assetId },
+      OR: [
+        { config: { path: ["assetId"], equals: assetId } },
+        { kind: "output.gallery", config: { path: ["resultItems"], array_contains: [{ assetId }] } },
+      ],
     },
     select: { graphId: true },
   });
@@ -1205,6 +1255,7 @@ export const mediaAssetRepository = {
   completeUpload,
   getAsset,
   listAssets,
+  listAudioGenerationInputs,
   getAssetUsage,
   markAssetDeleting,
   restoreAsset,

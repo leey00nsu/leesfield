@@ -1,4 +1,6 @@
 "use client";
+import { AppAudioPlayer, type AppAudioPlayerProps } from "@/shared/ui/app-audio-player";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { PromptPresetInputText } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
 import { promptPresetDisplayName } from "@/shared/prompt-presets/prompt-preset-display-name";
 import { ExecutionTime } from "@/shared/ui/execution-time";
@@ -8,6 +10,7 @@ import { Copy } from "lucide-react";
 import type { GenerationHistoryItem, GenerationHistoryStatus } from "@/entities/generation/model/types";
 import type { MonitoringRequestDetail } from "@/features/monitoring-dashboard/model/types";
 import { useGenerationHistoryDetail } from "../hook/use-generation-history-detail";
+import { useMediaAsset } from "@/features/media-assets/hook/use-media-assets";
 import type { PromptSource } from "@/shared/generation-graph/prompt-provenance";
 import { useCinemaHistory } from "@/shared/cinema/use-cinema-history";
 import { CinemaHistoryDetails } from "@/shared/ui/cinema/cinema-history-details";
@@ -28,6 +31,13 @@ function toHistoryStatus(status: string): GenerationHistoryStatus | null {
   return HISTORY_STATUSES.has(status as GenerationHistoryStatus)
     ? (status as GenerationHistoryStatus)
     : null;
+}
+
+/** Owned results keep their original media URL but decode bytes through the authenticated content route. */
+export function GenerationAudioPreview({ assetId, asset, ...props }: AppAudioPlayerProps & { assetId?: string | null }) {
+  const query = useMediaAsset(asset ? null : assetId ?? null);
+  const resolved = asset ?? (query.data && query.data.id === assetId && query.data.type === "audio" && query.data.status === "completed" ? query.data : undefined);
+  return <AppAudioPlayer {...props} asset={resolved} src={resolved?.url ?? props.src} active={props.active !== false && (!assetId || !!resolved)} />;
 }
 
 function hydrateHistoryItem(
@@ -173,11 +183,15 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
     url,
     type,
     empty,
+    asset,
+    assetId,
   }: {
     label: string;
     url: string | null;
     type: GenerationHistoryItem["type"];
     empty: string;
+    asset?: MediaAssetDto;
+    assetId?: string | null;
   }) => (
     <div className="rounded-xl border border-white/10 bg-black/18 p-3">
       <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-gray-500">
@@ -196,10 +210,10 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       {url ? (
         type === "audio" ? (
           <div className="flex min-h-24 items-center rounded-lg bg-black/45 p-3">
-            <audio controls className="w-full" src={url} />
+            <GenerationAudioPreview controls className="w-full" src={url} asset={asset} assetId={assetId} />
           </div>
         ) : type === "video" ? (
-          <video
+          <AppVideoPlayer
             controls
             className="h-36 w-full rounded-lg bg-black/45 object-contain"
             src={url}
@@ -322,7 +336,7 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
         ? <p className="text-xs text-white/45">{tHistory("detail.promptSourcesUnknown")}</p> : null}
       {inputMedia.length ? inputMedia.map((input, index) => <div key={input.role + ":" + input.sortOrder + ":" + index}>
         {renderMediaPreview({ label: `${tHistory(input.type === "video" ? "detail.inputVideo" : input.type === "audio" ? "detail.inputAudio" : "detail.inputImage")} · ${input.role} ${input.sortOrder + 1}`,
-          url: input.url, type: input.type, empty: tHistory("detail.noInputAsset") })}
+          url: input.url, type: input.type, assetId: input.assetId, empty: tHistory("detail.noInputAsset") })}
         {input.assetId && <p className="mt-1 break-all text-xs text-white/40">{tHistory("detail.assetId")}: {input.assetId}</p>}
       </div>) : <p className="text-sm text-white/40">{tHistory("detail.noInputAsset")}</p>}
       {hydratedItem.errorMessage ? (
@@ -373,8 +387,10 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       ) : null}
       {renderMediaPreview({
         label: resultLabel,
-        url: thumbnailUrl ?? resultUrl,
+        url: hydratedItem.type === "image" ? thumbnailUrl ?? resultUrl : resultUrl ?? thumbnailUrl,
         type: hydratedItem.type,
+        asset: output,
+        assetId: output?.id ?? hydratedItem.assetId,
         empty: tHistory("detail.noResultAsset"),
       })}
     </div>

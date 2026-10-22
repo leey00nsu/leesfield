@@ -1,84 +1,111 @@
-import { useState } from "react";
-import { CanvasProviders } from "@/shared/ui/canvas-providers";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { builtinPromptPresets } from "@/shared/prompt-presets/builtin-prompt-presets";
+import type { PromptPreset } from "@/shared/prompt-presets/prompt-preset-contract";
 import { runtimeImageModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
 import { authoringValuesToImageConfig, resolveImageAuthoringDefaults } from "@/shared/generation/image-authoring";
-import { resolveRuntimeImageMaxInputImages } from "@/shared/model-catalog/runtime-utils";
-import { applyNodePromptPreset } from "../model/node-prompt-presets";
-import { NodeBananaStudio } from "./node-banana-studio";
-import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import type { CanonicalJsonValue } from "@/shared/generation-graph/canonical-graph";
-import { NodeAuthoringProvider } from "../model/node-authoring-context";
-import { emptyImageNodeInputReadiness } from "../model/node-input-readiness";
-import { ImagePresetInspector, GenerationPresetInspector } from "./nodes/space-generation-control-panel";
-import type { PromptPreset } from "@/shared/prompt-presets/prompt-preset-contract";
-import { storybookImage } from "@/test-utils/fixtures/storybook-media";
-import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
-import { appendResultNodes, bindResultNodes, reconcileResultNodes, resultSource } from "../model/generation-result-nodes";
+import { canonicalNodeKinds, findNodeDefinition, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";
+import { isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
+import { defaultConfigForKind } from "@/shared/generation-graph/node-default-config";
 import type { RuntimeImageModel, RuntimeVideoModel, RuntimeAudioModel } from "@/shared/model-catalog/runtime-utils";
-import { canonicalNodeKinds, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";
-import { defaultConfigForKind } from "../runtime/node-banana/node-banana-runtime-adapter";
+import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
+import { AppToaster } from "@/shared/ui/app-toast";
+import { nodeExecutionKeys } from "../hook/use-node-executions";
+import { applyNodePromptPreset } from "../model/node-prompt-presets";
+import { appendResultNodes, bindResultNodes, reconcileResultNodes } from "../model/generation-result-nodes";
+import { projectGenerationModelSelectionDefaults } from "../model/generation-model-selection-defaults";
+import type { NodeExecutionDto } from "../model/node-execution-types";
+import { createSpaceEditorSession } from "../model/space-editor-store";
+import type { SpaceEditorDocument } from "../model/space-editor-types";
+import { SpaceEditor } from "./space-editor";
+import { NativeStoryProviders, storyDate, storyMediaAsset, useStoryDocument } from "./native-story-fixtures";
 
-const presets = builtinPromptPresets.map(p => ({ ...p, builtinKey: p.key, builtinRevision: p.revision, defaultPrompt: p.prompt, isActive: true, isModified: false }));
+type Modality = "image" | "video" | "audio";
+const presets = builtinPromptPresets.map(preset => ({ ...preset, builtinKey: preset.key, builtinRevision: preset.revision,
+  defaultPrompt: preset.prompt, isActive: true, isModified: false }));
 const model = { ...runtimeImageModelsFixture[0], meta: { ...runtimeImageModelsFixture[0].meta, max_input_images: 1 } };
-const catalog = { imageModels: [model], isLoading: false, error: null, retry: () => undefined };
+const catalog = { imageModels: [model], isLoading: false, error: null, retry: () => {} };
 const baseConfig = authoringValuesToImageConfig(resolveImageAuthoringDefaults(model), model);
-const initial: GenerationGraphSnapshotDto = {
-  id: "preset-preview", title: "Prompt presets", version: 1, schemaVersion: 3, minimumWriterVersion: 3, groups: [], edges: [],
-  nodes: presets.map((preset, index) => ({ id: "preset-" + index, kind: "generate.image", configVersion: 1,
-    config: { ...applyNodePromptPreset(baseConfig, preset, model).config, presentation: { customTitle: preset.name } } as CanonicalJsonValue,
-    position: { x: 80 + index * 650, y: 80 }, selectedOutputAssetId: null })),
-  createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z",
-};
-function PresetPreview({ inspector = false }: { inspector?: boolean }) {
-  const [client] = useState(() => {
-    const client = new QueryClient({ defaultOptions: { queries: { enabled: false, staleTime: Infinity } } });
-    client.setQueryData(["prompt-presets", "image", false], presets);
-    return client;
-  });
-  const [graph, setGraph] = useState(initial);
-  const [config, setConfig] = useState<Record<string, unknown>>({ ...baseConfig, prompt: "현재 작업 초안" });
-  return <QueryClientProvider client={client}><main className="flex h-screen min-w-0 flex-col bg-neutral-900 text-white">
-    {inspector ? <NodeAuthoringProvider value={{ ...catalog, graphId: graph.id, prepareImageNodeExecution: async () => 1,
-      getImageNodeInputReadiness: emptyImageNodeInputReadiness, updateImageNodeConfig: () => undefined, duplicateImageNode: () => undefined,
-      deleteImageNode: () => undefined, updateCanonicalNodeConfig: (_id, next) => setConfig(next as Record<string, unknown>) }}>
-      <ImagePresetInspector id="image" config={config} />
-    </NodeAuthoringProvider> : <NodeBananaStudio graph={graph} catalog={catalog} writable readOnlyReason={null}
-      resolveUpstreamNodeData={(_id, data) => ({ supportsImageInput: resolveRuntimeImageMaxInputImages(catalog.imageModels.find(m => m.key === (data.config as Record<string, unknown>)?.modelKey)) > 0 })}
-      prepareImageNodeExecution={async () => 1} onDraftChange={draft => setGraph(old => ({ ...old, ...draft, version: old.version + 1 }))}
-      onRegenerateNode={async () => undefined} />}
-  </main></QueryClientProvider>;
+
+function presetClient(modality: Modality, entries: PromptPreset[]) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  for (const media of ["image", "video", "audio"] as const) client.setQueryData(["prompt-presets", media, false], media === modality ? entries : []);
+  return client;
 }
-const meta = { title: "Features/Node Studio/Prompt Presets", component: PresetPreview, decorators: [(Story) => <CanvasProviders><section data-testid="node-banana-home" className="fixed inset-0 z-[100] flex flex-col"><Story /></section></CanvasProviders>], parameters: { layout: "fullscreen" } } satisfies Meta<typeof PresetPreview>;
+
+/** Declared model contracts drive native fields, defaults, ports and the model browser. */
+function composerModel(modality: Modality): RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel {
+  return { type: modality, key: "preview-" + modality, label: "Preview " + modality, vendor: "Storybook", provider: "hf_space",
+    isActive: true, isDefault: true, meta: {}, parameters: {},
+    providerConfig: { space_id: "preview/only", gradio_contract: { version: 1, apiName: "/predict", reviewed: true, diagnostics: [],
+      output: { media: modality, path: [0], multiple: false }, inputs: [
+        { name: "prompt", label: "Prompt", kind: "string", required: true, nullable: false, canonical: "prompt", schema: { type: "string", minLength: 1 } },
+        { name: "references", label: "참고 이미지", kind: "files", media: "image", required: false, nullable: false, default: [], schema: { type: "array", maxItems: 4 } },
+        { name: "seed", label: "Seed", kind: "number", required: false, nullable: false, default: 0, schema: { type: "integer", minimum: 0 } },
+      ] } },
+  };
+}
+function modalityCatalog(previewModel: ReturnType<typeof composerModel>) {
+  return { ...catalog, imageModels: previewModel.type === "image" ? [previewModel] : [],
+    videoModels: previewModel.type === "video" ? [previewModel] : [], audioModels: previewModel.type === "audio" ? [previewModel] : [] };
+}
+function generationConfig(previewModel: ReturnType<typeof composerModel>, prompt: string) {
+  return projectGenerationModelSelectionDefaults({}, { ...defaultConfigForKind(`generate.${previewModel.type}`), prompt,
+    modelKey: previewModel.key, parameters: {} }, [previewModel]);
+}
+
+function PresetPreview({ inspector = false }: { inspector?: boolean }) {
+  return <PresetCanvas key={String(inspector)} inspector={inspector} />;
+}
+function PresetCanvas({ inspector }: { inspector: boolean }) {
+  const [client] = useState(() => presetClient("image", presets));
+  const [session] = useState(() => {
+    const document: SpaceEditorDocument = { schemaVersion: 3, title: "Prompt presets", groups: [], edges: [], nodes: inspector ? [
+      { id: "image", kind: "generate.image", configVersion: 1, config: { ...baseConfig, prompt: "현재 작업 초안" } as CanonicalJsonValue,
+        position: { x: 80, y: 80 }, selectedOutputAssetId: null },
+    ] : presets.map((preset, index) => ({ id: "preset-" + index, kind: "generate.image", configVersion: 1,
+      config: { ...applyNodePromptPreset(baseConfig, preset, model).config, presentation: { customTitle: preset.name } } as CanonicalJsonValue,
+      position: { x: 80 + index * 650, y: 80 }, selectedOutputAssetId: null })) };
+    const value = createSpaceEditorSession({ id: "preset-preview", version: 1, document });
+    if (inspector) value.select(["image"]);
+    return value;
+  });
+  const graph = useStoryDocument(session);
+  return <NativeStoryProviders client={client} graphId="preset-preview" inlineParametersEnabled={!inspector}>
+    <main className="relative h-screen min-w-0 bg-neutral-900 text-white"><SpaceEditor session={session} catalog={catalog} />
+      <output hidden data-story-graph>{JSON.stringify(graph)}</output><AppToaster />
+    </main>
+  </NativeStoryProviders>;
+}
+const meta = { title: "Features/Node Studio/Prompt Presets", component: PresetPreview, parameters: { layout: "fullscreen" } } satisfies Meta<typeof PresetPreview>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Canvas: Story = {};
 export const Inspector: Story = { args: { inspector: true } };
 
-function ModePreview({ modality, reference, inspector = false }: { modality: "image" | "video" | "audio"; reference: boolean; inspector?: boolean }) {
-  const preset: PromptPreset = { key: "personal-mode", revision: 1, name: "Mode preset", description: "",
-    modality, prompt: "Create a scene", requiredInputs: { referenceImageCount: reference ? 1 : 0 }, recommendedParameters: {},
-    builtinKey: null, builtinRevision: null, defaultPrompt: null, isActive: true, isModified: false };
-  const [client] = useState(() => {
-    const query = new QueryClient({ defaultOptions: { queries: { enabled: false, staleTime: Infinity } } });
-    query.setQueryData(["prompt-presets", modality, false], [preset]); return query;
+function ModePreview({ modality, reference, inspector = false }: { modality: Modality; reference: boolean; inspector?: boolean }) {
+  const previewModel = useMemo(() => composerModel(modality), [modality]);
+  const preset: PromptPreset = { key: "personal-mode", revision: 1, name: "Mode preset", description: "", modality, prompt: "Create a scene",
+    requiredInputs: { referenceImageCount: reference ? 1 : 0 }, recommendedParameters: {}, builtinKey: null, builtinRevision: null,
+    defaultPrompt: null, isActive: true, isModified: false };
+  const [client] = useState(() => presetClient(modality, [preset]));
+  const [session] = useState(() => {
+    const document: SpaceEditorDocument = { schemaVersion: 3, title: "Preset input modes", groups: [], edges: [], nodes: [
+      { id: "mode", kind: `generate.${modality}`, configVersion: 1, position: { x: 80, y: 80 },
+        config: applyNodePromptPreset(generationConfig(previewModel, ""), preset, previewModel).config as CanonicalJsonValue, selectedOutputAssetId: null },
+    ] };
+    const value = createSpaceEditorSession({ id: "mode-preview", version: 1, document });
+    if (inspector) value.select(["mode"]);
+    return value;
   });
-  const [config, setConfig] = useState<Record<string, unknown>>(applyNodePromptPreset({ prompt: "", modelKey: null, parameters: {} }, preset).config);
-  const modeGraph: GenerationGraphSnapshotDto = { ...initial, nodes: [{
-    id: "mode", kind: "generate." + modality, configVersion: 1, position: { x: 80, y: 80 },
-    config: config as CanonicalJsonValue, selectedOutputAssetId: null,
-  }], edges: [] };
-  return <QueryClientProvider client={client}><main className="flex h-screen min-w-0 flex-col bg-neutral-900 text-white">
-    {inspector ? <NodeAuthoringProvider value={{ ...catalog, graphId: "mode", prepareImageNodeExecution: async () => 1,
-      getImageNodeInputReadiness: emptyImageNodeInputReadiness, updateImageNodeConfig: () => undefined,
-      duplicateImageNode: () => undefined, deleteImageNode: () => undefined,
-      updateCanonicalNodeConfig: (_id, next) => setConfig(next as Record<string, unknown>) }}>
-      <GenerationPresetInspector id="mode" modality={modality} config={config} />
-    </NodeAuthoringProvider> : <NodeBananaStudio graph={modeGraph} catalog={catalog} writable readOnlyReason={null}
-      prepareImageNodeExecution={async () => 1} onDraftChange={() => undefined} onRegenerateNode={async () => undefined} />}
-  </main></QueryClientProvider>;
+  const graph = useStoryDocument(session);
+  return <NativeStoryProviders client={client} graphId="mode-preview" inlineParametersEnabled={!inspector}>
+    <main className="relative h-screen min-w-0 bg-neutral-900 text-white"><SpaceEditor session={session} catalog={modalityCatalog(previewModel)} />
+      <output hidden data-story-graph>{JSON.stringify(graph)}</output>
+    </main>
+  </NativeStoryProviders>;
 }
 export const T2I: Story = { render: () => <ModePreview modality="image" reference={false} /> };
 export const I2I: Story = { render: () => <ModePreview modality="image" reference /> };
@@ -89,204 +116,282 @@ export const VideoInspector: Story = { render: () => <ModePreview modality="vide
 export const AudioInspector: Story = { render: () => <ModePreview modality="audio" reference={false} inspector /> };
 
 function SharedComposerPreview({ modality = "image", readOnly = false, connected = false, compact = false, repeatCount = 1, progress }: {
-  modality?: "image" | "video" | "audio"; readOnly?: boolean; connected?: boolean; compact?: boolean; repeatCount?: number; progress?: {completed:number;failed:number;total:number;running:boolean};
+  modality?: Modality; readOnly?: boolean; connected?: boolean; compact?: boolean; repeatCount?: number;
+  progress?: { completed: number; failed: number; total: number; running: boolean };
 }) {
-  const previewModel: RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel = {
-    type: modality, key: "preview-" + modality, label: "Preview model", vendor: "Storybook", provider: "hf_space",
-    isActive: true, isDefault: true, meta: {},
-    providerConfig: { space_id: "preview/only", api_name: "/predict", output: { media: modality, path: [0], multiple: false } },
-    parameters: {
-      prompt: { ui:"text", binding:{source:"hf_space",parameterName:"prompt",valueType:"string",canonicalKey:"prompt",order:0} },
-      references: { ui:"upload",label:"참고 이미지",required:false,kind:"files",maxItems:4,
-        binding:{source:"hf_space",parameterName:"references",valueType:"file",order:1,kind:"files",media:"image",schema:{maxItems:4}} },
-    },
-  };
-  const previewPresets = modality === "image" ? presets : [{ ...presets[1], key: "preview-preset", modality, requiredInputs: {referenceImageCount:0}, name:"Preview preset",prompt:"Create a scene" }];
+  const previewModel = useMemo(() => composerModel(modality), [modality]);
+  const previewPresets = modality === "image" ? presets : [{ ...presets[1], key: "preview-preset", modality,
+    builtinKey: null, builtinRevision: null, requiredInputs: { referenceImageCount: 0 }, name: "Preview preset", prompt: "Create a scene" }];
   const [client] = useState(() => {
-    const query = new QueryClient({ defaultOptions:{queries:{enabled:false,staleTime:Infinity}} });
-    query.setQueryData(["prompt-presets",modality,false],previewPresets);
-    for (const id of ["reference-1","reference-2"]) query.setQueryData(mediaAssetKeys.detail(id), {
-      id,version:1,type:"image",status:"completed",origin:"upload",mimeType:"image/jpeg",bytes:"1024",
-      width:640,height:462,durationMs:null,sourceOperationId:null,url:storybookImage.url,
-      createdAt:initial.createdAt,updatedAt:initial.updatedAt,
-    });
-    return query;
+    const value = presetClient(modality, previewPresets);
+    for (const id of ["reference-1", "reference-2"]) value.setQueryData(mediaAssetKeys.detail(id), storyMediaAsset(id, "image"));
+    return value;
   });
-  const [snapshot,setSnapshot] = useState<GenerationGraphSnapshotDto>(() => ({...initial, nodes:[
-    ...["reference-1","reference-2"].map((assetId,index) => ({ id:assetId,kind:"input.image",configVersion:1,config:{assetId},
-      position:{x:-600,y:index*320},selectedOutputAssetId:null })),
-    ...(connected ? [{id:"connected-prompt",kind:"input.prompt",configVersion:1,config:{text:"Connected prompt"},position:{x:-600,y:680},selectedOutputAssetId:null}] : []),
-    {id:"generation",kind:"generate." + modality,configVersion:1,
-      config:applyNodePromptPreset({prompt:"",modelKey:previewModel.key,parameters:{},...(modality==="image"?{repeatCount}:{}),presentation:{customTitle:compact?"Compact preview":"Shared prompt preview"}},previewPresets[0]).config as CanonicalJsonValue,
-      position:{x:32,y:64},selectedOutputAssetId:null },
-  ],edges:[
-    ...["reference-1","reference-2"].map((sourceNodeId,sortOrder)=>({id:"reference-edge-"+sortOrder,sourceNodeId,sourcePortId:"image",targetNodeId:"generation",targetPortId:"image-field-references",sortOrder})),
-    ...(connected ? [{id:"prompt-edge",sourceNodeId:"connected-prompt",sourcePortId:"text",targetNodeId:"generation",targetPortId:"prompt",sortOrder:0}] : []),
-  ]}));
-  const previewCatalog = { ...catalog, imageModels: previewModel.type==="image"?[previewModel]:[],
-    videoModels:previewModel.type==="video"?[previewModel]:[],audioModels:previewModel.type==="audio"?[previewModel]:[] };
-  return <QueryClientProvider client={client}><div className="flex h-screen flex-col bg-neutral-900">
-    <NodeBananaStudio graph={snapshot} catalog={previewCatalog} writable={!readOnly} readOnlyReason={readOnly?"Preview read-only":null}
-      prepareImageNodeExecution={async()=>1} onDraftChange={draft=>setSnapshot(previous=>({...previous,...draft,version:previous.version+1}))}
-      onRegenerateNode={async()=>undefined} resolveUpstreamNodeData={(_id,data)=> data.canonicalKind==="input.image"
-        ? {image:storybookImage.url,imageRef:storybookImage.url} : modality==="image" ? {outputImage:storybookImage.url,repeatProgress:progress,executionStatus:progress?.running?"processing":"completed"} : {} } />
-  </div></QueryClientProvider>;
-}
-export const SharedImageComposer: Story = {render:()=> <SharedComposerPreview />};
-export const SharedVideoComposer: Story = {render:()=> <SharedComposerPreview modality="video" />};
-export const SharedAudioComposer: Story = {render:()=> <SharedComposerPreview modality="audio" />};
-export const SharedReadOnly: Story = {render:()=> <SharedComposerPreview readOnly />};
-export const SharedConnected: Story = {render:()=> <SharedComposerPreview connected />};
-export const SharedCompact: Story = {render:()=> <SharedComposerPreview compact />};
-
-export const SharedRepeatFour: Story = {render:()=> <SharedComposerPreview repeatCount={4} />};
-export const SharedRepeatPartial: Story = {render:()=> <SharedComposerPreview repeatCount={4} progress={{completed:3,failed:1,total:4,running:true}} />};
-export const SharedRepeatCompleted: Story = {render:()=> <SharedComposerPreview repeatCount={4} progress={{completed:4,failed:1,total:4,running:false}} />};
-
-function SeparateResultsPreview({ modality = "image", status = "idle", repeatCount = 1 }: {
-  modality?: "image" | "video" | "audio"; status?: "idle" | "pending" | "completed" | "failed" | "cancelled"; repeatCount?: number;
-}) {
-  const sampleUrl = modality === "image" ? storybookImage.url : modality === "video" ? "/assets/storybook/puppy.mp4" : "/assets/storybook/tone.wav";
-  const previewModel = { ...model, type: modality, key: "separate-" + modality, label: "Storybook model", provider:"hf_space",meta:{max_input_images:0},
-    providerConfig:{space_id:"preview/only",api_name:"/predict",output:{media:modality,path:[0],multiple:false}},parameters:{
-      prompt:{ui:"text",binding:{source:"hf_space",parameterName:"prompt",valueType:"string",canonicalKey:"prompt",order:0}},
-    }} as RuntimeImageModel | RuntimeVideoModel | RuntimeAudioModel;
-  const [client] = useState(() => {
-    const query = new QueryClient({defaultOptions:{queries:{enabled:false,staleTime:Infinity}}});
-    query.setQueryData(["prompt-presets","image",false],presets);
-    for (const media of ["video", "audio"] as const) query.setQueryData(["prompt-presets",media,false],[
-      { ...presets[1], key: "separate-" + media + "-preset", modality: media, name: "Preview preset",
-        builtinKey: null, requiredInputs: { referenceImageCount: 0 } },
-    ]);
-    query.setQueryData(["runtime-models"],[previewModel]);
-    return query;
-  });
-  const [phase,setPhase] = useState(status);
-  const [snapshot,setSnapshot] = useState<GenerationGraphSnapshotDto>(() => {
-    const draft = { ...initial,schemaVersion:3 as const,minimumWriterVersion:3 as const,groups:[],edges:[],nodes:[{
-      id:"generation",kind:`generate.${modality}`,configVersion:1,position:{x:40,y:40},selectedOutputAssetId:null,
-      config:{prompt:"Describe a cinematic scene",modelKey:previewModel.key,parameters:{},repeatCount,presentation:{customTitle:"Generation input"}},
-    }] };
-    if(status === "idle") return draft;
-    let result: GenerationGraphSnapshotDto & import("../hook/use-graph-autosave").GraphDraft = {...draft, schemaVersion:3, groups:[]};
-    for (let index=0;index<repeatCount;index++) {
-      result={...result,...appendResultNodes(result,"generation","preview-run-"+index).draft};
-      if(status !== "pending") result={...result,...reconcileResultNodes(result,"generation",{
-        executionId:"preview-run-"+index,status,outputAssetIds:status === "completed"?["sample-output"]:[],
-      })};
+  const [session] = useState(() => {
+    const document: SpaceEditorDocument = { schemaVersion: 3, title: "Shared prompt composer", groups: [], nodes: [
+      ...["reference-1", "reference-2"].map((assetId, index) => ({ id: assetId, kind: "input.image", configVersion: 1, config: { assetId },
+        position: { x: -600, y: index * 320 }, selectedOutputAssetId: null })),
+      ...(connected ? [{ id: "connected-prompt", kind: "input.prompt", configVersion: 1, config: { text: "Connected prompt" },
+        position: { x: -600, y: 680 }, selectedOutputAssetId: null }] : []),
+      { id: "generation", kind: `generate.${modality}`, configVersion: 1,
+        config: { ...applyNodePromptPreset(generationConfig(previewModel, ""), previewPresets[0], previewModel).config,
+          ...(modality === "image" ? { repeatCount } : {}), presentation: { customTitle: compact ? "Compact preview" : "Shared prompt preview" } } as CanonicalJsonValue,
+        position: { x: 32, y: 64 }, selectedOutputAssetId: null },
+    ], edges: [
+      ...["reference-1", "reference-2"].map((sourceNodeId, sortOrder) => ({ id: "reference-edge-" + sortOrder, sourceNodeId,
+        sourcePortId: "image", targetNodeId: "generation", targetPortId: "image-field-references", sortOrder })),
+      ...(connected ? [{ id: "prompt-edge", sourceNodeId: "connected-prompt", sourcePortId: "text", targetNodeId: "generation", targetPortId: "prompt", sortOrder: 0 }] : []),
+    ] };
+    const value = createSpaceEditorSession({ id: "shared-composer", version: 1, document, writable: !readOnly, readOnlyReason: readOnly ? "READ_ONLY" : null });
+    if (compact) value.measure("generation", { width: 300, height: 400 });
+    if (progress) {
+      const execution: NodeExecutionDto = { executionId: "repeat-preview", executionKind: "generation", mediaType: modality, graphNodeId: "generation",
+        modelKey: previewModel.key, status: progress.running ? "processing" : "completed", progress: Math.round(100 * progress.completed / progress.total),
+        errorCode: null, outputAssetIds: [], createdAt: storyDate, finishedAt: progress.running ? null : "2026-10-20T00:00:01Z" };
+      value.patchRuntime("generation", { execution, repeatProgress: progress });
+      client.setQueryData(nodeExecutionKeys.list("shared-composer", "generation"), [execution]);
     }
-    return result;
+    return value;
   });
-  const previewCatalog = { ...catalog,imageModels:previewModel.type === "image"?[previewModel]:[],
-    videoModels:previewModel.type === "video"?[previewModel]:[],audioModels:previewModel.type === "audio"?[previewModel]:[] };
-  return <QueryClientProvider client={client}><main className="flex h-screen flex-col bg-neutral-900" data-story-result-preview={modality}>
-    <NodeBananaStudio graph={snapshot} catalog={previewCatalog} writable readOnlyReason={null} prepareImageNodeExecution={async()=>1}
-      onDraftChange={draft=>setSnapshot(previous=>({...previous,...draft,version:previous.version+1}))}
-      onRegenerateNode={async nodeId => {
-        let reserved = {...snapshot,schemaVersion:3 as const,groups:snapshot.groups??[]};
-        const runs: {ids:string[];executionId:string}[]=[];
-        const count=modality==="image" ? Number((snapshot.nodes.find(node=>node.id===nodeId)?.config as {repeatCount?:number})?.repeatCount??1) : 1;
-        for(let index=0;index<count;index++) {
-          const appended=appendResultNodes(reserved,nodeId);
-          runs.push({ids:appended.ids,executionId:crypto.randomUUID()});reserved={...reserved,...appended.draft};
-        }
-        setSnapshot(previous=>({...previous,...reserved}));setPhase("pending");
-        return {executionId:runs[0].executionId,completion:(async()=>{
-          for(const run of runs) {
-            setSnapshot(previous=>({...previous,...bindResultNodes({...previous,schemaVersion:3,groups:previous.groups??[]},run.ids,run.executionId)}));
-            await new Promise<void>(resolve=>setTimeout(resolve,1600));
-            setSnapshot(previous=>({...previous,...reconcileResultNodes({...previous,schemaVersion:3,groups:previous.groups??[]},nodeId,{
-              executionId:run.executionId,status:"completed",outputAssetIds:["sample-output"],
-            })}));
-          }
-          setPhase("completed");
-        })()};
-      }}
-      resolveUpstreamNodeData={(id,data)=> {
-        if(id === "generation") return { executionStatus: phase === "pending" ? "processing" : phase === "idle" ? undefined : phase,
-          executionCreatedAt:phase==="idle"?undefined:new Date(Date.now()-30_000).toISOString(),executionFinishedAt:phase==="pending"?null:new Date(Date.now()-10_000).toISOString(),
-          supportsImageInput:false,providerInputSchema:[],outputImage:phase==="completed"?sampleUrl:null,outputVideo:phase==="completed"?sampleUrl:null };
-        const source = resultSource(data.config);
-        const assetId = (data.config as {assetId?:string}).assetId;
-        return source ? {resultStatus:source.state,resultCreatedAt:new Date(Date.now()-30_000).toISOString(),resultFinishedAt:source.state==="pending"?null:new Date(Date.now()-10_000).toISOString(),
-          image:assetId?sampleUrl:null,imageRef:assetId??null,video:assetId?sampleUrl:null,videoRef:assetId??null,
-          audioFile:assetId?sampleUrl:null,audioFileRef:assetId??null,filename:assetId?"Storybook sample":null,duration:2,
-          dimensions:modality==="audio"?null:{width:640,height:462}} : {};
-      }} />
-  </main></QueryClientProvider>;
+  const graph = useStoryDocument(session);
+  return <NativeStoryProviders client={client} graphId="shared-composer" inlineParametersEnabled>
+    <main className="relative h-screen bg-neutral-900"><SpaceEditor session={session} catalog={modalityCatalog(previewModel)} />
+      <output hidden data-story-graph>{JSON.stringify(graph)}</output>
+    </main>
+  </NativeStoryProviders>;
 }
-export const SeparateImageResults: Story = {render:()=> <SeparateResultsPreview />};
-export const SeparateVideoResults: Story = {render:()=> <SeparateResultsPreview modality="video" />};
-export const SeparateAudioResults: Story = {render:()=> <SeparateResultsPreview modality="audio" />};
-export const SeparateImagePending: Story = {render:()=> <SeparateResultsPreview status="pending" />};
-export const SeparateVideoPending: Story = {render:()=> <SeparateResultsPreview modality="video" status="pending" />};
-export const SeparateAudioPending: Story = {render:()=> <SeparateResultsPreview modality="audio" status="pending" />};
-export const SeparateImageCompleted: Story = {render:()=> <SeparateResultsPreview status="completed" />};
-export const SeparateVideoCompleted: Story = {render:()=> <SeparateResultsPreview modality="video" status="completed" />};
-export const SeparateAudioCompleted: Story = {render:()=> <SeparateResultsPreview modality="audio" status="completed" />};
+export const SharedImageComposer: Story = { render: () => <SharedComposerPreview /> };
+export const SharedVideoComposer: Story = { render: () => <SharedComposerPreview modality="video" /> };
+export const SharedAudioComposer: Story = { render: () => <SharedComposerPreview modality="audio" /> };
+export const SharedReadOnly: Story = { render: () => <SharedComposerPreview readOnly /> };
+export const SharedConnected: Story = { render: () => <SharedComposerPreview connected /> };
+export const SharedCompact: Story = { render: () => <SharedComposerPreview compact /> };
+export const SharedRepeatFour: Story = { render: () => <SharedComposerPreview repeatCount={4} /> };
+export const SharedRepeatPartial: Story = { render: () => <SharedComposerPreview repeatCount={4} progress={{ completed: 3, failed: 1, total: 4, running: true }} /> };
+export const SharedRepeatCompleted: Story = { render: () => <SharedComposerPreview repeatCount={4} progress={{ completed: 4, failed: 1, total: 4, running: false }} /> };
 
-function SelectionStylePreview({running=false}:{running?:boolean}) {
-  const [receipt] = useState(()=>new Date(Date.now()-25_000).toISOString());
-  const [kind, setKind] = useState<CanonicalNodeKind>("generate.image");
-  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } }));
+type ResultPhase = "idle" | "pending" | "completed" | "failed" | "cancelled";
+type StoryRun = { ids: string[]; execution: NodeExecutionDto };
+type StoryBatch = { nodeId: string; runs: StoryRun[]; index: number; timer?: ReturnType<typeof setTimeout> };
+function resultExecution(modality: Modality, modelKey: string, executionId: string, status: Exclude<ResultPhase, "idle"> | "processing"): NodeExecutionDto {
+  return { executionId, executionKind: "generation", mediaType: modality, graphNodeId: "generation", modelKey, status,
+    progress: status === "completed" ? 100 : status === "processing" ? 35 : 0, errorCode: status === "failed" ? "PROVIDER_UNAVAILABLE" : null,
+    outputAssetIds: status === "completed" ? ["sample-output"] : [],
+    outputBindings: status === "completed" ? [{ portId: modality, sortOrder: 0, assetId: "sample-output" }] : [],
+    createdAt: storyDate, finishedAt: status === "pending" || status === "processing" ? null : "2026-10-20T00:00:01Z" };
+}
+function SeparateResultsPreview({ modality = "image", status = "idle", repeatCount = 1 }: {
+  modality?: Modality; status?: ResultPhase; repeatCount?: number;
+}) {
+  const previewModel = useMemo(() => composerModel(modality), [modality]);
+  const graphId = "separate-" + modality;
+  const [client] = useState(() => {
+    const value = presetClient(modality, modality === "image" ? presets : []);
+    value.setQueryData(mediaAssetKeys.detail("sample-output"), { ...storyMediaAsset("sample-output", modality), origin: "generation" });
+    return value;
+  });
+  const [session] = useState(() => {
+    let document: SpaceEditorDocument = { schemaVersion: 3, title: "Separate result reservations", groups: [], edges: [], nodes: [
+      { id: "generation", kind: `generate.${modality}`, configVersion: 1, position: { x: 40, y: 40 }, selectedOutputAssetId: status === "completed" ? "sample-output" : null,
+        config: { ...generationConfig(previewModel, "Describe a cinematic scene"), ...(modality === "image" ? { repeatCount } : {}),
+          presentation: { customTitle: "Generation input" } } as CanonicalJsonValue },
+    ] };
+    const records: NodeExecutionDto[] = [];
+    if (status !== "idle") for (let index = 0; index < (modality === "image" ? repeatCount : 1); index++) {
+      const execution = resultExecution(modality, previewModel.key, "preview-run-" + index, status);
+      records.push(execution);
+      document = appendResultNodes(document, "generation", execution.executionId).draft;
+      document = reconcileResultNodes(document, "generation", execution);
+    }
+    client.setQueryData(nodeExecutionKeys.list(graphId, "generation"), records);
+    const value = createSpaceEditorSession({ id: graphId, version: 1, document });
+    if (records.length) value.patchRuntime("generation", { execution: records[records.length - 1], ...(modality === "image" ? {
+      repeatProgress: { completed: status === "pending" ? 0 : records.length, failed: status === "failed" ? records.length : 0,
+        total: records.length, running: status === "pending" },
+    } : {}) });
+    return value;
+  });
+  const graph = useStoryDocument(session);
+  const active = useRef<StoryBatch | null>(null);
+  const services = useMemo(() => {
+    const publish = (execution: NodeExecutionDto) => {
+      session.patchRuntime(execution.graphNodeId, { execution });
+      client.setQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graphId, execution.graphNodeId), previous =>
+        [execution, ...(previous ?? []).filter(row => row.executionId !== execution.executionId)]);
+    };
+    const progress = (completed: number, total: number, running: boolean) => {
+      if (modality === "image") session.patchRuntime("generation", { repeatProgress: { completed, failed: 0, total, running } });
+    };
+    const next = () => {
+      const batch = active.current;
+      if (!batch || !session.getSnapshot().nodeById.has(batch.nodeId)) { active.current = null; return; }
+      const run = batch.runs[batch.index];
+      session.transact(document => bindResultNodes(document, run.ids, run.execution.executionId), { origin: "system", label: "story.result.bind" });
+      publish(run.execution);
+      progress(batch.index, batch.runs.length, true);
+      batch.timer = setTimeout(() => {
+        if (active.current !== batch || session.getSnapshot().disposed) return;
+        const completed: NodeExecutionDto = { ...run.execution, status: "completed", progress: 100, outputAssetIds: ["sample-output"],
+          outputBindings: [{ portId: modality, sortOrder: 0, assetId: "sample-output" }], finishedAt: new Date().toISOString() };
+        session.transact(document => {
+          const reconciled = reconcileResultNodes(document, batch.nodeId, completed);
+          return { ...reconciled, nodes: reconciled.nodes.map(node => node.id === batch.nodeId ? { ...node, selectedOutputAssetId: "sample-output" } : node) };
+        }, { origin: "system", label: "story.result.complete" });
+        publish(completed);
+        batch.index++;
+        progress(batch.index, batch.runs.length, batch.index < batch.runs.length);
+        if (batch.index < batch.runs.length) next(); else active.current = null;
+      }, 1600);
+    };
+    const stop = () => { if (active.current?.timer) clearTimeout(active.current.timer); active.current = null; };
+    return {
+      runNode: (nodeId: string) => {
+        const node = session.getSnapshot().nodeById.get(nodeId);
+        if (active.current || nodeId !== "generation" || !node || !session.getSnapshot().writable) return;
+        const config = node.config as Record<string, unknown>;
+        const count = modality === "image" && typeof config.repeatCount === "number" ? config.repeatCount : 1;
+        const runs: StoryRun[] = [];
+        const reserved = session.transact(document => {
+          let draft = document;
+          for (let index = 0; index < count; index++) {
+            const appended = appendResultNodes(draft, nodeId);
+            runs.push({ ids: appended.ids, execution: { ...resultExecution(modality, previewModel.key, crypto.randomUUID(), "processing"), createdAt: new Date().toISOString() } });
+            draft = appended.draft;
+          }
+          return draft;
+        }, { origin: "system", label: "story.result.reserve" });
+        if (!reserved.ok || !runs.length) return;
+        active.current = { nodeId, runs, index: 0 }; next();
+      },
+      cancelNode: async (nodeId: string) => {
+        const batch = active.current;
+        if (batch?.nodeId === nodeId) {
+          stop();
+          for (const run of batch.runs.slice(batch.index)) {
+            const cancelled = { ...run.execution, status: "cancelled" as const, finishedAt: new Date().toISOString() };
+            session.transact(document => reconcileResultNodes(bindResultNodes(document, run.ids, cancelled.executionId), nodeId, cancelled), { origin: "system", label: "story.result.cancel" });
+            publish(cancelled);
+          }
+          progress(batch.index, batch.runs.length, false);
+        } else {
+          const execution = session.getSnapshot().runtimeByNode.get(nodeId)?.execution;
+          if (!execution || !["pending", "processing"].includes(execution.status)) return;
+          const pending = (client.getQueryData<NodeExecutionDto[]>(nodeExecutionKeys.list(graphId, nodeId)) ?? [])
+            .filter(row => row.status === "pending" || row.status === "processing")
+            .map(row => ({ ...row, status: "cancelled" as const, finishedAt: new Date().toISOString() }));
+          session.transact(document => {
+            let next = document;
+            for (const row of pending) next = reconcileResultNodes(next, nodeId, row);
+            return next;
+          }, { origin: "system", label: "story.result.cancel" });
+          for (const row of pending) publish(row);
+          progress(0, modality === "image" ? repeatCount : 1, false);
+        }
+      },
+      stop,
+    };
+  }, [session, client, graphId, modality, previewModel.key, repeatCount]);
+  useEffect(() => services.stop, [services]);
+  return <NativeStoryProviders client={client} graphId={graphId} inlineParametersEnabled>
+    <main className="relative h-screen bg-neutral-900" data-story-result-preview={modality}>
+      <SpaceEditor session={session} catalog={modalityCatalog(previewModel)} services={services} />
+      <output hidden data-story-graph>{JSON.stringify(graph)}</output><AppToaster />
+    </main>
+  </NativeStoryProviders>;
+}
+export const SeparateImageResults: Story = { render: () => <SeparateResultsPreview /> };
+export const SeparateVideoResults: Story = { render: () => <SeparateResultsPreview modality="video" /> };
+export const SeparateAudioResults: Story = { render: () => <SeparateResultsPreview modality="audio" /> };
+export const SeparateImagePending: Story = { render: () => <SeparateResultsPreview status="pending" /> };
+export const SeparateVideoPending: Story = { render: () => <SeparateResultsPreview modality="video" status="pending" /> };
+export const SeparateAudioPending: Story = { render: () => <SeparateResultsPreview modality="audio" status="pending" /> };
+export const SeparateImageCompleted: Story = { render: () => <SeparateResultsPreview status="completed" /> };
+export const SeparateVideoCompleted: Story = { render: () => <SeparateResultsPreview modality="video" status="completed" /> };
+export const SeparateAudioCompleted: Story = { render: () => <SeparateResultsPreview modality="audio" status="completed" /> };
+export const SeparateResultFailed: Story = { render: () => <SeparateResultsPreview status="failed" /> };
+export const SeparateResultCancelled: Story = { render: () => <SeparateResultsPreview status="cancelled" /> };
+export const SeparateRepeatFour: Story = { render: () => <SeparateResultsPreview repeatCount={4} /> };
+export const SeparateRepeatFourPending: Story = { render: () => <SeparateResultsPreview repeatCount={4} status="pending" /> };
+
+function SelectionCanvas({ kind, running }: { kind: CanonicalNodeKind; running: boolean }) {
   const media = kind === "input.image" ? "image" : kind === "input.video" ? "video" : kind === "input.audio" ? "audio" : null;
-  const sampleUrl = media === "image" ? storybookImage.url : media === "video" ? "/assets/storybook/puppy.mp4" : "/assets/storybook/tone.wav";
-  const config = media ? { assetId: "preview-media" } : defaultConfigForKind(kind);
-  const graph: GenerationGraphSnapshotDto = { ...initial, id: "selection-preview", edges: [], nodes: [
-    { id: "style-node", kind, configVersion: 1, config, selectedOutputAssetId: null, position: { x: 80, y: 80 } },
-  ] };
-  return <QueryClientProvider client={client}>
-    <label className="absolute left-4 top-4 z-100 flex items-center gap-2 rounded bg-neutral-800 p-2 text-white">
-      노드 선택 스타일
+  const modality = kind === "generate.video" ? "video" : kind === "generate.audio" ? "audio" : "image";
+  const previewModel = useMemo(() => composerModel(modality), [modality]);
+  const [client] = useState(() => {
+    const value = presetClient(modality, []);
+    if (media) value.setQueryData(mediaAssetKeys.detail("preview-media"), storyMediaAsset("preview-media", media));
+    return value;
+  });
+  const [session] = useState(() => {
+    const config = media ? { assetId: "preview-media" } : ["generate.image", "generate.video", "generate.audio"].includes(kind)
+      ? generationConfig(previewModel, "Describe a scene") : defaultConfigForKind(kind);
+    const document: SpaceEditorDocument = { schemaVersion: 3, title: "Selection styles", groups: [], edges: [], nodes: [
+      { id: "style-node", kind, configVersion: 1, config: config as CanonicalJsonValue, selectedOutputAssetId: null, position: { x: 80, y: 80 } },
+    ] };
+    const value = createSpaceEditorSession({ id: "selection-preview", version: 1, document });
+    value.select(["style-node"]);
+    if (running && findNodeDefinition(kind)?.executionMode !== "none" && !isUnavailableEditNodeKind(kind)) {
+      const execution: NodeExecutionDto = { executionId: "selection-run", graphNodeId: "style-node", status: "processing", progress: 92,
+        executionKind: kind === "generate.assistant" ? "assistant" : kind.startsWith("generate.") ? "generation" : "media_operation",
+        mediaType: kind === "generate.assistant" ? "text" : kind === "edit.video.extractFrames" ? "image" : kind.startsWith("edit.video.") ? "video" : modality,
+        modelKey: kind.startsWith("generate.") ? previewModel.key : null, errorCode: null, outputAssetIds: [], createdAt: storyDate, finishedAt: null };
+      value.patchRuntime("style-node", { execution });
+      client.setQueryData(nodeExecutionKeys.list("selection-preview", "style-node"), [execution]);
+    }
+    return value;
+  });
+  const graph = useStoryDocument(session);
+  return <NativeStoryProviders client={client} graphId="selection-preview" inlineParametersEnabled>
+    <main className="relative h-screen" data-preview-kind={kind}><SpaceEditor session={session} catalog={modalityCatalog(previewModel)} />
+      <output hidden data-story-graph>{JSON.stringify(graph)}</output>
+    </main>
+  </NativeStoryProviders>;
+}
+function SelectionStylePreview({ running = false }: { running?: boolean }) {
+  const [kind, setKind] = useState<CanonicalNodeKind>("generate.image");
+  return <>
+    <label className="absolute left-4 top-4 z-[100] flex items-center gap-2 rounded bg-neutral-800 p-2 text-white">노드 선택 스타일
       <select aria-label="검증할 노드" value={kind} onChange={event => setKind(event.target.value as CanonicalNodeKind)}>
         {canonicalNodeKinds.map(value => <option key={value} value={value}>{value}</option>)}
       </select>
     </label>
-    <div className="flex h-screen flex-col" data-preview-kind={kind}>
-      <NodeBananaStudio key={kind} graph={graph} catalog={catalog} writable readOnlyReason={null}
-        prepareImageNodeExecution={async () => 1} onDraftChange={() => undefined}
-        resolveUpstreamNodeData={() => ({...(media ? { image: sampleUrl, video: sampleUrl, audioFile: sampleUrl, filename: "Storybook sample", duration: 2 } : {}),...(running?{executionStatus:"processing",executionProgress:92,executionCreatedAt:receipt,executionFinishedAt:null}: {})})}
-      />
-    </div>
-  </QueryClientProvider>;
+    <SelectionCanvas key={kind + running} kind={kind} running={running} />
+  </>;
 }
 export const SelectionStyles: Story = { render: () => <SelectionStylePreview /> };
-export const SeparateResultFailed: Story = {render:()=> <SeparateResultsPreview status="failed" />};
-export const SeparateResultCancelled: Story = {render:()=> <SeparateResultsPreview status="cancelled" />};
+export const RunningSelection: Story = { render: () => <SelectionStylePreview running /> };
 
-function InputUXCanvas({ media, readOnly = false, overlap = false }: {
-  media: "image" | "video" | "audio"; readOnly?: boolean; overlap?: boolean;
-}) {
-  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } }));
-  const sampleUrl = media === "image" ? storybookImage.url : media === "video" ? "/assets/storybook/puppy.mp4" : "/assets/storybook/tone.wav";
-  const [snapshot, setSnapshot] = useState<GenerationGraphSnapshotDto>(() => {
-    const nodes: GenerationGraphSnapshotDto["nodes"] = [
-    { id: "source", kind: "input." + media, configVersion: 1, config: { assetId: "sample", presentation: { customTitle: "Back source" } },
-      position: overlap ? { x: 80, y: 180 } : { x: 40, y: 80 }, selectedOutputAssetId: null },
-    { id: "target", kind: "input." + media, configVersion: 1, config: { assetId: "sample",
-      resultSource: { nodeId: "source", portId: media, index: 0, executionId: "preview", state: "completed" },
-      presentation: { customTitle: "Target" } }, position: { x: 720, y: 80 }, selectedOutputAssetId: null },
-    ];
-    if (overlap) nodes.push({ id: "front", kind: "note.memo", configVersion: 1, config: { text: "Front node", size: { width: 560, height: 440 } },
-      position: { x: 60, y: 100 }, selectedOutputAssetId: null });
-    return { ...initial, id: "input-ux", nodes, edges: [{ id: "input-edge", sourceNodeId: "source", sourcePortId: media, targetNodeId: "target",
-      targetPortId: media === "image" ? "reference" : media, sortOrder: 0 }] };
+function InputUXCanvas({ media, readOnly = false, overlap = false }: { media: Modality; readOnly?: boolean; overlap?: boolean }) {
+  const [client] = useState(() => {
+    const value = presetClient(media, []);
+    value.setQueryData(mediaAssetKeys.detail("sample"), storyMediaAsset("sample", media));
+    return value;
   });
-  return <QueryClientProvider client={client}><div className="flex h-screen flex-col" data-story-input-ux={media}>
-    <NodeBananaStudio graph={snapshot} catalog={catalog} writable={!readOnly} readOnlyReason={readOnly ? "READ_ONLY" : null}
-      prepareImageNodeExecution={async () => 1} onDraftChange={draft => setSnapshot(previous => ({ ...previous, ...draft, version: previous.version + 1 }))}
-      resolveUpstreamNodeData={(_id, data) => (data.config as Record<string, unknown>)?.assetId
-        ? { image: sampleUrl, video: sampleUrl, audioFile: sampleUrl, filename: "Sample", duration: 2 } : {}}
-    />
-    <output data-story-graph="" className="hidden">{JSON.stringify(snapshot)}</output>
-  </div></QueryClientProvider>;
+  const [session] = useState(() => {
+    const document: SpaceEditorDocument = { schemaVersion: 3, title: "Input interactions", groups: [], nodes: [
+      { id: "source", kind: `input.${media}`, configVersion: 1, config: { assetId: "sample", presentation: { customTitle: "Back source" } },
+        position: overlap ? { x: 80, y: 180 } : { x: 40, y: 80 }, selectedOutputAssetId: null },
+      { id: "target", kind: `input.${media}`, configVersion: 1, config: { assetId: "sample",
+        resultSource: { nodeId: "source", portId: media, index: 0, executionId: "preview", state: "completed" }, presentation: { customTitle: "Target" } },
+        position: { x: 720, y: 80 }, selectedOutputAssetId: null },
+      ...(overlap ? [{ id: "front", kind: "note.memo", configVersion: 1, config: { text: "Front node", size: { width: 560, height: 440 } },
+        position: { x: 60, y: 100 }, selectedOutputAssetId: null }] : []),
+    ], edges: [{ id: "input-edge", sourceNodeId: "source", sourcePortId: media, targetNodeId: "target", targetPortId: media === "image" ? "reference" : media, sortOrder: 0 }] };
+    return createSpaceEditorSession({ id: "input-ux", version: 1, document, writable: !readOnly, readOnlyReason: readOnly ? "READ_ONLY" : null });
+  });
+  const graph = useStoryDocument(session);
+  return <NativeStoryProviders client={client} graphId="input-ux">
+    <main className="relative h-screen" data-story-input-ux={media}><SpaceEditor session={session} catalog={catalog} />
+      <output data-story-graph hidden>{JSON.stringify(graph)}</output>
+    </main>
+  </NativeStoryProviders>;
 }
 function InputUXPreview() {
-  const [media, setMedia] = useState<"image" | "video" | "audio">("image");
+  const [media, setMedia] = useState<Modality>("image");
   const [readOnly, setReadOnly] = useState(false), [overlap, setOverlap] = useState(false);
   return <>
-    <div className="absolute left-4 top-4 z-100 flex gap-3 rounded bg-neutral-800 p-2 text-white">
-      <select aria-label="입력 매체" value={media} onChange={event => setMedia(event.target.value as typeof media)}>
+    <div className="absolute left-4 top-4 z-[100] flex gap-3 rounded bg-neutral-800 p-2 text-white">
+      <select aria-label="입력 매체" value={media} onChange={event => setMedia(event.target.value as Modality)}>
         {["image", "video", "audio"].map(value => <option key={value}>{value}</option>)}
       </select>
       <label><input type="checkbox" checked={readOnly} onChange={event => setReadOnly(event.target.checked)} />읽기 전용</label>
@@ -296,8 +401,3 @@ function InputUXPreview() {
   </>;
 }
 export const InputInteractions: Story = { render: () => <InputUXPreview /> };
-
-export const SeparateRepeatFour: Story = {render:()=> <SeparateResultsPreview repeatCount={4} />};
-export const SeparateRepeatFourPending: Story = {render:()=> <SeparateResultsPreview repeatCount={4} status="pending" />};
-
-export const RunningSelection: Story = {render:()=> <SelectionStylePreview running />};

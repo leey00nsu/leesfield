@@ -14,6 +14,7 @@ export function NodeViewTabs<T extends string>({ id, label, value, tabs, onChang
 }) {
   const list = useRef<HTMLDivElement>(null);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const enabled = tabs.filter(tab => !tab.disabled);
     if (!enabled.length) return;

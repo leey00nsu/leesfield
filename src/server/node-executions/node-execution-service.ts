@@ -3,7 +3,7 @@ import type { ExternalNodeSubmission } from "./external-node-submission";
 import { hydrateNodePromptPreset } from "@/features/node-studio/model/node-prompt-presets";
 import { prepareCinemaSubmission, cinemaSubmissionError } from "@/server/cinema/cinema-submission";
 import { cinemaSnapshotSchema, CINEMA_MAPPING_VERSION, hasCinemaGuidance, parseCinemaSettings, type CinemaSettings, type CinemaSnapshot } from "@/shared/cinema/cinema-contract";
-import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
+import { activeMediaOutputPorts, mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
 import { randomUUID } from "node:crypto";
 import {
   beginSubmission,
@@ -594,7 +594,7 @@ function assistantToDto(row: AssistantExecution): NodeExecutionDto {
 }
 
 function expectedOperationOutputs(kind: string, parameters: Record<string, unknown>) {
-  if (kind === "edit.video.extractFrames") return 2;
+  if (kind === "edit.video.extractFrames") return activeMediaOutputPorts(kind, { parameters }).length;
   if (kind !== "edit.image.splitGrid") return 1;
   const rows = typeof parameters.rows === "number" ? parameters.rows : 2;
   const cols = typeof parameters.cols === "number" ? parameters.cols : 2;

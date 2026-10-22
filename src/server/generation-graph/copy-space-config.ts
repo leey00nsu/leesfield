@@ -1,4 +1,5 @@
 import type { CanonicalNode } from "@/shared/generation-graph/canonical-graph";
+import type { GalleryExcludedOccurrence, GeneratedResultGalleryItem } from "@/shared/generation-graph/node-registry";
 
 /** Copies explicit graph-owned references only; asset IDs remain unchanged. */
 export function copySpaceConfig(
@@ -14,6 +15,24 @@ export function copySpaceConfig(
     const source = config.resultSource as { nodeId: string; state: string };
     config.resultSource = { ...source, nodeId: ids.get(source.nodeId) ?? ids.get(node.id) ?? node.id, executionId: null,
       state: typeof config.assetId === "string" ? "completed" : "cancelled" };
+  }
+  if (node.kind === "output.gallery" && Array.isArray(config.resultItems)) {
+    config.resultItems = (config.resultItems as GeneratedResultGalleryItem[]).map((item) => ({
+      ...item,
+      id: newId(),
+      nodeId: ids.get(item.nodeId) ?? ids.get(node.id) ?? node.id,
+      executionId: null,
+      state: typeof item.assetId === "string" ? "completed" : "cancelled",
+    }));
+  }
+  if (node.kind === "output.gallery" && Array.isArray(config.excludedOccurrences)) {
+    config.excludedOccurrences = (config.excludedOccurrences as GalleryExcludedOccurrence[]).flatMap(item => {
+      const edgeId = edgeIds.get(item.edgeId);
+      return edgeId ? [{ ...item, edgeId }] : [];
+    });
+  }
+  if (node.kind === "output.gallery" && Array.isArray(config.legacyExcludedEdgeIds)) {
+    config.legacyExcludedEdgeIds = (config.legacyExcludedEdgeIds as string[]).flatMap(id => edgeIds.has(id) ? [edgeIds.get(id)!] : []);
   }
   if (config.templateSource) {
     const source = config.templateSource as { nodeId: string };

@@ -6,32 +6,80 @@ import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { getMediaAssetName, getMediaAssetReferenceId } from "@/shared/media-assets/media-asset-name";
 import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppButton } from "@/shared/ui/app-button";
+import { AppAudioPlayer } from "@/shared/ui/app-audio-player";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { AppMediaTypeBadge } from "@/shared/ui/app-media-type-badge";
 import { appMediaGalleryTileClassName } from "@/shared/ui/app-media-gallery";
 import { cn } from "@/shared/lib/utils";
 
-export function MediaAssetPreview({ asset, className, fit = "contain", showDuration = true }: { asset: MediaAssetDto; className?: string; fit?: "contain" | "cover"; showDuration?: boolean }) {
+type PreviewPlayback = { element: HTMLMediaElement; wanted: () => boolean; sync: () => void };
+function stopPreview(element: HTMLMediaElement) { element.pause(); element.currentTime = 0; }
+
+export function MediaAssetPreview({ asset, className, fit = "contain", showDuration = true, disabled = false }: { asset: MediaAssetDto; className?: string; fit?: "contain" | "cover"; showDuration?: boolean; disabled?: boolean }) {
+  const tHistory = useTranslations("history.detail");
   const media = useRef<HTMLMediaElement | null>(null);
   const surface = useRef<HTMLDivElement>(null);
+  const hovered = useRef(false), focused = useRef(false), playback = useRef<PreviewPlayback | null>(null);
+  const generatedAudio = asset.type === "audio" && (asset.origin === "generation" || asset.origin === "legacy_generation");
+  const audioText = generatedAudio ? asset.inputPrompt == null ? tHistory("inputPromptUnknown")
+    : asset.inputPrompt.trim() ? asset.inputPrompt : tHistory("noInputPrompt") : null;
   useEffect(() => {
     const element = media.current;
     const control = surface.current?.closest("button, a");
-    if (!element || !control) return;
-    const start = () => { void Promise.resolve(element.play()).catch(() => undefined); };
-    const stop = () => { element.pause(); element.currentTime = 0; };
-    const visibility = () => { if (document.hidden) stop(); };
-    control.addEventListener("focus", start);
-    control.addEventListener("blur", stop);
-    document.addEventListener("visibilitychange", visibility);
-    return () => { stop(); control.removeEventListener("focus", start); control.removeEventListener("blur", stop); document.removeEventListener("visibilitychange", visibility); };
-  }, [asset.url, asset.type]);
-  const start = () => { const element = media.current; if (element) void Promise.resolve(element.play()).catch(() => undefined); };
-  const stop = () => { const element = media.current; if (element) { element.pause(); element.currentTime = 0; } };
-  return <div ref={surface} className={cn("relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-black/40", className)} onPointerEnter={start} onPointerLeave={stop}>
+    if (!element) return;
+    let alive = true, requested = false;
+    focused.current = Boolean(control && control === document.activeElement);
+    const wanted = () => alive && media.current === element && element.isConnected && !document.hidden && !disabled
+      && !control?.matches(":disabled, [aria-disabled='true']") && (hovered.current || focused.current);
+    const guard = () => {
+      // Even an older request must obey the latest intent. A new lifetime may
+      // reuse this element, so an old completion must not pause its valid play.
+      const current = playback.current;
+      if (current?.element !== element || !current.wanted()) stopPreview(element);
+    };
+    const sync = () => {
+      if (!wanted()) { requested = false; stopPreview(element); return; }
+      if (requested) return;
+      requested = true;
+      try { void Promise.resolve(element.play()).then(guard).catch(() => undefined); }
+      catch { /* Autoplay may be denied synchronously. */ }
+    };
+    const policy = { element, wanted: () => requested && wanted(), sync };
+    playback.current = policy;
+    const focus = () => { focused.current = true; sync(); };
+    const blur = () => { focused.current = false; sync(); };
+    const ended = () => { requested = false; stopPreview(element); };
+    control?.addEventListener("focus", focus);
+    control?.addEventListener("blur", blur);
+    element.addEventListener("play", guard);
+    element.addEventListener("playing", guard);
+    element.addEventListener("ended", ended);
+    element.addEventListener("error", ended);
+    document.addEventListener("visibilitychange", sync);
+    sync();
+    return () => {
+      alive = false;
+      if (playback.current === policy) playback.current = null;
+      control?.removeEventListener("focus", focus);
+      control?.removeEventListener("blur", blur);
+      element.removeEventListener("play", guard);
+      element.removeEventListener("playing", guard);
+      element.removeEventListener("ended", ended);
+      element.removeEventListener("error", ended);
+      document.removeEventListener("visibilitychange", sync);
+      stopPreview(element);
+    };
+  }, [asset.url, asset.type, asset.id, asset.version, asset.updatedAt, disabled]);
+  return <div ref={surface} className={cn("relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-black/40", className)}
+    onPointerEnter={() => { hovered.current = true; playback.current?.sync(); }}
+    onPointerLeave={() => { hovered.current = false; playback.current?.sync(); }}>
     {asset.type === "image" ? <VariantImage asset={asset} purpose="list" alt="" loading="lazy" className={cn("size-full", fit === "cover" ? "object-cover" : "object-contain")} /> : asset.type === "video" ?
-      <video ref={element => { media.current = element; }} src={asset.url} muted playsInline preload="metadata" className={cn("size-full", fit === "cover" ? "object-cover" : "object-contain")} /> : <>
-        <AudioLines className="size-10 text-muted-foreground" aria-hidden="true" />
-        <audio ref={element => { media.current = element; }} src={asset.url} preload="none" />
+      <AppVideoPlayer mediaRef={element => { media.current = element; }} src={asset.url} controls={false} muted playsInline preload="metadata" className={cn("size-full", fit === "cover" ? "object-cover" : "object-contain")} /> : <>
+        <span className="flex size-full min-w-0 flex-col items-center justify-center gap-2 overflow-hidden px-4 py-3">
+          <AudioLines className="size-6 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {audioText && <span title={audioText} className="line-clamp-4 max-w-full whitespace-pre-wrap break-words text-center text-sm leading-6 text-foreground">{audioText}</span>}
+        </span>
+        <AppAudioPlayer mediaRef={element => { media.current = element; }} src={asset.url} asset={asset} controls={false} preload="none" className="hidden" />
       </>}
     {showDuration && asset.durationMs != null && fit === "contain" && <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{(asset.durationMs / 1000).toFixed(1)}s</span>}
   </div>;
@@ -45,7 +93,7 @@ export function MediaAssetCard({ asset, selected = false, disabled = false, onSe
   const name = asset.name ?? getMediaAssetName(asset);
   if (presentation === "gallery") return <article className={cn("group relative min-h-0 min-w-0 overflow-hidden rounded-none bg-black", appMediaGalleryTileClassName, selected && "ring-2 ring-inset ring-primary", className)}>
     <button type="button" aria-label={name} aria-pressed={selected} disabled={disabled} onClick={onSelect} className={cn("absolute inset-0 block size-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary disabled:opacity-45", onDetails ? "cursor-pointer" : "cursor-zoom-in")}>
-      <MediaAssetPreview asset={asset} fit={fit} showDuration={false} className="absolute inset-0 h-full aspect-auto rounded-none" />
+      <MediaAssetPreview asset={asset} disabled={disabled} fit={fit} showDuration={false} className="absolute inset-0 h-full aspect-auto rounded-none" />
       <span className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/25 group-focus-within:bg-black/25 motion-reduce:transition-none" />
       <span className="absolute inset-x-0 bottom-0 flex min-w-0 flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-12 pb-3 text-white">
         <span title={name} className="block truncate text-sm font-medium">{name}</span>
@@ -63,7 +111,7 @@ export function MediaAssetCard({ asset, selected = false, disabled = false, onSe
   </article>;
   return <article className={cn("group relative min-w-0 overflow-hidden rounded-xl border bg-card p-2 transition-colors", selected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50", className)}>
     <button type="button" aria-label={name} aria-pressed={selected} disabled={disabled} onClick={onSelect} className="block w-full min-w-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45">
-      <MediaAssetPreview asset={asset} />
+      <MediaAssetPreview asset={asset} disabled={disabled} />
       <span title={name} className="mt-2 block truncate text-sm font-medium">{name}</span>
       <span title={getMediaAssetReferenceId(asset)} className="mt-1 block truncate font-mono text-[10px] text-muted-foreground">{getMediaAssetReferenceId(asset)}</span>
     </button>

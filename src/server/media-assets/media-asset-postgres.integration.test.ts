@@ -7,7 +7,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
-import { MediaAssetNotFoundError, MediaQuotaExceededError } from "./media-asset-errors";
+import { MediaAssetNotFoundError, MediaOperationConflictError, MediaQuotaExceededError } from "./media-asset-errors";
 import { mediaAssetRepository } from "./media-asset-repository";
 
 const integration = describe.skipIf(!postgresIntegrationEnabled);
@@ -27,6 +27,118 @@ integration("MediaAsset PostgreSQL lifecycle", () => {
     await prisma.generationGraph.deleteMany({ where: { id: graphId } });
     await prisma.mediaCleanupTask.deleteMany({ where: { ownerEmail } });
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail } });
+  });
+
+  it("records browser frame captures as edited assets with owned video provenance, idempotent confirmation and no source output mutation", async () => {
+    const captureGraph = "capture-" + suffix;
+    const video = await prisma.mediaAsset.create({ data: { ownerEmail, type: "video", origin: "upload",
+      storageProvider: "leemage", storageObjectId: "capture-video-" + suffix, storageUrl: "https://storage.example/video.mp4",
+      mimeType: "video/mp4", durationMs: 3000 } });
+    const graph = await prisma.generationGraph.create({ data: { id: captureGraph, ownerEmail, title: "Capture",
+      nodes: { create: { id: "capture-source-" + suffix, kind: "input.video", configVersion: 1,
+        config: { assetId: video.id }, selectedOutputAssetId: video.id, x: 0, y: 0 } } } });
+    const uploads: string[] = [];
+    const presign = () => { const id = randomUUID(); return { objectId: id, objectName: id, objectUrl: "https://storage.example/" + id,
+      presignedUrl: "https://upload.example/" + id, expiresAt: new Date(Date.now() + 60000) }; };
+    const base = { intendedType: "image" as const, fileName: "unrelated-name.png", declaredMimeType: "image/png", declaredBytes: 33, sortOrder: 0 };
+    try {
+      for (const timestampMs of [0, 1250, 2999]) {
+        const upload = await mediaAssetRepository.createUploadSession(ownerEmail,
+          { ...base, videoCapture: { graphId: graph.id, sourceAssetId: video.id, timestampMs } }, presign(), BigInt(100000));
+        uploads.push(upload.id);
+        expect(upload.operation).toMatchObject({ type: "edit.video.frameGrab", graphNodeId: null, status: "uploading" });
+        const complete = { ownerEmail, uploadId: upload.id,
+          confirmed: { objectId: upload.storageObjectId, url: upload.storageUrl, mimeType: "image/png", bytes: 33 },
+          inspected: { detectedMimeType: "image/png", width: 320, height: 180, durationMs: null }, now: new Date() };
+        await mediaAssetRepository.claimUpload(ownerEmail, upload.id, new Date());
+        const asset = await mediaAssetRepository.completeUpload(complete);
+        expect(asset).toMatchObject({ origin: "media_operation", sourceOperationId: upload.operationId, type: "image" });
+        expect(await mediaAssetRepository.claimUpload(ownerEmail, upload.id, new Date())).toMatchObject({ kind: "completed", asset: { id: asset.id } });
+        const operation = await mediaAssetRepository.getOperation(ownerEmail, upload.operationId!);
+        expect(operation).toMatchObject({ status: "completed", progress: 100, parameters: { timestampMs },
+          inputs: [{ assetId: video.id, portId: "video", sortOrder: 0 }], outputs: [{ id: asset.id }],
+          outputBindings: [{ assetId: asset.id, portId: "image", sortOrder: 0 }] });
+        const edited = await mediaAssetRepository.listAssets(ownerEmail, { category: "edited", type: "image", limit: 24 });
+        expect(edited.some(item => item.id === asset.id)).toBe(true);
+        const ordinary = await mediaAssetRepository.listAssets(ownerEmail, { category: "uploads", type: "image", limit: 24 });
+        expect(ordinary.some(item => item.id === asset.id)).toBe(false);
+        const { getHistory } = await import("@/server/history/handlers/get-history");
+        const history = await getHistory(new URLSearchParams("type=image&origin=edit"), ownerEmail);
+        expect(history.items.find(item => item.id === operation.id)).toMatchObject({ origin: "edit", assetId: asset.id,
+          graphId: graph.id, graphNodeId: null, sourceAssetIds: [video.id], operation: { type: "edit.video.frameGrab", parameters: { timestampMs } } });
+      }
+      expect(await prisma.generationGraphNode.findUnique({ where: { id: "capture-source-" + suffix } })).toMatchObject({ selectedOutputAssetId: video.id, config: { assetId: video.id } });
+      expect(await prisma.generationGraphNodeOutput.count({ where: { graphNodeId: "capture-source-" + suffix } })).toBe(0);
+      const count = await prisma.mediaOperation.count({ where: { graphId: graph.id } });
+      for (const capture of [
+        { graphId: graph.id, sourceAssetId: video.id, timestampMs: 3000 },
+        { graphId: "missing", sourceAssetId: video.id, timestampMs: 0 },
+        { graphId: graph.id, sourceAssetId: sourceAssetId, timestampMs: 0 },
+      ]) await expect(mediaAssetRepository.createUploadSession(ownerEmail, { ...base, videoCapture: capture }, presign(), BigInt(100000))).rejects.toBeInstanceOf(MediaOperationConflictError);
+      await expect(mediaAssetRepository.createUploadSession("foreign-" + ownerEmail,
+        { ...base, videoCapture: { graphId: graph.id, sourceAssetId: video.id, timestampMs: 0 } }, presign(), BigInt(100000))).rejects.toBeInstanceOf(MediaOperationConflictError);
+      expect(await prisma.mediaOperation.count({ where: { graphId: graph.id } })).toBe(count);
+      const expiring = await mediaAssetRepository.createUploadSession(ownerEmail, { ...base,
+        videoCapture: { graphId: graph.id, sourceAssetId: video.id, timestampMs: 0 } }, presign(), BigInt(100000));
+      uploads.push(expiring.id);
+      await mediaAssetRepository.expireUploads(new Date(Date.now() + 120000), 100);
+      expect(await mediaAssetRepository.getOperation(ownerEmail, expiring.operationId!)).toMatchObject({ status: "failed", outputs: [] });
+      const failing = await mediaAssetRepository.createUploadSession(ownerEmail, { ...base,
+        videoCapture: { graphId: graph.id, sourceAssetId: video.id, timestampMs: 1250 } }, presign(), BigInt(100000));
+      uploads.push(failing.id);
+      await mediaAssetRepository.failUpload(ownerEmail, failing.id, "MEDIA_UPLOAD_FAILED");
+      expect(await mediaAssetRepository.getOperation(ownerEmail, failing.operationId!)).toMatchObject({ status: "failed", outputs: [] });
+    } finally {
+      await prisma.mediaUploadSession.deleteMany({ where: { id: { in: uploads } } });
+      await prisma.mediaOperation.deleteMany({ where: { graphId: graph.id } });
+      await prisma.generationGraph.delete({ where: { id: graph.id } });
+    }
+  });
+
+  it("projects original audio text for list/detail and excludes a foreign parent generation", async () => {
+    const { createMediaAssetService } = await import("./media-asset-service");
+    const scripts = ["Native script.\n원래 TTS 대본입니다.", "Legacy spoken input", "Foreign private script"];
+    const requestIds = scripts.map((_, index) => `audio-input-${suffix}-${index}`);
+    const assetIds: string[] = [];
+    const service = createMediaAssetService(mediaAssetRepository, {
+      name: "leemage", assertAvailable() {}, presign: async () => { throw new Error("unexpected"); },
+      confirm: async () => { throw new Error("unexpected"); }, inspect: async () => { throw new Error("unexpected"); },
+      delete: async () => { throw new Error("unexpected"); }, resolveReadUrl: async () => { throw new Error("unexpected"); },
+    });
+    try {
+      for (const [index, script] of scripts.entries()) {
+        const result = await prisma.audioGeneration.create({ data: {
+          ownerEmail: index === 2 ? `foreign-${ownerEmail}` : ownerEmail, requestId: requestIds[index],
+          prompt: "Processed provider instructions", modelKey: "native-audio", status: "completed", progress: 100,
+          requestParams: index === 0 ? {
+            inputPrompt: "", promptFields: [], dynamicParams: { Script: script }, executionModel: {
+              providerConfig: { gradio_contract: { version: 1, apiName: "/speak", inputs: [
+                { name: "Script", label: "Script", kind: "string", schema: { type: "string" }, required: true, nullable: false },
+              ], output: { media: "audio", path: [0], multiple: false }, diagnostics: [], reviewed: true } },
+            },
+          } : { inputPrompt: script },
+          audios: { create: { url: "https://storage.example/audio-input.wav", asset: { create: {
+            ownerEmail, type: "audio", origin: index === 1 ? "legacy_generation" : "generation", mimeType: "audio/wav",
+            storageProvider: "leemage", storageObjectId: `audio-input-${suffix}-${index}`,
+            storageUrl: "https://storage.example/audio-input.wav", durationMs: 1811,
+          } } } },
+        }, include: { audios: { select: { assetId: true } } } });
+        assetIds.push(result.audios[0].assetId!);
+      }
+      const page = await service.list(ownerEmail, { type: "audio" });
+      for (const [index, assetId] of assetIds.entries()) {
+        const listed = page.items.find(item => item.id === assetId);
+        expect(listed).toMatchObject({ inputPrompt: index === 2 ? null : scripts[index] });
+        expect(await service.get(ownerEmail, assetId)).toEqual(listed);
+      }
+      const inputs = await mediaAssetRepository.listAudioGenerationInputs(ownerEmail, assetIds);
+      expect(inputs.map(input => input.assetId).sort()).toEqual(assetIds.slice(0, 2).sort());
+      expect(JSON.stringify(page.items.filter(item => assetIds.includes(item.id)))).not.toContain(scripts[2]);
+      await expect(service.get(`foreign-${ownerEmail}`, assetIds[0])).rejects.toBeInstanceOf(MediaAssetNotFoundError);
+    } finally {
+      await prisma.audioGeneration.deleteMany({ where: { requestId: { in: requestIds } } });
+      await prisma.mediaAsset.deleteMany({ where: { id: { in: assetIds }, ownerEmail } });
+    }
   });
 
   it("round-trips original and derived image roles without storage reads", async () => {

@@ -28,9 +28,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@node-banana-runtime/*": [
-        "./.generated/node-banana-runtime/src/leesfield/*"
       ]
     }
   },
@@ -41,15 +38,14 @@
     "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    ".next-node-studio-e2e/types/**/*.ts",
-    ".next-node-studio-e2e/dev/types/**/*.ts"
+    ".next-spaces-e2e/types/**/*.ts",
+    ".next-spaces-e2e/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "tmp",
     "artifacts",
     ".next",
-    ".generated",
     "third_party"
   ]
 }

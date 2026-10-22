@@ -1,5 +1,6 @@
 "use client";
 
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { imageUrlsFor } from "@/shared/media-assets/image-variants";
 import { useEffect, useRef, useMemo, useState } from "react";
 import {
@@ -200,7 +201,7 @@ function HistoryMedia({ urls, type, alt, autoplay, fit, onDuration }: { urls: st
   const [candidate, setCandidate] = useState(0);
   const url = urls[candidate];
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -219,7 +220,7 @@ function HistoryMedia({ urls, type, alt, autoplay, fit, onDuration }: { urls: st
   const className = cn("h-full w-full transition-opacity motion-reduce:transition-none", fit === "cover" ? "object-cover" : "object-contain", state !== "loaded" && "opacity-0");
   return <>
     {state === "loading" && <AppSkeleton role="status" aria-label={t("loading")} className="absolute inset-0 rounded-none motion-reduce:animate-none" />}
-    {type === "video" ? <video ref={videoRef} autoPlay={autoplay && visible} key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedMetadata={event => { const duration = event.currentTarget.duration; onDuration(Number.isFinite(duration) && duration > 0 ? duration : null); }} onLoadedData={() => setState("loaded")} onError={failed} /> :
+    {type === "video" ? <AppVideoPlayer controls={false} active={visible} ref={videoRef} autoPlay={autoplay && visible} key={`${candidate}-${attempt}`} src={url} className={className} muted loop playsInline preload="metadata" onLoadedMetadata={event => { const duration = event.currentTarget.duration; onDuration(Number.isFinite(duration) && duration > 0 ? duration : null); }} onLoadedData={() => setState("loaded")} onError={failed} /> :
       // eslint-disable-next-line @next/next/no-img-element
       <img key={`${candidate}-${attempt}`} src={url} alt={alt} loading="lazy" decoding="async" fetchPriority="low" className={className} onLoad={() => setState("loaded")} onError={failed} />}
     {state === "error" && <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card p-4 text-center text-sm">

@@ -1,7 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { commentNavigationForNode } from "@node-banana-runtime/upstream-node-host";
-import { sortedCommentNodes, useSpaceCommentsSession, type CommentNode } from "./use-space-comments";
+import { spaceCommentNavigation as commentNavigationForNode, sortedCommentNodes, useSpaceCommentsSession, type CommentNode } from "./use-space-comments";
 
 const node = (id: string, x = 0, y = 0, comment = id): CommentNode => ({ id, position: { x, y }, data: { comment } });
 
@@ -36,7 +35,7 @@ describe("Space comment sessions", () => {
     expect(result.current.unreadCount).toBe(1);
   });
 
-  it("uses actual host navigation callbacks to wrap previous/next and mark the destination read", () => {
+  it("wraps native previous/next callbacks and marks the destination read", () => {
     const nodes = [node("a"), node("b", 100), node("c", 200)];
     const { result } = renderHook(() => useSpaceCommentsSession("alice/space", nodes));
     expect(commentNavigationForNode("missing", result.current)).toBeNull();

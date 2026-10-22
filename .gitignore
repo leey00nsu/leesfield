@@ -14,6 +14,10 @@
 /coverage
 /storybook-static
 # Browser traces may contain authenticated requests or presigned storage URLs.
+/artifacts/spaces-e2e/test-results/
+/artifacts/spaces-e2e/evidence/
+/artifacts/spaces-e2e/results.json
+# Keep historical browser traces and review evidence local, too.
 /artifacts/node-banana-e2e/test-results/
 # Generated review evidence/reports stay local; fixed snapshots remain trackable.
 /artifacts/node-banana-e2e/evidence/
@@ -22,7 +26,7 @@
 
 # next.js
 /.next/
-/.next-node-studio-e2e/
+/.next-spaces-e2e/
 /out/
 
 # production
@@ -54,9 +58,6 @@ __pycache__/
 next-env.d.ts
 
 /src/generated/prisma
-
-# generated from the immutable Node Banana snapshot + Leesfield patches
-/.generated/
 
 # Isolated production performance builds
 .next-perf-*/

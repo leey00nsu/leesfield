@@ -8,6 +8,16 @@ import {
 } from "./media-asset-contract";
 
 describe("media asset contracts", () => {
+  it("accepts a PNG capture context and rejects conflicting bindings or invalid timestamps", () => {
+    const input = { intendedType: "image", fileName: "frame.png", declaredMimeType: "image/png", declaredBytes: 24,
+      videoCapture: { graphId: "space", sourceAssetId: "video", timestampMs: 1250 } };
+    expect(createMediaUploadSchema.parse(input)).toMatchObject(input);
+    for (const invalid of [
+      { ...input, intendedType: "video" }, { ...input, declaredMimeType: "image/jpeg" },
+      { ...input, operationId: "op", outputPortId: "image" }, { ...input, sortOrder: 1 },
+      ...[-1, 1.5, 600001, NaN].map(timestampMs => ({ ...input, videoCapture: { ...input.videoCapture, timestampMs } })),
+    ]) expect(createMediaUploadSchema.safeParse(invalid).success).toBe(false);
+  });
   it("validates metadata filters and exclusive UTC date boundaries", () => {
     const input = { classification: "none", managementStatus: "archived", model: "past-model", dateFrom: "2026-10-12T15:00:00.000Z", dateTo: "2026-10-13T15:00:00.000Z" };
     expect(listMediaAssetsSchema.parse(input)).toMatchObject(input);

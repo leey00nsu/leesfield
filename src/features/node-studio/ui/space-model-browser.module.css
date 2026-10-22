@@ -1,0 +1,139 @@
+/* Layout adapted from Node Banana's model browser.
+ * MIT License — Copyright (c) 2026 William Falloon
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+.dialog {
+  color: var(--foreground, #f5f5f5);
+  font-family: var(--font-sans, sans-serif);
+}
+
+.header {
+  align-items: center;
+  border-bottom: 1px solid var(--border, #404040);
+  padding: 16px 24px;
+}
+
+.filters {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border, #404040);
+  padding: 16px 24px;
+}
+
+.provider { width: 100%; }
+.types { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgb(82 82 82 / 0.5);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgb(64 64 64 / 0.5);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.card:not([data-disabled="true"]):hover {
+  border-color: #737373;
+  background: #404040;
+}
+
+.card[data-selected="true"] {
+  border-color: var(--data-accent, #60a5fa);
+  background: rgb(59 130 246 / 0.1);
+}
+
+.card[data-disabled="true"] { opacity: 0.5; }
+
+.choose {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.choose:disabled { cursor: not-allowed; }
+.choose:focus-visible { outline: 2px solid var(--ring, #60a5fa); outline-offset: 2px; }
+
+.cover {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #525252;
+  color: #737373;
+}
+
+.cover img { width: 100%; height: 100%; object-fit: cover; }
+.cover svg { width: 32px; height: 32px; }
+.info { min-width: 0; flex: 1; }
+.name { overflow: hidden; color: #f5f5f5; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.identifier { display: flex; min-width: 0; align-items: center; gap: 6px; margin-top: 2px; color: #737373; font-size: 12px; }
+.identifier > span { overflow: hidden; font-family: monospace; text-overflow: ellipsis; white-space: nowrap; }
+.sourceLink { position: relative; z-index: 2; flex-shrink: 0; border-radius: 2px; }
+.sourceLink:hover { color: #d4d4d4; }
+.sourceLink:focus-visible { outline: 2px solid var(--ring, #60a5fa); outline-offset: 2px; }
+.sourceLink svg { width: 12px; height: 12px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.description { display: -webkit-box; overflow: hidden; margin: 6px 0 0; color: #a3a3a3; font-size: 12px; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.selected, .add { width: 20px; height: 20px; flex-shrink: 0; align-self: center; color: #a3a3a3; }
+.selected { color: var(--data-accent, #60a5fa); }
+.add { opacity: 0; transition: opacity 120ms ease; }
+.card:hover .add, .card:focus-within .add { opacity: 1; }
+
+.recent { margin-bottom: 16px; border-radius: 8px; padding: 12px; background: rgb(64 64 64 / 0.3); }
+.recent h3 { margin: 0 0 8px; color: #737373; font-size: 12px; font-weight: 500; }
+.recent .cards { gap: 8px; }
+.recentCard { align-items: center; border-color: rgb(82 82 82 / 0.3); padding: 12px; }
+.recentCard .cover { width: 40px; height: 40px; border-radius: 4px; }
+.recentCard .cover svg { width: 20px; height: 20px; }
+.state { display: flex; min-height: 192px; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #a3a3a3; font-size: 14px; text-align: center; }
+.state > svg { width: 32px; height: 32px; }
+.state p { max-width: 28rem; margin: 0; overflow-wrap: anywhere; }
+.footer { flex-shrink: 0; border-top: 1px solid var(--border, #404040); padding: 12px 24px; color: #a3a3a3; font-size: 12px; }
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (min-width: 640px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }

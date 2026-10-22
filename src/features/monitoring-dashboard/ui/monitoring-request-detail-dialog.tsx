@@ -1,4 +1,6 @@
 "use client";
+import { AppAudioPlayer } from "@/shared/ui/app-audio-player";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { ExecutionTime } from "@/shared/ui/execution-time";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 import { AppDialogBody } from "@/shared/ui/app-dialog";
@@ -308,7 +310,7 @@ export function MonitoringRequestDetailDialog({
                       className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
                     >
                       <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
-                        <audio controls className="w-full" src={url} />
+                        <AppAudioPlayer controls className="w-full" src={url} />
                       </div>
                       <div className="px-3 py-2 text-xs text-gray-400">
                         #{index + 1}
@@ -350,14 +352,14 @@ export function MonitoringRequestDetailDialog({
                           />
                         ) : detail.type === "audio" ? (
                           <div className="flex h-48 w-full items-center justify-center bg-black/70 p-4">
-                            <audio
+                            <AppAudioPlayer
                               controls
                               className="w-full"
                               src={asset.url}
                             />
                           </div>
                         ) : (
-                          <video
+                          <AppVideoPlayer
                             controls
                             className="h-48 w-full object-contain bg-black/70"
                             src={asset.url}

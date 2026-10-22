@@ -33,9 +33,18 @@ export const createMediaUploadSchema = z
     operationId: mediaAssetIdSchema.optional(),
     outputPortId: mediaAssetIdSchema.optional(),
     sortOrder: z.number().int().nonnegative().default(0),
+    videoCapture: z.object({
+      graphId: mediaAssetIdSchema,
+      sourceAssetId: mediaAssetIdSchema,
+      timestampMs: z.number().int().min(0).max(600_000),
+    }).strict().optional(),
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.videoCapture && (value.intendedType !== "image" || value.declaredMimeType !== "image/png"
+      || value.operationId || value.outputPortId || value.sortOrder !== 0)) {
+      context.addIssue({ code: "custom", message: "Invalid video capture output", path: ["videoCapture"] });
+    }
     if (Boolean(value.operationId) !== Boolean(value.outputPortId)) {
       context.addIssue({
         code: "custom",
@@ -118,6 +127,8 @@ export type MediaAssetDto = {
   displayName?: string | null;
   originalFileName?: string | null;
   name?: string;
+  /** Original authoring text for generated audio; absent on other media/origins. */
+  inputPrompt?: string | null;
   folderId?: string | null;
   projectIds?: string[];
   starred?: boolean;

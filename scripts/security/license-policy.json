@@ -1,0 +1,52 @@
+{
+  "allowedLicenseExpressions": [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 AND MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC-BY-4.0",
+    "ISC",
+    "LGPL-3.0-or-later",
+    "MIT",
+    "MIT AND ISC",
+    "MPL-2.0"
+  ],
+  "packageExceptions": {
+    "pako": {
+      "versions": ["1.0.11"],
+      "licenses": ["(MIT AND Zlib)"],
+      "reason": "Retain both MIT and Zlib notices in the installed package."
+    },
+    "jszip": {
+      "versions": ["3.10.1"],
+      "licenses": ["(MIT OR GPL-3.0-or-later)", "(MIT OR GPL-3.0)"],
+      "selectedLicense": "MIT",
+      "reason": "Use the MIT option and retain the package's LICENSE.markdown."
+    },
+    "@paper-design/shaders": {
+      "versions": ["0.0.76"],
+      "licenses": ["Unknown"],
+      "reason": "Carry forward the existing project exception, limited to its installed version."
+    },
+    "@paper-design/shaders-react": {
+      "versions": ["0.0.76"],
+      "licenses": ["Unknown"],
+      "reason": "Carry forward the existing project exception, limited to its installed version."
+    }
+  },
+  "retainedMitNotices": [
+    {
+      "licensePath": "third_party/node-banana/LICENSE",
+      "noticePath": "third_party/node-banana/THIRD_PARTY_NOTICES.md",
+      "attribution": "Node Banana",
+      "copyright": "Copyright (c) 2026 William Falloon"
+    },
+    {
+      "licensePath": "third_party/node-banana/source/LICENSE",
+      "noticePath": "third_party/node-banana/THIRD_PARTY_NOTICES.md",
+      "attribution": "Node Banana",
+      "copyright": "Copyright (c) 2026 William Falloon"
+    }
+  ]
+}

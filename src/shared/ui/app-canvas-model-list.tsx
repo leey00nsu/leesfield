@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Sparkles } from "lucide-react";
-import type { CanvasModelListProps } from "@node-banana-runtime/inputs";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import { cn } from "@/shared/lib/utils";
 import { AppResourceList, AppResourceEmpty, appResourceRowLayoutClassName } from "./app-resource-list";
@@ -10,7 +9,28 @@ import { ResourceRowButton, resourceRowInteractiveClassName } from "./brand/reso
 import { AppModelIdentity } from "./app-model-identity";
 import { AppButton } from "./app-button";
 
-export function AppCanvasModelList({ items, recentIds, onSelect, selectedId, disabled, loading, error, onRetry, onClear }: CanvasModelListProps) {
+export interface AppCanvasModelListItem {
+  id: string;
+  name: string;
+  modelId?: string;
+  provider: string;
+  type: "image" | "video" | "audio" | "llm";
+  modalities: readonly string[];
+}
+
+export interface AppCanvasModelListProps {
+  items: readonly AppCanvasModelListItem[];
+  recentIds?: readonly string[];
+  onSelect: (id: string) => void;
+  selectedId?: string | null;
+  disabled?: boolean;
+  loading: boolean;
+  error: string | null;
+  onRetry?: () => void;
+  onClear?: () => void;
+}
+
+export function AppCanvasModelList({ items, recentIds, onSelect, selectedId, disabled, loading, error, onRetry, onClear }: AppCanvasModelListProps) {
   const tc = useCanvasTranslation();
   return <div className="min-h-0 flex-1 overflow-y-auto p-4">
     {onClear && <AppButton className="mb-3" variant="surface" onClick={onClear} disabled={disabled}>{tc("Remove fallback")}</AppButton>}

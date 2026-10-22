@@ -33,7 +33,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail } });
   });
 
-  it("links Stitch and Trim video artifacts to Graph outputs and History with lease fencing", async () => {
+  it("completes already-accepted Stitch and Trim artifacts with History and lease fencing after temporary hiding", async () => {
     await prisma.generationGraph.create({
       data: {
         id: graphId, ownerEmail, title: "Video operation integration", schemaVersion: 2,
@@ -69,10 +69,11 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
       ]],
     ];
     for (const [nodeId, type, parameters, inputs] of cases) {
-      const operation = await mediaAssetRepository.createOperation(ownerEmail, {
-        graphId, graphNodeId: nodeId, type, configVersion: 1,
-        parameters, inputs: [...inputs], expectedOutputCount: 1,
-      });
+      // These jobs were accepted before temporary hiding; new admission stays blocked.
+      const operation = await prisma.mediaOperation.create({ data: {
+        ownerEmail, graphId, graphNodeId: nodeId, type, configVersion: 1,
+        parameters, inputs: { create: inputs }, expectedOutputCount: 1,
+      } });
       const claimed = await mediaAssetRepository.claimPendingServerOperation(operation.id);
       expect(claimed?.operation.type).toBe(type);
       if (!claimed) throw new Error("operation was not claimed");
@@ -234,5 +235,131 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
       expect((await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId)).toEqual(originalBindings);
       if (failure === "stale") await mediaAssetRepository.cancelOperation(ownerEmail, operation.id);
     }
+  });
+
+  it("persists one named frame and frozen point parameters without replacing legacy ports or owner/input snapshots", async () => {
+    const frameId = `point-frames-${suffix}`, sourceId = `point-source-${suffix}`;
+    await prisma.generationGraphNode.createMany({ data: [
+      { id: frameId, graphId, kind: "edit.video.extractFrames", configVersion: 1, config: { parameters: {} }, x: 1200, y: 0 },
+      { id: sourceId, graphId, kind: "input.video", configVersion: 1, config: { assetId: clipIds[0] }, x: 1000, y: 0 },
+    ] });
+    await prisma.generationGraphEdge.create({ data: {
+      id: `point-wire-${suffix}`, graphId, sourceNodeId: sourceId, sourcePortId: "video",
+      targetNodeId: frameId, targetPortId: "video", sortOrder: 0,
+    } });
+    const input = { graphId, graphNodeId: frameId, type: "edit.video.extractFrames" as const, configVersion: 1,
+      inputs: [{ assetId: clipIds[0], portId: "video", sortOrder: 0 }] };
+    const artifact = (outputPortId: string) => ({ outputPortId, sortOrder: 0, type: "image" as const, storageProvider: "leemage" as const,
+      storageObjectId: randomUUID(), storageUrl: `https://storage.example/${randomUUID()}.png`, mimeType: "image/png", bytes: 100, width: 160, height: 90, durationMs: null });
+    const legacy = await mediaAssetRepository.createOperation(ownerEmail, { ...input, parameters: {}, expectedOutputCount: 2 });
+    const legacyClaim = await mediaAssetRepository.claimPendingServerOperation(legacy.id);
+    if (!legacyClaim) throw new Error("legacy operation was not claimed");
+    await mediaAssetRepository.completeServerOperation(ownerEmail, legacy.id, [artifact("startFrame"), artifact("endFrame")], new Date(), legacyClaim.lease);
+    const legacyBindings = (await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId);
+    const points: Array<{ operationId: string; assetId: string; timestampMs: number }> = [];
+    for (const timestampMs of [0, 1250]) {
+      await prisma.generationGraphNode.update({ where: { id: frameId }, data: { config: { parameters: { timestampMs } } } });
+      await prisma.generationGraphNode.update({ where: { id: sourceId }, data: { config: { assetId: clipIds[0] } } });
+      await expect(mediaAssetRepository.createOperation(ownerEmail, { ...input, parameters: { timestampMs }, expectedOutputCount: 2 }))
+        .rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
+      await expect(mediaAssetRepository.createOperation(`other-${ownerEmail}`, { ...input, parameters: { timestampMs }, expectedOutputCount: 1 }))
+        .rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
+      const operation = await mediaAssetRepository.createOperation(ownerEmail, { ...input, parameters: { timestampMs }, expectedOutputCount: 1 });
+      const claimed = await mediaAssetRepository.claimPendingServerOperation(operation.id);
+      if (!claimed) throw new Error("point operation was not claimed");
+      // Live edits after acceptance cannot change the operation's input or extraction mode.
+      await prisma.generationGraphNode.update({ where: { id: frameId }, data: { config: { parameters: {} } } });
+      await prisma.generationGraphNode.update({ where: { id: sourceId }, data: { config: { assetId: clipIds[1] } } });
+      for (const invalid of [[], [artifact("frame"), artifact("frame")], [artifact("startFrame")], [artifact("endFrame")],
+        [{ ...artifact("frame"), outputPortId: undefined }], [{ ...artifact("frame"), sortOrder: 1 }], [{ ...artifact("frame"), mimeType: "image/webp" }]]) {
+        await expect(mediaAssetRepository.completeServerOperation(ownerEmail, operation.id, invalid, new Date(), claimed.lease))
+          .rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
+        expect(await prisma.mediaAsset.count({ where: { sourceOperationId: operation.id } })).toBe(0);
+        expect((await mediaAssetRepository.getOperation(ownerEmail, operation.id)).status).toBe("processing");
+      }
+      await expect(mediaAssetRepository.completeServerOperation(`other-${ownerEmail}`, operation.id, [artifact("frame")], new Date(), claimed.lease))
+        .rejects.toBeInstanceOf(MediaOperationLeaseLostError);
+      const assetIds = await mediaAssetRepository.completeServerOperation(ownerEmail, operation.id, [artifact("frame")], new Date(), claimed.lease);
+      expect(assetIds).toHaveLength(1);
+      points.push({ operationId: operation.id, assetId: assetIds[0], timestampMs });
+      const history = await mediaAssetRepository.getOperation(ownerEmail, operation.id);
+      expect(history).toMatchObject({ parameters: { timestampMs }, expectedOutputCount: 1, status: "completed",
+        inputs: [{ assetId: clipIds[0], portId: "video", sortOrder: 0 }], outputBindings: [{ portId: "frame", sortOrder: 0, assetId: assetIds[0] }] });
+      expect((await prisma.mediaAsset.findUnique({ where: { id: assetIds[0] } }))?.ownerEmail).toBe(ownerEmail);
+      const graph = await generationGraphRepository.get(ownerEmail, graphId), bindings = graph.outputBindings!.filter(binding => binding.graphNodeId === frameId);
+      expect(bindings.filter(binding => binding.portId !== "frame")).toEqual(legacyBindings);
+      expect(bindings.filter(binding => binding.assetId === assetIds[0])).toEqual([expect.objectContaining({ portId: "frame", sortOrder: 0 })]);
+      expect(graph.nodes.find(node => node.id === frameId)?.config).toEqual({ parameters: {} });
+      expect(graph.nodes.find(node => node.id === sourceId)?.config).toEqual({ assetId: clipIds[1] });
+    }
+    const selectHistory = async (assetId: string, parameters: Record<string, number>) => {
+      const graph = await generationGraphRepository.get(ownerEmail, graphId);
+      return generationGraphRepository.update(ownerEmail, graphId, updateGenerationGraphSchema.parse({
+        schemaVersion: 3, expectedVersion: graph.version, title: graph.title, groups: graph.groups,
+        edges: graph.edges, selectionChanges: [frameId], nodes: graph.nodes.map(node =>
+          node.id === frameId ? { ...node, config: { parameters }, selectedOutputAssetId: assetId } : node),
+      }));
+    };
+    // History ports follow the selected operation even when its mode differs from the current node config.
+    const oldPoint = await selectHistory(points[0].assetId, {});
+    expect(oldPoint.nodes.find(node => node.id === frameId)?.config).toEqual({ parameters: {} });
+    expect(oldPoint.outputBindings!.filter(binding => binding.graphNodeId === frameId))
+      .toEqual([{ graphNodeId: frameId, portId: "frame", sortOrder: 0, assetId: points[0].assetId }]);
+    const oldLegacy = await selectHistory(legacyBindings.find(binding => binding.portId === "endFrame")!.assetId, { timestampMs: 5000 });
+    expect(oldLegacy.nodes.find(node => node.id === frameId)?.config).toEqual({ parameters: { timestampMs: 5000 } });
+    expect(oldLegacy.outputBindings!.filter(binding => binding.graphNodeId === frameId)).toEqual(legacyBindings);
+    const latestPoint = await selectHistory(points[1].assetId, {});
+    expect(latestPoint.outputBindings!.filter(binding => binding.graphNodeId === frameId))
+      .toEqual([{ graphNodeId: frameId, portId: "frame", sortOrder: 0, assetId: points[1].assetId }]);
+    for (const point of points) expect(await mediaAssetRepository.getOperation(ownerEmail, point.operationId))
+      .toMatchObject({ parameters: { timestampMs: point.timestampMs }, expectedOutputCount: 1,
+        outputBindings: [{ portId: "frame", sortOrder: 0, assetId: point.assetId }] });
+    expect((await mediaAssetRepository.getOperation(ownerEmail, legacy.id)).parameters).toEqual({});
+  });
+
+  it("the point worker requires one frame PNG and rejects wrong named/count processor or upload results", async () => {
+    const frameId = `worker-point-${suffix}`;
+    await prisma.generationGraphNode.create({ data: {
+      id: frameId, graphId, kind: "edit.video.extractFrames", configVersion: 1, config: { parameters: { timestampMs: 750 } }, x: 1500, y: 0,
+    } });
+    const create = () => mediaAssetRepository.createOperation(ownerEmail, {
+      graphId, graphNodeId: frameId, type: "edit.video.extractFrames", configVersion: 1,
+      parameters: { timestampMs: 750 }, expectedOutputCount: 1, inputs: [{ assetId: clipIds[0], portId: "video", sortOrder: 0 }],
+    });
+    const frame = { outputPortId: "frame", buffer: Buffer.from("chosen"), width: 160, height: 90 };
+    worker.frames.mockResolvedValue([frame]);
+    worker.upload.mockImplementation(async (requestId: string, images: Array<{ dataUrl: string }>) => {
+      expect(images).toHaveLength(1);
+      expect(images[0].dataUrl).toBe(`data:image/png;base64,${Buffer.from("chosen").toString("base64")}`);
+      const storageObjectId = randomUUID();
+      await createStorageCleanupIntent(undefined, { ownerEmail, requestId, storageProvider: "leemage", storageObjectId, reason: "media_operation_output" });
+      return [{ type: "image", storageProvider: "leemage", storageObjectId, storageUrl: `https://storage.example/${storageObjectId}.png`, mimeType: "image/png", bytes: 100, width: 160, height: 90, durationMs: null }];
+    });
+    const operation = await create();
+    await prisma.generationGraphNode.update({ where: { id: frameId }, data: { config: { parameters: { timestampMs: 999 } } } });
+    await processMediaOperationJobs();
+    const completed = await mediaAssetRepository.getOperation(ownerEmail, operation.id);
+    expect(completed).toMatchObject({ status: "completed", parameters: { timestampMs: 750 }, expectedOutputCount: 1,
+      inputs: [{ assetId: clipIds[0], portId: "video", sortOrder: 0 }] });
+    expect(completed.outputs).toHaveLength(1);
+    expect(completed.outputBindings).toEqual([{ portId: "frame", sortOrder: 0, assetId: completed.outputs[0].id }]);
+    expect(worker.frames).toHaveBeenCalledWith(expect.objectContaining({ ownerEmail, parameters: { timestampMs: 750 },
+      inputs: [expect.objectContaining({ assetId: clipIds[0], portId: "video", sortOrder: 0 })] }), expect.any(AbortSignal));
+    expect(await prisma.mediaCleanupTask.count({ where: { requestId: operation.id, status: "linked" } })).toBe(1);
+    const bindings = (await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId);
+    for (const frames of [[], [{ ...frame, outputPortId: "endFrame" }], [frame, frame]]) {
+      worker.frames.mockResolvedValueOnce(frames);
+      worker.upload.mockClear();
+      const invalid = await create();
+      await processMediaOperationJobs();
+      expect(worker.upload).not.toHaveBeenCalled();
+      expect(await mediaAssetRepository.getOperation(ownerEmail, invalid.id)).toMatchObject({ status: "failed", errorCode: "VIDEO_OUTPUT_INVALID", outputs: [] });
+      expect((await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId)).toEqual(bindings);
+    }
+    worker.frames.mockResolvedValue([frame]);
+    worker.upload.mockResolvedValueOnce([]);
+    const empty = await create();
+    await processMediaOperationJobs();
+    expect(await mediaAssetRepository.getOperation(ownerEmail, empty.id)).toMatchObject({ status: "failed", errorCode: "VIDEO_OUTPUT_INVALID", outputs: [] });
   });
 });

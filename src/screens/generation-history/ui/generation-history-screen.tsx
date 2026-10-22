@@ -1,4 +1,5 @@
 "use client";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
 
@@ -8,7 +9,7 @@ import { AppPageShell } from "@/shared/ui/app-page-shell";
 import { useCallback, useRef, useState } from "react";
 import { useUnsavedAssetClose } from "@/features/media-assets/hook/use-unsaved-asset-close";
 import { MediaAssetDetailPanel } from "@/features/media-assets/ui/media-asset-detail-panel";
-import { useGenerationDetailTabs } from "@/features/generation-history/lib/use-generation-detail-tabs";
+import { GenerationAudioPreview, useGenerationDetailTabs } from "@/features/generation-history/lib/use-generation-detail-tabs";
 import {
   AudioLines,
   Download,
@@ -360,7 +361,7 @@ function HistoryDetailOverlay({
       >
         {previewUrl ? (
           hydratedItem.type === "video" ? (
-            <video
+            <AppVideoPlayer
               data-testid="history-detail-preview-media"
               src={previewUrl}
               controls
@@ -374,7 +375,7 @@ function HistoryDetailOverlay({
               onClick={(event) => event.stopPropagation()}
               className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-8"
             >
-              <audio src={previewUrl} controls className="w-full" />
+              <GenerationAudioPreview src={previewUrl} assetId={hydratedItem.assetId} controls className="w-full" />
             </div>
           ) : (
             <VariantImage

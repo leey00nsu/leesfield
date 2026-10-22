@@ -1,4 +1,5 @@
 "use client";
+import { AppAudioPlayer } from "@/shared/ui/app-audio-player";
 import { syncPrimaryTextValue } from "@/shared/model-catalog/generation-payload";
 import { ReferenceUploadScope, useReferenceUploads } from "@/shared/ui/reference-upload-scope";
 import { GenerationAssetReferenceBridge } from "@/features/media-assets/ui/generation-asset-reference-bridge";
@@ -673,7 +674,7 @@ function AudioGenerationFormContent({
                   form.setValue("inputAudio", typeof value === "string" ? value : "", { shouldDirty: true, shouldValidate: true });
                 }}
               />
-              {inputAudio && <audio src={inputAudio} controls className="w-full rounded-lg border border-white/10 bg-black/60" />}
+              {inputAudio && <AppAudioPlayer src={inputAudio} controls className="w-full rounded-lg border border-white/10 bg-black/60" />}
               <AppPromptFormMessage />
             </AppFormItem>
           )}
@@ -1121,7 +1122,7 @@ function AudioGenerationFormContent({
             >
               {hasResults && primaryAudio ? (
                 <div className="relative z-10 flex w-full max-w-3xl flex-col gap-3 px-6">
-                  <audio
+                  <AppAudioPlayer
                     src={primaryAudio.url}
                     controls
                     className="w-full rounded-lg border border-white/10 bg-black/60"

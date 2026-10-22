@@ -1,4 +1,9 @@
 import {describe,it,expect,vi} from "vitest";
+import {createElement} from "react";
+import {fireEvent,screen} from "@testing-library/react";
+import {renderWithIntl} from "@/test-utils/intl";
+import {GradioContractFields} from "@/shared/ui/gradio-contract-fields";
+import {GenerationNodeParameterControls} from "@/features/node-studio/ui/nodes/generation-node-parameter-controls";
 vi.mock("@/server/model-catalog/catalog-service",()=>({getModelCatalog:vi.fn()}));
 import {getModelCatalog} from "@/server/model-catalog/catalog-service";
 import {validateImageGenerationPayload,validateVideoGenerationPayload} from "@/server/model-catalog/generation-validation";
@@ -11,18 +16,21 @@ import type {RuntimeImageModel} from "@/shared/model-catalog/runtime-utils";
 import {resolveNodeRunReadiness} from "@/features/node-studio/model/node-run-readiness";
 import {getGradioContract} from "@/shared/model-catalog/gradio-contract";
 describe("Modal graph input mapping",()=>{
- it("keeps multiple and custom values editable in the actual hosted schema",async()=>{
+ it("keeps multiple and custom contract values editable in native controls",()=>{
   const draft=buildModalModelDraft(workflows[0]);
-  const {deduplicatedFetch,clearFetchCache}=await import("@node-banana-runtime/upstream-node-host");
-  clearFetchCache();vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({items:[{...draft,inputContract:{inputs:[
-    {name:"tags",kind:"json",choiceMode:"multiple",choices:[1,"two"],default:[1],schema:{}},
-    {name:"custom",kind:"string",choiceMode:"single",allowCustomValue:true,choices:["listed"],default:"new",schema:{}},
-  ]}}]})));
-  try {
-    const schema=await (await deduplicatedFetch("/api/models/"+draft.key)).json();
-    expect(schema.parameters).toMatchObject([{name:"tags",type:"json",default:[1]},{name:"custom",type:"string",default:"new"}]);
-    expect(schema.parameters.every((p:{enum?:unknown})=>p.enum===undefined)).toBe(true);
-  } finally {vi.unstubAllGlobals();clearFetchCache();}
+  const contract={...getGradioContract(draft)!,inputs:[
+    {name:"tags",label:"tags",kind:"json" as const,choiceMode:"multiple" as const,choices:[1,"two"],default:[1],schema:{},required:false,nullable:false},
+    {name:"custom",label:"custom",kind:"string" as const,choiceMode:"single" as const,allowCustomValue:true,choices:["listed"],default:"new",schema:{},required:false,nullable:false},
+  ]};
+  const change=vi.fn();
+  renderWithIntl(createElement(GradioContractFields,{contract,values:{tags:[1],custom:"new"},prompt:"",onChange:change}));
+  expect(screen.getByRole("checkbox",{name:"1"})).toBeChecked();
+  fireEvent.click(screen.getByRole("checkbox",{name:"two"}));
+  expect(change).toHaveBeenLastCalledWith({tags:[1,"two"],custom:"new"});
+  const custom=screen.getByRole("textbox",{name:"custom 직접 입력"});
+  expect(custom).toHaveValue("new");
+  fireEvent.change(custom,{target:{value:"unlisted"}});
+  expect(change).toHaveBeenLastCalledWith({tags:[1,"two"],custom:"unlisted"});
  });
  it("allows a source-contract model with no prompt and exposes JSON controls",async()=>{
   const source=structuredClone(workflows[0]);
@@ -31,13 +39,9 @@ describe("Modal graph input mapping",()=>{
   const model={...buildModalModelDraft(source),isActive:true,isDefault:false} as RuntimeImageModel;
   const graph={nodes:[{id:"n",kind:"generate.image",position:{x:0,y:0},configVersion:1,selectedOutputAssetId:null,config:{prompt:"",modelKey:model.key,parameters:{}}}],edges:[]};
   expect(resolveNodeRunReadiness(graph,"n",{imageModels:[model]}).reasons).toEqual([]);
-  const {deduplicatedFetch,clearFetchCache}=await import("@node-banana-runtime/upstream-node-host");
-  clearFetchCache();vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({items:[{...model,inputContract:getGradioContract(model)}]})));
-  try {
-   const schema=await (await deduplicatedFetch("/api/models/"+model.key)).json();
-   expect(schema.inputs).toEqual([]);
-   expect(schema.parameters.find((p:{name:string})=>p.name==="options")).toMatchObject({type:"json",default:{count:2}});
-  } finally {vi.unstubAllGlobals();clearFetchCache();}
+  expect(getGradioContract(model)?.inputs.some(field=>field.canonical==="prompt")).toBe(false);
+  renderWithIntl(createElement(GenerationNodeParameterControls,{model,values:{},disabled:false,onChange:vi.fn()}));
+  expect(screen.getByRole("textbox",{name:"options"})).toHaveValue(JSON.stringify({count:2},null,2));
  });
  for(const id of ["krea2-identity-edit","minimax-h3-lightx2v-i2v"]) it(id+" accepts numeric node seed without weakening seed validation",async()=>{
   const draft=buildModalModelDraft(workflows.find(w=>w.id===id));
@@ -54,17 +58,13 @@ describe("Modal graph input mapping",()=>{
   expect((await validate({...payload,seed:1.5})).success).toBe(false);
   expect((await validate({...payload,seed:Number.MAX_SAFE_INTEGER+1})).success).toBe(false);
  });
- it("projects advanced bounds and choices into the actual hosted Node Banana schema",async()=>{
-  const draft=buildModalModelDraft(workflows[0]);
-  const {deduplicatedFetch,clearFetchCache}=await import("@node-banana-runtime/upstream-node-host");
-  clearFetchCache();
-  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[draft]}),{headers:{"content-type":"application/json"}})));
-  try {
-   const response=await deduplicatedFetch("/api/models/"+draft.key+"?provider=modal_comfyui");
-   const schema=await response.json();
-   expect(schema.parameters.find((p:{name:string})=>p.name==="advanced__sampler").enum).toContain("euler");
-   expect(schema.parameters.find((p:{name:string})=>p.name==="seed").maximum).toBe(Number.MAX_SAFE_INTEGER);
-  } finally {vi.unstubAllGlobals();clearFetchCache();}
+ it("renders imported advanced bounds and choices in the native parameter controls",()=>{
+  const model={...buildModalModelDraft(workflows[0]),isActive:true,isDefault:false} as RuntimeImageModel;
+  const contract=getGradioContract(model)!;
+  expect(contract.inputs.find(field=>field.name==="advanced__sampler")?.choices).toContain("euler");
+  renderWithIntl(createElement(GenerationNodeParameterControls,{model,values:{},disabled:false,onChange:vi.fn()}));
+  expect(screen.getByRole("spinbutton",{name:/seed/i})).toHaveAttribute("max",String(Number.MAX_SAFE_INTEGER));
+  expect(screen.getByRole("combobox",{name:/sampler/i})).toBeEnabled();
  });
  for(const id of ["krea2-identity-edit","minimax-h3-lightx2v-i2v"]) it(id+" maps resolved asset and advanced controls",async()=>{
   const draft=buildModalModelDraft(workflows.find(w=>w.id===id));
