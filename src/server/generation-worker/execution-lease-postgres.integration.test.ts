@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import {
   claimPendingGenerationJobs,
+  hasGenerationWork,
   renewGenerationLease,
 } from "@/server/generation-worker/execution-lease";
 import { updateImageGenerationStatus } from "@/server/image-generation/image-generation-repository";
@@ -63,6 +64,32 @@ integration("generation execution leases", () => {
       await prisma.modelCatalog.deleteMany({
         where: { key: { in: modelKeysToDelete } },
       });
+    }
+  });
+
+  it("detects pending and recoverable work across all media without claiming it", async () => {
+    expect(await hasGenerationWork()).toBe(false);
+    for (const mediaType of ["image", "video", "audio"] as const) {
+      const model = mediaType === "image" ? prisma.imageGeneration : mediaType === "video" ? prisma.videoGeneration : prisma.audioGeneration;
+      const row = await (model.create as typeof prisma.imageGeneration.create)({ data: { requestId: `it-guard-${randomUUID()}`, prompt: "guard", progress: 0, status: "pending", modelKey: "guard-model" } });
+      try {
+        expect(await hasGenerationWork()).toBe(true);
+        expect((await (model.findUnique as typeof prisma.imageGeneration.findUnique)({ where: { id: row.id } }))?.status).toBe("pending");
+        for (const status of ["processing", "uploading"] as const) {
+          await (model.update as typeof prisma.imageGeneration.update)({ where: { id: row.id }, data: { status, executionLeaseToken: null, executionLeaseUntil: null } });
+          expect(await hasGenerationWork()).toBe(true);
+          await claimPendingGenerationJobs({ mediaType, modelKeys: ["guard-model"], defaultKey: "guard-model", getModelLimit: () => 1 });
+          expect((await (model.findUnique as typeof prisma.imageGeneration.findUnique)({ where: { id: row.id } }))?.status).toBe("failed");
+          expect(await hasGenerationWork()).toBe(false);
+        }
+        await (model.update as typeof prisma.imageGeneration.update)({ where: { id: row.id }, data: { status: "uploading", cancelRequestedAt: new Date(), executionLeaseToken: "expired", executionLeaseUntil: new Date(0) } });
+        expect(await hasGenerationWork()).toBe(true);
+        await claimPendingGenerationJobs({ mediaType, modelKeys: ["guard-model"], defaultKey: "guard-model", getModelLimit: () => 1 });
+        expect((await (model.findUnique as typeof prisma.imageGeneration.findUnique)({ where: { id: row.id } }))?.status).toBe("cancelled");
+        expect(await hasGenerationWork()).toBe(false);
+      } finally {
+        await (model.delete as typeof prisma.imageGeneration.delete)({ where: { id: row.id } });
+      }
     }
   });
 

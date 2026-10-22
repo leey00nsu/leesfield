@@ -47,6 +47,19 @@ export const GENERATION_EXECUTION_SCAN_LIMIT = 60;
 const EXECUTION_ADVISORY_LOCK_KEY = 2_147_483_641;
 const ACTIVE_STATUSES = ["processing", "uploading"] as const;
 
+/** A conservative hint only; the locked claim remains authoritative. */
+export async function hasGenerationWork(): Promise<boolean> {
+  const where: Prisma.ImageGenerationWhereInput = { status: { in: ["pending", ...ACTIVE_STATUSES] } };
+  for (const model of [prisma.imageGeneration, prisma.videoGeneration, prisma.audioGeneration]) {
+    const record = await (model.findFirst as typeof prisma.imageGeneration.findFirst)({
+      where,
+      select: { id: true },
+    });
+    if (record) return true;
+  }
+  return false;
+}
+
 type TransactionGenerationModel = Prisma.TransactionClient["imageGeneration"];
 
 function generationModel(

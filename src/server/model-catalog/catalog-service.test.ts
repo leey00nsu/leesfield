@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { modelCatalogSchema } from "./catalog-schema";
 import {
   getModelCatalog,
   invalidateModelCatalogCache,
@@ -56,6 +57,7 @@ function deferred<T>() {
 }
 
 describe("model-catalog service", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateModelCatalogCache();
@@ -73,6 +75,55 @@ describe("model-catalog service", () => {
     expect(second).toHaveLength(1);
     expect(listModelCatalogRecords).toHaveBeenCalledTimes(1);
     expect(listModelCatalogRecords).toHaveBeenCalledWith({ includeInactive: false });
+  });
+
+  it("unchanged TTL refresh reads the DB but reuses the validated snapshot", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    vi.mocked(listModelCatalogRecords).mockImplementation(async () => structuredClone([imageModel]) as never);
+    const parse = vi.spyOn(modelCatalogSchema, "safeParse");
+    const first = await getModelCatalog();
+    vi.mocked(Date.now).mockReturnValue(61_000);
+    expect(await getModelCatalog()).toBe(first);
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(await getModelCatalog({ bypassCache: true })).toBe(first);
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(3);
+    expect(parse).toHaveBeenCalledTimes(1);
+  });
+
+  it("compares actual configuration even with the same key and updatedAt", async () => {
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([imageModel] as never);
+    const first = await getModelCatalog();
+    const changed = { ...imageModel, isActive: false, isDefault: false, meta: { ...imageModel.meta, concurrent_limit: 3 }, providerConfig: { ...imageModel.providerConfig, api_name: "/changed" } };
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([changed] as never);
+    expect(await getModelCatalog({ bypassCache: true })).toMatchObject([changed]);
+    expect(await getModelCatalog()).not.toBe(first);
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([]);
+    expect(await getModelCatalog({ bypassCache: true })).toEqual([]);
+  });
+
+  it("keeps active/all snapshots separate and invalidation revalidates unchanged data", async () => {
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([imageModel] as never);
+    const parse = vi.spyOn(modelCatalogSchema, "safeParse");
+    const active = await getModelCatalog();
+    const all = await getModelCatalog({ includeInactive: true });
+    expect(all).not.toBe(active);
+    invalidateModelCatalogCache();
+    expect(await getModelCatalog()).not.toBe(active);
+    expect(parse).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not mark an expired failed refresh as fresh or prevent recovery", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([imageModel] as never);
+    const first = await getModelCatalog();
+    vi.mocked(Date.now).mockReturnValue(61_000);
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([{ key: "broken" }] as never);
+    await expect(getModelCatalog()).rejects.toThrow("MODEL_CATALOG_INVALID");
+    await expect(getModelCatalog()).rejects.toThrow("MODEL_CATALOG_INVALID");
+    vi.mocked(listModelCatalogRecords).mockResolvedValue([imageModel] as never);
+    expect(await getModelCatalog()).toBe(first);
+    expect(listModelCatalogRecords).toHaveBeenCalledTimes(4);
   });
 
   it("bypassCache 옵션이면 매번 새로 조회한다", async () => {

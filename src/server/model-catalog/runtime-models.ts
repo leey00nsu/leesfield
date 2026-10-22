@@ -104,12 +104,13 @@ function resolveConcurrentLimit(limit: number | null | undefined) {
 
 function toImageRuntimeModel(model: ImageModelCatalogItem): RuntimeImageModel {
   const parameters = model.parameters as Record<string, unknown>;
+  const mapped = Boolean(getGradioContract(model));
   return {
     key: model.key,
-    mapped: Boolean(getGradioContract(model)),
+    mapped,
     isActive: model.isActive,
     isDefault: model.isDefault,
-    defaults: getGradioContract(model) ? {} : {
+    defaults: mapped ? {} : {
       steps: getNumberDefault(
         getParamConfig(parameters, "steps"),
         model.meta.default_steps,
@@ -142,12 +143,13 @@ function toImageRuntimeModel(model: ImageModelCatalogItem): RuntimeImageModel {
 
 function toVideoRuntimeModel(model: VideoModelCatalogItem): RuntimeVideoModel {
   const parameters = model.parameters as Record<string, unknown>;
+  const mapped = Boolean(getGradioContract(model));
   return {
     key: model.key,
-    mapped: Boolean(getGradioContract(model)),
+    mapped,
     isActive: model.isActive,
     isDefault: model.isDefault,
-    defaults: getGradioContract(model) ? {} : {
+    defaults: mapped ? {} : {
       steps: getNumberDefault(
         getParamConfig(parameters, "steps"),
         model.meta.default_steps,
@@ -180,13 +182,14 @@ function toVideoRuntimeModel(model: VideoModelCatalogItem): RuntimeVideoModel {
 
 function toAudioRuntimeModel(model: AudioModelCatalogItem): RuntimeAudioModel {
   const parameters = model.parameters as Record<string, unknown>;
+  const mapped = Boolean(getGradioContract(model));
   return {
     key: model.key,
-    mapped: Boolean(getGradioContract(model)),
+    mapped,
     isActive: model.isActive,
     isDefault: model.isDefault,
     parameters,
-    defaults: getGradioContract(model) ? {} : {
+    defaults: mapped ? {} : {
       voice: getStringDefault(
         getParamConfig(parameters, "voice"),
         DEFAULT_AUDIO_VOICE,
@@ -216,10 +219,20 @@ export function resolveDefaultModelKey<T extends { key: string; isDefault: boole
   return models[0]?.key ?? null;
 }
 
+type RuntimeCatalog = {
+  imageModels: RuntimeImageModel[];
+  videoModels: RuntimeVideoModel[];
+  audioModels: RuntimeAudioModel[];
+};
+
+const runtimeCatalogs = new WeakMap<object, RuntimeCatalog>();
+
 export async function getRuntimeCatalog(params: { includeInactive?: boolean } = {}) {
   const catalog = await getModelCatalog({
     includeInactive: params.includeInactive ?? false,
   });
+  const existing = runtimeCatalogs.get(catalog);
+  if (existing) return structuredClone(existing);
   const imageModels = catalog
     .filter((item): item is ImageModelCatalogItem => item.type === "image")
     .map((model) => toImageRuntimeModel(model));
@@ -230,5 +243,7 @@ export async function getRuntimeCatalog(params: { includeInactive?: boolean } = 
     .filter((item): item is AudioModelCatalogItem => item.type === "audio")
     .map((model) => toAudioRuntimeModel(model));
 
-  return { imageModels, videoModels, audioModels };
+  const runtime = structuredClone({ imageModels, videoModels, audioModels });
+  runtimeCatalogs.set(catalog, runtime);
+  return structuredClone(runtime);
 }

@@ -8,18 +8,39 @@ const options = {strictSchema:true, strictTypes:false, strictTuples:false, stric
 const draft7 = new Ajv(options);
 const draft2020 = new Ajv2020(options);
 const cache = new Map<string,ValidateFunction>();
+const MAX_CACHED_SCHEMAS = 512;
+// Budget serialized keys separately from the number of compiled functions.
+// This does not bound Ajv-generated code to the same number of bytes.
+const MAX_CACHED_KEY_BYTES = 16 * 1024 * 1024;
+let cachedKeyBytes = 0;
 
 // Only synchronous compilation: unresolved or remote references are not fetched.
 export function gradioSchemaValidator(schema: Record<string,unknown>): ValidateFunction {
  const key=JSON.stringify(schema);
  if(key.length>100_000) throw new Error("SCHEMA_SIZE_LIMIT");
- const existing=cache.get(key); if(existing) return existing;
+ const existing=cache.get(key);
+ if(existing) {
+  cache.delete(key);
+  cache.set(key,existing);
+  return existing;
+ }
  if(schema.$async) throw new Error("ASYNC_SCHEMA");
  const instance = String(schema.$schema??"").includes("2020-12") || "prefixItems" in schema ? draft2020 : draft7;
  const effectiveSchema=normalizeGradioSchema(schema);
- const validate=instance.compile(effectiveSchema);
- instance.removeSchema(effectiveSchema);
- if(cache.size>=128) cache.delete(cache.keys().next().value!);
+ let validate: ValidateFunction;
+ try {
+  validate=instance.compile(effectiveSchema);
+ } finally {
+  instance.removeSchema(effectiveSchema);
+ }
+ const keyBytes=key.length*2;
+ while(cache.size>=MAX_CACHED_SCHEMAS || cachedKeyBytes+keyBytes>MAX_CACHED_KEY_BYTES) {
+  const oldest=cache.keys().next().value;
+  if(oldest===undefined) break;
+  cache.delete(oldest);
+  cachedKeyBytes-=oldest.length*2;
+ }
+ cachedKeyBytes+=keyBytes;
  cache.set(key,validate);return validate;
 }
 

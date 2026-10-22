@@ -1,11 +1,13 @@
 import { modelCatalogSchema, type ModelCatalogItem } from "@/server/model-catalog/catalog-schema";
 import { listModelCatalogRecords } from "@/server/model-catalog/catalog-repository";
+import { createHash } from "node:crypto";
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
 
 type CacheEntry = {
   fetchedAt: number;
   items: ModelCatalogItem[];
+  fingerprint: string;
 };
 
 const cache = new Map<string, CacheEntry>();
@@ -19,13 +21,17 @@ function cacheKey(includeInactive: boolean) {
   return includeInactive ? "all" : "active";
 }
 
-async function loadCatalog(includeInactive: boolean) {
+async function loadCatalog(includeInactive: boolean, previous?: CacheEntry) {
   const records = await listModelCatalogRecords({ includeInactive });
+  const fingerprint = createHash("sha256").update(JSON.stringify(records)).digest("hex");
+  if (previous?.fingerprint === fingerprint) {
+    return { items: previous.items, fingerprint };
+  }
   const parsed = modelCatalogSchema.safeParse(records);
   if (!parsed.success) {
     throw new Error("MODEL_CATALOG_INVALID");
   }
-  return parsed.data;
+  return { items: parsed.data, fingerprint };
 }
 
 export async function getModelCatalog(params: {
@@ -48,12 +54,12 @@ export async function getModelCatalog(params: {
   }
 
   const generation = cacheGeneration;
-  const promise = loadCatalog(includeInactive)
-    .then((items) => {
+  const promise = loadCatalog(includeInactive, cache.get(key))
+    .then(({ items, fingerprint }) => {
       // An administrator may invalidate while this request is loading. Do not
       // let that stale result repopulate the cache after the invalidation.
       if (generation === cacheGeneration) {
-        cache.set(key, { fetchedAt: Date.now(), items });
+        cache.set(key, { fetchedAt: Date.now(), items, fingerprint });
       }
       return items;
     })

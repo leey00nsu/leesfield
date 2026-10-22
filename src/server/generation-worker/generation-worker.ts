@@ -37,6 +37,7 @@ import { NodeExecutionCancelledError } from "@/server/node-executions/node-execu
 import { nodeExecutionRepository } from "@/server/node-executions/node-execution-repository";
 import {
   claimPendingGenerationJobs,
+  hasGenerationWork,
   GENERATION_EXECUTION_GLOBAL_LIMIT,
   isGenerationLeaseLost,
   requireGenerationLease,
@@ -970,6 +971,8 @@ export async function pumpGenerationJobs() {
   if (generationPump) return generationPump;
 
   generationPump = (async () => {
+    if (inFlightGenerationJobs.size >= GENERATION_EXECUTION_GLOBAL_LIMIT) return;
+    if (!await hasGenerationWork()) return;
     let emptySchedulers = 0;
     while (
       !isGenerationWorkerStopping() &&

@@ -42,14 +42,17 @@ const mockClaimPendingGenerationJobs = vi.hoisted(() => vi.fn());
 vi.mock("@/server/db/prisma", () => ({
   prisma: {
     audioGeneration: {
+      findFirst: vi.fn(async () => ({ id: "work" })),
       findMany: vi.fn(),
       updateMany: vi.fn(),
     },
     imageGeneration: {
+      findFirst: vi.fn(async () => ({ id: "work" })),
       findMany: vi.fn(),
       updateMany: vi.fn(),
     },
     videoGeneration: {
+      findFirst: vi.fn(async () => ({ id: "work" })),
       findMany: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -127,6 +130,9 @@ vi.mock("@/server/node-executions/node-execution-repository", () => ({
 describe("generation worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    for (const table of [prisma.imageGeneration, prisma.videoGeneration, prisma.audioGeneration]) {
+      vi.mocked(table.findFirst).mockResolvedValue({ id: "work" } as never);
+    }
     mockClaimPendingGenerationJobs.mockImplementation(async ({
       mediaType,
     }: { mediaType: "image" | "video" | "audio" }) => {
@@ -308,6 +314,37 @@ describe("generation worker", () => {
       success: true,
       data: payload,
     }));
+  });
+
+  it("skips runtime configuration on every empty pass and wakes on subsequent work", async () => {
+    for (const table of [prisma.imageGeneration, prisma.videoGeneration, prisma.audioGeneration]) vi.mocked(table.findFirst).mockResolvedValue(null);
+    mockClaimPendingGenerationJobs.mockResolvedValue([]);
+    for (let tick = 0; tick < 4; tick++) await pumpGenerationJobs();
+    expect(mockGetRuntimeCatalog).not.toHaveBeenCalled();
+    expect(mockClaimPendingGenerationJobs).not.toHaveBeenCalled();
+    expect(prisma.audioGeneration.findFirst).toHaveBeenCalledTimes(4);
+    vi.mocked(prisma.audioGeneration.findFirst).mockResolvedValue({ id: "new-audio" } as never);
+    await pumpGenerationJobs();
+    expect(mockGetRuntimeCatalog).toHaveBeenCalled();
+    expect(mockClaimPendingGenerationJobs).toHaveBeenCalledWith(expect.objectContaining({ mediaType: "audio" }));
+  });
+
+  it("does not cache guard errors and retries the next pass", async () => {
+    vi.mocked(prisma.imageGeneration.findFirst).mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(pumpGenerationJobs()).rejects.toThrow("database unavailable");
+    expect(mockGetRuntimeCatalog).not.toHaveBeenCalled();
+    mockClaimPendingGenerationJobs.mockResolvedValue([]);
+    await expect(pumpGenerationJobs()).resolves.toBeUndefined();
+    expect(mockGetRuntimeCatalog).toHaveBeenCalled();
+  });
+
+  it("includes active rows in the guard so lease recovery still reaches claims", async () => {
+    vi.mocked(prisma.imageGeneration.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.videoGeneration.findFirst).mockResolvedValue({ id: "expired-video" } as never);
+    mockClaimPendingGenerationJobs.mockResolvedValue([]);
+    await pumpGenerationJobs();
+    expect(prisma.videoGeneration.findFirst).toHaveBeenCalledWith({ where: { status: { in: ["pending", "processing", "uploading"] } }, select: { id: true } });
+    expect(mockClaimPendingGenerationJobs).toHaveBeenCalled();
   });
 
   it("refills a completed slot without waiting for a slower sibling", async () => {
