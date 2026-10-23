@@ -6,6 +6,7 @@ import { temporarilyHiddenEditNodeKinds } from "@/shared/generation-graph/node-a
 import type { SpaceEditorDocument } from "./space-editor-types";
 import { compatibleSpaceNodeKinds, spaceConnectionForPorts, spaceHandleId, spaceNodePorts, spacePortFromHandle, reconcileSpaceModelEdges } from "./space-editor-ports";
 import { mappedReferenceImageModelFixture, runtimeImageModelsFixture, runtimeVideoModelsFixture } from "@/test-utils/fixtures/runtime-model-catalog";
+import { autoConnectSpaceNode, compatibleSpaceConnectionModels, prepareConnectedSpaceNode } from "./space-connected-node";
 
 const node = (id: string, kind: CanonicalNodeKind): CanonicalNode => ({ id, kind, config: defaultConfigForKind(kind), configVersion: 1,
   position: { x: 0, y: 0 }, selectedOutputAssetId: null });
@@ -27,6 +28,26 @@ function generation(kind: CanonicalNodeKind = "generate.image", modelKey = "lega
 }
 
 describe("canonical Space ports", () => {
+  it("sets a real model even when an unselected generation node's text port can already connect", () => {
+    const base = graph([node("prompt", "input.prompt")]), fresh = node("target", "generate.image");
+    const prepared = autoConnectSpaceNode(base, { nodeId: "prompt", portId: "text", direction: "output" }, fresh, { imageModels: [legacy] });
+    expect(prepared).toMatchObject({ valid: true, document: { nodes: [base.nodes[0], { config: { modelKey: legacy.key } }], edges: [{ sourceNodeId: "prompt", targetPortId: "prompt" }] } });
+  });
+
+  it("reports the graph node limit instead of claiming that compatible models are missing", () => {
+    const base = graph([node("source", "input.image"), ...Array.from({ length: 499 }, (_, index) => node("existing-" + index, "input.prompt"))]);
+    expect(autoConnectSpaceNode(base, source, node("target", "generate.image"), { imageModels: [legacy] }))
+      .toEqual({ valid: false, reason: "SPACE_GRAPH_LIMIT" });
+    expect(base.nodes).toHaveLength(500); expect(base.edges).toHaveLength(0);
+  });
+  it("proposes the visible named media field for a newly connected model and rejects unavailable source ports", () => {
+    const base = graph([node("source", "input.image")]), fresh = generation("generate.image", mappedReferenceImageModelFixture.key);
+    const prepared = prepareConnectedSpaceNode(base, source, fresh, catalog, {}, "created");
+    expect(prepared).toMatchObject({ valid: true, document: { edges: [{ sourcePortId: "image", targetPortId: "image-field-refs", targetNodeId: "target", sortOrder: 0 }] } });
+    expect(base.nodes).toHaveLength(1); expect(base.edges).toEqual([]);
+    expect(compatibleSpaceConnectionModels(base, source, fresh, { imageModels: [mappedReferenceImageModelFixture] }).map(model => model.key)).toEqual([mappedReferenceImageModelFixture.key]);
+    expect(compatibleSpaceConnectionModels(base, { ...source, portId: "missing" }, fresh, catalog)).toEqual([]);
+  });
   it.each(temporarilyHiddenEditNodeKinds)("excludes %s from both connection directions without removing saved wires", kind => {
     const mediaType = kind === "edit.image.resize" ? "image" : "video";
     const inputPort = kind === "edit.video.stitch" ? "clips" : mediaType;

@@ -8,6 +8,8 @@ import { useSpacePreferences } from "../hook/use-space-preferences";
 import { projectGenerationModelSelectionDefaults } from "../model/generation-model-selection-defaults";
 import { createSpaceAuthoringNode, updateSpaceNodeAuthoringConfig } from "../model/space-editor-authoring";
 import type { SpaceNewNode } from "../model/space-editor-command-types";
+import { autoConnectSpaceNode, spaceConnectionNode } from "../model/space-connected-node";
+import type { SpacePortReference } from "../model/space-editor-types";
 import { useSpaceEditor, useSpaceInputRevision, useSpaceSelector, useSpaceViewSelector, type SpaceEditorScope } from "./space-editor-provider";
 import { SpaceModelBrowser, type SpaceBrowserModel } from "./space-model-browser";
 
@@ -29,8 +31,20 @@ export function useSpaceModelServices(scope: SpaceEditorScope) {
     if (!state.writable || state.disposed || (nodeId && (!node || !spaceNodeModelType(node.kind)))) return;
     setRequest({ scope, nodeId, kind: node?.kind, config: node?.config, revision: nodeId ? scope.inputs.inputRevision(nodeId) : undefined, epoch: scope.view.getState().epoch });
   }, [scope]);
+  const createConnectedNode = useCallback((supplied: SpaceNewNode, port: SpacePortReference) => {
+    const state = scope.session.getSnapshot();
+    if (!state.writable || state.disposed) return;
+    const node = spaceConnectionNode(supplied);
+    const result = scope.session.transact(document => {
+      const prepared = autoConnectSpaceNode(document, port, node, scope.view.getState().catalog, scope.getInputRuntime());
+      if (!prepared.valid) throw new Error(prepared.reason);
+      return prepared.document;
+    }, { origin: "user", label: "node.create-connected" });
+    if (!result.ok) scope.view.getState().services.onError?.(new Error(result.message));
+    else { scope.session.select([node.id]); document.querySelector<HTMLElement>("[data-space-canvas]")?.focus(); }
+  }, [scope]);
   const close = useCallback(() => setRequest(null), []);
-  return useMemo(() => ({ createNode, browseModel, tools: <SpaceModelTools request={request} onClose={close} /> }), [createNode, browseModel, request, close]);
+  return useMemo(() => ({ createNode, createConnectedNode, browseModel, tools: <SpaceModelTools request={request} onClose={close} /> }), [createNode, createConnectedNode, browseModel, request, close]);
 }
 
 function SpaceModelTools({ request, onClose }: { request: ModelRequest | null; onClose: () => void }) {

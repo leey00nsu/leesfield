@@ -22,6 +22,7 @@ export type SpaceEditorCatalog = SpaceModelCatalog & {
 export interface SpaceEditorServices {
   renderNode?: ComponentType<{ nodeId: string }>;
   createNode?: (kind: CanonicalNodeKind, position: { x: number; y: number }) => SpaceNewNode;
+  createConnectedNode?: (node: SpaceNewNode, port: SpacePortReference, returnFocus?: HTMLElement | null) => void;
   runNode?: (nodeId: string) => void | Promise<unknown>;
   prepareNodeExecution?: () => Promise<number>;
   cancelNode?: (nodeId: string) => void | Promise<void>;

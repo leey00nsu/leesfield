@@ -129,6 +129,15 @@ function CanvasNode({ nodeId }: { nodeId: string }) { return <span>{nodeId}</spa
 const canvasServices = { renderNode: CanvasNode };
 
 describe("native node palette", () => {
+  it.each([
+    { key: "g", code: "IMAGE_MODEL_MISSING" }, { key: "v", code: "VIDEO_MODEL_MISSING" }, { key: "t", code: "AUDIO_MODEL_MISSING" },
+  ])("blocks a model-less generation shortcut $key before creating a node", ({ key, code }) => {
+    const session = editor(), before = session.getDocument(), onError = vi.fn();
+    render(<SpaceEditorProvider session={session} services={{ ...canvasServices, onError }}><SpaceCanvas /></SpaceEditorProvider>);
+    fireEvent.keyDown(screen.getByRole("application", { name: "Workflow editor" }), { key, shiftKey: true });
+    expect(onError).toHaveBeenCalledOnce(); expect(onError.mock.calls[0][0].message).toBe(code);
+    expect(session.getDocument()).toBe(before); expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
   it("shows only the 14 authorable kinds and intersects the connection-compatible inventory", () => {
     const choose = vi.fn(), close = vi.fn();
     const { rerender, container } = render(<SpaceNodeMenu position={{ x: 100, y: 100 }} onChoose={choose} onClose={close} />);

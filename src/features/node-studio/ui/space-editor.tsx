@@ -12,6 +12,7 @@ import { SpaceNode } from "./nodes/space-node";
 import { useSpaceModelServices } from "./space-model-tools";
 import { SpaceNodeInspector } from "./space-node-inspector";
 import { useSpaceMediaDownload } from "../hook/use-space-media-download";
+import { useSpaceOperationError } from "../hook/use-space-operation-error";
 
 const noServices: SpaceEditorServices = {};
 export function SpaceEditor({ session, catalog, services = noServices, inputRuntime, settings, children, className }: {
@@ -22,14 +23,15 @@ export function SpaceEditor({ session, catalog, services = noServices, inputRunt
   const media = useSpaceMediaServices(scope);
   const models = useSpaceModelServices(scope);
   const downloads = useSpaceMediaDownload(scope);
-  const combined = useMemo<SpaceEditorServices>(() => ({ ...services, renderNode: SpaceNode,
+  const reportError = useSpaceOperationError();
+  const combined = useMemo<SpaceEditorServices>(() => ({ ...services, onError: services.onError ?? reportError, renderNode: SpaceNode,
     runNode: services.runNode ? nodeId => {
       if (!scope.prepareNodeRun(nodeId)) throw new Error("NODE_INPUT_CHANGED");
       return services.runNode!(nodeId);
     } : undefined,
-    createNode: services.createNode ?? models.createNode, browseModel: models.browseModel,
+    createNode: services.createNode ?? models.createNode, createConnectedNode: models.createConnectedNode, browseModel: models.browseModel,
     filesDrop: media.filesDrop, captureVideoFrame: media.captureVideoFrame, openMediaDetail: media.openMediaDetail, portMediaRequest: media.portMediaRequest,
-    downloadSelected: services.downloadSelected ?? downloads.downloadSelected, downloadingSelected: downloads.downloadingSelected }), [scope, services, media.filesDrop, media.captureVideoFrame, media.openMediaDetail, media.portMediaRequest, models.createNode, models.browseModel, downloads.downloadSelected, downloads.downloadingSelected]);
+    downloadSelected: services.downloadSelected ?? downloads.downloadSelected, downloadingSelected: downloads.downloadingSelected }), [scope, services, reportError, media.filesDrop, media.captureVideoFrame, media.openMediaDetail, media.portMediaRequest, models.createNode, models.createConnectedNode, models.browseModel, downloads.downloadSelected, downloads.downloadingSelected]);
   return <SpaceEditorProvider session={session} scope={scope} catalog={catalog} services={combined} inputRuntime={inputRuntime}>
     <SpaceInputMediaProvider controller={media.controller}>
       <SpaceCanvas settings={settings} className={className}>{children}</SpaceCanvas>

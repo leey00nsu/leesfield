@@ -18,6 +18,7 @@ import { alignedSpaceNodePositions, spaceEditorFormTarget, spaceInspectorPanOffs
 import { copySpaceEditorSelection } from "../model/space-editor-clipboard";
 import type { SpaceEditorClipboard, SpaceEditorCommandResult } from "../model/space-editor-command-types";
 import { spaceConnectionForPorts, spaceNodePorts, spacePortFromHandle } from "../model/space-editor-ports";
+import { prepareConnectedSpaceNode, spaceGenerationModelError } from "../model/space-connected-node";
 import { resolveNodeRunReadiness } from "../model/node-run-readiness";
 import { hasSpaceMediaUpload } from "../model/space-editor-media";
 import { usePendingReferenceUploads } from "@/shared/ui/reference-upload-scope";
@@ -162,12 +163,10 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
   }, [selectedNodeId, flow, session]);
   const services = useSpaceViewSelector(state => state.services);
   const [menu, setMenu] = useState<MenuState | null>(null), [edgePosition, setEdgePosition] = useState<XYPosition | null>(null), [shortcuts, setShortcuts] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const report = useCallback((result: SpaceEditorCommandResult) => {
-    if (!result.ok) { scope.view.getState().services.onError?.(new Error(result.message)); setError(tc("Unable to edit this Space")); }
-    else setError(null);
+    if (!result.ok) scope.view.getState().services.onError?.(new Error(result.message));
     return result.ok;
-  }, [scope, tc]);
+  }, [scope]);
   const center = useCallback(() => { const rect = root.current?.getBoundingClientRect(); return flow.screenToFlowPosition({ x: (rect?.left ?? 0) + (rect?.width ?? 800) / 2, y: (rect?.top ?? 0) + (rect?.height ?? 600) / 2 }); }, [flow]);
   const openMenu = useCallback((position: XYPosition, port: SpacePortReference | null = null) => {
     if (!session.getSnapshot().writable) return;
@@ -179,18 +178,22 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
   const openCenteredMenu = useCallback(() => { const rect = root.current?.getBoundingClientRect(); openMenu({ x: (rect?.left ?? 0) + (rect?.width ?? 800) / 2 - 140, y: (rect?.top ?? 0) + (rect?.height ?? 600) / 2 - 120 }); }, [openMenu]);
   const createNode = useCallback((kind: CanonicalNodeKind, position: XYPosition, port: SpacePortReference | null = null) => {
     if (!isSpaceNodeAuthorable(kind)) return;
+    const modelError = spaceGenerationModelError(kind, scope.view.getState().catalog);
+    if (modelError) { scope.view.getState().services.onError?.(new Error(modelError)); setMenu(null); return; }
+    const supplied = scope.view.getState().services.createNode?.(kind, position);
+    const connected = scope.view.getState().services.createConnectedNode;
+    if (port && connected) {
+      connected({ kind, position, ...supplied }, port, document.activeElement instanceof HTMLElement ? document.activeElement : root.current);
+      setMenu(null); return;
+    }
     const id = crypto.randomUUID();
     const result = session.transact(current => {
-      const supplied = scope.view.getState().services.createNode?.(kind, position);
       const node = { id, kind, position, configVersion: 1, config: defaultConfigForKind(kind), selectedOutputAssetId: null, ...supplied };
       const candidate = { ...current, nodes: [...current.nodes, node] };
       if (!port) return candidate;
-      const targetPorts = spaceNodePorts(candidate, node.id, scope.view.getState().catalog).filter(item => item.connectable && item.definition.direction !== port.direction);
-      for (const target of targetPorts) {
-        const result = spaceConnectionForPorts(candidate, port, { nodeId: node.id, direction: target.definition.direction, portId: target.definition.id }, scope.view.getState().catalog, crypto.randomUUID(), scope.getInputRuntime());
-        if (result.valid) return { ...candidate, edges: [...candidate.edges, result.edge] };
-      }
-      throw new Error("CONNECTION_INVALID");
+      const prepared = prepareConnectedSpaceNode(current, port, node, scope.view.getState().catalog, scope.getInputRuntime());
+      if (!prepared.valid) throw new Error(prepared.reason);
+      return prepared.document;
     }, { origin: "user", label: "node.create-connected" });
     if (report(result)) { session.select([id]); setMenu(null); root.current?.focus(); }
   }, [scope, session, report]);
@@ -368,7 +371,6 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
     </ReactFlow>
     {selection.edgeIds.length === 1 && edgePosition && <SpaceEdgeToolbar session={session} edgeId={selection.edgeIds[0]} position={edgePosition} />}
     {menu && <SpaceNodeMenu position={menu.screen} kinds={candidates} onChoose={kind => createNode(kind, menu.flow, menu.port)} onClose={() => setMenu(null)} extraActions={extraActions} returnFocus={menu.returnFocus} />}
-    {error && <p role="alert" className={styles.error}>{error}</p>}
     {!writable && <p role="status" className={styles.readOnly}>{tc("Read only")}</p>}
     <AppDialog open={shortcuts} onOpenChange={setShortcuts}><AppDialogContent surface="editor" size="sm"><AppDialogHeader><AppDialogTitle>{tc("Keyboard Shortcuts")}</AppDialogTitle></AppDialogHeader>
       <dl className={styles.shortcuts}><dt>⌘/Ctrl K</dt><dd>{tc("All nodes")}</dd><dt>⌘/Ctrl C · V</dt><dd>{tc("Copy / Paste")}</dd><dt>⌘/Ctrl Z · ⇧Z</dt><dd>{tc("Undo / Redo")}</dd><dt>V · H · G</dt><dd>{tc("Arrange vertically / horizontally / grid")}</dd><dt>Shift P / I / G / V / T / Y</dt><dd>{tc("Add node")}</dd><dt>Delete</dt><dd>{tc("Delete selected")}</dd></dl>

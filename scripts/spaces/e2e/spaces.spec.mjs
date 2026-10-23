@@ -1499,6 +1499,131 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
+  test("image port creates video and assistant with automatic compatible models atomically", { tag: ["@spaces-canvas", "@spaces-generation", "@spaces-assistant"] }, async ({ page }, testInfo) => {
+    const graph = await createWorkflowViaApi(page), sourceId = fixtureId(graph, "connected-source");
+    const original = (await (await page.request.get("/api/spaces/preferences")).json()).preferences;
+    const setDefaults = async defaults => {
+      const current = (await (await page.request.get("/api/spaces/preferences")).json()).preferences;
+      expect((await page.request.patch("/api/spaces/preferences", { data: { action: "defaults", expectedRevision: current.revision, defaults } })).ok()).toBeTruthy();
+    };
+    let submissions = 0;
+    const observe = request => { if (request.method() === "POST" && /\/executions(?:\?|$)|\/api\/(?:image|video|audio)-generation/.test(new URL(request.url()).pathname)) submissions++; };
+    page.on("request", observe);
+    try {
+      await setDefaults({});
+      for (const [kind, label, type] of [["generate.video", "Generate Video", "video"], ["generate.assistant", "AI Assistant", "llm"]]) {
+        await replaceWorkflowViaApi(page, graph.id, [{ id: sourceId, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }]);
+        await waitForFreshWorkflow(page, graph); await fitCanvas(page);
+        const source = page.locator(`.react-flow__node[data-id="${sourceId}"]`), icon = source.locator('.source[data-space-port="image"][data-visible="true"]');
+        await source.hover();
+        const box = await icon.boundingBox(), start = await exposedHandlePoint(page, box, "source");
+        expect(start).toBeTruthy();
+        const end = await page.locator("[data-space-canvas]").evaluate(canvas => {
+          const box = canvas.getBoundingClientRect();
+          for (let y = box.y + 90; y < box.bottom - 80; y += 70) for (let x = box.x + 20; x < box.right - 20; x += 50) {
+            const hit = document.elementFromPoint(x, y);
+            if (hit?.closest(".react-flow__pane") && !hit.closest(".react-flow__node")) return { x, y };
+          }
+          return null;
+        });
+        expect(end).toBeTruthy();
+        await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 12 }); await page.mouse.up();
+        const menu = page.locator("[data-space-node-menu]"); await expect(menu).toBeVisible();
+        await menu.getByRole("option", { name: label, exact: true }).click();
+        const model = await activeModel(page, type, item => type === "llm" ? item.providerConfig.supports_images : item.meta.supports_init_image);
+        await expect(page.getByRole("dialog", { name: "Browse Models", exact: true })).toHaveCount(0);
+        const saved = await waitForWorkflowState(page, graph.id, value => value.nodes.length === 2 && value.edges.length === 1, "connected model creation was not saved");
+        const target = saved.nodes.find(node => node.kind === kind);
+        expect(target.config.modelKey).toBe(model.key);
+        expect(saved.edges[0]).toMatchObject({ sourceNodeId: sourceId, sourcePortId: "image", targetNodeId: target.id,
+          targetPortId: kind === "generate.video" ? "initImage" : "images", sortOrder: 0 });
+        await page.locator("[data-space-canvas]").focus(); await page.keyboard.press("ControlOrMeta+z");
+        await waitForWorkflowState(page, graph.id, value => value.nodes.length === 1 && value.edges.length === 0, "connected undo was not atomic");
+        await page.keyboard.press("ControlOrMeta+Shift+z");
+        await waitForWorkflowState(page, graph.id, value => value.nodes.length === 2 && value.edges.length === 1, "connected redo was not atomic");
+        await page.reload(); await waitForFreshWorkflow(page, graph, false);
+        expect((await readWorkflowViaApi(page, graph.id)).edges).toEqual(saved.edges);
+        await captureEvidenceScreenshot(page, testInfo, "connected-" + type);
+      }
+      expect(submissions).toBe(0);
+    } finally { page.off("request", observe); await setDefaults(original.defaults); await deleteWorkflowViaApi(page, graph.id); }
+  });
+
+  test("connected creation failure uses one public toast without canvas or host error text", { tag: ["@spaces-canvas", "@spaces-generation"] }, async ({ page }, testInfo) => {
+    const graph = await createWorkflowViaApi(page), sourceId = fixtureId(graph, "toast-source");
+    const handler = async route => {
+      const response = await route.fetch(), payload = await response.json();
+      await route.fulfill({ response, json: { ...payload, items: payload.items.filter(item => item.type !== "video") } });
+    };
+    await page.route("**/api/models", handler);
+    try {
+      await replaceWorkflowViaApi(page, graph.id, [{ id: sourceId, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }]);
+      await waitForFreshWorkflow(page, graph); await fitCanvas(page);
+      const source = page.locator(`.react-flow__node[data-id="${sourceId}"]`);
+      await source.hover(); await source.locator('.source[data-space-port="image"][data-visible="true"]').click();
+      await page.locator("[data-space-node-menu]").getByRole("option", { name: "Generate Video", exact: true }).click();
+      const toast = page.locator('[data-sonner-toast][data-type="error"]');
+      await expect(toast).toHaveCount(1); await expect(toast).toContainText("There are no video models");
+      await expect(toast).toHaveAttribute("data-mounted", "true");
+      await expect.poll(async () => { const box = await toast.boundingBox(); return Boolean(box && box.y >= 0 && box.y + box.height <= page.viewportSize().height); }).toBe(true);
+      await expect(page.locator("[data-space-canvas] > [role=alert]")).toHaveCount(0);
+      await expect(page.getByText("Unable to edit this Space", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("VIDEO_MODEL_MISSING", { exact: true })).toHaveCount(0);
+      const saved = await readWorkflowViaApi(page, graph.id); expect(saved.nodes).toHaveLength(1); expect(saved.edges).toHaveLength(0);
+      await captureEvidenceScreenshot(page, testInfo, "space-error-toast");
+    } finally { await page.unroute("**/api/models", handler); await deleteWorkflowViaApi(page, graph.id); }
+  });
+
+  test("model absence and incompatible input block creation with localized public toasts", { tag: ["@spaces-canvas", "@spaces-generation", "@spaces-assistant"] }, async ({ page, context }, testInfo) => {
+    const graph = await createWorkflowViaApi(page), sourceId = fixtureId(graph, "unsupported-source");
+    let mode = "empty";
+    const handler = async route => {
+      const response = await route.fetch(), payload = await response.json();
+      const items = payload.items.filter(item => item.type === "llm" || mode === "unsupported" && item.type === "video")
+        .map(item => item.type === "video" ? { ...item, meta: { ...item.meta, supports_init_image: false }, providerConfig: { ...item.providerConfig, gradio_contract: undefined } } : item);
+      await route.fulfill({ response, json: { ...payload, items } });
+    };
+    await page.route("**/api/models", handler);
+    const assertToast = async message => {
+      const toast = page.locator('[data-sonner-toast][data-type="error"]');
+      await expect(toast).toHaveCount(1); await expect(toast).toContainText(message);
+      await expect(page.locator("[data-space-canvas] > [role=alert]")).toHaveCount(0);
+      await toast.locator("button[data-close-button]").click(); await expect(toast).toHaveCount(0);
+    };
+    try {
+      for (const locale of ["en", "ko"]) {
+        mode = "empty";
+        await context.addCookies([{ name: "locale", value: locale, url: testInfo.project.use.baseURL }]);
+        await replaceWorkflowViaApi(page, graph.id, []); await waitForFreshWorkflow(page, graph);
+        for (const [key, type, ko] of [["g", "image", "이미지"], ["v", "video", "비디오"], ["t", "audio", "오디오"]]) {
+          await page.locator("[data-space-canvas]").focus(); await page.keyboard.press("Shift+" + key);
+          await assertToast(locale === "ko" ? ko + " 모델이 없습니다" : "There are no " + type + " models");
+        }
+        await page.getByRole("button", { name: /^(All nodes|모든 노드)$/ }).click();
+        await page.locator("[data-space-node-menu]").getByRole("option", { name: /^(Generate Image|이미지 생성)$/, exact: true }).click();
+        await assertToast(locale === "ko" ? "이미지 모델이 없습니다" : "There are no image models");
+        await page.getByRole("button", { name: /^(Generate|생성)$/, exact: true }).click();
+        await page.getByRole("menuitem", { name: /^(Generate Audio|오디오 생성)$/, exact: true }).click();
+        await assertToast(locale === "ko" ? "오디오 모델이 없습니다" : "There are no audio models");
+        expect((await readWorkflowViaApi(page, graph.id)).nodes).toHaveLength(0);
+        mode = "unsupported";
+        await replaceWorkflowViaApi(page, graph.id, [{ id: sourceId, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }]);
+        await waitForFreshWorkflow(page, graph); await fitCanvas(page);
+        const source = page.locator(`.react-flow__node[data-id="${sourceId}"]`);
+        await source.hover(); await source.locator('.source[data-space-port="image"][data-visible="true"]').click();
+        await page.locator("[data-space-node-menu]").getByRole("option", { name: /^(Generate Video|비디오 생성)$/, exact: true }).click();
+        const toast = page.locator('[data-sonner-toast][data-type="error"]');
+        await expect(toast).toHaveCount(1);
+        await expect(toast).toContainText(locale === "ko" ? "이 입력을 받을 수 있는 모델이 없습니다" : "There are no models that can accept this input");
+        await expect(toast).toHaveAttribute("data-mounted", "true");
+        await expect.poll(async () => { const box = await toast.boundingBox(); return box?.y >= 0; }).toBe(true);
+        const saved = await readWorkflowViaApi(page, graph.id); expect(saved.nodes).toHaveLength(1); expect(saved.edges).toHaveLength(0);
+        await captureEvidenceScreenshot(page, testInfo, "incompatible-model-" + locale);
+        await toast.locator("button[data-close-button]").click(); await expect(toast).toHaveCount(0);
+      }
+    } finally { await page.unroute("**/api/models", handler); await context.addCookies([{ name: "locale", value: "en", url: testInfo.project.use.baseURL }]); await deleteWorkflowViaApi(page, graph.id); }
+  });
+
   test("port actions upload or select source assets and connect atomically", { tag: ["@spaces-canvas", "@spaces-media"] }, async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);

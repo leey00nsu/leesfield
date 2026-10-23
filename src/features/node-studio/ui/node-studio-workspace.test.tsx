@@ -19,6 +19,7 @@ import type { SpaceEditorSession } from "../model/space-editor-store";
 import type { SpaceCanvasSettings } from "../model/space-editor-types";
 import type { SpaceEditorCatalog, SpaceEditorServices } from "./space-editor-provider";
 import { NodeStudioWorkspace } from "./node-studio-workspace";
+import { appToast } from "@/shared/ui/app-toast";
 
 const mocks = vi.hoisted(() => ({
   useAutosave: vi.fn(), update: vi.fn(), retry: vi.fn(), preserveSelection: vi.fn(), saveNow: vi.fn(),
@@ -29,6 +30,8 @@ const outputMocks = vi.hoisted(() => ({
   listExecutions: vi.fn(), listAssets: vi.fn(), startExecution: vi.fn(), runImage: vi.fn(), cancelExecution: vi.fn(),
 }));
 const mediaApiMocks = vi.hoisted(() => ({ getMediaAsset: vi.fn() }));
+vi.mock("@/shared/ui/app-toast", () => ({ appToast: { error: vi.fn() } }));
+vi.mock("@/shared/logging/logger.mjs", () => ({ logger: { error: vi.fn() } }));
 
 // Exercise retained Resize/Trim/Stitch pipeline and teardown independently of product availability.
 // Actual hidden-kind availability, Flow projection and server guards have separate unmocked suites.
@@ -177,6 +180,7 @@ const selectionKey = nodeExecutionKeys.list(graph.id, "selection-node");
 const currentSelection = () => currentNode("selection-node")?.selectedOutputAssetId;
 
 beforeEach(() => {
+  vi.mocked(appToast.error).mockClear();
   vi.resetAllMocks();
   window.localStorage.clear();
   mocks.usePreferences.mockReturnValue(loadedPreferences);
@@ -194,6 +198,36 @@ beforeEach(() => {
 });
 
 describe("NodeStudioWorkspace", () => {
+  it("notifies one localized toast per failure identity without an inline host error, while new failures still notify", () => {
+    const view = mount(), before = document(), error = new Error("CONNECTION_INVALID");
+    act(() => { studio().services.onError!(error); studio().services.onError!(error); });
+    expect(appToast.error).toHaveBeenCalledExactlyOnceWith("노드를 연결하지 못했습니다. 입력과 모델을 확인해 주세요.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument(); expect(document()).toBe(before);
+    act(() => { studio().services.onError!(new Error("CONNECTION_INVALID")); });
+    expect(appToast.error).toHaveBeenCalledTimes(2);
+    const late = studio().services.onError!; view.unmount(); late(new Error("CONNECTION_INVALID"));
+    expect(appToast.error).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses safe fallback copy for unknown exceptions and remains quiet for intentional aborts", () => {
+    mount();
+    act(() => { studio().services.onError!(new Error("SECRET token=https://private.invalid")); studio().services.onError!(new DOMException("cancelled", "AbortError")); });
+    expect(appToast.error).toHaveBeenCalledExactlyOnceWith("스페이스 작업을 완료하지 못했습니다. 다시 시도해 주세요.");
+    expect(screen.queryByText(/SECRET/)).not.toBeInTheDocument();
+  });
+
+  it("reports a failed cancellation once and ignores the same rejection after leaving the workspace", async () => {
+    const failure = new Error("CANCEL_FAILED"), pending = deferred<void>();
+    outputMocks.listExecutions.mockResolvedValue([execution("active")]); outputMocks.cancelExecution.mockRejectedValueOnce(failure).mockReturnValueOnce(pending.promise);
+    const view = mount(repeatGraph(1));
+    await act(async () => { await studio().services.cancelNode!("repeat"); });
+    expect(appToast.error).toHaveBeenCalledExactlyOnceWith("작업을 취소하지 못했습니다. 다시 시도해 주세요.");
+    let late!: Promise<void>;
+    act(() => { late = studio().services.cancelNode!("repeat") as Promise<void>; });
+    await waitFor(() => expect(outputMocks.cancelExecution).toHaveBeenCalledTimes(2));
+    view.unmount(); await act(async () => { pending.reject(new Error("CANCEL_FAILED")); await late; });
+    expect(appToast.error).toHaveBeenCalledTimes(1);
+  });
   it("keeps Assistant runtime inputs stable when only canvas geometry changes", async () => {
     outputMocks.listExecutions.mockResolvedValue([execution("assistant-result", { graphNodeId: "assistant", executionKind: "assistant",
       mediaType: "text", status: "completed", outputText: "Result", outputItems: [{ id: "item", text: "Selected result" }], selectedItemId: "item" })]);

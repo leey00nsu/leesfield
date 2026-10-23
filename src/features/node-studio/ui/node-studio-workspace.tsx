@@ -8,6 +8,7 @@ import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import { AppBrandLogo } from "@/shared/ui/app-brand-logo";
 import { SpacePreferencesContext, useSpacePreferencesSession } from "../hook/use-space-preferences";
+import { useSpaceOperationError } from "../hook/use-space-operation-error";
 import { SpaceCommentsContext, useSpaceCommentsSession } from "../hook/use-space-comments";
 import { cancelNodeExecution, listNodeExecutions } from "../api/node-execution-api";
 import { nodeExecutionKeys, nodeExecutionRefetchInterval, useStartNodeExecution } from "../hook/use-node-executions";
@@ -105,11 +106,15 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
   const [title, setTitle] = useState(graph.title), [quickstartOpen, setQuickstartOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false), [reloadOpen, setReloadOpen] = useState(false), [leaveOpen, setLeaveOpen] = useState(false);
   const pendingLeaveAction = useRef<(() => void) | null>(null), [leaving, setLeaving] = useState(false);
-  const [hostError, setHostError] = useState<string | null>(null), [canvasSettings, setCanvasSettings] = useState<SpaceCanvasSettings>(loadCanvasSettings);
+  const [canvasSettings, setCanvasSettings] = useState<SpaceCanvasSettings>(loadCanvasSettings);
+  const notifyError = useSpaceOperationError();
   const operationControllers = useMemo(() => new Map<string, AbortController>(), []);
   const acceptedExecutionIds = useMemo(() => new Map<string, string>(), []);
   const cancelledSubmissions = useMemo(() => new WeakSet<AbortController>(), []);
   const observingRef = useRef(true), lifecycle = useRef<object | null>(null), onSavedRef = useRef(onSaved); onSavedRef.current = onSaved;
+  const reportError = useCallback((error: unknown, eventKey?: string) => {
+    if (observingRef.current && !session.getSnapshot().disposed && session.getSnapshot().id === graph.id) notifyError(error, eventKey);
+  }, [notifyError, session, graph.id]);
   useEffect(() => {
     const token = {}; lifecycle.current = token; observingRef.current = true;
     const abortOwnedOperations = () => { for (const controller of operationControllers.values()) controller.abort(); operationControllers.clear(); };
@@ -191,8 +196,8 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
   useEffect(() => { onStatusChange?.(autosave.status); }, [autosave.status, onStatusChange]);
   const updateDraft = useCallback((next: GraphDraft) => {
     const result = session.applySystemTransaction(() => next);
-    if (!result.ok && !session.getSnapshot().disposed) setHostError(result.message);
-  }, [session]);
+    if (!result.ok && !session.getSnapshot().disposed) reportError(new Error(result.message));
+  }, [session, reportError]);
   const prepareExecution = useCallback(async () => (await autosaveSaveNowRef.current()).version, []);
   const readExecutions = useCallback(async (nodeId: string, signal: AbortSignal) => {
     const read = selectionTracker.current.beginRead(nodeId), executions = await listNodeExecutions(graph.id, nodeId, signal);
@@ -268,9 +273,9 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
       operationControllers.get(nodeId)?.abort();
       await queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     } catch (error) {
-      setHostError(error instanceof Error ? error.message : "Could not cancel operation.");
+      reportError(error instanceof Error ? error : new Error("CANCEL_FAILED"));
     }
-  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, queryClient]);
+  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, queryClient, reportError]);
   reconcileReadRef.current = (nodeId, executions, read) => {
     const accepted = acceptedExecutionIds.get(nodeId);
     if (executions.some(execution => execution.executionId === accepted && !activeExecution(execution))) acceptedExecutionIds.delete(nodeId);
@@ -281,7 +286,7 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
         const next = reconcileResultNodes(session.getDocument(), nodeId, execution);
         if (next !== session.getDocument()) updateDraft(next);
       }
-    } catch (error) { setHostError(error instanceof Error ? error.message : "RESULT_NODE_LIMIT_EXCEEDED"); }
+    } catch (error) { reportError(error, "results:" + nodeId + ":" + executions.map(item => item.executionId).join(",")); }
     const decision = selectionTracker.current.observe(nodeId, executions, read, node.selectedOutputAssetId);
     if (decision.preserve) preserveSelectionRef.current?.(nodeId);
     if (decision.selection !== undefined && decision.selection !== node.selectedOutputAssetId) {
@@ -292,7 +297,6 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
 
   const handleRegenerateNode = useCallback(async (nodeId: string) => {
     if (!session.getSnapshot().writable) throw new Error("WORKFLOW_READ_ONLY");
-    setHostError(null);
     const node = session.getDocument().nodes.find((candidate) => candidate.id === nodeId);
     if (!node) throw new Error("SPACE_NODE_NOT_FOUND");
     if (isUnavailableEditNodeKind(node.kind) || !findNodeDefinition(node.kind) || findNodeDefinition(node.kind)?.executionMode === "none") throw new Error("NODE_NOT_EXECUTABLE");
@@ -408,7 +412,7 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
         })();
         // Observation can outlive a detached UI callback. Always consume errors.
         void completion.catch(error => {
-          if (observingRef.current && !controller.signal.aborted) setHostError(error instanceof Error ? error.message : "GENERATION_FAILED");
+          if (observingRef.current && !controller.signal.aborted) reportError(error instanceof Error ? error : new Error("GENERATION_FAILED"));
         });
         serverAccepted = true;
         return { executionId: execution.executionId, completion };
@@ -439,10 +443,10 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
       }
       void queryClient.invalidateQueries({ queryKey: nodeExecutionKeys.list(graph.id, nodeId) });
     }
-  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, prepareExecution, queryClient, startExecution, updateDraft]);
+  }, [session, graph.id, operationControllers, acceptedExecutionIds, cancelledSubmissions, prepareExecution, queryClient, startExecution, updateDraft, reportError]);
 
   const services = useMemo<SpaceEditorServices>(() => ({ runNode: handleRegenerateNode, cancelNode: handleCancelNode,
-    prepareNodeExecution: prepareExecution, onError: error => { if (observingRef.current) setHostError(error.message); } }), [handleRegenerateNode, handleCancelNode, prepareExecution]);
+    prepareNodeExecution: prepareExecution, onError: reportError }), [handleRegenerateNode, handleCancelNode, prepareExecution, reportError]);
   const busy = autosave.status === "dirty" || autosave.status === "saving";
   const tHost = useTranslations("nodeStudio.host");
   const saveLabel = {
@@ -553,11 +557,6 @@ function NodeStudioWorkspaceContent({ graph, graphs, activeGraphId, onSaved, onB
           <NodeStudio session={session} catalog={nodeCatalog} inputRuntime={inputRuntime} canvasSettings={canvasSettings} services={services} />
         </NodeExecutionReadContext.Provider>
 
-      {hostError ? (
-        <div role="alert" className="shrink-0 border-t border-red-300/20 bg-red-950/80 px-4 py-2 text-xs text-red-100">
-          {hostError}
-        </div>
-      ) : null}
 
       {quickstartOpen && onCreatePreset && <SpaceQuickstart onClose={() => setQuickstartOpen(false)}
         onCreate={async (workflow, tutorial) => { await autosave.saveNow(); await onCreatePreset(workflow, tutorial); }}
